@@ -23,4 +23,4 @@ redis==3.5.3
 requests==2.25.1
 # pip3 install --pre sqlalchemy
 asyncpg
-pythondns==0.9.14
+dnspython==2.1.0

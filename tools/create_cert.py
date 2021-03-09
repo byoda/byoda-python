@@ -22,7 +22,7 @@ from byoda.util import Paths
 from byoda.util import Logger
 from byoda.util.secrets import CertType
 from byoda.util.secrets import NetworkRootCaSecret
-from byoda.util.secrets import NetworkAccountCaSecret
+from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import AccountSecret
 
@@ -97,7 +97,7 @@ def create_network(args, paths):
     root_ca.create(issuing_ca=None, expire=100*365)
     root_ca.save()
 
-    account_ca = NetworkAccountCaSecret(
+    account_ca = NetworkAccountsCaSecret(
         args.network, paths=paths, root_dir=args.root_directory
     )
 

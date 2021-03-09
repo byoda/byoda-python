@@ -72,6 +72,7 @@ def create_app(config_file='config.yml'):
     app = Flask(__name__)
 
     api.init_app(app)
+    os.environ['prometheus_multiproc_dir'] = '/var/tmp'
     metrics = UWsgiPrometheusMetrics(app)
     metrics.register_endpoint('/metrics')
 
