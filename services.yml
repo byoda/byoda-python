@@ -1,0 +1,4 @@
+default:
+  service_id: 0
+  name: default
+  uuid: 26710dd7-20c3-4a79-8440-720c3ebfb0f4

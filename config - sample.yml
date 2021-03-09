@@ -1,0 +1,28 @@
+application:
+  debug: True
+  environment: 'dev'
+  logfile: '/tmp/byoda.log'
+  root_dir: '/tmp/.byoda'
+  network: 'byoda.net'
+
+dirserver:
+  name: 'directoryserver'
+  dnsdb: "postgresql+asyncpg://<username>:<password?@<ip>/<database>"
+  roles:
+    - directory
+    - accounts_ca
+    - services_ca
+  private_key_password: 'byoda'
+
+svcserver:
+  name: 'serviceserver'
+  roles:
+    - service
+  service: default
+  private_key_password: 'byoda'
+
+pod:
+  account: 'test'
+  roles:
+    - pod
+  private_key_password: 'byoda'

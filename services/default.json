@@ -1,0 +1,17 @@
+{
+    "name": "default",
+    "service_id": 0,
+    "data" : [
+        {
+            "context": {
+                "givenName": { "@id": "http://schema.org/givenName", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "additionalName": {"@id": "http://schema.org/additionalName", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "familyName": {"@id": "http://schema.org/familyName", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "email": {"@id": "https://schema.org/Text", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "homepage": {"@id": "https://schema.org/url", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "avatar": {"@id": "https://schema.org/url", "@type": "@id", "#storage": "pod", "#access": "account"},
+                "homeaddress": {"@id": "https://schema.org/PostalAddress", "@type": "@id", "#storage": "pod", "#access": "account"}
+            }
+        }
+    ]
+}

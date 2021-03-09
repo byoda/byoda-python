@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "create_cert",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/create_cert.py",
+            "args": [
+                "--debug",
+                "--type", "NETWORK",
+                "--account", "dathes",
+                "--network", "test",
+                "--service", "default",
+                "--root-directory", "/tmp/byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Flask dirserver debug",
+            "type": "python",
+            "request": "launch",
+            "program": "/usr/local/bin/flask",
+            "args": [
+                "run",
+                "--no-reload"
+            ],
+            "env": {
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "1",
+                "BYODA_APP": "dirserver",
+                "prometheus_multiproc_dir": "/var/tmp"
+            }
+        }
+    ]
+}
