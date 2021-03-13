@@ -9,20 +9,39 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python"
+            }
         },
         {
-            "name": "create_cert",
+            "name": "create_network",
             "type": "python",
             "request": "launch",
             "program": "tools/create_cert.py",
             "args": [
                 "--debug",
                 "--type", "NETWORK",
+                "--network", "byoda.net",
+                "--root-directory", "/home/steven/.byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "create_account",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/create_cert.py",
+            "args": [
+                "--debug",
+                "--type", "ACCOUNT",
                 "--account", "dathes",
-                "--network", "test",
-                "--service", "default",
-                "--root-directory", "/tmp/byoda"
+                "--network", "byoda.net",
+                "--root-directory", "/home/steven/.byoda"
 
             ],
             "env": {
@@ -39,11 +58,13 @@
                 "run",
                 "--no-reload"
             ],
+            "justMyCode": true,
             "env": {
                 "FLASK_ENV": "development",
                 "FLASK_DEBUG": "1",
                 "BYODA_APP": "dirserver",
-                "prometheus_multiproc_dir": "/var/tmp"
+                "prometheus_multiproc_dir": "/var/tmp",
+                "PYTHONPATH": "/home/steven/src/byoda-python"
             }
         }
     ]

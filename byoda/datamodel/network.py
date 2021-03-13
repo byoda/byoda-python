@@ -60,7 +60,7 @@ class Network:
                 role_type = ServerRole(role)
                 self.roles.add(role_type)
             except ValueError:
-                _LOGGER.error('Invalid role %s', role, exc_info=True)
+                raise ValueError(f'Invalid role {role}')
 
         self.root_dir = application.get(
             'root_dir', os.environ['HOME'] + '.byoda'

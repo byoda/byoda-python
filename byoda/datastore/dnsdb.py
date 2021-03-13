@@ -70,18 +70,26 @@ class DnsDb:
         '''
 
         dnsdb = DnsDb(network_name)
+
+        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
+
         # TODO: figure out why asynchpg is not working
         if False and 'asyncpg' in connectionstring:
             from sqlalchemy.ext.asyncio import create_async_engine
             dnsdb._engine = create_async_engine(
-                connectionstring, echo=True, future=True,
+                connectionstring, echo=False, future=True,
                 isolation_level='AUTOCOMMIT'
             )
         else:
             from sqlalchemy import create_engine
             dnsdb._engine = create_engine(
                 connectionstring + '?async_fallback=true',
-                echo=True, future=True, isolation_level='AUTOCOMMIT'
+                echo=False, future=True, isolation_level='AUTOCOMMIT'
             )
 
         with dnsdb._engine.connect() as conn:

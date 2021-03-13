@@ -10,12 +10,11 @@ the headers that would normally be set by the reverse proxy
 
 import sys
 
-from uuid import uuid4, UUID
-from ipaddress import ip_address
+from uuid import UUID, uuid4
 import unittest
 import requests
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
 
 NETWORK = 'byoda.net'
@@ -24,15 +23,41 @@ BASE_URL = 'http://localhost:5000/api'
 
 class TestDirectoryApis(unittest.TestCase):
     def test_network_account(self):
-
         API = BASE_URL + '/v1/network/account/'
-        # GET
+        uuid = uuid4()
+        # GET, no auth
         response = requests.get(API)
         data = response.json()
         print(data)
         self.assertEqual(data['accounts'], 1)
         self.assertEqual(data['remote_addr'], '127.0.0.1')
-        uuid = UUID(data['uuid'])
+        UUID(data['uuid'])
+
+        # GET, with auth
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
+        }
+        response = requests.get(API, headers=headers)
+        data = response.json()
+        print(data)
+        self.assertEqual(data['accounts'], 1)
+        self.assertEqual(data['remote_addr'], '127.0.0.1')
+        UUID(data['uuid'])
+
+        # GET, with auth
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
+        }
+        response = requests.get(API, headers=headers)
+        data = response.json()
+        print(data)
+        self.assertEqual(data['accounts'], 1)
+        self.assertEqual(data['remote_addr'], '127.0.0.1')
+        UUID(data['uuid'])
 
 
 if __name__ == '__main__':

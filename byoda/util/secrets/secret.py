@@ -14,6 +14,7 @@ from enum import Enum
 from copy import copy
 
 from cryptography import x509
+from cryptography.x509 import Certificate
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -66,13 +67,15 @@ class CertLevel(Enum):
 
 
 class CertChain:
-    def __init__(self, signed_cert, cert_chain):
+    def __init__(self, signed_cert: Certificate, cert_chain
+                 ):
         '''
         Represents a signed cert and the list of certs of issuing CAs
         that signed the cert. Does not include the root cert.
 
         :param X509 signed_cert : the signed cert
-        :param list cert_chain  : the list of certs in the cert chain
+        :param list cert_chain  : the list of certs in the cert chain,
+        excluding the signed cert
         :returns: (none)
         :raises: (none)
         '''
@@ -241,7 +244,7 @@ class Secret:
         Check whether the CSR meets our requirements
 
         :param csr: the certificate signing request to be reviewed
-        :returns: the commonname of the subject of the CSR
+        :returns: commonname of the certificate
         :raises: ValueError if review fails
         '''
 
@@ -266,33 +269,63 @@ class Secret:
             raise ValueError(f'Invalid algorithm: {hash_algo}')
 
         # We start parsing the Subject of the CSR, which
-        # consists of a list of 'Relative Distinguished Names
+        # consists of a list of 'Relative' Distinguished Names
+        distinguished_name = ','.join(
+            [rdns.rfc4514_string() for rdns in csr.subject.rdns]
+        )
+
+        commonname = self.review_distinguishedname(distinguished_name)
+
+        return commonname
+
+    def review_distinguishedname(self, name: str) -> str:
+        '''
+        Reviews the DN of a certificate, extracts the commonname (CN),
+        which is the only field we are interrested in
+
+        :param distinguishedname: the DN from the cert
+        :returns: commonname
+        :raises: ValueError if the commonname can not be found in the
+        dstinguishedname
+        '''
+
         commonname = None
-        for rdns in csr.subject.rdns:
-            # ie. 'ST=CA', or 'CN=service-324589550384'
-            name = rdns.rfc4514_string()
-            key, value = name.split('=')
+        bits = name.split(',')
+        for dn in bits:
+            key, value = dn.split('=')
             if not key or not value:
-                _LOGGER.warning(f'Invalid commonname: {name}')
                 raise ValueError(f'Invalid commonname: {name}')
             if key in IGNORED_X509_NAMES:
                 continue
             if key == 'CN':
                 commonname = value
+                return commonname
             else:
                 raise ValueError(f'Unknown distinguished name: {key}')
 
-        if not commonname:
-            _LOGGER.warning('Did not find a commonname in the subject')
-            raise ValueError('Did not find a commonname in the subject')
+        raise ValueError(f'commonname not found in {name}')
+
+    def review_commonname(self, commonname: str) -> str:
+        '''
+        Checks if the structure of common name matches with a common name of
+        an AccountSecret. If so, it sets the 'account_id' property of the
+        instance to the UUID parsed from the commonname
+
+        :param commonname: the commonname to check
+        :returns: commonname with the network domain stripped off, ie. for
+        'uuid.accounts.byoda.net' it will return 'uuid.accounts'.
+        :raises: ValueError if the commonname is not a string
+        '''
+
+        if not isinstance(commonname, str):
+            raise ValueError(
+                f'Commonname must be of type str, not {type(commonname)}'
+            )
 
         postfix = '.' + self.network
         if not commonname.endswith(postfix):
-            _LOGGER.warning(
-                f'Commonname {commonname} is not under domain {postfix}',
-            )
             raise ValueError(
-                f'Commonname {commonname} is not under domain {self.network}'
+                f'Commonname {commonname} is not for network {self.network}'
             )
 
         return commonname[:-1 * len(postfix)]

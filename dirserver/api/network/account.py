@@ -18,12 +18,17 @@ from flask_accepts import accepts, responds
 from opentelemetry import trace
 
 from byoda.util.logger import flask_log_fields
+from byoda.requestauth import AccountRequestAuth
+
+from byoda.datatypes import IdType
+
+from byoda.datamodel import Network
 
 from byoda.datastore import CertStore
 
 from byoda.schema import Stats, StatsResponseSchema
 from byoda.schema import Cert, CertResponseSchema
-from byoda.schema import CertSigningRequest, CertSigningRequestSchema
+from byoda.schema import CertSigningRequestSchema
 
 import byoda.config as config
 
@@ -51,17 +56,20 @@ class AccountApi(Resource):
 
         _LOGGER.debug('GET Account API called')
 
+        auth = AccountRequestAuth(required=False)
+
         network = config.network
 
-        response = self._get(network)
+        response = self._get(network, auth)
 
         return response
 
-    def _get(self, network):
+    def _get(self, network: Network, auth: AccountRequestAuth):
         '''
         Get some account stats for the network and a suggested UUID
 
         :param network: instance of byoda.datamodel.network
+        :param auth: instance of byoda.requestauth.AccountRequestAuth
         :returns: uuid, http_status
         :raises: (none)
         '''
@@ -71,8 +79,10 @@ class AccountApi(Resource):
             with tracer.start_as_current_span('account_get'):
                 stats = Stats(
                     accounts=1, services=2, uuid=uuid4(),
-                    ipaddress=request.remote_addr
+                    remote_addr=request.remote_addr
                 )
+                if auth.is_authenticated:
+                    network.dnsdb.create_update(auth.account_id, IdType.ACCOUNT)
         except Exception as exc:
             _LOGGER.debug('Failed to instantiate Stats: %s', exc)
 
@@ -84,7 +94,9 @@ class AccountApi(Resource):
     )
     # @accepts(dict(name='csr', type=str))
     @accepts(
-         dict(name='blah', type=str), schema=CertSigningRequestSchema, api=api
+         dict(name='blah', type=str),
+         schema=CertSigningRequestSchema,
+         api=api
     )
     @responds(schema=CertResponseSchema)
     def post(self):

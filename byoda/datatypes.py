@@ -7,19 +7,27 @@ Non-specific data types
 '''
 
 from enum import Enum
+from collections import namedtuple
 
 
 class ServerRole(Enum):
-    RootCa               = 'root_ca'        # noqa=E211
-    DirectoryServer      = 'directory'      # noqa=E211
-    ServiceCa            = "service_ca"     # noqa=E211
-    ServiceServer        = 'service'        # noqa=E111
-    ContentServer        = 'content'        # noqa=E211
-    Pod                  = 'pod'            # noqa=E111
-    Client               = 'client'         # noqa=E111
+    RootCa               = 'root_ca'        # noqa=E221
+    DirectoryServer      = 'directory'      # noqa=E221
+    ServiceCa            = 'services_ca'    # noqa=E221
+    ServiceServer        = 'service'        # noqa=E221
+    ContentServer        = 'content'        # noqa=E221
+    Pod                  = 'pod'            # noqa=E221
+    Client               = 'client'         # noqa=E221
 
 
 class IdType(Enum):
-    ACCOUNT              = 'accounts'       # noqa=E111
-    MEMBER               = 'members'        # noqa=E111
-    SERVICE              = 'services'       # noqa=E111
+    ACCOUNT              = 'accounts'       # noqa=E221
+    MEMBER               = 'members'        # noqa=E221
+    SERVICE              = 'services'       # noqa=E221
+    ACCOUNTS_CA          = 'accounts-ca'    # noqa=E221
+    SERVICES_CA          = 'services-ca'    # noqa=E221
+    SERVICE_CA           = 'service-ca-'    # noqa=E221
+    MEMBERS_CA           = 'members-ca-'    # noqa=E221
+
+
+EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])

@@ -90,8 +90,7 @@ def setup_tracing(env_config='production', jaeger_server='127.0.0.1'):
     trace.set_tracer_provider(TracerProvider())
 
     _LOGGER.debug(
-        'Setting up tracing for %s to server %s',
-        env_config, jaeger_server
+        f'Setting up tracing for {env_config} to server {jaeger_server}'
     )
     jaeger_exporter = jaeger.JaegerSpanExporter(
         service_name='byoda-appserver-' + env_config,

@@ -215,4 +215,3 @@ def flask_log_fields(f):
 
         return f(*args, **kwargs)
     return _flask_log_fields
-

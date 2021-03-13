@@ -15,16 +15,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Stats:
-    def __init__(self, accounts, services, uuid, ipaddress):
+    def __init__(self, accounts, services, uuid, remote_addr):
         self.accounts = accounts
         self.services = services
         self.uuid = uuid
-        self.ipaddress = ipaddress
+        self.remote_addr = remote_addr
 
     def __repr__(self):
         return (
             f'<Stats(accounts={self.accounts},services={self.services},'
-            f'uuid={self.uuid},ipaddress={self.ipaddress})>'
+            f'uuid={self.uuid},remote_addr={self.remote_addr})>'
         )
 
 
@@ -32,4 +32,4 @@ class StatsResponseSchema(Schema):
     accounts = fields.Int()
     services = fields.Int()
     uuid = fields.UUID()
-    ipaddress = fields.Str()
+    remote_addr = fields.Str()

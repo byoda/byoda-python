@@ -107,10 +107,7 @@ class Paths:
 
     def _exists(self, path_template, service_alias=None, member_alias=None):
         return os.path.exists(
-            self.get(
-                path_template, service_alias=service_alias,
-                member_alias=member_alias
-            )
+            self.get(path_template, service_alias=service_alias)
         )
 
     def _create_directory(self, path_template, service_alias=None):

@@ -41,7 +41,7 @@ from byoda import config
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
 
-from appserver.api import api
+from podserver.api import api
 
 
 _LOGGER = None

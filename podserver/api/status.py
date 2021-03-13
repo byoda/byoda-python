@@ -13,8 +13,6 @@ from flask_restx import Namespace, Resource, fields
 
 from byoda.util.logger import flask_log_fields
 
-import byoda.config as config
-
 
 _LOGGER = logging.getLogger(__name__)
 
