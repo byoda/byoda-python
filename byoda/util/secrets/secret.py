@@ -83,22 +83,24 @@ class CertChain:
         self.signed_cert = signed_cert
         self.cert_chain = cert_chain
 
-    def to_bytes(self) -> bytes:
+    def __str__(self) -> str:
         '''
         :returns: the certchain as a bytes array
         '''
 
-        data = bytes()
-        for cert in self.cert_chain + [self.cert]:
+        data = ''
+        for cert in self.cert_chain + [self.signed_cert]:
             cert_info = (
                 f'# Issuer {cert.issuer}\n'
                 f'# Subject {cert.subject}\n'
                 f'# Valid from {cert.not_valid_before} to '
                 f'{cert.not_valid_after}\n'
             )
-            data += str.encode(cert_info)
-            data += cert.public_bytes(serialization.Encoding.PEM)
-            data += str.encode('\n')
+            data += cert_info
+            data += cert.public_bytes(
+                serialization.Encoding.PEM
+            ).decode('utf-8')
+            data += '\n'
 
         return data
 
@@ -564,7 +566,10 @@ class Secret:
         :raises: (none)
         '''
 
-        return x509.load_pem_x509_certificate(str.encode(csr))
+        if isinstance(csr, str):
+            csr = str.encode(csr)
+
+        return x509.load_pem_x509_csr(csr)
 
     def save(self, password: str = 'byoda'):
         '''

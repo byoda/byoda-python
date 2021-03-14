@@ -19,6 +19,7 @@ from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, insert, delete, event
 from sqlalchemy.future import select
+# from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
 from byoda.datatypes import IdType
@@ -87,9 +88,12 @@ class DnsDb:
             )
         else:
             from sqlalchemy import create_engine
+            # dnsdb._engine = create_engine(
+            #    connectionstring + '?async_fallback=true',
+            #    echo=False, future=True, isolation_level='AUTOCOMMIT'
+            # )
             dnsdb._engine = create_engine(
-                connectionstring + '?async_fallback=true',
-                echo=False, future=True, isolation_level='AUTOCOMMIT'
+                connectionstring, echo=False, isolation_level='AUTOCOMMIT'
             )
 
         with dnsdb._engine.connect() as conn:
@@ -232,7 +236,10 @@ class DnsDb:
             )
             _LOGGER.debug(f'Executing SQL command: {stmt}')
 
-            domains = conn.execute(stmt)
+            try:
+                domains = conn.execute(stmt)
+            except Exception as exc:
+                _LOGGER.error('Failed to execute SQL statement', exc_info=exc)
 
             ips = [domain.content for domain in domains]
 

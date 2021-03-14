@@ -55,7 +55,8 @@ class AccountRequestAuth(RequestAuth):
             accounts_ca_secret = NetworkAccountsCaSecret(
                 network=network.network
             )
-            accounts_ca_secret.review_commonname(self.client_cn)
+            entity_id = accounts_ca_secret.review_commonname(self.client_cn)
+            self.account_id = entity_id.uuid
 
             # Network Accounts CA cert gets signed by root CA of the
             # network

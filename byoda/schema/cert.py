@@ -9,19 +9,32 @@ Schema for server to server APIs
 import logging
 from dataclasses import dataclass
 
-from marshmallow import fields, Schema, post_load
+from marshmallow import fields, Schema, post_load, ValidationError
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
+class BytesField(fields.Field):
+    def _validate(self, value):
+        if not isinstance(value, bytes):
+            raise ValidationError('Invalid input type.')
+
+        if value is None or value == b'':
+            raise ValidationError('Invalid value')
+
+
+@dataclass
 class Cert:
-    def __init__(self, certificate):
-        self.certificate = certificate
+    certificate: str
 
 
 class CertResponseSchema(Schema):
     certificate = fields.String()
+
+    @post_load
+    def make(self, data, **kwargs):
+        return Cert(**data)
 
 
 @dataclass
@@ -30,7 +43,7 @@ class CertSigningRequest:
 
 
 class CertSigningRequestSchema(Schema):
-    csr = fields.String()
+    csr = fields.Str(required=True)
 
     @post_load
     def make(self, data, **kwargs):

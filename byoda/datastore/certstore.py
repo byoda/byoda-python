@@ -8,7 +8,7 @@ Class for certificate request processing
 
 import logging
 from uuid import UUID
-from ipaddress import ip_address
+from ipaddress import ip_address as IpAddress
 
 from cryptography import x509
 
@@ -42,61 +42,48 @@ class CertStore:
         self.connectionstring = connectionstring
         self.ca_secret = ca_secret
 
-    def sign(self, csr: str, client_ip: ip_address, id_type: IdType
+    def sign(self, csr: str, id_type: IdType, remote_addr: IpAddress
              ) -> CertChain:
         '''
         Evaluate a CSR and sign it
 
         :param csr: the Certificate Signing Request
-        :param client_ip: the originating IP address for the CSR
         :param id_type: what entity is the CSR for, client, service or member
+        :param remote_addr: the originating IP address for the CSR
         :returns: the signed certificate
         :raises: KeyError if the Certificate Name is not acceptable,
                  ValueError if there is something else unacceptable in the CSR
         '''
 
-        if isinstance(csr, str):
-            csr = str.encode(csr)
-        elif isinstance(csr, bytes):
+        if type(csr) in (str, bytes):
             pass
         else:
             raise ValueError('CSR must be a string or a byte array')
 
-        x509_csr = Secret()
-        x509_csr.from_string(csr)
+        cert_auth = self.ca_secret
 
-        extension = x509_csr.extensions.get_extension_for_class(
+        x509_csr = Secret()
+        csr = x509_csr.from_string(csr)
+
+        extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints
         )
         if extension.value.ca:
             raise ValueError('Certificates with CA bits set are not permitted')
 
-        common_name = x509_csr.review_csr()
+        entity_id = cert_auth.review_csr(csr)
 
-        identifier, subdomain = common_name.split('.')
-
-        if subdomain != id_type.value:
-            raise ValueError(
-                f'Subdomain {subdomain} in common-name does no match the '
-                f'identifier type {id_type.value}'
-            )
-
-        if id_type == IdType.SERVICE:
+        if entity_id.id_type == IdType.SERVICE:
             raise NotImplementedError('Service certs are not yet supported')
-        elif id_type == IdType.MEMBER:
+        elif entity_id.id_type == IdType.MEMBER:
             raise NotImplementedError('Member certs are not yet supported')
-
-        try:
-            uuid = UUID(identifier)
-        except ValueError:
-            raise ValueError(f'Identifier {identifier} is not a UUID')
 
         # TODO: add check on whether the UUID is already in use
 
-        certchain = self.ca_secret.sign_csr()
+        certchain = cert_auth.sign_csr(csr, 365*3)
 
         _LOGGER.info(
-            f'Signed CSR for {uuid} for {id_type.value} received from IP '
-            f'{str(client_ip)}'
+            f'Signed CSR for {entity_id.uuid} for {entity_id.id_type.value} '
+            f'received from IP {str(remote_addr)}'
         )
-        return certchain.as_byteS()
+        return str(certchain)

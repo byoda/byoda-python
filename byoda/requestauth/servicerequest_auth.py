@@ -66,7 +66,8 @@ class ServiceRequestAuth(RequestAuth):
             service_ca_secret = ServiceCaSecret(
                 service_id, network=network.network
             )
-            service_ca_secret.review_commonname(self.client_cn)
+            entity_id = service_ca_secret.review_commonname(self.client_cn)
+            self.service_id = entity_id.service_id
 
             # Service CA secret gets signed by Network Services CA
             networkservices_ca_secret = NetworkServicesCaSecret(

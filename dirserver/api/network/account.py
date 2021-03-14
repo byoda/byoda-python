@@ -60,31 +60,35 @@ class AccountApi(Resource):
 
         network = config.network
 
-        response = self._get(network, auth)
+        response = self._get(auth, network)
 
         return response
 
-    def _get(self, network: Network, auth: AccountRequestAuth):
+    def _get(self, auth: AccountRequestAuth, network: Network) -> Stats:
         '''
         Get some account stats for the network and a suggested UUID
 
-        :param network: instance of byoda.datamodel.network
         :param auth: instance of byoda.requestauth.AccountRequestAuth
-        :returns: uuid, http_status
+        :param network: instance of byoda.datamodel.network
+        :returns:
         :raises: (none)
         '''
 
         try:
+            stats = None
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span('account_get'):
+                dns_update = 0
+                if auth.is_authenticated:
+                    dns_update = network.dnsdb.create_update(
+                        auth.account_id, IdType.ACCOUNT, auth.remote_addr
+                    )
                 stats = Stats(
                     accounts=1, services=2, uuid=uuid4(),
-                    remote_addr=request.remote_addr
+                    remote_addr=auth.remote_addr, dns_update=dns_update > 0
                 )
-                if auth.is_authenticated:
-                    network.dnsdb.create_update(auth.account_id, IdType.ACCOUNT)
         except Exception as exc:
-            _LOGGER.debug('Failed to instantiate Stats: %s', exc)
+            _LOGGER.warning('Failed to instantiate Stats: %s', exc)
 
         return stats
 
@@ -92,12 +96,7 @@ class AccountApi(Resource):
     @api.doc(
         'Processes a Certificate Signing Request and returns the signed cert'
     )
-    # @accepts(dict(name='csr', type=str))
-    @accepts(
-         dict(name='blah', type=str),
-         schema=CertSigningRequestSchema,
-         api=api
-    )
+    @accepts(schema=CertSigningRequestSchema, api=api)
     @responds(schema=CertResponseSchema)
     def post(self):
         '''
@@ -105,20 +104,18 @@ class AccountApi(Resource):
 
         _LOGGER.debug('POST Account API called')
 
+        auth = AccountRequestAuth(required=False)
+
         network = config.network
 
         data = request.parsed_obj
         csr = data.csr
-        client_ip = request.remote_addr
-        x_forwarded_for = request.get('X-Forwarded-For')
-        if x_forwarded_for:
-            client_ip = x_forwarded_for.split(' ')[-1]
 
-        response = self._post(network, csr, client_ip)
+        response = self._post(auth, network, csr)
 
         return response
 
-    def _post(self, network, csr, client_ip):
+    def _post(self, auth, network, csr):
         '''
         Get some account stats for the network and a suggested UUID
 
@@ -127,16 +124,20 @@ class AccountApi(Resource):
         :raises: (none)
         '''
 
-        certstore = CertStore(network.account_ca)
+        certstore = CertStore(network.accounts_ca)
 
-        cert = None
+        certchain = None
         try:
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span('account_get'):
-                cert = certstore.sign(csr, client_ip)
+                certchain_str = certstore.sign(
+                    csr, IdType.ACCOUNT, auth.remote_addr
+                )
+                certchain = Cert(certificate=certchain_str)
         except ValueError as exc:
             _LOGGER.info(f'Invalid CSR: {exc}')
         except Exception as exc:
             _LOGGER.warning(f'Failed to proces the CSR: {exc}')
 
-        return cert
+        if certchain:
+            return certchain

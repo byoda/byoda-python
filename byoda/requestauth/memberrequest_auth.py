@@ -65,7 +65,9 @@ class MemberRequestAuth(RequestAuth):
             member_ca_secret = MembersCaSecret(
                 service_id, network=network.network
             )
-            member_ca_secret.review_commonname(self.client_cn)
+            entity_id = member_ca_secret.review_commonname(self.client_cn)
+            self.member_id = entity_id.uuid
+            self.service_id = entity_id.service_id
 
             # The Member CA cert gets signed by the Service CA
             service_ca_secret = ServiceCaSecret(
