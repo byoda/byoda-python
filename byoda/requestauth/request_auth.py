@@ -117,7 +117,7 @@ class RequestAuth():
         # exceptions based on misformed DN/CN in certs
         #
         status = request.headers.get('X-Client-SSL-Verify')
-        if status and status != 'SUCCESS':
+        if status and status not in ('NONE', 'SUCCESS'):
             raise AuthFailure(f'Client TLS status is {status}')
         elif not status and required:
             raise AuthFailure('Client did not provide a client cert')
