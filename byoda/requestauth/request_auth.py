@@ -12,7 +12,6 @@ import logging
 from ipaddress import ip_address as IpAddress
 
 from flask import request
-from flask_restx import Resource
 
 _LOGGER = logging.getLogger(__name__)
 

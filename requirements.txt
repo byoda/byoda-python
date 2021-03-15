@@ -19,10 +19,8 @@ uWSGI==2.0.18
 Werkzeug==1.0.1
 pyuwsgi==2.0.18.post0
 python-json-logger==0.1.11
-redis==3.5.3
 requests==2.25.1
 # pip3 install --pre
 sqlalchemy==1.4.0b3
 psycopg2-binary==2.8.6
-asyncpg
 dnspython==2.1.0
