@@ -1,7 +1,7 @@
 application:
   debug: True
   environment: 'dev'
-  logfile: '/var/logs/byoda/byoda.log'
+  logfile: '/var/log/byoda/byoda.log'
   root_dir: '/byoda'
   network: 'byoda.net'
 
