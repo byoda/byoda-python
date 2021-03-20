@@ -1,4 +1,9 @@
 # Application framework
+gunicorn==20.0.4
+uvloop==0.15.2
+httptools==0.1.1
+
+uvicorn==0.13.4
 fastapi==0.63.0
 starlette-context==0.3.1
 

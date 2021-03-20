@@ -65,7 +65,7 @@ middleware = [
 
 trace.set_tracer_provider(TracerProvider())
 jaeger_exporter = jaeger.JaegerSpanExporter(
-    service_name='dirsever',
+    service_name='podserver',
     agent_host_name='192.168.1.11',
     agent_port=6831,
 )
@@ -74,8 +74,8 @@ trace.get_tracer_provider().add_span_processor(
 )
 
 app = FastAPI(
-    title='BYODA directory server',
-    description='The directory server for a BYODA network',
+    title='BYODA pod server',
+    description='The pod server for a BYODA network',
     version='v0.0.1',
     middleware=middleware
 )
@@ -83,7 +83,7 @@ FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
 
 
-@app.get('/status')
+@app.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
 

@@ -67,7 +67,7 @@ middleware = [
 
 trace.set_tracer_provider(TracerProvider())
 jaeger_exporter = jaeger.JaegerSpanExporter(
-    service_name='dirsever',
+    service_name='dirserver',
     agent_host_name='192.168.1.11',
     agent_port=6831,
 )
@@ -87,7 +87,7 @@ PrometheusInstrumentator().instrument(app).expose(app)
 app.include_router(account.router)
 
 
-@app.get('/status')
+@app.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
 

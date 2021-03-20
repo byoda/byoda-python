@@ -87,12 +87,12 @@ class TestDirectoryApis(unittest.TestCase):
         response = requests.post(API, json={'csr': csr}, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(
+        issuing_ca_cert = x509.load_pem_x509_certificate(   # noqa
             data['cert_chain'].encode()
-        )          # noqa
-        account_cert = x509.load_pem_x509_certificate(
+        )
+        account_cert = x509.load_pem_x509_certificate(      # noqa
             data['signed_cert'].encode()
-        )          # noqa
+        )
 
 
 if __name__ == '__main__':
