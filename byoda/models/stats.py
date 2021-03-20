@@ -7,14 +7,17 @@ Schema for server to server APIs
 '''
 
 import logging
+from uuid import UUID
+from typing import Optional
 
-from marshmallow import fields, Schema
+from pydantic import BaseModel
 
+from ipaddress import IPv4Address
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class Stats:
+class Stats():
     def __init__(self, accounts, services, uuid, remote_addr, dns_update):
         self.accounts = accounts
         self.services = services
@@ -29,10 +32,19 @@ class Stats:
             f'dns_update={self.dns_update})>'
         )
 
+    def as_dict(self):
+        return {
+            'accounts': self.accounts,
+            'services': self.services,
+            'uuid': self.uuid,
+            'remote_addr': self.remote_addr,
+            'dns_update': self.dns_update
+        }
 
-class StatsResponseSchema(Schema):
-    accounts = fields.Int()
-    services = fields.Int()
-    uuid = fields.UUID()
-    remote_addr = fields.Str()
-    dns_update = fields.Boolean()
+
+class StatsResponseModel(BaseModel):
+    accounts: int
+    services: int
+    dns_update: bool
+    remote_addr: IPv4Address
+    uuid: Optional[UUID] = None

@@ -1,5 +1,5 @@
 '''
-This file makes python consider the dirserver directory a module, it
+This file makes python consider the routers directory a module, it
 is intentionally left blank.
 
 Steven Hessing <stevenhessing@live.com>

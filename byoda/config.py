@@ -10,12 +10,6 @@ provides global variables
 
 import requests
 
-
-# Used by logging to add extra data to each log record
-# After importing config, you can for example set
-# config.extra_log_data['remote_addr'] = client_ip
-extra_log_data = {}
-
 # This stores the contents of the config.yml file
 app_config = None
 

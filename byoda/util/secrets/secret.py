@@ -88,19 +88,38 @@ class CertChain:
         :returns: the certchain as a bytes array
         '''
 
+        data = self.cert_chain_as_string() + self.cert_chain_as_string()
+        return data
+
+    def as_dict(self) -> dict:
+        '''
+
+        :returns: {'cert': cert, 'certchain': certchain}
+        '''
+        return {
+            'signed_cert': self.cert_as_string(),
+            'cert_chain': self.cert_chain_as_string()
+        }
+
+    def cert_chain_as_string(self) -> str:
         data = ''
-        for cert in self.cert_chain + [self.signed_cert]:
-            cert_info = (
-                f'# Issuer {cert.issuer}\n'
-                f'# Subject {cert.subject}\n'
-                f'# Valid from {cert.not_valid_before} to '
-                f'{cert.not_valid_after}\n'
-            )
-            data += cert_info
-            data += cert.public_bytes(
-                serialization.Encoding.PEM
-            ).decode('utf-8')
-            data += '\n'
+        for cert in self.cert_chain:
+            data += self.cert_as_string(cert)
+
+        return data
+
+    def cert_as_string(self, cert: Certificate = None) -> str:
+        if not cert:
+            cert = self.signed_cert
+
+        cert_info = (
+            f'# Issuer {cert.issuer}\n'
+            f'# Subject {cert.subject}\n'
+            f'# Valid from {cert.not_valid_before} to {cert.not_valid_after}\n'
+        )
+        data = cert_info
+        data += cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+        data += '\n'
 
         return data
 
@@ -338,7 +357,7 @@ class Secret:
 
         :param - csr: X509.CertificateSigningRequest
         :param int expire: after how many days the cert should
-        :returns: (none)
+        :returns: the signed cert and the certchain excluding the root CA
         :raises: (none)
         '''
 

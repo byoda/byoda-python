@@ -6,6 +6,9 @@ Test the Directory APIs
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
+:maintainer : Steven Hessing <stevenhessing@live.com>
+:copyright  : Copyright 2021
+:license
 '''
 
 import sys
@@ -23,12 +26,12 @@ from byoda.util.paths import Paths
 from byoda.util.secrets import AccountSecret
 
 NETWORK = 'byoda.net'
-BASE_URL = 'http://localhost:5000/api'
+BASE_URL = 'http://localhost:8000/api'
 
 
 class TestDirectoryApis(unittest.TestCase):
     def test_network_account_get(self):
-        API = BASE_URL + '/v1/network/account/'
+        API = BASE_URL + '/v1/network/account'
         uuid = uuid4()
         # GET, no auth
         response = requests.get(API)
@@ -65,24 +68,31 @@ class TestDirectoryApis(unittest.TestCase):
         UUID(data['uuid'])
 
     def test_network_account_post(self):
-        API = BASE_URL + '/v1/network/account/'
+        API = BASE_URL + '/v1/network/account'
 
         paths = Paths(
             root_directory='/tmp/byoda_account_post',
             account_alias='account_post',
             network_name='byoda.net'
         )
+        uuid = uuid4()
         secret = AccountSecret(paths=paths)
         csr = secret.create_csr(uuid4())
         csr = csr.public_bytes(serialization.Encoding.PEM)
-        response = requests.post(API, json={'csr': csr})
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
+        }
+        response = requests.post(API, json={'csr': csr}, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        cert_splitter = '-----END CERTIFICATE-----\n'
-        certs = data['certificate'].split(cert_splitter)
-        certs = [cert + cert_splitter for cert in certs]
-        issuing_ca_cert = x509.load_pem_x509_certificate(certs[0].encode())  # noqa
-        account_cert = x509.load_pem_x509_certificate(certs[1].encode())     # noqa
+        issuing_ca_cert = x509.load_pem_x509_certificate(
+            data['cert_chain'].encode()
+        )          # noqa
+        account_cert = x509.load_pem_x509_certificate(
+            data['signed_cert'].encode()
+        )          # noqa
 
 
 if __name__ == '__main__':

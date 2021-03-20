@@ -7,7 +7,7 @@ Class for certificate request processing
 '''
 
 import logging
-from uuid import UUID
+
 from ipaddress import ip_address as IpAddress
 
 from cryptography import x509
@@ -50,7 +50,7 @@ class CertStore:
         :param csr: the Certificate Signing Request
         :param id_type: what entity is the CSR for, client, service or member
         :param remote_addr: the originating IP address for the CSR
-        :returns: the signed certificate
+        :returns: the signed certificate and its certchain
         :raises: KeyError if the Certificate Name is not acceptable,
                  ValueError if there is something else unacceptable in the CSR
         '''
@@ -86,4 +86,4 @@ class CertStore:
             f'Signed CSR for {entity_id.uuid} for {entity_id.id_type.value} '
             f'received from IP {str(remote_addr)}'
         )
-        return str(certchain)
+        return certchain

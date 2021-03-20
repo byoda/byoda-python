@@ -1,23 +1,32 @@
 '''
-request_auth
-
-provides helper functions to authenticate the client making the request
+Helper functions for API request processing
 
 :maintainer : Steven Hessing <stevenhessing@live.com>
 :copyright  : Copyright 2021
-:license    : GPLv3
+:license
 '''
 
 import logging
+from enum import Enum
+
+from fastapi import HTTPException
+
+
 from ipaddress import ip_address as IpAddress
 
-from flask import request
+from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class AuthFailure(Exception):
-    pass
+class TlsStatus(str, Enum):
+    '''
+    TLS status as reported by nginx variable 'ssl_client_verify':
+    http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
+    '''    # noqa
+
+    NONE        = 'NONE'        # noqa: E221
+    SUCCESS     = 'SUCCESS'     # noqa: E221
 
 
 class RequestAuth():
@@ -71,10 +80,18 @@ class RequestAuth():
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    The uvicorn server must be run with the '--proxy-headers' setting
+    to parse the X-Forwarded-For header set by nginx and present it
+    to the web application as client IP
     '''
 
-    def __init__(self, required: bool = True):
+    def __init__(self, tls_status: TlsStatus,
+                 client_dn: str, issuing_ca_dn: str,
+                 remote_addr: IpAddress):
         '''
         Get the authentication info for the client that made the API call.
         Information from the M-TLS client cert takes priority over any future
@@ -83,16 +100,20 @@ class RequestAuth():
         key for the certificate it presented so we trust the HTTP headers set
         by the reverse proxy
 
-        ;param required: should AuthFailure exception be thrown if
-        authentication fails
+        :param tls_status: instance of TlsStatus enum
+        :param client_dn: designated name of the presented client TLS cert
+        :param issuing_ca_dn: designated name of the issuing CA for the
+        presented TLS client cert
+        information in the request for authentication
         :returns: (n/a)
         :raises: ValueError if the no authentication is available and the
-        parameter 'required' has a value of True. ValueError if authentication
+        parameter 'required' has a value of True. AuthFailure if authentication
         was provided but is incorrect, regardless of the value of the
         'required' parameter
         '''
 
         self.is_authenticated = False
+        self.remote_addr = remote_addr
 
         self.client_cn = None
         self.issuing_ca_cn = None
@@ -100,38 +121,27 @@ class RequestAuth():
         self.service_id = None
         self.member_id = None
 
-        self.remote_addr = IpAddress(request.remote_addr)
-        x_forwarded_for = request.headers.get('X-Forwarded-For')
-        if x_forwarded_for:
-            remote_addr = x_forwarded_for.split(' ')[-1]
-            try:
-                self.remote_addr = IpAddress(remote_addr)
-            except ValueError:
-                raise AuthFailure(
-                    f'Invalid X-Forward-For value {x_forwarded_for}'
-                )
-
         #
         # Process the headers and if auth is 'required', throw
         # exceptions based on misformed DN/CN in certs
         #
-        status = request.headers.get('X-Client-SSL-Verify')
-        if status and status not in ('NONE', 'SUCCESS'):
-            raise AuthFailure(f'Client TLS status is {status}')
-        elif not status and required:
-            raise AuthFailure('Client did not provide a client cert')
+        if (isinstance(tls_status, TlsStatus) and
+                tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS)):
+            raise HTTPException(
+                status_code=400, detail=f'Client TLS status is {tls_status}'
+            )
+        elif not tls_status:
+            raise NoAuthInfo
 
-        client_dn = request.headers.get('X-Client-SSL-Subject')
         if client_dn:
             self.client_cn = RequestAuth.get_commonname(client_dn)
-        elif required:
-            raise AuthFailure('Client did not provide a client cert')
+        else:
+            raise NoAuthInfo
 
-        issuing_ca_dn = request.headers.get('X-Client-SSL-Issuing-CA')
         if issuing_ca_dn:
             self.issuing_ca_cn = RequestAuth.get_commonname(issuing_ca_dn)
-        elif required:
-            raise AuthFailure('Client did not provide a cert chain')
+        else:
+            raise NoAuthInfo
 
         if (self.client_cn and ((self.client_cn == self.issuing_ca_cn)
                                 or not self.issuing_ca_cn)):
@@ -140,8 +150,12 @@ class RequestAuth():
                 'Misformed cert was proxied by reverse proxy, Client DN: '
                 f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
             )
-            raise AuthFailure(
-                f'Client provided a self-signed or unsigned cert: {client_dn}'
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f'Client provided a self-signed or unsigned cert: '
+                    f'{client_dn}'
+                )
             )
 
     @staticmethod
@@ -161,4 +175,7 @@ class RequestAuth():
                 commonname = keyvalue[(len('CN=')):]
                 return commonname
 
-        raise AuthFailure(f'Invalid format for distinguished name: {dname}')
+        raise HTTPException(
+            status_code=403,
+            detail=f'Invalid format for distinguished name: {dname}'
+        )
