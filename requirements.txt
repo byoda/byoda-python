@@ -1,26 +1,28 @@
+# Application framework
+fastapi==0.63.0
+starlette-context==0.3.1
+
+# logging
+python-json-logger==2.0.1
+
+# tracing
+opentelemetry-api==0.17b0
+opentelemetry-sdk==0.17b0
+opentelemetry-instrumentation==0.17b
+opentelemetry-instrumentation-requests==0.17b0
+opentelemetry-instrumentation-fastapi==0.17b0
+opentelemetry-exporter-jaeger==0.17b0
+opentelemetry-exporter-prometheus==0.17b0
+
+prometheus_fastapi_instrumentator==5.7.1
+
 certvalidator==0.11.1
 cryptography==3.3.1
-Flask==1.1.2
-flask-restx==0.2.0
-Flask-Cors==3.0.8
-flask_accepts==0.17.4
-marshmallow==3.10.0
-opentelemetry-api==0.12b0
-opentelemetry-exporter-jaeger==0.12b0
-opentelemetry-exporter-prometheus==0.12b0
-opentelemetry-instrumentation==0.12b0
-opentelemetry-instrumentation-flask==0.12b0
-opentelemetry-instrumentation-requests==0.12b0
-opentelemetry-instrumentation-wsgi==0.12b0
-opentelemetry-sdk==0.12b0
-prometheus_flask_exporter==0.17.0
-prometheus-client==0.8.0
-uWSGI==2.0.18
-Werkzeug==1.0.1
-pyuwsgi==2.0.18.post0
-python-json-logger==0.1.11
+
 requests==2.25.1
+
 # pip3 install --pre
 sqlalchemy==1.4.0b3
 psycopg2-binary==2.8.6
+
 dnspython==2.1.0

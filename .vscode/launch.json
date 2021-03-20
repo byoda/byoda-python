@@ -50,20 +50,38 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Flask dirserver debug",
+            "name": "dirserver",
             "type": "python",
             "request": "launch",
-            "program": "/usr/local/bin/flask",
+            "module": "uvicorn",
             "args": [
-                "run",
-                "--no-reload"
+                "dirserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "8000",
+                "--proxy-headers",
+                "--reload",
+                "--reload-delay", "5"
             ],
             "justMyCode": true,
             "env": {
-                "FLASK_ENV": "development",
-                "FLASK_DEBUG": "1",
-                "BYODA_APP": "dirserver",
-                "prometheus_multiproc_dir": "/var/tmp",
+                "PYTHONPATH": "/home/steven/src/byoda-python"
+            }
+        },
+        {
+            "name": "podserver",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "dirserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "8001",
+                "--proxy-headers",
+                "--reload",
+                "--reload-delay", "5"
+            ],
+            "justMyCode": true,
+            "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python"
             }
         }

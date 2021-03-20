@@ -10,20 +10,16 @@ import os
 import sys
 import logging
 from datetime import datetime
-from uuid import uuid4
-
 
 from pythonjsonlogger import jsonlogger
 
-from flask import request
-
-import byoda.config as config
+from starlette_context import context
 
 
 LOGFILE = '/var/tmp/byoda.log'
 
 
-class Logger(logging.Logger, object):
+class Logger(logging.Logger):
     '''
     Enables settings for logging, reducing the amount of
     boilerplate code in scripts
@@ -113,7 +109,11 @@ class Logger(logging.Logger, object):
         if json_out:
             if extra is None:
                 extra = {}
-            formatter = JsonFormatter(extra=extra)
+            formatter = ByodaJsonFormatter(
+                '%(asctime) %(name) %(process) %(processName) %(filename) '
+                '%(funcName) %(levelname) %(lineno) %(module) '
+                '%(threadName) %(message)'
+            )
         else:
             formatter = logging.Formatter(
                 fmt=(
@@ -130,88 +130,32 @@ class Logger(logging.Logger, object):
         logger = logging.getLogger(appname)
         return logger
 
-    def process_log_record(self, log_record):
-        # Enforce the presence of a timestamp
-        if "asctime" in log_record:
-            log_record["timestamp"] = log_record["asctime"]
-        else:
-            log_record["timestamp"] = int(
-                datetime.timestamp(datetime.utcnow())
-            )
 
-        if self._extra is not None:
-            for key, value in self._extra.items():
-                log_record[key] = value
-        return super(JsonFormatter, self).process_log_record(log_record)
+class ByodaJsonFormatter(jsonlogger.JsonFormatter):
+    def __init__(self, logger, extra=None):
+        if extra is None:
+            extra = {}
+        self.extra = extra
+        super(ByodaJsonFormatter, self).__init__(logger, extra)
 
-
-class JsonFormatter(jsonlogger.JsonFormatter, object):
-    '''
-    Class to provide a formatter to logging.Logger that outputs JSON
-    '''
-
-    def __init__(
-        self,
-        fmt=(
-            "%(asctime) %(name) %(process) %(processName) %(filename) "
-            "%(funcName) %(levelname) %(lineno) %(module) "
-            "%(threadName) %(message)"
-        ),
-        datefmt="%Y-%m-%dT%H:%M:%SZ%z",
-        style='%',
-        extra={},
-        *args,
-        **kwargs
-    ):
-        self._extra = extra
-        self.datefmt = datefmt
-        jsonlogger.JsonFormatter.__init__(
-            self, fmt=fmt, datefmt=datefmt, *args, **kwargs
+    def add_fields(self, log_record, record, message_dict):
+        super(ByodaJsonFormatter, self).add_fields(
+            log_record, record, message_dict
         )
-
-    def process_log_record(self, log_record):
-        # Enforce the presence of a timestamp
-        if "asctime" in log_record:
-            log_record["timestamp"] = log_record["asctime"]
+        if not log_record.get('timestamp'):
+            # this doesn't use record.created, so it is slightly off
+            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            log_record['timestamp'] = now
+        if log_record.get('level'):
+            log_record['level'] = log_record['level'].upper()
         else:
-            log_record["timestamp"] = \
-                datetime.datetime.utcnow().strftime(self.datefmt)
+            log_record['level'] = record.levelname
 
-        # Enabling the class construction to specify additional key/value
-        # pairs that will be included in each log message
-        if self._extra is not None:
-            for key, value in self._extra.items():
-                log_record[key] = value
+        extra = self.extra.copy()
+        try:
+            extra.update(context.data)
+        except RuntimeError:
+            # We called context outside of a FastAPI request
+            pass
 
-        if config.extra_log_data:
-            log_record.update(config.extra_log_data)
-
-        return super(JsonFormatter, self).process_log_record(log_record)
-
-
-def flask_log_fields(f):
-    '''
-    Adds a fields to the logs emitted via the global config.extra_log_data
-    variable.
-
-    - trace_id       : an UUID used to emit trace logs
-    - client_addr    : the IP address of the source of the request
-    - request_uri    : the URI used by the client
-    - request_method : GET/PUT/POST/PATCH/DELETE
-    '''
-    def _flask_log_fields(*args, **kwargs):
-        data = {
-            'trace_id': str(uuid4())
-        }
-        client_ip = request.headers.get('X-Forwarded-For', '')
-        if not client_ip:
-            client_ip = request.remote_addr
-
-        data['client_addr'] = client_ip
-        data['request_uri'] = request.path
-        data['request_method'] = request.method
-
-        config.extra_log_data = data
-
-        return f(*args, **kwargs)
-    return _flask_log_fields
+        log_record.update(extra)
