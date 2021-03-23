@@ -17,8 +17,8 @@ from byoda.datatypes import IdType
 from byoda.datastore import CertStore
 
 from byoda.models import Stats, StatsResponseModel
-from byoda.models import CertChainModel
-from byoda.models import CertSigningRequestModel
+from byoda.models import CertSigningRequestModel, CertChainModel
+from byoda.models import LetsEncryptSecretModel
 
 import byoda.config as config
 
@@ -75,7 +75,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     certificate
     '''
 
-    _LOGGER.debug('POST Account API called')
+    _LOGGER.debug(f'POST Account API called from {auth.remote_addr}')
 
     if not auth.is_authenticated:
         raise HTTPException(
@@ -91,3 +91,28 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     )
 
     return certchain.as_dict()
+
+
+@router.put('/account')
+def put_account(request: Request, secret: LetsEncryptSecretModel,
+                auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+    '''
+    Submit a Certificate Signing Request and get the signed
+    certificate
+    '''
+
+    _LOGGER.debug('POST Account API called')
+
+    if not auth.is_authenticated:
+        raise HTTPException(
+            status_code=401, detail='Unauthorized'
+        )
+
+    network = config.network
+
+    dns_updates = network.dnsdb.create_update(
+        auth.account_id, IdType.ACCOUNT, auth.remote_addr, secret=secret.secret
+    )
+
+    if dns_updates:
+        dns_updates = True

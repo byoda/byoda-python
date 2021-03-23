@@ -1,4 +1,4 @@
-# Application framework
+# Web Application framework
 gunicorn==20.0.4
 uvloop==0.15.2
 httptools==0.1.1
@@ -8,20 +8,33 @@ fastapi==0.63.0
 starlette-context==0.3.1
 
 # logging
+# https://github.com/madzak/python-json-logger
 python-json-logger==2.0.1
 
 # tracing
+https://opentelemetry-python.readthedocs.io/en/latest/
 opentelemetry-api==0.17b0
 opentelemetry-sdk==0.17b0
 opentelemetry-instrumentation==0.17b
-opentelemetry-instrumentation-requests==0.17b0
+
+https://pypi.org/project/opentelemetry-instrumentation-fastapi/
 opentelemetry-instrumentation-fastapi==0.17b0
+
+https://pypi.org/project/opentelemetry-instrumentation-requests/
+opentelemetry-instrumentation-requests==0.17b0
+
+https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-jaeger
 opentelemetry-exporter-jaeger==0.17b0
+
 opentelemetry-exporter-prometheus==0.17b0
 
+https://github.com/trallnag/prometheus-fastapi-instrumentator
 prometheus_fastapi_instrumentator==5.7.1
 
+https://pypi.org/project/certvalidator/
 certvalidator==0.11.1
+
+https://pypi.org/project/cryptography/
 cryptography==3.3.1
 
 requests==2.25.1
@@ -30,4 +43,5 @@ requests==2.25.1
 sqlalchemy==1.4.0b3
 psycopg2-binary==2.8.6
 
+# https://www.dnspython.org/
 dnspython==2.1.0

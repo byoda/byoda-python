@@ -6,7 +6,8 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/byoda/byoda-python
 EnvironmentFile=/etc/default/dirserver
-ExecStart=gunicorn -k uvicorn.workers.UvicornWorker -c /opt/byoda/byoda-python/gunicorn.conf.py  dirserver.main:app
+ExecStart=gunicorn -k uvicorn.workers.UvicornWorker -c /opt/byoda/byoda-python/g
+unicorn.conf.py  dirserver.main:app
 User=www-data
 Group=www-data
 Restart=always

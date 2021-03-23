@@ -13,9 +13,12 @@ import unittest
 
 import dns.resolver
 
+from sqlalchemy import delete, or_
+
 from byoda.util import Logger
 
 from byoda.datatypes import IdType
+from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.datastore.dnsdb import DnsDb
 
@@ -23,6 +26,12 @@ from byoda.datastore.dnsdb import DnsDb
 TEST_DIR = '/tmp/byoda-func-test-secrets'
 NETWORK = 'byoda.net'
 DNS_CACHE_PERIOD = 300
+
+TEST_SERVICE_ID = 4294967295
+TEST_UUID = 'd5c35a25-f171-4f0b-8d2f-d0808f40d0fd'
+TEST_FIRST_IP = '10.255.255.254'
+TEST_SECOND_IP = '10.255.255.253'
+TEST_NETWORK = 'byoda.net'
 
 
 class TestDnsDb(unittest.TestCase):
@@ -35,72 +44,96 @@ class TestDnsDb(unittest.TestCase):
         )
 
         # SERVICE
-        uuid = uuid4()
-        service_id = 9999
-        first_ip = ip_address('10.255.255.254')
+        uuid = TEST_UUID
+        service_id = TEST_SERVICE_ID
+        first_ip = ip_address(TEST_FIRST_IP)
+        second_ip = ip_address(TEST_SECOND_IP)
 
         service_fqdn = dnsdb.compose_fqdn(
             None, IdType.SERVICE, service_id=service_id
         )
-        self.assertEqual(service_fqdn, f'{str(service_id)}.services.byoda.net')
+        self.assertEqual(
+            service_fqdn, f'{str(service_id)}.services.{TEST_NETWORK}'
+        )
 
         with self.assertRaises(KeyError):
-            dnsdb.lookup(None, IdType.SERVICE, service_id=service_id)
+            dnsdb.lookup(
+                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            )
 
         dnsdb.create_update(
             None, IdType.SERVICE, first_ip, service_id=service_id
         )
         self.assertEqual(
-            dnsdb.lookup(None, IdType.SERVICE, service_id=service_id), first_ip
+            dnsdb.lookup(
+                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            ), first_ip
         )
 
-        dnsdb.remove(None, IdType.SERVICE, service_id=service_id)
+        dnsdb.remove(
+            None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+        )
 
         with self.assertRaises(KeyError):
-            dnsdb.lookup(None, IdType.SERVICE, service_id=service_id)
+            dnsdb.lookup(
+                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            )
 
         # MEMBER
         uuid = uuid4()
         member = dnsdb.compose_fqdn(uuid, IdType.MEMBER, service_id=service_id)
         self.assertEqual(
-            member, f'{str(uuid)}_{service_id}.members.byoda.net'
+            member, f'{str(uuid)}_{service_id}.members.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):
-            dnsdb.lookup(uuid, IdType.MEMBER, service_id=service_id)
+            dnsdb.lookup(
+                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            )
 
         dnsdb.create_update(
             uuid, IdType.MEMBER, first_ip, service_id=service_id
         )
 
         self.assertEqual(
-            dnsdb.lookup(uuid, IdType.MEMBER, service_id=service_id), first_ip
+            dnsdb.lookup(
+                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            ),
+            first_ip
         )
 
-        dnsdb.remove(uuid, IdType.MEMBER, service_id=service_id)
+        dnsdb.remove(
+            uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+        )
 
         with self.assertRaises(KeyError):
-            dnsdb.lookup(uuid, IdType.MEMBER, service_id=service_id)
+            dnsdb.lookup(
+                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            )
 
         # ACCOUNT: we test these last as
         uuid = uuid4()
         account = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
-        self.assertEqual(account, f'{str(uuid)}.accounts.byoda.net')
+        self.assertEqual(account, f'{str(uuid)}.accounts.{TEST_NETWORK}')
 
         with self.assertRaises(KeyError):
-            dnsdb.lookup(uuid, IdType.ACCOUNT)
+            dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
 
         fqdn = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
 
         dnsdb.create_update(uuid, IdType.ACCOUNT, first_ip)
-        self.assertEqual(first_ip, dnsdb.lookup(uuid, IdType.ACCOUNT))
+        self.assertEqual(
+            first_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
+        )
 
         dns_ip = do_dns_lookup(fqdn)
         self.assertEqual(dns_ip, first_ip)
 
-        second_ip = ip_address('10.255.255.255')
+        second_ip = ip_address(TEST_SECOND_IP)
         dnsdb.create_update(uuid, IdType.ACCOUNT, second_ip)
-        self.assertEqual(second_ip, dnsdb.lookup(uuid, IdType.ACCOUNT))
+        self.assertEqual(
+            second_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
+        )
 
         time.sleep(DNS_CACHE_PERIOD + 1)
 
@@ -127,7 +160,29 @@ def do_dns_lookup(fqdn):
     return dns_ip
 
 
+def delete_test_data():
+    with open('config.yml') as file_desc:
+        config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+    dnsdb = DnsDb.setup(config['dirserver']['dnsdb'], TEST_NETWORK)
+    with dnsdb._engine.connect() as conn:
+        stmt = delete(
+            dnsdb._records_table
+        ).where(
+            or_(
+                dnsdb._records_table.c.content == TEST_FIRST_IP,
+                dnsdb._records_table.c.content == TEST_SECOND_IP,
+                dnsdb._records_table.c.name ==
+                f'{TEST_UUID}.accounts.{TEST_NETWORK}',
+                dnsdb._records_table.c.name ==
+                f'{TEST_SERVICE_ID}.services.{TEST_NETWORK}'
+            )
+        )
+        conn.execute(stmt)
+
+
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
+    delete_test_data()
     unittest.main()

@@ -14,10 +14,12 @@ which we have coverage through SQLAlchemy
 
 import logging
 import time
+from enum import Enum
 from uuid import UUID
+from typing import Optional
 from ipaddress import ip_address, IPv4Address
 
-from sqlalchemy import MetaData, Table, insert, delete, event
+from sqlalchemy import MetaData, Table, insert, delete, event, and_
 from sqlalchemy.future import select
 # from sqlalchemy import select
 from sqlalchemy.engine import Engine
@@ -27,7 +29,14 @@ from byoda.datatypes import IdType
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TTL = 1800
+DEFAULT_TTL_TXT = 60
+
 DEFAULT_DB_EXPIRE = 7 * 24 * 60 * 60
+
+
+class DnsRecordType(Enum):
+    A = 'A'
+    TXT = 'TXT'
 
 
 class DnsDb:
@@ -112,8 +121,8 @@ class DnsDb:
 
         return dnsdb
 
-    def compose_fqdn(self, uuid: UUID, id_type: IdType, service_id: int = None
-                     ) -> str:
+    def compose_fqdn(self, uuid: UUID, id_type: IdType,
+                     service_id: Optional[int] = None) -> str:
         '''
         Generate the FQDN for an id of the specified type
 
@@ -163,63 +172,83 @@ class DnsDb:
         return uuid, id_type, service_id
 
     def create_update(self, uuid: UUID, id_type: IdType,
-                      ip_addr: ip_address, service_id: int = None) -> bool:
+                      ip_addr: ip_address, service_id: int = None,
+                      secret: str = None) -> bool:
         '''
-        Create DNS record, replacing any existing DNS record
+        Create DNS A and optionally a TXT record, replacing any existing DNS
+        record.
 
         :param uuid: account or member. Must be None for IdType.SERVICE
         :param id_type: instance of byoda.datatypes.IdType
         :param ip_addr: client ip
         :param service_id: service identifier
-        :returns: whether one or more DNS records were updated
+        :param secret: The DNS secret provided by Let's Encrypt. May only be
+        specified for IdType.ACCOUNT
+        :returns: whether existing DNS records were updated
         :raises:
         '''
 
         self._validate_parameters(
-            uuid, id_type, ip_addr=ip_addr, service_id=service_id
+            uuid, id_type, ip_addr=ip_addr, service_id=service_id,
+            secret=secret
         )
 
-        try:
-            ip_replaced = False
-            existing_ip_address = self.lookup(
-                uuid, id_type, service_id=service_id
-            )
-            if ip_addr == existing_ip_address:
-                return 0
-
-            if existing_ip_address:
-                ip_replaced = self.remove(
-                    uuid, id_type, service_id=service_id
-                )
-        except KeyError:
-            pass
-
+        db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
         fqdn = self.compose_fqdn(uuid, id_type, service_id=service_id)
 
-        db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
-        with self._engine.connect() as conn:
-            stmt = insert(
-                self._records_table
-            ).values(
-                name=fqdn, content=str(ip_addr),
-                domain_id=self._domain_ids[id_type.value],
-                db_expire=db_expire,
-                type='A', ttl=DEFAULT_TTL, prio=0, auth=True
-            )
+        record_replaced = False
 
-            conn.execute(stmt)
+        for dns_record_type, value in [
+                (DnsRecordType.A, str(ip_addr)), (DnsRecordType.TXT, secret)]:
+            if not value:
+                # No value provided for the DNS record type, ie. no value for
+                # secret specified because the IP address is always provided
+                continue
 
-        return ip_replaced
+            # SQLAlachemy doesn't have 'UPSERT' so we do a lookup, remove if
+            # the entry already exists and then create the new record
+            try:
+                existing_value = self.lookup(
+                    uuid, id_type, dns_record_type, service_id=service_id
+                )
+                if existing_value and value == existing_value:
+                    # Nothing to change
+                    continue
 
-    def lookup(self, uuid: UUID, id_type: IdType, service_id: int = None
-               ) -> ip_address:
+                record_replaced = record_replaced or self.remove(
+                    uuid, id_type, dns_record_type, service_id=service_id
+                )
+            except KeyError:
+                pass
+
+            with self._engine.connect() as conn:
+                stmt = insert(
+                    self._records_table
+                ).values(
+                    name=fqdn, content=str(value),
+                    domain_id=self._domain_ids[id_type.value],
+                    db_expire=db_expire,
+                    type=dns_record_type.value, ttl=DEFAULT_TTL, prio=0,
+                    auth=True
+                )
+
+                conn.execute(stmt)
+
+        return record_replaced
+
+    def lookup(self, uuid: UUID, id_type: IdType,
+               dns_record_type: DnsRecordType,
+               service_id: int = None, secret: str = None) -> ip_address:
         '''
-        Look up the DNS record for the UUID, which is either an
+        Look up in DnsDB the DNS record for the UUID, which is either an
         account_id, a member_id or a service_id
 
         :param uuid: instance of uuid.UUID
         :param id_type: instance of byoda.datatypes.IdType
-        :returns: IP address found for the lookup
+        :param dns_record_type: type of DNS record to look up
+        :param service_id: the identifier for the service
+        :param secret: the Let's Encrypt secret for DNS Authorization
+        :returns: IP address found for the lookup in DnsDB
         :raises: KeyError if DNS record for the uuid could not be found
         '''
 
@@ -227,12 +256,15 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        ip_addr = None
+        value = None
         with self._engine.connect() as conn:
             stmt = select(
                 self._records_table.c.id, self._records_table.c.content
             ).where(
-                self._records_table.c.name == fqdn
+                and_(
+                    self._records_table.c.name == fqdn,
+                    self._records_table.c.type == dns_record_type.value
+                )
             )
             _LOGGER.debug(f'Executing SQL command: {stmt}')
 
@@ -240,23 +272,29 @@ class DnsDb:
                 domains = conn.execute(stmt)
             except Exception as exc:
                 _LOGGER.error('Failed to execute SQL statement', exc_info=exc)
+                return
 
-            ips = [domain.content for domain in domains]
+            values = [domain.content for domain in domains]
 
-            if not len(ips):
-                raise KeyError(f'No IP address found for {fqdn}')
-
-            if len(ips) > 1:
-                _LOGGER.warning(
-                    f'FQDN {fqdn} has more than one IP address: '
-                    f'{", ".join(ips)}'
+            if not len(values):
+                raise KeyError(
+                    f'No {dns_record_type} records found for {fqdn}'
                 )
 
-            ip_addr = ip_address(ips[0])
+            if len(values) > 1:
+                _LOGGER.warning(
+                    f'FQDN {fqdn} has more than one {dns_record_type} '
+                    f'record: {", ".join(values)}'
+                )
 
-        return ip_addr
+            value = values[0]
+            if dns_record_type == DnsRecordType.A:
+                value = IPv4Address(value)
 
-    def remove(self, uuid: UUID, id_type: IdType, service_id=None) -> bool:
+            return value
+
+    def remove(self, uuid: UUID, id_type: IdType,
+               dns_record_type: DnsRecordType, service_id=None) -> bool:
         '''
         Removes the DNS records for the uuid
 
@@ -271,29 +309,45 @@ class DnsDb:
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
         with self._engine.connect() as conn:
-            stmt = select(
-                self._records_table.c.id
-            ).where(
-                self._records_table.c.name == fqdn
-            )
-            domains = conn.execute(stmt).fetchall()
-
-            for domain in domains:
+            if dns_record_type == DnsRecordType.TXT:
                 stmt = delete(
                     self._records_table
                 ).where(
-                    self._records_table.c.id == domain.id
+                    and_(
+                        self._records_table.c.name == fqdn,
+                        self._records_table.c.type == dns_record_type.value
+                    )
                 )
                 conn.execute(stmt)
+            else:
+                stmt = select(
+                    self._records_table.c.id
+                ).where(
+                    self._records_table.c.name == fqdn
+                )
+                domains = conn.execute(stmt).fetchall()
 
-            _LOGGER.debug(
-                f'Removed {len(domains)} DNS record(s) for UUID {uuid}'
-            )
+                for domain in domains:
+                    stmt = delete(
+                        self._records_table
+                    ).where(
+                        and_(
+                            self._records_table.c.id == domain.id,
+                            self._records_table.c.type == dns_record_type.value
+                        )
+                    )
+                    conn.execute(stmt)
+
+                _LOGGER.debug(
+                    f'Removed {len(domains)} DNS record(s) for UUID {uuid}'
+                )
 
         return len(domains) > 0
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
-                             ip_addr: ip_address = None, service_id=None):
+                             ip_addr: ip_address = None,
+                             service_id: Optional[int] = None,
+                             secret: Optional[str] = None):
         '''
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate
@@ -346,6 +400,15 @@ class DnsDb:
                 'uuid and service_id must both be specified for IdType.MEMBER'
             )
 
+        if secret and not isinstance(secret, str):
+            raise ValueError(
+                f'Secret must be a string and not a {type(secret)}'
+            )
+
+        if secret and (id_type != IdType.ACCOUNT or service_id):
+            raise ValueError(
+                'We only provision Lets Encrypt DNS secrets for accounts'
+            )
         return
 
     def _get_domain_id(self, conn: Engine, subdomain: str):

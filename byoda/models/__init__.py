@@ -8,3 +8,4 @@ Models for input and output of FastAPI APIs
 
 from .stats import Stats, StatsResponseModel                   # noqa: F401
 from .cert import CertSigningRequestModel, CertChainModel      # noqa: F401
+from .letsencrypt import LetsEncryptSecretModel                # noqa: F401
