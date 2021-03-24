@@ -12,29 +12,29 @@ starlette-context==0.3.1
 python-json-logger==2.0.1
 
 # tracing
-https://opentelemetry-python.readthedocs.io/en/latest/
+# https://opentelemetry-python.readthedocs.io/en/latest/
 opentelemetry-api==0.17b0
 opentelemetry-sdk==0.17b0
 opentelemetry-instrumentation==0.17b
 
-https://pypi.org/project/opentelemetry-instrumentation-fastapi/
+# https://pypi.org/project/opentelemetry-instrumentation-fastapi/
 opentelemetry-instrumentation-fastapi==0.17b0
 
-https://pypi.org/project/opentelemetry-instrumentation-requests/
+# https://pypi.org/project/opentelemetry-instrumentation-requests/
 opentelemetry-instrumentation-requests==0.17b0
 
-https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-jaeger
+# https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-jaeger
 opentelemetry-exporter-jaeger==0.17b0
 
 opentelemetry-exporter-prometheus==0.17b0
 
-https://github.com/trallnag/prometheus-fastapi-instrumentator
+# https://github.com/trallnag/prometheus-fastapi-instrumentator
 prometheus_fastapi_instrumentator==5.7.1
 
-https://pypi.org/project/certvalidator/
+# https://pypi.org/project/certvalidator/
 certvalidator==0.11.1
 
-https://pypi.org/project/cryptography/
+# https://pypi.org/project/cryptography/
 cryptography==3.3.1
 
 requests==2.25.1

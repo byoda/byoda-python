@@ -1,0 +1,23 @@
+application:
+  debug: True
+  environment: 'dev'
+  logfile: '/tmp/byoda.log'
+  root_dir: '/opt/byoda'
+  # Changing the network if you want to set up your own network and
+  # directory server
+  network: 'byoda.net'
+
+dirserver:
+  name: 'directoryserver'
+  # Connection string for the Postgresql server for PowerDNS
+  dnsdb: "postgresql://<username>:<password>@<ip>/byodadns"
+  roles:
+    - directory
+  private_key_password: '<changeme>'
+
+svcserver:
+  name: 'serviceserver'
+  roles:
+    - service
+  service: default
+  private_key_password: '<changeme>'
