@@ -47,11 +47,8 @@ _LOGGER = Logger.getLogger(
 )
 
 config.network = Network(
-    config.app_config['dirserver'], config.app_config['application']
+    config.app_config['podserver'], config.app_config['application']
 )
-
-if not os.environ.get('SERVER_NAME') and config.network.name:
-    os.environ['SERVER_NAME'] = config.network.name
 
 middleware = [
     Middleware(

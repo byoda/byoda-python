@@ -50,7 +50,7 @@ class Network:
         Set up the network
 
         :param server: section from config.yml with key 'dirserver',
-        'podserver' etc, with keys 'name', 'roles', 'private_key_password' and
+        'podserver' etc, with keys 'roles', 'private_key_password' and
         parameters specific to the role. A directory server must have key
         'dnsdb'
         :param application: section from config.yml with keys 'network' and
@@ -58,7 +58,6 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.name = server['name']
         self.network = application['network']
         self.dnsdb = None
 
