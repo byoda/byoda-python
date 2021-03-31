@@ -1,0 +1,44 @@
+{
+    "family": "byoda-pod",
+    "taskRoleArn": "arn:aws:iam::251110099714:role/byoda-pod-s3",
+    "executionRoleArn": "arn:aws:iam::251110099714:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+        {
+            "name": "byoda-pod",
+            "image": "byoda/pod-python:0.0.2",
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "hostPort": 80,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "NETWORK",
+                    "value": "byoda.net"
+                },
+                {
+                    "name": "BUCKET_PREFIX",
+                    "value": "byoda"
+                },
+                {
+                    "name": "ACCOUNT_ID",
+                    "value": "beb6f914-904f-11eb-88ff-00155de02c92"
+                },
+                {
+                    "name": "ACCOUNT_SECRET",
+                    "value": "KYDVGirFhB4f0Gv"
+                }
+
+            ],
+            "essential": true
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512"
+}

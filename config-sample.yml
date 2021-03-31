@@ -4,8 +4,10 @@ application:
   logfile: '/tmp/byoda.log'
   root_dir: '/opt/byoda'
   # Changing the network if you want to set up your own network and
-  # directory server
+  # directory server. This setting overrides any configured NETWORK
+  # environment variable
   network: 'byoda.net'
+  jaeger_host: 127.0.0.1
 
 dirserver:
   name: 'directoryserver'

@@ -28,6 +28,8 @@ from byoda.util.secrets import MemberSecret
 
 _LOGGER = logging.getLogger(__name__)
 
+DEFAULT_NETWORK = 'byoda.net'
+
 
 class Network:
     '''
@@ -58,7 +60,12 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.network = application['network']
+        self.network = application.get(
+            'network', os.environ.get(
+                'NETWORK', DEFAULT_NETWORK
+            )
+        )
+
         self.dnsdb = None
 
         roles = server['roles']

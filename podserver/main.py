@@ -6,7 +6,6 @@ POD server for Bring Your Own Data and Algorithms
 :license    : GPLv3
 '''
 
-import os
 import sys
 import yaml
 import uvicorn
@@ -63,7 +62,9 @@ middleware = [
 trace.set_tracer_provider(TracerProvider())
 jaeger_exporter = jaeger.JaegerSpanExporter(
     service_name='podserver',
-    agent_host_name='192.168.1.11',
+    agent_host_name=config.app_config['application'].get(
+        'jaeger_host', '127.0.0.1'
+    ),
     agent_port=6831,
 )
 trace.get_tracer_provider().add_span_processor(
@@ -85,4 +86,4 @@ async def status():
     return {'status': 'healthy'}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
