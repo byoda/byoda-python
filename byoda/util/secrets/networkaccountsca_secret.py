@@ -38,9 +38,10 @@ class NetworkAccountsCaSecret(Secret):
             super().__init__(
                 cert_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
                 key_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
-            )
+                storage_driver=paths.storage_driver,
+            ),
         else:
-            super().__init__()
+            super().__init__(storage_driver=paths.storage_driver)
             self.network = network
 
         self.ca = True

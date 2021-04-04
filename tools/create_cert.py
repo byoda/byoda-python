@@ -15,18 +15,15 @@ import sys
 import os
 import argparse
 import shutil
-# import requests
 from uuid import uuid4
 
 from byoda.util import Paths
 from byoda.util import Logger
-from byoda.util.secrets import CertType
+from byoda.datatypes import CertType, CsrSource
 from byoda.util.secrets import NetworkRootCaSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import NetworkServicesCaSecret
 from byoda.util.secrets import AccountSecret
-
-from byoda.util.secrets import CsrSource
 
 
 _LOGGER = None

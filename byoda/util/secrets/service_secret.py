@@ -13,9 +13,10 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret, CsrSource
+from . import Secret
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ class ServiceSecret(Secret):
             ),
             key_file=paths.get(
                 Paths.SERVICE_KEY_FILE, service_alias=service
-            )
+            ),
+            storage_driver=paths.storage_driver
         )
         self.ca = False
         self.id_type = IdType.SERVICE

@@ -31,3 +31,28 @@ class IdType(Enum):
 
 
 EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
+
+
+class CloudType(Enum):
+    AWS                  = 'AWS'            # noqa=E221
+    GCP                  = 'GCP'            # noqa=E221
+    AZURE                = 'Azure'          # noqa=E221
+
+
+class CsrSource(Enum):
+    WEBAPI         = 1                    # noqa: E221
+    LOCAL          = 2                    # noqa: E221
+
+
+class CertType(Enum):
+    NETWORK        = 'network'            # noqa: E221
+    ACCOUNT        = 'account'            # noqa: E221
+    MEMBERSHIP     = 'membership'         # noqa: E221
+    SERVICE        = 'service'            # noqa: E221
+    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
+
+
+class CertLevel(Enum):
+    ROOT           = 'root'               # noqa: E221
+    INTERMEDIATE   = 'intermediate'       # noqa: E221
+    LEAF           = 'leaf'               # noqa: E221

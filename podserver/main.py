@@ -6,8 +6,8 @@ POD server for Bring Your Own Data and Algorithms
 :license    : GPLv3
 '''
 
+import os
 import sys
-import yaml
 import uvicorn
 
 from starlette.middleware import Middleware
@@ -26,28 +26,65 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator \
     as PrometheusInstrumentator
 
-from byoda.util.logger import Logger
 from byoda import config
+from byoda.util import Paths
+from byoda.util.logger import Logger
+from byoda.util.secrets import AccountSecret
 
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
 
+from byoda.datatypes import CloudType
+
+from byoda.storage import FileStorage
+
+from .bootstrap import AccountConfig
 
 _LOGGER = None
+LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
-with open('config.yml') as file_desc:
-    config.app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+network = {
+    'cloud': CloudType(os.environ.get('CLOUD', 'AWS')),
+    'bucket_prefix': os.environ['BUCKET_PREFIX'],
+    'network': os.environ.get('NETWORK', 'byoda.net'),
+    'account_id': os.environ.get('ACCOUNT_ID'),
+    'account_secret': os.environ.get('ACCOUNT_SECRET'),
+    'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
+    'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
+    'root_dir': '/byoda',
+    'roles': ['pod'],
+}
 
-debug = config.app_config['application']['debug']
-verbose = not debug
 _LOGGER = Logger.getLogger(
-    sys.argv[0], debug=debug, verbose=verbose,
-    logfile=config.app_config['application'].get('logfile')
+    sys.argv[0], loglevel=network['loglevel'], logfile=LOG_FILE
 )
 
-config.network = Network(
-    config.app_config['podserver'], config.app_config['application']
+private_object_storage = FileStorage.get_storage(
+    network['cloud'], network['bucket_prefix'] + '_private',
+    network['root_dir']
 )
+
+paths = Paths(
+    root_dir=network['root_dir'], network_name=network['network'],
+    storage_driver=private_object_storage
+)
+
+paths.create_secrets_directory()
+paths.create_account_directory()
+
+account = AccountConfig(
+    network['cloud'], network['bucket_prefix'], network['network'],
+    network['account_id'], network['account_secret'],
+    network['private_key_password'], private_object_storage
+)
+
+account_secret = AccountSecret(paths)
+csr = account_secret.create_csr(account_id)     # noqa
+account_secret.save()
+if not account.exists():
+    account.create()
+
+config.network = Network(network, network)
 
 middleware = [
     Middleware(
@@ -85,5 +122,5 @@ PrometheusInstrumentator().instrument(app).expose(app)
 async def status():
     return {'status': 'healthy'}
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+if __name__ == '__main__':
+    uvicorn.run(app, host='127.0.0.1', port=8000)

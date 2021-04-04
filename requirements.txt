@@ -45,3 +45,9 @@ psycopg2-binary==2.8.6
 
 # https://www.dnspython.org/
 dnspython==2.1.0
+
+# https://libcloud.readthedocs.io/en/stable/getting_started.html
+apache-libcloud==3.3.1
+
+# https://aws.amazon.com/sdk-for-python/
+boto3==1.17.42

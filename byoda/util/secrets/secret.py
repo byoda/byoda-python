@@ -10,7 +10,6 @@ import os
 import datetime
 import logging
 import re
-from enum import Enum
 from copy import copy
 
 from cryptography import x509
@@ -24,6 +23,8 @@ from cryptography.fernet import Fernet
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
 from certvalidator import ValidationError
+
+from byoda.storage.filestorage import FileStorage, FileMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,25 +46,6 @@ VALID_SIGNATURE_HASHES = set(
 IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
-
-
-class CsrSource(Enum):
-    WEBAPI         = 1                    # noqa: E221
-    LOCAL          = 2                    # noqa: E221
-
-
-class CertType(Enum):
-    NETWORK        = 'network'            # noqa: E221
-    ACCOUNT        = 'account'            # noqa: E221
-    MEMBERSHIP     = 'membership'         # noqa: E221
-    SERVICE        = 'service'            # noqa: E221
-    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
-
-
-class CertLevel(Enum):
-    ROOT           = 'root'               # noqa: E221
-    INTERMEDIATE   = 'intermediate'       # noqa: E221
-    LEAF           = 'leaf'               # noqa: E221
 
 
 class CertChain:
@@ -138,7 +120,8 @@ class Secret:
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
-    def __init__(self, cert_file: str = None, key_file: str = None):
+    def __init__(self, cert_file: str = None, key_file: str = None,
+                 storage_driver: FileStorage = None):
         '''
         Constructor
 
@@ -156,6 +139,7 @@ class Secret:
         self.common_name = None
         self.is_root_cert = False
         self.ca = False
+        self.storage_driver = storage_driver
 
         # Certchains never include the root cert!
         # Certs higher in the certchain come before
@@ -495,7 +479,10 @@ class Secret:
         :returns: bool
         '''
 
-        os.path.exists(self.cert_file)
+        if self.storage_driver:
+            self.storage_driver.exists(self.cert_file)
+        else:
+            os.path.exists(self.cert_file)
 
     def private_key_file_exists(self) -> bool:
         '''
@@ -504,7 +491,10 @@ class Secret:
         :returns: bool
         '''
 
-        os.path.exists(self.private_key_file)
+        if self.storage_driver:
+            self.storage_driver.exists(self.private_key_file)
+        else:
+            os.path.exists(self.private_key_file)
 
     def load(self, with_private_key: bool = True, password: str = 'byoda'):
         '''
@@ -526,32 +516,37 @@ class Secret:
             )
 
         try:
-            with open(self.cert_file, 'r') as file_desc:
-                _LOGGER.debug('Loading cert from %s', self.cert_file)
-                cert_data = file_desc.read()
-
-                # The re.split results in one extra
-                certs = re.findall(
-                    r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
-                    cert_data, re.MULTILINE
-                )
-                if len(certs) == 0:
-                    raise ValueError(f'No cert found in {self.cert_file}')
-                elif len(certs) == 1:
-                    self.cert = x509.load_pem_x509_certificate(
-                        str.encode(certs[0])
-                    )
-                elif len(certs) > 1:
-                    self.cert = x509.load_pem_x509_certificate(
-                        str.encode(certs[-1])
-                    )
-                    self.cert_chain = [
-                        x509.load_pem_x509_certificate(str.encode(cert))
-                        for cert in certs[:-1]
-                    ]
+            _LOGGER.debug('Loading cert from %s', self.cert_file)
+            if self.storage_driver:
+                cert_data = self.storage_driver.read(self.cert_file)
+            else:
+                with open(self.cert_file, 'r') as file_desc:
+                    cert_data = file_desc.read()
         except FileNotFoundError:
             _LOGGER.exception(f'CA cert file not found: {self.cert_file}')
             raise
+
+        # The re.split results in one extra
+        certs = re.findall(
+            r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
+            cert_data, re.MULTILINE
+        )
+        if len(certs) == 0:
+            raise ValueError(f'No cert found in {self.cert_file}')
+        elif len(certs) == 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[0])
+            )
+        elif len(certs) > 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[-1])
+            )
+            self.cert_chain = [
+                x509.load_pem_x509_certificate(
+                    str.encode(cert)
+                )
+                for cert in certs[:-1]
+            ]
 
         try:
             extension = self.cert.extensions.get_extension_for_class(
@@ -567,14 +562,22 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                with open(self.private_key_file, 'rb') as file_desc:
-                    self.private_key = serialization.load_pem_private_key(
-                        file_desc.read(), password=str.encode(password)
+                if self.storage_driver:
+                    data = self.storage_driver.read(
+                        self.private_key_file, file_mode=FileMode.BINARY
                     )
+                else:
+                    with open(self.private_key_file, 'rb') as file_desc:
+                        data = file_desc.read()
+
+                self.private_key = serialization.load_pem_private_key(
+                    data, password=str.encode(password)
+                )
             except FileNotFoundError:
                 _LOGGER.exception(
                     f'CA private key file not found: {self.private_key_file}'
                 )
+                raise
 
     def from_string(self, csr: str) -> x509.CertificateSigningRequest:
         '''
@@ -599,22 +602,40 @@ class Secret:
         :raises: (none)
         '''
 
-        if os.path.exists(self.cert_file):
-            raise ValueError(
-                f'Can not save cert because the certificate '
-                f'already exists at {self.cert_file}'
-            )
+        if self.storage_driver:
+            if self.storage_driver.exists(self.cert_file):
+                raise ValueError(
+                    f'Can not save cert because the certificate '
+                    f'already exists at {self.cert_file}'
+                )
+            if self.storage_driver.exists(self.private_key_file):
+                raise ValueError(
+                    f'Can not save the private key because the key already '
+                    f'exists at {self.private_key_file}'
+                )
+        else:
+            if os.path.exists(self.cert_file):
+                raise ValueError(
+                    f'Can not save cert because the certificate '
+                    f'already exists at {self.cert_file}'
+                )
 
-        if os.path.exists(self.private_key_file):
-            raise ValueError(
-                f'Can not save the private key because the key already exists '
-                f'at {self.private_key_file}'
-            )
+            if os.path.exists(self.private_key_file):
+                raise ValueError(
+                    f'Can not save the private key because the key already '
+                    f'exists at {self.private_key_file}'
+                )
 
-        with open(self.cert_file, 'wb') as file_desc:
-            _LOGGER.debug('Saving cert to %s', self.cert_file)
-            data = self.certchain_as_bytes()
-            file_desc.write(data)
+        _LOGGER.debug('Saving cert to %s', self.cert_file)
+        data = self.certchain_as_bytes()
+
+        if self.storage_driver:
+            self.storage_driver.write(
+                self.cert_file, data, file_mode=FileMode.BINARY
+            )
+        else:
+            with open(self.cert_file, 'wb') as file_desc:
+                file_desc.write(data)
 
         if self.private_key:
             _LOGGER.debug('Saving private key to %s', self.private_key_file)
@@ -625,8 +646,14 @@ class Secret:
                     str.encode(password)
                 )
             )
-            with open(self.private_key_file, 'wb') as file_desc:
-                file_desc.write(private_key_pem)
+            if self.storage_driver:
+                self.storage_driver.write(
+                    self.private_key_file, private_key_pem,
+                    file_mode=FileMode.BINARY
+                )
+            else:
+                with open(self.private_key_file, 'wb') as file_desc:
+                    file_desc.write(private_key_pem)
 
     def certchain_as_bytes(self) -> bytes:
         '''

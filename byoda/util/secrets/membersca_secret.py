@@ -51,6 +51,7 @@ class MembersCaSecret(Secret):
             key_file=paths.get(
                 Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_alias=service
             ),
+            storage_driver=paths.storage_driver
         )
         self.ca = True
         self.id_type = IdType.MEMBERS_CA

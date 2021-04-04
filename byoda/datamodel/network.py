@@ -60,11 +60,7 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.network = application.get(
-            'network', os.environ.get(
-                'NETWORK', DEFAULT_NETWORK
-            )
-        )
+        self.network = application.get('network', DEFAULT_NETWORK)
 
         self.dnsdb = None
 
@@ -86,7 +82,7 @@ class Network:
 
         self.private_key_password = server['private_key_password']
 
-        self.paths = Paths(self.root_dir, network_name=application['network'])
+        self.paths = Paths(self.root_dir, network_name=self.network)
 
         # Everyone must at least have the root ca cert.
         self.root_ca = NetworkRootCaSecret(self.paths)
@@ -145,19 +141,19 @@ class Network:
             config.requests.cert = (self.service_secret.cert_file, filepath)
 
         # Loading secrets when operating as a pod
-        self.account = None
+        self.account_id = None
         self.account_secret = None
         self.data_secret = None
         self.member_secrets = set()
-        if ServerRole.Pod in roles:
-            self.account = server.account
-            self.paths.account = self.account
+        if ServerRole.Pod in self.roles:
+            self.account_id = server['account_id']
+            self.paths.account = self.account_id
             self.account_secret = AccountSecret(self.paths)
 
-            # We use the service secret as client TLS cert for outbound
+            # We use the account secret as client TLS cert for outbound
             # requests
-            filepath = self.service_secret.save_tmp_private_key()
-            config.requests.cert = (self.service_secret.cert_file, filepath)
+            filepath = self.account_secret.save_tmp_private_key()
+            config.requests.cert = (self.account_secret.cert_file, filepath)
 
             paths = self.paths
             for directory in os.listdir(paths.get(paths.ACCOUNT_DIR)):

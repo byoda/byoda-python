@@ -9,6 +9,7 @@ Python module for directory and file management a.o. for secrets
 import os
 import logging
 
+from byoda.storage.filestorage import FileStorage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,19 +55,20 @@ class Paths:
     MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service}/service-{service}-data-cert.pem'   # noqa
     MEMBER_DATA_KEY_FILE  = 'network-{network}/account-{account}/service-{service}/service-{service}-data.key'        # noqa
 
-    def __init__(self, root_directory=_ROOT_DIR, account_alias=None,
-                 network_name=None):
+    def __init__(self, root_directory: str = _ROOT_DIR,
+                 account_alias: str = None,
+                 network_name: str = None,
+                 storage_driver: FileStorage = None):
         '''
         Initiate instance with root_dir and account_alias members
         set
 
-        :param str root_directory : optional, the root directory under which
-                                    all other files and directories are
-                                    stored
-        :param str network_name   : optional, name of the network
-        :param str account_alias  : optional, alias for the account. If no
-                                    alias is specified then an UUID is
-                                    generated and used as alias
+        :param root_directory: optional, the root directory under which
+        all other files and directories are stored
+        :param network_name: optional, name of the network
+        :param account_alias: optional, alias for the account. If no alias is
+        specified then an UUID is generated and used as alias
+        :param storage_driver: instance of FileStorage for persistence of data
         :returns: (none)
         :raises: (none)
         '''
@@ -77,6 +79,10 @@ class Paths:
         self._network = network_name
         self.services = set()
         self.memberships = set()
+        if storage_driver:
+            self.storage_driver = storage_driver
+        else:
+            self.storage_driver = FileStorage(self._root_directory)
 
     def get(self, path_template, service_alias=None):
         '''

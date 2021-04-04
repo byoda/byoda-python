@@ -6,7 +6,7 @@
     "containerDefinitions": [
         {
             "name": "byoda-pod",
-            "image": "byoda/pod-python:0.0.2",
+            "image": "byoda/pod-python:0.0.5",
             "portMappings": [
                 {
                     "containerPort": 80,
@@ -20,6 +20,10 @@
                     "value": "byoda.net"
                 },
                 {
+                    "name": "CLOUD",
+                    "value": "AWS"
+                },
+                {
                     "name": "BUCKET_PREFIX",
                     "value": "byoda"
                 },
@@ -30,8 +34,15 @@
                 {
                     "name": "ACCOUNT_SECRET",
                     "value": "KYDVGirFhB4f0Gv"
+                },
+                {
+                    "name": "PRIVATE_KEY_SECRET",
+                    "value": "byoda"
+                },
+                {
+                    "name": "LOGLEVEL",
+                    "value": "DEBUG"
                 }
-
             ],
             "essential": true
         }

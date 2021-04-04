@@ -73,16 +73,20 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "dirserver.main:app",
+                "podserver.main:app",
                 "--host", "0.0.0.0",
                 "--port", "8001",
-                "--proxy-headers",
-                "--reload",
-                "--reload-delay", "5"
+                "--proxy-headers"
             ],
             "justMyCode": true,
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "CLOUD": "local",
+                "BUCKET_PREFIX": "/tmp/byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "9794044e-4024-48e0-b346-069dddd6764a",
+                "ACCOUNT_SECRET": "supersecret"
+
             }
         }
     ]
