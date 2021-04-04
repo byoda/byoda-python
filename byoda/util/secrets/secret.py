@@ -479,10 +479,7 @@ class Secret:
         :returns: bool
         '''
 
-        if self.storage_driver:
-            self.storage_driver.exists(self.cert_file)
-        else:
-            os.path.exists(self.cert_file)
+        self.storage_driver.exists(self.cert_file)
 
     def private_key_file_exists(self) -> bool:
         '''
@@ -491,10 +488,7 @@ class Secret:
         :returns: bool
         '''
 
-        if self.storage_driver:
-            self.storage_driver.exists(self.private_key_file)
-        else:
-            os.path.exists(self.private_key_file)
+        self.storage_driver.exists(self.private_key_file)
 
     def load(self, with_private_key: bool = True, password: str = 'byoda'):
         '''
@@ -517,11 +511,7 @@ class Secret:
 
         try:
             _LOGGER.debug('Loading cert from %s', self.cert_file)
-            if self.storage_driver:
-                cert_data = self.storage_driver.read(self.cert_file)
-            else:
-                with open(self.cert_file, 'r') as file_desc:
-                    cert_data = file_desc.read()
+            cert_data = self.storage_driver.read(self.cert_file)
         except FileNotFoundError:
             _LOGGER.exception(f'CA cert file not found: {self.cert_file}')
             raise
@@ -562,13 +552,9 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                if self.storage_driver:
-                    data = self.storage_driver.read(
-                        self.private_key_file, file_mode=FileMode.BINARY
-                    )
-                else:
-                    with open(self.private_key_file, 'rb') as file_desc:
-                        data = file_desc.read()
+                data = self.storage_driver.read(
+                    self.private_key_file, file_mode=FileMode.BINARY
+                )
 
                 self.private_key = serialization.load_pem_private_key(
                     data, password=str.encode(password)
@@ -602,40 +588,23 @@ class Secret:
         :raises: (none)
         '''
 
-        if self.storage_driver:
-            if self.storage_driver.exists(self.cert_file):
-                raise ValueError(
-                    f'Can not save cert because the certificate '
-                    f'already exists at {self.cert_file}'
-                )
-            if self.storage_driver.exists(self.private_key_file):
-                raise ValueError(
-                    f'Can not save the private key because the key already '
-                    f'exists at {self.private_key_file}'
-                )
-        else:
-            if os.path.exists(self.cert_file):
-                raise ValueError(
-                    f'Can not save cert because the certificate '
-                    f'already exists at {self.cert_file}'
-                )
-
-            if os.path.exists(self.private_key_file):
-                raise ValueError(
-                    f'Can not save the private key because the key already '
-                    f'exists at {self.private_key_file}'
-                )
+        if self.storage_driver.exists(self.cert_file):
+            raise ValueError(
+                f'Can not save cert because the certificate '
+                f'already exists at {self.cert_file}'
+            )
+        if self.storage_driver.exists(self.private_key_file):
+            raise ValueError(
+                f'Can not save the private key because the key already '
+                f'exists at {self.private_key_file}'
+            )
 
         _LOGGER.debug('Saving cert to %s', self.cert_file)
         data = self.certchain_as_bytes()
 
-        if self.storage_driver:
-            self.storage_driver.write(
-                self.cert_file, data, file_mode=FileMode.BINARY
-            )
-        else:
-            with open(self.cert_file, 'wb') as file_desc:
-                file_desc.write(data)
+        self.storage_driver.write(
+            self.cert_file, data, file_mode=FileMode.BINARY
+        )
 
         if self.private_key:
             _LOGGER.debug('Saving private key to %s', self.private_key_file)
@@ -646,14 +615,11 @@ class Secret:
                     str.encode(password)
                 )
             )
-            if self.storage_driver:
-                self.storage_driver.write(
-                    self.private_key_file, private_key_pem,
-                    file_mode=FileMode.BINARY
-                )
-            else:
-                with open(self.private_key_file, 'wb') as file_desc:
-                    file_desc.write(private_key_pem)
+
+            self.storage_driver.write(
+                self.private_key_file, private_key_pem,
+                file_mode=FileMode.BINARY
+            )
 
     def certchain_as_bytes(self) -> bytes:
         '''

@@ -33,6 +33,7 @@ class AccountSecret(Secret):
         super().__init__(
             cert_file=paths.get(Paths.ACCOUNT_CERT_FILE),
             key_file=paths.get(Paths.ACCOUNT_KEY_FILE),
+            storage_driver=paths.storage_driver
         )
 
         self.account_id = None
