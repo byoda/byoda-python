@@ -25,13 +25,13 @@ class AwsFileStorage(FileStorage):
     '''
 
     def __init__(self, bucket, cache_path=None):
-        self.driver = boto3.s3.resource('s3')
+        self.driver = boto3.client('s3')
 
         self.cache_path = cache_path
         if cache_path:
             super().__init__(cache_path)
 
-        self.bucket = self.driver.get_container(container_name=bucket)
+        self.bucket = bucket
 
     def read(self, filepath, file_mode=FileMode.TEXT):
         try:

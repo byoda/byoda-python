@@ -41,7 +41,7 @@ class NetworkAccountsCaSecret(Secret):
                 storage_driver=paths.storage_driver,
             ),
         else:
-            super().__init__(storage_driver=paths.storage_driver)
+            super().__init__()
             self.network = network
 
         self.ca = True

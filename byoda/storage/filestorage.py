@@ -32,16 +32,15 @@ class FileStorage:
     '''
     Class that abstracts storing data in object storage while
     keeping a local copy for fast reads.
-
-    The LOCAL storage type is for testing purposes only and
-    enables storing the data locally on the file system.
     '''
 
-    def __init__(self, cache_path):
-        if not cache_path:
-            self.cache_path = '/tmp/'
+    def __init__(self, local_path: str, bucket: str = None):
+        if not local_path:
+            self.local_path = '/tmp/'
         else:
-            self.cache_path = cache_path.rstrip('/') + '/'
+            self.local_path = local_path.rstrip('/') + '/'
+
+        self.bucket = bucket
 
     @staticmethod
     def get_storage(cloud: CloudType, bucket: str, root_dir=str):
@@ -64,7 +63,7 @@ class FileStorage:
         else:
             storage = FileStorage(root_dir)
 
-        storage = FileStorage(bucket, root_dir)
+        storage = FileStorage(root_dir)
 
         return storage
 

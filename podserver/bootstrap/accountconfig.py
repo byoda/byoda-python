@@ -8,10 +8,13 @@ Bootstrap the account for a pod
 
 import logging
 from uuid import UUID
+import requests
 
+from byoda.util.secrets import AccountSecret
 from byoda.datatypes import CloudType
 
-from byda.storage import FileStorage
+from byoda.storage.filestorage import FileStorage
+
 from .targetconfig import TargetConfig
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,10 +35,12 @@ class AccountConfig(TargetConfig):
 
         self.bucket_prefix = bucket_prefix
         self.object_storage = object_storage
-        self.bucket = self.storage.Bucket(self.bucket_prefix + '_private')
+        self.bucket = self.bucket_prefix + '_private'
 
         self.account_id = account_id
         self.account_key = account_key
+
+        self.network = network
 
     def exists(self):
         try:
@@ -47,5 +52,17 @@ class AccountConfig(TargetConfig):
                 file_desc.write('<HTML><BODY>bootstrap.env download failure')
                 file_desc.write(f'{exc}</BODY></HTML>')
 
-    def create(self):
+    def create(self, account_id, paths):
+        account_secret = AccountSecret(paths)
+        csr = account_secret.create_csr(account_id)
+        payload = {'csr': account_secret.csr_as_pem(csr)}
+        url = f'https://dir.{self.network}/api/v1/account'
+
+        resp = requests.post(url, json=payload)
+        s = resp.status_code
+        cert = resp.json
+        print(s, cert)
         pass
+
+
+

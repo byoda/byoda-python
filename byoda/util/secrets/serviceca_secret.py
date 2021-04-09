@@ -59,7 +59,7 @@ class ServiceCaSecret(Secret):
             )
         else:
             self.network = network
-            super().__init__(storage_driver=paths.storage_driver)
+            super().__init__()
 
         self.ca = True
         self.id_type = IdType.SERVICE_CA

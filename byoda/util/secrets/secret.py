@@ -220,13 +220,25 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
-        return x509.CertificateSigningRequestBuilder().subject_name(
+        csr = x509.CertificateSigningRequestBuilder().subject_name(
             self.get_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=None
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
+
+        return csr
+
+    def csr_as_pem(self, csr):
+        '''
+        Returns the BASE64 encoded byte string for the CSR
+
+        :returns: bytes with the PEM-encoded certificate
+        :raises: (none)
+        '''
+        return csr.public_bytes(serialization.Encoding.PEM)
+
 
     def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''

@@ -133,7 +133,8 @@ class Paths:
             path_template, service_alias=service_alias
         )
 
-        os.makedirs(directory, exist_ok=True)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
 
         return directory
 

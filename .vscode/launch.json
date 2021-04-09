@@ -58,13 +58,12 @@
                 "dirserver.main:app",
                 "--host", "0.0.0.0",
                 "--port", "8000",
-                "--proxy-headers",
-                "--reload",
-                "--reload-delay", "5"
+                "--proxy-headers"
             ],
             "justMyCode": true,
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws"
             }
         },
         {
@@ -78,15 +77,15 @@
                 "--port", "8001",
                 "--proxy-headers"
             ],
-            "justMyCode": true,
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
-                "CLOUD": "local",
-                "BUCKET_PREFIX": "/tmp/byoda",
+                "CLOUD": "AWS",
+                "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
                 "ACCOUNT_ID": "9794044e-4024-48e0-b346-069dddd6764a",
-                "ACCOUNT_SECRET": "supersecret"
-
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda"
             }
         }
     ]

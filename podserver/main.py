@@ -36,7 +36,7 @@ from byoda.datamodel import Network
 
 from byoda.datatypes import CloudType
 
-from byoda.storage import FileStorage
+from byoda.storage.filestorage import FileStorage
 
 from .bootstrap import AccountConfig
 
@@ -65,8 +65,8 @@ private_object_storage = FileStorage.get_storage(
 )
 
 paths = Paths(
-    root_dir=network['root_dir'], network_name=network['network'],
-    storage_driver=private_object_storage
+    root_directory=network['root_dir'], network_name=network['network'],
+    account_alias='pod', storage_driver=private_object_storage
 )
 
 paths.create_secrets_directory()
@@ -78,11 +78,8 @@ account = AccountConfig(
     network['private_key_password'], private_object_storage
 )
 
-account_secret = AccountSecret(paths)
-csr = account_secret.create_csr(account_id)     # noqa
-account_secret.save()
 if not account.exists():
-    account.create()
+    account.create(network['account_id'], paths)
 
 config.network = Network(network, network)
 
