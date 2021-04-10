@@ -56,13 +56,16 @@ class AccountConfig(TargetConfig):
         account_secret = AccountSecret(paths)
         csr = account_secret.create_csr(account_id)
         payload = {'csr': account_secret.csr_as_pem(csr)}
-        url = f'https://dir.{self.network}/api/v1/account'
+        url = f'https://dir.{self.network}/api/v1/network/account'
 
         resp = requests.post(url, json=payload)
-        s = resp.status_code
-        cert = resp.json
-        print(s, cert)
-        pass
+        if resp.status_code != requests.status_codes.ok:
+            raise RuntimeError('Certificate signing request failed')
+
+        cert_data = resp.json()
+        account_secret.from_string(
+            cert_data.cert, certchain=cert_data.certchain
+        )
 
 
 

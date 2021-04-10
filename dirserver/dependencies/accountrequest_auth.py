@@ -48,7 +48,7 @@ class AccountRequestAuth(RequestAuth):
             )
         except NoAuthInfo:
             # Authentication for GET /api/v1/network/account is optional
-            if request.method == 'GET':
+            if request.method in ('GET', 'POST'):
                 return
             else:
                 raise HTTPException(

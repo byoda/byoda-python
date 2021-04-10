@@ -70,7 +70,7 @@ class CertChain:
         :returns: the certchain as a bytes array
         '''
 
-        data = self.cert_chain_as_string() + self.cert_chain_as_string()
+        data = self.cert_chain_as_string() + self.cert_as_string()
         return data
 
     def as_dict(self) -> dict:
@@ -528,27 +528,7 @@ class Secret:
             _LOGGER.exception(f'CA cert file not found: {self.cert_file}')
             raise
 
-        # The re.split results in one extra
-        certs = re.findall(
-            r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
-            cert_data, re.MULTILINE
-        )
-        if len(certs) == 0:
-            raise ValueError(f'No cert found in {self.cert_file}')
-        elif len(certs) == 1:
-            self.cert = x509.load_pem_x509_certificate(
-                str.encode(certs[0])
-            )
-        elif len(certs) > 1:
-            self.cert = x509.load_pem_x509_certificate(
-                str.encode(certs[-1])
-            )
-            self.cert_chain = [
-                x509.load_pem_x509_certificate(
-                    str.encode(cert)
-                )
-                for cert in certs[:-1]
-            ]
+        self.from_string(cert_data)
 
         try:
             extension = self.cert.extensions.get_extension_for_class(
@@ -577,7 +557,50 @@ class Secret:
                 )
                 raise
 
-    def from_string(self, csr: str) -> x509.CertificateSigningRequest:
+    def from_string(self, cert: str, certchain: str = None):
+        '''
+        Loads an X.509 cert and certchain from a string. If the cert has an
+        certchain then the certchain can either be included at the beginning
+        of the cert_data or can be provided as a separate parameter
+
+        :param cert: the base64-encoded cert
+        :param certchain: the
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        if isinstance(cert, bytes):
+            cert = cert.decode('utf-8')
+
+        if certchain:
+            if isinstance(certchain, bytes):
+                certchain = certchain.encode('utf-8')
+            cert = certchain + cert
+
+        # The re.split results in one extra
+        certs = re.findall(
+            r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
+            cert, re.MULTILINE
+        )
+
+        if len(certs) == 0:
+            raise ValueError(f'No cert found in {self.cert_file}')
+        elif len(certs) == 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[0])
+            )
+        elif len(certs) > 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[-1])
+            )
+            self.cert_chain = [
+                x509.load_pem_x509_certificate(
+                    str.encode(cert_data)
+                )
+                for cert_data in certs[:-1]
+            ]
+
+    def csr_from_string(self, csr: str) -> x509.CertificateSigningRequest:
         '''
         Converts a string to a X.509 CSR
 
