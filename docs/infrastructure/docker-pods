@@ -1,3 +1,19 @@
 docker build .
-docker image tag 392a24dbb786 byoda/byoda-pod:392a24dbb786
-docker push byoda/byoda-pod:392a24dbb786
+
+export IMAGE_ID=ac58e9b1c1e4
+
+docker image tag 392a24dbb786 byoda/byoda-pod:${IMAGE_ID}
+docker push byoda/byoda-pod:${IMAGE_ID}
+
+
+docker run \
+    -e "PYTHONPATH=/home/steven/src/byoda-python" \
+    -e "CLOUD=AWS" \
+    -e "BUCKET_PREFIX=byoda" \
+    -e "NETWORK=byoda.net" \
+    -e "ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a" \
+    -e "ACCOUNT_SECRET=supersecret" \
+    -e "LOGLEVEL=DEBUG" \
+    -e "PRIVATE_KEY_SECRET=byoda" \
+    -p 80:80 \
+    byoda/byoda-pod:${IMAGE_ID}

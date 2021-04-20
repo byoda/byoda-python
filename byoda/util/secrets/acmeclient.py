@@ -20,7 +20,7 @@ import pyrfc3339
 import requests
 
 from cryptography import x509
-from authlib.jose import JsonWebKey, JsonWebSignature
+# from authlib.jose import JsonWebKey, JsonWebSignature
 
 _LOGGER = logging.getLogger(__name__)
 
