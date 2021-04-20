@@ -239,7 +239,6 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM)
 
-
     def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
         Signs a previously created Certificate Signature Request (CSR)
@@ -291,9 +290,9 @@ class Secret:
             [rdns.rfc4514_string() for rdns in csr.subject.rdns]
         )
 
-        commonname = self.review_distinguishedname(distinguished_name)
+        common_name = self.review_distinguishedname(distinguished_name)
 
-        return commonname
+        return common_name
 
     def review_distinguishedname(self, name: str) -> str:
         '''
@@ -538,6 +537,13 @@ class Secret:
         except x509.ExtensionNotFound:
             self.ca = False
 
+        # We start parsing the Subject of the CSR, which
+        # consists of a list of 'Relative' Distinguished Names
+        distinguished_name = ','.join(
+            [rdns.rfc4514_string() for rdns in self.cert.subject.rdns]
+        )
+        self.common_name = self.review_distinguishedname(distinguished_name)
+
         self.private_key = None
         if with_private_key:
             try:
@@ -635,7 +641,7 @@ class Secret:
             )
 
         _LOGGER.debug('Saving cert to %s', self.cert_file)
-        data = self.certchain_as_bytes()
+        data = self.certchain_as_pem()
 
         self.storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
@@ -656,7 +662,7 @@ class Secret:
                 file_mode=FileMode.BINARY
             )
 
-    def certchain_as_bytes(self) -> bytes:
+    def certchain_as_pem(self) -> bytes:
         '''
         :returns: the certchain as a bytes array
         '''
@@ -671,7 +677,6 @@ class Secret:
             )
             data += str.encode(cert_info)
             data += cert.public_bytes(serialization.Encoding.PEM)
-            data += str.encode('\n')
 
         return data
 
@@ -688,15 +693,23 @@ class Secret:
         # to the requests.Session()
         filepath = '/tmp/private.key'
         _LOGGER.debug('Saving private key to %s', filepath)
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=None
-        )
+        private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:
             file_desc.write(private_key_pem)
 
         return filepath
+
+    def private_key_as_pem(self) -> bytes:
+        '''
+        Returns the private key in PEM format
+        '''
+
+        private_key_pem = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        return private_key_pem
 
     def cert_as_pem(self):
         '''

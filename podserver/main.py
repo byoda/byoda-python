@@ -29,16 +29,17 @@ from prometheus_fastapi_instrumentator import Instrumentator \
 from byoda import config
 from byoda.util import Paths
 from byoda.util.logger import Logger
-from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import AccountSecret, TlsSecret
 
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
 
-from byoda.datatypes import CloudType
+from byoda.datatypes import CloudType, CertStatus
 
 from byoda.storage.filestorage import FileStorage
 
 from .bootstrap import AccountConfig
+# from .bootstrap import LetsEncryptConfig
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -64,6 +65,7 @@ private_object_storage = FileStorage.get_storage(
     network['root_dir']
 )
 
+# Paths class defines where all the BYODA certs/keys are stored
 paths = Paths(
     root_directory=network['root_dir'], network_name=network['network'],
     account_alias='pod', storage_driver=private_object_storage
@@ -72,14 +74,26 @@ paths = Paths(
 paths.create_secrets_directory()
 paths.create_account_directory()
 
+# Desired configuration for the BYODA account
 account = AccountConfig(
     network['cloud'], network['bucket_prefix'], network['network'],
     network['account_id'], network['account_secret'],
-    network['private_key_password'], private_object_storage
+    network['private_key_password'], paths
 )
 
 if not account.exists():
-    account.create(network['account_id'], paths)
+    account.create()
+
+account_secret = AccountSecret(paths)
+account_secret.load(password=network['private_key_password'])
+
+# TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
+# web interface
+# tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)
+# letsencrypt = LetsEncryptConfig(tls_secret)
+# cert_status = letsencrypt.exists()
+# if cert_status != CertStatus.OK:
+#     letsencrypt.create()
 
 config.network = Network(network, network)
 
@@ -94,16 +108,18 @@ middleware = [
 ]
 
 trace.set_tracer_provider(TracerProvider())
-jaeger_exporter = jaeger.JaegerSpanExporter(
-    service_name='podserver',
-    agent_host_name=config.app_config['application'].get(
-        'jaeger_host', '127.0.0.1'
-    ),
-    agent_port=6831,
-)
-trace.get_tracer_provider().add_span_processor(
-    BatchExportSpanProcessor(jaeger_exporter)
-)
+if config.app_config:
+    jaeger_exporter = jaeger.JaegerSpanExporter(
+        service_name='podserver',
+        agent_host_name=config.app_config['application'].get(
+            'jaeger_host', '127.0.0.1'
+        ),
+        agent_port=6831,
+    )
+
+    trace.get_tracer_provider().add_span_processor(
+        BatchExportSpanProcessor(jaeger_exporter)
+    )
 
 app = FastAPI(
     title='BYODA pod server',

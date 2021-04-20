@@ -28,6 +28,10 @@ class Paths:
     SECRETS_DIR          = 'private/'                # noqa
     NETWORK_DIR          = 'network-{network}'       # noqa
     NETWORK_FILE         = 'network-{network}.json'  # noqa
+
+    TLS_CERT_FILE        = 'tls-certchain.pem'       # noqa
+    TLS_KEY_FILE         = 'private/tls.key'         # noqa
+
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                     # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                    # noqa
     NETWORK_ACCOUNTS_CA_CERT_FILE = 'network-{network}/network-{network}-accounts-ca-cert.pem'                 # noqa

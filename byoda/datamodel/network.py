@@ -147,16 +147,16 @@ class Network:
         self.member_secrets = set()
         if ServerRole.Pod in self.roles:
             self.account_id = server['account_id']
-            self.paths.account = self.account_id
+            self.paths.account = 'pod'
             self.account_secret = AccountSecret(self.paths)
-
+            self.account_secret.load(password=self.private_key_password)
             # We use the account secret as client TLS cert for outbound
             # requests
             filepath = self.account_secret.save_tmp_private_key()
             config.requests.cert = (self.account_secret.cert_file, filepath)
 
             paths = self.paths
-            for directory in os.listdir(paths.get(paths.ACCOUNT_DIR)):
+            for directory in os.listdir(paths.get(self.paths.ACCOUNT_DIR)):
                 if not directory.startswith('service-'):
                     continue
                 service = directory[8:]

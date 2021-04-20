@@ -6,4 +6,5 @@ Module for bootstrappign the pod
 :license    : GPLv3
 '''
 
-from .accountconfig import AccountConfig         # noqa: F401
+from .accountconfig import AccountConfig            # noqa: F401
+from .letsencrypconfig import LetsEncryptConfig     # noqa: F401

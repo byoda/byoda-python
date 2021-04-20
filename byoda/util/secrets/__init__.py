@@ -19,4 +19,9 @@ from .service_secret import ServiceSecret                      # noqa: F401
 
 from .account_secret import AccountSecret                      # noqa: F401
 from .member_secret import MemberSecret                        # noqa: F401
+
 from .data_secret import DataSecret                            # noqa: F401
+
+from .tls_secret import TlsSecret                              # noqa: F401
+
+# from .acmeclient import ACMEClient                             # noqa: F401

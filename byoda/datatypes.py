@@ -28,6 +28,7 @@ class IdType(Enum):
     SERVICES_CA          = 'services-ca'    # noqa=E221
     SERVICE_CA           = 'service-ca-'    # noqa=E221
     MEMBERS_CA           = 'members-ca-'    # noqa=E221
+    TLS                  = 'tls'            # noqa=E221
 
 
 EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
@@ -56,3 +57,10 @@ class CertLevel(Enum):
     ROOT           = 'root'               # noqa: E221
     INTERMEDIATE   = 'intermediate'       # noqa: E221
     LEAF           = 'leaf'               # noqa: E221
+
+
+class CertStatus(Enum):
+    NOTFOUND        = 'notfound'          # noqa: E221
+    OK              = 'ok'                # noqa: E221
+    RENEW           = 'renew'             # noqa: E221
+    EXPIRED         = 'expired'           # noqa: E221

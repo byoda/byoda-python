@@ -37,6 +37,12 @@ certvalidator==0.11.1
 # https://pypi.org/project/cryptography/
 cryptography==3.3.1
 
+# https://authlib.org/
+# Authlib==0.15.3
+josepy==1.2.0
+pyrfc3339==1.1
+
+# https://requests.readthedocs.io
 requests==2.25.1
 
 # pip3 install --pre
