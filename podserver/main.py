@@ -56,8 +56,12 @@ network = {
     'roles': ['pod'],
 }
 
+debug = False
+if network['loglevel'] == 'DEBUG':
+    debug = True
+
 _LOGGER = Logger.getLogger(
-    sys.argv[0], loglevel=network['loglevel'], logfile=LOG_FILE
+    sys.argv[0], debug=Ddebug, loglevel=network['loglevel'], logfile=LOG_FILE
 )
 
 private_object_storage = FileStorage.get_storage(

@@ -1,10 +1,8 @@
 docker build .
 
-export IMAGE_ID=ac58e9b1c1e4
+export IMAGE_ID=8388aa0d4145
 
-docker image tag 392a24dbb786 byoda/byoda-pod:${IMAGE_ID}
-docker push byoda/byoda-pod:${IMAGE_ID}
-
+docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 docker run \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
@@ -17,3 +15,5 @@ docker run \
     -e "PRIVATE_KEY_SECRET=byoda" \
     -p 80:80 \
     byoda/byoda-pod:${IMAGE_ID}
+
+docker push byoda/byoda-pod:${IMAGE_ID}
