@@ -14,7 +14,7 @@ from byoda.util import Paths
 from byoda.datatypes import IdType
 
 from . import Secret
-from .acmeclient import ACMEClient
+# from .acmeclient import ACMEClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,4 +60,4 @@ class TlsSecret(Secret):
         :returns: (none)
         '''
 
-        acme = ACMEClient(self, csr)
+        # acme = ACMEClient(self, csr)

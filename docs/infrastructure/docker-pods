@@ -1,0 +1,3 @@
+docker build .
+docker image tag 392a24dbb786 byoda/byoda-pod:392a24dbb786
+docker push byoda/byoda-pod:392a24dbb786
