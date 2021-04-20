@@ -1,6 +1,6 @@
 docker build .
 
-export IMAGE_ID=8388aa0d4145
+export IMAGE_ID=<image_id_as_reported_by_docker_build>
 
 docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
