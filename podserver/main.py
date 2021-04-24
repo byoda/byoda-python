@@ -8,7 +8,6 @@ POD server for Bring Your Own Data and Algorithms
 
 import os
 import sys
-import shutil
 
 import uvicorn
 
@@ -31,16 +30,15 @@ from prometheus_fastapi_instrumentator import Instrumentator \
 from byoda import config
 from byoda.util import Paths
 from byoda.util.logger import Logger
-from byoda.util.secrets import AccountSecret, TlsSecret
+from byoda.util.secrets import AccountSecret
 
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
 
-from byoda.datatypes import CloudType, CertStatus
+from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
 
-from .bootstrap import AccountConfig
 # from .bootstrap import LetsEncryptConfig
 
 _LOGGER = None
@@ -78,26 +76,9 @@ paths = Paths(
     account_alias='pod', storage_driver=private_object_storage
 )
 
-paths.create_secrets_directory()
-paths.create_account_directory()
-# TODO, needs an API on the directory server
-shutil.copy(
-    '/podserver/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
-    paths.network_directory()
-)
-
-# Desired configuration for the BYODA account
-account = AccountConfig(
-    network['cloud'], network['bucket_prefix'], network['network'],
-    network['account_id'], network['account_secret'],
-    network['private_key_password'], paths
-)
-
-if not account.exists():
-    account.create()
-
 account_secret = AccountSecret(paths)
 account_secret.load(password=network['private_key_password'])
+
 # TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
 # web interface
 # tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)
