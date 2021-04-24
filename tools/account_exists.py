@@ -21,7 +21,7 @@ from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.bootstrap import AccountConfig
+from podserver.bootstrap import AccountConfig
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'

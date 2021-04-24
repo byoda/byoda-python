@@ -1,8 +1,9 @@
 docker build .
 
 export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
-
+echo $IMAGE_ID
 docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
+
 
 docker run \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
@@ -17,3 +18,10 @@ docker run \
     byoda/byoda-pod:${IMAGE_ID}
 
 docker push byoda/byoda-pod:${IMAGE_ID}
+
+# docker image prune
+# docker container prune
+
+# https://us-west-1.console.aws.amazon.com/ecs/home?region=us-west-1#/clusters/byoda-cluster/services/podserver-service/deployments
+create new service revision
+update service to new revision
