@@ -490,7 +490,7 @@ class Secret:
         :returns: bool
         '''
 
-        self.storage_driver.exists(self.cert_file)
+        return self.storage_driver.exists(self.cert_file)
 
     def private_key_file_exists(self) -> bool:
         '''

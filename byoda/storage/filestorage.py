@@ -85,8 +85,11 @@ class FileStorage:
             file_desc.write(data)
 
     def exists(self, filepath):
-        return os.path.exists(filepath)
-
+        exists = os.path.exists(filepath)
+        if not exists:
+            _LOGGER.debug('File not found: %s', filepath)
+        return exists
+        
     def getmtime(self, filepath):
         return os.stat.getmtime(filepath)
 

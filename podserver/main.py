@@ -8,6 +8,8 @@ POD server for Bring Your Own Data and Algorithms
 
 import os
 import sys
+import shutil
+
 import uvicorn
 
 from starlette.middleware import Middleware
@@ -78,6 +80,11 @@ paths = Paths(
 
 paths.create_secrets_directory()
 paths.create_account_directory()
+# TODO, needs an API on the directory server
+shutil.copy(
+    '/byoda/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
+    paths.network_directory()
+)
 
 # Desired configuration for the BYODA account
 account = AccountConfig(
@@ -91,7 +98,6 @@ if not account.exists():
 
 account_secret = AccountSecret(paths)
 account_secret.load(password=network['private_key_password'])
-
 # TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
 # web interface
 # tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)

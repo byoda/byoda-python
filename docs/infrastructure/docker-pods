@@ -1,12 +1,12 @@
 docker build .
 
-export IMAGE_ID=<image_id_as_reported_by_docker_build>
+export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
 
 docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 docker run \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
-    -e "CLOUD=AWS" \
+    -e "CLOUD=LOCAL" \
     -e "BUCKET_PREFIX=byoda" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a" \

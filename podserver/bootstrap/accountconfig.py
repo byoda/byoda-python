@@ -46,9 +46,7 @@ class AccountConfig(TargetConfig):
     def exists(self):
         account_secret = AccountSecret(self.paths)
         try:
-
-            account_secret.cert_file_exists()
-            return True
+            return account_secret.cert_file_exists()
             # self.bucket.download_file(
             #     'bootstrap.env', '/var/www/wwwroot/bootstrap.env'
             # )
