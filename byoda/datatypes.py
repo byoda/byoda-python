@@ -35,9 +35,16 @@ EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
 
 
 class CloudType(Enum):
+    '''
+    At this time only AWS is supported for data persistence
+    Use 'LOCAL' when running the pod on your developer
+    workstation for testing purposes. All data will be lost
+    when you delete the local pod.
+    '''
     AWS                  = 'AWS'            # noqa=E221
     GCP                  = 'GCP'            # noqa=E221
     AZURE                = 'Azure'          # noqa=E221
+    LOCAL                = 'LOCAL'          # noqa=E221
 
 
 class CsrSource(Enum):
