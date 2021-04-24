@@ -82,7 +82,7 @@ paths.create_secrets_directory()
 paths.create_account_directory()
 # TODO, needs an API on the directory server
 shutil.copy(
-    '/byoda/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
+    '/podserver/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
     paths.network_directory()
 )
 

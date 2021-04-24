@@ -60,7 +60,7 @@ class AccountConfig(TargetConfig):
     def create(self):
         account_secret = AccountSecret(self.paths)
         csr = account_secret.create_csr(self.account_id)
-        payload = {'csr': account_secret.csr_as_pem(csr)}
+        payload = {'csr': account_secret.csr_as_pem(csr).decode('utf-8')}
         url = f'https://dir.{self.network}/api/v1/network/account'
 
         resp = requests.post(url, json=payload)
