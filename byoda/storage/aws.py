@@ -69,7 +69,7 @@ class AwsFileStorage(FileStorage):
             pass
 
         key = self._get_key(filepath)
-        file_desc = super().open(key, OpenMode.READ, file_mode)
+        file_desc = super().open(filepath, OpenMode.READ, file_mode)
 
         self.driver.meta.download_fileobj(self.bucket, key, file_desc)
         _LOGGER.debug('Read %s from AWS S3', key)

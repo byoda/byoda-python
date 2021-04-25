@@ -1,3 +1,9 @@
+### Build the byoda-pod image
+
+Note that to build on an Ubuntu server an image containing Ubuntu Hirsute
+requires a newer version of the docker.io (>=20.10.2) and runc (>=1.0.0~rc93)
+packages
+```
 docker build .
 
 export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
@@ -6,22 +12,27 @@ docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 
 docker run \
+    --name byoda
+    -p 80:80 \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
-    -e "CLOUD=LOCAL" \
+    -e "CLOUD=AWS" \
     -e "BUCKET_PREFIX=byoda" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a" \
     -e "ACCOUNT_SECRET=supersecret" \
     -e "LOGLEVEL=DEBUG" \
     -e "PRIVATE_KEY_SECRET=byoda" \
-    -p 80:80 \
     byoda/byoda-pod:${IMAGE_ID}
 
 docker push byoda/byoda-pod:${IMAGE_ID}
+```
 
-# docker image prune
-# docker container prune
-
+### Update the ECS service definition
 # https://us-west-1.console.aws.amazon.com/ecs/home?region=us-west-1#/clusters/byoda-cluster/services/podserver-service/deployments
 create new service revision
 update service to new revision
+
+### Docker tips and tricks
+# docker image prune
+# docker container prune
+

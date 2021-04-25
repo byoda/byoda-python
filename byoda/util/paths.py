@@ -19,7 +19,7 @@ class Paths:
     Filesystem path management. Provides a uniform interface
     to the location of various files
     '''
-    # Directory prepended to paths
+    # Default value for the pirectory prepended to paths
     _ROOT_DIR = os.environ['HOME'] + '/.byoda/'
 
     # Templates for location of directories and files
