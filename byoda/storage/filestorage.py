@@ -10,6 +10,7 @@ The profile server uses noSQL storage for profile data
 '''
 
 import os
+import shutil
 import logging
 from enum import Enum
 
@@ -64,35 +65,99 @@ class FileStorage:
         else:
             storage = FileStorage(root_dir)
 
-        storage = FileStorage(root_dir)
-
         return storage
 
-    def open(self, filepath, open_mode=OpenMode.READ, file_mode=FileMode.TEXT):
+    def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,
+             file_mode: FileMode = FileMode.TEXT):
+        '''
+        Open a file on the local file system
+        '''
+        _LOGGER.debug('Opening local file %s', filepath)
         return open(filepath, f'{open_mode.value}{file_mode.value}')
 
-    def read(self, filepath, file_mode=FileMode.TEXT):
+    def read(self, filepath: str, file_mode: FileMode = FileMode.TEXT) -> str:
+        '''
+        Read a file
+
+        :param filepath: location of the file on the file system
+        :param file_mode: read file as text or as binary
+        :returns: str or bytes, depending on the file_mode parameter
+        '''
+        _LOGGER.debug('Reading local file %s', filepath)
         with open(filepath, f'r{file_mode.value}') as file_desc:
             data = file_desc.read()
 
         return data
 
-    def write(self, filepath, data, file_mode=FileMode.TEXT):
+    def write(self, filepath: str, data: str,
+              file_mode: FileMode = FileMode.TEXT) -> None:
+        '''
+        Writes a str or bytes to the local file system
+
+        :param filepath: location of the file on the file system
+        :param file_mode: read file as text or as binary
+        '''
         with open(filepath, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
-    def append(self, filepath, data, file_mode=FileMode.TEXT):
+    def append(self, filepath: str, data: str,
+               file_mode: FileMode = FileMode.TEXT):
+        '''
+        Append data to a file
+
+        :param filepath: location of the file on the file system
+        :param data: array of data to write to the file
+        :param file_mode: read file as text or as binary
+        '''
         with open(filepath, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
-    def exists(self, filepath):
+    def exists(self, filepath: str) -> bool:
+        '''
+        Check if the file exists in the local file system
+
+        :param filepath: location of the file on the file system
+        :returns: whether the file exists or not
+        '''
         exists = os.path.exists(filepath)
         if not exists:
-            _LOGGER.debug('File not found: %s', filepath)
+            _LOGGER.debug('File not found in local filesystem: %s', filepath)
         return exists
 
-    def getmtime(self, filepath):
+    def create_directory(self, directory: str, exists_ok: bool = True) -> None:
+        '''
+        Creates a directory on the local file system, including any
+        intermediate directories if they don't exist already
+
+        :param filepath: location of the file on the file system
+        :param exists_ok: bool on whether to ignore if the directory already
+        exists
+        '''
+
+        return os.makedirs(directory, exist_ok=True)
+
+    def getmtime(self, filepath: str) -> float:
+        '''
+        Returns the last modified time of a file on the local file system
+
+        :param filepath: location of the file on the file system
+        :returns: the number of seconds since epoch that the file was modified
+        '''
         return os.stat.getmtime(filepath)
 
-    def delete(self, filepath):
-        raise os.remove(filepath)
+    def delete(self, filepath: str) -> None:
+        return os.remove(filepath)
+
+    def copy(self, source: str, dest: str) -> str:
+        '''
+        Copies a file on the local file system
+
+        :returns: path to the destination file
+        '''
+        result = shutil.copy(source, dest)
+
+        _LOGGER.debug(
+            'Copied %s to %s on the local file system', source, result
+        )
+
+        return result

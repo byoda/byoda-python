@@ -87,6 +87,22 @@
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
             }
+        },
+        {
+            "name": "account_exists",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/account_exists.py",
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "CLOUD": "AWS",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "9794044e-4024-48e0-b346-069dddd6764a",
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda"
+            }
         }
     ]
 }

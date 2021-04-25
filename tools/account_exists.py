@@ -12,7 +12,6 @@ sure the desired state is in place:
 
 import os
 import sys
-import shutil
 
 from byoda.util import Paths
 from byoda.util.logger import Logger
@@ -44,11 +43,11 @@ if network['loglevel'] == 'DEBUG':
 
 _LOGGER = Logger.getLogger(
     sys.argv[0], json_out=False, debug=debug, loglevel=network['loglevel'],
-    logfile=None
+    logfile=LOG_FILE
 )
 
 private_object_storage = FileStorage.get_storage(
-    network['cloud'], network['bucket_prefix'] + '_private',
+    network['cloud'], network['bucket_prefix'] + '-private',
     network['root_dir']
 )
 
@@ -62,9 +61,9 @@ paths.create_secrets_directory()
 paths.create_account_directory()
 
 # TODO, needs an API on the directory server
-shutil.copy(
+private_object_storage.copy(
     '/podserver/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
-    paths.network_directory()
+    paths.network_directory() + '/network-byoda.net-root-ca-cert.pem'
 )
 
 # Desired configuration for the BYODA account

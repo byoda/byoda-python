@@ -88,14 +88,14 @@ class Paths:
         else:
             self.storage_driver = FileStorage(self._root_directory)
 
-    def get(self, path_template, service_alias=None):
+    def get(self, path_template: str, service_alias: str = None):
         '''
         Gets the file/path for the specified path_type
 
-        :param str path_template : string to be formatted
-        :returns: string with the full path to the directory
+        :param path_template: string to be formatted
+        :returns: full path to the directory
         :raises: KeyError if path_type is for a service
-                                   and the service parameter is not specified
+        and the service parameter is not specified
         '''
 
         if '{network}' in path_template and not self._network:
@@ -115,30 +115,40 @@ class Paths:
 
         return path
 
-    def _exists(self, path_template, service_alias=None, member_alias=None):
-        return os.path.exists(
+    def _exists(self, path_template: str, service_alias: str = None,
+                member_alias: str = None):
+        '''
+        Checks if a path exists
+
+        :param path_template: string to be formatted
+        :returns: whether the path exists
+        :raises: KeyError if path_type is for a service and the service
+        parameter is not specified
+        '''
+
+        return self.storage_driver.exists(
             self.get(path_template, service_alias=service_alias)
         )
 
-    def _create_directory(self, path_template, service_alias=None):
+    def _create_directory(self, path_template: str, service_alias: str = None):
         '''
         Ensures a directory exists. If it does not already exit
         then the directory will be created
 
-        :param str path_template : string to be formatted
-        :param str service       : string with the service to create the
-                                   directory for
+        :param path_template: string to be formatted
+        :param service_alias: string with the service to create the directory
+        for
         :returns: string with the full path to the directory
         :raises: ValueError if PathType.SERVICES_FILE or PathType.CONFIG_FILE
-                 is specified
+        is specified
         '''
 
         directory = self.get(
             path_template, service_alias=service_alias
         )
 
-        if not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
+        if not self.storage_driver.exists(directory):
+            self.storage_driver.create_directory(directory)
 
         return directory
 
