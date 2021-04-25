@@ -69,13 +69,12 @@ class AwsFileStorage(FileStorage):
             pass
 
         key = self._get_key(filepath)
-        file_desc = super().open(filepath, OpenMode.READ, file_mode)
+        file_desc = super().open(filepath, OpenMode.WRITE, file_mode)
 
         self.driver.meta.download_fileobj(self.bucket, key, file_desc)
-        _LOGGER.debug('Read %s from AWS S3', key)
+        _LOGGER.debug('Read %s from AWS S3 and saved it to %s', key, filepath)
 
-        data = super().write(filepath, data, file_mode)
-        _LOGGER.debug('Saved copy of %s to cache', filepath)
+        data = super().read(filepath, data, file_mode)
 
         return data
 
