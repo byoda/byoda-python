@@ -11,7 +11,7 @@ echo $IMAGE_ID
 docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 
-docker run \
+docker stop byoda; docker rm byoda; docker run \
     --name byoda \
     -p 80:80 \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
@@ -36,3 +36,10 @@ update service to new revision
 # docker image prune
 # docker container prune
 
+export CLOUD=AWS
+export BUCKET_PREFIX=byoda
+export NETWORK=byoda.net
+export ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a
+export ACCOUNT_SECRET=supersecret
+export LOGLEVEL=DEBUG
+export PRIVATE_KEY_SECRET=byoda

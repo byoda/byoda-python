@@ -524,7 +524,7 @@ class Secret:
             _LOGGER.debug('Loading cert from %s', self.cert_file)
             cert_data = self.storage_driver.read(self.cert_file)
         except FileNotFoundError:
-            _LOGGER.exception(f'CA cert file not found: {self.cert_file}')
+            _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise
 
         self.from_string(cert_data)

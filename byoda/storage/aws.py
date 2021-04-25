@@ -69,12 +69,17 @@ class AwsFileStorage(FileStorage):
             pass
 
         key = self._get_key(filepath)
-        file_desc = super().open(filepath, OpenMode.WRITE, file_mode)
+        file_desc = super().open(
+            filepath, OpenMode.WRITE, file_mode=FileMode.BINARY
+        )
 
-        self.driver.meta.download_fileobj(self.bucket, key, file_desc)
+        self.driver.download_fileobj(self.bucket, key, file_desc)
+
+        super().close(file_desc)
+
         _LOGGER.debug('Read %s from AWS S3 and saved it to %s', key, filepath)
 
-        data = super().read(filepath, data, file_mode)
+        data = super().read(filepath, file_mode)
 
         return data
 
@@ -112,7 +117,7 @@ class AwsFileStorage(FileStorage):
             except boto3.exceptions.botocore.exceptions.ClientError:
                 return False
 
-    def create_directory(self, directory: str, exists_ok: bool = True) -> bool:
+    def create_directory(self, directory: str, exist_ok: bool = True) -> bool:
         '''
         Directories do not exist on S3 storage but this function makes sure
         the directory exists in the local cache
@@ -121,7 +126,7 @@ class AwsFileStorage(FileStorage):
         :returns: whether the file exists or not
         '''
 
-        return super().create_directory(directory, exists_ok=exists_ok)
+        return super().create_directory(directory, exist_ok=exist_ok)
 
     def copy(self, source: str, dest: str,
              file_mode: FileMode = FileMode.TEXT) -> None:

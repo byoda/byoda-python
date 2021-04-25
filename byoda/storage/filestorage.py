@@ -72,9 +72,22 @@ class FileStorage:
         '''
         Open a file on the local file system
         '''
+
+        # First we need to make sure the path in the local file system
+        # exists
+        path, filename = os.path.split(filepath)
+        self.create_directory(path, exist_ok=True)
+
         _LOGGER.debug('Opening local file %s', filepath)
         return open(filepath, f'{open_mode.value}{file_mode.value}')
 
+    def close(self, file_descriptor):
+        '''
+        Closes a file descriptor as returned by self.open()
+        '''
+
+        file_descriptor.close()
+        
     def read(self, filepath: str, file_mode: FileMode = FileMode.TEXT) -> str:
         '''
         Read a file
@@ -124,13 +137,13 @@ class FileStorage:
             _LOGGER.debug('File not found in local filesystem: %s', filepath)
         return exists
 
-    def create_directory(self, directory: str, exists_ok: bool = True) -> None:
+    def create_directory(self, directory: str, exist_ok: bool = True) -> None:
         '''
         Creates a directory on the local file system, including any
         intermediate directories if they don't exist already
 
         :param filepath: location of the file on the file system
-        :param exists_ok: bool on whether to ignore if the directory already
+        :param exist_ok: bool on whether to ignore if the directory already
         exists
         '''
 
