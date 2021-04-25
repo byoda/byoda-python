@@ -12,7 +12,7 @@ docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 
 docker run \
-    --name byoda
+    --name byoda \
     -p 80:80 \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
     -e "CLOUD=AWS" \
