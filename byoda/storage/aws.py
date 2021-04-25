@@ -27,12 +27,12 @@ class AwsFileStorage(FileStorage):
     def __init__(self, bucket, cache_path=None):
         self.driver = boto3.client('s3')
 
-        _LOGGER.debug('Initialized boto S3 client')
         self.cache_path = cache_path
         if cache_path:
             super().__init__(cache_path)
 
         self.bucket = bucket
+        _LOGGER.debug('Initialized boto S3 client for bucket %s', self.bucket)
 
     def read(self, filepath, file_mode=FileMode.TEXT):
         try:

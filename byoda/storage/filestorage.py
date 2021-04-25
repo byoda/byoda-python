@@ -40,6 +40,7 @@ class FileStorage:
         else:
             self.local_path = local_path.rstrip('/') + '/'
 
+        _LOGGER.debug('Initialized file storage under %s', self.local_path)
         self.bucket = bucket
 
     @staticmethod
@@ -89,7 +90,7 @@ class FileStorage:
         if not exists:
             _LOGGER.debug('File not found: %s', filepath)
         return exists
-        
+
     def getmtime(self, filepath):
         return os.stat.getmtime(filepath)
 
