@@ -66,7 +66,7 @@ _LOGGER = Logger.getLogger(
 )
 
 private_object_storage = FileStorage.get_storage(
-    network['cloud'], network['bucket_prefix'] + '_private',
+    network['cloud'], network['bucket_prefix'] + '-private',
     network['root_dir']
 )
 
