@@ -142,6 +142,3 @@ class AwsFileStorage(FileStorage):
         _LOGGER.debug('Uploaded %s to S3 key %s:%s', source, self.bucket, key)
 
         super().copy(source, dest)
-
-
-

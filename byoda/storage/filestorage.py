@@ -87,7 +87,7 @@ class FileStorage:
         '''
 
         file_descriptor.close()
-        
+
     def read(self, filepath: str, file_mode: FileMode = FileMode.TEXT) -> str:
         '''
         Read a file

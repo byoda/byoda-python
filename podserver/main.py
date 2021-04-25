@@ -76,9 +76,6 @@ paths = Paths(
     account_alias='pod', storage_driver=private_object_storage
 )
 
-account_secret = AccountSecret(paths)
-account_secret.load(password=network['private_key_password'])
-
 # TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
 # web interface
 # tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)
