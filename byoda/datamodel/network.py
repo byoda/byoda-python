@@ -16,6 +16,8 @@ from byoda.datatypes import ServerRole
 
 from byoda.datastore import DnsDb
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.secrets import NetworkRootCaSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -82,7 +84,21 @@ class Network:
 
         self.private_key_password = server['private_key_password']
 
-        self.paths = Paths(self.root_dir, network_name=self.network)
+        if ServerRole.Pod in self.roles:
+            bucket = server['bucket_prefix'] + '-private'
+            account_alias = 'pod'
+        else:
+            bucket = None
+            account_alias = None
+
+        private_object_storage = FileStorage.get_storage(
+            server.get('cloud', 'LOCAL'), bucket, self.root_dir
+        )
+
+        self.paths = Paths(
+            root_directory=self.root_dir, network_name=self.network,
+            account_alias=account_alias, storage_driver=private_object_storage
+        )
 
         # Everyone must at least have the root ca cert.
         self.root_ca = NetworkRootCaSecret(self.paths)
