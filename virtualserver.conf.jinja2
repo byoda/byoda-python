@@ -5,8 +5,9 @@ server {
 
     #ssl_certificate /etc/letsencrypt/live/dir.{network}/fullchain.pem;
     #ssl_certificate_key /etc/letsencrypt/live/dir.{network}/privkey.pem;
-    ssl_certificate /byoda/network-{{ network }}/{{ id_type }}-{{ alias }}/{{ alias }}-cert.pem;
-    ssl_certificate_key /byoda/private/network-{{ network }}-{{ id_type }}-{{ alias }}.key;
+    ssl_certificate /byoda/network-{{ network }}/{{ id_type[0:-1] }}-{{ alias }}/{{ alias }}-cert.pem;
+    # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
+    ssl_certificate_key /tmp/private.key;
 
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
@@ -15,11 +16,12 @@ server {
 {% else %}
     ssl_verify_client on;
 {% endif -%}
+
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
-    # ssl_client_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+    ssl_client_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
-    ssl_trusted_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+    # ssl_trusted_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
 
 {% if id_type == 'accounts' %}
     location / {

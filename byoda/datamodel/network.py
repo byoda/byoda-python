@@ -167,7 +167,7 @@ class Network:
             self.account_secret = AccountSecret(self.paths)
             self.account_secret.load(password=self.private_key_password)
             # We use the account secret as client TLS cert for outbound
-            # requests
+            # requests and as private key for the TLS server 
             filepath = self.account_secret.save_tmp_private_key()
             config.requests.cert = (self.account_secret.cert_file, filepath)
 

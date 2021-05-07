@@ -70,7 +70,7 @@ class CertChain:
         :returns: the certchain as a bytes array
         '''
 
-        data = self.cert_chain_as_string() + self.cert_as_string()
+        data = self.cert_as_string() + self.cert_chain_as_string()
         return data
 
     def as_dict(self) -> dict:
@@ -505,7 +505,7 @@ class Secret:
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
-        be in order from the highest cert in the chain to the leaf cert.
+        be in order from leaf cert to the highest cert in the chain.
 
         :param with_private_key: should private key be read for this cert
         :param password: password to decrypt the private_key
@@ -581,7 +581,7 @@ class Secret:
         if certchain:
             if isinstance(certchain, bytes):
                 certchain = certchain.encode('utf-8')
-            cert = certchain + cert
+            cert = cert + certchain
 
         # The re.split results in one extra
         certs = re.findall(
@@ -597,13 +597,13 @@ class Secret:
             )
         elif len(certs) > 1:
             self.cert = x509.load_pem_x509_certificate(
-                str.encode(certs[-1])
+                str.encode(certs[0])
             )
             self.cert_chain = [
                 x509.load_pem_x509_certificate(
                     str.encode(cert_data)
                 )
-                for cert_data in certs[:-1]
+                for cert_data in certs[1:]
             ]
 
     def csr_from_string(self, csr: str) -> x509.CertificateSigningRequest:
@@ -668,7 +668,7 @@ class Secret:
         '''
 
         data = bytes()
-        for cert in self.cert_chain + [self.cert]:
+        for cert in [self.cert] + self.cert_chain:
             cert_info = (
                 f'# Issuer {cert.issuer}\n'
                 f'# Subject {cert.subject}\n'
@@ -683,7 +683,7 @@ class Secret:
     def save_tmp_private_key(self) -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
-        so the requests library can read it
+        so both the requests library and nginx can read it
 
         :returns: filename to which the key was saved
         :raises: (none)

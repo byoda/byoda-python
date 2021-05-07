@@ -58,6 +58,13 @@ class AccountConfig(TargetConfig):
         return False
 
     def create(self):
+        '''
+        Creates a certificate signing request, submits it to the
+        directory server of the network, retrieves the signed cert
+        from the response to the API call and saves it to storage,
+        protected with the secret for the private key
+        '''
+        
         account_secret = AccountSecret(self.paths)
         csr = account_secret.create_csr(self.account_id)
         payload = {'csr': account_secret.csr_as_pem(csr).decode('utf-8')}
