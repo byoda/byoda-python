@@ -7,4 +7,6 @@ Module for bootstrappign the pod
 '''
 
 from .accountconfig import AccountConfig            # noqa: F401
+from .nginxconfig import NginxConfig                # noqa: F401
+from .nginxconfig import NGINX_SITE_CONFIG_DIR      # noqa: F401
 from .letsencrypconfig import LetsEncryptConfig     # noqa: F401

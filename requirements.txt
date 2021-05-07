@@ -15,7 +15,7 @@ python-json-logger==2.0.1
 # https://opentelemetry-python.readthedocs.io/en/latest/
 opentelemetry-api==0.17b0
 opentelemetry-sdk==0.17b0
-opentelemetry-instrumentation==0.17b
+opentelemetry-instrumentation==0.17b0
 
 # https://pypi.org/project/opentelemetry-instrumentation-fastapi/
 opentelemetry-instrumentation-fastapi==0.17b0
@@ -51,6 +51,9 @@ psycopg2-binary==2.8.6
 
 # https://www.dnspython.org/
 dnspython==2.1.0
+
+# https://palletsprojects.com/p/jinja/
+jinja2==2.11.3
 
 # https://libcloud.readthedocs.io/en/stable/getting_started.html
 apache-libcloud==3.3.1

@@ -35,9 +35,10 @@ from byoda.util.secrets import AccountSecret
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
 
-from byoda.datatypes import CloudType
+from byoda.datatypes import CloudType, IdType
 
 # from .bootstrap import LetsEncryptConfig
+from .bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -72,6 +73,20 @@ _LOGGER = Logger.getLogger(
 #     letsencrypt.create()
 
 config.network = Network(network, network)
+
+nginx_config = NginxConfig(
+    directory=NGINX_SITE_CONFIG_DIR,
+    filename='virtualserver.conf',
+    identifier=network['account_id'],
+    id_type=IdType.ACCOUNT,
+    alias=config.network.paths.account,
+    network=config.network.network,
+    bucket=config.network.paths.storage_driver.bucket,
+)
+
+if not nginx_config.exists():
+    nginx_config.create()
+    nginx_config.reload()
 
 middleware = [
     Middleware(

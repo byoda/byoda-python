@@ -1,0 +1,85 @@
+server {
+    listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport;
+
+    server_name  {{ identifier }}.{{ id_type }}.{{ network }};
+
+    #ssl_certificate /etc/letsencrypt/live/dir.{network}/fullchain.pem;
+    #ssl_certificate_key /etc/letsencrypt/live/dir.{network}/privkey.pem;
+    ssl_certificate /byoda/network-{{ network }}/{{ id_type }}-{{ alias }}/{{ alias }}-cert.pem;
+    ssl_certificate_key /byoda/private/network-{{ network }}-{{ id_type }}-{{ alias }}.key;
+
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
+{% if id_type == 'accounts' %}
+    ssl_verify_client optional;
+{% else %}
+    ssl_verify_client on;
+{% endif -%}
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
+    # ssl_client_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
+    ssl_trusted_certificate /byoda/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+
+{% if id_type == 'accounts' %}
+    location / {
+        root   /var/www/wwwroot/;
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+{% endif -%}
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
+        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
+        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+
+        if ($http_origin ~* ^https:\/\/{{ identifier }}.{{ id_type }}.{{ network }}(:443)?$) {
+            set $cors "1";
+        }
+        # OPTIONS indicates a CORS pre-flight request
+        if ($request_method = 'OPTIONS') {
+            set $cors "${cors}o";
+        }
+
+        # OPTIONS (pre-flight) request from allowed
+        # CORS domain. return response directly
+        if ($cors = "1o") {
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Expose-Headers' 'Date' always;
+            add_header 'Access-Control-Max-Age' '86400' always;
+            add_header Content-Length 0 always;
+            add_header Content-Type text/plain always;
+            return 200;
+        }
+
+        if ($cors = "1") {
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Expose-Headers' 'Date' always;
+            add_header 'Access-Control-Max-Age' '86400' always;
+         }
+    }
+    error_page  404              /404.html;
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
