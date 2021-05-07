@@ -28,6 +28,12 @@ server {
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
     }
+
+    location /logs/ {
+        types {
+            text/plain    log;
+        }
+    }
 {% endif -%}
 
     location /api/ {
