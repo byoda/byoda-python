@@ -13,15 +13,15 @@ docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 
 docker stop byoda; docker rm byoda; docker run \
     --name byoda \
-    -p 80:80 \
-    -e "PYTHONPATH=/home/steven/src/byoda-python" \
-    -e "CLOUD=AWS" \
+    -p 444:443 \
+    -e "CLOUD=LOCAL" \
     -e "BUCKET_PREFIX=byoda" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a" \
     -e "ACCOUNT_SECRET=supersecret" \
     -e "LOGLEVEL=DEBUG" \
     -e "PRIVATE_KEY_SECRET=byoda" \
+    -e "PYTHONPATH=/home/steven/src/byoda-python" \
     byoda/byoda-pod:${IMAGE_ID}
 
 docker push byoda/byoda-pod:${IMAGE_ID}
