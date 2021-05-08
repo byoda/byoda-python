@@ -31,6 +31,8 @@ class AccountConfig(TargetConfig):
         :param bucket_prefix: the prefix for the buckets for private and
         public file storage
         :param network: the network that we are connecting to
+        :param account_id: the unique account identifier
+        :param account_key_secret: the secret to encrypt the account key with
         '''
 
         self.paths = paths
@@ -47,13 +49,8 @@ class AccountConfig(TargetConfig):
         account_secret = AccountSecret(self.paths)
         try:
             return account_secret.cert_file_exists()
-            # self.bucket.download_file(
-            #     'bootstrap.env', '/var/www/wwwroot/bootstrap.env'
-            # )
         except Exception as exc:
-            with open('/var/www/wwwroot/index.html', 'w') as file_desc:
-                file_desc.write('<HTML><BODY>bootstrap.env download failure')
-                file_desc.write(f'{exc}</BODY></HTML>')
+            _LOGGER('Account certificate not found')
 
         return False
 
@@ -64,7 +61,7 @@ class AccountConfig(TargetConfig):
         from the response to the API call and saves it to storage,
         protected with the secret for the private key
         '''
-        
+
         account_secret = AccountSecret(self.paths)
         csr = account_secret.create_csr(self.account_id)
         payload = {'csr': account_secret.csr_as_pem(csr).decode('utf-8')}

@@ -65,6 +65,8 @@ class FileStorage:
         else:
             storage = FileStorage(root_dir)
 
+        _LOGGER.debug(f'Initialized {cloud} storage')
+
         return storage
 
     def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,

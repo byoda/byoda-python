@@ -13,6 +13,8 @@ sure the desired state is in place:
 import os
 import sys
 
+import requests
+
 from byoda.util import Paths
 from byoda.util.logger import Logger
 
@@ -22,8 +24,12 @@ from byoda.storage.filestorage import FileStorage
 
 from podserver.bootstrap import AccountConfig
 
+from byoda.util.secrets import AccountSecret
+
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
+
+BASE_URL = 'https://dir.{network}/api'
 
 network = {
     'cloud': CloudType(os.environ.get('CLOUD', 'AWS')),
@@ -61,10 +67,14 @@ paths.create_secrets_directory()
 paths.create_account_directory()
 
 # TODO, needs an API on the directory server
-private_object_storage.copy(
-    '/podserver/byoda-python/networks/network-byoda.net-root-ca-cert.pem',
-    paths.network_directory() + '/network-byoda.net-root-ca-cert.pem'
+src_dir = '/podserver/byoda-python'
+ca_file = (
+    paths.network_directory() + f'/network-{network["network"]}-root-ca-cert.pem'
 )
+private_object_storage.copy(
+    f'/{src_dir}/networks/network-{network["network"]}-root-ca-cert.pem', ca_file
+)
+_LOGGER.debug(f'CA cert for network {network["network"]} is now available')
 
 # Desired configuration for the BYODA account
 account = AccountConfig(
@@ -73,5 +83,17 @@ account = AccountConfig(
     network['private_key_password'], paths
 )
 
-if not account.exists():
+if account.exists():
+    _LOGGER.debug('Found an existing account')
+else:
+    _LOGGER.debug('Creating an account')
     account.create()
+
+account_secret = AccountSecret(paths)
+account_secret.load(password=network['private_key_password'])
+key_file = account_secret.save_tmp_private_key()
+
+api = BASE_URL.format(network=network['network']) + '/v1/network/account'
+cert = (account_secret.cert_file, key_file)
+resp = requests.get(api, cert=cert)
+_LOGGER.debug(f'Registered account with directory server: {resp.status_code}')

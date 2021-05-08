@@ -82,7 +82,7 @@
                 "CLOUD": "AWS",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "9794044e-4024-48e0-b346-069dddd6764a",
+                "ACCOUNT_ID": "beb6f914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
@@ -98,7 +98,7 @@
                 "CLOUD": "AWS",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "9794044e-4024-48e0-b346-069dddd6764a",
+                "ACCOUNT_ID": "beb6f914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
