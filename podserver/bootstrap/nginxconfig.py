@@ -13,6 +13,8 @@ from uuid import UUID
 
 from jinja2 import Template
 
+import htpasswd
+
 from byoda.datatypes import IdType
 from .targetconfig import TargetConfig
 
@@ -20,6 +22,8 @@ _LOGGER = logging.getLogger(__name__)
 
 NGINX_SITE_CONFIG_DIR = '/etc/nginx/conf.d/'
 NGINX_PID_FILE = '/run/nginx.pid'
+
+HTACCESS_FILE = '/etc/nginx/htaccess.db'
 
 class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
@@ -55,9 +59,10 @@ class NginxConfig(TargetConfig):
 
         return os.path.exists(self.config_filepath)
 
-    def create(self):
+    def create(self, password: str = 'byoda'):
         '''
         Creates the nginx virtual server configuration file
+
         '''
 
         _LOGGER.debug('Rendering template %s', self.template_filepath)
@@ -73,6 +78,11 @@ class NginxConfig(TargetConfig):
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
+
+        if self.id_type == IdType.ACCOUNT:
+            # We also create a htpasswd file
+            with htpasswd.Basic(HTACCESS_FILE, mode='md5-base') as userdb:
+                userdb.add(self.identifier, password)
 
     def reload(self):
         '''

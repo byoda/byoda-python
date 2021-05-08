@@ -60,3 +60,6 @@ apache-libcloud==3.3.1
 
 # https://aws.amazon.com/sdk-for-python/
 boto3==1.17.42
+
+# https://github.com/thesharp/htpasswd
+htpasswd

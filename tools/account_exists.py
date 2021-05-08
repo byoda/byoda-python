@@ -27,7 +27,7 @@ from podserver.bootstrap import AccountConfig
 from byoda.util.secrets import AccountSecret
 
 _LOGGER = None
-LOG_FILE = '/var/www/wwwroot/logs/pod.log'
+LOG_FILE = '/var/www/wwwroot/logs/account.log'
 
 BASE_URL = 'https://dir.{network}/api'
 

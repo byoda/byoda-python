@@ -8,7 +8,6 @@ docker build .
 
 export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
 echo $IMAGE_ID
-# docker image tag ${IMAGE_ID} byoda/byoda-pod:${IMAGE_ID}
 docker image tag ${IMAGE_ID} byoda/byoda-pod:latest
 
 docker stop byoda; docker rm byoda; docker run \

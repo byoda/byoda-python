@@ -79,10 +79,10 @@
             ],
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
-                "CLOUD": "AWS",
+                "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "beb6f914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
@@ -95,10 +95,10 @@
             "program": "tools/account_exists.py",
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
-                "CLOUD": "AWS",
+                "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "beb6f914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
