@@ -81,8 +81,9 @@ class NginxConfig(TargetConfig):
 
         if self.id_type == IdType.ACCOUNT:
             # We also create a htpasswd file
-            with htpasswd.Basic(HTACCESS_FILE, mode='md5-base') as userdb:
-                userdb.add(self.identifier, password)
+            with htpasswd.Basic(HTACCESS_FILE, mode='md5') as userdb:
+                userdb.add(self.identifier.split('-')[0], password)
+            _LOGGER.debug('Created htaccess.db file')
 
     def reload(self):
         '''

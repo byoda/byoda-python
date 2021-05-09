@@ -1,10 +1,12 @@
 config.yml
 uwsgi.yml
 
+Pipfile
+
+Pipfile.lock
+
 .gitconfig
 
-Pipfile
-Pipfile.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -49,7 +49,7 @@ if network['loglevel'] == 'DEBUG':
 
 _LOGGER = Logger.getLogger(
     sys.argv[0], json_out=False, debug=debug, loglevel=network['loglevel'],
-    logfile=None
+    logfile=LOG_FILE
 )
 
 private_object_storage = FileStorage.get_storage(
