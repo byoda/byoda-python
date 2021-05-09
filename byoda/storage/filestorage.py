@@ -139,6 +139,15 @@ class FileStorage:
             _LOGGER.debug('File not found in local filesystem: %s', filepath)
         return exists
 
+    def get_url(self, public: bool = True) -> str:
+        '''
+        Get the URL for the public storage bucket. With local storage,
+        which should only be used for testing, we assume that there
+        is a web server running on 'localhost'
+        '''
+
+        return 'http://localhost'
+
     def create_directory(self, directory: str, exist_ok: bool = True) -> None:
         '''
         Creates a directory on the local file system, including any

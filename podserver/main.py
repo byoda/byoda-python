@@ -81,7 +81,9 @@ nginx_config = NginxConfig(
     id_type=IdType.ACCOUNT,
     alias=config.network.paths.account,
     network=config.network.network,
-    bucket=config.network.paths.storage_driver.bucket,
+    public_cloud_endpoint=config.network.paths.storage_driver.get_url(
+        public=True
+    ),
 )
 
 if not nginx_config.exists():

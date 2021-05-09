@@ -20,14 +20,15 @@ from .targetconfig import TargetConfig
 
 _LOGGER = logging.getLogger(__name__)
 
-NGINX_SITE_CONFIG_DIR = '/etc/nginx/conf.d/'
+NGINX_SITE_CONFIG_DIR = '/etc/nginx/conf.d'
 NGINX_PID_FILE = '/run/nginx.pid'
 
 HTACCESS_FILE = '/etc/nginx/htaccess.db'
 
 class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
-                 id_type: IdType, alias: str, network: str, bucket: str):
+                 id_type: IdType, alias: str, network: str,
+                 public_cloud_endpoint: str):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -39,13 +40,15 @@ class NginxConfig(TargetConfig):
         configuration file
         :param filename: name of the nginx configuration file to be
         created
+        :param public_cloud_endpoint: FQDN for the endpoint of the
+        public bucket
         '''
 
         self.identifier = identifier
         self.id_type = id_type
         self.alias = alias
         self.network = network
-        self.bucket = bucket
+        self.public_cloud_endpoint = public_cloud_endpoint
         self.directory = directory
         self.filename = filename
 
@@ -61,8 +64,11 @@ class NginxConfig(TargetConfig):
 
     def create(self, password: str = 'byoda'):
         '''
-        Creates the nginx virtual server configuration file
-
+        Creates the nginx virtual server configuration file. Also
+        creates a 'htaccess' file that restricts access to the
+        /logs folder on the virtual server. The username is the first
+        substring of the identifier, up to but not including the first
+        '-'.
         '''
 
         _LOGGER.debug('Rendering template %s', self.template_filepath)
@@ -74,7 +80,7 @@ class NginxConfig(TargetConfig):
             id_type=self.id_type.value,
             alias=self.alias,
             network=self.network,
-            bucket=self.bucket
+            public_cloud_endpoint=self.public_cloud_endpoint
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)

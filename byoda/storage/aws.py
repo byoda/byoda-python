@@ -24,11 +24,12 @@ class AwsFileStorage(FileStorage):
     Provides access to AWS S3 object storage
     '''
 
-    def __init__(self, bucket: str, cache_path: str = None) -> None:
+    def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
         '''
         Abstraction of storage of files on S3 object storage
 
-        :param bucket: name of the S3 bucket
+        :param bucket_prefix: prefix of the S3 bucket, to which '-private' and
+        '-public' will be appended
         :param cache_path: path to the cache on the local file system
         '''
 
@@ -38,7 +39,9 @@ class AwsFileStorage(FileStorage):
         if cache_path:
             super().__init__(cache_path)
 
-        self.bucket = bucket
+        self.bucket = f'{bucket_prefix}-private'
+        self.public_bucket = f'{bucket_prefix}-public'
+
         _LOGGER.debug('Initialized boto S3 client for bucket %s', self.bucket)
 
     def _get_key(self, filepath: str) -> str:
@@ -116,6 +119,21 @@ class AwsFileStorage(FileStorage):
                 return True
             except boto3.exceptions.botocore.exceptions.ClientError:
                 return False
+
+    def get_url(self, public: bool = True) -> str:
+        '''
+        Get the URL for the public storage bucket, ie. something like
+        'https://<bucket>.s3.us-west-1.amazonaws.com'
+        '''
+
+        if public:
+            bucket = self.public_bucket
+        else:
+            bucket = self.bucket
+
+        region = self.driver.get_bucket_location(Bucket=bucket)
+
+        return f'https://{bucket}.{region}.amazonaws.com'
 
     def create_directory(self, directory: str, exist_ok: bool = True) -> bool:
         '''

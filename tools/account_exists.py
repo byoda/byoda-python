@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-This script is executed before the webserver in the pod starts to make
+This script is executed before the webserver in the pod starts, to make
 sure the desired state is in place:
 - there is a valid account certificate
 
