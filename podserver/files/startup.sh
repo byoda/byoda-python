@@ -5,7 +5,7 @@ export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python
 cd /podserver/byoda-python
 
 # Make sure an account exists
-tools/account_exists.py 2>/var/www/wwwroot/logs/account_exists.log
+tools/account_exists.p
 
 nginx
 
@@ -24,7 +24,7 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 
-gunicorn --chdir /podserver/byoda-python -c /podserver/byoda-python/gunicorn.conf.py --pythonpath /podserver/byoda-python podserver.main:app 2>/var/www/wwwroot/logs/gunicorn.log
+gunicorn --chdir /podserver/byoda-python -c /podserver/byoda-python/gunicorn.conf.py --pythonpath /podserver/byoda-python podserver.main:app
 
 if [[ "$?" != "0" ]]; then
     echo "Sleeping 900 seconds"
