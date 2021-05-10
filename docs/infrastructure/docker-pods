@@ -5,7 +5,6 @@ requires a newer version of the docker.io (>=20.10.2) and runc (>=1.0.0~rc93)
 packages
 ```
 docker build .
-
 if [ "$?" -eq "0" ]; then
     export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
     echo $IMAGE_ID

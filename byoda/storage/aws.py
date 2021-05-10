@@ -134,7 +134,7 @@ class AwsFileStorage(FileStorage):
         data = self.driver.head_bucket(Bucket=bucket)
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
-        return f'https://{bucket}.{region}.amazonaws.com'
+        return f'https://{bucket}.s3-{region}.amazonaws.com'
 
     def create_directory(self, directory: str, exist_ok: bool = True) -> bool:
         '''
