@@ -131,7 +131,7 @@ class AwsFileStorage(FileStorage):
         else:
             bucket = self.bucket
 
-        data = driver.head_bucket(Bucket=bucket)
+        data = self.driver.head_bucket(Bucket=bucket)
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
         return f'https://{bucket}.{region}.amazonaws.com'

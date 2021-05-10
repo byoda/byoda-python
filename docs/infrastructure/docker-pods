@@ -27,13 +27,12 @@ docker stop byoda; docker rm byoda; docker run \
     -e "PRIVATE_KEY_SECRET=byoda" \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
     byoda/byoda-pod:latest
-
-docker push byoda/byoda-pod:latest
 ```
 
 ### Update the ECS service definition
+```
 aws ecs update-service --cluster byoda-cluster --service podserver-service  --force-new-deployment --region us-west-1
-
+```
 
 # https://us-west-1.console.aws.amazon.com/ecs/home?region=us-west-1#/clusters/byoda-cluster/services/podserver-service/deployments
 create new service revision
