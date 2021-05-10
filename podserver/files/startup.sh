@@ -9,7 +9,9 @@ tools/account_exists.py 2>/var/www/wwwroot/logs/account_exists.log
 
 nginx
 
-/usr/sbin/sshd -E /tmp/sshd.log &
+if [ -f /usr/bin/sshd ]; then
+    /usr/sbin/sshd -E /tmp/sshd.log &
+fi
 
 # Starting BYODA POD using environment variables
 
@@ -27,6 +29,4 @@ gunicorn --chdir /podserver/byoda-python -c /podserver/byoda-python/gunicorn.con
 if [[ "$?" != "0" ]]; then
     echo "Sleeping 900 seconds"
     sleep 900
-    echo "Running bash for debugging purposes"
-    bash
 fi

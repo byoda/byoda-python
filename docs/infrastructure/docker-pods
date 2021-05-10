@@ -6,9 +6,14 @@ packages
 ```
 docker build .
 
-export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
-echo $IMAGE_ID
-docker image tag ${IMAGE_ID} byoda/byoda-pod:latest
+if [ "$?" -eq "0" ]; then
+    export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
+    echo $IMAGE_ID
+    docker image tag ${IMAGE_ID} byoda/byoda-pod:latest
+    docker push byoda/byoda-pod:latest
+else
+    echo "Docker build failed"
+fi
 
 docker stop byoda; docker rm byoda; docker run \
     --name byoda \
