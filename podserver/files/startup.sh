@@ -5,11 +5,11 @@ export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python
 cd /podserver/byoda-python
 
 # Make sure an account exists
-tools/account_exists.p
+tools/account_exists.py
 
 nginx
 
-if [ -f /usr/bin/sshd ]; then
+if [ -f /usr/sbin/sshd ]; then
     /usr/sbin/sshd -E /tmp/sshd.log &
 fi
 
