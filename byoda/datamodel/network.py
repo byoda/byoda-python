@@ -85,14 +85,14 @@ class Network:
         self.private_key_password = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            bucket = server['bucket_prefix'] + '-private'
+            bucket_prefix = server['bucket_prefix']
             account_alias = 'pod'
         else:
-            bucket = None
+            bucket_prefix = None
             account_alias = None
 
         private_object_storage = FileStorage.get_storage(
-            server.get('cloud', 'LOCAL'), bucket, self.root_dir
+            server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
         )
 
         self.paths = Paths(
@@ -167,7 +167,7 @@ class Network:
             self.account_secret = AccountSecret(self.paths)
             self.account_secret.load(password=self.private_key_password)
             # We use the account secret as client TLS cert for outbound
-            # requests and as private key for the TLS server 
+            # requests and as private key for the TLS server
             filepath = self.account_secret.save_tmp_private_key()
             config.requests.cert = (self.account_secret.cert_file, filepath)
 

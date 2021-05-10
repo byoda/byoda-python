@@ -53,7 +53,7 @@ _LOGGER = Logger.getLogger(
 )
 
 private_object_storage = FileStorage.get_storage(
-    network['cloud'], network['bucket_prefix'] + '-private',
+    network['cloud'], network['bucket_prefix'],
     network['root_dir']
 )
 

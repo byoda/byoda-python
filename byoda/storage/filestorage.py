@@ -45,7 +45,7 @@ class FileStorage:
         self.bucket = bucket
 
     @staticmethod
-    def get_storage(cloud: CloudType, bucket: str, root_dir=str):
+    def get_storage(cloud: CloudType, bucket_prefix: str, root_dir=str):
         '''
         Factor for FileStorage and classes derived from it
 
@@ -61,7 +61,7 @@ class FileStorage:
 
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
-            storage = AwsFileStorage(bucket, root_dir)
+            storage = AwsFileStorage(bucket_prefix, root_dir)
         else:
             storage = FileStorage(root_dir)
 
