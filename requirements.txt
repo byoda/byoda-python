@@ -45,8 +45,7 @@ pyrfc3339==1.1
 # https://requests.readthedocs.io
 requests==2.25.1
 
-# pip3 install --pre
-sqlalchemy==1.4.0b3
+sqlalchemy==1.4.15
 psycopg2-binary==2.8.6
 
 # https://www.dnspython.org/

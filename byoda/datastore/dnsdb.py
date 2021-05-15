@@ -89,6 +89,7 @@ class DnsDb:
         logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
 
         # TODO: figure out why asynchpg is not working
+        # FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
         if False and 'asyncpg' in connectionstring:
             from sqlalchemy.ext.asyncio import create_async_engine
             dnsdb._engine = create_async_engine(
@@ -97,10 +98,6 @@ class DnsDb:
             )
         else:
             from sqlalchemy import create_engine
-            # dnsdb._engine = create_engine(
-            #    connectionstring + '?async_fallback=true',
-            #    echo=False, future=True, isolation_level='AUTOCOMMIT'
-            # )
             dnsdb._engine = create_engine(
                 connectionstring, echo=False, isolation_level='AUTOCOMMIT'
             )
