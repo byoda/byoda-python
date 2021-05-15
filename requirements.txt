@@ -15,7 +15,7 @@ python-json-logger==2.0.1
 # https://opentelemetry-python.readthedocs.io/en/latest/
 opentelemetry-api==0.17b0
 opentelemetry-sdk==0.17b0
-opentelemetry-instrumentation==0.17b
+opentelemetry-instrumentation==0.17b0
 
 # https://pypi.org/project/opentelemetry-instrumentation-fastapi/
 opentelemetry-instrumentation-fastapi==0.17b0
@@ -37,11 +37,28 @@ certvalidator==0.11.1
 # https://pypi.org/project/cryptography/
 cryptography==3.3.1
 
+# https://authlib.org/
+# Authlib==0.15.3
+josepy==1.2.0
+pyrfc3339==1.1
+
+# https://requests.readthedocs.io
 requests==2.25.1
 
-# pip3 install --pre
-sqlalchemy==1.4.0b3
+sqlalchemy==1.4.15
 psycopg2-binary==2.8.6
 
 # https://www.dnspython.org/
 dnspython==2.1.0
+
+# https://palletsprojects.com/p/jinja/
+jinja2==2.11.3
+
+# https://libcloud.readthedocs.io/en/stable/getting_started.html
+apache-libcloud==3.3.1
+
+# https://aws.amazon.com/sdk-for-python/
+boto3==1.17.42
+
+# https://github.com/thesharp/htpasswd
+htpasswd

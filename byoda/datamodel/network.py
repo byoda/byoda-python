@@ -16,6 +16,8 @@ from byoda.datatypes import ServerRole
 
 from byoda.datastore import DnsDb
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.secrets import NetworkRootCaSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -60,11 +62,7 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.network = application.get(
-            'network', os.environ.get(
-                'NETWORK', DEFAULT_NETWORK
-            )
-        )
+        self.network = application.get('network', DEFAULT_NETWORK)
 
         self.dnsdb = None
 
@@ -86,7 +84,21 @@ class Network:
 
         self.private_key_password = server['private_key_password']
 
-        self.paths = Paths(self.root_dir, network_name=application['network'])
+        if ServerRole.Pod in self.roles:
+            bucket_prefix = server['bucket_prefix']
+            account_alias = 'pod'
+        else:
+            bucket_prefix = None
+            account_alias = None
+
+        private_object_storage = FileStorage.get_storage(
+            server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
+        )
+
+        self.paths = Paths(
+            root_directory=self.root_dir, network_name=self.network,
+            account_alias=account_alias, storage_driver=private_object_storage
+        )
 
         # Everyone must at least have the root ca cert.
         self.root_ca = NetworkRootCaSecret(self.paths)
@@ -145,22 +157,22 @@ class Network:
             config.requests.cert = (self.service_secret.cert_file, filepath)
 
         # Loading secrets when operating as a pod
-        self.account = None
+        self.account_id = None
         self.account_secret = None
         self.data_secret = None
         self.member_secrets = set()
-        if ServerRole.Pod in roles:
-            self.account = server.account
-            self.paths.account = self.account
+        if ServerRole.Pod in self.roles:
+            self.account_id = server['account_id']
+            self.paths.account = 'pod'
             self.account_secret = AccountSecret(self.paths)
-
-            # We use the service secret as client TLS cert for outbound
-            # requests
-            filepath = self.service_secret.save_tmp_private_key()
-            config.requests.cert = (self.service_secret.cert_file, filepath)
+            self.account_secret.load(password=self.private_key_password)
+            # We use the account secret as client TLS cert for outbound
+            # requests and as private key for the TLS server
+            filepath = self.account_secret.save_tmp_private_key()
+            config.requests.cert = (self.account_secret.cert_file, filepath)
 
             paths = self.paths
-            for directory in os.listdir(paths.get(paths.ACCOUNT_DIR)):
+            for directory in os.listdir(paths.get(self.paths.ACCOUNT_DIR)):
                 if not directory.startswith('service-'):
                     continue
                 service = directory[8:]

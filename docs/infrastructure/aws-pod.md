@@ -92,7 +92,7 @@ cat >aws-fargate-task.json <<EOF
     "containerDefinitions": [
         {
             "name": "byoda-pod",
-            "image": "byoda/pod-python:0.0.2",
+            "image": "byoda/pod-python:0.0.4",
             "portMappings": [
                 {
                     "containerPort": 80,
@@ -106,6 +106,10 @@ cat >aws-fargate-task.json <<EOF
                     "value": "byoda.net"
                 },
                 {
+                    "name": "CLOUD",
+                    "value": "AWS"
+                },
+                {
                     "name": "BUCKET_PREFIX",
                     "value": "byoda"
                 },
@@ -116,6 +120,14 @@ cat >aws-fargate-task.json <<EOF
                 {
                     "name": "ACCOUNT_SECRET",
                     "value": "KYDVGirFhB4f0Gv"
+                },
+                {
+                    "name": "PRIVATE_KEY_SECRET",
+                    "value": "byoda"
+                },
+                {
+                    "name": "LOGLEVEL",
+                    "value": "DEBUG"
                 }
             ],
             "essential": true

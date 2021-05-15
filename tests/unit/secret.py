@@ -13,7 +13,8 @@ import unittest
 from byoda.util import Logger
 from byoda.util import Paths
 
-from byoda.util.secrets import CsrSource
+from byoda.datatypes import CsrSource
+
 from byoda.util.secrets import NetworkRootCaSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import NetworkServicesCaSecret

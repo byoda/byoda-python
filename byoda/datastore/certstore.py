@@ -63,7 +63,7 @@ class CertStore:
         cert_auth = self.ca_secret
 
         x509_csr = Secret()
-        csr = x509_csr.from_string(csr)
+        csr = x509_csr.csr_from_string(csr)
 
         extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints

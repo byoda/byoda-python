@@ -6,10 +6,8 @@ Various utility classes, variables and functions
 :license    : GPLv3
 '''
 
-from .secret import CertType                                   # noqa: F401
 from .secret import Secret                                     # noqa: F401
 from .secret import CSR                                        # noqa: F401
-from .secret import CsrSource                                  # noqa: F401
 from .secret import CertChain                                  # noqa: F401
 from .networkrootca_secret import NetworkRootCaSecret          # noqa: F401
 from .networkaccountsca_secret import NetworkAccountsCaSecret  # noqa: F401
@@ -21,4 +19,9 @@ from .service_secret import ServiceSecret                      # noqa: F401
 
 from .account_secret import AccountSecret                      # noqa: F401
 from .member_secret import MemberSecret                        # noqa: F401
+
 from .data_secret import DataSecret                            # noqa: F401
+
+from .tls_secret import TlsSecret                              # noqa: F401
+
+# from .acmeclient import ACMEClient                             # noqa: F401

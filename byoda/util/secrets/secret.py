@@ -10,7 +10,6 @@ import os
 import datetime
 import logging
 import re
-from enum import Enum
 from copy import copy
 
 from cryptography import x509
@@ -24,6 +23,8 @@ from cryptography.fernet import Fernet
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
 from certvalidator import ValidationError
+
+from byoda.storage.filestorage import FileStorage, FileMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,25 +46,6 @@ VALID_SIGNATURE_HASHES = set(
 IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
-
-
-class CsrSource(Enum):
-    WEBAPI         = 1                    # noqa: E221
-    LOCAL          = 2                    # noqa: E221
-
-
-class CertType(Enum):
-    NETWORK        = 'network'            # noqa: E221
-    ACCOUNT        = 'account'            # noqa: E221
-    MEMBERSHIP     = 'membership'         # noqa: E221
-    SERVICE        = 'service'            # noqa: E221
-    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
-
-
-class CertLevel(Enum):
-    ROOT           = 'root'               # noqa: E221
-    INTERMEDIATE   = 'intermediate'       # noqa: E221
-    LEAF           = 'leaf'               # noqa: E221
 
 
 class CertChain:
@@ -88,7 +70,7 @@ class CertChain:
         :returns: the certchain as a bytes array
         '''
 
-        data = self.cert_chain_as_string() + self.cert_chain_as_string()
+        data = self.cert_as_string() + self.cert_chain_as_string()
         return data
 
     def as_dict(self) -> dict:
@@ -138,7 +120,8 @@ class Secret:
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
-    def __init__(self, cert_file: str = None, key_file: str = None):
+    def __init__(self, cert_file: str = None, key_file: str = None,
+                 storage_driver: FileStorage = None):
         '''
         Constructor
 
@@ -156,6 +139,7 @@ class Secret:
         self.common_name = None
         self.is_root_cert = False
         self.ca = False
+        self.storage_driver = storage_driver
 
         # Certchains never include the root cert!
         # Certs higher in the certchain come before
@@ -236,13 +220,24 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
-        return x509.CertificateSigningRequestBuilder().subject_name(
+        csr = x509.CertificateSigningRequestBuilder().subject_name(
             self.get_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=None
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
+
+        return csr
+
+    def csr_as_pem(self, csr):
+        '''
+        Returns the BASE64 encoded byte string for the CSR
+
+        :returns: bytes with the PEM-encoded certificate
+        :raises: (none)
+        '''
+        return csr.public_bytes(serialization.Encoding.PEM)
 
     def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
@@ -295,9 +290,9 @@ class Secret:
             [rdns.rfc4514_string() for rdns in csr.subject.rdns]
         )
 
-        commonname = self.review_distinguishedname(distinguished_name)
+        common_name = self.review_distinguishedname(distinguished_name)
 
-        return commonname
+        return common_name
 
     def review_distinguishedname(self, name: str) -> str:
         '''
@@ -495,7 +490,7 @@ class Secret:
         :returns: bool
         '''
 
-        os.path.exists(self.cert_file)
+        return self.storage_driver.exists(self.cert_file)
 
     def private_key_file_exists(self) -> bool:
         '''
@@ -504,13 +499,13 @@ class Secret:
         :returns: bool
         '''
 
-        os.path.exists(self.private_key_file)
+        self.storage_driver.exists(self.private_key_file)
 
     def load(self, with_private_key: bool = True, password: str = 'byoda'):
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
-        be in order from the highest cert in the chain to the leaf cert.
+        be in order from leaf cert to the highest cert in the chain.
 
         :param with_private_key: should private key be read for this cert
         :param password: password to decrypt the private_key
@@ -526,32 +521,13 @@ class Secret:
             )
 
         try:
-            with open(self.cert_file, 'r') as file_desc:
-                _LOGGER.debug('Loading cert from %s', self.cert_file)
-                cert_data = file_desc.read()
-
-                # The re.split results in one extra
-                certs = re.findall(
-                    r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
-                    cert_data, re.MULTILINE
-                )
-                if len(certs) == 0:
-                    raise ValueError(f'No cert found in {self.cert_file}')
-                elif len(certs) == 1:
-                    self.cert = x509.load_pem_x509_certificate(
-                        str.encode(certs[0])
-                    )
-                elif len(certs) > 1:
-                    self.cert = x509.load_pem_x509_certificate(
-                        str.encode(certs[-1])
-                    )
-                    self.cert_chain = [
-                        x509.load_pem_x509_certificate(str.encode(cert))
-                        for cert in certs[:-1]
-                    ]
+            _LOGGER.debug('Loading cert from %s', self.cert_file)
+            cert_data = self.storage_driver.read(self.cert_file)
         except FileNotFoundError:
-            _LOGGER.exception(f'CA cert file not found: {self.cert_file}')
+            _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise
+
+        self.from_string(cert_data)
 
         try:
             extension = self.cert.extensions.get_extension_for_class(
@@ -561,22 +537,76 @@ class Secret:
         except x509.ExtensionNotFound:
             self.ca = False
 
+        # We start parsing the Subject of the CSR, which
+        # consists of a list of 'Relative' Distinguished Names
+        distinguished_name = ','.join(
+            [rdns.rfc4514_string() for rdns in self.cert.subject.rdns]
+        )
+        self.common_name = self.review_distinguishedname(distinguished_name)
+
         self.private_key = None
         if with_private_key:
             try:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                with open(self.private_key_file, 'rb') as file_desc:
-                    self.private_key = serialization.load_pem_private_key(
-                        file_desc.read(), password=str.encode(password)
-                    )
+                data = self.storage_driver.read(
+                    self.private_key_file, file_mode=FileMode.BINARY
+                )
+
+                self.private_key = serialization.load_pem_private_key(
+                    data, password=str.encode(password)
+                )
             except FileNotFoundError:
                 _LOGGER.exception(
                     f'CA private key file not found: {self.private_key_file}'
                 )
+                raise
 
-    def from_string(self, csr: str) -> x509.CertificateSigningRequest:
+    def from_string(self, cert: str, certchain: str = None):
+        '''
+        Loads an X.509 cert and certchain from a string. If the cert has an
+        certchain then the certchain can either be included at the beginning
+        of the cert_data or can be provided as a separate parameter
+
+        :param cert: the base64-encoded cert
+        :param certchain: the
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        if isinstance(cert, bytes):
+            cert = cert.decode('utf-8')
+
+        if certchain:
+            if isinstance(certchain, bytes):
+                certchain = certchain.encode('utf-8')
+            cert = cert + certchain
+
+        # The re.split results in one extra
+        certs = re.findall(
+            r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
+            cert, re.MULTILINE
+        )
+
+        if len(certs) == 0:
+            raise ValueError(f'No cert found in {self.cert_file}')
+        elif len(certs) == 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[0])
+            )
+        elif len(certs) > 1:
+            self.cert = x509.load_pem_x509_certificate(
+                str.encode(certs[0])
+            )
+            self.cert_chain = [
+                x509.load_pem_x509_certificate(
+                    str.encode(cert_data)
+                )
+                for cert_data in certs[1:]
+            ]
+
+    def csr_from_string(self, csr: str) -> x509.CertificateSigningRequest:
         '''
         Converts a string to a X.509 CSR
 
@@ -599,22 +629,23 @@ class Secret:
         :raises: (none)
         '''
 
-        if os.path.exists(self.cert_file):
+        if self.storage_driver.exists(self.cert_file):
             raise ValueError(
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
             )
-
-        if os.path.exists(self.private_key_file):
+        if self.storage_driver.exists(self.private_key_file):
             raise ValueError(
-                f'Can not save the private key because the key already exists '
-                f'at {self.private_key_file}'
+                f'Can not save the private key because the key already '
+                f'exists at {self.private_key_file}'
             )
 
-        with open(self.cert_file, 'wb') as file_desc:
-            _LOGGER.debug('Saving cert to %s', self.cert_file)
-            data = self.certchain_as_bytes()
-            file_desc.write(data)
+        _LOGGER.debug('Saving cert to %s', self.cert_file)
+        data = self.certchain_as_pem()
+
+        self.storage_driver.write(
+            self.cert_file, data, file_mode=FileMode.BINARY
+        )
 
         if self.private_key:
             _LOGGER.debug('Saving private key to %s', self.private_key_file)
@@ -625,16 +656,19 @@ class Secret:
                     str.encode(password)
                 )
             )
-            with open(self.private_key_file, 'wb') as file_desc:
-                file_desc.write(private_key_pem)
 
-    def certchain_as_bytes(self) -> bytes:
+            self.storage_driver.write(
+                self.private_key_file, private_key_pem,
+                file_mode=FileMode.BINARY
+            )
+
+    def certchain_as_pem(self) -> bytes:
         '''
         :returns: the certchain as a bytes array
         '''
 
         data = bytes()
-        for cert in self.cert_chain + [self.cert]:
+        for cert in [self.cert] + self.cert_chain:
             cert_info = (
                 f'# Issuer {cert.issuer}\n'
                 f'# Subject {cert.subject}\n'
@@ -643,14 +677,13 @@ class Secret:
             )
             data += str.encode(cert_info)
             data += cert.public_bytes(serialization.Encoding.PEM)
-            data += str.encode('\n')
 
         return data
 
     def save_tmp_private_key(self) -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
-        so the requests library can read it
+        so both the requests library and nginx can read it
 
         :returns: filename to which the key was saved
         :raises: (none)
@@ -660,15 +693,23 @@ class Secret:
         # to the requests.Session()
         filepath = '/tmp/private.key'
         _LOGGER.debug('Saving private key to %s', filepath)
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=None
-        )
+        private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:
             file_desc.write(private_key_pem)
 
         return filepath
+
+    def private_key_as_pem(self) -> bytes:
+        '''
+        Returns the private key in PEM format
+        '''
+
+        private_key_pem = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        return private_key_pem
 
     def cert_as_pem(self):
         '''

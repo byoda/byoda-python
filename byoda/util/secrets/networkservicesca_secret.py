@@ -33,6 +33,7 @@ class NetworkServicesCaSecret(Secret):
         super().__init__(
             cert_file=paths.get(Paths.NETWORK_SERVICES_CA_CERT_FILE),
             key_file=paths.get(Paths.NETWORK_SERVICES_CA_KEY_FILE),
+            storage_driver=paths.storage_driver
         )
 
         self.ca = True
@@ -121,4 +122,3 @@ class NetworkServicesCaSecret(Secret):
         entity_id = self.review_commonname(commonname)
 
         return entity_id
-

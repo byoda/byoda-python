@@ -47,8 +47,8 @@ class AccountRequestAuth(RequestAuth):
                 x_client_ssl_issuing_ca, request.client.host
             )
         except NoAuthInfo:
-            # Authentication for GET /api/v1/network/account is optional
-            if request.method == 'GET':
+            # Authentication for GET/POST /api/v1/network/account is optional
+            if request.method in ('GET', 'POST'):
                 return
             else:
                 raise HTTPException(

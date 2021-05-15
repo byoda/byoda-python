@@ -9,6 +9,7 @@ Python module for directory and file management a.o. for secrets
 import os
 import logging
 
+from byoda.storage.filestorage import FileStorage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class Paths:
     Filesystem path management. Provides a uniform interface
     to the location of various files
     '''
-    # Directory prepended to paths
+    # Default value for the pirectory prepended to paths
     _ROOT_DIR = os.environ['HOME'] + '/.byoda/'
 
     # Templates for location of directories and files
@@ -27,6 +28,10 @@ class Paths:
     SECRETS_DIR          = 'private/'                # noqa
     NETWORK_DIR          = 'network-{network}'       # noqa
     NETWORK_FILE         = 'network-{network}.json'  # noqa
+
+    TLS_CERT_FILE        = 'tls-certchain.pem'       # noqa
+    TLS_KEY_FILE         = 'private/tls.key'         # noqa
+
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                     # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                    # noqa
     NETWORK_ACCOUNTS_CA_CERT_FILE = 'network-{network}/network-{network}-accounts-ca-cert.pem'                 # noqa
@@ -54,19 +59,20 @@ class Paths:
     MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service}/service-{service}-data-cert.pem'   # noqa
     MEMBER_DATA_KEY_FILE  = 'network-{network}/account-{account}/service-{service}/service-{service}-data.key'        # noqa
 
-    def __init__(self, root_directory=_ROOT_DIR, account_alias=None,
-                 network_name=None):
+    def __init__(self, root_directory: str = _ROOT_DIR,
+                 account_alias: str = None,
+                 network_name: str = None,
+                 storage_driver: FileStorage = None):
         '''
         Initiate instance with root_dir and account_alias members
         set
 
-        :param str root_directory : optional, the root directory under which
-                                    all other files and directories are
-                                    stored
-        :param str network_name   : optional, name of the network
-        :param str account_alias  : optional, alias for the account. If no
-                                    alias is specified then an UUID is
-                                    generated and used as alias
+        :param root_directory: optional, the root directory under which
+        all other files and directories are stored
+        :param network_name: optional, name of the network
+        :param account_alias: optional, alias for the account. If no alias is
+        specified then an UUID is generated and used as alias
+        :param storage_driver: instance of FileStorage for persistence of data
         :returns: (none)
         :raises: (none)
         '''
@@ -77,15 +83,19 @@ class Paths:
         self._network = network_name
         self.services = set()
         self.memberships = set()
+        if storage_driver:
+            self.storage_driver = storage_driver
+        else:
+            self.storage_driver = FileStorage(self._root_directory)
 
-    def get(self, path_template, service_alias=None):
+    def get(self, path_template: str, service_alias: str = None):
         '''
         Gets the file/path for the specified path_type
 
-        :param str path_template : string to be formatted
-        :returns: string with the full path to the directory
+        :param path_template: string to be formatted
+        :returns: full path to the directory
         :raises: KeyError if path_type is for a service
-                                   and the service parameter is not specified
+        and the service parameter is not specified
         '''
 
         if '{network}' in path_template and not self._network:
@@ -105,29 +115,40 @@ class Paths:
 
         return path
 
-    def _exists(self, path_template, service_alias=None, member_alias=None):
-        return os.path.exists(
+    def _exists(self, path_template: str, service_alias: str = None,
+                member_alias: str = None):
+        '''
+        Checks if a path exists
+
+        :param path_template: string to be formatted
+        :returns: whether the path exists
+        :raises: KeyError if path_type is for a service and the service
+        parameter is not specified
+        '''
+
+        return self.storage_driver.exists(
             self.get(path_template, service_alias=service_alias)
         )
 
-    def _create_directory(self, path_template, service_alias=None):
+    def _create_directory(self, path_template: str, service_alias: str = None):
         '''
         Ensures a directory exists. If it does not already exit
         then the directory will be created
 
-        :param str path_template : string to be formatted
-        :param str service       : string with the service to create the
-                                   directory for
+        :param path_template: string to be formatted
+        :param service_alias: string with the service to create the directory
+        for
         :returns: string with the full path to the directory
         :raises: ValueError if PathType.SERVICES_FILE or PathType.CONFIG_FILE
-                 is specified
+        is specified
         '''
 
         directory = self.get(
             path_template, service_alias=service_alias
         )
 
-        os.makedirs(directory, exist_ok=True)
+        if not self.storage_driver.exists(directory):
+            self.storage_driver.create_directory(directory)
 
         return directory
 

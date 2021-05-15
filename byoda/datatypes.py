@@ -28,6 +28,46 @@ class IdType(Enum):
     SERVICES_CA          = 'services-ca'    # noqa=E221
     SERVICE_CA           = 'service-ca-'    # noqa=E221
     MEMBERS_CA           = 'members-ca-'    # noqa=E221
+    TLS                  = 'tls'            # noqa=E221
 
 
 EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
+
+
+class CloudType(Enum):
+    '''
+    At this time only AWS is supported for data persistence
+    Use 'LOCAL' when running the pod on your developer
+    workstation for testing purposes. All data will be lost
+    when you delete the local pod.
+    '''
+    AWS                  = 'AWS'            # noqa=E221
+    GCP                  = 'GCP'            # noqa=E221
+    AZURE                = 'Azure'          # noqa=E221
+    LOCAL                = 'LOCAL'          # noqa=E221
+
+
+class CsrSource(Enum):
+    WEBAPI         = 1                    # noqa: E221
+    LOCAL          = 2                    # noqa: E221
+
+
+class CertType(Enum):
+    NETWORK        = 'network'            # noqa: E221
+    ACCOUNT        = 'account'            # noqa: E221
+    MEMBERSHIP     = 'membership'         # noqa: E221
+    SERVICE        = 'service'            # noqa: E221
+    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
+
+
+class CertLevel(Enum):
+    ROOT           = 'root'               # noqa: E221
+    INTERMEDIATE   = 'intermediate'       # noqa: E221
+    LEAF           = 'leaf'               # noqa: E221
+
+
+class CertStatus(Enum):
+    NOTFOUND        = 'notfound'          # noqa: E221
+    OK              = 'ok'                # noqa: E221
+    RENEW           = 'renew'             # noqa: E221
+    EXPIRED         = 'expired'           # noqa: E221

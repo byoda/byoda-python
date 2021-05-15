@@ -10,7 +10,9 @@ import logging
 
 from byoda.util import Paths
 
-from . import Secret, CsrSource
+from byoda.datatypes import CsrSource
+
+from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +30,8 @@ class DataSecret(Secret):
 
         super().__init__(
             cert_file=paths.get(Paths.DATA_CERT_FILE),
-            key_file=paths.get(Paths.DATA_KEY_FILE)
+            key_file=paths.get(Paths.DATA_KEY_FILE),
+            storage_driver=paths.storage_driver
         )
         self.ca = False
 

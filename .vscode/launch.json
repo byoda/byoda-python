@@ -58,13 +58,12 @@
                 "dirserver.main:app",
                 "--host", "0.0.0.0",
                 "--port", "8000",
-                "--proxy-headers",
-                "--reload",
-                "--reload-delay", "5"
+                "--proxy-headers"
             ],
             "justMyCode": true,
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws"
             }
         },
         {
@@ -73,16 +72,36 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "dirserver.main:app",
+                "podserver.main:app",
                 "--host", "0.0.0.0",
                 "--port", "8001",
-                "--proxy-headers",
-                "--reload",
-                "--reload-delay", "5"
+                "--proxy-headers"
             ],
-            "justMyCode": true,
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "CLOUD": "LOCAL",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda"
+            }
+        },
+        {
+            "name": "account_exists",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/account_exists.py",
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "CLOUD": "LOCAL",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda"
             }
         }
     ]

@@ -77,10 +77,10 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.debug(f'POST Account API called from {auth.remote_addr}')
 
-    if not auth.is_authenticated:
-        raise HTTPException(
-            status_code=401, detail='Unauthorized'
-        )
+    # if not auth.is_authenticated:
+    #     raise HTTPException(
+    #         status_code=401, detail='Unauthorized'
+    #     )
 
     network = config.network
 

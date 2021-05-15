@@ -10,3 +10,4 @@ The profile server uses NoSQL storage for profile data
 '''
 
 from .storage import CacheStorage, CacheStorageType     # noqa
+from .aws import AwsFileStorage                       # noqa

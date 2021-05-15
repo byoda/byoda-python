@@ -11,7 +11,9 @@ import logging
 
 from byoda.util import Paths
 
-from . import Secret, CsrSource, CSR
+from byoda.datatypes import CsrSource
+
+from . import Secret, CSR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +43,8 @@ class NetworkRootCaSecret(Secret):
             self.network = paths.network
             super().__init__(
                 cert_file=paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE),
-                key_file=paths.get(Paths.NETWORK_ROOT_CA_KEY_FILE)
+                key_file=paths.get(Paths.NETWORK_ROOT_CA_KEY_FILE),
+                storage_driver=paths.storage_driver
             )
         else:
             super().__init__()

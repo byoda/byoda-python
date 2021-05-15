@@ -12,9 +12,9 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret, CsrSource
+from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +36,8 @@ class MemberSecret(Secret):
             ),
             key_file=paths.get(
                 Paths.MEMBER_KEY_FILE, service_alias=service_alias
-            )
+            ),
+            storage_driver=paths.storage_driver
         )
         self.ca = False
         self.id_type = IdType.MEMBER
@@ -55,7 +56,7 @@ class MemberSecret(Secret):
         '''
 
         self.member_id = member_id
-        
+
         common_name = (
             f'{member_id}_{service_id}.{self.id_type.value}.{network}'
         )
