@@ -24,13 +24,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchExportSpanProcessor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from prometheus_fastapi_instrumentator import Instrumentator \
-    as PrometheusInstrumentator
+from prometheus_fastapi_instrumentator import \
+    Instrumentator as PrometheusInstrumentator
 
 from byoda import config
-from byoda.util import Paths
 from byoda.util.logger import Logger
-from byoda.util.secrets import AccountSecret
 
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
