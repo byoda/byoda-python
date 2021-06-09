@@ -23,6 +23,11 @@ networks = {}
 # it is supporting
 server = None
 
+#
+# The pod access the document store to read and write
+# data for the subscribed services
+document_store = None
+
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()

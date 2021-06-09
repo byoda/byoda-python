@@ -18,9 +18,6 @@ from byoda import config
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
 
-from byoda.util.secrets import MembersCaSecret
-from byoda.util.secrets import ServiceCaSecret
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -41,7 +38,7 @@ class MemberRequestAuth(RequestAuth):
         :raises: HTTPException
         '''
 
-        if service_id is None or isinstance(service_id, int):
+        if isinstance(service_id, int):
             pass
         elif isinstance(service_id, str):
             service_id = int(service_id)
@@ -65,34 +62,6 @@ class MemberRequestAuth(RequestAuth):
                 status_code=401, detail='Authentication failed'
             )
 
-        network = config.network
-
-        # We verify the cert chain by creating dummy secrets for each
-        # applicable CA and then review if that CA would have signed
-        # the commonname found in the certchain presented by the
-        # client
-        try:
-            # Member cert gets signed by Service Member CA
-            member_ca_secret = MembersCaSecret(
-                service_id, network=network.network
-            )
-            entity_id = member_ca_secret.review_commonname(self.client_cn)
-            self.member_id = entity_id.uuid
-            self.service_id = entity_id.service_id
-
-            # The Member CA cert gets signed by the Service CA
-            service_ca_secret = ServiceCaSecret(
-                service_id, network=network.network
-            )
-            service_ca_secret.review_commonname(self.issuing_ca_cn)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f'Inccorrect c_cn {self.client_cn} issued by '
-                    f'{self.issuing_ca_cn} for service {service_id} on '
-                    f'network {network.network}'
-                )
-            ) from exc
+        self.check_member_cert(service_id, config.network)
 
         self.is_authenticated = True

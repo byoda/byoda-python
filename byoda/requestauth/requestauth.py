@@ -14,6 +14,17 @@ from fastapi import HTTPException
 
 from ipaddress import ip_address as IpAddress
 
+from byoda.datamodel import Network
+from byoda.datatypes import IdType
+
+from byoda.util.secrets import (
+    MembersCaSecret,
+    ServiceCaSecret,
+    NetworkAccountsCaSecret,
+    NetworkRootCaSecret,
+    NetworkServicesCaSecret,
+)
+
 from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,10 +34,14 @@ class TlsStatus(str, Enum):
     '''
     TLS status as reported by nginx variable 'ssl_client_verify':
     http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
+    Nginx ssl_verify_client is configured for 'optional' or 'on'. M-TLS client
+    certs must always be signed as we do not configure 'optional_no_ca' so
+    'FAILED' requests should never make it to the application service
     '''    # noqa
 
     NONE        = 'NONE'        # noqa: E221
     SUCCESS     = 'SUCCESS'     # noqa: E221
+    FAILED      = 'FAILED'      # noqa: E221
 
 
 class RequestAuth():
@@ -115,6 +130,7 @@ class RequestAuth():
         self.is_authenticated = False
         self.remote_addr = remote_addr
 
+        self.id_type = None
         self.client_cn = None
         self.issuing_ca_cn = None
         self.account_id = None
@@ -143,20 +159,144 @@ class RequestAuth():
         else:
             raise NoAuthInfo
 
-        if (self.client_cn and ((self.client_cn == self.issuing_ca_cn)
-                                or not self.issuing_ca_cn)):
-            # Somehow a self-signed cert made it through the certchain check
-            _LOGGER.warning(
-                'Misformed cert was proxied by reverse proxy, Client DN: '
-                f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f'Client provided a self-signed or unsigned cert: '
-                    f'{client_dn}'
+        if self.client_cn:
+            if self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn:
+                # Somehow a self-signed cert made it through the certchain
+                # check
+                _LOGGER.warning(
+                    'Misformed cert was proxied by reverse proxy, Client DN: '
+                    f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
                 )
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f'Client provided a self-signed or unsigned cert: '
+                        f'{client_dn}'
+                    )
+                )
+            parts = self.client_cn.split('.')
+            if len(parts) < 4:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f'Invalid CommonName in client cert: {self.client_cn}'
+                    )
+                )
+
+            self.id_type = IdType(parts[1])
+
+    def check_account_cert(self, network: Network,
+                           required: bool = True) -> None:
+        '''
+        Checks whether the M-TLS client cert is a properly signed
+        Account cert
+
+        :raises: HttpException if
+        '''
+
+        if required and (self.client_cn is None or self.issuing_ca_cn is None):
+            raise HTTPException(
+                status_code=400, detail='CA-signed client cert is required'
             )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Account certs get signed by the Network Accounts CA
+            accounts_ca_secret = NetworkAccountsCaSecret(
+                network=network.network
+            )
+            entity_id = accounts_ca_secret.review_commonname(self.client_cn)
+            self.account_id = entity_id.uuid
+
+            # Network Accounts CA cert gets signed by root CA of the
+            # network
+            root_ca_secret = NetworkRootCaSecret(network=network.network)
+            root_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} on network '
+                    f'{network.network}'
+                )
+            ) from exc
+
+    def check_member_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the M-TLS client certificate was signed the cert chain
+        for members of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Member cert gets signed by Service Member CA
+            member_ca_secret = MembersCaSecret(
+                service_id, network=network.network
+            )
+            entity_id = member_ca_secret.review_commonname(self.client_cn)
+            self.member_id = entity_id.uuid
+            self.service_id = entity_id.service_id
+
+            # The Member CA cert gets signed by the Service CA
+            service_ca_secret = ServiceCaSecret(
+                service_id, network=network.network
+            )
+            service_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'network {network.network}'
+                )
+            ) from exc
+
+    def check_service_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the MTLS client certificate was signed the cert chain
+        for members of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        try:
+            # Service secret gets signed by Service CA
+            service_ca_secret = ServiceCaSecret(
+                service_id, network=network.network
+            )
+            entity_id = service_ca_secret.review_commonname(self.client_cn)
+            self.service_id = entity_id.service_id
+
+            # Service CA secret gets signed by Network Services CA
+            networkservices_ca_secret = NetworkServicesCaSecret(
+                network=network.network
+            )
+            networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'network {network.network}'
+                )
+            ) from exc
 
     @staticmethod
     def get_commonname(dname: str) -> str:

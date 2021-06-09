@@ -11,12 +11,17 @@ import sys
 
 import uvicorn
 
+import graphene
+
+from starlette.graphql import GraphQLApp
 from starlette.middleware import Middleware
 
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
 
 from fastapi import FastAPI
+
+from ariadne.asgi import GraphQL
 
 from opentelemetry import trace
 from opentelemetry.exporter import jaeger
@@ -34,9 +39,14 @@ from byoda.util.logger import Logger
 from byoda.datamodel import Network
 
 from byoda.datatypes import CloudType, IdType
+from byoda.datastore import DocumentStoreType, DocumentStore
 
 # from .bootstrap import LetsEncryptConfig
 from .bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
+
+from byoda.datastore import MemberQuery
+
+# from .routers import member
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -71,6 +81,12 @@ _LOGGER = Logger.getLogger(
 #     letsencrypt.create()
 
 config.network = Network(network, network)
+config.document_store = DocumentStore.get_document_store(
+    DocumentStoreType.OBJECT_STORE,
+    cloud_type=CloudType.AWS,
+    bucket_prefix=network['bucket_prefix'],
+    root_dir=config.network.root_dir
+)
 
 nginx_config = NginxConfig(
     directory=NGINX_SITE_CONFIG_DIR,
@@ -120,6 +136,14 @@ app = FastAPI(
 )
 FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
+
+# add_route is inherited from starlette. Not sure if decorators
+# can be used here
+# https://fastapi.tiangolo.com/advanced/graphql/
+app.add_route(
+    '/api/v1/member/data',
+    GraphQLApp(schema=graphene.Schema(query=MemberQuery))
+)
 
 
 @app.get('/api/v1/status')

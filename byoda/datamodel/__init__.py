@@ -7,3 +7,5 @@ Classes for data modeling for the server
 '''
 
 from .network import Network        # noqa
+from .schema import Schema          # noqa
+from .dataobject import DataObject  # noqa

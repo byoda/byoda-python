@@ -18,9 +18,6 @@ from fastapi import Header, HTTPException, Request
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
 
-from byoda.util.secrets import ServiceCaSecret
-from byoda.util.secrets import NetworkServicesCaSecret
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -42,7 +39,7 @@ class ServiceRequestAuth(RequestAuth):
         :raises: HTTPException
         '''
 
-        if service_id is None or isinstance(service_id, int):
+        if isinstance(service_id, int):
             pass
         elif isinstance(service_id, str):
             service_id = int(service_id)
@@ -66,33 +63,10 @@ class ServiceRequestAuth(RequestAuth):
                 status_code=401, detail='Authentication failed'
             )
 
-        network = config.network
-
         # We verify the cert chain by creating dummy secrets for each
         # applicable CA and then review if that CA would have signed
         # the commonname found in the certchain presented by the
-        # client
-        try:
-            # Service secret gets signed by Service CA
-            service_ca_secret = ServiceCaSecret(
-                service_id, network=network.network
-            )
-            entity_id = service_ca_secret.review_commonname(self.client_cn)
-            self.service_id = entity_id.service_id
-
-            # Service CA secret gets signed by Network Services CA
-            networkservices_ca_secret = NetworkServicesCaSecret(
-                network=network.network
-            )
-            networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f'Inccorrect c_cn {self.client_cn} issued by '
-                    f'{self.issuing_ca_cn} for service {service_id} on '
-                    f'network {network.network}'
-                )
-            ) from exc
+        # client.
+        self.check_service_cert(service_id, config.network)
 
         self.is_authenticated = True

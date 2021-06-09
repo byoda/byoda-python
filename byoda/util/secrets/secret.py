@@ -720,6 +720,13 @@ class Secret:
         '''
         return self.cert.public_bytes(serialization.Encoding.PEM)
 
+    def fingerprint(self):
+        '''
+        Returns the SHA256 fingerprint of the certificate
+        '''
+
+        return self.cert.fingerprint(hashes.SHA256)
+        
     def encrypt(self, data: bytes):
         '''
         Encrypts the provided data with the Fernet algorithm

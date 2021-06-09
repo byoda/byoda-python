@@ -15,15 +15,18 @@ from fastapi import Header, HTTPException, Request
 
 from byoda import config
 
+from byoda.datatypes import IdType
+
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class AccountRequestAuth(RequestAuth):
+class PodRequestAuth(RequestAuth):
     def __init__(self,
                  request: Request,
+                 service_id: Optional[int] = Header(None),
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),
                  x_client_ssl_subject: Optional[str] = Header(None),
                  x_client_ssl_issuing_ca: Optional[str] = Header(None)):
@@ -37,20 +40,43 @@ class AccountRequestAuth(RequestAuth):
         :returns: (n/a)
         :raises: HTTPException
         '''
+
+        if (x_client_ssl_verify is None or x_client_ssl_subject is None
+                or x_client_ssl_issuing_ca is None):
+            raise HTTPException(
+                status_code=401,
+                detail='No MTLS client cert provided'
+            )
+
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
                 x_client_ssl_issuing_ca, request.client.host
             )
         except NoAuthInfo:
-            # Authentication for GET/POST /api/v1/network/account is optional
-            if request.method in ('GET', 'POST'):
-                return
-            else:
-                raise HTTPException(
-                    status_code=403, detail='No authentication provided'
-                )
+            raise HTTPException(
+                status_code=400, detail='No authentication provided'
+            )
 
-        self.check_account_cert(config.network)
+        # This API can be called by ourselves, someone in our network for
+        # the service, the services or an approved application of the service
+        if self.id_type == IdType.ACCOUNT:
+            if service_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        'Service ID specified for request authenticated '
+                        'with an account secret'
+                    )
+                )
+            self.check_account_cert(config.network)
+        elif self.id_type == IdType.MEMBER:
+            self.check_member_cert(service_id, config.network)
+        elif self.id_type == IdType.SERVICE:
+            self.check_service_cert(service_id, config.network)
+        else:
+            raise HTTPException(
+                status_code=400, detail=f'Unknown IdType: {self.id_type}'
+            )
 
         self.is_authenticated = True

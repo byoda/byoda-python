@@ -48,6 +48,9 @@ requests==2.25.1
 sqlalchemy==1.4.15
 psycopg2-binary==2.8.6
 
+# https://github.com/graphql-python/graphene
+graphene==2.1.8
+
 # https://www.dnspython.org/
 dnspython==2.1.0
 
