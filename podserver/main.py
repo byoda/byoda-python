@@ -11,9 +11,6 @@ import sys
 
 import uvicorn
 
-import graphene
-
-from starlette.graphql import GraphQLApp
 from starlette.middleware import Middleware
 
 from starlette_context import plugins
@@ -39,12 +36,12 @@ from byoda.util.logger import Logger
 from byoda.datamodel import Network
 
 from byoda.datatypes import CloudType, IdType
-from byoda.datastore import DocumentStoreType, DocumentStore
+from byoda.datastore import DocumentStoreType, DocumentStore, MemberQuery
 
 # from .bootstrap import LetsEncryptConfig
 from .bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
 
-from byoda.datastore import MemberQuery
+# from byoda.datastore import MemberQuery
 
 # from .routers import member
 
@@ -137,18 +134,17 @@ app = FastAPI(
 FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
 
-# add_route is inherited from starlette. Not sure if decorators
-# can be used here
-# https://fastapi.tiangolo.com/advanced/graphql/
+member_query = MemberQuery('services/default.graphql')
 app.add_route(
     '/api/v1/member/data',
-    GraphQLApp(schema=graphene.Schema(query=MemberQuery))
+    GraphQL(schema=member_query.schema, debug=True)
 )
 
 
 @app.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
+
 
 if __name__ == '__main__':
     uvicorn.run(app, host='127.0.0.1', port=8000)

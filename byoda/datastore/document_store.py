@@ -9,28 +9,37 @@ Class for certificate request processing
 import logging
 from enum import Enum
 
-
+from ariadne import load_schema_from_path, make_executable_schema
+from ariadne import QueryType
 
 from byoda.datatypes import CloudType
 from byoda.storage import FileStorage
 
-
 _LOGGER = logging.getLogger(__name__)
 
+query = QueryType()
 
-class MemberQuery(ObjectType):
-    hello = String(name=String(default_value='stranger'))
-    goodbye = String()
-    serviceid = Int(serviceid=Int(default_value=0))
 
-    def resolve_hello(root, info, name):
-        return f'Hello {name}!'
+@query.field('person')
+def resolve_person(obj_, info_, given_name='none', family_name='none',
+                   email='none'):
+    return {
+        'given_name': given_name,
+        'family_name': family_name,
+        'email': email,
+    }
 
-    def resolve_goodbye(root, info):
-        return 'See ya!'
 
-    def resolve_serviceid(self, info, serviceid):
-        return serviceid
+class MemberQuery():
+    '''
+    Queries and mutations for membership data
+    '''
+    def __init__(self, directory):
+        # load_schema_from_path uses ariadne.gql so no need to explicitly
+        # use it.
+        self.type_defs = load_schema_from_path(directory)
+        global query
+        self.schema = make_executable_schema(self.type_defs, query)
 
 
 class DocumentStoreType(Enum):

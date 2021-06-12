@@ -29,7 +29,6 @@
             "env": {
                 "PYTHONPATH": "."
             },
-            "console": "integratedTerminal"
         },
         {
             "name": "create_account",
@@ -47,7 +46,6 @@
             "env": {
                 "PYTHONPATH": "."
             },
-            "console": "integratedTerminal"
         },
         {
             "name": "dirserver",
@@ -60,7 +58,6 @@
                 "--port", "8000",
                 "--proxy-headers"
             ],
-            "justMyCode": true,
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
                 "SERVER_NAME": "devws"

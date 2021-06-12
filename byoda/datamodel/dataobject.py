@@ -14,7 +14,7 @@ MAX_FILE_SIZE = 65536
 
 class DataObject:
     '''
-    Generic data object for the data model of serices
+    Generic data object for the data model of services
     '''
 
     def __init__(self, schema: Schema):
