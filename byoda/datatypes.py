@@ -29,6 +29,8 @@ class IdType(Enum):
     SERVICE_CA           = 'service-ca-'    # noqa=E221
     MEMBERS_CA           = 'members-ca-'    # noqa=E221
     TLS                  = 'tls'            # noqa=E221
+    ACCOUNT_DATA         = 'account-data'   # noqa=E221
+    MEMBER_DATA          = 'member-data'    # noqa=E221
 
 
 EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])

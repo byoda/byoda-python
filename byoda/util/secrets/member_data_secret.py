@@ -39,7 +39,7 @@ class MemberDataSecret(Secret):
         self.network = paths.network
         self.ca = False
         self.issuing_ca = None
-        self.id_type = IdType.ACCOUNT_DATA
+        self.id_type = IdType.MEMBER_DATA
 
         self.csrs_accepted_for = ()
 
