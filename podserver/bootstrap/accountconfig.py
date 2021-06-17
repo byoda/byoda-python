@@ -69,7 +69,7 @@ class AccountConfig(TargetConfig):
         protected with the secret for the private key
         '''
 
-        if not self.account_data_secret.exists():
+        if not self.account_data_secret.cert_file_exists():
             _LOGGER.info('Creating account data secret')
             self.account_data_secret.common_name = (
                 f'{self.account_id}.account_data.{self.network}'
