@@ -32,7 +32,7 @@ class Service:
         self.public_key = None
 
     @classmethod
-    def get_service(network: str = DEFAULT_NETWORK, filename: str = None
+    def get_service(cls, network: str = DEFAULT_NETWORK, filename: str = None
                     ) -> Service:
         '''
         Factory for Service class.

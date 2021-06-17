@@ -62,4 +62,3 @@ class Account:
             self.member_data_secrets[service] = MemberDataSecret(
                 service, self.paths
             )
-

@@ -726,7 +726,7 @@ class Secret:
         '''
 
         return self.cert.fingerprint(hashes.SHA256)
-        
+
     def encrypt(self, data: bytes):
         '''
         Encrypts the provided data with the Fernet algorithm

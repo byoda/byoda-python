@@ -17,7 +17,7 @@ from . import Secret, CSR
 _LOGGER = logging.getLogger(__name__)
 
 
-class AccoutDataSecret(Secret):
+class AccountDataSecret(Secret):
     def __init__(self, paths: Paths):
         '''
         Class for the account-data secret. This secret is used to encrypt
