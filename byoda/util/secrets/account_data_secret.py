@@ -29,7 +29,7 @@ class AccountDataSecret(Secret):
         :raises: (none)
         '''
 
-        self.account_id = paths.account_id
+        self.account_id = None
         super().__init__(
             cert_file=paths.get(Paths.ACCOUNT_DATA_CERT_FILE),
             key_file=paths.get(Paths.ACCOUNT_DATA_KEY_FILE),
@@ -44,18 +44,7 @@ class AccountDataSecret(Secret):
         self.csrs_accepted_for = ()
 
     def create(self, expire: int = 109500):
-        '''
-        Creates an RSA private key and X.509 cert
-
-        :param int expire: days after which the cert should expire
-        :returns: (none)
-        :raises: ValueError if the Secret instance already
-                            has a private key or cert
-
-        '''
-
-        common_name = f'{self.account_id}.accout_data.{self.network}'
-        super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
+        raise NotImplementedError
 
     def create_csr(self):
         raise NotImplementedError
