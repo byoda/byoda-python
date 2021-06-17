@@ -25,6 +25,7 @@ docker stop byoda; docker rm byoda; docker run \
     -e "LOGLEVEL=DEBUG" \
     -e "PRIVATE_KEY_SECRET=byoda" \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
+    -v /byoda:/byoda \
     byoda/byoda-pod:latest
 ```
 

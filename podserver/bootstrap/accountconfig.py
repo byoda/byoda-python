@@ -43,9 +43,7 @@ class AccountConfig(TargetConfig):
         self.account_key = account_key
 
         self.account_secret = AccountSecret(self.paths)
-        self.account_data_secret = AccountDataSecret(
-            self.paths
-        )
+        self.account_data_secret = AccountDataSecret(self.paths)
         self.account_key_secret = account_key_secret
 
         self.network = network
@@ -73,6 +71,9 @@ class AccountConfig(TargetConfig):
 
         if not self.account_data_secret.exists():
             _LOGGER.info('Creating account data secret')
+            self.account_data_secret.common_name = (
+                f'{self.account_id}.account_data.{self.network}'
+            )
             self.account_data_secret.create_selfsigned_cert(expire=365 * 100)
             self.save(password=self.account_key_secret)
 
