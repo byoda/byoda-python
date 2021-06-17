@@ -53,11 +53,13 @@ class CsrSource(Enum):
 
 
 class CertType(Enum):
-    NETWORK        = 'network'            # noqa: E221
-    ACCOUNT        = 'account'            # noqa: E221
-    MEMBERSHIP     = 'membership'         # noqa: E221
-    SERVICE        = 'service'            # noqa: E221
-    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
+    NETWORK         = 'network'            # noqa: E221
+    ACCOUNT         = 'account'            # noqa: E221
+    ACCOUNT_DATA    = 'account-data'       # noqa: E221
+    MEMBERSHIP      = 'membership'         # noqa: E221
+    MEMBERSHIP_DATA = 'membership-data'    # noqa: E221
+    SERVICE         = 'service'            # noqa: E221
+    INFRASTRUCTURE  = 'infrastructure'     # noqa: E221
 
 
 class CertLevel(Enum):

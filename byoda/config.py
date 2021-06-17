@@ -10,20 +10,28 @@ provides global variables
 
 import requests
 
+DEFAULT_NETWORK = 'byoda.net'
+
 # This stores the contents of the config.yml file
 app_config = None
 
 # The networks known by this server, as defined in the
 # server config.yml file. The keys for the networks
 # are the 'network identifiers' (so an integer number),
-# the values are the name of those net
+# the values are the name of those networks
 networks = {}
+
+# The services of a network. The source of this information
+# will be the directory server of the network
+services = {}
+
+# The service memberships of an account
+memberships = {}
 
 # The configuration of the server, its peers and the networks
 # it is supporting
 server = None
 
-#
 # The pod access the document store to read and write
 # data for the subscribed services
 document_store = None

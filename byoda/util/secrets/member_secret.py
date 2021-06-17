@@ -20,34 +20,32 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MemberSecret(Secret):
-    def __init__(self, service_alias: str, paths: Paths):
+    def __init__(self, service_id: int, paths: Paths):
         '''
         Class for the member secret of an account for a service
 
-        :param Paths paths: instance of Paths class defining the directory
-                            structure and file names of a BYODA network
         :returns: (none)
         :raises: (none)
         '''
 
         super().__init__(
             cert_file=paths.get(
-                Paths.MEMBER_CERT_FILE, service_alias=service_alias
+                Paths.MEMBER_CERT_FILE, service_id=service_id
             ),
             key_file=paths.get(
-                Paths.MEMBER_KEY_FILE, service_alias=service_alias
+                Paths.MEMBER_KEY_FILE, service_id=service_id
             ),
             storage_driver=paths.storage_driver
         )
+        self.service_id = service_id
         self.ca = False
         self.id_type = IdType.MEMBER
 
-    def create_csr(self, network: str, service_id: int, member_id: UUID,
+    def create_csr(self, network: str, member_id: UUID,
                    expire: int = 3650) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
         :param member_id: identifier of the member for the service
         :param expire: days after which the cert should expire
         :returns: csr
@@ -58,7 +56,7 @@ class MemberSecret(Secret):
         self.member_id = member_id
 
         common_name = (
-            f'{member_id}_{service_id}.{self.id_type.value}.{network}'
+            f'{member_id}_{self.service_id}.{self.id_type.value}.{network}'
         )
 
         return super().create_csr(common_name, ca=self.ca)

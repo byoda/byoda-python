@@ -143,7 +143,7 @@ def create_network(args, paths):
 
 def create_service(args, paths):
     if not paths.service_directory_exists(paths.service):
-        paths.create_service_directory(paths.service)
+        paths.create_service_directory(paths.service_id)
     pass
 
 

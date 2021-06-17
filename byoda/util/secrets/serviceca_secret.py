@@ -21,13 +21,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ServiceCaSecret(Secret):
-    def __init__(self, service: str, paths: Paths = None, network: str = None):
+    def __init__(self, service: str, service_id: int, paths: Paths = None,
+                 network: str = None):
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
-        :param service: the label for the service
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
         :param service: label for the service
@@ -41,7 +41,7 @@ class ServiceCaSecret(Secret):
         '''
 
         self.service = service
-        self.service_id = None
+        self.service_id = service_id
 
         if paths and network:
             raise ValueError('Either paths or network parameters must be set')
@@ -50,10 +50,10 @@ class ServiceCaSecret(Secret):
             self.network = paths.network
             super().__init__(
                 cert_file=paths.get(
-                    Paths.SERVICE_CA_CERT_FILE, service_alias=service
+                    Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
                 ),
                 key_file=paths.get(
-                    Paths.SERVICE_CA_KEY_FILE, service_alias=service
+                    Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
                 ),
                 storage_driver=paths.storage_driver
             )
@@ -66,11 +66,10 @@ class ServiceCaSecret(Secret):
 
         self.csrs_accepted_for = ('members-ca')
 
-    def create_csr(self, service_id: int) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR the the Service issuing CA
 
-        :param service_id: identifier for the service
         :param expire: days after which the cert should expire
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
@@ -78,7 +77,7 @@ class ServiceCaSecret(Secret):
         '''
 
         commonname = (
-            f'{IdType.SERVICE_CA.value}{service_id}.{IdType.SERVICE.value}.'
+            f'{IdType.SERVICE_CA.value}{self.service_id}.{IdType.SERVICE.value}.'
             f'{self.network}'
         )
 

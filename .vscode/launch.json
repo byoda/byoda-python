@@ -64,7 +64,7 @@
             }
         },
         {
-            "name": "podserver",
+            "name": "podserver LOCAL",
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
@@ -75,7 +75,6 @@
                 "--proxy-headers"
             ],
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python",
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
@@ -91,7 +90,6 @@
             "request": "launch",
             "program": "tools/account_exists.py",
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python",
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",

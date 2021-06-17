@@ -102,10 +102,10 @@ class TestAccountManager(unittest.TestCase):
 
         service_id = pow(2, 64) - 2
         service_alias = 'mytestservice'
-        paths.create_service_directory(service_alias)
+        paths.create_service_directory(service_id)
 
-        service_ca = ServiceCaSecret(service_alias, paths)
-        csr = service_ca.create_csr(service_id)
+        service_ca = ServiceCaSecret(service_alias, service_id, paths)
+        csr = service_ca.create_csr()
         commonname = network_service_ca.review_csr(csr)
         self.assertIsNotNone(commonname)
         service_ca.add_signed_cert(
@@ -113,8 +113,8 @@ class TestAccountManager(unittest.TestCase):
         )
         service_ca.save()
 
-        service_secret = ServiceSecret(service_alias, paths)
-        csr = service_secret.create_csr(service_id)
+        service_secret = ServiceSecret(service_alias, service_id, paths)
+        csr = service_secret.create_csr()
         commonname = service_ca.review_csr(csr, source=CsrSource.LOCAL)
         self.assertIsNotNone(commonname)
         service_secret.add_signed_cert(
@@ -122,7 +122,7 @@ class TestAccountManager(unittest.TestCase):
         )
         service_secret.save()
 
-        service_members_ca = MembersCaSecret(service_alias, paths)
+        service_members_ca = MembersCaSecret(service_alias, service_id, paths)
         csr = service_members_ca.create_csr(service_id)
         commonname = service_ca.review_csr(csr, source=CsrSource.LOCAL)
         self.assertIsNotNone(commonname)
@@ -132,14 +132,14 @@ class TestAccountManager(unittest.TestCase):
         service_members_ca.save()
 
         member_id = uuid4()
-        member_secret = MemberSecret(service_alias, paths)
-        csr = member_secret.create_csr(NETWORK, service_id, member_id)
+        member_secret = MemberSecret(service_id, paths)
+        csr = member_secret.create_csr(NETWORK, member_id)
         commonname = service_members_ca.review_csr(csr)
         self.assertIsNotNone(commonname)
         member_secret.add_signed_cert(
             service_members_ca.sign_csr(csr, expire=3650)
         )
-        paths.create_member_directory(service_alias)
+        paths.create_member_directory(service_id)
         member_secret.save()
 
         load_secrets(paths)

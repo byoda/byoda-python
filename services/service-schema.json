@@ -5,6 +5,8 @@
     "properties": {
         "name": { "type": "string" },
         "service_id": { "type": "integer" },
-        "model": { "type": "object"}
+        "public_key": { "type": "string" },
+        "network": { "type": "string" },
+        "schema": { "type": "object"}
     }
 }

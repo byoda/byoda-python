@@ -22,13 +22,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MembersCaSecret(Secret):
-    def __init__(self, service: str, paths: Paths = None, network: str = None):
+    def __init__(self, service_label: str, service_id: int,
+                 paths: Paths = None, network: str = None):
         '''
         Class for the Service Members CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
-        :param service: the label for the service
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
         :param service: label for the service
@@ -42,14 +42,15 @@ class MembersCaSecret(Secret):
         '''
 
         self.network = paths.network
-        self.service = paths.service
+        self.service_id = service_id
+        self.service = service_label
 
         super().__init__(
             cert_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_alias=service
+                Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_id=service_id
             ),
             key_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_alias=service
+                Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_id=service_id
             ),
             storage_driver=paths.storage_driver
         )

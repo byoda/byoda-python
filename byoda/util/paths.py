@@ -39,25 +39,27 @@ class Paths:
     NETWORK_SERVICES_CA_CERT_FILE = 'network-{network}/network-{network}-services-ca-cert.pem'                 # noqa
     NETWORK_SERVICES_CA_KEY_FILE  = 'private/network-{network}-services-ca.key'                                # noqa
 
-    ACCOUNT_DIR          = 'network-{network}/account-{account}/'                                              # noqa
-    ACCOUNT_FILE         = 'network-{network}/account-{account}/account-{account}.json'                        # noqa
-    ACCOUNT_CERT_FILE    = 'network-{network}/account-{account}/{account}-cert.pem'                            # noqa
-    ACCOUNT_KEY_FILE     = 'private/network-{network}-account-{account}.key'                                   # noqa
+    ACCOUNT_DIR            = 'network-{network}/account-{account}/'                                              # noqa
+    ACCOUNT_FILE           = 'network-{network}/account-{account}/account-{account}.json'                        # noqa
+    ACCOUNT_CERT_FILE      = 'network-{network}/account-{account}/{account}-cert.pem'                            # noqa
+    ACCOUNT_KEY_FILE       = 'private/network-{network}-account-{account}.key'                                   # noqa
+    ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
+    ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
 
-    SERVICE_DIR          = 'network-{network}/services/service-{service}/'                                     # noqa
-    SERVICE_FILE         = 'network-{network}/services/service-{service}/service-{service}.json'               # noqa
-    SERVICE_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service}-ca-cert.pem'                 # noqa
-    SERVICE_CA_KEY_FILE  = 'private/network-{network}-service-{service}-ca.key'                                # noqa
-    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service}-member-ca-cert.pem'  # noqa
-    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service}-member-ca.key'                 # noqa
-    SERVICE_CERT_FILE    = 'network-{network}/services/service-{service}/service-{service}-cert.pem'           # noqa
-    SERVICE_KEY_FILE     = 'private/network-{network}-service-{service}.key'                                   # noqa
+    SERVICE_DIR          = 'network-{network}/services/service-{service_id}/'                                     # noqa
+    SERVICE_FILE         = 'network-{network}/services/service-{service_id}/service-{service_id}.json'            # noqa
+    SERVICE_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-ca-cert.pem'                 # noqa
+    SERVICE_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-ca.key'                                # noqa
+    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-member-ca-cert.pem'  # noqa
+    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                 # noqa
+    SERVICE_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-cert.pem'        # noqa
+    SERVICE_KEY_FILE     = 'private/network-{network}-service-{service_id}.key'                                   # noqa
 
-    MEMBER_DIR            = 'network-{network}/account-{account}/service-{service}/'                                  # noqa
-    MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service}/service-{service}-cert.pem'        # noqa
-    MEMBER_KEY_FILE       = 'network-{network}/account-{account}/service-{service}/service-{service}.key'             # noqa
-    MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service}/service-{service}-data-cert.pem'   # noqa
-    MEMBER_DATA_KEY_FILE  = 'network-{network}/account-{account}/service-{service}/service-{service}-data.key'        # noqa
+    MEMBER_DIR            = 'network-{network}/account-{account}/service-{service_id}/'                                    # noqa
+    MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-cert.pem'        # noqa
+    MEMBER_KEY_FILE       = 'private/network-{network}-account-{account}-member-{service_id}.key'                          # noqa
+    MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-data-cert.pem'   # noqa
+    MEMBER_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                     # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account_alias: str = None,
@@ -88,7 +90,7 @@ class Paths:
         else:
             self.storage_driver = FileStorage(self._root_directory)
 
-    def get(self, path_template: str, service_alias: str = None):
+    def get(self, path_template: str, service_id: int = None):
         '''
         Gets the file/path for the specified path_type
 
@@ -100,7 +102,7 @@ class Paths:
 
         if '{network}' in path_template and not self._network:
             raise ValueError('No network specified')
-        if '{service}' in path_template and not service_alias:
+        if '{service_id}' in path_template and not service_id:
             raise ValueError('No service specified')
         if '{account}' in path_template and not self._account:
             raise ValueError('No account specified')
@@ -108,14 +110,14 @@ class Paths:
         path = path_template.format(
             network=self._network,
             account=self._account,
-            service=service_alias,
+            service_id=service_id,
         )
         if path[0] != '/':
             path = self._root_directory + '/' + path
 
         return path
 
-    def _exists(self, path_template: str, service_alias: str = None,
+    def _exists(self, path_template: str, service_id: int = None,
                 member_alias: str = None):
         '''
         Checks if a path exists
@@ -127,24 +129,22 @@ class Paths:
         '''
 
         return self.storage_driver.exists(
-            self.get(path_template, service_alias=service_alias)
+            self.get(path_template, service_id=service_id)
         )
 
-    def _create_directory(self, path_template: str, service_alias: str = None):
+    def _create_directory(self, path_template: str, service_id: int = None):
         '''
         Ensures a directory exists. If it does not already exit
         then the directory will be created
 
         :param path_template: string to be formatted
-        :param service_alias: string with the service to create the directory
-        for
         :returns: string with the full path to the directory
         :raises: ValueError if PathType.SERVICES_FILE or PathType.CONFIG_FILE
         is specified
         '''
 
         directory = self.get(
-            path_template, service_alias=service_alias
+            path_template, service_id=service_id
         )
 
         if not self.storage_driver.exists(directory):
@@ -202,34 +202,34 @@ class Paths:
         return self._create_directory(self.ACCOUNT_DIR)
 
     # service directory
-    def service(self, service_alias):
-        return self.get(service_alias)
+    def service(self, service_id):
+        return self.get(service_id)
 
-    def service_directory(self, service_alias):
-        return self.get(self.SERVICE_DIR, service_alias=service_alias)
+    def service_directory(self, service_id):
+        return self.get(self.SERVICE_DIR, service_id=service_id)
 
-    def service_directory_exists(self, service_alias):
-        return self._exists(self.SERVICE_DIR, service_alias=service_alias)
+    def service_directory_exists(self, service_id):
+        return self._exists(self.SERVICE_DIR, service_id=service_id)
 
-    def create_service_directory(self, service_alias):
+    def create_service_directory(self, service_id):
         return self._create_directory(
-            self.SERVICE_DIR, service_alias=service_alias
+            self.SERVICE_DIR, service_id=service_id
         )
 
     # Membership directory
-    def member_directory(self, service_alias):
+    def member_directory(self, service_id):
         return self.get(
-            self.MEMBER_DIR, service_alias=service_alias
+            self.MEMBER_DIR, service_id=service_id
         )
 
-    def member_directory_exists(self, service_alias):
+    def member_directory_exists(self, service_id):
         return self._exists(
-            self.MEMBER_DIR, service_alias=service_alias
+            self.MEMBER_DIR, service_id=service_id
         )
 
-    def create_member_directory(self, service_alias):
+    def create_member_directory(self, service_id):
         return self._create_directory(
-            self.MEMBER_DIR, service_alias=service_alias
+            self.MEMBER_DIR, service_id=service_id
         )
 
     # Config file
@@ -261,8 +261,8 @@ class Paths:
         return self._exists(self.ACCOUNT_FILE)
 
     # Service files
-    def service_file(self, service_alias):
-        return self.get(self.SERVICE_FILE, service_alias=service_alias)
+    def service_file(self, service_id):
+        return self.get(self.SERVICE_FILE, service_id=service_id)
 
-    def service_file_exists(self, service_alias):
-        return self._exists(self.SERVICE_FILE, service_alias=service_alias)
+    def service_file_exists(self, service_id):
+        return self._exists(self.SERVICE_FILE, service_id=service_id)

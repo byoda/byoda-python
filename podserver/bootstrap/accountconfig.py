@@ -10,7 +10,7 @@ import logging
 from uuid import UUID
 import requests
 
-from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import AccountSecret, AccountDataSecret
 from byoda.datatypes import CloudType
 
 from byoda.util.paths import Paths
@@ -41,16 +41,25 @@ class AccountConfig(TargetConfig):
 
         self.account_id = account_id
         self.account_key = account_key
+
+        self.account_secret = AccountSecret(self.paths)
+        self.account_data_secret = AccountDataSecret(
+            self.paths
+        )
         self.account_key_secret = account_key_secret
 
         self.network = network
 
     def exists(self):
-        account_secret = AccountSecret(self.paths)
         try:
-            return account_secret.cert_file_exists()
-        except Exception as exc:
-            _LOGGER('Account certificate not found')
+            return (
+                self.account_secret.cert_file_exists()
+                and self.account_data_secret.exists()
+            )
+        except Exception:
+            _LOGGER(
+                'Account certificate or account data certificate not found'
+            )
 
         return False
 
@@ -62,9 +71,18 @@ class AccountConfig(TargetConfig):
         protected with the secret for the private key
         '''
 
-        account_secret = AccountSecret(self.paths)
-        csr = account_secret.create_csr(self.account_id)
-        payload = {'csr': account_secret.csr_as_pem(csr).decode('utf-8')}
+        if not self.account_data_secret.exists():
+            _LOGGER.info('Creating account data secret')
+            self.account_data_secret.create_selfsigned_cert(expire=365 * 100)
+            self.save(password=self.account_key_secret)
+
+        if self.account_secret.cert_file_exists():
+            return
+
+        _LOGGER.info('Creating account secret')
+
+        csr = self.account_secret.create_csr(self.account_id)
+        payload = {'csr': self.account_secret.csr_as_pem(csr).decode('utf-8')}
         url = f'https://dir.{self.network}/api/v1/network/account'
 
         resp = requests.post(url, json=payload)
@@ -72,7 +90,7 @@ class AccountConfig(TargetConfig):
             raise RuntimeError('Certificate signing request failed')
 
         cert_data = resp.json()
-        account_secret.from_string(
+        self.account_secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
         )
-        account_secret.save(password=self.account_key_secret)
+        self.account_secret.save(password=self.account_key_secret)

@@ -50,6 +50,9 @@ psycopg2-binary==2.8.6
 
 ariadne==0.13.0
 
+# https://horejsek.github.io/python-fastjsonschema/
+fastjsonschema==2.15.1
+
 # https://github.com/graphql-python/gql
 gql==3.0.0a6
 

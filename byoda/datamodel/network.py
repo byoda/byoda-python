@@ -8,6 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
+import json
 
 from byoda.util import Paths
 from byoda.util import config
@@ -15,6 +16,9 @@ from byoda.util import config
 from byoda.datatypes import ServerRole
 
 from byoda.datastore import DnsDb
+
+from .service import Service
+from .account import Account
 
 from byoda.storage.filestorage import FileStorage
 
@@ -24,7 +28,6 @@ from byoda.util.secrets import NetworkServicesCaSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import MembersCaSecret
 from byoda.util.secrets import ServiceSecret
-from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import MemberSecret
 
 
@@ -138,13 +141,17 @@ class Network:
         self.member_ca = None
         if ServerRole.ServiceServer in self.roles:
             config.requests.cert = ()
-            self.member_ca = MembersCaSecret(server.service, self.paths)
+            self.member_ca = MembersCaSecret(
+                server['service'], server['service_id'], self.paths
+            )
             self.member_ca.load(
                 with_private_key=True,
                 password=self.private_key_password
             )
 
-            self.service_secret = ServiceSecret(server['service'], self.paths)
+            self.service_secret = ServiceSecret(
+                server['service'], server['service_id'], self.paths
+            )
             self.service_secret.load(
                 with_private_key=True,
                 password=self.private_key_password
@@ -161,24 +168,37 @@ class Network:
         self.account_secret = None
         self.data_secret = None
         self.member_secrets = set()
+        self.services = dict()
+        self.account = None
         if ServerRole.Pod in self.roles:
-            self.account_id = server['account_id']
-            self.paths.account = 'pod'
-            self.account_secret = AccountSecret(self.paths)
-            self.account_secret.load(password=self.private_key_password)
+            self.account = Account(server['account_id'], self)
+
             # We use the account secret as client TLS cert for outbound
             # requests and as private key for the TLS server
-            filepath = self.account_secret.save_tmp_private_key()
-            config.requests.cert = (self.account_secret.cert_file, filepath)
+            filepath = self.account.account_secret.save_tmp_private_key()
+            config.requests.cert = (
+                self.account.account_secret.cert_file, filepath
+            )
 
-            paths = self.paths
-            for directory in os.listdir(paths.get(self.paths.ACCOUNT_DIR)):
-                if not directory.startswith('service-'):
-                    continue
-                service = directory[8:]
-                self.member_secrets[service] = MemberSecret(
-                    service, self.paths
-                )
-                self.member_secrets[service].load(
-                    with_private_key=True, password=self.private_key_password
-                )
+    def load_services(self, filename: str = None) -> None:
+        '''
+        Load a list of all the services in the network
+        '''
+        with open(filename) as file_desc:
+            data = json.load(file_desc)
+
+        if self.services:
+            _LOGGER.debug('Reloading list of services')
+            self.services = dict()
+
+        for service in data:
+            # TODO: check list of services against JSON Schema
+            service_id = service['service_id']
+            if service_id in self.services:
+                raise ValueError(f'Duplicate service_id: {service_id}')
+
+            self.services[service_id] = Service(
+                name=service['name'],
+                service_id=service_id,
+                network=self,
+            )

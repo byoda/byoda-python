@@ -22,11 +22,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ServiceSecret(Secret):
-    def __init__(self, service: str, paths: Paths):
+    def __init__(self, service_label: str, service_id: int, paths: Paths):
         '''
         Class for the service secret
 
-        :param str service_alias: short name for the service
         :param Paths paths: instance of Paths class defining the directory,
         structure and file names of a BYODA network
         :returns: (none)
@@ -34,22 +33,22 @@ class ServiceSecret(Secret):
         '''
 
         self.network = paths.network
-        self.service = service
-        self.service_id = None
+        self.service = service_label
+        self.service_id = service_id
 
         super().__init__(
             cert_file=paths.get(
-                Paths.SERVICE_CERT_FILE, service_alias=service
+                Paths.SERVICE_CERT_FILE, service_id=self.service_id
             ),
             key_file=paths.get(
-                Paths.SERVICE_KEY_FILE, service_alias=service
+                Paths.SERVICE_KEY_FILE, service_id=self.service_id
             ),
             storage_driver=paths.storage_driver
         )
         self.ca = False
         self.id_type = IdType.SERVICE
 
-    def create_csr(self, service_id: int) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -59,14 +58,14 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = f'{service_id}.{self.id_type.value}.{self.network}'
+        common_name = f'{self.service_id}.{self.id_type.value}.{self.network}'
 
         return super().create_csr(common_name, ca=self.ca)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
-        an AccountSecret and returns the entity identifier parsed from
+        an ServiceSecret and returns the entity identifier parsed from
         the commonname
 
         :param commonname: the commonname to check

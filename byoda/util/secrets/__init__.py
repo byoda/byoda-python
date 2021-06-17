@@ -18,7 +18,10 @@ from .membersca_secret import MembersCaSecret                  # noqa: F401
 from .service_secret import ServiceSecret                      # noqa: F401
 
 from .account_secret import AccountSecret                      # noqa: F401
+from .account_data_secret import AccountDataSecret             # noqa: F401
+
 from .member_secret import MemberSecret                        # noqa: F401
+from .member_data_secret import MemberDataSecret               # noqa: F401
 
 from .data_secret import DataSecret                            # noqa: F401
 

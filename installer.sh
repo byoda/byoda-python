@@ -43,9 +43,9 @@ echo "Creating BYODA directory tree at ${BYODA_DIR} for network ${BYODA_NETWORK}
 mkdir -p ${BYODA_DIR}/private
 chmod 700 ${BYODA_DIR}/private
 
-mkdir -p ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-default/
-cp services/default.json ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-default/service-default.json
+mkdir -p ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-0/
+cp services/default.json ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-0/service-0.json
 
-mkdir -p ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-addressbook/
-cp services/default.json ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-addressbook/addressbook.json
+mkdir -p ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-1/
+cp services/default.json ${BYODA_DIR}/network-${BYODA_NETWORK}/services/service-1/service-1.json
 

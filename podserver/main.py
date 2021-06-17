@@ -134,6 +134,8 @@ app = FastAPI(
 FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
 
+config.network.load_services(filename='services/service_directory.json')
+
 member_query = MemberQuery('services/default.graphql')
 app.add_route(
     '/api/v1/member/data',

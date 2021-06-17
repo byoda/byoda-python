@@ -69,10 +69,12 @@ paths.create_account_directory()
 # TODO, needs an API on the directory server
 src_dir = '/podserver/byoda-python'
 ca_file = (
-    paths.network_directory() + f'/network-{network["network"]}-root-ca-cert.pem'
+    paths.network_directory() +
+    f'/network-{network["network"]}-root-ca-cert.pem'
 )
 private_object_storage.copy(
-    f'/{src_dir}/networks/network-{network["network"]}-root-ca-cert.pem', ca_file
+    f'/{src_dir}/networks/network-{network["network"]}-root-ca-cert.pem',
+    ca_file
 )
 _LOGGER.debug(f'CA cert for network {network["network"]} is now available')
 
