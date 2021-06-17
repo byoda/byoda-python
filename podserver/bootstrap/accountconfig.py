@@ -52,7 +52,7 @@ class AccountConfig(TargetConfig):
         try:
             return (
                 self.account_secret.cert_file_exists()
-                and self.account_data_secret.exists()
+                and self.account_data_secret.cert_file_exists()
             )
         except Exception:
             _LOGGER.debug(
