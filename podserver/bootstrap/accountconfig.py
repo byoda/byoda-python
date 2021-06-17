@@ -55,7 +55,7 @@ class AccountConfig(TargetConfig):
                 and self.account_data_secret.exists()
             )
         except Exception:
-            _LOGGER(
+            _LOGGER.debug(
                 'Account certificate or account data certificate not found'
             )
 
