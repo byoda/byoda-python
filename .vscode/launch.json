@@ -90,6 +90,7 @@
             "request": "launch",
             "program": "tools/account_exists.py",
             "env": {
+                "PYTHONPATH": ".",
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",

@@ -43,9 +43,6 @@ class AccountDataSecret(Secret):
 
         self.csrs_accepted_for = ()
 
-    def create(self, expire: int = 109500):
-        raise NotImplementedError
-
     def create_csr(self):
         raise NotImplementedError
 

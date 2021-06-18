@@ -11,7 +11,7 @@ from uuid import UUID
 import requests
 
 from byoda.util.secrets import AccountSecret, AccountDataSecret
-from byoda.datatypes import CloudType
+from byoda.datatypes import CloudType, IdType
 
 from byoda.util.paths import Paths
 
@@ -71,11 +71,16 @@ class AccountConfig(TargetConfig):
 
         if not self.account_data_secret.cert_file_exists():
             _LOGGER.info('Creating account data secret')
-            self.account_data_secret.common_name = (
-                f'{self.account_id}.account_data.{self.network}'
+
+            # This creates a self-signed cert as we do not specify issuing_ca
+            self.account_data_secret.create(
+                common_name=(
+                    f'{self.account_id}.{IdType.ACCOUNT_DATA.value}'
+                    f'.{self.network}'
+                ),
+                expire=365 * 100
             )
-            self.account_data_secret.create_selfsigned_cert(expire=365 * 100)
-            self.save(password=self.account_key_secret)
+            self.account_data_secret.save(password=self.account_key_secret)
 
         if self.account_secret.cert_file_exists():
             return
