@@ -12,9 +12,8 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType
-
-from . import Secret
+from byoda.datatypes import IdType, CsrSource
+from . import Secret, CSR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ class AccountSecret(Secret):
 
         return super().create_csr(common_name, ca=self.ca)
 
-    def review_csr(self):
+    def review_csr(self, csr: CSR, source: CsrSource):
         raise NotImplementedError
 
     def review_commonname(self, commonname: str) -> UUID:

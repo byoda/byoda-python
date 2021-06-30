@@ -21,7 +21,7 @@ query = QueryType()
 
 
 @query.field('person')
-def resolve_person(obj_, info_, given_name='none', family_name='none',
+def resolve_person(obj, info, given_name='none', family_name='none',
                    email='none'):
     return {
         'given_name': given_name,

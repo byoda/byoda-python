@@ -11,7 +11,7 @@ from uuid import UUID
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType, EntityId, CsrSource
 
 from . import Secret, CSR
 
@@ -99,7 +99,7 @@ class NetworkAccountsCaSecret(Secret):
 
         return EntityId(IdType.ACCOUNT, account_id, None)
 
-    def review_csr(self, csr: CSR) -> EntityId:
+    def review_csr(self, csr: CSR, source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs from people wanting to register an account are
         permissable.

@@ -12,6 +12,13 @@ import requests
 
 DEFAULT_NETWORK = 'byoda.net'
 
+# Used by logging to add extra data to each log record,
+# typically using the byoda.util.logger.flask_log_fields
+# decorator
+# After importing config, you can also set, for example,
+# config.extra_log_data['remote_addr'] = client_ip
+extra_log_data = {}
+
 # This stores the contents of the config.yml file
 app_config = None
 
@@ -39,3 +46,8 @@ document_store = None
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()
+
+# Global variables for the main entities
+network = None
+Service = None
+account = None

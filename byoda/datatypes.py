@@ -21,12 +21,14 @@ class ServerRole(Enum):
 
 
 class IdType(Enum):
+    NETWORK_DATA         = 'network-data'   # noqa=E221
+    ACCOUNTS_CA          = 'accounts-ca'    # noqa=E221
+    SERVICES_CA          = 'services-ca'    # noqa=E221
     ACCOUNT              = 'accounts'       # noqa=E221
     MEMBER               = 'members'        # noqa=E221
     SERVICE              = 'services'       # noqa=E221
-    ACCOUNTS_CA          = 'accounts-ca'    # noqa=E221
-    SERVICES_CA          = 'services-ca'    # noqa=E221
     SERVICE_CA           = 'service-ca-'    # noqa=E221
+    APPS_CA              = "apps-ca-"       # noqa=E221
     MEMBERS_CA           = 'members-ca-'    # noqa=E221
     TLS                  = 'tls'            # noqa=E221
     ACCOUNT_DATA         = 'account-data'   # noqa=E221
@@ -34,6 +36,14 @@ class IdType(Enum):
 
 
 EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
+
+
+class HttpRequestMethod(Enum):
+    GET         = 'GET'         # noqa=E221
+    POST        = 'POST'        # noqa=E221
+    OPTIONS     = 'OPTIONS'     # noqa=E221
+    PUT         = 'PUT'         # noqa=E221
+    PATCH       = 'PATCH'       # noqa=E221
 
 
 class CloudType(Enum):
@@ -56,12 +66,16 @@ class CsrSource(Enum):
 
 class CertType(Enum):
     NETWORK         = 'network'            # noqa: E221
+    NETWORK_DATA    = 'network-data'       # noqa: E221
     ACCOUNT         = 'account'            # noqa: E221
     ACCOUNT_DATA    = 'account-data'       # noqa: E221
     MEMBERSHIP      = 'membership'         # noqa: E221
     MEMBERSHIP_DATA = 'membership-data'    # noqa: E221
     SERVICE         = 'service'            # noqa: E221
+    SERVICE_DATA    = 'service-data'       # noqa: E221
     INFRASTRUCTURE  = 'infrastructure'     # noqa: E221
+    APP             = 'app'                # noqa: E221
+    APP_DATA        = 'app_data'           # noqa: E221
 
 
 class CertLevel(Enum):

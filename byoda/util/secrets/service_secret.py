@@ -8,6 +8,7 @@ Service secret
 '''
 
 import logging
+from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -15,14 +16,16 @@ from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from . import Secret, CSR
 
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
+
 
 class ServiceSecret(Secret):
-    def __init__(self, service_label: str, service_id: int, paths: Paths):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the service secret
 
@@ -32,9 +35,10 @@ class ServiceSecret(Secret):
         :raises: (none)
         '''
 
-        self.network = paths.network
-        self.service = service_label
-        self.service_id = service_id
+        paths = network.paths
+        self.network = network.network
+        self.service = service
+        self.service_id = int(service_id)
 
         super().__init__(
             cert_file=paths.get(
@@ -94,5 +98,5 @@ class ServiceSecret(Secret):
 
         return EntityId(IdType.SERVICE, None, self.service_id)
 
-    def review_csr(self, csr, source=CsrSource.WEBAPI):
+    def review_csr(self, csr: CSR, source=CsrSource.WEBAPI):
         raise NotImplementedError

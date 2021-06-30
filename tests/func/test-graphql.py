@@ -12,26 +12,32 @@ the headers that would normally be set by the reverse proxy
 '''
 
 import sys
-
+from uuid import uuid4
 import unittest
 
 from gql import Client
 from gql import gql
 from gql.transport.aiohttp import AIOHTTPTransport
-from aiohttp import ClientTimeout
 
 from byoda.util.logger import Logger
+from byoda.config import DEFAULT_NETWORK
 
-NETWORK = 'byoda.net'
+NETWORK = DEFAULT_NETWORK
 BASE_URL = 'http://localhost:8001/api'
+
+uuid = uuid4()
 
 TRANSPORT = AIOHTTPTransport(
     url=BASE_URL + '/v1/member/data',
-    timeout=60
+    timeout=60,
+    headers={
+        'X-Client-SSL-Verify': 'SUCCESS',
+        'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
+        'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
+    }
 )
 
 
-# (given_name: "Blah", family_name: "Gaap", email: "blah@gaap.com")
 class TestGraphQL(unittest.TestCase):
     def test_member_get(self):
         # Create a GraphQL client using the defined transport

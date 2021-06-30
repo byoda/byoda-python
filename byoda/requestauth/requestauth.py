@@ -11,11 +11,16 @@ from enum import Enum
 
 from fastapi import HTTPException
 
-
 from ipaddress import ip_address as IpAddress
 
+from starlette.authentication import (
+    AuthenticationBackend, AuthenticationError, BaseUser,
+    AuthCredentials
+)
+from starlette.requests import Request as StarletteRequest
+
 from byoda.datamodel import Network
-from byoda.datatypes import IdType
+from byoda.datatypes import IdType, HttpRequestMethod
 
 from byoda.util.secrets import (
     MembersCaSecret,
@@ -44,6 +49,42 @@ class TlsStatus(str, Enum):
     FAILED      = 'FAILED'      # noqa: E221
 
 
+class MTlsAuthBackend(AuthenticationBackend):
+    async def authenticate(self, request: StarletteRequest):
+        try:
+            tls_status = request.headers['X-Client-SSL-Verify']
+            client_dn = request.headers['X-Client-SSL-Subject']
+            issuing_ca_dn = request.headers['X-Client-SSL-Issuing-CA']
+        except KeyError:
+            return
+
+        try:
+            # Bug: Starlette does not support request.method attribute
+            method = HttpRequestMethod(request['method'])
+            auth = RequestAuth.authenticate(
+                tls_status, client_dn, issuing_ca_dn, request.client.host,
+                method
+            )
+        except HTTPException as exc:
+            raise AuthenticationError(exc.detail)
+
+        return (
+            AuthCredentials(['authenticated']),
+            ByodaUser(auth.id, auth.id_type)
+        )
+
+
+class ByodaUser(BaseUser):
+    '''
+    Class used for implementing starlette.AuthenticationBackend interface
+    '''
+    def __init__(self, id: str, id_type: IdType):
+        self.id = str(id)
+        self.id_type = id_type
+        # self.is_authenticated = True
+        # self.display_name = self.id
+
+
 class RequestAuth():
     '''
     Three classes derive from this class:
@@ -63,6 +104,7 @@ class RequestAuth():
       - remote_addr     : the remote_addr as it connected to the reverse proxy
       - id_type         : whether the authentication was for an Account,
                           Member or Service secret
+      - id              : id of either the account, member or service
       - client_cn       : the common name of the client cert
       - issuing_ca_cn   : the common name of the CA that signed the cert
       - account_id      : the account_id parsed from the CN of the account cert
@@ -121,10 +163,8 @@ class RequestAuth():
         presented TLS client cert
         information in the request for authentication
         :returns: (n/a)
-        :raises: ValueError if the no authentication is available and the
-        parameter 'required' has a value of True. AuthFailure if authentication
-        was provided but is incorrect, regardless of the value of the
-        'required' parameter
+        :raises: NoAuthInfo if the no authentication, AuthFailure if
+        authentication was provided but is incorrect
         '''
 
         self.is_authenticated = False
@@ -177,13 +217,41 @@ class RequestAuth():
             parts = self.client_cn.split('.')
             if len(parts) < 4:
                 raise HTTPException(
-                    status_code=400,
                     detail=(
                         f'Invalid CommonName in client cert: {self.client_cn}'
                     )
                 )
 
             self.id_type = IdType(parts[1])
+            self.id = parts[0]
+
+    @staticmethod
+    def authenticate(tls_status: TlsStatus,
+                     client_dn: str, issuing_ca_dn: str,
+                     remote_addr: IpAddress, method: HttpRequestMethod):
+
+        id_type = RequestAuth.get_idtype(client_dn)
+        if id_type == IdType.ACCOUNT:
+            from .accountrequest_auth import AccountRequestAuth
+            auth = AccountRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
+            )
+        elif id_type == IdType.MEMBER:
+            from .memberrequest_auth import MemberRequestAuth
+            auth = MemberRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
+            )
+        elif id_type == IdType.SERVICE:
+            from .servicerequest_auth import ServiceRequestAuth
+            auth = ServiceRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
+            )
+        else:
+            raise ValueError(
+                f'Invalid authentication type in common name {client_dn}'
+            )
+
+        return auth
 
     def check_account_cert(self, network: Network,
                            required: bool = True) -> None:
@@ -251,7 +319,7 @@ class RequestAuth():
 
             # The Member CA cert gets signed by the Service CA
             service_ca_secret = ServiceCaSecret(
-                service_id, network=network.network
+                None, service_id, network=network
             )
             service_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
@@ -278,7 +346,7 @@ class RequestAuth():
         try:
             # Service secret gets signed by Service CA
             service_ca_secret = ServiceCaSecret(
-                service_id, network=network.network
+                None, service_id, network=network
             )
             entity_id = service_ca_secret.review_commonname(self.client_cn)
             self.service_id = entity_id.service_id
@@ -314,6 +382,35 @@ class RequestAuth():
             if keyvalue.startswith('CN='):
                 commonname = keyvalue[(len('CN=')):]
                 return commonname
+
+        raise HTTPException(
+            status_code=403,
+            detail=f'Invalid format for distinguished name: {dname}'
+        )
+
+    @staticmethod
+    def get_idtype(dname: str) -> IdType:
+        '''
+        Extracts the IdType from a distinguished name in a x.509
+        certificate
+
+        :param dname: x509 distinguished name
+        :returns: commonname
+        :raises: ValueError if the commonname could not be extracted
+        '''
+
+        bits = dname.split(',')
+        for keyvalue in bits:
+            if keyvalue.startswith('CN='):
+                commonname = keyvalue[(len('CN=')):]
+                commonname_bits = commonname.split('.')
+                if len(commonname_bits) < 4:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f'Invalid common name {commonname}'
+                    )
+                idtype = IdType(commonname_bits[1])
+                return idtype
 
         raise HTTPException(
             status_code=403,

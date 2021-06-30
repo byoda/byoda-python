@@ -21,11 +21,11 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
 from byoda.util.logger import Logger
-
+from byoda.config import DEFAULT_NETWORK
 from byoda.util.paths import Paths
 from byoda.util.secrets import AccountSecret
 
-NETWORK = 'byoda.net'
+NETWORK = DEFAULT_NETWORK
 BASE_URL = 'http://localhost:8000/api'
 
 
@@ -84,7 +84,9 @@ class TestDirectoryApis(unittest.TestCase):
             'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
         }
-        response = requests.post(API, json={'csr': str(csr, 'utf-8')}, headers=headers)
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}, headers=headers
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         issuing_ca_cert = x509.load_pem_x509_certificate(   # noqa

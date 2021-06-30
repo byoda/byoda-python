@@ -10,10 +10,13 @@ provides helper functions to authenticate the client making the request
 
 import logging
 from typing import Optional
+from ipaddress import ip_address as IpAddress
 
 from byoda import config
 
 from fastapi import Header, HTTPException, Request
+
+from byoda.datatypes import HttpRequestMethod
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
@@ -21,12 +24,10 @@ from byoda.exceptions import NoAuthInfo
 _LOGGER = logging.getLogger(__name__)
 
 
-class ServiceRequestAuthFast(RequestAuth):
-    def __init__(self,
-                 request: Request, service_id: int,
-                 x_client_ssl_verify: Optional[TlsStatus] = Header(None),
-                 x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None)):
+class ServiceRequestAuth(RequestAuth):
+    def __init__(self, tls_status: TlsStatus,
+                 client_dn: str, issuing_ca_dn: str,
+                 remote_addr: IpAddress, method: HttpRequestMethod):
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the

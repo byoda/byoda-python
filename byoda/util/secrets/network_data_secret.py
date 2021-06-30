@@ -7,7 +7,6 @@ Cert manipulation for data of an account
 '''
 
 import logging
-from uuid import UUID
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,34 +18,30 @@ from . import Secret, CSR
 _LOGGER = logging.getLogger(__name__)
 
 
-class MemberDataSecret(Secret):
-    def __init__(self, member_id: UUID, paths: Paths):
+class NetworkDataSecret(Secret):
+    def __init__(self, paths: Paths):
         '''
-        Class for the member-data secret. This secret is used to encrypt
-        data of an account for a service.
+        Class for the Network secret. This secret is used to sign documents
+        like the list of services in the network
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
-        :returns: ValueError if both 'paths' and 'network' parameters are
+        :raises: ValueError if both 'paths' and 'network' parameters are
         specified
-        :raises: (none)
         '''
 
-        self.member_id = member_id
-
-        super().__init__(
-            cert_file=paths.get(Paths.MEMBER_DATA_CERT_FILE),
-            key_file=paths.get(Paths.MEMBER_DATA_KEY_FILE),
-            storage_driver=paths.storage_driver, member_id=member_id
-        )
-        self.account_alias = paths.account
         self.network = paths.network
+        super().__init__(
+            cert_file=paths.get(Paths.NETWORK_DATA_CERT_FILE),
+            key_file=paths.get(Paths.NETWORK_DATA_KEY_FILE),
+            storage_driver=paths.storage_driver
+        )
         self.ca = False
         self.issuing_ca = None
-        self.id_type = IdType.MEMBER_DATA
+        self.id_type = IdType.NETWORK_DATA
 
         self.csrs_accepted_for = ()
 
-    def create(self, expire: int = 109500):
+    def create(self, expire: int = 1085):
         '''
         Creates an RSA private key and X.509 cert
 
@@ -57,13 +52,10 @@ class MemberDataSecret(Secret):
 
         '''
 
-        common_name = (
-            f'{self.member_id}.{IdType.MEMBER_DATA.value}'
-            f'.{self.network}'
-        )
+        common_name = f'{self.account_id}.network_data.{self.network}'
         super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
 
-    def create_csr(self, member_id: int = None) -> CertificateSigningRequest:
+    def create_csr(self, network: str = None) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -73,15 +65,14 @@ class MemberDataSecret(Secret):
                                 a private key or cert
         '''
 
-        if not member_id:
-            member_id = self.member_id
+        if not network:
+            network = self.network
 
         common_name = (
-            f'{self.member_id}.{IdType.MEMBER_DATA.value}'
-            f'.{self.network}'
+            f'network.{IdType.NETWORK_DATA.value}.{network}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=True)
+        return super().create_csr(common_name, key_size=4096, ca=self.ca)
 
     def review_commonname(self, commonname: str) -> str:
         '''
@@ -97,7 +88,7 @@ class MemberDataSecret(Secret):
         commonname_prefix = super().review_commonname(commonname)
 
         if commonname_prefix not in self.csrs_accepted_for:
-            raise ValueError('An Account Data secret does not sign CSRs')
+            raise ValueError('An Network Data secret does not sign CSRs')
 
         return commonname_prefix
 

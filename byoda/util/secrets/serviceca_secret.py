@@ -8,7 +8,7 @@ Service secret
 '''
 
 import logging
-
+from typing import TypeVar
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
@@ -19,52 +19,45 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
+
 
 class ServiceCaSecret(Secret):
-    def __init__(self, service: str, service_id: int, paths: Paths = None,
-                 network: str = None):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
-        :param paths: instance of Paths class defining the directory structure
-        and file names of a BYODA network
-        :param service: label for the service
-        :param paths: object containing all the file paths for the network. If
-        this parameter has a value then the 'network' parameter must be None
-        :param network: name of the network. If this parameter has a value then
-        the 'paths' parameter must be None
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''
 
-        self.service = service
-        self.service_id = service_id
+        self.service = str(service)
+        self.service_id = int(service_id)
 
-        if paths and network:
-            raise ValueError('Either paths or network parameters must be set')
+        if self.service_id < 0:
+            raise ValueError(f'Service ID must be 0 or greater')
 
-        if paths:
-            self.network = paths.network
-            super().__init__(
-                cert_file=paths.get(
-                    Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
-                ),
-                key_file=paths.get(
-                    Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
-                ),
-                storage_driver=paths.storage_driver
-            )
-        else:
-            self.network = network
-            super().__init__()
+        paths = network.paths
+        self.network = network.network
+        super().__init__(
+            cert_file=paths.get(
+                Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
+            ),
+            key_file=paths.get(
+                Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
+            ),
+            storage_driver=paths.storage_driver
+        )
 
         self.ca = True
         self.id_type = IdType.SERVICE_CA
 
-        self.csrs_accepted_for = ('members-ca')
+        self.csrs_accepted_for = (
+            IdType.MEMBERS_CA.value, IdType.APPS_CA.value,
+        )
 
     def create_csr(self) -> CertificateSigningRequest:
         '''
@@ -131,7 +124,7 @@ class ServiceCaSecret(Secret):
         return EntityId(id_type, None, int(service_id))
 
     def review_csr(self, csr: CertificateSigningRequest,
-                   source: CsrSource = CsrSource.WEBAPI) -> (str, str):
+                   source: CsrSource = CsrSource.WEBAPI) -> EntityId:
         '''
         Review a CSR. CSRs for register a service or or service_member_ca
         are permissable. Note that this function does not check whether the

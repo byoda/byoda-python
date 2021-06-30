@@ -11,9 +11,11 @@ import logging
 import json
 
 from byoda.util import Paths
-from byoda.util import config
+from byoda import config
+
 
 from byoda.datatypes import ServerRole
+from byoda.datatypes import CsrSource
 
 from byoda.datastore import DnsDb
 
@@ -22,18 +24,18 @@ from .account import Account
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.secrets import Secret
 from byoda.util.secrets import NetworkRootCaSecret
+from byoda.util.secrets import NetworkDataSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import NetworkServicesCaSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import MembersCaSecret
 from byoda.util.secrets import ServiceSecret
-from byoda.util.secrets import MemberSecret
 
+from typing import Callable
 
 _LOGGER = logging.getLogger(__name__)
-
-DEFAULT_NETWORK = 'byoda.net'
 
 
 class Network:
@@ -65,11 +67,11 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.network = application.get('network', DEFAULT_NETWORK)
+        self.network = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
 
-        roles = server['roles']
+        roles = server.get('roles', [])
         if roles and type(roles) not in (set, list):
             roles = [roles]
 
@@ -94,6 +96,8 @@ class Network:
             bucket_prefix = None
             account_alias = None
 
+        # FileStorage.get_storage ignores bucket_prefix parameter
+        # when local storage is used.
         private_object_storage = FileStorage.get_storage(
             server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
         )
@@ -126,6 +130,8 @@ class Network:
             self.services_ca.load(
                 with_private_key=True, password=self.private_key_password
             )
+
+            self.load_services(filename='services/service_directory.json')
 
             self.dnsdb = DnsDb.setup(server['dnsdb'], self.network)
 
@@ -168,10 +174,13 @@ class Network:
         self.account_secret = None
         self.data_secret = None
         self.member_secrets = set()
-        self.services = dict()
+        self.services = None
         self.account = None
         if ServerRole.Pod in self.roles:
             self.account = Account(server['account_id'], self)
+
+            # TODO: client should read this from a directory server API
+            self.load_services(filename='services/service_directory.json')
 
             # We use the account secret as client TLS cert for outbound
             # requests and as private key for the TLS server
@@ -179,6 +188,121 @@ class Network:
             config.requests.cert = (
                 self.account.account_secret.cert_file, filepath
             )
+
+    @staticmethod
+    def create(network_name, root_dir, password):
+        '''
+        Factory for Network class
+
+        Create the secrets for a network:
+        - Network Root CA
+        - Accounts CA
+        - Services CA
+        - NetworkSecret
+
+        :returns: Network insance
+        :raises: ValueError
+        '''
+
+        paths = Paths(network_name=network_name, root_directory=root_dir)
+
+        if not paths.network_directory_exists():
+            paths.create_network_directory()
+
+        if not paths.secrets_directory_exists():
+            paths.create_secrets_directory()
+
+        # Create root CA
+        root_ca = NetworkRootCaSecret(paths=paths)
+
+        if root_ca.cert_file_exists():
+            raise ValueError(
+                f'Root CA cert file already exists: '
+                f'{root_ca.cert_file}'
+            )
+        if root_ca.private_key_file_exists():
+            raise ValueError(
+                f'Root CA private key file already exists: '
+                f'{root_ca.private_key_file}'
+            )
+
+        root_ca.create(expire=100*365)
+        root_ca.save(password=password)
+
+        network_data = {
+            'network': network_name, 'root_dir': root_dir,
+            'private_key_password': password
+        }
+        network = Network(network_data, network_data)
+
+        network.root_ca = root_ca
+
+        # create Root CA, signs Accounts CA, Services CA and
+        # Network Data Secret
+        network.data_secret = Network._create_secret(
+            network.network, NetworkDataSecret, root_ca, paths, password,
+            force=True
+        )
+        
+        network.accounts_ca = Network._create_secret(
+            network.network, NetworkAccountsCaSecret, root_ca, paths, password,
+            force=True
+        )
+
+        network.services_ca = Network._create_secret(
+            network.network, NetworkServicesCaSecret, root_ca, paths,
+            password, force=True
+        )
+
+        return network
+
+    @staticmethod
+    def _create_secret(network: str, secret_cls: Callable, issuing_ca: Secret,
+                       paths: Paths, password: str, force=False):
+        '''
+        Abstraction helper for creating secrets for a Network to avoid
+        repetition of code for creating the various member secrets of the
+        Network class
+
+        :param secret_cls: callable for one of the classes derived from
+        byoda.util.secrets.Secret
+        :raises: ValueError
+        '''
+
+        if not network:
+            raise ValueError(
+                'Name and service_id of the service have not been defined'
+            )
+
+        if not issuing_ca:
+            raise ValueError(
+                f'No issuing_ca was provided for creating a '
+                f'{type(secret_cls)}'
+            )
+
+        secret = secret_cls(paths=paths)
+
+        if secret.cert_file_exists():
+            if not force:
+                raise ValueError(f'Cert for {network} already exists')
+            else:
+                _LOGGER.info(f'Forcing creating of a {type(secret_cls)} cert')
+
+        if secret.private_key_file_exists():
+            if not force:
+                raise ValueError(f'Private key for {network} already exists')
+            else:
+                _LOGGER.info(
+                    f'Forcing creating of a {type(secret_cls)} private key'
+                )
+
+        csr = secret.create_csr()
+        issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+        certchain = issuing_ca.sign_csr(csr)
+        secret.add_signed_cert(certchain)
+        secret.save(password=password)
+
+        return secret
 
     def load_services(self, filename: str = None) -> None:
         '''

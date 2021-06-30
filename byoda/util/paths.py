@@ -8,6 +8,7 @@ Python module for directory and file management a.o. for secrets
 
 import os
 import logging
+from uuid import UUID
 
 from byoda.storage.filestorage import FileStorage
 
@@ -32,12 +33,14 @@ class Paths:
     TLS_CERT_FILE        = 'tls-certchain.pem'       # noqa
     TLS_KEY_FILE         = 'private/tls.key'         # noqa
 
-    NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                     # noqa
-    NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                    # noqa
-    NETWORK_ACCOUNTS_CA_CERT_FILE = 'network-{network}/network-{network}-accounts-ca-cert.pem'                 # noqa
-    NETWORK_ACCOUNTS_CA_KEY_FILE  = 'private/network-{network}-accounts-ca.key'                                # noqa
-    NETWORK_SERVICES_CA_CERT_FILE = 'network-{network}/network-{network}-services-ca-cert.pem'                 # noqa
-    NETWORK_SERVICES_CA_KEY_FILE  = 'private/network-{network}-services-ca.key'                                # noqa
+    NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
+    NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                      # noqa
+    NETWORK_DATA_CERT_FILE        = 'network-{network}/network-{network}-data-cert.pem'                          # noqa
+    NETWORK_DATA_KEY_FILE      = 'private/network-{network}-data.key'                                         # noqa
+    NETWORK_ACCOUNTS_CA_CERT_FILE = 'network-{network}/network-{network}-accounts-ca-cert.pem'                   # noqa
+    NETWORK_ACCOUNTS_CA_KEY_FILE  = 'private/network-{network}-accounts-ca.key'                                  # noqa
+    NETWORK_SERVICES_CA_CERT_FILE = 'network-{network}/network-{network}-services-ca-cert.pem'                   # noqa
+    NETWORK_SERVICES_CA_KEY_FILE  = 'private/network-{network}-services-ca.key'                                  # noqa
 
     ACCOUNT_DIR            = 'network-{network}/account-{account}/'                                              # noqa
     ACCOUNT_FILE           = 'network-{network}/account-{account}/account-{account}.json'                        # noqa
@@ -46,16 +49,19 @@ class Paths:
     ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
 
-    SERVICE_DIR          = 'network-{network}/services/service-{service_id}/'                                     # noqa
-    SERVICE_FILE         = 'network-{network}/services/service-{service_id}/service-{service_id}.json'            # noqa
-    SERVICE_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-ca-cert.pem'                 # noqa
-    SERVICE_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-ca.key'                                # noqa
-    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-member-ca-cert.pem'  # noqa
-    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                 # noqa
-    SERVICE_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-cert.pem'        # noqa
-    SERVICE_KEY_FILE     = 'private/network-{network}-service-{service_id}.key'                                   # noqa
+    SERVICE_DIR          = 'network-{network}/services/service-{service_id}/'                                              # noqa
+    SERVICE_FILE         = 'network-{network}/services/service-{service_id}/service-{service_id}.json'                     # noqa
+    SERVICE_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-ca-cert.pem'                          # noqa
+    SERVICE_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-ca.key'                                         # noqa
+    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-member-ca-cert.pem'           # noqa
+    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                          # noqa
+    SERVICE_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-cert.pem'                 # noqa
+    SERVICE_KEY_FILE     = 'private/network-{network}-service-{service_id}.key'                                            # noqa
+    APPS_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-app-{app_id}-cert.pem'       # noqa
+    APPS_KEY_FILE     = 'private/network-{network}-service-{service_id}-app-{app_id}.key'                                  # noqa
 
     MEMBER_DIR            = 'network-{network}/account-{account}/service-{service_id}/'                                    # noqa
+    MEMBER_SERVICE_FILE   = 'network-{network}/account-{account}/service-{service_id}/service.json'                        # noqa
     MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-cert.pem'        # noqa
     MEMBER_KEY_FILE       = 'private/network-{network}-account-{account}-member-{service_id}.key'                          # noqa
     MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-data-cert.pem'   # noqa
@@ -90,7 +96,8 @@ class Paths:
         else:
             self.storage_driver = FileStorage(self._root_directory)
 
-    def get(self, path_template: str, service_id: int = None):
+    def get(self, path_template: str, service_id: int = None,
+            member_id: UUID = None):
         '''
         Gets the file/path for the specified path_type
 
@@ -102,7 +109,7 @@ class Paths:
 
         if '{network}' in path_template and not self._network:
             raise ValueError('No network specified')
-        if '{service_id}' in path_template and not service_id:
+        if '{service_id}' in path_template and service_id is None:
             raise ValueError('No service specified')
         if '{account}' in path_template and not self._account:
             raise ValueError('No account specified')
@@ -230,6 +237,21 @@ class Paths:
     def create_member_directory(self, service_id):
         return self._create_directory(
             self.MEMBER_DIR, service_id=service_id
+        )
+
+    def member_service_file(self, service_id):
+        return self.get(
+            self.MEMBER_SERVICE_FILE, service_id=service_id
+        )
+
+    def member_service_file_exists(self, service_id):
+        return self._exists(
+            self.MEMBER_SERVICE_FILE, service_id=service_id
+        )
+
+    def create_member_service_file(self, service_id):
+        return self._create_directory(
+            self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
     # Config file

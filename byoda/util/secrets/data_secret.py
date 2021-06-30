@@ -12,7 +12,7 @@ from byoda.util import Paths
 
 from byoda.datatypes import CsrSource
 
-from . import Secret
+from . import Secret, CSR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,5 +55,5 @@ class DataSecret(Secret):
     def review_commonname(commonname: str):
         raise NotImplementedError
 
-    def review_csr(self, csr, source=CsrSource.WEBAPI):
+    def review_csr(self, csr: CSR, source=CsrSource.WEBAPI):
         raise NotImplementedError

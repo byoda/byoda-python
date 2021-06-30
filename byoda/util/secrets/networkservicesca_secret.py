@@ -10,7 +10,7 @@ import logging
 
 from byoda.util import Paths
 
-from byoda.datatypes import EntityId, IdType
+from byoda.datatypes import EntityId, IdType, CsrSource
 
 from . import Secret, CSR
 
@@ -98,7 +98,7 @@ class NetworkServicesCaSecret(Secret):
 
         return EntityId(id_type, None, service_id)
 
-    def review_csr(self, csr):
+    def review_csr(self, csr: CSR, source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs from people wanting to register a service are
         permissable. Note that this function does not check whether the

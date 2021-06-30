@@ -15,6 +15,7 @@ from starlette.middleware import Middleware
 
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
+from starlette.middleware.authentication import AuthenticationMiddleware
 
 from fastapi import FastAPI
 
@@ -31,6 +32,8 @@ from prometheus_fastapi_instrumentator import \
 
 from byoda import config
 from byoda.util.logger import Logger
+
+from byoda.requestauth.requestauth import MTlsAuthBackend
 
 # from byoda.datamodel import Server
 from byoda.datamodel import Network
@@ -51,7 +54,7 @@ LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 network = {
     'cloud': CloudType(os.environ.get('CLOUD', 'AWS')),
     'bucket_prefix': os.environ['BUCKET_PREFIX'],
-    'network': os.environ.get('NETWORK', 'byoda.net'),
+    'network': os.environ.get('NETWORK', config.DEFAULT_NETWORK),
     'account_id': os.environ.get('ACCOUNT_ID'),
     'account_secret': os.environ.get('ACCOUNT_SECRET'),
     'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
@@ -78,6 +81,8 @@ _LOGGER = Logger.getLogger(
 #     letsencrypt.create()
 
 config.network = Network(network, network)
+config.account = config.network.account
+
 config.document_store = DocumentStore.get_document_store(
     DocumentStoreType.OBJECT_STORE,
     cloud_type=CloudType.AWS,
@@ -134,9 +139,10 @@ app = FastAPI(
 FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
 
-config.network.load_services(filename='services/service_directory.json')
+app.add_middleware(AuthenticationMiddleware, backend=MTlsAuthBackend())
 
 member_query = MemberQuery('services/default.graphql')
+
 app.add_route(
     '/api/v1/member/data',
     GraphQL(schema=member_query.schema, debug=True)

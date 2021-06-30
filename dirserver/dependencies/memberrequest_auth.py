@@ -21,7 +21,7 @@ from byoda.exceptions import NoAuthInfo
 _LOGGER = logging.getLogger(__name__)
 
 
-class MemberRequestAuth(RequestAuth):
+class MemberRequestAuthFast(RequestAuth):
     def __init__(self,
                  request: Request, service_id: int,
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),

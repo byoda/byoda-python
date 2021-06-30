@@ -24,6 +24,8 @@ from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
 from certvalidator import ValidationError
 
+from byoda.datatypes import CsrSource
+
 from byoda.storage.filestorage import FileStorage, FileMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -139,7 +141,8 @@ class Secret:
         self.common_name = None
         self.is_root_cert = False
         self.ca = False
-        self.storage_driver = storage_driver
+        if storage_driver:
+            self.storage_driver = storage_driver
 
         # Certchains never include the root cert!
         # Certs higher in the certchain come before
@@ -255,7 +258,7 @@ class Secret:
         )
         self.add_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
 
-    def review_csr(self, csr: CSR) -> str:
+    def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
         Check whether the CSR meets our requirements
 
@@ -323,9 +326,9 @@ class Secret:
 
     def review_commonname(self, commonname: str) -> str:
         '''
-        Checks if the structure of common name matches with a common name of
-        an AccountSecret. If so, it sets the 'account_id' property of the
-        instance to the UUID parsed from the commonname
+        Checks if the structure of common name matches of a byoda secret. As
+        this is the base class, we can only check that the commonname ends
+        with the name of the netwrok
 
         :param commonname: the commonname to check
         :returns: commonname with the network domain stripped off, ie. for
@@ -515,7 +518,9 @@ class Secret:
                 file or the file with the private key do not exist
         '''
 
-        if self.cert or self.private_key:
+        # We allow (re-)loading an existing secret if we do not have
+        # the private key and we need to read the private key.
+        if self.private_key or (self.cert and not with_private_key):
             raise ValueError(
                 'Secret already has certificate and/or private key'
             )

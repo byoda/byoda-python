@@ -1,6 +1,5 @@
 '''
-Cert manipulation for service secrets: Service CA, Service Members CA and
-Service secret
+Cert manipulation for service secrets: Apps CA
 
 :maintainer : Steven Hessing <stevenhessing@live.com>
 :copyright  : Copyright 2021
@@ -9,53 +8,50 @@ Service secret
 
 import logging
 from uuid import UUID
+from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
-
-from . import Secret
+from byoda.datatypes import IdType, CsrSource, EntityId
+from . import Secret, CSR
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
 
-class MembersCaSecret(Secret):
-    def __init__(self, service_label: str, service_id: int,
-                 paths: Paths = None, network: str = None):
+
+class AppsCaSecret(Secret):
+    def __init__(self, service: str, service_id: int,
+                 network: Network):
         '''
-        Class for the Service Members CA secret. Either paths or network
+        Class for the Service Apps CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
-        be set before the save() or load() members are called
-        :param paths: instance of Paths class defining the directory structure
-        and file names of a BYODA network
-        :param service: label for the service
-        :param paths: object containing all the file paths for the network. If
-        this parameter has a value then the 'network' parameter must be None
-        :param network: name of the network. If this parameter has a value then
-        the 'paths' parameter must be None
+        be set before the save() or load() apps are called
+
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''
 
-        self.network = paths.network
-        self.service_id = service_id
-        self.service = service_label
+        paths = network.paths
+        self.network = network.network
+        self.service_id = int(service_id)
+        self.service = service
 
         super().__init__(
             cert_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_id=service_id
+                Paths.SERVICE_APPS_CA_CERT_FILE, service_id=service_id
             ),
             key_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_id=service_id
+                Paths.SERVICE_APPS_CA_KEY_FILE, service_id=service_id
             ),
             storage_driver=paths.storage_driver
         )
         self.ca = True
-        self.id_type = IdType.MEMBERS_CA
+        self.id_type = IdType.APPS_CA
 
         self.csrs_accepted_for = ('member')
 
@@ -79,7 +75,7 @@ class MembersCaSecret(Secret):
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
-        an MemberSecret. If so, it sets the 'account_id' property of the
+        an Appsecret. If so, it sets the 'account_id' property of the
         instance to the UUID parsed from the commonname
 
         :param commonname: the commonname to check

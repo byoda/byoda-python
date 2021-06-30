@@ -17,6 +17,7 @@ import requests
 
 from byoda.util import Paths
 from byoda.util.logger import Logger
+from byoda.config import DEFAULT_NETWORK
 
 from byoda.datatypes import CloudType
 
@@ -34,7 +35,7 @@ BASE_URL = 'https://dir.{network}/api'
 network = {
     'cloud': CloudType(os.environ.get('CLOUD', 'AWS')),
     'bucket_prefix': os.environ['BUCKET_PREFIX'],
-    'network': os.environ.get('NETWORK', 'byoda.net'),
+    'network': os.environ.get('NETWORK', DEFAULT_NETWORK),
     'account_id': os.environ.get('ACCOUNT_ID'),
     'account_secret': os.environ.get('ACCOUNT_SECRET'),
     'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),

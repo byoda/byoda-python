@@ -15,32 +15,15 @@
             }
         },
         {
-            "name": "create_network",
+            "name": "create_secrets",
             "type": "python",
             "request": "launch",
-            "program": "tools/create_cert.py",
+            "program": "tools/create_secrets.py",
             "args": [
                 "--debug",
-                "--type", "NETWORK",
+                "--type", "SERVICE",
                 "--network", "byoda.net",
-                "--root-directory", "/home/steven/.byoda"
-
-            ],
-            "env": {
-                "PYTHONPATH": "."
-            },
-        },
-        {
-            "name": "create_account",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/create_cert.py",
-            "args": [
-                "--debug",
-                "--type", "ACCOUNT",
-                "--account", "dathes",
-                "--network", "byoda.net",
-                "--root-directory", "/home/steven/.byoda"
+                "--root-directory", "/byoda"
 
             ],
             "env": {

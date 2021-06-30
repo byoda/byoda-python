@@ -12,6 +12,7 @@ import unittest
 
 from byoda.util import Logger
 from byoda.util import Paths
+from byoda.config import DEFAULT_NETWORK
 
 from byoda.datatypes import CsrSource
 
@@ -24,9 +25,10 @@ from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import MemberSecret
 
+from byoda.datamodel import Network
 
 TEST_DIR = '/tmp/byoda-func-test-secrets'
-NETWORK = 'byoda.net'
+NETWORK = DEFAULT_NETWORK
 
 
 class TestAccountManager(unittest.TestCase):
@@ -43,6 +45,19 @@ class TestAccountManager(unittest.TestCase):
         network_root_ca = NetworkRootCaSecret(paths)
         network_root_ca.create(expire=10950)
         network_root_ca.save()
+
+        # Network constructor expects parameters to be in a dict
+        network_data = {
+            'private_key_password': 'byoda',
+            'cloud': 'LOCAL',
+            'bucket_prefix': None,
+            'roles': [],
+            'network': NETWORK,
+            'root_dir': TEST_DIR,
+        }
+
+        network = Network(network_data, network_data)
+        network.root_ca = network_root_ca
 
         # Here we make the network_accounts_ca get the signature from the
         # network_root_ca
@@ -104,7 +119,7 @@ class TestAccountManager(unittest.TestCase):
         service_alias = 'mytestservice'
         paths.create_service_directory(service_id)
 
-        service_ca = ServiceCaSecret(service_alias, service_id, paths)
+        service_ca = ServiceCaSecret(service_alias, service_id, network)
         csr = service_ca.create_csr()
         commonname = network_service_ca.review_csr(csr)
         self.assertIsNotNone(commonname)

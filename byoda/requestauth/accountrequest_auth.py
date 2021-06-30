@@ -9,11 +9,13 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from typing import Optional
+from ipaddress import ip_address as IpAddress
 
-from fastapi import Header, HTTPException, Request
+from fastapi import HTTPException
 
 from byoda import config
+
+from byoda.datatypes import HttpRequestMethod
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
@@ -21,30 +23,26 @@ from byoda.exceptions import NoAuthInfo
 _LOGGER = logging.getLogger(__name__)
 
 
-class AccountRequestAuthFast(RequestAuth):
-    def __init__(self,
-                 request: Request,
-                 x_client_ssl_verify: Optional[TlsStatus] = Header(None),
-                 x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None)):
+class AccountRequestAuth(RequestAuth):
+    def __init__(self, tls_status: TlsStatus,
+                 client_dn: str, issuing_ca_dn: str,
+                 remote_addr: IpAddress, method: HttpRequestMethod):
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
         API is the owner of the private key for the certificate it presented
         so we trust the HTTP headers set by the reverse proxy
 
-        :param request: Starlette request instance
         :returns: (n/a)
         :raises: HTTPException
         '''
         try:
             super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, request.client.host
+                tls_status, client_dn, issuing_ca_dn, remote_addr
             )
         except NoAuthInfo:
             # Authentication for GET/POST /api/v1/network/account is optional
-            if request.method in ('GET', 'POST'):
+            if method in (HttpRequestMethod.GET, HttpRequestMethod.POST):
                 return
             else:
                 raise HTTPException(

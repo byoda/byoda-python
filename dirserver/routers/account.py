@@ -23,7 +23,7 @@ from byoda.models import LetsEncryptSecretModel
 import byoda.config as config
 
 # from ..dependencies.logannotation import annotate_logs
-from ..dependencies.accountrequest_auth import AccountRequestAuth
+from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +35,9 @@ router = APIRouter(
 
 @router.get('/account', response_model=StatsResponseModel)
 def get_account(request: Request,
-                auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                auth: AccountRequestAuthFast = Depends(
+                    AccountRequestAuthFast
+                )):
     '''
     Get account stats with a suggestion for an UUID.
     If the API call is made with a valid client M-TLS cert then the

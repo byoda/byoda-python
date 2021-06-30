@@ -14,7 +14,7 @@ from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from . import Secret, CSR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,5 +95,5 @@ class MemberSecret(Secret):
 
         return EntityId(IdType.MEMBER, uuid, service_id)
 
-    def review_csr(self, csr, source=CsrSource.WEBAPI):
+    def review_csr(self, csr: CSR, source=CsrSource.WEBAPI):
         raise NotImplementedError

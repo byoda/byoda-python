@@ -7,7 +7,9 @@ Cert manipulation for data of an account
 '''
 
 import logging
+from uuid import UUID
 
+from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
@@ -43,8 +45,24 @@ class AccountDataSecret(Secret):
 
         self.csrs_accepted_for = ()
 
-    def create_csr(self):
-        raise NotImplementedError
+    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
+        '''
+        Creates an RSA private key and X.509 CSR
+
+        :param service_id: identifier for the service
+        :returns: csr
+        :raises: ValueError if the Secret instance already has
+                                a private key or cert
+        '''
+
+        if not account_id:
+            account_id = self.account_id
+
+        common_name = (
+            f'{account_id}.{IdType.ACCOUNT_DATA.value}.{self.network}'
+        )
+
+        return super().create_csr(common_name, key_size=4096, ca=self.ca)
 
     def review_commonname(self, commonname: str) -> str:
         '''

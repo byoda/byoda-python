@@ -12,6 +12,7 @@ import logging
 from byoda.util import Paths
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
 
 from . import Secret, CSR
 
@@ -53,7 +54,8 @@ class NetworkRootCaSecret(Secret):
         self.ca = True
         self.issuing_ca = None
         self.csrs_accepted_for = (
-            'accounts-ca', 'services-ca'
+            IdType.ACCOUNTS_CA.value, IdType.SERVICES_CA.value,
+            IdType.NETWORK_DATA.value
         )
 
     def create(self, expire: int = 10950):
@@ -86,7 +88,8 @@ class NetworkRootCaSecret(Secret):
         # Checks on commonname type and the network postfix
         commonname_prefix = super().review_commonname(commonname)
 
-        if commonname_prefix not in self.csrs_accepted_for:
+        cert_type = commonname_prefix.split('.')[-1]
+        if cert_type not in self.csrs_accepted_for:
             raise ValueError(
                 f'A root CA does not sign CSRs for commonname {commonname}'
             )
@@ -116,12 +119,8 @@ class NetworkRootCaSecret(Secret):
                 'This CA does not accept CSRs received via API call'
             )
 
-        common_name_prefix = super().review_csr(csr)
+        common_name = super().review_csr(csr)
 
-        if common_name_prefix not in self.csrs_accepted_for:
-            _LOGGER.warning(
-                f'Common name prefix {common_name_prefix} does not match one '
-                f'of: {", ".join(self.csrs_accepted_for)}'
-            )
+        common_name_prefix = self.review_commonname(common_name)
 
         return common_name_prefix

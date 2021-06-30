@@ -10,10 +10,21 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TypeVar, Callable
+
+from byoda.datatypes import CsrSource
+
+from byoda.util.secrets import Secret
+from byoda.util.secrets import NetworkServicesCaSecret
+from byoda.util.secrets import ServiceCaSecret
+from byoda.util.secrets import ServiceSecret
+from byoda.util.secrets import MembersCaSecret
+from byoda.util.secrets import AppsCaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_NETWORK = 'byoda.net'
+Account = TypeVar('Account', bound='Account')
+Network = TypeVar('Network', bound='Network')
 
 
 class Service:
@@ -23,20 +34,50 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, name: str = None, service_id: int = None,
-                 network: str = DEFAULT_NETWORK):
-        self.name = name
-        self.service_id = service_id
-        self.network = network
+    def __init__(self, service: str = None, service_id: int = None,
+                 network: Network = None):
+        '''
+        Constructor, can be used by the service but also by the
+        network, an app or an account or member to model the service.
+        Because of this, only minimal initiation of the instance is
+        done and depending on the user case, additional methods must
+        be called to load all the needed info for the service.
+        '''
+
+        self.service = str(service)
+        self.service_id = int(service_id)
+
+        # The data contract for the service. TODO: versioned schemas
         self.schema = None
-        self.public_key = None
+
+        self.private_key_password = network.private_key_password
+
+        # The CA signed by the Services CA of the network
+        self.service_ca = None
+
+        # CA signs secrets of new members of the service
+        self.members_ca = None
+
+        # CA signs secrets of apps that run with a delegation of
+        # the data contract of the service
+        self.apps_ca = None
+
+        # The secret used as server cert for incoming TLS connections
+        # and as client cert in outbound TLS connections
+        self.service_secret = None
+
+        # The network that the service is a part of. As storage is already
+        # set up for the Network object, we can copy it here for the Service
+        self.network = network
+        self.paths = network.paths
+        self.storage_driver = network.paths.storage_driver
 
     @classmethod
-    def get_service(cls, network: str = DEFAULT_NETWORK, filename: str = None
-                    ) -> Service:
+    def get_service(cls, network: Network, filename: str = None) -> Service:
         '''
-        Factory for Service class.
-        TODO: add typing for return value after switch to python3.9
+        Factory for Service class, loads the service metadata from a local
+        file. TODO: load the service metadata from the network directory
+        server
         '''
 
         service = Service(network=network)
@@ -45,7 +86,7 @@ class Service:
 
         return service
 
-    def load(self, filename: str = None):
+    def load_contract(self, filename: str = None):
         '''
         '''
 
@@ -62,7 +103,7 @@ class Service:
             data = json.load(file_desc)
 
         self.service_id = self.schema['service_id']
-        self.name = self.schema['name']
+        self.service = self.schema['service']
         self.schema = data['schema']
 
         # TODO: check signature of service data contract
@@ -73,5 +114,103 @@ class Service:
         self.contract_signature = None
 
         _LOGGER.debug(
-            f'Read service {self.name} without signature verification'
+            f'Read service {self.service} without signature verification'
         )
+
+    def create_service_ca(self,
+                          network_services_ca: NetworkServicesCaSecret = None,
+                          ) -> None:
+        '''
+        Create the service CA
+
+        :raises: ValueError if the service ca already exists
+        '''
+
+        self.service_ca = self._create_secret(
+            ServiceCaSecret, network_services_ca
+        )
+
+    def create_members_ca(self) -> None:
+        '''
+        Creates the member CA, signed by the Service CA
+
+        :raises: ValueError if no Service CA is available to sign
+        the CSR of the member CA
+        '''
+
+        self.members_ca = self._create_secret(
+            MembersCaSecret, self.service_ca
+        )
+
+    def create_service_secret(self) -> None:
+        '''
+        Creates the service secret, signed by the Service CA
+
+        :raises: ValueError if no Service CA is available to sign
+        the CSR of the service secret
+        '''
+
+        self.service_secret = self._create_secret(
+            ServiceSecret, self.service_ca
+        )
+
+    def create_appsca_secret(self) -> None:
+        '''
+        Create the CA that signs application secrets
+        '''
+
+        self.apps_ca = self._create_secret(AppsCaSecret, self.service_ca)
+
+    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+                       ) -> Secret:
+        '''
+        Abstraction for creating secrets for the Service class to avoid
+        repetition of code for creating the various member secrets of the
+        Service class
+
+        :param secret_cls: callable for one of the classes derived from
+        byoda.util.secrets.Secret
+        :raises: ValueError, NotImplementedError
+        '''
+
+        if not self.service or self.service_id is None:
+            raise ValueError(
+                'Name and service_id of the service have not been defined'
+            )
+
+        if not issuing_ca:
+            # TODO
+            if type(secret_cls) != ServiceCaSecret:
+                raise ValueError(
+                    f'No issuing_ca was provided for creating a '
+                    f'{type(secret_cls)}'
+                )
+            else:
+                raise NotImplementedError(
+                    'Getting a signed certificate from a network directory'
+                    'server is not yet implemented'
+                )
+
+        secret = secret_cls(
+            self.service, self.service_id, network=self.network
+        )
+
+        if secret.cert_file_exists():
+            raise ValueError(
+                f'Service CA cert for {self.service} ({self.service_id}) '
+                'already exists'
+            )
+
+        if secret.private_key_file_exists():
+            raise ValueError(
+                f'Service CA key for {self.service} ({self.service_id}) '
+                'already exists'
+            )
+
+        csr = secret.create_csr()
+        issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+        certchain = issuing_ca.sign_csr(csr)
+        secret.add_signed_cert(certchain)
+        secret.save(password=self.private_key_password)
+
+        return Secret
