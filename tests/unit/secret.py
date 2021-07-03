@@ -33,11 +33,9 @@ NETWORK = DEFAULT_NETWORK
 
 class TestAccountManager(unittest.TestCase):
     def test_secrets(self):
-        account_alias = 'test'
+        account = 'test'
         paths = Paths(
-            root_directory=TEST_DIR,
-            account_alias=account_alias,
-            network_name=NETWORK,
+            root_directory=TEST_DIR, account=account, network=NETWORK,
         )
         paths.create_account_directory()
         paths.create_secrets_directory()

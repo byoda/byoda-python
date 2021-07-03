@@ -8,6 +8,8 @@ Cert manipulation for data of an account
 
 import logging
 from uuid import UUID
+from typing import TypeVar
+from copy import copy
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -18,9 +20,11 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
 
-class AccountDataSecret(Secret):
-    def __init__(self, paths: Paths):
+
+class ServiceDataSecret(Secret):
+    def __init__(self, service, service_id, network: Network):
         '''
         Class for the account-data secret. This secret is used to encrypt
         account data.
@@ -31,21 +35,22 @@ class AccountDataSecret(Secret):
         :raises: (none)
         '''
 
-        self.account_id = None
+        paths = copy(network.paths)
+        self.service = str(service)
+        self.service_id = int(service_id)
+        paths.service_id = self.service_id
+
         super().__init__(
-            cert_file=paths.get(Paths.ACCOUNT_DATA_CERT_FILE),
-            key_file=paths.get(Paths.ACCOUNT_DATA_KEY_FILE),
+            cert_file=paths.get(Paths.SERVICE_DATA_CERT_FILE),
+            key_file=paths.get(Paths.SERVICE_DATA_KEY_FILE),
             storage_driver=paths.storage_driver
         )
-        self.account = paths.account
         self.network = paths.network
-        self.ca = False
-        self.issuing_ca = None
-        self.id_type = IdType.ACCOUNT_DATA
+        self.id_type = IdType.SERVICE_DATA
 
         self.accepted_csrs = ()
 
-    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
+    def create_csr(self, service_id: int = None) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -55,11 +60,11 @@ class AccountDataSecret(Secret):
                                 a private key or cert
         '''
 
-        if not account_id:
-            account_id = self.account_id
+        if service_id:
+            self.service_id = service_id
 
         common_name = (
-            f'{account_id}.{self.id_type.value}.{self.network}'
+            f'data.{self.id_type.value}{self.service_id}.{self.network}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=self.ca)

@@ -38,7 +38,9 @@ class ServiceCaSecret(Secret):
         self.service_id = int(service_id)
 
         if self.service_id < 0:
-            raise ValueError(f'Service ID must be 0 or greater')
+            raise ValueError(
+                f'Service ID must be 0 or greater: {self.service_id}'
+            )
 
         paths = network.paths
         self.network = network.network
@@ -55,22 +57,25 @@ class ServiceCaSecret(Secret):
         self.ca = True
         self.id_type = IdType.SERVICE_CA
 
-        self.csrs_accepted_for = (
-            IdType.MEMBERS_CA.value, IdType.APPS_CA.value,
+        # Because certs are checked using .startswith(), the longest match
+        # must precede shorter matches
+        self.accepted_csrs = (
+            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE_DATA,
+            IdType.SERVICE,
+
         )
 
-    def create_csr(self) -> CertificateSigningRequest:
+    def create_csr(self, source=CsrSource.LOCAL) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR the the Service issuing CA
+        Creates an RSA private key and X.509 CSR for the Service issuing CA
 
-        :param expire: days after which the cert should expire
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
         '''
 
         commonname = (
-            f'{IdType.SERVICE_CA.value}{self.service_id}.{IdType.SERVICE.value}.'
+            f'service-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
 
@@ -87,41 +92,12 @@ class ServiceCaSecret(Secret):
         :raises: ValueError if the commonname is not valid for this class
         '''
 
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        # Checks on the network postfix
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False
+        )
 
-        # There are two types of CSRs for this CA:
-        #   - the CSR for the service certificate
-        #     format: {service_id}.services.{network}
-        #   - the CSR for the members-ca for the service.
-        #     format: members-ca-{service_id}.services.{network}
-
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
-
-        identifier, subdomain = bits
-        try:
-            id_type = IdType(subdomain)
-        except ValueError:
-            raise ValueError(f'Invalid subdomain in commonname {commonname}')
-
-        if id_type != IdType.SERVICE:
-            raise ValueError(f'commonname {commonname} is not for a service')
-
-        if identifier.startswith(IdType.MEMBERS_CA.value):
-            id_type = IdType.MEMBERS_CA
-            service_id = identifier[len(IdType.MEMBERS_CA.value):]
-        else:
-            service_id = identifier
-
-        if not service_id.isdigit():
-            raise ValueError(
-                f'Service_id for {id_type.value} in commonname {commonname} '
-                'must only contain digits'
-            )
-
-        return EntityId(id_type, None, int(service_id))
+        return entity_id
 
     def review_csr(self, csr: CertificateSigningRequest,
                    source: CsrSource = CsrSource.WEBAPI) -> EntityId:
@@ -138,18 +114,13 @@ class ServiceCaSecret(Secret):
         not valid in the CSR for signature by this CA
         '''
 
-        if not self.private_key_file:
+        if source != CsrSource.LOCAL:
             raise ValueError(
-                'CSR received while we do not have the private key for this CA'
-            )
-
-        if source == CsrSource.WEBAPI:
-            raise ValueError(
-                'This CA does not accept CSRs received via API call'
+                'This CA does not accept CSRs received via an API call'
             )
 
         commonname = super().review_csr(csr)
 
-        entityid = self.review_commonname(commonname)
+        entity_id = self.review_commonname(commonname)
 
-        return entityid
+        return entity_id

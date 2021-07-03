@@ -60,8 +60,8 @@ private_object_storage = FileStorage.get_storage(
 
 # Paths class defines where all the BYODA certs/keys are stored
 paths = Paths(
-    root_directory=network['root_dir'], network_name=network['network'],
-    account_alias='pod', storage_driver=private_object_storage
+    root_directory=network['root_dir'], network=network['network'],
+    account='pod', storage_driver=private_object_storage
 )
 
 paths.create_secrets_directory()

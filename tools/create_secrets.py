@@ -89,7 +89,7 @@ def main(argv):
     else:
         network = load_network(args, network_data)
 
-    if args.type == CertType.SERVICE:
+    if args.type in (CertType.NETWORK, CertType.SERVICE):
         service = create_service(args, network)
     else:
         if args.type in (CertType.MEMBERSHIP, CertType.APP):
@@ -127,65 +127,25 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
 
     network.root_ca = NetworkRootCaSecret(network.paths)
 
-    network.accounts_ca = NetworkAccountsCaSecret(paths=network.paths)
-    try:
-        network.accounts_ca.load(with_private_key=True, password=args.password)
-    except ValueError:
-        if args.type == CertType.ACCOUNT:
-            raise NotImplementedError(
-                'Could not read accounts CA and getting signed certchain '
-                'for an account from the network is not implemented'
-            )
-        _LOGGER.debug(
-            'Could not read the cert for the network accounts_ca'
-        )
-
-    network.services_ca = NetworkServicesCaSecret(paths=network.paths)
-    try:
-        network.services_ca.load(with_private_key=True, password=args.password)
-    except ValueError:
-        if args.type == CertType.SERVICE:
-            raise NotImplementedError(
-                'Could not read accounts CA and getting signed certchain '
-                'for a service from the network is not implemented'
-            )
-        _LOGGER.debug(
-            'Could not read the cert for the network services CA'
-        )
-
-    network.data_secret = NetworkDataSecret(paths=network.paths)
-    try:
-        network.data_secret.load(with_private_key=True, password=args.password)
-    except FileNotFoundError:
-        _LOGGER.debug(
-            'Could not read the cert for the network data secret'
-        )
+    network.load_secrets()
 
     return network
 
 
 def create_service(args, network: Network):
-    if not network.paths.service_directory_exists(args.service_id):
-        network.paths.create_service_directory(args.service_id)
-
-    if not network.paths.secrets_directory_exists():
-        network.paths.create_secrets_directory()
-
     service = Service(
         service=args.service, service_id=args.service_id, network=network
     )
-    service.create_service_ca(network.services_ca)
-    service.create_apps_ca()
-    service.create_members_ca()
-    service.create_service_secret()
+    service.create_secrets(network.services_ca)
 
 
 def load_service(args, network):
     service = Service(
         name=args.service, service_id=args.service_id, network=network
     )
-    service.service_ca.load(with_private_key=True, password=args.password)
-    service.service_ca.load(with_private_key=True, password=args.password)
+    service.load_secrets(with_private_key=True, password=args.password)
+
+    return service
 
 
 def create_membership(args):

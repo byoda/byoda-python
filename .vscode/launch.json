@@ -21,7 +21,7 @@
             "program": "tools/create_secrets.py",
             "args": [
                 "--debug",
-                "--type", "SERVICE",
+                "--type", "NETWORK",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
 

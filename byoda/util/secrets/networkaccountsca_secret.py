@@ -7,7 +7,6 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 import logging
-from uuid import UUID
 
 from byoda.util import Paths
 
@@ -47,7 +46,7 @@ class NetworkAccountsCaSecret(Secret):
         self.ca = True
         self.id_type = IdType.ACCOUNTS_CA
 
-        self.csrs_accepted_for = ('account')
+        self.accepted_csrs = (IdType.ACCOUNT)
 
     def create_csr(self) -> CSR:
         '''
@@ -59,7 +58,9 @@ class NetworkAccountsCaSecret(Secret):
 
         '''
 
-        commonname = f'{self.id_type.value}.{self.network}'
+        commonname = (
+            f'{self.id_type.value}.{self.id_type.value}.{self.network}'
+        )
 
         return super().create_csr(commonname, key_size=4096, ca=self.ca)
 
@@ -76,28 +77,11 @@ class NetworkAccountsCaSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False, check_service_id=False
+        )
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(
-                f'Invalid common name structure {commonname_prefix}'
-            )
-
-        (account_id, subdomain) = bits
-        try:
-            account_id = UUID(account_id)
-        except ValueError:
-            raise ValueError(
-                f'Commmonname {commonname_prefix} does not start with a UUID'
-            )
-
-        if IdType(subdomain) != IdType.ACCOUNT:
-            raise ValueError(
-                f'commonname {commonname} has incorrect subdomain'
-            )
-
-        return EntityId(IdType.ACCOUNT, account_id, None)
+        return entity_id
 
     def review_csr(self, csr: CSR, source: CsrSource = None) -> EntityId:
         '''

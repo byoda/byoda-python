@@ -72,8 +72,8 @@ class TestDirectoryApis(unittest.TestCase):
 
         paths = Paths(
             root_directory='/tmp/byoda_account_post',
-            account_alias='account_post',
-            network_name='byoda.net'
+            account='account_post',
+            network='byoda.net'
         )
         uuid = uuid4()
         secret = AccountSecret(paths=paths)

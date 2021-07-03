@@ -14,9 +14,9 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
 
-from . import Secret, CSR
+from . import Secret
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class ServiceSecret(Secret):
 
         paths = network.paths
         self.network = network.network
-        self.service = service
+        self.service = str(service)
         self.service_id = int(service_id)
 
         super().__init__(
@@ -62,7 +62,9 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = f'{self.service_id}.{self.id_type.value}.{self.network}'
+        common_name = (
+            f'service.{self.id_type.value}{self.service_id}.{self.network}'
+        )
 
         return super().create_csr(common_name, ca=self.ca)
 
@@ -78,25 +80,6 @@ class ServiceSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(commonname)
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
-
-        service_id, subdomain = bits[0:1]
-        id_type = IdType(subdomain)
-        if id_type != IdType.SERVICE:
-            raise ValueError(f'commonname {commonname} is not for a service')
-
-        try:
-            service_id = int(service_id)
-        except ValueError:
-            raise ValueError(f'{service_id} is not a valid service_id')
-
-        self.service_id = service_id
-
-        return EntityId(IdType.SERVICE, None, self.service_id)
-
-    def review_csr(self, csr: CSR, source=CsrSource.WEBAPI):
-        raise NotImplementedError
+        return entity_id

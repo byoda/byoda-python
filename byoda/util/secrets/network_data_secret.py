@@ -12,8 +12,8 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, CsrSource
-from . import Secret, CSR
+from byoda.datatypes import IdType
+from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ _LOGGER = logging.getLogger(__name__)
 class NetworkDataSecret(Secret):
     def __init__(self, paths: Paths):
         '''
-        Class for the Network secret. This secret is used to sign documents
-        like the list of services in the network
+        Class for the Network Data secret. This secret is used to sign
+        documentslike the list of services in the network
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
         :raises: ValueError if both 'paths' and 'network' parameters are
@@ -36,10 +36,11 @@ class NetworkDataSecret(Secret):
             storage_driver=paths.storage_driver
         )
         self.ca = False
+        self.is_root_cert = False
         self.issuing_ca = None
         self.id_type = IdType.NETWORK_DATA
 
-        self.csrs_accepted_for = ()
+        self.accepted_csrs = ()
 
     def create(self, expire: int = 1085):
         '''
@@ -73,25 +74,3 @@ class NetworkDataSecret(Secret):
         )
 
         return super().create_csr(common_name, key_size=4096, ca=self.ca)
-
-    def review_commonname(self, commonname: str) -> str:
-        '''
-        Checks if the structure of common name matches with a common name an
-        account_data
-
-        :param commonname: the commonname to check
-        :returns: the common name with the network domain stripped off
-        :raises: ValueError if the commonname is not valid for this class
-        '''
-
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
-
-        if commonname_prefix not in self.csrs_accepted_for:
-            raise ValueError('An Network Data secret does not sign CSRs')
-
-        return commonname_prefix
-
-    def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
-                   ) -> str:
-        raise NotImplementedError

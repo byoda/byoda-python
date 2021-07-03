@@ -54,7 +54,8 @@ class Network:
     key of the network.
     '''
 
-    def __init__(self, server: dict, application: dict):
+    def __init__(self, server: dict, application: dict,
+                 root_ca: NetworkRootCaSecret = None):
         '''
         Set up the network
 
@@ -91,10 +92,10 @@ class Network:
 
         if ServerRole.Pod in self.roles:
             bucket_prefix = server['bucket_prefix']
-            account_alias = 'pod'
+            account = 'pod'
         else:
             bucket_prefix = None
-            account_alias = None
+            account = None
 
         # FileStorage.get_storage ignores bucket_prefix parameter
         # when local storage is used.
@@ -103,18 +104,23 @@ class Network:
         )
 
         self.paths = Paths(
-            root_directory=self.root_dir, network_name=self.network,
-            account_alias=account_alias, storage_driver=private_object_storage
+            root_directory=self.root_dir, network=self.network,
+            account=account, storage_driver=private_object_storage
         )
 
         # Everyone must at least have the root ca cert.
-        self.root_ca = NetworkRootCaSecret(self.paths)
+        if root_ca:
+            self.root_ca = root_ca
+        else:
+            self.root_ca = NetworkRootCaSecret(self.paths)
+
         if ServerRole.RootCa in self.roles:
             self.root_ca.load(
                 with_private_key=True, password=self.private_key_password
             )
         else:
-            self.root_ca.load(with_private_key=False)
+            if not self.root_ca.cert:
+                self.root_ca.load(with_private_key=False)
 
         config.requests.verify = self.root_ca.cert_file
 
@@ -122,15 +128,7 @@ class Network:
         self.accounts_ca = None
         self.services_ca = None
         if ServerRole.DirectoryServer in self.roles:
-            self.accounts_ca = NetworkAccountsCaSecret(self.paths)
-            self.accounts_ca.load(
-                with_private_key=True, password=self.private_key_password
-            )
-            self.services_ca = NetworkServicesCaSecret(self.paths)
-            self.services_ca.load(
-                with_private_key=True, password=self.private_key_password
-            )
-
+            self.load_secrets()
             self.load_services(filename='services/service_directory.json')
 
             self.dnsdb = DnsDb.setup(server['dnsdb'], self.network)
@@ -204,7 +202,7 @@ class Network:
         :raises: ValueError
         '''
 
-        paths = Paths(network_name=network_name, root_directory=root_dir)
+        paths = Paths(network=network_name, root_directory=root_dir)
 
         if not paths.network_directory_exists():
             paths.create_network_directory()
@@ -233,17 +231,16 @@ class Network:
             'network': network_name, 'root_dir': root_dir,
             'private_key_password': password
         }
-        network = Network(network_data, network_data)
+        network = Network(network_data, network_data, root_ca)
 
-        network.root_ca = root_ca
-
-        # create Root CA, signs Accounts CA, Services CA and
-        # Network Data Secret
+        # Root CA, signs Accounts CA, Services CA and
+        # Network Data Secret. We don't need a 'Network.ServiceSecret'
+        # as we use the Let's Encrypt cert for TLS termination
         network.data_secret = Network._create_secret(
             network.network, NetworkDataSecret, root_ca, paths, password,
             force=True
         )
-        
+
         network.accounts_ca = Network._create_secret(
             network.network, NetworkAccountsCaSecret, root_ca, paths, password,
             force=True
@@ -326,3 +323,21 @@ class Network:
                 service_id=service_id,
                 network=self,
             )
+
+    def load_secrets(self) -> None:
+        '''
+        Loads the secrets of the network, except for the root CA
+        '''
+
+        self.accounts_ca = NetworkAccountsCaSecret(self.paths)
+        self.accounts_ca.load(
+            with_private_key=True, password=self.private_key_password
+        )
+        self.services_ca = NetworkServicesCaSecret(self.paths)
+        self.services_ca.load(
+            with_private_key=True, password=self.private_key_password
+        )
+        self.data_secret = NetworkDataSecret(self.paths)
+        self.data_secret.load(
+            with_private_key=True, password=self.private_key_password
+        )

@@ -48,17 +48,17 @@ class DnsDb:
     - domain : the domain for the network, ie. 'byoda.net'
     '''
 
-    def __init__(self, network_name: str):
+    def __init__(self, network: str):
         '''
 
         Constructor for the DnsDb class
 
-        :param network_name: the domain for the network
+        :param network: the domain for the network
         :raises: (none)
         :returns: none)
         '''
 
-        self.domain = network_name
+        self.domain = network
 
         self._metadata = MetaData()
         self._engine = None
@@ -68,18 +68,18 @@ class DnsDb:
         self._domain_ids = {}
 
     @staticmethod
-    def setup(connectionstring: str, network_name: str):
+    def setup(connectionstring: str, network: str):
         '''
         Factory for DnsDb class
 
         :param connectionstring: connectionstring for the Postgres DB
-        :param network_name: domain for the network, ie. 'byoda.net'
+        :param network: domain for the network, ie. 'byoda.net'
         :returns:
         :raises:
 
         '''
 
-        dnsdb = DnsDb(network_name)
+        dnsdb = DnsDb(network)
 
         # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
 
@@ -112,7 +112,7 @@ class DnsDb:
 
             for subdomain in ('accounts', 'services', 'members'):
                 domain_id = dnsdb._get_domain_id(
-                    conn, f'{subdomain}.{network_name}'
+                    conn, f'{subdomain}.{network}'
                 )
                 dnsdb._domain_ids[subdomain] = domain_id
 

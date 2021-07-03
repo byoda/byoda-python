@@ -13,8 +13,8 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, CsrSource
-from . import Secret, CSR
+from byoda.datatypes import IdType
+from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,13 +38,13 @@ class MemberDataSecret(Secret):
             key_file=paths.get(Paths.MEMBER_DATA_KEY_FILE),
             storage_driver=paths.storage_driver, member_id=member_id
         )
-        self.account_alias = paths.account
+        self.account = paths.account
         self.network = paths.network
         self.ca = False
         self.issuing_ca = None
         self.id_type = IdType.MEMBER_DATA
 
-        self.csrs_accepted_for = ()
+        self.accepted_csrs = ()
 
     def create(self, expire: int = 109500):
         '''
@@ -77,30 +77,7 @@ class MemberDataSecret(Secret):
             member_id = self.member_id
 
         common_name = (
-            f'{self.member_id}.{IdType.MEMBER_DATA.value}'
-            f'.{self.network}'
+            f'{self.member_id}.{self.id_type.value}.{self.network}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=True)
-
-    def review_commonname(self, commonname: str) -> str:
-        '''
-        Checks if the structure of common name matches with a common name an
-        account_data
-
-        :param commonname: the commonname to check
-        :returns: the common name with the network domain stripped off
-        :raises: ValueError if the commonname is not valid for this class
-        '''
-
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
-
-        if commonname_prefix not in self.csrs_accepted_for:
-            raise ValueError('An Account Data secret does not sign CSRs')
-
-        return commonname_prefix
-
-    def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
-                   ) -> str:
-        raise NotImplementedError

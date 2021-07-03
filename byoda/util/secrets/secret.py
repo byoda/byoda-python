@@ -11,6 +11,7 @@ import datetime
 import logging
 import re
 from copy import copy
+from uuid import UUID
 
 from cryptography import x509
 from cryptography.x509 import Certificate
@@ -24,7 +25,7 @@ from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
 from certvalidator import ValidationError
 
-from byoda.datatypes import CsrSource
+from byoda.datatypes import CsrSource, EntityId
 
 from byoda.storage.filestorage import FileStorage, FileMode
 
@@ -135,22 +136,41 @@ class Secret:
 
         self.private_key = None
         self.private_key_file = key_file
+
         self.cert = None
         self.cert_file = cert_file
+
+        # The password to use for saving the private key
+        # to a file
         self.password = None
+
         self.common_name = None
+
         self.is_root_cert = False
+
         self.ca = False
+
+        # These are the different identity types of the
+        # certificates for which this secret will sign
+        # CSRs
+        self.accepted_csrs = []
+
         if storage_driver:
             self.storage_driver = storage_driver
 
         # Certchains never include the root cert!
-        # Certs higher in the certchain come before
+        # Certs higher in the certchain hierarchy come after
         # certs signed by those certs
         self.cert_chain = []
 
+        # the key to use for Fernet encryption/decryption
         self.shared_key = None
+
+        # The shared key encrypted with the private key of
+        # this secret
         self.protected_shared_key = None
+
+        self.fernet = None
 
     def create(self, common_name: str, issuing_ca: bool = None,
                expire: int = 30, key_size: int = _RSA_KEYSIZE,
@@ -173,6 +193,9 @@ class Secret:
 
         if self.private_key or self.cert:
             raise ValueError('Secret already has a key and cert')
+
+        if not self.is_root_cert and not issuing_ca:
+            raise ValueError('Only root certs should be self-signed')
 
         self.common_name = common_name
         self.ca = ca or self.ca
@@ -244,8 +267,7 @@ class Secret:
 
     def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
-        Signs a previously created Certificate Signature Request (CSR)
-        with the specified issuing CA
+        Gets the cert signed and adds the signed cert to the secret
 
         :param csr: the certificate signature request
         :param Secret issuing_ca: Certificate to sign the CSR with
@@ -264,27 +286,29 @@ class Secret:
 
         :param csr: the certificate signing request to be reviewed
         :returns: commonname of the certificate
-        :raises: ValueError if review fails
+        :raises: ValueError, NotImplementedError, PermissionError
         '''
+
+        if not self.ca:
+            raise NotImplementedError('Only CAs need to review CNs')
+
+        if not self.private_key_file:
+            raise ValueError('CSR received while we do not have a private key')
 
         _LOGGER.debug('Reviewing cert sign request')
 
         if not self.ca:
-            _LOGGER.warning('Only CAs review CSRs')
             raise ValueError('Only CAs review CSRs')
 
         if not csr.is_signature_valid:
-            _LOGGER.warning('CSR with invalid signature')
             raise ValueError('CSR with invalid signature')
 
         sign_algo = csr.signature_algorithm_oid._name
         if sign_algo not in VALID_SIGNATURE_ALGORITHMS:
-            _LOGGER.warning(f'CSR with invalid algorithm: {sign_algo}')
             raise ValueError(f'Invalid algorithm: {sign_algo}')
 
         hash_algo = csr.signature_hash_algorithm.name
         if hash_algo not in VALID_SIGNATURE_HASHES:
-            _LOGGER.warning(f'CSR with invalid hash algorithm: {hash_algo}')
             raise ValueError(f'Invalid algorithm: {hash_algo}')
 
         # We start parsing the Subject of the CSR, which
@@ -324,30 +348,79 @@ class Secret:
 
         raise ValueError(f'commonname not found in {name}')
 
-    def review_commonname(self, commonname: str) -> str:
+    def review_commonname(self, commonname: str, uuid_identifier=True,
+                          check_service_id=True) -> str:
         '''
-        Checks if the structure of common name matches of a byoda secret. As
-        this is the base class, we can only check that the commonname ends
-        with the name of the netwrok
+        Checks if the structure of common name matches of a byoda secret.
+        Parses the entity type, the identifier and optionally the service_id
+        from the common name
 
         :param commonname: the commonname to check
+        :param uuid_identifier: whether to check if the identifier is a UUID
+        :param check_service_id: should any service_id in the common name
+        match the service_id attribute of the secret?
         :returns: commonname with the network domain stripped off, ie. for
         'uuid.accounts.byoda.net' it will return 'uuid.accounts'.
         :raises: ValueError if the commonname is not a string
         '''
 
+        if not self.ca:
+            raise NotImplementedError('Only CAs need to review CNs')
+
         if not isinstance(commonname, str):
             raise ValueError(
-                f'Commonname must be of type str, not {type(commonname)}'
+                f'Common name must be of type str, not {type(commonname)}'
             )
 
         postfix = '.' + self.network
         if not commonname.endswith(postfix):
-            raise ValueError(
+            raise PermissionError(
                 f'Commonname {commonname} is not for network {self.network}'
             )
 
-        return commonname[:-1 * len(postfix)]
+        commonname_prefix = commonname[:-1 * len(postfix)]
+
+        bits = commonname_prefix.split('.')
+        if len(bits) != 2:
+            raise ValueError(f'Invalid number of domain levels: {commonname}')
+
+        identifier, subdomain = bits
+
+        id_type = None
+        for id_type_iter in self.accepted_csrs:
+            if subdomain.startswith(id_type_iter.value):
+                id_type = id_type_iter
+                break
+
+        if not id_type:
+            raise PermissionError(
+                f'Service CA does not sign CSR for subdomain {subdomain}'
+            )
+
+        if uuid_identifier:
+            try:
+                identifier = UUID(identifier)
+            except ValueError:
+                raise ValueError(
+                    f'Common name {commonname} does not have a valid UUID '
+                    'identifier'
+                )
+
+        service_id = subdomain[len(id_type.value):]
+
+        if service_id == '':
+            service_id = None
+        elif service_id:
+            service_id = int(service_id)
+
+        if check_service_id:
+            if self.service_id != service_id:
+                raise PermissionError(
+                    f'Request for incorrect service {service_id} in common '
+                    f'name {commonname}'
+                )
+
+        return EntityId(id_type, identifier, service_id)
 
     def sign_csr(self, csr: CSR, expire: int = 365) -> CertChain:
         '''
@@ -356,12 +429,14 @@ class Secret:
         :param - csr: X509.CertificateSigningRequest
         :param int expire: after how many days the cert should
         :returns: the signed cert and the certchain excluding the root CA
-        :raises: (none)
+        :raises: ValueError, KeyError
         '''
 
         if not self.ca:
-            _LOGGER.warning('Only CAs sign CSRs')
             raise ValueError('Only CAs sign CSRs')
+
+        if not self.private_key:
+            raise KeyError('Private key not loaded')
 
         try:
             extension = csr.extensions.get_extension_for_class(

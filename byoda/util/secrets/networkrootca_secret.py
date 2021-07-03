@@ -52,10 +52,10 @@ class NetworkRootCaSecret(Secret):
             self.network = network
 
         self.ca = True
+        self.is_root_cert = True
         self.issuing_ca = None
-        self.csrs_accepted_for = (
-            IdType.ACCOUNTS_CA.value, IdType.SERVICES_CA.value,
-            IdType.NETWORK_DATA.value
+        self.accepted_csrs = (
+            IdType.ACCOUNTS_CA, IdType.SERVICES_CA, IdType.NETWORK_DATA
         )
 
     def create(self, expire: int = 10950):
@@ -86,15 +86,11 @@ class NetworkRootCaSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False, check_service_id=False
+        )
 
-        cert_type = commonname_prefix.split('.')[-1]
-        if cert_type not in self.csrs_accepted_for:
-            raise ValueError(
-                f'A root CA does not sign CSRs for commonname {commonname}'
-            )
-
-        return commonname_prefix
+        return entity_id
 
     def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
                    ) -> str:

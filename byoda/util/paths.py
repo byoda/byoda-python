@@ -36,7 +36,7 @@ class Paths:
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                      # noqa
     NETWORK_DATA_CERT_FILE        = 'network-{network}/network-{network}-data-cert.pem'                          # noqa
-    NETWORK_DATA_KEY_FILE      = 'private/network-{network}-data.key'                                         # noqa
+    NETWORK_DATA_KEY_FILE         = 'private/network-{network}-data.key'                                         # noqa
     NETWORK_ACCOUNTS_CA_CERT_FILE = 'network-{network}/network-{network}-accounts-ca-cert.pem'                   # noqa
     NETWORK_ACCOUNTS_CA_KEY_FILE  = 'private/network-{network}-accounts-ca.key'                                  # noqa
     NETWORK_SERVICES_CA_CERT_FILE = 'network-{network}/network-{network}-services-ca-cert.pem'                   # noqa
@@ -49,36 +49,38 @@ class Paths:
     ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
 
-    SERVICE_DIR          = 'network-{network}/services/service-{service_id}/'                                              # noqa
-    SERVICE_FILE         = 'network-{network}/services/service-{service_id}/service-{service_id}.json'                     # noqa
-    SERVICE_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-ca-cert.pem'                          # noqa
-    SERVICE_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-ca.key'                                         # noqa
-    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/network-{network}-service-{service_id}-member-ca-cert.pem'           # noqa
-    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                          # noqa
-    SERVICE_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-cert.pem'                 # noqa
-    SERVICE_KEY_FILE     = 'private/network-{network}-service-{service_id}.key'                                            # noqa
-    APPS_CERT_FILE    = 'network-{network}/services/service-{service_id}/service-{service_id}-app-{app_id}-cert.pem'       # noqa
-    APPS_KEY_FILE     = 'private/network-{network}-service-{service_id}-app-{app_id}.key'                                  # noqa
+    SERVICE_DIR                  = 'network-{network}/services/service-{service_id}/'                                     # noqa
+    SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-{service_id}.json'            # noqa
+    SERVICE_CA_CERT_FILE         = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-ca-cert.pem'         # noqa
+    SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-members-ca-cert.pem' # noqa
+    SERVICE_APPS_CA_CERT_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-apps-ca-cert.pem'    # noqa
+    SERVICE_DATA_CERT_FILE       = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-data-cert.pem'       # noqa
+    SERVICE_CERT_FILE            = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-cert.pem'            # noqa
+    SERVICE_CA_KEY_FILE          = 'private/network-{network}-service-{service_id}-ca.key'                                # noqa
+    SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                         # noqa
+    SERVICE_APPS_CA_KEY_FILE     = 'private/network-{network}-service-{service_id}-apps-ca.key'                           # noqa
+    SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
+    SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
 
     MEMBER_DIR            = 'network-{network}/account-{account}/service-{service_id}/'                                    # noqa
-    MEMBER_SERVICE_FILE   = 'network-{network}/account-{account}/service-{service_id}/service.json'                        # noqa
-    MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-cert.pem'        # noqa
+    MEMBER_SERVICE_FILE   = 'network-{network}/account-{account}/service-{service_id}/network-{network}-service-{service_id}.json'          # noqa
+    MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-cert.pem'       # noqa
+    MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'  # noqa
     MEMBER_KEY_FILE       = 'private/network-{network}-account-{account}-member-{service_id}.key'                          # noqa
-    MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service_id}/member-{service_id}-data-cert.pem'   # noqa
     MEMBER_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                     # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
-                 account_alias: str = None,
-                 network_name: str = None,
+                 account: str = None,
+                 network: str = None,
+                 service_id: int = None,
                  storage_driver: FileStorage = None):
         '''
-        Initiate instance with root_dir and account_alias members
-        set
+        Initiate instance with root_dir and account parameters
 
         :param root_directory: optional, the root directory under which
         all other files and directories are stored
-        :param network_name: optional, name of the network
-        :param account_alias: optional, alias for the account. If no alias is
+        :param network: optional, name of the network
+        :param account: optional, name for the account. If no alias is
         specified then an UUID is generated and used as alias
         :param storage_driver: instance of FileStorage for persistence of data
         :returns: (none)
@@ -87,8 +89,9 @@ class Paths:
 
         self._root_directory = root_directory
 
-        self._account = account_alias
-        self._network = network_name
+        self._account = account
+        self._network = network
+        self.service_id = service_id
         self.services = set()
         self.memberships = set()
         if storage_driver:
@@ -107,6 +110,9 @@ class Paths:
         and the service parameter is not specified
         '''
 
+        if service_id is None:
+            service_id = self.service_id
+            
         if '{network}' in path_template and not self._network:
             raise ValueError('No network specified')
         if '{service_id}' in path_template and service_id is None:
