@@ -62,7 +62,7 @@ network = {
     'account_secret': os.environ.get('ACCOUNT_SECRET'),
     'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
     'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
-    'root_dir': '/byoda',
+    'root_dir': os.environ.get('ROOT_DIR', '/byoda'),
     'roles': ['pod'],
 }
 
@@ -84,7 +84,9 @@ _LOGGER = Logger.getLogger(
 #     letsencrypt.create()
 
 config.network = Network(network, network)
-config.account = Account(network['account_id'], config.network)
+config.account = Account(
+    network['account_id'], config.network, with_tls_secret=True
+)
 
 try:
     config.account.load_secrets()
@@ -119,7 +121,7 @@ ca_file = (
     config.network.paths.network_directory() +
     f'/network-{network["network"]}-root-ca-cert.pem'
 )
-network.paths.storage_driver.copy(
+config.network.paths.storage_driver.copy(
     f'/{src_dir}/networks/network-{network["network"]}-root-ca-cert.pem',
     ca_file
 )

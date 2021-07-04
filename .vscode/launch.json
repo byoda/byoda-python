@@ -21,7 +21,7 @@
             "program": "tools/create_secrets.py",
             "args": [
                 "--debug",
-                "--type", "MEMBERSHIP",
+                "--type", "ACCOUNT",
                 "--account-id", "9f6c55d7-b35e-4eb9-bc5e-614fdd355e6f",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
@@ -66,22 +66,7 @@
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
-            }
-        },
-        {
-            "name": "account_exists",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/account_exists.py",
-            "env": {
-                "PYTHONPATH": ".",
-                "CLOUD": "LOCAL",
-                "BUCKET_PREFIX": "byoda",
-                "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
-                "ACCOUNT_SECRET": "supersecret",
-                "LOGLEVEL": "DEBUG",
-                "PRIVATE_KEY_SECRET": "byoda"
+
             }
         }
     ]

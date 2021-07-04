@@ -172,16 +172,19 @@ class Network:
         self.account_secret = None
         self.data_secret = None
         self.member_secrets = set()
-        self.services = None
+        self.services = dict()
         self.account = None
         if ServerRole.Pod in self.roles:
-            self.account = Account(server['account_id'], self)
+            self.account = Account(
+                server['account_id'], self, with_tls_secret=True
+            )
 
             # TODO: client should read this from a directory server API
             self.load_services(filename='services/service_directory.json')
 
             # We use the account secret as client TLS cert for outbound
             # requests and as private key for the TLS server
+
             filepath = self.account.tls_secret.save_tmp_private_key()
             config.requests.cert = (
                 self.account.tls_secret.cert_file, filepath
@@ -192,14 +195,14 @@ class Network:
         '''
         Factory for Network class
 
-        Create the secrets for a network:
+        Create the secrets for a network, unless they already exist:
         - Network Root CA
         - Accounts CA
         - Services CA
         - NetworkSecret
 
         :returns: Network insance
-        :raises: ValueError
+        :raises: ValueError, PermissionError
         '''
 
         paths = Paths(network=network_name, root_directory=root_dir)
@@ -214,18 +217,10 @@ class Network:
         root_ca = NetworkRootCaSecret(paths=paths)
 
         if root_ca.cert_file_exists():
-            raise ValueError(
-                f'Root CA cert file already exists: '
-                f'{root_ca.cert_file}'
-            )
-        if root_ca.private_key_file_exists():
-            raise ValueError(
-                f'Root CA private key file already exists: '
-                f'{root_ca.private_key_file}'
-            )
-
-        root_ca.create(expire=100*365)
-        root_ca.save(password=password)
+            root_ca.load(password=password)
+        else:
+            root_ca.create(expire=100*365)
+            root_ca.save(password=password)
 
         network_data = {
             'network': network_name, 'root_dir': root_dir,
@@ -237,25 +232,22 @@ class Network:
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
         # as we use the Let's Encrypt cert for TLS termination
         network.data_secret = Network._create_secret(
-            network.network, NetworkDataSecret, root_ca, paths, password,
-            force=True
+            network.network, NetworkDataSecret, root_ca, paths, password
         )
 
         network.accounts_ca = Network._create_secret(
-            network.network, NetworkAccountsCaSecret, root_ca, paths, password,
-            force=True
+            network.network, NetworkAccountsCaSecret, root_ca, paths, password
         )
 
         network.services_ca = Network._create_secret(
-            network.network, NetworkServicesCaSecret, root_ca, paths,
-            password, force=True
+            network.network, NetworkServicesCaSecret, root_ca, paths, password
         )
 
         return network
 
     @staticmethod
     def _create_secret(network: str, secret_cls: Callable, issuing_ca: Secret,
-                       paths: Paths, password: str, force=False):
+                       paths: Paths, password: str):
         '''
         Abstraction helper for creating secrets for a Network to avoid
         repetition of code for creating the various member secrets of the
@@ -280,18 +272,8 @@ class Network:
         secret = secret_cls(paths=paths)
 
         if secret.cert_file_exists():
-            if not force:
-                raise ValueError(f'Cert for {network} already exists')
-            else:
-                _LOGGER.info(f'Forcing creating of a {type(secret_cls)} cert')
-
-        if secret.private_key_file_exists():
-            if not force:
-                raise ValueError(f'Private key for {network} already exists')
-            else:
-                _LOGGER.info(
-                    f'Forcing creating of a {type(secret_cls)} private key'
-                )
+            secret.load(password=password)
+            return secret
 
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
@@ -318,11 +300,12 @@ class Network:
             if service_id in self.services:
                 raise ValueError(f'Duplicate service_id: {service_id}')
 
-            self.services[service_id] = Service(
-                name=service['name'],
+            service_inst = Service(
+                service=service['name'],
                 service_id=service_id,
                 network=self,
             )
+            self.services[service_id] = service_inst
 
     def load_secrets(self) -> None:
         '''

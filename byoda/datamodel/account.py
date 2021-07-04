@@ -37,7 +37,8 @@ class Account:
     This class is expected to only be used in the podserver
     '''
 
-    def __init__(self,  account_id: str, network: Network):
+    def __init__(self,  account_id: str, network: Network,
+                 with_tls_secret=False):
         '''
         Constructor
         '''
@@ -60,6 +61,11 @@ class Account:
 
         self.tls_secret = None
         self.data_secret = None
+        self.tls_secret = AccountSecret(
+            self.account, self.account_id, self.network
+        )
+        if with_tls_secret:
+            self.tls_secret.load(password=self.private_key_password)
 
         self.paths = copy(network.paths)
         self.paths.account = self.account

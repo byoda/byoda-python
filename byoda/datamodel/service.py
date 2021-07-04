@@ -245,13 +245,13 @@ class Service:
 
         if secret.cert_file_exists():
             raise ValueError(
-                f'Service CA cert for {self.service} ({self.service_id}) '
+                f'{type(secret)} cert for {self.service} ({self.service_id}) '
                 'already exists'
             )
 
         if secret.private_key_file_exists():
             raise ValueError(
-                f'Service CA key for {self.service} ({self.service_id}) '
+                f'{type(secret)} key for {self.service} ({self.service_id}) '
                 'already exists'
             )
 
