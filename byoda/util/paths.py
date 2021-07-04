@@ -30,9 +30,6 @@ class Paths:
     NETWORK_DIR          = 'network-{network}'       # noqa
     NETWORK_FILE         = 'network-{network}.json'  # noqa
 
-    TLS_CERT_FILE        = 'tls-certchain.pem'       # noqa
-    TLS_KEY_FILE         = 'private/tls.key'         # noqa
-
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                      # noqa
     NETWORK_DATA_CERT_FILE        = 'network-{network}/network-{network}-data-cert.pem'                          # noqa
@@ -112,7 +109,7 @@ class Paths:
 
         if service_id is None:
             service_id = self.service_id
-            
+
         if '{network}' in path_template and not self._network:
             raise ValueError('No network specified')
         if '{service_id}' in path_template and service_id is None:
@@ -212,7 +209,8 @@ class Paths:
         return self._exists(self.ACCOUNT_DIR)
 
     def create_account_directory(self):
-        return self._create_directory(self.ACCOUNT_DIR)
+        if not self.account_directory_exists():
+            return self._create_directory(self.ACCOUNT_DIR)
 
     # service directory
     def service(self, service_id):

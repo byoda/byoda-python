@@ -7,6 +7,7 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 import logging
+from copy import copy
 
 from byoda.util import Paths
 
@@ -33,20 +34,22 @@ class NetworkAccountsCaSecret(Secret):
         '''
 
         if paths:
+            self.paths = copy(paths)
             self.network = paths.network
             super().__init__(
-                cert_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
-                key_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
-                storage_driver=paths.storage_driver,
+                cert_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
+                key_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
+                storage_driver=self.paths.storage_driver,
             ),
         else:
             super().__init__()
             self.network = network
+            self.paths = None
 
         self.ca = True
         self.id_type = IdType.ACCOUNTS_CA
 
-        self.accepted_csrs = (IdType.ACCOUNT)
+        self.accepted_csrs = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
 
     def create_csr(self) -> CSR:
         '''

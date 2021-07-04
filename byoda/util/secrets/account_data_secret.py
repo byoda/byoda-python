@@ -8,6 +8,8 @@ Cert manipulation for data of an account
 
 import logging
 from uuid import UUID
+from typing import TypeVar
+from copy import copy
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -18,32 +20,36 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
+
 
 class AccountDataSecret(Secret):
-    def __init__(self, paths: Paths):
+    def __init__(self, account: str = 'pod', account_id: UUID = None,
+                 network: Network = None):
         '''
         Class for the account-data secret. This secret is used to encrypt
-        account data.
-        :param paths: instance of Paths class defining the directory structure
-        and file names of a BYODA network
-        :returns: ValueError if both 'paths' and 'network' parameters are
-        specified
+        account data and to sign documents
+
         :raises: (none)
         '''
 
-        self.account_id = None
-        super().__init__(
-            cert_file=paths.get(Paths.ACCOUNT_DATA_CERT_FILE),
-            key_file=paths.get(Paths.ACCOUNT_DATA_KEY_FILE),
-            storage_driver=paths.storage_driver
-        )
-        self.account = paths.account
-        self.network = paths.network
-        self.ca = False
-        self.issuing_ca = None
-        self.id_type = IdType.ACCOUNT_DATA
+        self.account_id = account_id
+        if account_id and not isinstance(account_id, UUID):
+            self.account_id = UUID(account_id)
 
-        self.accepted_csrs = ()
+        self.paths = copy(network.paths)
+        self.account = str(account)
+        self.paths.account = self.account
+        self.paths.account_id = self.account_id
+
+        super().__init__(
+            cert_file=self.paths.get(Paths.ACCOUNT_DATA_CERT_FILE),
+            key_file=self.paths.get(Paths.ACCOUNT_DATA_KEY_FILE),
+            storage_driver=self.paths.storage_driver
+        )
+        self.account = self.paths.account
+        self.network = network
+        self.id_type = IdType.ACCOUNT_DATA
 
     def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
         '''
@@ -55,11 +61,14 @@ class AccountDataSecret(Secret):
                                 a private key or cert
         '''
 
-        if not account_id:
-            account_id = self.account_id
+        if account_id:
+            self.account_id = account_id
+
+        if not self.network:
+            raise ValueError('Network not defined')
 
         common_name = (
-            f'{account_id}.{self.id_type.value}.{self.network}'
+            f'{self.account_id}.{self.id_type.value}.{self.network.network}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=self.ca)

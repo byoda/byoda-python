@@ -7,6 +7,8 @@ Cert manipulation for accounts and members
 '''
 
 import logging
+from copy import copy
+
 from uuid import UUID
 from cryptography.x509 import CertificateSigningRequest
 
@@ -28,6 +30,9 @@ class MemberSecret(Secret):
         :raises: (none)
         '''
 
+        self.paths = copy(paths)
+        self.paths.service_id = service_id
+        
         super().__init__(
             cert_file=paths.get(
                 Paths.MEMBER_CERT_FILE, service_id=service_id

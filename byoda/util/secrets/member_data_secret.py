@@ -8,6 +8,8 @@ Cert manipulation for data of an account
 
 import logging
 from uuid import UUID
+from copy import copy
+from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -18,9 +20,11 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Account = TypeVar('Account', bound='Account')
+
 
 class MemberDataSecret(Secret):
-    def __init__(self, member_id: UUID, paths: Paths):
+    def __init__(self, member_id: UUID, service_id: int, account: Account):
         '''
         Class for the member-data secret. This secret is used to encrypt
         data of an account for a service.
@@ -31,20 +35,31 @@ class MemberDataSecret(Secret):
         :raises: (none)
         '''
 
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
         self.member_id = member_id
 
-        super().__init__(
-            cert_file=paths.get(Paths.MEMBER_DATA_CERT_FILE),
-            key_file=paths.get(Paths.MEMBER_DATA_KEY_FILE),
-            storage_driver=paths.storage_driver, member_id=member_id
-        )
-        self.account = paths.account
-        self.network = paths.network
-        self.ca = False
-        self.issuing_ca = None
-        self.id_type = IdType.MEMBER_DATA
+        self.service_id = int(service_id)
 
-        self.accepted_csrs = ()
+        self.paths = copy(account.paths)
+        self.paths.service_id = self.service_id
+
+        # secret.review_commonname requires self.network to be string
+        self.network = account.network.network
+
+        super().__init__(
+            cert_file=self.paths.get(
+                Paths.MEMBER_DATA_CERT_FILE,
+                service_id=service_id, member_id=self.member_id,
+            ),
+            key_file=self.paths.get(
+                Paths.MEMBER_DATA_KEY_FILE,
+                service_id=service_id, member_id=self.member_id,
+            ),
+            storage_driver=self.paths.storage_driver
+        )
+
+        self.id_type = IdType.MEMBER_DATA
 
     def create(self, expire: int = 109500):
         '''
@@ -58,12 +73,12 @@ class MemberDataSecret(Secret):
         '''
 
         common_name = (
-            f'{self.member_id}.{IdType.MEMBER_DATA.value}'
+            f'{self.member_id}.{IdType.MEMBER_DATA.value}{self.service_id}'
             f'.{self.network}'
         )
         super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
 
-    def create_csr(self, member_id: int = None) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -73,11 +88,9 @@ class MemberDataSecret(Secret):
                                 a private key or cert
         '''
 
-        if not member_id:
-            member_id = self.member_id
-
         common_name = (
-            f'{self.member_id}.{self.id_type.value}.{self.network}'
+            f'{self.member_id}.{self.id_type.value}{self.service_id}'
+            f'.{self.network}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=True)

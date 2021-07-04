@@ -8,6 +8,7 @@ Service secret
 '''
 
 import logging
+from copy import copy
 from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
@@ -35,21 +36,20 @@ class ServiceSecret(Secret):
         :raises: (none)
         '''
 
-        paths = network.paths
+        self.paths = copy(network.paths)
         self.network = network.network
         self.service = str(service)
         self.service_id = int(service_id)
 
         super().__init__(
-            cert_file=paths.get(
+            cert_file=self.paths.get(
                 Paths.SERVICE_CERT_FILE, service_id=self.service_id
             ),
-            key_file=paths.get(
+            key_file=self.paths.get(
                 Paths.SERVICE_KEY_FILE, service_id=self.service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
-        self.ca = False
         self.id_type = IdType.SERVICE
 
     def create_csr(self) -> CertificateSigningRequest:

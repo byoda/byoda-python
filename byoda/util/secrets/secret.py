@@ -387,10 +387,14 @@ class Secret:
         identifier, subdomain = bits
 
         id_type = None
+        longest_match = 0
         for id_type_iter in self.accepted_csrs:
-            if subdomain.startswith(id_type_iter.value):
+            length = len(id_type_iter.value)
+            if (subdomain.startswith(id_type_iter.value)
+                    and length > longest_match):
                 id_type = id_type_iter
-                break
+                longest_match = length
+
 
         if not id_type:
             raise PermissionError(

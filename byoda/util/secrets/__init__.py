@@ -35,5 +35,4 @@ from .account_data_secret import AccountDataSecret
 from .member_secret import MemberSecret
 from .member_data_secret import MemberDataSecret
 
-from .tls_secret import TlsSecret
 

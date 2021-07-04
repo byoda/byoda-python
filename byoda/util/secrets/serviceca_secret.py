@@ -42,27 +42,26 @@ class ServiceCaSecret(Secret):
                 f'Service ID must be 0 or greater: {self.service_id}'
             )
 
-        paths = network.paths
+        self.paths = network.paths
+        self.paths.service_id = self.service_id
+
         self.network = network.network
         super().__init__(
-            cert_file=paths.get(
+            cert_file=self.paths.get(
                 Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
             ),
-            key_file=paths.get(
+            key_file=self.paths.get(
                 Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
 
-        self.ca = True
         self.id_type = IdType.SERVICE_CA
 
-        # Because certs are checked using .startswith(), the longest match
-        # must precede shorter matches
+        self.ca = True
         self.accepted_csrs = (
-            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE_DATA,
-            IdType.SERVICE,
-
+            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
+            IdType.SERVICE_DATA,
         )
 
     def create_csr(self, source=CsrSource.LOCAL) -> CertificateSigningRequest:

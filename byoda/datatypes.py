@@ -34,7 +34,7 @@ class IdType(Enum):
     APPS_CA              = 'apps-ca-'
     MEMBERS_CA           = 'members-ca-'
     SERVICE_DATA         = 'service-data-'
-    ACCOUNT_DATA         = 'account-data-'
+    ACCOUNT_DATA         = 'account-data'
     MEMBER_DATA          = 'member-data-'
 
 

@@ -8,7 +8,7 @@ Service secret
 '''
 
 import logging
-from uuid import UUID
+from copy import copy
 from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
@@ -47,24 +47,27 @@ class MembersCaSecret(Secret):
         :raises: (none)
         '''
 
-        paths = network.paths
-        self.network = network
-        self.service_id = service_id
+        self.network = network.network
+        self.paths = copy(network.paths)
+
+        self.service_id = int(service_id)
+        self.paths.service_id = self.service_id
+
         self.service = service
 
         super().__init__(
-            cert_file=paths.get(
+            cert_file=self.paths.get(
                 Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_id=service_id
             ),
-            key_file=paths.get(
+            key_file=self.paths.get(
                 Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_id=service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
         self.ca = True
         self.id_type = IdType.MEMBERS_CA
 
-        self.accepted_csrs = (IdType.MEMBER)
+        self.accepted_csrs = [IdType.MEMBER, IdType.MEMBER_DATA]
 
     def create_csr(self) -> CertificateSigningRequest:
         '''
@@ -79,7 +82,7 @@ class MembersCaSecret(Secret):
         name = self.id_type.value.rstrip('-')
         common_name = (
             f'{name}.{self.id_type.value}{self.service_id}.'
-            f'{self.network.network}'
+            f'{self.network}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=True)

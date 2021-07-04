@@ -7,6 +7,7 @@ Cert manipulation for data of an account
 '''
 
 import logging
+from copy import copy
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -30,10 +31,11 @@ class NetworkDataSecret(Secret):
         '''
 
         self.network = paths.network
+        self.paths = copy(paths)
         super().__init__(
-            cert_file=paths.get(Paths.NETWORK_DATA_CERT_FILE),
-            key_file=paths.get(Paths.NETWORK_DATA_KEY_FILE),
-            storage_driver=paths.storage_driver
+            cert_file=self.paths.get(Paths.NETWORK_DATA_CERT_FILE),
+            key_file=self.paths.get(Paths.NETWORK_DATA_KEY_FILE),
+            storage_driver=self.paths.storage_driver
         )
         self.ca = False
         self.is_root_cert = False

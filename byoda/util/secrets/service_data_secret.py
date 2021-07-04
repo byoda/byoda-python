@@ -7,7 +7,6 @@ Cert manipulation for data of an account
 '''
 
 import logging
-from uuid import UUID
 from typing import TypeVar
 from copy import copy
 
@@ -24,28 +23,24 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceDataSecret(Secret):
-    def __init__(self, service, service_id, network: Network):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the account-data secret. This secret is used to encrypt
         account data.
-        :param paths: instance of Paths class defining the directory structure
-        and file names of a BYODA network
-        :returns: ValueError if both 'paths' and 'network' parameters are
-        specified
         :raises: (none)
         '''
 
-        paths = copy(network.paths)
+        self.paths = copy(network.paths)
         self.service = str(service)
         self.service_id = int(service_id)
-        paths.service_id = self.service_id
+        self.paths.service_id = self.service_id
 
         super().__init__(
-            cert_file=paths.get(Paths.SERVICE_DATA_CERT_FILE),
-            key_file=paths.get(Paths.SERVICE_DATA_KEY_FILE),
-            storage_driver=paths.storage_driver
+            cert_file=self.paths.get(Paths.SERVICE_DATA_CERT_FILE),
+            key_file=self.paths.get(Paths.SERVICE_DATA_KEY_FILE),
+            storage_driver=self.paths.storage_driver
         )
-        self.network = paths.network
+        self.network = self.paths.network
         self.id_type = IdType.SERVICE_DATA
 
         self.accepted_csrs = ()

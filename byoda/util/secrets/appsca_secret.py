@@ -8,6 +8,7 @@ Cert manipulation for service secrets: Apps CA
 
 import logging
 from typing import TypeVar
+from copy import copy
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -35,19 +36,21 @@ class AppsCaSecret(Secret):
         :raises: (none)
         '''
 
-        paths = network.paths
         self.network = network.network
         self.service_id = int(service_id)
         self.service = service
 
+        self.paths = copy(network.paths)
+        self.paths.service_id = self.service_id
+
         super().__init__(
-            cert_file=paths.get(
+            cert_file=self.paths.get(
                 Paths.SERVICE_APPS_CA_CERT_FILE, service_id=service_id
             ),
-            key_file=paths.get(
+            key_file=self.paths.get(
                 Paths.SERVICE_APPS_CA_KEY_FILE, service_id=service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
         self.ca = True
         self.id_type = IdType.APPS_CA

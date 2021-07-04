@@ -19,15 +19,12 @@ from uuid import uuid4
 
 from byoda.util import Logger
 
-from byoda.datamodel import Network, Service
+from byoda.datamodel import Network, Service, Account, Member
 
 from byoda.datatypes import CertType
 from byoda.util.secrets import NetworkRootCaSecret
-from byoda.util.secrets import NetworkDataSecret
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import NetworkServicesCaSecret
 
-from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import MembersCaSecret
 
 _LOGGER = None
 
@@ -46,7 +43,7 @@ def main(argv):
     parser.add_argument('--service', '-s', type=str, default='default')
     parser.add_argument('--service-id', '-i', type=str, default='0')
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
-    parser.add_argument('--account', '-a', type=str, default='default')
+    parser.add_argument('--account', '-a', type=str, default='pod')
     parser.add_argument('--account-id', '-c', type=str, default=None)
     parser.add_argument('--member', '-m', type=str, default=None)
     parser.add_argument('--password', '-p', type=str, default='byoda')
@@ -96,10 +93,12 @@ def main(argv):
             service = load_service(args, network)
 
     if args.type == CertType.ACCOUNT:
-        create_account(args, network)
+        account = create_account(args, network)
+    elif args.type == CertType.MEMBERSHIP:
+        account = load_account(args, network)
 
     if args.type == CertType.MEMBERSHIP:
-        create_membership(args, service)
+        create_membership(account, service, service.members_ca)
 
 
 def create_network(args: argparse.ArgumentParser, network_data: dict[str, str]
@@ -141,32 +140,38 @@ def create_service(args, network: Network):
 
 def load_service(args, network):
     service = Service(
-        name=args.service, service_id=args.service_id, network=network
+        service=args.service, service_id=args.service_id, network=network
     )
     service.load_secrets(with_private_key=True, password=args.password)
 
     return service
 
 
-def create_membership(args):
-    pass
+def create_membership(account, service,
+                      members_ca: MembersCaSecret) -> Member:
+    member = account.join(service=service, members_ca=members_ca)
+    return member
 
 
-def create_account(args, network):
+def create_account(args, network) -> Account:
     if not args.account:
         raise argparse.ArgumentError(
-            'You must provide an account label for account certs'
+            'You must provide an account label and ID for account certs'
         )
 
-    network.paths.create_secrets_directory()
-    network.paths.create_account_directory()
+    account_id = args.account_id
+    if not account_id:
+        account_id = uuid4()
 
-    account_id = uuid4()
-    account_secret = AccountSecret(network.paths)
-    csr = account_secret.create_csr(account_id)     # noqa
-    raise NotImplementedError
-    # TODO: Need to submit CSR to dir.byoda.net and retrieve the signed cert
-    account_secret.save(password=args.password)
+    account = Account(account_id, network)
+    account.create_secrets(network.accounts_ca)
+    return account
+
+
+def load_account(args, network):
+    account = Account(args.account_id, network)
+    account.load_secrets()
+    return account
 
 
 if __name__ == '__main__':

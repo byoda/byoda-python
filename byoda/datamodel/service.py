@@ -77,7 +77,7 @@ class Service:
         self.network = network
         self.paths = copy(network.paths)
         self.paths.service_id = self.service_id
-        
+
         self.storage_driver = network.paths.storage_driver
 
     @classmethod
@@ -263,8 +263,6 @@ class Service:
 
         return secret
 
-        self.create_data_secret()
-
     def load_secrets(self, with_private_key: bool = True, password: str = None
                      ) -> None:
         '''
@@ -279,7 +277,9 @@ class Service:
             )
 
         if not self.apps_ca:
-            self.apps_ca = AppsCaSecret(self.service, self.network)
+            self.apps_ca = AppsCaSecret(
+                self.service, self.service_id, self.network
+            )
             self.apps_ca.load(
                 with_private_key=with_private_key, password=password
             )
