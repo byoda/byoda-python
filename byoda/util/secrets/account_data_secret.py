@@ -16,14 +16,14 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util import Paths
 
 from byoda.datatypes import IdType
-from . import Secret
+from .data_secret import DataSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 
 
-class AccountDataSecret(Secret):
+class AccountDataSecret(DataSecret):
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None):
         '''

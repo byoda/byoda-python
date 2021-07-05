@@ -127,6 +127,7 @@ class Network:
         # Loading secrets for when operating as a directory server
         self.accounts_ca = None
         self.services_ca = None
+        self.services = dict()
         if ServerRole.DirectoryServer in self.roles:
             self.load_secrets()
             self.load_services(filename='services/service_directory.json')
@@ -176,7 +177,7 @@ class Network:
         self.account = None
         if ServerRole.Pod in self.roles:
             self.account = Account(
-                server['account_id'], self, with_tls_secret=True
+                server['account_id'], self, load_tls_secret=True
             )
 
             # TODO: client should read this from a directory server API
@@ -193,13 +194,16 @@ class Network:
     @staticmethod
     def create(network_name, root_dir, password):
         '''
-        Factory for Network class
+        Factory for creating a new Byoda network and its secrets.
 
         Create the secrets for a network, unless they already exist:
         - Network Root CA
         - Accounts CA
         - Services CA
-        - NetworkSecret
+        - Network Data secret (for sending signed messages)
+
+        A network directory server does not need a TLS secret signed
+        by its CA chain as it uses a Let's Encrypt TLS certificate.
 
         :returns: Network insance
         :raises: ValueError, PermissionError

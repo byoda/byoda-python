@@ -38,12 +38,12 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 with_tls_secret=False):
+                 load_tls_secret=False, account='pod'):
         '''
         Constructor
         '''
 
-        self.account = 'pod'
+        self.account = account
 
         if isinstance(account_id, UUID):
             self.account_id = account_id
@@ -64,7 +64,7 @@ class Account:
         self.tls_secret = AccountSecret(
             self.account, self.account_id, self.network
         )
-        if with_tls_secret:
+        if load_tls_secret:
             self.tls_secret.load(password=self.private_key_password)
 
         self.paths = copy(network.paths)

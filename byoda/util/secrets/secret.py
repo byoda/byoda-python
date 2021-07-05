@@ -17,9 +17,8 @@ from cryptography import x509
 from cryptography.x509 import Certificate
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from cryptography.fernet import Fernet
 
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
@@ -162,15 +161,6 @@ class Secret:
         # Certs higher in the certchain hierarchy come after
         # certs signed by those certs
         self.cert_chain = []
-
-        # the key to use for Fernet encryption/decryption
-        self.shared_key = None
-
-        # The shared key encrypted with the private key of
-        # this secret
-        self.protected_shared_key = None
-
-        self.fernet = None
 
     def create(self, common_name: str, issuing_ca: bool = None,
                expire: int = 30, key_size: int = _RSA_KEYSIZE,
@@ -394,7 +384,6 @@ class Secret:
                     and length > longest_match):
                 id_type = id_type_iter
                 longest_match = length
-
 
         if not id_type:
             raise PermissionError(
@@ -810,100 +799,3 @@ class Secret:
         '''
 
         return self.cert.fingerprint(hashes.SHA256)
-
-    def encrypt(self, data: bytes):
-        '''
-        Encrypts the provided data with the Fernet algorithm
-
-        :param bytes data : data to be encrypted
-        :returns: encrypted data
-        :raises: KeyError if no shared secret was generated or
-                            loaded for this instance of Secret
-        '''
-        if not self.shared_key:
-            raise KeyError('No shared secret available to encrypt')
-
-        if isinstance(data, str):
-            data = str.encode(data)
-
-        _LOGGER.debug('Encrypting data with %d bytes', len(data))
-        ciphertext = self.fernet.encrypt(data)
-        return ciphertext
-
-    def decrypt(self, ciphertext: bytes) -> bytes:
-        '''
-        Decrypts the ciphertext
-
-        :param ciphertext : data to be encrypted
-        :returns: encrypted data
-        :raises: KeyError if no shared secret was generated
-                                  or loaded for this instance of Secret
-        '''
-
-        if not self.shared_key:
-            raise KeyError('No shared secret available to decrypt')
-
-        data = self.fernet.decrypt(ciphertext)
-        _LOGGER.debug('Decrypted data with %d bytes', len(data))
-
-        return data
-
-    def create_shared_key(self, target_secret):
-        '''
-        Creates an encrypted shared key
-
-        :param Secret target_secret : the target X.509 cert that should be
-                                      able to decrypt the shared key
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        _LOGGER.debug(
-            f'Creating a shared key protected with cert '
-            f'{target_secret.common_name}'
-        )
-
-        if self.shared_key:
-            _LOGGER.debug('Replacing existing shared key')
-
-        self.shared_key = Fernet.generate_key()
-
-        public_key = target_secret.cert.public_key()
-        self.protected_shared_key = public_key.encrypt(
-            self.shared_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-
-        _LOGGER.debug('Initializing new Fernet instance')
-        self.fernet = Fernet(self.shared_key)
-
-    def load_shared_key(self, protected_shared_key: bytes):
-        '''
-        Loads a protected shared key
-
-        :param protected_shared_key : the protected shared key
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        _LOGGER.debug(
-            f'Decrypting protected shared key with cert {self.common_name}'
-        )
-
-        self.protected_shared_key = protected_shared_key
-        self.shared_key = self.private_key.decrypt(
-            self.protected_shared_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-        _LOGGER.debug(
-            'Initializing new Fernet instance from decrypted shared secret'
-        )
-        self.fernet = Fernet(self.shared_key)

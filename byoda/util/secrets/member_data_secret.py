@@ -16,14 +16,14 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util import Paths
 
 from byoda.datatypes import IdType
-from . import Secret
+from .data_secret import DataSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account', bound='Account')
 
 
-class MemberDataSecret(Secret):
+class MemberDataSecret(DataSecret):
     def __init__(self, member_id: UUID, service_id: int, account: Account):
         '''
         Class for the member-data secret. This secret is used to encrypt

@@ -14,12 +14,12 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util import Paths
 
 from byoda.datatypes import IdType
-from . import Secret
+from .data_secret import DataSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkDataSecret(Secret):
+class NetworkDataSecret(DataSecret):
     def __init__(self, paths: Paths):
         '''
         Class for the Network Data secret. This secret is used to sign

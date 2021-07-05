@@ -71,7 +71,8 @@ def get_account(request: Request,
 
 @router.post('/account', response_model=CertChainModel)
 def post_account(request: Request, csr: CertSigningRequestModel,
-                 auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                 auth: AccountRequestAuthFast = Depends(
+                     AccountRequestAuthFast)):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -97,7 +98,8 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/account')
 def put_account(request: Request, secret: LetsEncryptSecretModel,
-                auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                auth: AccountRequestAuthFast = Depends(
+                    AccountRequestAuthFast)):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate

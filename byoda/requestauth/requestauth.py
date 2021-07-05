@@ -88,7 +88,7 @@ class ByodaUser(BaseUser):
 class RequestAuth():
     '''
     Three classes derive from this class:
-      - AccountRequestAuth
+      - AccountRequestAuthFast
       - MemberRequestAuth
       - ServiceRequestauth
 

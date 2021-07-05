@@ -85,7 +85,7 @@ _LOGGER = Logger.getLogger(
 
 config.network = Network(network, network)
 config.account = Account(
-    network['account_id'], config.network, with_tls_secret=True
+    network['account_id'], config.network, load_tls_secret=True
 )
 
 try:
