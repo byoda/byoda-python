@@ -46,6 +46,12 @@ class TestAccountManager(unittest.TestCase):
         self.assertIsNotNone(member.member_id)
         account.data_secret.validate(network.root_ca)
 
+        # Certchain validation fails as network.services_ca
+        # is in the cert chain of account.data_secret and is
+        # not the root CA
+        with self.assertRaises(ValueError):
+            account.data_secret.validate(network.services_ca)
+
         #
         # Test data encryption
         #

@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives import serialization
 
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
-from certvalidator import ValidationError
+from certvalidator import ValidationError, PathBuildingError
 
 from byoda.datatypes import CsrSource, EntityId
 
@@ -550,9 +550,8 @@ class Secret:
         )
         try:
             validator.validate_usage(set())
-        except ValidationError as exc:
-            _LOGGER.warning(f'Certchain failed validation: {exc}')
-            raise ValueError(f'Certchain failed validation: {exc}')
+        except (ValidationError, PathBuildingError) as exc:
+            raise ValueError(f'Certchain failed validation: {exc}') from exc
 
     def cert_file_exists(self) -> bool:
         '''
