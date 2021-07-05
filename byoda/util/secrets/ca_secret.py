@@ -273,34 +273,3 @@ class CaSecret(Secret):
             cert_chain.append(self.cert)
 
         return CertChain(cert, cert_chain)
-
-    def create_selfsigned_cert(self, expire=365, ca=False):
-        '''
-        Create a self_signed certificate
-
-        :param expire: days after which the cert should expire
-        :param bool: is the cert for a CA
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        subject = issuer = self.get_cert_name()
-
-        self.is_root_cert = True
-        self.cert = x509.CertificateBuilder().subject_name(
-            subject
-        ).issuer_name(
-            issuer
-        ).public_key(
-            self.private_key.public_key()
-        ).serial_number(
-            x509.random_serial_number()
-        ).not_valid_before(
-            datetime.datetime.utcnow()
-        ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(expire)
-        ).add_extension(
-            x509.BasicConstraints(
-                ca=ca, path_length=None
-            ), critical=True,
-        ).sign(self.private_key, hashes.SHA256())
