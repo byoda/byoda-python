@@ -17,14 +17,14 @@ from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 
 
-class MembersCaSecret(Secret):
+class MembersCaSecret(CaSecret):
     def __init__(self, service: str, service_id: int,
                  network: Network):
         '''
@@ -47,13 +47,12 @@ class MembersCaSecret(Secret):
         :raises: (none)
         '''
 
-        self.network = network.network
-        self.paths = copy(network.paths)
-
+        self.network = str(network.network)
         self.service_id = int(service_id)
-        self.paths.service_id = self.service_id
+        self.service = str(service)
 
-        self.service = service
+        self.paths = copy(network.paths)
+        self.paths.service_id = self.service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -64,7 +63,7 @@ class MembersCaSecret(Secret):
             ),
             storage_driver=self.paths.storage_driver
         )
-        self.ca = True
+
         self.id_type = IdType.MEMBERS_CA
 
         self.accepted_csrs = [IdType.MEMBER, IdType.MEMBER_DATA]

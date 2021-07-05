@@ -14,12 +14,13 @@ from byoda.util import Paths
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 
-from . import Secret, CSR
+from .secret import CSR
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkRootCaSecret(Secret):
+class NetworkRootCaSecret(CaSecret):
     def __init__(self, paths: Paths = None, network: str = None):
         '''
         Class for the network root CA secret. Either paths or network
@@ -53,12 +54,11 @@ class NetworkRootCaSecret(Secret):
             self.network = network
             self.paths = None
 
-        self.ca = True
         self.is_root_cert = True
-        self.issuing_ca = None
-        self.accepted_csrs = (
+
+        self.accepted_csrs = [
             IdType.ACCOUNTS_CA, IdType.SERVICES_CA, IdType.NETWORK_DATA
-        )
+        ]
 
     def create(self, expire: int = 10950):
         '''

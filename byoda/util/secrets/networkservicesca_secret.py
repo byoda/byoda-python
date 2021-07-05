@@ -13,25 +13,26 @@ from byoda.util import Paths
 
 from byoda.datatypes import EntityId, IdType, CsrSource
 
-from . import Secret, CSR
+from .secret import CSR
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkServicesCaSecret(Secret):
+class NetworkServicesCaSecret(CaSecret):
     def __init__(self, paths=None):
         '''
         Class for the network services issuing CA secret
 
-        :param Paths paths       : instance of Paths class defining the
-                                   directory structure and file names of a
-                                   BYODA network
+        :param Paths paths: instance of Paths class defining the directory
+        structure and file names of a BYODA network
         :returns: (none)
         :raises: (none)
         '''
 
         self.paths = copy(paths)
         self.network = paths.network
+
         super().__init__(
             cert_file=self.paths.get(Paths.NETWORK_SERVICES_CA_CERT_FILE),
             key_file=self.paths.get(Paths.NETWORK_SERVICES_CA_KEY_FILE),
@@ -39,7 +40,7 @@ class NetworkServicesCaSecret(Secret):
         )
 
         self.id_type = IdType.SERVICES_CA
-        self.ca = True
+
         self.accepted_csrs = [IdType.SERVICE_CA]
 
     def create_csr(self) -> CSR:

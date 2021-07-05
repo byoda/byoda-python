@@ -15,14 +15,14 @@ from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 
 
-class ServiceCaSecret(Secret):
+class ServiceCaSecret(CaSecret):
     def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network

@@ -16,6 +16,8 @@ apps-ca cert for a service: app-ca.apps-ca-{service_id}.{network}
 from .secret import Secret
 from .secret import CSR
 from .secret import CertChain
+from .ca_secret import CaSecret
+from .data_secret import DataSecret
 
 from .networkrootca_secret import NetworkRootCaSecret
 from .network_data_secret import NetworkDataSecret

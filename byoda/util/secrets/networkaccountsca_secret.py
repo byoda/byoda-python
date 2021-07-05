@@ -13,13 +13,14 @@ from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret, CSR
+from .ca_secret import CaSecret
+from .secret import CSR
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkAccountsCaSecret(Secret):
-    def __init__(self, paths: Paths = None, network=None):
+class NetworkAccountsCaSecret(CaSecret):
+    def __init__(self, paths: Paths = None, network: str = None):
         '''
         Class for the network account CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -32,6 +33,9 @@ class NetworkAccountsCaSecret(Secret):
         :returns: (none)
         :raises: ValueError if both paths and network are defined
         '''
+
+        if paths and network:
+            raise ValueError('Either paths or network parameters must be set')
 
         if paths:
             self.paths = copy(paths)
@@ -46,7 +50,6 @@ class NetworkAccountsCaSecret(Secret):
             self.network = network
             self.paths = None
 
-        self.ca = True
         self.id_type = IdType.ACCOUNTS_CA
 
         self.accepted_csrs = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]

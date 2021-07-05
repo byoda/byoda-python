@@ -15,14 +15,14 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util import Paths
 
 from byoda.datatypes import IdType, CsrSource, EntityId
-from . import Secret
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 
 
-class AppsCaSecret(Secret):
+class AppsCaSecret(CaSecret):
     def __init__(self, service: str, service_id: int,
                  network: Network):
         '''
@@ -36,9 +36,9 @@ class AppsCaSecret(Secret):
         :raises: (none)
         '''
 
-        self.network = network.network
+        self.network = str(network.network)
         self.service_id = int(service_id)
-        self.service = service
+        self.service = str(service)
 
         self.paths = copy(network.paths)
         self.paths.service_id = self.service_id
@@ -52,10 +52,10 @@ class AppsCaSecret(Secret):
             ),
             storage_driver=self.paths.storage_driver
         )
-        self.ca = True
+
         self.id_type = IdType.APPS_CA
 
-        self.accepted_csrs = (IdType.APP)
+        self.accepted_csrs = [IdType.APP]
 
     def create_csr(self) -> CertificateSigningRequest:
         '''
