@@ -411,12 +411,12 @@ class Secret:
         except x509.ExtensionNotFound:
             self.ca = False
 
-        # We start parsing the Subject of the CSR, which
-        # consists of a list of 'Relative' Distinguished Names
-        distinguished_name = ','.join(
-            [rdns.rfc4514_string() for rdns in self.cert.subject.rdns]
-        )
-        self.common_name = self.review_distinguishedname(distinguished_name)
+        self.common_name = None
+        for rdns in self.cert.subject.rdns:
+            dn = rdns.rfc4514_string()
+            if dn.startswith('CN='):
+                self.common_name = dn[3:]
+                break
 
         self.private_key = None
         if with_private_key:

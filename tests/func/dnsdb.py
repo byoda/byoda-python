@@ -54,7 +54,7 @@ class TestDnsDb(unittest.TestCase):
             None, IdType.SERVICE, service_id=service_id
         )
         self.assertEqual(
-            service_fqdn, f'{str(service_id)}.services.{TEST_NETWORK}'
+            service_fqdn, f'service.service-{str(service_id)}.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):
@@ -84,7 +84,7 @@ class TestDnsDb(unittest.TestCase):
         uuid = uuid4()
         member = dnsdb.compose_fqdn(uuid, IdType.MEMBER, service_id=service_id)
         self.assertEqual(
-            member, f'{str(uuid)}_{service_id}.members.{TEST_NETWORK}'
+            member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):

@@ -62,9 +62,7 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = (
-            f'service.{self.id_type.value}{self.service_id}.{self.network}'
-        )
+        common_name = ServiceSecret.create_fqdn(self.service_id, self.network)
 
         return super().create_csr(common_name, ca=self.ca)
 
@@ -83,3 +81,17 @@ class ServiceSecret(Secret):
         entity_id = super().review_commonname(commonname)
 
         return entity_id
+
+    @staticmethod
+    def create_fqdn(service_id: int, network: str):
+        '''
+        Returns FQDN to use in the common name of a secret
+        '''
+
+        service_id = int(service_id)
+        if not isinstance(network, str):
+            raise ('Network parameter must be a string')
+
+        fqdn = f'service.{IdType.SERVICE.value}{service_id}.{network}'
+
+        return fqdn

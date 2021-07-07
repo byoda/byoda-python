@@ -70,6 +70,24 @@ class AccountSecret(Secret):
         if not self.network:
             raise ValueError('Network not defined')
 
-        common_name = f'{self.account_id}.{self.id_type.value}.{self.network.network}'
+        common_name = AccountSecret.create_fqdn(
+            self.account_id, self.network.network
+        )
 
         return super().create_csr(common_name, ca=self.ca)
+
+    @staticmethod
+    def create_fqdn(account_id: UUID, network: str):
+        '''
+        Returns the FQDN to use in the common name for the secret
+        '''
+
+        if not isinstance(account_id, UUID):
+            account_id = UUID(account_id)
+
+        if not isinstance(network, str):
+            raise ('Network parameter must be a string')
+
+        fqdn = f'{account_id}.{IdType.ACCOUNT.value}.{network}'
+
+        return fqdn
