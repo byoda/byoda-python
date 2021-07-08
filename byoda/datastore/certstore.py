@@ -83,7 +83,7 @@ class CertStore:
         certchain = cert_auth.sign_csr(csr, 365*3)
 
         _LOGGER.info(
-            f'Signed CSR for {entity_id.uuid} for {entity_id.id_type.value} '
+            f'Signed CSR for {entity_id.id} for {entity_id.id_type.value} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

@@ -181,10 +181,13 @@ class CaSecret(Secret):
         commonname_prefix = commonname[:-1 * len(postfix)]
 
         bits = commonname_prefix.split('.')
-        if len(bits) != 2:
+        if len(bits) > 2:
             raise ValueError(f'Invalid number of domain levels: {commonname}')
-
-        identifier, subdomain = bits
+        elif len(bits) == 2:
+            identifier, subdomain = bits
+        else:
+            identifier = None
+            subdomain = bits[0]
 
         id_type = None
         longest_match = 0
@@ -197,12 +200,13 @@ class CaSecret(Secret):
 
         if not id_type:
             raise PermissionError(
-                f'Service CA does not sign CSR for subdomain {subdomain}'
+                f'{type(self)} does not sign CSR for subdomain {subdomain}'
             )
 
         if uuid_identifier:
             try:
-                identifier = UUID(identifier)
+                if not isinstance(identifier, UUID):
+                    identifier = UUID(identifier)
             except ValueError:
                 raise ValueError(
                     f'Common name {commonname} does not have a valid UUID '

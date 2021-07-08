@@ -273,16 +273,14 @@ class RequestAuth():
         # client
         try:
             # Account certs get signed by the Network Accounts CA
-            accounts_ca_secret = NetworkAccountsCaSecret(
-                network=network.network
+            entity_id = network.accounts_ca.review_commonname(
+                self.client_cn
             )
-            entity_id = accounts_ca_secret.review_commonname(self.client_cn)
-            self.account_id = entity_id.uuid
+            self.account_id = entity_id.id
 
             # Network Accounts CA cert gets signed by root CA of the
             # network
-            root_ca_secret = NetworkRootCaSecret(network=network.network)
-            root_ca_secret.review_commonname(self.issuing_ca_cn)
+            network.root_ca.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
             raise HTTPException(
                 status_code=403,
@@ -314,7 +312,7 @@ class RequestAuth():
                 service_id, network=network.network
             )
             entity_id = member_ca_secret.review_commonname(self.client_cn)
-            self.member_id = entity_id.uuid
+            self.member_id = entity_id.id
             self.service_id = entity_id.service_id
 
             # The Member CA cert gets signed by the Service CA

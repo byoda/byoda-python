@@ -19,6 +19,7 @@
             "type": "python",
             "request": "launch",
             "program": "tools/create_secrets.py",
+            "console": "integratedTerminal",
             "args": [
                 "--debug",
                 "--type", "ACCOUNT",
@@ -36,6 +37,7 @@
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
+            "console": "integratedTerminal",
             "args": [
                 "dirserver.main:app",
                 "--host", "0.0.0.0",
@@ -58,6 +60,7 @@
                 "--port", "8001",
                 "--proxy-headers"
             ],
+            "console": "integratedTerminal",
             "env": {
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
