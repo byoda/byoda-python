@@ -20,6 +20,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkAccountsCaSecret(CaSecret):
+    ACCEPTED_CSRS = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
+
     def __init__(self, paths: Paths = None, network: str = None):
         '''
         Class for the network account CA secret. Either paths or network
@@ -52,7 +54,7 @@ class NetworkAccountsCaSecret(CaSecret):
 
         self.id_type = IdType.ACCOUNTS_CA
 
-        self.accepted_csrs = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
+        self.accepted_csrs = NetworkAccountsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CSR:
         '''
@@ -76,8 +78,7 @@ class NetworkAccountsCaSecret(CaSecret):
         an AccountSecret. If so, it sets the 'account_id' property of the
         instance to the UUID parsed from the commonname
 
-        :param commonname: the commonname to check
-        :returns: account entity
+        :param commonname: the CN to check
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class
         '''
@@ -85,6 +86,24 @@ class NetworkAccountsCaSecret(CaSecret):
         # Checks on commonname type and the network postfix
         entity_id = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
+        )
+
+        return entity_id
+
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str
+                                        ) -> EntityId:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
+
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
+
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, NetworkAccountsCaSecret.ACCEPTED_CSRS,
+            uuid_identifier=True, check_service_id=False
         )
 
         return entity_id

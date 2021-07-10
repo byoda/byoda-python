@@ -23,6 +23,8 @@ Network = TypeVar('Network', bound='Network')
 
 
 class AppsCaSecret(CaSecret):
+    ACCEPTED_CSRS = [IdType.APP]
+
     def __init__(self, service: str, service_id: int,
                  network: Network):
         '''
@@ -55,7 +57,7 @@ class AppsCaSecret(CaSecret):
 
         self.id_type = IdType.APPS_CA
 
-        self.accepted_csrs = [IdType.APP]
+        self.accepted_csrs = AppsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CertificateSigningRequest:
         '''
@@ -90,6 +92,24 @@ class AppsCaSecret(CaSecret):
 
         # Checks on commonname type and the network postfix
         entity_id = super().review_commonname(commonname)
+
+        return entity_id
+
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str,
+                                        service_id: int) -> EntityId:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
+
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
+
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, AppsCaSecret.ACCEPTED_CSRS, service_id=service_id,
+            uuid_identifier=True, check_service_id=True
+        )
 
         return entity_id
 

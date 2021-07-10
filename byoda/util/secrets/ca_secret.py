@@ -9,6 +9,7 @@ Cert manipulation
 import os
 import datetime
 import logging
+from typing import List
 
 from copy import copy
 from uuid import UUID
@@ -167,15 +168,43 @@ class CaSecret(Secret):
         if not self.ca:
             raise NotImplementedError('Only CAs need to review CNs')
 
+        service_id = getattr(self, 'service_id', None)
+
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname,
+            self.network,
+            self.accepted_csrs,
+            service_id=service_id,
+            uuid_identifier=uuid_identifier,
+            check_service_id=check_service_id
+        )
+
+        return entity_id
+
+    @staticmethod
+    def review_commonname_by_parameters(
+            commonname: str, network: str, accepted_csrs: List[str],
+            service_id: int = None, uuid_identifier: bool = True,
+            check_service_id: bool = True) -> str:
+        '''
+        Reviews a common name without requiring an instance of the CA class to
+        be created
+        '''
+
         if not isinstance(commonname, str):
             raise ValueError(
                 f'Common name must be of type str, not {type(commonname)}'
             )
 
-        postfix = '.' + self.network
+        if check_service_id and service_id is None:
+            raise ValueError(
+                'Can not check service_id as no service_id was provided'
+            )
+
+        postfix = '.' + network
         if not commonname.endswith(postfix):
             raise PermissionError(
-                f'Commonname {commonname} is not for network {self.network}'
+                f'Commonname {commonname} is not for network {network}'
             )
 
         commonname_prefix = commonname[:-1 * len(postfix)]
@@ -191,7 +220,7 @@ class CaSecret(Secret):
 
         id_type = None
         longest_match = 0
-        for id_type_iter in self.accepted_csrs:
+        for id_type_iter in accepted_csrs:
             length = len(id_type_iter.value)
             if (subdomain.startswith(id_type_iter.value)
                     and length > longest_match):
@@ -200,7 +229,8 @@ class CaSecret(Secret):
 
         if not id_type:
             raise PermissionError(
-                f'{type(self)} does not sign CSR for subdomain {subdomain}'
+                f'CA accepts CSRs for {accepted_csrs.join(", ")} but does not '
+                f'sign CSRs for subdomain {subdomain}'
             )
 
         if uuid_identifier:
@@ -213,17 +243,17 @@ class CaSecret(Secret):
                     'identifier'
                 )
 
-        service_id = subdomain[len(id_type.value):]
+        cn_service_id = subdomain[len(id_type.value):]
 
-        if service_id == '':
-            service_id = None
-        elif service_id:
-            service_id = int(service_id)
+        if cn_service_id == '':
+            cn_service_id = None
+        elif cn_service_id is not None:
+            cn_service_id = int(cn_service_id)
 
         if check_service_id:
-            if self.service_id != service_id:
+            if cn_service_id != service_id:
                 raise PermissionError(
-                    f'Request for incorrect service {service_id} in common '
+                    f'Request for incorrect service {cn_service_id} in common '
                     f'name {commonname}'
                 )
 

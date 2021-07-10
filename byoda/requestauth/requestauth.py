@@ -59,7 +59,7 @@ class MTlsAuthBackend(AuthenticationBackend):
             return
 
         try:
-            # Bug: Starlette does not support request.method attribute
+            # BUG: Starlette does not support request.method attribute
             method = HttpRequestMethod(request['method'])
             auth = RequestAuth.authenticate(
                 tls_status, client_dn, issuing_ca_dn, request.client.host,
@@ -273,14 +273,17 @@ class RequestAuth():
         # client
         try:
             # Account certs get signed by the Network Accounts CA
-            entity_id = network.accounts_ca.review_commonname(
-                self.client_cn
-            )
+            entity_id = \
+                NetworkAccountsCaSecret.review_commonname_by_parameters(
+                    self.client_cn, network.network
+                )
             self.account_id = entity_id.id
 
             # Network Accounts CA cert gets signed by root CA of the
             # network
-            network.root_ca.review_commonname(self.issuing_ca_cn)
+            NetworkRootCaSecret.review_commonname_by_parameters(
+                self.issuing_ca_cn, network.network
+            )
         except ValueError as exc:
             raise HTTPException(
                 status_code=403,

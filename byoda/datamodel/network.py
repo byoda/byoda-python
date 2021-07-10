@@ -176,6 +176,8 @@ class Network:
         self.services = dict()
         self.account = None
         if ServerRole.Pod in self.roles:
+            # We need an accounts_ca instance to review client certs
+            self.accounts_ca = NetworkAccountsCaSecret(self.paths)
             self.account = Account(
                 server['account_id'], self, load_tls_secret=True
             )
