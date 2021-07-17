@@ -40,12 +40,12 @@ from byoda.datamodel import Network
 from byoda.datamodel import Account
 
 from byoda.datatypes import CloudType, IdType
-from byoda.datastore import DocumentStoreType, DocumentStore, MemberQuery
+from byoda.datastore import DocumentStoreType, DocumentStore
+from byoda.datastore import MemberQuery
+
 
 # from .bootstrap import LetsEncryptConfig
 from .bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
-
-# from byoda.datastore import MemberQuery
 
 # from .routers import member
 
