@@ -1,12 +1,12 @@
 type Person {
-    given_name: String!
+    given_name: String
     additional_names: String
-    family_name: String!
+    family_name: String
     email: String
     homepage_url: String
     avatar_url: String
 }
 
 type Query {
-    person(given_name: String!): Person
+    person(given_name: String): Person
 }

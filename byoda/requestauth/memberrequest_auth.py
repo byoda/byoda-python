@@ -23,7 +23,6 @@ from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class MemberRequestAuth_Fast(MemberRequesTauth):
     '''
     Wrapper for FastApi dependency
