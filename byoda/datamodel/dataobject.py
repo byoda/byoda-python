@@ -1,5 +1,5 @@
 '''
-Class for modeling an element of data in of an member
+Class for modeling an element of data of a member
 :maintainer : Steven Hessing <stevenhessing@live.com>
 :copyright  : Copyright 2021
 :license    : GPLv3
@@ -19,16 +19,18 @@ class DataObject:
 
     def __init__(self, schema: Schema):
         self._data = None
+        self._unvalidated_data = None
         self.schema = schema
 
-    def load_from_file(self, filename):
+    def load_from_file(self, filename: str):
 
         with open(filename) as file_desc:
             raw_data = file_desc.read(MAX_FILE_SIZE)
 
-        data = json.loads(raw_data)
+        self._unvalidated_data = json.loads(raw_data)
 
+    def validate(self):
         try:
-            self._data = self.schema.validate(data)
+            self._data = self.schema.validate(self._unvalidated_data)
         except Exception:
             raise

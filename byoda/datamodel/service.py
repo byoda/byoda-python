@@ -8,12 +8,13 @@ Class for modeling a service on a social network
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TypeVar, Callable
 from copy import copy
 
 from byoda.datatypes import CsrSource
+
+from byoda.datamodel.schema import Schema
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -36,21 +37,26 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, service: str = None, service_id: int = None,
-                 network: Network = None):
+    def __init__(self, network: Network = None, filepath: str = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
         Because of this, only minimal initiation of the instance is
         done and depending on the user case, additional methods must
         be called to load all the needed info for the service.
+
+        :param network: Network the service is part of
+        :param filepath: the file with the service schema/contract
         '''
 
-        self.service = str(service)
-        self.service_id = int(service_id)
+        self.service = None
+        self.service_id = None
 
         # The data contract for the service. TODO: versioned schemas
         self.schema = None
+
+        # Was the schema for the service signed
+        self.signed = None
 
         self.private_key_password = network.private_key_password
 
@@ -76,53 +82,76 @@ class Service:
         # set up for the Network object, we can copy it here for the Service
         self.network = network
         self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+
+        if filepath:
+            self.load_schema(filepath)
 
         self.storage_driver = network.paths.storage_driver
 
     @classmethod
-    def get_service(cls, network: Network, filename: str = None) -> Service:
+    def get_service(cls, network: Network, filepath: str = None,
+                    with_private_key: bool = False, password: str = None,
+                    allow_unsigned_service: bool = False) -> Service:
         '''
         Factory for Service class, loads the service metadata from a local
-        file. TODO: load the service metadata from the network directory
-        server
+        file.
+
+        :param network: the network to which service belongs
+        :param filepath: path to the file containing the data contract
+
+        TODO: load the service metadata from the network directory server
+        TODO: validate contract signature
         '''
 
-        service = Service(network=network)
+        service = Service(network=network, filepath=filepath)
 
-        service.load(filename=filename)
+        if not service.signed and not allow_unsigned_service:
+            raise ValueError(
+                f'Service {service.name} ({service.service_id} is not signed'
+            )
+
+        service.load_data_secret(with_private_key, password)
+
+        _LOGGER.debug(f'Read service from {filepath}')
 
         return service
 
-    def load_contract(self, filename: str = None):
+    def load_schema(self, filepath: str = None) -> bool:
         '''
+        Loads the schema for a service
+
+        :returns: whether schema was signed
         '''
 
         # TODO: implement validation of the service definition using
         # JSON-Schema
 
-        if filename is None:
+        if filepath is None:
             raise NotImplementedError(
                 'Downloading service definitions from the directory server '
                 'of a network is not yet implemented'
             )
 
-        with open(filename) as file_desc:
-            data = json.load(file_desc)
+        self.schema = Schema(filepath)
 
-        self.service_id = self.schema['service_id']
-        self.service = self.schema['service']
-        self.schema = data['schema']
+        self.service_id = self.schema.service_id
+        self.service = self.schema.service
+
+        self.paths.service_id = self.service_id
 
         # TODO: check signature of service data contract
-        if self.schema.get('contract_signature'):
+        if self.schema.service_signature:
             raise NotImplementedError(
                 'Data contract signature verification is not yet implemented'
             )
-        self.contract_signature = None
+        if not self.schema.service_signature:
+            self.signed = False
+            _LOGGER.warning(
+                f'Loading unsigned schema for service_id {self.service_id}'
+            )
 
         _LOGGER.debug(
-            f'Read service {self.service} without signature verification'
+            f'Read service {self.service} wih service_id {self.service_id}'
         )
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
@@ -299,6 +328,14 @@ class Service:
             self.tls_secret.load(
                 with_private_key=with_private_key, password=password
             )
+
+        if not self.data_secret:
+            self.load_data_secret(with_private_key, password=password)
+
+    def load_data_secret(self, with_private_key: bool, password: str):
+        '''
+        Loads the certificate of the data secret of the service
+        '''
 
         if not self.data_secret:
             self.data_secret = ServiceDataSecret(

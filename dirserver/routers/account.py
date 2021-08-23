@@ -20,7 +20,7 @@ from byoda.models import Stats, StatsResponseModel
 from byoda.models import CertSigningRequestModel, CertChainModel
 from byoda.models import LetsEncryptSecretModel
 
-import byoda.config as config
+from byoda.config import server
 
 # from ..dependencies.logannotation import annotate_logs
 from ..dependencies.accountrequest_auth import AccountRequestAuthFast
@@ -44,7 +44,7 @@ def get_account(request: Request,
     DNS entry for the commonname in the cert will be updated.
     '''
 
-    network = config.network
+    network = server.network
 
     dns_update = False
     if auth.is_authenticated:
@@ -85,7 +85,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     #         status_code=401, detail='Unauthorized'
     #     )
 
-    network = config.network
+    network = server.network
 
     certstore = CertStore(network.accounts_ca)
 
@@ -112,7 +112,7 @@ def put_account(request: Request, secret: LetsEncryptSecretModel,
             status_code=401, detail='Unauthorized'
         )
 
-    network = config.network
+    network = server.network
 
     dns_updates = network.dnsdb.create_update(
         auth.account_id, IdType.ACCOUNT, auth.remote_addr, secret=secret.secret

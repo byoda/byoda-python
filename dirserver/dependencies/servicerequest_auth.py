@@ -11,7 +11,7 @@ provides helper functions to authenticate the client making the request
 import logging
 from typing import Optional
 
-from byoda import config
+from byoda.config import server
 
 from fastapi import Header, HTTPException, Request
 
@@ -67,6 +67,6 @@ class ServiceRequestAuthFast(RequestAuth):
         # applicable CA and then review if that CA would have signed
         # the commonname found in the certchain presented by the
         # client.
-        self.check_service_cert(service_id, config.network)
+        self.check_service_cert(service_id, server.network)
 
         self.is_authenticated = True

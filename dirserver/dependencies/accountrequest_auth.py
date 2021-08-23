@@ -13,7 +13,7 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, Request
 
-from byoda import config
+from byoda.config import server
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
@@ -51,6 +51,6 @@ class AccountRequestAuthFast(RequestAuth):
                     status_code=403, detail='No authentication provided'
                 )
 
-        self.check_account_cert(config.network)
+        self.check_account_cert(server.network)
 
         self.is_authenticated = True

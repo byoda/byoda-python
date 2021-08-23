@@ -14,7 +14,7 @@ from ipaddress import ip_address as IpAddress
 
 from fastapi import Header, HTTPException, Request
 
-from byoda import config
+from byoda.config import server
 
 from byoda.datatypes import HttpRequestMethod
 
@@ -22,6 +22,7 @@ from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class MemberRequestAuth_Fast(MemberRequesTauth):
     '''
@@ -74,6 +75,6 @@ class MemberRequestAuth(RequestAuth):
                 status_code=401, detail='Authentication failed'
             )
 
-        self.check_member_cert(service_id, config.network)
+        self.check_member_cert(service_id, server.network)
 
         self.is_authenticated = True

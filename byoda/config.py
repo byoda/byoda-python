@@ -49,5 +49,6 @@ request = requests.Session()
 
 # Global variables for the main entities
 network = None
-Service = None
+service = None
 account = None
+server = None

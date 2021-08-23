@@ -8,11 +8,10 @@ Class for modeling a social network
 
 import os
 import logging
-import json
+from uuid import UUID
 
 from byoda.util import Paths
 from byoda import config
-
 
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
@@ -176,20 +175,10 @@ class Network:
         self.services = dict()
         self.account = None
         if ServerRole.Pod in self.roles:
-            self.account = Account(
-                server['account_id'], self, load_tls_secret=True
-            )
-
             # TODO: client should read this from a directory server API
-            self.load_services(filename='services/service_directory.json')
+            self.load_services(directory='services/')
 
-            # We use the account secret as client TLS cert for outbound
-            # requests and as private key for the TLS server
 
-            filepath = self.account.tls_secret.save_tmp_private_key()
-            config.requests.cert = (
-                self.account.tls_secret.cert_file, filepath
-            )
 
     @staticmethod
     def create(network_name, root_dir, password):
@@ -287,29 +276,35 @@ class Network:
 
         return secret
 
-    def load_services(self, filename: str = None) -> None:
+    def load_services(self, directory: str = None) -> None:
         '''
-        Load a list of all the services in the network
+        Load a list of all the services. For a pod means
+        all subscriber services. For a directory server, it
+        means all services in the network.
         '''
-        with open(filename) as file_desc:
-            data = json.load(file_desc)
 
         if self.services:
             _LOGGER.debug('Reloading list of services')
             self.services = dict()
 
-        for service in data:
-            # TODO: check list of services against JSON Schema
-            service_id = service['service_id']
-            if service_id in self.services:
-                raise ValueError(f'Duplicate service_id: {service_id}')
+        for root, __dirnames, files in os.walk(directory):
+            for filename in [x for x in files if x.endswith('.json')]:
+                allow_unsigned_services = False
+                # TODO: only allow signed services in pods
+                if ServerRole.Pod in self.roles:
+                    allow_unsigned_services = True
 
-            service_inst = Service(
-                service=service['name'],
-                service_id=service_id,
-                network=self,
-            )
-            self.services[service_id] = service_inst
+                service = Service.get_service(
+                    self, filepath=os.path.join(root, filename),
+                    allow_unsigned_service=allow_unsigned_services
+                )
+
+                if service.service_id in self.services:
+                    raise ValueError(
+                        f'Duplicate service_id: {service.service_id}'
+                    )
+
+                self.services[service.service_id] = service
 
     def load_secrets(self) -> None:
         '''
@@ -328,3 +323,13 @@ class Network:
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
+
+    def load_account(self, account_id: UUID, load_tls_secret: bool = True
+                     ) -> Account:
+        '''
+        Loads an account and its secrets
+        '''
+
+        account = Account(account_id, self, load_tls_secret=load_tls_secret)
+
+        return account

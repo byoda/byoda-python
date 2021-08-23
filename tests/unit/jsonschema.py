@@ -34,10 +34,11 @@ class TestAccountManager(unittest.TestCase):
         test = validate(data)
         self.assertEqual(data, test)
 
-        schema = Schema()
-        schema.load('services/default.json')
+        schema = Schema('services/default.json')
         obj = DataObject(schema)
         obj.load_from_file('tests/collateral/dataobject.json')
+        obj.validate()
+        print(obj)
 
 
 if __name__ == '__main__':
