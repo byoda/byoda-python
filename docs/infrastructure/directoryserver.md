@@ -1,3 +1,9 @@
+Byoda code requires python 3.9 or later, ie. for Ubuntu:
+```
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get -y install python3.9 pipenv
+```
+
 - Set up a domain
 You need a domain, such as byoda.net
 
