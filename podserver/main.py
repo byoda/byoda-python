@@ -40,7 +40,7 @@ from byoda.datamodel import Network
 from byoda.datamodel import PodServer
 
 from byoda.datatypes import CloudType, IdType
-from byoda.datastore import DocumentStoreType
+from byoda.datastore import DocumentStoreType, DocumentStore
 from byoda.datastore import MemberQuery
 
 
