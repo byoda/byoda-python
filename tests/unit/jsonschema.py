@@ -18,6 +18,8 @@ from byoda.util import Logger
 
 from byoda.datamodel import DataObject, Schema
 
+DEFAULT_SCHEMA = 'services/default.json'
+
 data = {
     'given_name': 'Steven',
     'family_name': 'Hessing',
@@ -26,7 +28,7 @@ data = {
 
 class TestAccountManager(unittest.TestCase):
     def test_jsonschema(self):
-        with open('services/default.json') as fd:
+        with open(DEFAULT_SCHEMA) as fd:
             fastjson_schema = json.load(fd)
 
         validate = fastjsonschema.compile(fastjson_schema)
@@ -34,8 +36,7 @@ class TestAccountManager(unittest.TestCase):
         test = validate(data)
         self.assertEqual(data, test)
 
-        schema = Schema()
-        schema.load('services/default.json')
+        schema = Schema(DEFAULT_SCHEMA)
         obj = DataObject(schema)
         obj.load_from_file('tests/collateral/dataobject.json')
 

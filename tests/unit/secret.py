@@ -17,6 +17,7 @@ from byoda.datamodel import Network, Service, Account
 
 TEST_DIR = '/tmp/byoda-func-test-secrets'
 NETWORK = DEFAULT_NETWORK
+DEFAULT_SCHEMA = 'services/default.json'
 
 
 class TestAccountManager(unittest.TestCase):
@@ -32,7 +33,7 @@ class TestAccountManager(unittest.TestCase):
         #
         # Test creation of the CA hierarchy
         network = Network.create('test.net', TEST_DIR, 'byoda')
-        service = Service('test-service', 100, network)
+        service = Service(network, DEFAULT_SCHEMA)
         service.create_secrets(network.services_ca)
 
         account_id = uuid4()

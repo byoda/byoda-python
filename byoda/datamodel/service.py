@@ -49,7 +49,7 @@ class Service:
         :param filepath: the file with the service schema/contract
         '''
 
-        self.service = None
+        self.name = None
         self.service_id = None
 
         # The data contract for the service. TODO: versioned schemas
@@ -135,7 +135,7 @@ class Service:
         self.schema = Schema(filepath)
 
         self.service_id = self.schema.service_id
-        self.service = self.schema.service
+        self.name = self.schema.name
 
         self.paths.service_id = self.service_id
 
@@ -151,7 +151,7 @@ class Service:
             )
 
         _LOGGER.debug(
-            f'Read service {self.service} wih service_id {self.service_id}'
+            f'Read service {self.name} wih service_id {self.service_id}'
         )
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
@@ -250,7 +250,7 @@ class Service:
         :raises: ValueError, NotImplementedError
         '''
 
-        if not self.service or self.service_id is None:
+        if not self.name or self.service_id is None:
             raise ValueError(
                 'Name and service_id of the service have not been defined'
             )
@@ -269,18 +269,18 @@ class Service:
                 )
 
         secret = secret_cls(
-            self.service, self.service_id, network=self.network
+            self.name, self.service_id, network=self.network
         )
 
         if secret.cert_file_exists():
             raise ValueError(
-                f'{type(secret)} cert for {self.service} ({self.service_id}) '
+                f'{type(secret)} cert for {self.name} ({self.service_id}) '
                 'already exists'
             )
 
         if secret.private_key_file_exists():
             raise ValueError(
-                f'{type(secret)} key for {self.service} ({self.service_id}) '
+                f'{type(secret)} key for {self.name} ({self.service_id}) '
                 'already exists'
             )
 
@@ -299,7 +299,7 @@ class Service:
         '''
         if self.service_ca:
             self.service_ca = ServiceCaSecret(
-                self.service, self.service_id, self.network
+                self.name, self.service_id, self.network
             )
             self.service_ca.load(
                 with_private_key=with_private_key, password=password
@@ -307,7 +307,7 @@ class Service:
 
         if not self.apps_ca:
             self.apps_ca = AppsCaSecret(
-                self.service, self.service_id, self.network
+                self.name, self.service_id, self.network
             )
             self.apps_ca.load(
                 with_private_key=with_private_key, password=password
@@ -315,7 +315,7 @@ class Service:
 
         if not self.members_ca:
             self.members_ca = MembersCaSecret(
-                self.service, self.service_id, self.network
+                self.name, self.service_id, self.network
             )
             self.members_ca.load(
                 with_private_key=with_private_key, password=password
@@ -323,7 +323,7 @@ class Service:
 
         if not self.tls_secret:
             self.tls_secret = ServiceSecret(
-                self.service, self.service_id, self.network
+                self.name, self.service_id, self.network
             )
             self.tls_secret.load(
                 with_private_key=with_private_key, password=password
@@ -339,7 +339,7 @@ class Service:
 
         if not self.data_secret:
             self.data_secret = ServiceDataSecret(
-                self.service, self.service_id, self.network
+                self.name, self.service_id, self.network
             )
             self.data_secret.load(
                 with_private_key=with_private_key, password=password

@@ -40,7 +40,7 @@ from byoda.datamodel import Network
 from byoda.datamodel import PodServer
 
 from byoda.datatypes import CloudType, IdType
-from byoda.datastore import DocumentStoreType, DocumentStore
+from byoda.datastore import DocumentStoreType
 from byoda.datastore import MemberQuery
 
 
@@ -57,7 +57,7 @@ DIR_API_BASE_URL = 'https://dir.{network}/api'
 server = PodServer()
 
 network_data = {
-    'cloud': CloudType(os.environ.get('CLOUD', 'AWS')),
+    'cloud': CloudType(os.environ.get('CLOUD', 'LOCAL')),
     'bucket_prefix': os.environ['BUCKET_PREFIX'],
     'network': os.environ.get('NETWORK', config.DEFAULT_NETWORK),
     'account_id': os.environ.get('ACCOUNT_ID'),
@@ -121,6 +121,13 @@ cert = (server.account.tls_secret.cert_file, key_file)
 resp = requests.get(api, cert=cert)
 _LOGGER.debug(f'Registered account with directory server: {resp.status_code}')
 
+server.set_document_store(
+    DocumentStoreType.OBJECT_STORE,
+    cloud_type=CloudType(network_data['cloud']),
+    bucket_prefix=network_data['bucket_prefix'],
+    root_dir=network.root_dir
+)
+
 # TODO, needs an API on the directory server
 src_dir = '/podserver/byoda-python'
 ca_file = (
@@ -128,30 +135,26 @@ ca_file = (
     f'/network-{network_data["network"]}-root-ca-cert.pem'
 )
 server.network.paths.storage_driver.copy(
-    f'/{src_dir}/networks/network-{network_data["network"]}-root-ca-cert.pem',
+    f'{src_dir}/networks/network-{network_data["network"]}-root-ca-cert.pem',
     ca_file
 )
 
-server.get_document_store(
-    DocumentStoreType.OBJECT_STORE, cloud_type=CloudType.AWS,
-    bucket_prefix=network_data['bucket_prefix'], root_dir=network.root_dir
-)
+if server.cloud != CloudType.LOCAL:
+    nginx_config = NginxConfig(
+        directory=NGINX_SITE_CONFIG_DIR,
+        filename='virtualserver.conf',
+        identifier=network_data['account_id'],
+        id_type=IdType.ACCOUNT,
+        alias=network.paths.account,
+        network=network.network,
+        public_cloud_endpoint=network.paths.storage_driver.get_url(
+            public=True
+        ),
+    )
 
-nginx_config = NginxConfig(
-    directory=NGINX_SITE_CONFIG_DIR,
-    filename='virtualserver.conf',
-    identifier=network_data['account_id'],
-    id_type=IdType.ACCOUNT,
-    alias=network.paths.account,
-    network=network.network,
-    public_cloud_endpoint=network.paths.storage_driver.get_url(
-        public=True
-    ),
-)
-
-if not nginx_config.exists():
-    nginx_config.create()
-    nginx_config.reload()
+    if not nginx_config.exists():
+        nginx_config.create()
+        nginx_config.reload()
 
 middleware = [
     Middleware(

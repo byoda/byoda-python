@@ -32,6 +32,7 @@ class Server:
         self.network = None
         self.account = None
         self.document_store = None
+        self.cloud = None
 
     def load_secrets(password: str = None):
         '''
@@ -39,10 +40,12 @@ class Server:
         '''
         raise NotImplementedError
 
-    def get_document_store(self, store_type: DocumentStoreType,
+    def set_document_store(self, store_type: DocumentStoreType,
                            cloud_type: CloudType = None,
                            bucket_prefix: str = None, root_dir: str = None
                            ) -> None:
+
+        self.cloud = cloud_type
 
         self.document_store = DocumentStore.get_document_store(
             store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,

@@ -12,6 +12,8 @@ from uuid import uuid4
 from copy import copy
 from typing import TypeVar, Callable
 
+from byoda.config import server
+
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
@@ -41,8 +43,10 @@ class Member:
         self.service_id = int(service_id)
 
         self.service = Service(
-            service_id=self.service_id, network=account.network
+            network=account.network
         )
+        self.service.service_id = service_id
+
         self.account = account
         self.network = self.account.network
 

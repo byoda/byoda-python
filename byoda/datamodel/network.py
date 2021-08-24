@@ -178,8 +178,6 @@ class Network:
             # TODO: client should read this from a directory server API
             self.load_services(directory='services/')
 
-
-
     @staticmethod
     def create(network_name, root_dir, password):
         '''
