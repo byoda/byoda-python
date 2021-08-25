@@ -80,16 +80,9 @@ class DirectoryServer(Server):
 
         self.server_type = ServerType.DIRECTORY
 
-    def load_secrets(self, password: str = None):
+    def load_secrets(self, connection: str = None):
         '''
         Loads the secrets used by the directory server
         '''
-        self.account.load_secrets(password)
+        self.network.load_secrets()
 
-        # We use the account secret as client TLS cert for outbound
-        # requests and as private key for the TLS server
-        filepath = self.account.tls_secret.save_tmp_private_key()
-
-        config.requests.cert = (
-            self.account.tls_secret.cert_file, filepath
-        )

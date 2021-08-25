@@ -16,7 +16,6 @@ from byoda import config
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
 
-from byoda.datastore import DnsDb
 
 from .service import Service
 from .account import Account
@@ -127,11 +126,6 @@ class Network:
         self.accounts_ca = None
         self.services_ca = None
         self.services = dict()
-        if ServerRole.DirectoryServer in self.roles:
-            self.load_secrets()
-            self.load_services('./services/')
-
-            self.dnsdb = DnsDb.setup(server['dnsdb'], self.network)
 
         self.service_ca = None
         if ServerRole.ServiceCa in self.roles:

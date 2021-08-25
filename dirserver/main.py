@@ -35,6 +35,7 @@ from byoda import config
 from byoda.datamodel import DirectoryServer
 from byoda.datamodel import Network
 
+from byoda.datastore import DnsDb
 
 _LOGGER = None
 
@@ -52,6 +53,12 @@ server = DirectoryServer()
 server.network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
+server.load_secrets()
+server.network.load_services('./services/')
+server.network.dnsdb = DnsDb.setup(
+    config.app_config['dirserver']['dnsdb'], server.network.network
+)
+
 config.server = server
 config.network = server.network
 
