@@ -13,7 +13,7 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, Request
 
-from byoda.config import server
+from byoda import config
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
@@ -37,6 +37,8 @@ class MemberRequestAuthFast(RequestAuth):
         :returns: (n/a)
         :raises: HTTPException
         '''
+
+        server = config.server
 
         if isinstance(service_id, int):
             pass

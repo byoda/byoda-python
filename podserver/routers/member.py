@@ -16,8 +16,6 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.models import DataRequest, DataResponseModel
 
-# import byoda.config as config
-
 from ..dependencies.podrequest_auth import PodRequestAuth
 
 _LOGGER = logging.getLogger(__name__)

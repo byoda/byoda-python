@@ -32,7 +32,7 @@ from .routers import account
 from byoda.util.logger import Logger
 from byoda import config
 
-# from byoda.datamodel import Server
+from byoda.datamodel import DirectoryServer
 from byoda.datamodel import Network
 
 
@@ -48,9 +48,12 @@ _LOGGER = Logger.getLogger(
     logfile=config.app_config['application'].get('logfile')
 )
 
-config.network = Network(
+server = DirectoryServer()
+server.network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
+config.server = server
+config.network = server.network
 
 if not os.environ.get('SERVER_NAME') and config.network.name:
     os.environ['SERVER_NAME'] = config.network.name

@@ -12,8 +12,6 @@ from uuid import uuid4
 from copy import copy
 from typing import TypeVar, Callable
 
-from byoda.config import server
-
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service

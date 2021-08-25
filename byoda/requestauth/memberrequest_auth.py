@@ -14,7 +14,7 @@ from ipaddress import ip_address as IpAddress
 
 from fastapi import Header, HTTPException, Request
 
-from byoda.config import server
+from byoda import config
 
 from byoda.datatypes import HttpRequestMethod
 
@@ -23,7 +23,8 @@ from byoda.exceptions import NoAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
-class MemberRequestAuth_Fast(MemberRequesTauth):
+
+class MemberRequestAuth_Fast(RequestAuth):
     '''
     Wrapper for FastApi dependency
     '''
@@ -52,6 +53,8 @@ class MemberRequestAuth(RequestAuth):
         :returns: (n/a)
         :raises: HTTPException
         '''
+
+        server = config.server
 
         if isinstance(service_id, int):
             pass

@@ -129,7 +129,7 @@ class Network:
         self.services = dict()
         if ServerRole.DirectoryServer in self.roles:
             self.load_secrets()
-            self.load_services(filename='services/service_directory.json')
+            self.load_services('./services/')
 
             self.dnsdb = DnsDb.setup(server['dnsdb'], self.network)
 
@@ -289,7 +289,8 @@ class Network:
             for filename in [x for x in files if x.endswith('.json')]:
                 allow_unsigned_services = False
                 # TODO: only allow signed services in pods
-                if ServerRole.Pod in self.roles:
+                if (ServerRole.Pod in self.roles
+                        or ServerRole.DirectoryServer in self.roles):
                     allow_unsigned_services = True
 
                 service = Service.get_service(
