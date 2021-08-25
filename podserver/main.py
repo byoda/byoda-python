@@ -146,7 +146,7 @@ if server.cloud != CloudType.LOCAL:
         identifier=network_data['account_id'],
         id_type=IdType.ACCOUNT,
         alias=network.paths.account,
-        network=network.network,
+        network=network.name,
         public_cloud_endpoint=network.paths.storage_driver.get_url(
             public=True
         ),

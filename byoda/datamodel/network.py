@@ -66,7 +66,7 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
-        self.network = application.get('network', config.DEFAULT_NETWORK)
+        self.name = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
 
@@ -102,7 +102,7 @@ class Network:
         )
 
         self.paths = Paths(
-            root_directory=self.root_dir, network=self.network,
+            root_directory=self.root_dir, network=self.name,
             account=account, storage_driver=private_object_storage
         )
 
@@ -217,15 +217,15 @@ class Network:
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
         # as we use the Let's Encrypt cert for TLS termination
         network.data_secret = Network._create_secret(
-            network.network, NetworkDataSecret, root_ca, paths, password
+            network.name, NetworkDataSecret, root_ca, paths, password
         )
 
         network.accounts_ca = Network._create_secret(
-            network.network, NetworkAccountsCaSecret, root_ca, paths, password
+            network.name, NetworkAccountsCaSecret, root_ca, paths, password
         )
 
         network.services_ca = Network._create_secret(
-            network.network, NetworkServicesCaSecret, root_ca, paths, password
+            network.name, NetworkServicesCaSecret, root_ca, paths, password
         )
 
         return network

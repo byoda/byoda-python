@@ -45,7 +45,7 @@ class MemberDataSecret(DataSecret):
         self.paths.service_id = self.service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network = account.network.network
+        self.network = account.network.name
 
         super().__init__(
             cert_file=self.paths.get(

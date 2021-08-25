@@ -37,7 +37,7 @@ class ServiceSecret(Secret):
         '''
 
         self.paths = copy(network.paths)
-        self.network = network.network
+        self.network = network.name
         self.service = str(service)
         self.service_id = int(service_id)
 

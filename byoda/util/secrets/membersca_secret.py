@@ -26,7 +26,7 @@ Network = TypeVar('Network', bound='Network')
 
 class MembersCaSecret(CaSecret):
     ACCEPTED_CSRS = [IdType.MEMBER, IdType.MEMBER_DATA]
-    
+
     def __init__(self, service: str, service_id: int,
                  network: Network):
         '''
@@ -49,7 +49,7 @@ class MembersCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.network)
+        self.network = str(network.name)
         self.service_id = int(service_id)
         self.service = str(service)
 

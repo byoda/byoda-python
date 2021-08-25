@@ -45,7 +45,7 @@ class ServiceCaSecret(CaSecret):
         self.paths = network.paths
         self.paths.service_id = self.service_id
 
-        self.network = network.network
+        self.network = network.name
         super().__init__(
             cert_file=self.paths.get(
                 Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id

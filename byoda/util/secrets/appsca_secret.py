@@ -38,7 +38,7 @@ class AppsCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.network)
+        self.network = str(network.name)
         self.service_id = int(service_id)
         self.service = str(service)
 

@@ -71,7 +71,7 @@ class AccountSecret(Secret):
             raise ValueError('Network not defined')
 
         common_name = AccountSecret.create_fqdn(
-            self.account_id, self.network.network
+            self.account_id, self.network.name
         )
 
         return super().create_csr(common_name, ca=self.ca)

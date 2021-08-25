@@ -275,14 +275,14 @@ class RequestAuth():
             # Account certs get signed by the Network Accounts CA
             entity_id = \
                 NetworkAccountsCaSecret.review_commonname_by_parameters(
-                    self.client_cn, network.network
+                    self.client_cn, network.name
                 )
             self.account_id = entity_id.id
 
             # Network Accounts CA cert gets signed by root CA of the
             # network
             NetworkRootCaSecret.review_commonname_by_parameters(
-                self.issuing_ca_cn, network.network
+                self.issuing_ca_cn, network.name
             )
         except ValueError as exc:
             raise HTTPException(
@@ -290,7 +290,7 @@ class RequestAuth():
                 detail=(
                     f'Incorrect c_cn {self.client_cn} issued by '
                     f'{self.issuing_ca_cn} on network '
-                    f'{network.network}'
+                    f'{network.name}'
                 )
             ) from exc
 
@@ -312,7 +312,7 @@ class RequestAuth():
         try:
             # Member cert gets signed by Service Member CA
             member_ca_secret = MembersCaSecret(
-                service_id, network=network.network
+                service_id, network=network.name
             )
             entity_id = member_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
@@ -329,7 +329,7 @@ class RequestAuth():
                 detail=(
                     f'Incorrect c_cn {self.client_cn} issued by '
                     f'{self.issuing_ca_cn} for service {service_id} on '
-                    f'network {network.network}'
+                    f'network {network.name}'
                 )
             ) from exc
 
@@ -354,7 +354,7 @@ class RequestAuth():
 
             # Service CA secret gets signed by Network Services CA
             networkservices_ca_secret = NetworkServicesCaSecret(
-                network=network.network
+                network=network.name
             )
             networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
@@ -363,7 +363,7 @@ class RequestAuth():
                 detail=(
                     f'Incorrect c_cn {self.client_cn} issued by '
                     f'{self.issuing_ca_cn} for service {service_id} on '
-                    f'network {network.network}'
+                    f'network {network.name}'
                 )
             ) from exc
 

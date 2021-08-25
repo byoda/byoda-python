@@ -90,11 +90,11 @@ class TestDirectoryApis(unittest.TestCase):
         )
         csr = secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
-        fqdn = AccountSecret.create_fqdn(uuid, network.network)
+        fqdn = AccountSecret.create_fqdn(uuid, network.name)
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject': f'CN={fqdn}',
-            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.network}'
+            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
         response = requests.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=headers

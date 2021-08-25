@@ -68,7 +68,7 @@ class AccountDataSecret(DataSecret):
             raise ValueError('Network not defined')
 
         common_name = (
-            f'{self.account_id}.{self.id_type.value}.{self.network.network}'
+            f'{self.account_id}.{self.id_type.value}.{self.network.name}'
         )
 
         return super().create_csr(common_name, key_size=4096, ca=self.ca)
