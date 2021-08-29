@@ -54,7 +54,7 @@ graphene==2.1.9
 fastjsonschema==2.15.1
 
 # https://github.com/graphql-python/gql
-gql[all]==3.0.0a6
+gql[all]<3
 
 # https://www.dnspython.org/
 dnspython==2.1.0

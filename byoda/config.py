@@ -47,8 +47,6 @@ document_store = None
 # using different headers, cookies etc.
 request = requests.Session()
 
-# Global variables for the main entities
-network = None
-service = None
-account = None
+# Includes all the variables for the server, including Network and Account
+# and going forward Services
 server = None
