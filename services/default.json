@@ -17,17 +17,17 @@
             "#encrypted": {
                 "encrypted_sharedsecret": "blah"
             },
-            "given_name": {
+            "givenName": {
                 "type": "string",
                 "access": "private",
                 "description": "Your first given name"
             },
-            "additional_names": {
+            "additionalNames": {
                 "type": "string",
                 "access": "private",
                 "description": "Any middle names"
             },
-            "family_name": {
+            "familyName": {
                 "type": "string",
                 "access": "private",
                 "description": "Your surname"
@@ -36,11 +36,11 @@
                 "type": "string",
                 "access": "private"
             },
-            "homepage_url": {
+            "homepageUrl": {
                 "type": "string",
                 "access": "private"
             },
-            "avatar_url": {
+            "avatarUrl": {
                 "type": "string",
                 "access": "private"
             }

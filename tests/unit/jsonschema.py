@@ -40,6 +40,13 @@ class TestAccountManager(unittest.TestCase):
         obj = DataObject(schema)
         obj.load_from_file('tests/collateral/dataobject.json')
 
+        schema.generate_graphql_schema()
+
+        result = schema.gql_schema.execute(
+            '{ givenName }'
+        )
+        self.assertEqual(result.data['givenName'], 'givenName stranger')
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

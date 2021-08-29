@@ -28,7 +28,7 @@ BASE_URL = 'http://localhost:8001/api'
 uuid = uuid4()
 
 TRANSPORT = AIOHTTPTransport(
-    url=BASE_URL + '/v1/member/data',
+    url=BASE_URL + '/v1/data/service-0',
     timeout=60,
     headers={
         'X-Client-SSL-Verify': 'SUCCESS',
@@ -47,16 +47,12 @@ class TestGraphQL(unittest.TestCase):
         query = gql(
             '''
                 query {
-                    person(given_name: "Steven") {
-                        given_name
-                        family_name
-                        email
-                    }
+                    givenName(name: "Steven")
                 }
             '''
         )
         result = client.execute(query)
-        print(result)
+        self.assertEqual(result['givenName'], 'givenName Steven')
 
 
 if __name__ == '__main__':

@@ -17,10 +17,9 @@ from starlette.middleware import Middleware
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.graphql import GraphQLApp
 
 from fastapi import FastAPI
-
-from ariadne.asgi import GraphQL
 
 from opentelemetry import trace
 from opentelemetry.exporter import jaeger
@@ -41,8 +40,6 @@ from byoda.datamodel import PodServer
 
 from byoda.datatypes import CloudType, IdType
 from byoda.datastore import DocumentStoreType
-from byoda.datastore import MemberQuery
-
 
 # from .bootstrap import LetsEncryptConfig
 from .bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
@@ -180,6 +177,9 @@ if config.app_config:
         BatchExportSpanProcessor(jaeger_exporter)
     )
 
+for service in network.services.values():
+    service.schema.generate_graphql_schema()
+
 app = FastAPI(
     title='BYODA pod server',
     description='The pod server for a BYODA network',
@@ -192,12 +192,11 @@ PrometheusInstrumentator().instrument(app).expose(app)
 
 app.add_middleware(AuthenticationMiddleware, backend=MTlsAuthBackend())
 
-member_query = MemberQuery('services/default.graphql')
-
-app.add_route(
-    '/api/v1/member/data',
-    GraphQL(schema=member_query.schema, debug=True)
-)
+for service in network.services.values():
+    app.add_route(
+        f'/api/v1/data/service-{service.service_id}',
+        GraphQLApp(schema=service.schema.gql_schema)
+    )
 
 
 @app.get('/api/v1/status')

@@ -12,4 +12,3 @@ from .dnsdb import DnsDb                        # noqa: F401
 from .certstore import CertStore                # noqa: F401
 from .document_store import DocumentStore       # noqa: F401
 from .document_store import DocumentStoreType   # noqa: F401
-from .document_store import MemberQuery         # noqa: F401

@@ -48,19 +48,19 @@ requests==2.25.1
 sqlalchemy==1.4.15
 psycopg2-binary==2.8.6
 
-ariadne==0.13.0
+graphene==2.1.9
 
 # https://horejsek.github.io/python-fastjsonschema/
 fastjsonschema==2.15.1
 
 # https://github.com/graphql-python/gql
-gql==3.0.0a6
+gql[all]==3.0.0a6
 
 # https://www.dnspython.org/
 dnspython==2.1.0
 
 # https://palletsprojects.com/p/jinja/
-jinja2==2.11.3
+jinja2==3.0.1
 
 # https://libcloud.readthedocs.io/en/stable/getting_started.html
 apache-libcloud==3.3.1
