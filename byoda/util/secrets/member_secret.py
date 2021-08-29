@@ -8,46 +8,61 @@ Cert manipulation for accounts and members
 
 import logging
 from uuid import UUID
+from copy import copy
+from typing import TypeVar
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType
 
 from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Account = TypeVar('Account', bound='Account')
+
 
 class MemberSecret(Secret):
-    def __init__(self, service_alias: str, paths: Paths):
+    def __init__(self, member_id: UUID, service_id: int, account: Account):
         '''
         Class for the member secret of an account for a service
 
-        :param Paths paths: instance of Paths class defining the directory
-                            structure and file names of a BYODA network
         :returns: (none)
         :raises: (none)
         '''
 
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+        self.member_id = member_id
+
+        self.service_id = int(service_id)
+
+        self.paths = copy(account.paths)
+        self.paths.service_id = self.service_id
+
+        # secret.review_commonname requires self.network to be string
+        self.network = account.network.name
+
         super().__init__(
-            cert_file=paths.get(
-                Paths.MEMBER_CERT_FILE, service_alias=service_alias
+            cert_file=self.paths.get(
+                Paths.MEMBER_CERT_FILE,
+                service_id=service_id, member_id=self.member_id,
             ),
-            key_file=paths.get(
-                Paths.MEMBER_KEY_FILE, service_alias=service_alias
+            key_file=self.paths.get(
+                Paths.MEMBER_KEY_FILE,
+                service_id=service_id, member_id=self.member_id,
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
-        self.ca = False
+
         self.id_type = IdType.MEMBER
 
-    def create_csr(self, network: str, service_id: int, member_id: UUID,
-                   expire: int = 3650) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
         :param member_id: identifier of the member for the service
         :param expire: days after which the cert should expire
         :returns: csr
@@ -55,47 +70,26 @@ class MemberSecret(Secret):
         a private key or cert
         '''
 
-        self.member_id = member_id
-
-        common_name = (
-            f'{member_id}_{service_id}.{self.id_type.value}.{network}'
+        common_name = MemberSecret.create_fqdn(
+            self.member_id, self.service_id, self.network
         )
-
         return super().create_csr(common_name, ca=self.ca)
 
-    def review_commonname(self, commonname: str) -> EntityId:
+    @staticmethod
+    def create_fqdn(member_id: UUID, service_id: int, network: str):
         '''
-        Checks if the structure of common name matches with a common name of
-        an MemberSecret
-
-        :param commonname: the commonname to check
-        :returns: entity with member uuid, service_id
-        :raises: ValueError if the commonname is not valid for this class
+        generates the FQDN for the common name in the Member TLS secret
         '''
 
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
+        service_id = int(service_id)
+        if not isinstance(network, str):
+            raise ('Network parameter must be a string')
 
-        identifier, subdomain = bits[0:1]
-        if subdomain != 'members':
-            raise ValueError(f'commonname {commonname} is not for a member')
+        common_name = (
+            f'{member_id}.{IdType.MEMBER.value}{service_id}.{network}'
+        )
 
-        user_id, service_id = identifier.split()
-        try:
-            uuid = UUID(user_id)
-        except ValueError:
-            raise ValueError(f'{user_id} is not a valid UUID')
-
-        try:
-            service_id = int(service_id)
-        except ValueError:
-            raise ValueError(f'Invalid service_id {service_id}')
-
-        return EntityId(IdType.MEMBER, uuid, service_id)
-
-    def review_csr(self, csr, source=CsrSource.WEBAPI):
-        raise NotImplementedError
+        return common_name

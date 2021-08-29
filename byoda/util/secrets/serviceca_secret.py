@@ -8,77 +8,73 @@ Service secret
 '''
 
 import logging
-
+from typing import TypeVar
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
 
-class ServiceCaSecret(Secret):
-    def __init__(self, service: str, paths: Paths = None, network: str = None):
+
+class ServiceCaSecret(CaSecret):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
-        :param service: the label for the service
-        :param paths: instance of Paths class defining the directory structure
-        and file names of a BYODA network
-        :param service: label for the service
-        :param paths: object containing all the file paths for the network. If
-        this parameter has a value then the 'network' parameter must be None
-        :param network: name of the network. If this parameter has a value then
-        the 'paths' parameter must be None
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''
 
-        self.service = service
-        self.service_id = None
+        self.service = str(service)
+        self.service_id = int(service_id)
 
-        if paths and network:
-            raise ValueError('Either paths or network parameters must be set')
-
-        if paths:
-            self.network = paths.network
-            super().__init__(
-                cert_file=paths.get(
-                    Paths.SERVICE_CA_CERT_FILE, service_alias=service
-                ),
-                key_file=paths.get(
-                    Paths.SERVICE_CA_KEY_FILE, service_alias=service
-                ),
-                storage_driver=paths.storage_driver
+        if self.service_id < 0:
+            raise ValueError(
+                f'Service ID must be 0 or greater: {self.service_id}'
             )
-        else:
-            self.network = network
-            super().__init__()
 
-        self.ca = True
+        self.paths = network.paths
+        self.paths.service_id = self.service_id
+
+        self.network = network.name
+        super().__init__(
+            cert_file=self.paths.get(
+                Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
+            ),
+            key_file=self.paths.get(
+                Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
+            ),
+            storage_driver=self.paths.storage_driver
+        )
+
         self.id_type = IdType.SERVICE_CA
 
-        self.csrs_accepted_for = ('members-ca')
+        self.ca = True
+        self.accepted_csrs = (
+            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
+            IdType.SERVICE_DATA,
+        )
 
-    def create_csr(self, service_id: int) -> CertificateSigningRequest:
+    def create_csr(self, source=CsrSource.LOCAL) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR the the Service issuing CA
+        Creates an RSA private key and X.509 CSR for the Service issuing CA
 
-        :param service_id: identifier for the service
-        :param expire: days after which the cert should expire
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
         '''
 
         commonname = (
-            f'{IdType.SERVICE_CA.value}{service_id}.{IdType.SERVICE.value}.'
+            f'service-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
 
@@ -95,44 +91,15 @@ class ServiceCaSecret(Secret):
         :raises: ValueError if the commonname is not valid for this class
         '''
 
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        # Checks on the network postfix
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False
+        )
 
-        # There are two types of CSRs for this CA:
-        #   - the CSR for the service certificate
-        #     format: {service_id}.services.{network}
-        #   - the CSR for the members-ca for the service.
-        #     format: members-ca-{service_id}.services.{network}
-
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
-
-        identifier, subdomain = bits
-        try:
-            id_type = IdType(subdomain)
-        except ValueError:
-            raise ValueError(f'Invalid subdomain in commonname {commonname}')
-
-        if id_type != IdType.SERVICE:
-            raise ValueError(f'commonname {commonname} is not for a service')
-
-        if identifier.startswith(IdType.MEMBERS_CA.value):
-            id_type = IdType.MEMBERS_CA
-            service_id = identifier[len(IdType.MEMBERS_CA.value):]
-        else:
-            service_id = identifier
-
-        if not service_id.isdigit():
-            raise ValueError(
-                f'Service_id for {id_type.value} in commonname {commonname} '
-                'must only contain digits'
-            )
-
-        return EntityId(id_type, None, int(service_id))
+        return entity_id
 
     def review_csr(self, csr: CertificateSigningRequest,
-                   source: CsrSource = CsrSource.WEBAPI) -> (str, str):
+                   source: CsrSource = CsrSource.WEBAPI) -> EntityId:
         '''
         Review a CSR. CSRs for register a service or or service_member_ca
         are permissable. Note that this function does not check whether the
@@ -146,18 +113,13 @@ class ServiceCaSecret(Secret):
         not valid in the CSR for signature by this CA
         '''
 
-        if not self.private_key_file:
+        if source != CsrSource.LOCAL:
             raise ValueError(
-                'CSR received while we do not have the private key for this CA'
-            )
-
-        if source == CsrSource.WEBAPI:
-            raise ValueError(
-                'This CA does not accept CSRs received via API call'
+                'This CA does not accept CSRs received via an API call'
             )
 
         commonname = super().review_csr(csr)
 
-        entityid = self.review_commonname(commonname)
+        entity_id = self.review_commonname(commonname)
 
-        return entityid
+        return entity_id

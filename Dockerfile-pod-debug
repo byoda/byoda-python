@@ -1,6 +1,6 @@
 FROM ubuntu:hirsute
 
-MAINTAINER Steven Hessing "stevenhessing@live.com"
+LABEL maintainer="stevenhessing@live.com"
 
 # TODO
 # 1: run gunicorn/uvicorn/fastapi/app as non-root user
@@ -31,7 +31,7 @@ RUN mkdir -p \
     /etc/nginx/ssl \
     /var/cache/nginx/{proxy_temp,objectstorage} \
     /var/www/wwwroot/logs \
-    byoda-python 
+    byoda-python
 
 COPY podserver/files/index.html /var/www/wwwroot/
 
@@ -54,10 +54,6 @@ RUN touch /etc/nginx/htaccess.db
 
 EXPOSE 443
 
-COPY . byoda-python/
-COPY podserver/files/config.yml byoda-python/
-COPY podserver/files/startup.sh .
-
 RUN apt-get update && apt-get install -y openssh-server vim
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 RUN mkdir /var/run/sshd
@@ -76,5 +72,10 @@ RUN chown -R ubuntu:ubuntu /home/ubuntu
 
 RUN echo 'root:byoda' | chpasswd
 EXPOSE 22
+
+
+COPY . byoda-python/
+COPY podserver/files/config.yml byoda-python/
+COPY podserver/files/startup.sh .
 
 CMD "/podserver/startup.sh"

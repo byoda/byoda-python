@@ -7,22 +7,21 @@ Cert manipulation
 '''
 
 import os
-import datetime
 import logging
+import datetime
 import re
-from copy import copy
+from typing import TypeVar
 
 from cryptography import x509
-from cryptography.x509 import Certificate
 from cryptography.x509.oid import NameOID
+from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from cryptography.fernet import Fernet
 
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
-from certvalidator import ValidationError
+from certvalidator import ValidationError, PathBuildingError
 
 from byoda.storage.filestorage import FileStorage, FileMode
 
@@ -46,6 +45,8 @@ VALID_SIGNATURE_HASHES = set(
 IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
+
+CaSecret = TypeVar('CaSecret', bound='CaSecret')
 
 
 class CertChain:
@@ -133,23 +134,31 @@ class Secret:
 
         self.private_key = None
         self.private_key_file = key_file
+
         self.cert = None
         self.cert_file = cert_file
+
+        # The password to use for saving the private key
+        # to a file
         self.password = None
+
         self.common_name = None
-        self.is_root_cert = False
-        self.ca = False
-        self.storage_driver = storage_driver
+
+        if storage_driver:
+            self.storage_driver = storage_driver
 
         # Certchains never include the root cert!
-        # Certs higher in the certchain come before
+        # Certs higher in the certchain hierarchy come after
         # certs signed by those certs
         self.cert_chain = []
 
-        self.shared_key = None
-        self.protected_shared_key = None
+        # Is this a self-signed cert?
+        self.is_root_cert = False
 
-    def create(self, common_name: str, issuing_ca: bool = None,
+        # is this a secret of a CA
+        self.ca = False
+
+    def create(self, common_name: str, issuing_ca: CaSecret = None,
                expire: int = 30, key_size: int = _RSA_KEYSIZE,
                ca: bool = False):
         '''
@@ -171,6 +180,9 @@ class Secret:
         if self.private_key or self.cert:
             raise ValueError('Secret already has a key and cert')
 
+        if not self.is_root_cert and not issuing_ca:
+            raise ValueError('Only root certs should be self-signed')
+
         self.common_name = common_name
         self.ca = ca or self.ca
 
@@ -188,6 +200,37 @@ class Secret:
             self.cert = issuing_ca.sign_csr(csr, expire)
         else:
             self.create_selfsigned_cert(expire, ca)
+
+    def create_selfsigned_cert(self, expire=365, ca=False):
+        '''
+        Create a self_signed certificate
+
+        :param expire: days after which the cert should expire
+        :param bool: is the cert for a CA
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        subject = issuer = self.get_cert_name()
+
+        self.is_root_cert = True
+        self.cert = x509.CertificateBuilder().subject_name(
+            subject
+        ).issuer_name(
+            issuer
+        ).public_key(
+            self.private_key.public_key()
+        ).serial_number(
+            x509.random_serial_number()
+        ).not_valid_before(
+            datetime.datetime.utcnow()
+        ).not_valid_after(
+            datetime.datetime.utcnow() + datetime.timedelta(expire)
+        ).add_extension(
+            x509.BasicConstraints(
+                ca=ca, path_length=None
+            ), critical=True,
+        ).sign(self.private_key, hashes.SHA256())
 
     def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
                    ca: bool = False) -> CSR:
@@ -230,200 +273,6 @@ class Secret:
 
         return csr
 
-    def csr_as_pem(self, csr):
-        '''
-        Returns the BASE64 encoded byte string for the CSR
-
-        :returns: bytes with the PEM-encoded certificate
-        :raises: (none)
-        '''
-        return csr.public_bytes(serialization.Encoding.PEM)
-
-    def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
-        '''
-        Signs a previously created Certificate Signature Request (CSR)
-        with the specified issuing CA
-
-        :param csr: the certificate signature request
-        :param Secret issuing_ca: Certificate to sign the CSR with
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        _LOGGER.debug(
-            f'Getting CSR with common name {self.common_name} signed'
-        )
-        self.add_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
-
-    def review_csr(self, csr: CSR) -> str:
-        '''
-        Check whether the CSR meets our requirements
-
-        :param csr: the certificate signing request to be reviewed
-        :returns: commonname of the certificate
-        :raises: ValueError if review fails
-        '''
-
-        _LOGGER.debug('Reviewing cert sign request')
-
-        if not self.ca:
-            _LOGGER.warning('Only CAs review CSRs')
-            raise ValueError('Only CAs review CSRs')
-
-        if not csr.is_signature_valid:
-            _LOGGER.warning('CSR with invalid signature')
-            raise ValueError('CSR with invalid signature')
-
-        sign_algo = csr.signature_algorithm_oid._name
-        if sign_algo not in VALID_SIGNATURE_ALGORITHMS:
-            _LOGGER.warning(f'CSR with invalid algorithm: {sign_algo}')
-            raise ValueError(f'Invalid algorithm: {sign_algo}')
-
-        hash_algo = csr.signature_hash_algorithm.name
-        if hash_algo not in VALID_SIGNATURE_HASHES:
-            _LOGGER.warning(f'CSR with invalid hash algorithm: {hash_algo}')
-            raise ValueError(f'Invalid algorithm: {hash_algo}')
-
-        # We start parsing the Subject of the CSR, which
-        # consists of a list of 'Relative' Distinguished Names
-        distinguished_name = ','.join(
-            [rdns.rfc4514_string() for rdns in csr.subject.rdns]
-        )
-
-        common_name = self.review_distinguishedname(distinguished_name)
-
-        return common_name
-
-    def review_distinguishedname(self, name: str) -> str:
-        '''
-        Reviews the DN of a certificate, extracts the commonname (CN),
-        which is the only field we are interrested in
-
-        :param distinguishedname: the DN from the cert
-        :returns: commonname
-        :raises: ValueError if the commonname can not be found in the
-        dstinguishedname
-        '''
-
-        commonname = None
-        bits = name.split(',')
-        for dn in bits:
-            key, value = dn.split('=')
-            if not key or not value:
-                raise ValueError(f'Invalid commonname: {name}')
-            if key in IGNORED_X509_NAMES:
-                continue
-            if key == 'CN':
-                commonname = value
-                return commonname
-            else:
-                raise ValueError(f'Unknown distinguished name: {key}')
-
-        raise ValueError(f'commonname not found in {name}')
-
-    def review_commonname(self, commonname: str) -> str:
-        '''
-        Checks if the structure of common name matches with a common name of
-        an AccountSecret. If so, it sets the 'account_id' property of the
-        instance to the UUID parsed from the commonname
-
-        :param commonname: the commonname to check
-        :returns: commonname with the network domain stripped off, ie. for
-        'uuid.accounts.byoda.net' it will return 'uuid.accounts'.
-        :raises: ValueError if the commonname is not a string
-        '''
-
-        if not isinstance(commonname, str):
-            raise ValueError(
-                f'Commonname must be of type str, not {type(commonname)}'
-            )
-
-        postfix = '.' + self.network
-        if not commonname.endswith(postfix):
-            raise ValueError(
-                f'Commonname {commonname} is not for network {self.network}'
-            )
-
-        return commonname[:-1 * len(postfix)]
-
-    def sign_csr(self, csr: CSR, expire: int = 365) -> CertChain:
-        '''
-        Sign a csr with our private key
-
-        :param - csr: X509.CertificateSigningRequest
-        :param int expire: after how many days the cert should
-        :returns: the signed cert and the certchain excluding the root CA
-        :raises: (none)
-        '''
-
-        if not self.ca:
-            _LOGGER.warning('Only CAs sign CSRs')
-            raise ValueError('Only CAs sign CSRs')
-
-        try:
-            extension = csr.extensions.get_extension_for_class(
-                x509.BasicConstraints
-            )
-            is_ca = extension.value.ca
-        except x509.ExtensionNotFound:
-            is_ca = False
-
-        _LOGGER.debug('Signing cert with cert %s', self.common_name)
-        cert = x509.CertificateBuilder().subject_name(
-            csr.subject
-        ).issuer_name(
-            self.cert.subject
-        ).public_key(
-            csr.public_key()
-        ).serial_number(
-            x509.random_serial_number()
-        ).not_valid_before(
-            datetime.datetime.utcnow()
-        ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=expire)
-        ).add_extension(
-            x509.BasicConstraints(
-                ca=is_ca, path_length=None
-            ), critical=True,
-        ).sign(self.private_key, hashes.SHA256())
-
-        cert_chain = copy(self.cert_chain)
-        if not self.is_root_cert:
-            cert_chain.append(self.cert)
-
-        return CertChain(cert, cert_chain)
-
-    def create_selfsigned_cert(self, expire=365, ca=False):
-        '''
-        Create a self_signed certificate
-
-        :param expire: days after which the cert should expire
-        :param bool: is the cert for a CA
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        subject = issuer = self.get_cert_name()
-
-        self.is_root_cert = True
-        self.cert = x509.CertificateBuilder().subject_name(
-            subject
-        ).issuer_name(
-            issuer
-        ).public_key(
-            self.private_key.public_key()
-        ).serial_number(
-            x509.random_serial_number()
-        ).not_valid_before(
-            datetime.datetime.utcnow()
-        ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(expire)
-        ).add_extension(
-            x509.BasicConstraints(
-                ca=ca, path_length=None
-            ), critical=True,
-        ).sign(self.private_key, hashes.SHA256())
-
     def get_cert_name(self):
         '''
         Generate an X509.Name instance for a cert
@@ -442,6 +291,30 @@ class Secret:
                 x509.NameAttribute(NameOID.COMMON_NAME, str(self.common_name))
             ]
         )
+
+    def csr_as_pem(self, csr):
+        '''
+        Returns the BASE64 encoded byte string for the CSR
+
+        :returns: bytes with the PEM-encoded certificate
+        :raises: (none)
+        '''
+        return csr.public_bytes(serialization.Encoding.PEM)
+
+    def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
+        '''
+        Gets the cert signed and adds the signed cert to the secret
+
+        :param csr: the certificate signature request
+        :param Secret issuing_ca: Certificate to sign the CSR with
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        _LOGGER.debug(
+            f'Getting CSR with common name {self.common_name} signed'
+        )
+        self.add_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
 
     def add_signed_cert(self, cert_chain: CertChain):
         '''
@@ -479,9 +352,8 @@ class Secret:
         )
         try:
             validator.validate_usage(set())
-        except ValidationError as exc:
-            _LOGGER.warning(f'Certchain failed validation: {exc}')
-            raise ValueError(f'Certchain failed validation: {exc}')
+        except (ValidationError, PathBuildingError) as exc:
+            raise ValueError(f'Certchain failed validation: {exc}') from exc
 
     def cert_file_exists(self) -> bool:
         '''
@@ -515,7 +387,9 @@ class Secret:
                 file or the file with the private key do not exist
         '''
 
-        if self.cert or self.private_key:
+        # We allow (re-)loading an existing secret if we do not have
+        # the private key and we need to read the private key.
+        if self.private_key or (self.cert and not with_private_key):
             raise ValueError(
                 'Secret already has certificate and/or private key'
             )
@@ -537,12 +411,12 @@ class Secret:
         except x509.ExtensionNotFound:
             self.ca = False
 
-        # We start parsing the Subject of the CSR, which
-        # consists of a list of 'Relative' Distinguished Names
-        distinguished_name = ','.join(
-            [rdns.rfc4514_string() for rdns in self.cert.subject.rdns]
-        )
-        self.common_name = self.review_distinguishedname(distinguished_name)
+        self.common_name = None
+        for rdns in self.cert.subject.rdns:
+            dn = rdns.rfc4514_string()
+            if dn.startswith('CN='):
+                self.common_name = dn[3:]
+                break
 
         self.private_key = None
         if with_private_key:
@@ -720,99 +594,9 @@ class Secret:
         '''
         return self.cert.public_bytes(serialization.Encoding.PEM)
 
-    def encrypt(self, data: bytes):
+    def fingerprint(self):
         '''
-        Encrypts the provided data with the Fernet algorithm
-
-        :param bytes data : data to be encrypted
-        :returns: encrypted data
-        :raises: KeyError if no shared secret was generated or
-                            loaded for this instance of Secret
-        '''
-        if not self.shared_key:
-            raise KeyError('No shared secret available to encrypt')
-
-        if isinstance(data, str):
-            data = str.encode(data)
-
-        _LOGGER.debug('Encrypting data with %d bytes', len(data))
-        ciphertext = self.fernet.encrypt(data)
-        return ciphertext
-
-    def decrypt(self, ciphertext: bytes) -> bytes:
-        '''
-        Decrypts the ciphertext
-
-        :param ciphertext : data to be encrypted
-        :returns: encrypted data
-        :raises: KeyError if no shared secret was generated
-                                  or loaded for this instance of Secret
+        Returns the SHA256 fingerprint of the certificate
         '''
 
-        if not self.shared_key:
-            raise KeyError('No shared secret available to decrypt')
-
-        data = self.fernet.decrypt(ciphertext)
-        _LOGGER.debug('Decrypted data with %d bytes', len(data))
-
-        return data
-
-    def create_shared_key(self, target_secret):
-        '''
-        Creates an encrypted shared key
-
-        :param Secret target_secret : the target X.509 cert that should be
-                                      able to decrypt the shared key
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        _LOGGER.debug(
-            f'Creating a shared key protected with cert '
-            f'{target_secret.common_name}'
-        )
-
-        if self.shared_key:
-            _LOGGER.debug('Replacing existing shared key')
-
-        self.shared_key = Fernet.generate_key()
-
-        public_key = target_secret.cert.public_key()
-        self.protected_shared_key = public_key.encrypt(
-            self.shared_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-
-        _LOGGER.debug('Initializing new Fernet instance')
-        self.fernet = Fernet(self.shared_key)
-
-    def load_shared_key(self, protected_shared_key: bytes):
-        '''
-        Loads a protected shared key
-
-        :param protected_shared_key : the protected shared key
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        _LOGGER.debug(
-            f'Decrypting protected shared key with cert {self.common_name}'
-        )
-
-        self.protected_shared_key = protected_shared_key
-        self.shared_key = self.private_key.decrypt(
-            self.protected_shared_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-        _LOGGER.debug(
-            'Initializing new Fernet instance from decrypted shared secret'
-        )
-        self.fernet = Fernet(self.shared_key)
+        return self.cert.fingerprint(hashes.SHA256)

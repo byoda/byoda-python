@@ -15,59 +15,42 @@
             }
         },
         {
-            "name": "create_network",
+            "name": "create_secrets",
             "type": "python",
             "request": "launch",
-            "program": "tools/create_cert.py",
-            "args": [
-                "--debug",
-                "--type", "NETWORK",
-                "--network", "byoda.net",
-                "--root-directory", "/home/steven/.byoda"
-
-            ],
-            "env": {
-                "PYTHONPATH": "."
-            },
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "create_account",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/create_cert.py",
+            "program": "tools/create_secrets.py",
+            "console": "integratedTerminal",
             "args": [
                 "--debug",
                 "--type", "ACCOUNT",
-                "--account", "dathes",
+                "--account-id", "9f6c55d7-b35e-4eb9-bc5e-614fdd355e6f",
                 "--network", "byoda.net",
-                "--root-directory", "/home/steven/.byoda"
+                "--root-directory", "/byoda"
 
             ],
             "env": {
                 "PYTHONPATH": "."
             },
-            "console": "integratedTerminal"
         },
         {
             "name": "dirserver",
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
+            "console": "integratedTerminal",
             "args": [
                 "dirserver.main:app",
                 "--host", "0.0.0.0",
                 "--port", "8000",
                 "--proxy-headers"
             ],
-            "justMyCode": true,
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
                 "SERVER_NAME": "devws"
             }
         },
         {
-            "name": "podserver",
+            "name": "podserver LOCAL",
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
@@ -77,8 +60,8 @@
                 "--port", "8001",
                 "--proxy-headers"
             ],
+            "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python",
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
@@ -86,22 +69,7 @@
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
-            }
-        },
-        {
-            "name": "account_exists",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/account_exists.py",
-            "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python",
-                "CLOUD": "LOCAL",
-                "BUCKET_PREFIX": "byoda",
-                "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
-                "ACCOUNT_SECRET": "supersecret",
-                "LOGLEVEL": "DEBUG",
-                "PRIVATE_KEY_SECRET": "byoda"
+
             }
         }
     ]

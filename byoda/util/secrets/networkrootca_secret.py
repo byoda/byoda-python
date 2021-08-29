@@ -7,18 +7,24 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 import logging
-
+from copy import copy
 
 from byoda.util import Paths
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
 
-from . import Secret, CSR
+from .secret import CSR
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkRootCaSecret(Secret):
+class NetworkRootCaSecret(CaSecret):
+    ACCEPTED_CSRS = [
+        IdType.ACCOUNTS_CA, IdType.SERVICES_CA, IdType.NETWORK_DATA
+    ]
+
     def __init__(self, paths: Paths = None, network: str = None):
         '''
         Class for the network root CA secret. Either paths or network
@@ -40,21 +46,21 @@ class NetworkRootCaSecret(Secret):
             raise ValueError('Either paths or network parameters must be set')
 
         if paths:
+            self.paths = copy(paths)
             self.network = paths.network
             super().__init__(
-                cert_file=paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE),
-                key_file=paths.get(Paths.NETWORK_ROOT_CA_KEY_FILE),
-                storage_driver=paths.storage_driver
+                cert_file=self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE),
+                key_file=self.paths.get(Paths.NETWORK_ROOT_CA_KEY_FILE),
+                storage_driver=self.paths.storage_driver
             )
         else:
             super().__init__()
             self.network = network
+            self.paths = None
 
-        self.ca = True
-        self.issuing_ca = None
-        self.csrs_accepted_for = (
-            'accounts-ca', 'services-ca'
-        )
+        self.is_root_cert = True
+
+        self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
     def create(self, expire: int = 10950):
         '''
@@ -84,14 +90,29 @@ class NetworkRootCaSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False, check_service_id=False
+        )
 
-        if commonname_prefix not in self.csrs_accepted_for:
-            raise ValueError(
-                f'A root CA does not sign CSRs for commonname {commonname}'
-            )
+        return entity_id
 
-        return commonname_prefix
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str
+                                        ) -> str:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
+
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
+
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, NetworkRootCaSecret.ACCEPTED_CSRS,
+            uuid_identifier=False, check_service_id=False
+        )
+
+        return entity_id
 
     def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
                    ) -> str:
@@ -116,12 +137,8 @@ class NetworkRootCaSecret(Secret):
                 'This CA does not accept CSRs received via API call'
             )
 
-        common_name_prefix = super().review_csr(csr)
+        common_name = super().review_csr(csr)
 
-        if common_name_prefix not in self.csrs_accepted_for:
-            _LOGGER.warning(
-                f'Common name prefix {common_name_prefix} does not match one '
-                f'of: {", ".join(self.csrs_accepted_for)}'
-            )
+        common_name_prefix = self.review_commonname(common_name)
 
         return common_name_prefix

@@ -6,32 +6,50 @@ Non-specific data types
 :license    : GPLv3
 '''
 
+# flake8: noqa=E221
+
 from enum import Enum
 from collections import namedtuple
 
 
 class ServerRole(Enum):
-    RootCa               = 'root_ca'        # noqa=E221
-    DirectoryServer      = 'directory'      # noqa=E221
-    ServiceCa            = 'services_ca'    # noqa=E221
-    ServiceServer        = 'service'        # noqa=E221
-    ContentServer        = 'content'        # noqa=E221
-    Pod                  = 'pod'            # noqa=E221
-    Client               = 'client'         # noqa=E221
+    RootCa               = 'root_ca'
+    DirectoryServer      = 'directory'
+    ServiceCa            = 'services_ca'
+    ServiceServer        = 'service'
+    ContentServer        = 'content'
+    Pod                  = 'pod'
+    Client               = 'client'
 
 
 class IdType(Enum):
-    ACCOUNT              = 'accounts'       # noqa=E221
-    MEMBER               = 'members'        # noqa=E221
-    SERVICE              = 'services'       # noqa=E221
-    ACCOUNTS_CA          = 'accounts-ca'    # noqa=E221
-    SERVICES_CA          = 'services-ca'    # noqa=E221
-    SERVICE_CA           = 'service-ca-'    # noqa=E221
-    MEMBERS_CA           = 'members-ca-'    # noqa=E221
-    TLS                  = 'tls'            # noqa=E221
+    NETWORK_DATA         = 'network-data'
+    ACCOUNTS_CA          = 'accounts-ca'
+    SERVICES_CA          = 'services-ca'
+    ACCOUNT              = 'accounts'
+    MEMBER               = 'members-'
+    SERVICE              = 'service-'
+    APP                  = 'apps-'
+    SERVICE_CA           = 'service-ca-'
+    APPS_CA              = 'apps-ca-'
+    MEMBERS_CA           = 'members-ca-'
+    SERVICE_DATA         = 'service-data-'
+    ACCOUNT_DATA         = 'account-data'
+    MEMBER_DATA          = 'member-data-'
 
 
-EntityId = namedtuple('EntityId', ['id_type', 'uuid', 'service_id'])
+# The UUID is the value for the specified IdType, ie with IdType.MEMBER
+# the uuid is for the member_id. The service_id field then specifies
+# the service the uuid is a member of
+EntityId = namedtuple('EntityId', ['id_type', 'id', 'service_id'])
+
+
+class HttpRequestMethod(Enum):
+    GET         = 'GET'
+    POST        = 'POST'
+    OPTIONS     = 'OPTIONS'
+    PUT         = 'PUT'
+    PATCH       = 'PATCH'
 
 
 class CloudType(Enum):
@@ -41,33 +59,39 @@ class CloudType(Enum):
     workstation for testing purposes. All data will be lost
     when you delete the local pod.
     '''
-    AWS                  = 'AWS'            # noqa=E221
-    GCP                  = 'GCP'            # noqa=E221
-    AZURE                = 'Azure'          # noqa=E221
-    LOCAL                = 'LOCAL'          # noqa=E221
+    AWS                  = 'AWS'
+    GCP                  = 'GCP'
+    AZURE                = 'Azure'
+    LOCAL                = 'LOCAL'
 
 
 class CsrSource(Enum):
-    WEBAPI         = 1                    # noqa: E221
-    LOCAL          = 2                    # noqa: E221
+    WEBAPI         = 1
+    LOCAL          = 2
 
 
 class CertType(Enum):
-    NETWORK        = 'network'            # noqa: E221
-    ACCOUNT        = 'account'            # noqa: E221
-    MEMBERSHIP     = 'membership'         # noqa: E221
-    SERVICE        = 'service'            # noqa: E221
-    INFRASTRUCTURE = 'infrastructure'     # noqa: E221
+    NETWORK         = 'network'
+    NETWORK_DATA    = 'network-data'
+    ACCOUNT         = 'account'
+    ACCOUNT_DATA    = 'account-data'
+    MEMBERSHIP      = 'membership'
+    MEMBERSHIP_DATA = 'membership-data'
+    SERVICE         = 'service'
+    SERVICE_DATA    = 'service-data'
+    INFRASTRUCTURE  = 'infrastructure'
+    APP             = 'app'
+    APP_DATA        = 'app_data'
 
 
 class CertLevel(Enum):
-    ROOT           = 'root'               # noqa: E221
-    INTERMEDIATE   = 'intermediate'       # noqa: E221
-    LEAF           = 'leaf'               # noqa: E221
+    ROOT           = 'root'
+    INTERMEDIATE   = 'intermediate'
+    LEAF           = 'leaf'
 
 
 class CertStatus(Enum):
-    NOTFOUND        = 'notfound'          # noqa: E221
-    OK              = 'ok'                # noqa: E221
-    RENEW           = 'renew'             # noqa: E221
-    EXPIRED         = 'expired'           # noqa: E221
+    NOTFOUND        = 'notfound'
+    OK              = 'ok'
+    RENEW           = 'renew'
+    EXPIRED         = 'expired'

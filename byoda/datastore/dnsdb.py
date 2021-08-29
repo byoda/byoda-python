@@ -19,10 +19,13 @@ from uuid import UUID
 from typing import Optional
 from ipaddress import ip_address, IPv4Address
 
-from sqlalchemy import MetaData, Table, insert, delete, event, and_
+from sqlalchemy import MetaData, Table, delete, event, and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
 # from sqlalchemy import select
 from sqlalchemy.engine import Engine
+
+from byoda.util.secrets import MemberSecret, AccountSecret, ServiceSecret
 
 from byoda.datatypes import IdType
 
@@ -48,17 +51,17 @@ class DnsDb:
     - domain : the domain for the network, ie. 'byoda.net'
     '''
 
-    def __init__(self, network_name: str):
+    def __init__(self, network: str):
         '''
 
         Constructor for the DnsDb class
 
-        :param network_name: the domain for the network
+        :param network: the domain for the network
         :raises: (none)
         :returns: none)
         '''
 
-        self.domain = network_name
+        self.domain = network
 
         self._metadata = MetaData()
         self._engine = None
@@ -135,11 +138,11 @@ class DnsDb:
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
         if id_type == IdType.MEMBER:
-            return f'{str(uuid)}_{service_id}.{id_type.value}.{self.domain}'
+            return MemberSecret.create_fqdn(uuid, service_id, self.domain)
         elif id_type == IdType.ACCOUNT:
-            return f'{str(uuid)}.{id_type.value}.{self.domain}'
+            return AccountSecret.create_fqdn(uuid, self.domain)
         elif id_type == IdType.SERVICE:
-            return f'{str(service_id)}.{id_type.value}.{self.domain}'
+            return ServiceSecret.create_fqdn(service_id, self.domain)
 
     def decompose_fqdn(self, fqdn: str) -> (UUID, IdType, int):
         '''
@@ -218,12 +221,19 @@ class DnsDb:
             except KeyError:
                 pass
 
+            # TODO: when we have multiple directory servers, the local
+            # 'cache' of domains_id might be out of date
+            subdomain = fqdn.split('.')[1]
+            if subdomain not in self._domain_ids:
+                domain_id = self._upsert_subdomain(subdomain)
+                self._domain_ids[subdomain] = domain_id
+
             with self._engine.connect() as conn:
                 stmt = insert(
                     self._records_table
                 ).values(
                     name=fqdn, content=str(value),
-                    domain_id=self._domain_ids[id_type.value],
+                    domain_id=self._domain_ids[subdomain],
                     db_expire=db_expire,
                     type=dns_record_type.value, ttl=DEFAULT_TTL, prio=0,
                     auth=True
@@ -431,6 +441,31 @@ class DnsDb:
             raise ValueError(f'Could not find ID for domain {subdomain}')
 
         return domain_id
+
+    def _upsert_subdomain(self, subdomain: str):
+        '''
+        Adds subdomain to list of domains
+
+        :param conn: sqlalchemy connection instance
+        :param subdomain: string with the domain to add
+        :returns: bool on success
+        :raises:
+        '''
+
+        with self._engine.connect() as conn:
+            stmt = insert(
+                self._domains_table
+            ).values(
+                name=subdomain,
+                type='NATIVE'
+            )
+
+            do_nothing_stmt = stmt.on_conflict_do_nothing(
+                index_elements=['name']
+            )
+            conn.execute(do_nothing_stmt)
+
+            return self._get_domain_id(conn, subdomain)
 
 
 @event.listens_for(Engine, "before_cursor_execute")

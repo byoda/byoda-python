@@ -39,7 +39,7 @@ class FileStorage:
         if not local_path:
             self.local_path = '/tmp/'
         else:
-            self.local_path = local_path.rstrip('/') + '/'
+            self.local_path = '/' + local_path.strip('/') + '/'
 
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
         self.bucket = bucket
@@ -47,7 +47,7 @@ class FileStorage:
     @staticmethod
     def get_storage(cloud: CloudType, bucket_prefix: str, root_dir=str):
         '''
-        Factor for FileStorage and classes derived from it
+        Factory for FileStorage and classes derived from it
 
         :param cloud: the cloud that we are looking to use for object
         storage
@@ -98,6 +98,7 @@ class FileStorage:
         :param file_mode: read file as text or as binary
         :returns: str or bytes, depending on the file_mode parameter
         '''
+
         _LOGGER.debug('Reading local file %s', filepath)
         with open(filepath, f'r{file_mode.value}') as file_desc:
             data = file_desc.read()
@@ -112,6 +113,7 @@ class FileStorage:
         :param filepath: location of the file on the file system
         :param file_mode: read file as text or as binary
         '''
+
         with open(filepath, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 

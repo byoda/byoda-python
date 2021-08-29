@@ -58,7 +58,7 @@ class AwsFileStorage(FileStorage):
         is not available then the file is fetched from S3 storage and written
         to the local cache
 
-        :param filepath: the S3 key (ie. path + filename)
+        :param filepath: the S3 key; path + filename
         :param file_mode: is the data in the file text or binary
         :returns: array as str or bytes with the data read from the file
         '''

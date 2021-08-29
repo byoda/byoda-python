@@ -18,13 +18,10 @@ from byoda import config
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import NoAuthInfo
 
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import NetworkRootCaSecret
-
 _LOGGER = logging.getLogger(__name__)
 
 
-class AccountRequestAuth(RequestAuth):
+class AccountRequestAuthFast(RequestAuth):
     def __init__(self,
                  request: Request,
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),
@@ -37,10 +34,12 @@ class AccountRequestAuth(RequestAuth):
         so we trust the HTTP headers set by the reverse proxy
 
         :param request: Starlette request instance
-        :param service_id: the service identifier for the service
         :returns: (n/a)
         :raises: HTTPException
         '''
+
+        server = config.server
+
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
@@ -55,32 +54,6 @@ class AccountRequestAuth(RequestAuth):
                     status_code=403, detail='No authentication provided'
                 )
 
-        network = config.network
-
-        # We verify the cert chain by creating dummy secrets for each
-        # applicable CA and then review if that CA would have signed
-        # the commonname found in the certchain presented by the
-        # client
-        try:
-            # Account certs get signed by the Network Accounts CA
-            accounts_ca_secret = NetworkAccountsCaSecret(
-                network=network.network
-            )
-            entity_id = accounts_ca_secret.review_commonname(self.client_cn)
-            self.account_id = entity_id.uuid
-
-            # Network Accounts CA cert gets signed by root CA of the
-            # network
-            root_ca_secret = NetworkRootCaSecret(network=network.network)
-            root_ca_secret.review_commonname(self.issuing_ca_cn)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f'Inccorrect c_cn {self.client_cn} issued by '
-                    f'{self.issuing_ca_cn} on network '
-                    f'{network.network}'
-                )
-            ) from exc
+        self.check_account_cert(server.network)
 
         self.is_authenticated = True

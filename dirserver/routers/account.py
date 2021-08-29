@@ -20,10 +20,10 @@ from byoda.models import Stats, StatsResponseModel
 from byoda.models import CertSigningRequestModel, CertChainModel
 from byoda.models import LetsEncryptSecretModel
 
-import byoda.config as config
+from byoda import config
 
 # from ..dependencies.logannotation import annotate_logs
-from ..dependencies.accountrequest_auth import AccountRequestAuth
+from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,14 +35,16 @@ router = APIRouter(
 
 @router.get('/account', response_model=StatsResponseModel)
 def get_account(request: Request,
-                auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                auth: AccountRequestAuthFast = Depends(
+                    AccountRequestAuthFast
+                )):
     '''
     Get account stats with a suggestion for an UUID.
     If the API call is made with a valid client M-TLS cert then the
     DNS entry for the commonname in the cert will be updated.
     '''
 
-    network = config.network
+    network = config.server.network
 
     dns_update = False
     if auth.is_authenticated:
@@ -69,7 +71,8 @@ def get_account(request: Request,
 
 @router.post('/account', response_model=CertChainModel)
 def post_account(request: Request, csr: CertSigningRequestModel,
-                 auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                 auth: AccountRequestAuthFast = Depends(
+                     AccountRequestAuthFast)):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -82,7 +85,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     #         status_code=401, detail='Unauthorized'
     #     )
 
-    network = config.network
+    network = config.server.network
 
     certstore = CertStore(network.accounts_ca)
 
@@ -95,7 +98,8 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/account')
 def put_account(request: Request, secret: LetsEncryptSecretModel,
-                auth: AccountRequestAuth = Depends(AccountRequestAuth)):
+                auth: AccountRequestAuthFast = Depends(
+                    AccountRequestAuthFast)):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -108,7 +112,7 @@ def put_account(request: Request, secret: LetsEncryptSecretModel,
             status_code=401, detail='Unauthorized'
         )
 
-    network = config.network
+    network = config.server.network
 
     dns_updates = network.dnsdb.create_update(
         auth.account_id, IdType.ACCOUNT, auth.remote_addr, secret=secret.secret

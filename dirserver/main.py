@@ -32,9 +32,10 @@ from .routers import account
 from byoda.util.logger import Logger
 from byoda import config
 
-# from byoda.datamodel import Server
+from byoda.datamodel import DirectoryServer
 from byoda.datamodel import Network
 
+from byoda.datastore import DnsDb
 
 _LOGGER = None
 
@@ -48,9 +49,18 @@ _LOGGER = Logger.getLogger(
     logfile=config.app_config['application'].get('logfile')
 )
 
-config.network = Network(
+server = DirectoryServer()
+server.network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
+server.load_secrets()
+server.network.load_services('./services/')
+server.network.dnsdb = DnsDb.setup(
+    config.app_config['dirserver']['dnsdb'], server.network.name
+)
+
+config.server = server
+config.network = server.network
 
 if not os.environ.get('SERVER_NAME') and config.network.name:
     os.environ['SERVER_NAME'] = config.network.name

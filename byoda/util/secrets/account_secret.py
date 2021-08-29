@@ -8,19 +8,24 @@ Cert manipulation for accounts and members
 
 import logging
 from uuid import UUID
+from typing import TypeVar
+from copy import copy
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
 from byoda.datatypes import IdType
-
 from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
+
 
 class AccountSecret(Secret):
-    def __init__(self, paths: Paths):
+    def __init__(self, account: str = 'pod', account_id: UUID = None,
+                 network: Network = None):
         '''
         Class for the network Account secret
 
@@ -30,22 +35,26 @@ class AccountSecret(Secret):
         :raises: (none)
         '''
 
+        self.account_id = account_id
+        if account_id and not isinstance(account_id, UUID):
+            self.account_id = UUID(account_id)
+
+        self.paths = copy(network.paths)
+        self.account = str(account)
+        self.paths.account = self.account
+        self.paths_account_id = self.account_id
+
         super().__init__(
-            cert_file=paths.get(Paths.ACCOUNT_CERT_FILE),
-            key_file=paths.get(Paths.ACCOUNT_KEY_FILE),
-            storage_driver=paths.storage_driver
+            cert_file=self.paths.get(Paths.ACCOUNT_CERT_FILE),
+            key_file=self.paths.get(Paths.ACCOUNT_KEY_FILE),
+            storage_driver=self.paths.storage_driver
         )
 
-        self.account_id = None
-        self.account_alias = paths.account
-        self.network = paths.network
-        self.ca = False
+        self.account = self.paths.account
+        self.network = network
         self.id_type = IdType.ACCOUNT
 
-    def create(self):
-        raise NotImplementedError
-
-    def create_csr(self, account_id: UUID) -> CertificateSigningRequest:
+    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -55,41 +64,30 @@ class AccountSecret(Secret):
         or cert
         '''
 
-        self.account_id = account_id
-        common_name = f'{self.account_id}.{self.id_type.value}.{self.network}'
+        if account_id:
+            self.account_id = account_id
+
+        if not self.network:
+            raise ValueError('Network not defined')
+
+        common_name = AccountSecret.create_fqdn(
+            self.account_id, self.network.name
+        )
 
         return super().create_csr(common_name, ca=self.ca)
 
-    def review_csr(self):
-        raise NotImplementedError
-
-    def review_commonname(self, commonname: str) -> UUID:
+    @staticmethod
+    def create_fqdn(account_id: UUID, network: str):
         '''
-        Checks if the structure of common name matches with a common name of
-        an AccountSecret. If so, it sets the 'account_id' property of the
-        instance to the UUID parsed from the commonname
-
-        :param commonname: the commonname to check
-        :returns: account uuid
-        :raises: ValueError if the commonname is not valid for this class
+        Returns the FQDN to use in the common name for the secret
         '''
 
-        # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        if not isinstance(account_id, UUID):
+            account_id = UUID(account_id)
 
-        bits = commonname_prefix.split('.')
-        if len(bits) > 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
+        if not isinstance(network, str):
+            raise ('Network parameter must be a string')
 
-        user_id, subdomain = bits[0:1]
-        if subdomain != 'accounts':
-            raise ValueError(f'commonname {commonname} is not for an account')
+        fqdn = f'{account_id}.{IdType.ACCOUNT.value}.{network}'
 
-        try:
-            uuid = UUID(user_id)
-        except ValueError:
-            raise ValueError(f'{user_id} is not a valid UUID')
-
-        self.account_id = uuid
-
-        return uuid
+        return fqdn

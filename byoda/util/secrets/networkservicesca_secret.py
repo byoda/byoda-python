@@ -7,39 +7,41 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 import logging
+from copy import copy
 
 from byoda.util import Paths
 
-from byoda.datatypes import EntityId, IdType
+from byoda.datatypes import EntityId, IdType, CsrSource
 
-from . import Secret, CSR
+from .secret import CSR
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkServicesCaSecret(Secret):
+class NetworkServicesCaSecret(CaSecret):
     def __init__(self, paths=None):
         '''
         Class for the network services issuing CA secret
 
-        :param Paths paths       : instance of Paths class defining the
-                                   directory structure and file names of a
-                                   BYODA network
+        :param Paths paths: instance of Paths class defining the directory
+        structure and file names of a BYODA network
         :returns: (none)
         :raises: (none)
         '''
 
+        self.paths = copy(paths)
         self.network = paths.network
+
         super().__init__(
-            cert_file=paths.get(Paths.NETWORK_SERVICES_CA_CERT_FILE),
-            key_file=paths.get(Paths.NETWORK_SERVICES_CA_KEY_FILE),
-            storage_driver=paths.storage_driver
+            cert_file=self.paths.get(Paths.NETWORK_SERVICES_CA_CERT_FILE),
+            key_file=self.paths.get(Paths.NETWORK_SERVICES_CA_KEY_FILE),
+            storage_driver=self.paths.storage_driver
         )
 
-        self.ca = True
         self.id_type = IdType.SERVICES_CA
 
-        self.csrs_accepted_for = 'service-issuing'
+        self.accepted_csrs = [IdType.SERVICE_CA]
 
     def create_csr(self) -> CSR:
         '''
@@ -50,15 +52,16 @@ class NetworkServicesCaSecret(Secret):
                             private key or cert
         '''
 
-        common_name = f'{IdType.SERVICES_CA.value}.{self.network}'
+        common_name = (
+            f'{self.id_type.value}.{self.id_type.value}.{self.network}'
+        )
 
         return super().create_csr(common_name, key_size=4096, ca=True)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
-        an ServiceCaSecret. If so, it sets the 'account_id' property of the
-        instance to the UUID parsed from the commonname
+        an ServiceCaSecret.
 
         :param commonname: the commonname to check
         :returns: services-ca entity
@@ -66,39 +69,13 @@ class NetworkServicesCaSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False, check_service_id=False
+        )
 
-        if not commonname_prefix.startswith(IdType.SERVICE_CA.value):
-            raise ValueError(
-                f'Service CA common name {commonname_prefix} does not start '
-                f'with "ca-"'
-            )
+        return entity_id
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
-
-        service_id, subdomain = bits
-
-        try:
-            id_type = IdType(subdomain)
-        except ValueError:
-            raise ValueError(f'Invalid subdomain {subdomain} in commonname')
-
-        if (id_type != IdType.SERVICE
-                or not service_id.startswith(IdType.SERVICE_CA.value)):
-            raise ValueError(f'commonname {commonname} is not for a ServiceCA')
-
-        service_id = service_id[len(IdType.SERVICE_CA.value):]
-        if not service_id.isdigit():
-            raise ValueError(
-                f'Service dentifier in {commonname} must be all-digits: '
-                f'{service_id}'
-            )
-
-        return EntityId(id_type, None, service_id)
-
-    def review_csr(self, csr):
+    def review_csr(self, csr: CSR, source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs from people wanting to register a service are
         permissable. Note that this function does not check whether the
@@ -112,10 +89,6 @@ class NetworkServicesCaSecret(Secret):
                                   is not valid in the CSR for signature by this
                                   CA
         '''
-
-        if not self.private_key_file:
-            _LOGGER.exception('CSR received while we are not a CA')
-            raise ValueError('CSR received while we are not a CA')
 
         commonname = super().review_csr(csr)
 

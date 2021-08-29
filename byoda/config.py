@@ -10,19 +10,45 @@ provides global variables
 
 import requests
 
+DEFAULT_NETWORK = 'byoda.net'
+
+# Used by logging to add extra data to each log record,
+# typically using the byoda.util.logger.flask_log_fields
+# decorator
+# After importing config, you can also set, for example,
+# config.extra_log_data['remote_addr'] = client_ip
+extra_log_data = {}
+
 # This stores the contents of the config.yml file
 app_config = None
 
 # The networks known by this server, as defined in the
 # server config.yml file. The keys for the networks
 # are the 'network identifiers' (so an integer number),
-# the values are the name of those net
+# the values are the name of those networks
 networks = {}
+
+# The services of a network. The source of this information
+# will be the directory server of the network
+services = {}
+
+# The service memberships of an account
+memberships = {}
 
 # The configuration of the server, its peers and the networks
 # it is supporting
 server = None
 
+# The pod access the document store to read and write
+# data for the subscribed services
+document_store = None
+
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()
+
+# Global variables for the main entities
+network = None
+service = None
+account = None
+server = None

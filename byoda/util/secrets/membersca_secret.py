@@ -8,27 +8,35 @@ Service secret
 '''
 
 import logging
-from uuid import UUID
+from copy import copy
+from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret
+from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
 
-class MembersCaSecret(Secret):
-    def __init__(self, service: str, paths: Paths = None, network: str = None):
+
+class MembersCaSecret(CaSecret):
+    ACCEPTED_CSRS = [IdType.MEMBER, IdType.MEMBER_DATA]
+
+    def __init__(self, service: str, service_id: int,
+                 network: Network):
         '''
         Class for the Service Members CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
-        :param service: the label for the service
+
+        The first two levels of a commmon name for a member should be:
+            {member_id}.members-ca-{service_id}
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
         :param service: label for the service
@@ -41,24 +49,28 @@ class MembersCaSecret(Secret):
         :raises: (none)
         '''
 
-        self.network = paths.network
-        self.service = paths.service
+        self.network = str(network.name)
+        self.service_id = int(service_id)
+        self.service = str(service)
+
+        self.paths = copy(network.paths)
+        self.paths.service_id = self.service_id
 
         super().__init__(
-            cert_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_alias=service
+            cert_file=self.paths.get(
+                Paths.SERVICE_MEMBERS_CA_CERT_FILE, service_id=service_id
             ),
-            key_file=paths.get(
-                Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_alias=service
+            key_file=self.paths.get(
+                Paths.SERVICE_MEMBERS_CA_KEY_FILE, service_id=service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
-        self.ca = True
+
         self.id_type = IdType.MEMBERS_CA
 
-        self.csrs_accepted_for = ('member')
+        self.accepted_csrs = MembersCaSecret.ACCEPTED_CSRS
 
-    def create_csr(self, service_id: int) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -68,8 +80,9 @@ class MembersCaSecret(Secret):
                                 a private key or cert
         '''
 
+        name = self.id_type.value.rstrip('-')
         common_name = (
-            f'{self.id_type.value}{service_id}.{IdType.SERVICE.value}.'
+            f'{name}.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
 
@@ -78,8 +91,7 @@ class MembersCaSecret(Secret):
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
-        an MemberSecret. If so, it sets the 'account_id' property of the
-        instance to the UUID parsed from the commonname
+        an MemberSecret.
 
         :param commonname: the commonname to check
         :returns: entity parsed from the commonname
@@ -87,42 +99,30 @@ class MembersCaSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(commonname)
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
+        return entity_id
 
-        value, subdomain = bits
-        try:
-            id_type = IdType(subdomain)
-        except ValueError:
-            raise ValueError(f'{commonname_prefix} has an invalid subdomain')
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str,
+                                        service_id: int) -> EntityId:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
 
-        if id_type != IdType.MEMBER:
-            raise ValueError(f'commonname {commonname} is not for a member')
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
 
-        # Now we're left with {member_id:UUID}_{service_id:int}
-        divider = value.rfind('_')
-        if not divider:
-            raise ValueError(
-                'No underscore in prefix in commonname {commonname_prefix}'
-            )
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, MembersCaSecret.ACCEPTED_CSRS,
+            service_id=service_id, uuid_identifier=True, check_service_id=True
+        )
 
-        identifier, service_id = value.split('_')
-        try:
-            self.member_id = UUID(identifier)
-        except ValueError:
-            raise ValueError(f'{identifier} does not have a valid MemberID')
+        return entity_id
 
-        try:
-            self.service_id = int(service_id)
-        except ValueError:
-            raise ValueError(f'{identifier} does not have a valid ServiceID')
-
-        return EntityId(IdType.MEMBER, self.member_id, self.service_id)
-
-    def review_csr(self, csr: CertificateSigningRequest) -> EntityId:
+    def review_csr(self, csr: CertificateSigningRequest,
+                   source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs for registering service member are permissable.
 

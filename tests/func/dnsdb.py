@@ -16,6 +16,7 @@ import dns.resolver
 from sqlalchemy import delete, or_
 
 from byoda.util import Logger
+from byoda.config import DEFAULT_NETWORK
 
 from byoda.datatypes import IdType
 from byoda.datastore.dnsdb import DnsRecordType
@@ -24,14 +25,14 @@ from byoda.datastore.dnsdb import DnsDb
 
 
 TEST_DIR = '/tmp/byoda-func-test-secrets'
-NETWORK = 'byoda.net'
+NETWORK = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
 
 TEST_SERVICE_ID = 4294967295
 TEST_UUID = 'd5c35a25-f171-4f0b-8d2f-d0808f40d0fd'
 TEST_FIRST_IP = '10.255.255.254'
 TEST_SECOND_IP = '10.255.255.253'
-TEST_NETWORK = 'byoda.net'
+TEST_NETWORK = DEFAULT_NETWORK
 
 
 class TestDnsDb(unittest.TestCase):
@@ -53,7 +54,7 @@ class TestDnsDb(unittest.TestCase):
             None, IdType.SERVICE, service_id=service_id
         )
         self.assertEqual(
-            service_fqdn, f'{str(service_id)}.services.{TEST_NETWORK}'
+            service_fqdn, f'service.service-{str(service_id)}.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):
@@ -83,7 +84,7 @@ class TestDnsDb(unittest.TestCase):
         uuid = uuid4()
         member = dnsdb.compose_fqdn(uuid, IdType.MEMBER, service_id=service_id)
         self.assertEqual(
-            member, f'{str(uuid)}_{service_id}.members.{TEST_NETWORK}'
+            member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):

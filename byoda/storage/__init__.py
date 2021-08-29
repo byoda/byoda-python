@@ -9,5 +9,6 @@ The profile server uses NoSQL storage for profile data
 :license    : GPLv3
 '''
 
-from .storage import CacheStorage, CacheStorageType     # noqa
-from .aws import AwsFileStorage                       # noqa
+from .cachestorage import CacheStorage, CacheStorageType      # noqa
+from .aws import AwsFileStorage                               # noqa
+from .filestorage import FileStorage                          # noqa

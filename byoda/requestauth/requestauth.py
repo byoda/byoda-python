@@ -11,8 +11,24 @@ from enum import Enum
 
 from fastapi import HTTPException
 
-
 from ipaddress import ip_address as IpAddress
+
+from starlette.authentication import (
+    AuthenticationBackend, AuthenticationError, BaseUser,
+    AuthCredentials
+)
+from starlette.requests import Request as StarletteRequest
+
+from byoda.datamodel import Network
+from byoda.datatypes import IdType, HttpRequestMethod
+
+from byoda.util.secrets import (
+    MembersCaSecret,
+    ServiceCaSecret,
+    NetworkAccountsCaSecret,
+    NetworkRootCaSecret,
+    NetworkServicesCaSecret,
+)
 
 from byoda.exceptions import NoAuthInfo
 
@@ -23,16 +39,56 @@ class TlsStatus(str, Enum):
     '''
     TLS status as reported by nginx variable 'ssl_client_verify':
     http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
+    Nginx ssl_verify_client is configured for 'optional' or 'on'. M-TLS client
+    certs must always be signed as we do not configure 'optional_no_ca' so
+    'FAILED' requests should never make it to the application service
     '''    # noqa
 
     NONE        = 'NONE'        # noqa: E221
     SUCCESS     = 'SUCCESS'     # noqa: E221
+    FAILED      = 'FAILED'      # noqa: E221
+
+
+class MTlsAuthBackend(AuthenticationBackend):
+    async def authenticate(self, request: StarletteRequest):
+        try:
+            tls_status = request.headers['X-Client-SSL-Verify']
+            client_dn = request.headers['X-Client-SSL-Subject']
+            issuing_ca_dn = request.headers['X-Client-SSL-Issuing-CA']
+        except KeyError:
+            return
+
+        try:
+            # BUG: Starlette does not support request.method attribute
+            method = HttpRequestMethod(request['method'])
+            auth = RequestAuth.authenticate(
+                tls_status, client_dn, issuing_ca_dn, request.client.host,
+                method
+            )
+        except HTTPException as exc:
+            raise AuthenticationError(exc.detail)
+
+        return (
+            AuthCredentials(['authenticated']),
+            ByodaUser(auth.id, auth.id_type)
+        )
+
+
+class ByodaUser(BaseUser):
+    '''
+    Class used for implementing starlette.AuthenticationBackend interface
+    '''
+    def __init__(self, id: str, id_type: IdType):
+        self.id = str(id)
+        self.id_type = id_type
+        # self.is_authenticated = True
+        # self.display_name = self.id
 
 
 class RequestAuth():
     '''
     Three classes derive from this class:
-      - AccountRequestAuth
+      - AccountRequestAuthFast
       - MemberRequestAuth
       - ServiceRequestauth
 
@@ -48,6 +104,7 @@ class RequestAuth():
       - remote_addr     : the remote_addr as it connected to the reverse proxy
       - id_type         : whether the authentication was for an Account,
                           Member or Service secret
+      - id              : id of either the account, member or service
       - client_cn       : the common name of the client cert
       - issuing_ca_cn   : the common name of the CA that signed the cert
       - account_id      : the account_id parsed from the CN of the account cert
@@ -106,15 +163,14 @@ class RequestAuth():
         presented TLS client cert
         information in the request for authentication
         :returns: (n/a)
-        :raises: ValueError if the no authentication is available and the
-        parameter 'required' has a value of True. AuthFailure if authentication
-        was provided but is incorrect, regardless of the value of the
-        'required' parameter
+        :raises: NoAuthInfo if the no authentication, AuthFailure if
+        authentication was provided but is incorrect
         '''
 
         self.is_authenticated = False
         self.remote_addr = remote_addr
 
+        self.id_type = None
         self.client_cn = None
         self.issuing_ca_cn = None
         self.account_id = None
@@ -143,20 +199,173 @@ class RequestAuth():
         else:
             raise NoAuthInfo
 
-        if (self.client_cn and ((self.client_cn == self.issuing_ca_cn)
-                                or not self.issuing_ca_cn)):
-            # Somehow a self-signed cert made it through the certchain check
-            _LOGGER.warning(
-                'Misformed cert was proxied by reverse proxy, Client DN: '
-                f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f'Client provided a self-signed or unsigned cert: '
-                    f'{client_dn}'
+        if self.client_cn:
+            if self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn:
+                # Somehow a self-signed cert made it through the certchain
+                # check
+                _LOGGER.warning(
+                    'Misformed cert was proxied by reverse proxy, Client DN: '
+                    f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
                 )
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f'Client provided a self-signed or unsigned cert: '
+                        f'{client_dn}'
+                    )
+                )
+            parts = self.client_cn.split('.')
+            if len(parts) < 4:
+                raise HTTPException(
+                    detail=(
+                        f'Invalid CommonName in client cert: {self.client_cn}'
+                    )
+                )
+
+            self.id_type = IdType(parts[1])
+            self.id = parts[0]
+
+    @staticmethod
+    def authenticate(tls_status: TlsStatus,
+                     client_dn: str, issuing_ca_dn: str,
+                     remote_addr: IpAddress, method: HttpRequestMethod):
+
+        id_type = RequestAuth.get_idtype(client_dn)
+        if id_type == IdType.ACCOUNT:
+            from .accountrequest_auth import AccountRequestAuth
+            auth = AccountRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
             )
+        elif id_type == IdType.MEMBER:
+            from .memberrequest_auth import MemberRequestAuth
+            auth = MemberRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
+            )
+        elif id_type == IdType.SERVICE:
+            from .servicerequest_auth import ServiceRequestAuth
+            auth = ServiceRequestAuth(
+                tls_status, client_dn, issuing_ca_dn, remote_addr, method
+            )
+        else:
+            raise ValueError(
+                f'Invalid authentication type in common name {client_dn}'
+            )
+
+        return auth
+
+    def check_account_cert(self, network: Network,
+                           required: bool = True) -> None:
+        '''
+        Checks whether the M-TLS client cert is a properly signed
+        Account cert
+
+        :raises: HttpException if
+        '''
+
+        if required and (self.client_cn is None or self.issuing_ca_cn is None):
+            raise HTTPException(
+                status_code=400, detail='CA-signed client cert is required'
+            )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Account certs get signed by the Network Accounts CA
+            entity_id = \
+                NetworkAccountsCaSecret.review_commonname_by_parameters(
+                    self.client_cn, network.name
+                )
+            self.account_id = entity_id.id
+
+            # Network Accounts CA cert gets signed by root CA of the
+            # network
+            NetworkRootCaSecret.review_commonname_by_parameters(
+                self.issuing_ca_cn, network.name
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} on network '
+                    f'{network.name}'
+                )
+            ) from exc
+
+    def check_member_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the M-TLS client certificate was signed the cert chain
+        for members of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Member cert gets signed by Service Member CA
+            member_ca_secret = MembersCaSecret(
+                service_id, network=network.name
+            )
+            entity_id = member_ca_secret.review_commonname(self.client_cn)
+            self.member_id = entity_id.id
+            self.service_id = entity_id.service_id
+
+            # The Member CA cert gets signed by the Service CA
+            service_ca_secret = ServiceCaSecret(
+                None, service_id, network=network
+            )
+            service_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'network {network.name}'
+                )
+            ) from exc
+
+    def check_service_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the MTLS client certificate was signed the cert chain
+        for members of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        try:
+            # Service secret gets signed by Service CA
+            service_ca_secret = ServiceCaSecret(
+                None, service_id, network=network
+            )
+            entity_id = service_ca_secret.review_commonname(self.client_cn)
+            self.service_id = entity_id.service_id
+
+            # Service CA secret gets signed by Network Services CA
+            networkservices_ca_secret = NetworkServicesCaSecret(
+                network=network.name
+            )
+            networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'network {network.name}'
+                )
+            ) from exc
 
     @staticmethod
     def get_commonname(dname: str) -> str:
@@ -174,6 +383,35 @@ class RequestAuth():
             if keyvalue.startswith('CN='):
                 commonname = keyvalue[(len('CN=')):]
                 return commonname
+
+        raise HTTPException(
+            status_code=403,
+            detail=f'Invalid format for distinguished name: {dname}'
+        )
+
+    @staticmethod
+    def get_idtype(dname: str) -> IdType:
+        '''
+        Extracts the IdType from a distinguished name in a x.509
+        certificate
+
+        :param dname: x509 distinguished name
+        :returns: commonname
+        :raises: ValueError if the commonname could not be extracted
+        '''
+
+        bits = dname.split(',')
+        for keyvalue in bits:
+            if keyvalue.startswith('CN='):
+                commonname = keyvalue[(len('CN=')):]
+                commonname_bits = commonname.split('.')
+                if len(commonname_bits) < 4:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f'Invalid common name {commonname}'
+                    )
+                idtype = IdType(commonname_bits[1])
+                return idtype
 
         raise HTTPException(
             status_code=403,

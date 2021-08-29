@@ -1,17 +1,49 @@
 {
     "name": "default",
     "service_id": 0,
-    "data" : [
-        {
-            "context": {
-                "givenName": { "@id": "http://schema.org/givenName", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "additionalName": {"@id": "http://schema.org/additionalName", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "familyName": {"@id": "http://schema.org/familyName", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "email": {"@id": "https://schema.org/Text", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "homepage": {"@id": "https://schema.org/url", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "avatar": {"@id": "https://schema.org/url", "@type": "@id", "#storage": "pod", "#access": "account"},
-                "homeaddress": {"@id": "https://schema.org/PostalAddress", "@type": "@id", "#storage": "pod", "#access": "account"}
+    "service_signature": "",
+    "schema": {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "$id": "https://uuid.services.byoda.net/profile",
+        "title": "default service",
+        "description": "This is the default service of each network, storing only private data",
+        "type": "object",
+        "required": [
+            "given_name",
+            "family_name",
+            "email"
+        ],
+        "properties": {
+            "#encrypted": {
+                "encrypted_sharedsecret": "blah"
+            },
+            "givenName": {
+                "type": "string",
+                "access": "private",
+                "description": "Your first given name"
+            },
+            "additionalNames": {
+                "type": "string",
+                "access": "private",
+                "description": "Any middle names"
+            },
+            "familyName": {
+                "type": "string",
+                "access": "private",
+                "description": "Your surname"
+            },
+            "email": {
+                "type": "string",
+                "access": "private"
+            },
+            "homepageUrl": {
+                "type": "string",
+                "access": "private"
+            },
+            "avatarUrl": {
+                "type": "string",
+                "access": "private"
             }
         }
-    ]
+    }
 }

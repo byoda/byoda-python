@@ -1,7 +1,8 @@
 {
     "name": "addressbook",
     "service_id": 1,
-    "data" : [
+    "service_signature": "",
+    "schema" : [
         {
             "context": {
                 "givenName": { "@id": "http://schema.org/givenName", "@type": "@id", "#storage": "pod", "#access": "account"},

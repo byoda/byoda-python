@@ -8,48 +8,51 @@ Service secret
 '''
 
 import logging
+from copy import copy
+from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
 
 from . import Secret
 
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network', bound='Network')
+
 
 class ServiceSecret(Secret):
-    def __init__(self, service: str, paths: Paths):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the service secret
 
-        :param str service_alias: short name for the service
         :param Paths paths: instance of Paths class defining the directory,
         structure and file names of a BYODA network
         :returns: (none)
         :raises: (none)
         '''
 
-        self.network = paths.network
-        self.service = service
-        self.service_id = None
+        self.paths = copy(network.paths)
+        self.network = network.name
+        self.service = str(service)
+        self.service_id = int(service_id)
 
         super().__init__(
-            cert_file=paths.get(
-                Paths.SERVICE_CERT_FILE, service_alias=service
+            cert_file=self.paths.get(
+                Paths.SERVICE_CERT_FILE, service_id=self.service_id
             ),
-            key_file=paths.get(
-                Paths.SERVICE_KEY_FILE, service_alias=service
+            key_file=self.paths.get(
+                Paths.SERVICE_KEY_FILE, service_id=self.service_id
             ),
-            storage_driver=paths.storage_driver
+            storage_driver=self.paths.storage_driver
         )
-        self.ca = False
         self.id_type = IdType.SERVICE
 
-    def create_csr(self, service_id: int) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -59,14 +62,14 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = f'{service_id}.{self.id_type.value}.{self.network}'
+        common_name = ServiceSecret.create_fqdn(self.service_id, self.network)
 
         return super().create_csr(common_name, ca=self.ca)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
-        an AccountSecret and returns the entity identifier parsed from
+        an ServiceSecret and returns the entity identifier parsed from
         the commonname
 
         :param commonname: the commonname to check
@@ -75,25 +78,20 @@ class ServiceSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(commonname)
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
+        return entity_id
 
-        service_id, subdomain = bits[0:1]
-        id_type = IdType(subdomain)
-        if id_type != IdType.SERVICE:
-            raise ValueError(f'commonname {commonname} is not for a service')
+    @staticmethod
+    def create_fqdn(service_id: int, network: str):
+        '''
+        Returns FQDN to use in the common name of a secret
+        '''
 
-        try:
-            service_id = int(service_id)
-        except ValueError:
-            raise ValueError(f'{service_id} is not a valid service_id')
+        service_id = int(service_id)
+        if not isinstance(network, str):
+            raise ('Network parameter must be a string')
 
-        self.service_id = service_id
+        fqdn = f'service.{IdType.SERVICE.value}{service_id}.{network}'
 
-        return EntityId(IdType.SERVICE, None, self.service_id)
-
-    def review_csr(self, csr, source=CsrSource.WEBAPI):
-        raise NotImplementedError
+        return fqdn

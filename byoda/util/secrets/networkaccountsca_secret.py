@@ -7,19 +7,22 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 import logging
-from uuid import UUID
+from copy import copy
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType, EntityId, CsrSource
 
-from . import Secret, CSR
+from .ca_secret import CaSecret
+from .secret import CSR
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class NetworkAccountsCaSecret(Secret):
-    def __init__(self, paths: Paths = None, network=None):
+class NetworkAccountsCaSecret(CaSecret):
+    ACCEPTED_CSRS = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
+
+    def __init__(self, paths: Paths = None, network: str = None):
         '''
         Class for the network account CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -33,21 +36,25 @@ class NetworkAccountsCaSecret(Secret):
         :raises: ValueError if both paths and network are defined
         '''
 
+        if paths and network:
+            raise ValueError('Either paths or network parameters must be set')
+
         if paths:
+            self.paths = copy(paths)
             self.network = paths.network
             super().__init__(
-                cert_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
-                key_file=paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
-                storage_driver=paths.storage_driver,
+                cert_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
+                key_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
+                storage_driver=self.paths.storage_driver,
             ),
         else:
             super().__init__()
             self.network = network
+            self.paths = None
 
-        self.ca = True
         self.id_type = IdType.ACCOUNTS_CA
 
-        self.csrs_accepted_for = ('account')
+        self.accepted_csrs = NetworkAccountsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CSR:
         '''
@@ -59,7 +66,9 @@ class NetworkAccountsCaSecret(Secret):
 
         '''
 
-        commonname = f'{self.id_type.value}.{self.network}'
+        commonname = (
+            f'{self.id_type.value}.{self.id_type.value}.{self.network}'
+        )
 
         return super().create_csr(commonname, key_size=4096, ca=self.ca)
 
@@ -69,37 +78,37 @@ class NetworkAccountsCaSecret(Secret):
         an AccountSecret. If so, it sets the 'account_id' property of the
         instance to the UUID parsed from the commonname
 
-        :param commonname: the commonname to check
-        :returns: account entity
+        :param commonname: the CN to check
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class
         '''
 
         # Checks on commonname type and the network postfix
-        commonname_prefix = super().review_commonname(commonname)
+        entity_id = super().review_commonname(
+            commonname, uuid_identifier=False, check_service_id=False
+        )
 
-        bits = commonname_prefix.split('.')
-        if len(bits) != 2:
-            raise ValueError(
-                f'Invalid common name structure {commonname_prefix}'
-            )
+        return entity_id
 
-        (account_id, subdomain) = bits
-        try:
-            account_id = UUID(account_id)
-        except ValueError:
-            raise ValueError(
-                f'Commmonname {commonname_prefix} does not start with a UUID'
-            )
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str
+                                        ) -> EntityId:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
 
-        if IdType(subdomain) != IdType.ACCOUNT:
-            raise ValueError(
-                f'commonname {commonname} has incorrect subdomain'
-            )
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
 
-        return EntityId(IdType.ACCOUNT, account_id, None)
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, NetworkAccountsCaSecret.ACCEPTED_CSRS,
+            uuid_identifier=True, check_service_id=False
+        )
 
-    def review_csr(self, csr: CSR) -> EntityId:
+        return entity_id
+
+    def review_csr(self, csr: CSR, source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs from people wanting to register an account are
         permissable.
