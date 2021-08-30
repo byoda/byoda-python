@@ -51,6 +51,7 @@ class TestGraphQL(unittest.TestCase):
             '''
                 query {
                     givenName(name: "Steven")
+                    email(name: "stevenhessing@live.com")
                 }
             '''
         )
