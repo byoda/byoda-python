@@ -11,12 +11,15 @@ Test cases for json schema
 import sys
 import json
 import unittest
+import logging
 
 import fastjsonschema
 
 from byoda.util import Logger
 
 from byoda.datamodel import DataObject, Schema
+
+_LOGGER = logging.getLogger(__name__)
 
 DEFAULT_SCHEMA = 'services/default.json'
 

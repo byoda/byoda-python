@@ -18,7 +18,7 @@ from byoda import config
 from byoda.datatypes import IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import NoAuthInfo
+from byoda.exceptions import MissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class PodRequestAuth(RequestAuth):
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
                 x_client_ssl_issuing_ca, request.client.host
             )
-        except NoAuthInfo:
+        except MissingAuthInfo:
             raise HTTPException(
                 status_code=400, detail='No authentication provided'
             )

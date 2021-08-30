@@ -18,7 +18,7 @@ from byoda.config import server
 from byoda.datatypes import HttpRequestMethod
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import NoAuthInfo
+from byoda.exceptions import MissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class AccountRequestAuth(RequestAuth):
             super().__init__(
                 tls_status, client_dn, issuing_ca_dn, remote_addr
             )
-        except NoAuthInfo:
+        except MissingAuthInfo:
             # Authentication for GET/POST /api/v1/network/account is optional
             if method in (HttpRequestMethod.GET, HttpRequestMethod.POST):
                 return

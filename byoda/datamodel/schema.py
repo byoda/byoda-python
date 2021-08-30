@@ -21,7 +21,7 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
-    def __init__(self, jsonschema_filename):
+    def __init__(self, jsonschema_filepath):
         '''
         Construct a schema
         '''
@@ -40,7 +40,7 @@ class Schema:
         # This is a callable to validate data against the schema
         self.validate = None
 
-        self.load(jsonschema_filename)
+        self.load(jsonschema_filepath)
 
     def load(self, filepath):
         '''

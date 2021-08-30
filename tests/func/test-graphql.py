@@ -17,7 +17,9 @@ import unittest
 
 from gql import Client
 from gql import gql
-from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.requests import RequestsHTTPTransport
+# this is for GQL 3.x
+# from gql.transport.aiohttp import AIOHTTPTransport
 
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
@@ -27,9 +29,10 @@ BASE_URL = 'http://localhost:8001/api'
 
 uuid = uuid4()
 
-TRANSPORT = AIOHTTPTransport(
+TRANSPORT = RequestsHTTPTransport(
     url=BASE_URL + '/v1/data/service-0',
     timeout=60,
+    use_json=True,
     headers={
         'X-Client-SSL-Verify': 'SUCCESS',
         'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
