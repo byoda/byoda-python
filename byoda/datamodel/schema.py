@@ -10,13 +10,13 @@ import json
 
 from types import ModuleType
 
-from jinja2 import Template
+import jinja2
 
 import fastjsonschema
 
 
 MAX_SCHEMA_SIZE = 1000000
-SCHEMA_TEMPLATE = 'podserver/files/graphene_schema.jinja2'
+SCHEMA_TEMPLATE = 'podserver/files'
 CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
@@ -78,12 +78,11 @@ class Schema:
           instance
         '''
 
-        with open(SCHEMA_TEMPLATE) as file_desc:
-            template = Template(
-                file_desc.read(),
-                trim_blocks=True,
-                autoescape=True
-            )
+        loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
+        environment = jinja2.Environment(
+            loader=loader, trim_blocks=True, autoescape=True
+        )
+        template = environment.get_template('graphene_schema.jinja2')
 
         code_filename = (
             f'{CODEGEN_DIRECTORY}/service_{self.service_id}_graphql.py'
