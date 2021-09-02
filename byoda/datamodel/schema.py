@@ -7,8 +7,9 @@ Class for modeling the (JSON) schema to validating data
 '''
 
 import json
-
+from typing import List, Dict
 from types import ModuleType
+from collections import OrderedDict
 
 import jinja2
 
@@ -73,23 +74,29 @@ class Schema:
         Generates code to enable GraphQL schema to be generated using Graphene.
         The logic is:
         - we start with the json parsed (not the jsonschema) by Schema.load()
-        - we call a Jinja2 template to generate source code in a python
+        - we call a Jinja template to generate source code in a python
         - we execute the generated source code and extract the resulting
           instance
         '''
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
         environment = jinja2.Environment(
-            loader=loader, trim_blocks=True, autoescape=True
+            loader=loader,
+            extensions=['jinja2.ext.do', 'jinja2.ext.loopcontrols'],
+            trim_blocks=True,
+            autoescape=True
         )
-        template = environment.get_template('graphene_schema.jinja2')
+        template = environment.get_template('graphene_schema.jinja')
 
         code_filename = (
             f'{CODEGEN_DIRECTORY}/service_{self.service_id}_graphql.py'
         )
+
+        classes = self.get_graphene_classes()
+
         code = template.render(
             service_id=self.service_id,
-            schema=self.schema_data['schema']
+            classes=classes
         )
 
         with open(code_filename, 'w') as file_desc:
@@ -108,3 +115,26 @@ class Schema:
 
         # Here we can the function of the module to extract the schema
         self.gql_schema = module.get_schema()
+
+    def get_graphene_classes(self) -> List[Dict[str, Dict]]:
+        '''
+        Finds all objects in the JSON schema for which we will
+        need to generated classes that are derived from Graphene.ObjectType
+        class
+        '''
+
+        properties = self.schema_data['schema']['properties']
+        classes = OrderedDict({'Query': properties})
+
+        self._get_graphene_classes(classes, properties)
+
+        return classes
+
+    def _get_graphene_classes(self, classes: List[Dict[str, object]],
+                              properties: Dict):
+        for field, field_properties in properties.items():
+            if field_properties.get('type') == 'object':
+                classes.update({field: field_properties['properties']})
+                self._get_graphene_classes(
+                    classes, field_properties['properties']
+                )

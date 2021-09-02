@@ -25,6 +25,7 @@ NGINX_PID_FILE = '/run/nginx.pid'
 
 HTACCESS_FILE = '/etc/nginx/htaccess.db'
 
+
 class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  id_type: IdType, alias: str, network: str,

@@ -12,8 +12,9 @@
 {% else %}
 ERROR: {{ field_properties['type'] }} not a valid type
 {% endif %}
-   {{ (field_stack|length - 1) * 4 * ' ' + field }} = {{ scalar_type }}(
+    {{ field }} = {{ scalar_type }}(
 {% if field_properties['default'] %}
-        {{ (len(field_stack)-1) * 4 * ' ' }}name={{ scalar_type }}(default_value="{{ field_properties['default'] }} ))")
-    )
+        name={{ scalar_type }}(default_value="{{ field_properties['default'] }} ))"),
 {% endif %}
+    )
+

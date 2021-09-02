@@ -61,6 +61,8 @@
                 "--proxy-headers"
             ],
             "console": "integratedTerminal",
+            "jinja": true,
+            "justMyCode": true,
             "env": {
                 "CLOUD": "LOCAL",
                 "BUCKET_PREFIX": "byoda",
