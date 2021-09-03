@@ -34,9 +34,9 @@ class Schema:
 
         # This is the original JSON data from the
         # schema file
-        self.schema_data = None
+        self.schema_data = []
 
-        self.gql_schema = None
+        self.gql_schema = []
 
         # This is a callable to validate data against the schema
         self.validate = None

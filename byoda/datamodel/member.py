@@ -7,7 +7,7 @@ Class for modeling an account on a network
 '''
 
 import logging
-# import json
+
 from uuid import uuid4
 from copy import copy
 from typing import TypeVar, Callable
@@ -39,29 +39,19 @@ class Member:
 
         self.member_id = None
         self.service_id = int(service_id)
-
-        self.service = Service(
-            network=account.network
-        )
-        self.service.service_id = service_id
-
         self.account = account
         self.network = self.account.network
+
+        if service_id not in self.network.services:
+            raise ValueError(f'Service {service_id} not found')
+
+        self.service = self.network.services[service_id]
 
         self.paths = copy(self.network.paths)
 
         self.private_key_password = account.private_key_password
         self.tls_secret = None
         self.data_secret = None
-
-        # self.service_file = self.paths.get(
-        #     self.paths.MEMBER_SERVICE_FILE, service_id=service_id
-        # )
-        # self.service_description = self.paths.storage_driver.get(
-        #     self.service_file
-        # )
-
-        # self.service_schema = json.loads(self.service_description)
 
     @staticmethod
     def create(service: Service, account: Account, members_ca:
@@ -153,3 +143,23 @@ class Member:
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
+
+    def load_data(self):
+        '''
+        Loads the data stored for the membership
+        '''
+
+        try:
+            data = self.account.document_store.read(
+                self.paths.get(
+                    self.paths.MEMBER_DATA_FILE, service_id=self.service_id
+                )
+            )
+            self.service.validate(data)
+        except OSError:
+            _LOGGER.error(
+                f'Unable to read data file for service {self.service_id}'
+            )
+            data = None
+
+        return data

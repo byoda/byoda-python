@@ -20,6 +20,10 @@
             "person": {
                 "type": "object",
                 "properties": {
+                  "member_id": {
+                        "type": "string",
+                        "description": "Membership UUID"
+                  },
                   "givenName": {
                         "type": "string",
                         "access": "private",

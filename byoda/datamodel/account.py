@@ -6,7 +6,6 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-import os
 import logging
 from uuid import UUID
 from typing import TypeVar, Callable
@@ -24,6 +23,8 @@ from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import AccountDataSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import MembersCaSecret
+
+from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,10 @@ class Account:
             except ValueError:
                 raise (f'AccountID {account_id} is not a valid UUID')
 
+        self.document_store = None
+        if hasattr(config.server, 'document_store'):
+            self.document_store = config.server.document_store
+
         self.memberships = dict()
 
         self.network = network
@@ -72,12 +77,7 @@ class Account:
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
 
-        for directory in os.listdir(self.paths.get(self.paths.ACCOUNT_DIR)):
-            if not directory.startswith('service-'):
-                continue
-            service_id = directory[8:]
-
-            self.add_membership(service_id=service_id)
+        self.load_memberships()
 
     def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
@@ -189,9 +189,19 @@ class Account:
         )
         self.data_secret.load(password=self.private_key_password)
 
-    def add_membership(self, service_id: int) -> Member:
+    def load_memberships(self):
+        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
+        folders = self.document_store.get_folders(
+            memberships_dir, prefix='service-'
+        )
+
+        for folder in folders:
+            service_id = int(folder[8:])
+            self.load_membership(service_id=service_id)
+
+    def load_membership(self, service_id: int) -> Member:
         '''
-        Add the membership of a service to the account
+        Load the data for a membership of a service
         '''
 
         if service_id in self.memberships:
@@ -200,6 +210,7 @@ class Account:
             )
 
         member = Member(service_id, self)
+        member.load_data()
 
         self.memberships[service_id] = member
 

@@ -9,7 +9,7 @@ Class for modeling a service on a social network
 from __future__ import annotations
 
 import logging
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Dict
 from copy import copy
 
 from byoda.datatypes import CsrSource
@@ -344,3 +344,10 @@ class Service:
             self.data_secret.load(
                 with_private_key=with_private_key, password=password
             )
+
+    def validate(self, data: Dict):
+        '''
+        Validates the data against the json schema for the service
+        '''
+
+        self.schema.validate(data)

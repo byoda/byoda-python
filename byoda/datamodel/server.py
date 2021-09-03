@@ -33,6 +33,7 @@ class Server:
         self.account = None
         self.document_store = None
         self.cloud = None
+        self.paths = None
 
     def load_secrets(self, password: str = None):
         '''
@@ -85,4 +86,3 @@ class DirectoryServer(Server):
         Loads the secrets used by the directory server
         '''
         self.network.load_secrets()
-

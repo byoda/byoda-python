@@ -51,7 +51,8 @@ LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
-server = PodServer()
+config.server = PodServer()
+server = config.server
 
 network_data = {
     'cloud': CloudType(os.environ.get('CLOUD', 'LOCAL')),
@@ -74,6 +75,14 @@ _LOGGER = Logger.getLogger(
     loglevel=network_data['loglevel'], logfile=LOG_FILE
 )
 
+
+server.set_document_store(
+    DocumentStoreType.OBJECT_STORE,
+    cloud_type=CloudType(network_data['cloud']),
+    bucket_prefix=network_data['bucket_prefix'],
+    root_dir=network_data['root_dir']
+)
+
 # TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
 # web interface
 # tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)
@@ -84,6 +93,7 @@ _LOGGER = Logger.getLogger(
 
 network = Network(network_data, network_data)
 server.network = network
+server.paths = network.paths
 server.account = network.load_account(
     network_data['account_id'], load_tls_secret=True
 )
@@ -103,6 +113,7 @@ except Exception:
     server.account.paths.create_account_directory()
     server.account.create_secrets()
 
+
 # Save private key to ephemeral storage so that we can use it for:
 # - NGINX virtual server for account
 # - requests module for outbound API calls
@@ -118,12 +129,6 @@ cert = (server.account.tls_secret.cert_file, key_file)
 resp = requests.get(api, cert=cert)
 _LOGGER.debug(f'Registered account with directory server: {resp.status_code}')
 
-server.set_document_store(
-    DocumentStoreType.OBJECT_STORE,
-    cloud_type=CloudType(network_data['cloud']),
-    bucket_prefix=network_data['bucket_prefix'],
-    root_dir=network.root_dir
-)
 
 # TODO, needs an API on the directory server
 src_dir = '/podserver/byoda-python'
