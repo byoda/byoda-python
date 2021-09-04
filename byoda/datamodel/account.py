@@ -211,6 +211,7 @@ class Account:
 
         member = Member(service_id, self)
         member.load_data()
+        member.load_secrets()
 
         self.memberships[service_id] = member
 

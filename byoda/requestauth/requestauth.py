@@ -215,16 +215,9 @@ class RequestAuth():
                         f'{client_dn}'
                     )
                 )
-            parts = self.client_cn.split('.')
-            if len(parts) < 4:
-                raise HTTPException(
-                    detail=(
-                        f'Invalid CommonName in client cert: {self.client_cn}'
-                    )
-                )
 
-            self.id_type = IdType(parts[1])
-            self.id = parts[0]
+            self.id_type = RequestAuth.get_idtype(self.client_cn)
+            self.id = self.client_cn.split('.')[0]
 
     @staticmethod
     def authenticate_request(request: starlette.requests.Request):
@@ -250,7 +243,8 @@ class RequestAuth():
         :returns: An instance of RequestAuth
         '''
 
-        id_type = RequestAuth.get_idtype(client_dn)
+        client_common_name = RequestAuth.get_commonname(client_dn)
+        id_type = RequestAuth.get_idtype(client_common_name)
         if id_type == IdType.ACCOUNT:
             from .accountrequest_auth import AccountRequestAuth
             auth = AccountRequestAuth(
@@ -335,7 +329,7 @@ class RequestAuth():
         try:
             # Member cert gets signed by Service Member CA
             member_ca_secret = MembersCaSecret(
-                service_id, network=network.name
+                service_id, network=network
             )
             entity_id = member_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
@@ -413,30 +407,27 @@ class RequestAuth():
         )
 
     @staticmethod
-    def get_idtype(dname: str) -> IdType:
+    def get_idtype(commonname: str) -> IdType:
         '''
         Extracts the IdType from a distinguished name in a x.509
         certificate
 
-        :param dname: x509 distinguished name
+        :param commonname: x509 common name
         :returns: commonname
         :raises: ValueError if the commonname could not be extracted
         '''
 
-        bits = dname.split(',')
-        for keyvalue in bits:
-            if keyvalue.startswith('CN='):
-                commonname = keyvalue[(len('CN=')):]
-                commonname_bits = commonname.split('.')
-                if len(commonname_bits) < 4:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f'Invalid common name {commonname}'
-                    )
-                idtype = IdType(commonname_bits[1])
-                return idtype
+        commonname_bits = commonname.split('.')
+        if len(commonname_bits) < 4:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Invalid common name {commonname}'
+            )
 
-        raise HTTPException(
-            status_code=403,
-            detail=f'Invalid format for distinguished name: {dname}'
-        )
+        subdomain = commonname_bits[1]
+        if '-' in subdomain:
+            # For members, subdomain has format 'members-<service-id>'
+            idtype = IdType(subdomain[:subdomain.find('-')])
+        else:
+            idtype = IdType(commonname_bits[1])
+        return idtype

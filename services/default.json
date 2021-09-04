@@ -2,6 +2,7 @@
     "name": "default",
     "service_id": 0,
     "service_signature": "",
+    "version": 0,
     "schema": {
         "$schema": "https://json-schema.org/draft-07/schema#",
         "$id": "https://uuid.services.byoda.net/profile",
@@ -19,6 +20,11 @@
             },
             "person": {
                 "type": "object",
+                "#accesscontrol": [
+                    {
+                        "member": ["read", "update", "delete"]
+                    }
+                ],
                 "properties": {
                   "member_id": {
                         "type": "string",

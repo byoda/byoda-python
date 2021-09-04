@@ -22,8 +22,9 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--type", "ACCOUNT",
+                "--type", "MEMBERSHIP",
                 "--account-id", "9f6c55d7-b35e-4eb9-bc5e-614fdd355e6f",
+                "--service-id", "0",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
 

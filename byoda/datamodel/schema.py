@@ -22,7 +22,7 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
-    def __init__(self, jsonschema_filepath):
+    def __init__(self, jsonschema_filepath, storage_driver):
         '''
         Construct a schema
         '''
@@ -41,6 +41,7 @@ class Schema:
         # This is a callable to validate data against the schema
         self.validate = None
 
+        self.storage_driver = storage_driver
         self.load(jsonschema_filepath)
 
     def load(self, filepath):
@@ -48,8 +49,7 @@ class Schema:
         Load a schema from a file
         '''
 
-        with open(filepath) as file_desc:
-            data = file_desc.read(MAX_SCHEMA_SIZE)
+        data = self.storage_driver.read(filepath)
 
         self.schema_data = json.loads(data)
         self.name = self.schema_data['name']
@@ -57,6 +57,16 @@ class Schema:
         self.service_signature = self.schema_data['service_signature']
         self.validate = fastjsonschema.compile(self.schema_data)
         self.generate_graphql_schema()
+
+    def save(self, filepath):
+        '''
+        Write a schema to a JSON file, ie. when an account becomes
+        a member of the service that the schema belongs to
+        '''
+
+        self.storage_driver.write(
+            filepath, json.dumps(self.schema_data, indent=4)
+        )
 
     def validate(self, data: dict):
         '''

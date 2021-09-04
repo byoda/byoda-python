@@ -15,6 +15,8 @@ from typing import TypeVar, Callable
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
+from byoda.datamodel.schema import Schema
+
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
 
@@ -47,7 +49,14 @@ class Member:
 
         self.service = self.network.services[service_id]
 
+        self.data_contract = None
+
         self.paths = copy(self.network.paths)
+        self.paths.account_id = account.account_id
+        self.paths.account = account.account
+        self.paths.service_id = self.service_id
+
+        self.storage_driver = self.paths.storage_driver
 
         self.private_key_password = account.private_key_password
         self.tls_secret = None
@@ -71,9 +80,14 @@ class Member:
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
-        member.data_secter = member._create_secret(
+        member.data_secret = member._create_secret(
             MemberDataSecret, members_ca
         )
+
+        member.data_contract = copy(service.schema)
+
+        filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
+        member.data_contract.save(filepath)
 
         return member
 
@@ -134,12 +148,17 @@ class Member:
         Loads the membership secrets
         '''
 
-        self.tls_secret = MemberSecret(self.service_id, self.paths)
+        self.tls_secret = MemberSecret(
+            None, self.service_id, self.account
+        )
         self.tls_secret.load(
             with_private_key=True, password=self.private_key_password
         )
+        self.member_id = self.tls_secret.member_id
 
-        self.data_secret = MemberDataSecret(self.service_id, self.paths)
+        self.data_secret = MemberDataSecret(
+            self.member_id, self.service_id, self.account
+        )
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
@@ -150,12 +169,15 @@ class Member:
         '''
 
         try:
+            filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
+            self.schema = Schema(filepath, self.storage_driver)
+
             data = self.account.document_store.read(
                 self.paths.get(
                     self.paths.MEMBER_DATA_FILE, service_id=self.service_id
                 )
             )
-            self.service.validate(data)
+            self.schema.validate(data)
         except OSError:
             _LOGGER.error(
                 f'Unable to read data file for service {self.service_id}'

@@ -33,9 +33,9 @@ class MemberSecret(Secret):
         :raises: (none)
         '''
 
-        if not isinstance(member_id, UUID):
-            member_id = UUID(member_id)
-        self.member_id = member_id
+        self.member_id = None
+        if member_id:
+            self.member_id = member_id
 
         self.service_id = int(service_id)
 
@@ -93,3 +93,7 @@ class MemberSecret(Secret):
         )
 
         return common_name
+
+    def load(self, with_private_key: bool = True, password: str = 'byoda'):
+        super().load(with_private_key=with_private_key, password=password)
+        self.member_id = UUID(self.common_name.split('.')[0])

@@ -27,7 +27,7 @@ class IdType(Enum):
     ACCOUNTS_CA          = 'accounts-ca'
     SERVICES_CA          = 'services-ca'
     ACCOUNT              = 'accounts'
-    MEMBER               = 'members-'
+    MEMBER               = 'members'
     SERVICE              = 'service-'
     APP                  = 'apps-'
     SERVICE_CA           = 'service-ca-'

@@ -32,7 +32,7 @@ class MemberSecret(Secret):
 
         self.paths = copy(paths)
         self.paths.service_id = service_id
-        
+
         super().__init__(
             cert_file=paths.get(
                 Paths.MEMBER_CERT_FILE, service_id=service_id

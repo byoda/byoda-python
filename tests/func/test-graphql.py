@@ -12,7 +12,6 @@ the headers that would normally be set by the reverse proxy
 '''
 
 import sys
-from uuid import uuid4
 import unittest
 
 from gql import Client
@@ -27,16 +26,16 @@ from byoda.config import DEFAULT_NETWORK
 NETWORK = DEFAULT_NETWORK
 BASE_URL = 'http://localhost:8001/api'
 
-uuid = uuid4()
+uuid = '3ceae39e-e4aa-4975-94a2-6ac8654c577c'
 
 TRANSPORT = RequestsHTTPTransport(
     url=BASE_URL + '/v1/data/service-0',
-    timeout=60,
+    timeout=300,
     use_json=True,
     headers={
         'X-Client-SSL-Verify': 'SUCCESS',
-        'X-Client-SSL-Subject': f'CN={uuid}.accounts.{NETWORK}',
-        'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{NETWORK}'
+        'X-Client-SSL-Subject': f'CN={uuid}.members-0.{NETWORK}',
+        'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
     }
 )
 
@@ -45,18 +44,24 @@ class TestGraphQL(unittest.TestCase):
     def test_member_get(self):
         # Create a GraphQL client using the defined transport
         client = Client(
-            transport=TRANSPORT, fetch_schema_from_transport=True
+            transport=TRANSPORT, fetch_schema_from_transport=True,
         )
         query = gql(
             '''
                 query {
-                    givenName(name: "Steven")
-                    email(name: "stevenhessing@live.com")
+                    person(name: "Steven") {
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
+                    }
                 }
             '''
         )
         result = client.execute(query)
-        self.assertEqual(result['givenName'], 'givenName Steven')
+        self.assertEqual(result['person']['givenName'], 'givenName None')
 
 
 if __name__ == '__main__':

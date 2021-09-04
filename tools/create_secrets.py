@@ -19,12 +19,17 @@ from uuid import uuid4
 
 from byoda.util import Logger
 
-from byoda.datamodel import Network, Service, Account, Member
+from byoda.datamodel import Network, Service, Account, Member, Server
 
-from byoda.datatypes import CertType
+from byoda.datatypes import CertType, CloudType, ServerRole
+from byoda.datastore import DocumentStoreType
+
+
 from byoda.util.secrets import NetworkRootCaSecret
-
 from byoda.util.secrets import MembersCaSecret
+
+from byoda import config
+
 
 _LOGGER = None
 
@@ -86,11 +91,23 @@ def main(argv):
     else:
         network = load_network(args, network_data)
 
+    # Need to set role to allow loading of unsigned services
+    network.roles = [ServerRole.Pod]
+    network.load_services('./services/')
+
     if args.type in (CertType.NETWORK, CertType.SERVICE):
         service = create_service(args, network)
     else:
         if args.type in (CertType.MEMBERSHIP, CertType.APP):
             service = load_service(args, network)
+
+    config.server = Server()
+    config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType('LOCAL'),
+        bucket_prefix='byoda',
+        root_dir='/byoda'
+    )
 
     if args.type == CertType.ACCOUNT:
         account = create_account(args, network)
@@ -140,7 +157,7 @@ def create_service(args, network: Network):
 
 def load_service(args, network):
     service = Service(
-        service=args.service, service_id=args.service_id, network=network
+        network=network, filepath="services/default.json"
     )
     service.load_secrets(with_private_key=True, password=args.password)
 
