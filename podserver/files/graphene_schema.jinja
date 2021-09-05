@@ -10,6 +10,8 @@ import logging
 
 from graphene import ObjectType, String, Schema, Field
 
+from byoda.datamodel import Member
+
 from byoda.requestauth import RequestAuth, authorize_graphql_request
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,13 +61,15 @@ class {{ class_name|title }}(ObjectType):
 {%   for field, field_properties in properties.items() %}
 {%     if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' %}
     def resolve_{{field}}(root, info, name=None):
-        _LOGGER.debug('Resolving {{field}}')
+        _LOGGER.debug('Resolving {{ field }}')
 {%       if class_name == 'Query' %}
         Query.authenticate(root, info)
-        Member.get_data(info.path)
-{%       endif %}
-        return f'{{field}} {name}'
+        return Member.get_data({{ service_id }}, info.path)
 
+{%       else %}
+        return root.get('{{ field }}')
+
+{%       endif %}
 {%     endif %}
 {%   endfor %}
 {% endfor %}

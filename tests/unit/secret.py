@@ -11,12 +11,18 @@ from uuid import uuid4
 import unittest
 
 from byoda.util import Logger
-from byoda.config import DEFAULT_NETWORK
 
 from byoda.datamodel import Network, Service, Account
+from byoda.datamodel import Server
+
+from byoda.datastore import DocumentStoreType
+
+from byoda.datatypes import CloudType, ServerRole
+
+from byoda import config
 
 TEST_DIR = '/tmp/byoda-func-test-secrets'
-NETWORK = DEFAULT_NETWORK
+NETWORK = config.DEFAULT_NETWORK
 DEFAULT_SCHEMA = 'services/default.json'
 
 
@@ -33,12 +39,21 @@ class TestAccountManager(unittest.TestCase):
         #
         # Test creation of the CA hierarchy
         network = Network.create('test.net', TEST_DIR, 'byoda')
+
+        # Need to set role to allow loading of unsigned services
+        network.roles = [ServerRole.Pod]
+
         service = Service(network, DEFAULT_SCHEMA)
         service.create_secrets(network.services_ca)
 
         account_id = uuid4()
         account = Account(account_id, network)
         account.create_secrets(network.accounts_ca)
+
+        # We have to load services here to allow unsigned services to
+        # be read, which we need because we create a MemberSecret later
+        # on
+        network.load_services('./services/')
 
         member = account.join(
             service=service, members_ca=service.members_ca
@@ -85,4 +100,11 @@ if __name__ == '__main__':
     shutil.rmtree(TEST_DIR, ignore_errors=True)
     os.mkdir(TEST_DIR)
 
+    config.server = Server()
+    config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType('LOCAL'),
+        bucket_prefix='byoda',
+        root_dir='/byoda'
+    )
     unittest.main()

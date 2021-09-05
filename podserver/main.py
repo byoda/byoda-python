@@ -102,7 +102,7 @@ network.load_services('./services/')
 config.server = server
 
 try:
-    server.load_secrets()
+    server.load_secrets(password=network_data['private_key_password'])
     _LOGGER.debug('Read account secrets')
 except Exception:
     # TODO: try to see if there is a error with accessing storage

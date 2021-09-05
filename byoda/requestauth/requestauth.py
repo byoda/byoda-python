@@ -329,7 +329,7 @@ class RequestAuth():
         try:
             # Member cert gets signed by Service Member CA
             member_ca_secret = MembersCaSecret(
-                service_id, network=network
+                None, service_id, network=network
             )
             entity_id = member_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id

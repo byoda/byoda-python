@@ -140,7 +140,7 @@ class Network:
         if ServerRole.ServiceServer in self.roles:
             config.requests.cert = ()
             self.member_ca = MembersCaSecret(
-                server['service_id'], self
+                None, server['service_id'], self
             )
             self.member_ca.load(
                 with_private_key=True,

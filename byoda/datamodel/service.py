@@ -317,7 +317,7 @@ class Service:
 
         if not self.members_ca:
             self.members_ca = MembersCaSecret(
-                self.service_id, self.network
+                None, self.service_id, self.network
             )
             self.members_ca.load(
                 with_private_key=with_private_key, password=password

@@ -27,6 +27,7 @@ NETWORK = DEFAULT_NETWORK
 BASE_URL = 'http://localhost:8001/api'
 
 uuid = '3ceae39e-e4aa-4975-94a2-6ac8654c577c'
+service_id = 0
 
 TRANSPORT = RequestsHTTPTransport(
     url=BASE_URL + '/v1/data/service-0',
@@ -34,7 +35,7 @@ TRANSPORT = RequestsHTTPTransport(
     use_json=True,
     headers={
         'X-Client-SSL-Verify': 'SUCCESS',
-        'X-Client-SSL-Subject': f'CN={uuid}.members-0.{NETWORK}',
+        'X-Client-SSL-Subject': f'CN={uuid}.members-{service_id}.{NETWORK}',
         'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
     }
 )
@@ -61,7 +62,7 @@ class TestGraphQL(unittest.TestCase):
             '''
         )
         result = client.execute(query)
-        self.assertEqual(result['person']['givenName'], 'givenName None')
+        self.assertEqual(result['person']['givenName'], 'Steven')
 
 
 if __name__ == '__main__':

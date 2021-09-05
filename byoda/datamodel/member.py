@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4
 from copy import copy
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Dict, List
 
 from byoda.datatypes import CsrSource
 
@@ -187,7 +187,7 @@ class Member:
             )
 
     @staticmethod
-    def get_data(service_id, field):
+    def get_data(service_id, path: List[str]) -> Dict:
         '''
         Extracts the requested data field
         '''
@@ -195,7 +195,15 @@ class Member:
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
+
         # This is the start of the data definition of the JsonSchema
         schema_data = member.schema.schema_data['schema']['properties']
 
-        
+        if not path:
+            raise ValueError('Did not get value for path parameter')
+        if len(path) > 1:
+            raise ValueError(
+                f'Got path with more than 1 item: f{", ".join(path)}'
+            )
+
+        return member.data[path[0]]
