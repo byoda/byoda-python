@@ -50,7 +50,7 @@ class TestGraphQL(unittest.TestCase):
         query = gql(
             '''
                 query {
-                    person(name: "Steven") {
+                    person {
                         givenName
                         additionalNames
                         familyName

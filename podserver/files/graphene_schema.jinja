@@ -24,7 +24,7 @@ class {{ class_name|title }}(ObjectType):
 {%       if field_properties['type'] not in ('object', 'array') %}
 {%         include 'graphene_schema_scalar.jinja' %}
 {%       elif field_properties['type'] == 'object' %}
-    {{ field }} = Field({{ field|title }}, name=String(required=True))
+    {{ field }} = Field({{ field|title }})
 {%       endif %}
 {%     endif %}
 {%   endfor %}
@@ -60,7 +60,7 @@ class {{ class_name|title }}(ObjectType):
 {# create resolvers for the non-object properties of the class #}
 {%   for field, field_properties in properties.items() %}
 {%     if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' %}
-    def resolve_{{field}}(root, info, name=None):
+    def resolve_{{field}}(root, info):
         _LOGGER.debug('Resolving {{ field }}')
 {%       if class_name == 'Query' %}
         Query.authenticate(root, info)

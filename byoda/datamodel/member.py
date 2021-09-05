@@ -196,9 +196,6 @@ class Member:
         member = server.account.memberships[service_id]
         member.load_data()
 
-        # This is the start of the data definition of the JsonSchema
-        schema_data = member.schema.schema_data['schema']['properties']
-
         if not path:
             raise ValueError('Did not get value for path parameter')
         if len(path) > 1:
