@@ -10,6 +10,7 @@ import logging
 from enum import Enum
 
 from fastapi import HTTPException
+import starlette
 
 from ipaddress import ip_address as IpAddress
 
@@ -30,7 +31,7 @@ from byoda.util.secrets import (
     NetworkServicesCaSecret,
 )
 
-from byoda.exceptions import NoAuthInfo
+from byoda.exceptions import MissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ class RequestAuth():
         presented TLS client cert
         information in the request for authentication
         :returns: (n/a)
-        :raises: NoAuthInfo if the no authentication, AuthFailure if
+        :raises: MissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect
         '''
 
@@ -187,17 +188,17 @@ class RequestAuth():
                 status_code=400, detail=f'Client TLS status is {tls_status}'
             )
         elif not tls_status:
-            raise NoAuthInfo
+            raise MissingAuthInfo('Missing TLS status')
 
         if client_dn:
             self.client_cn = RequestAuth.get_commonname(client_dn)
         else:
-            raise NoAuthInfo
+            raise MissingAuthInfo('Missing Client Distinguished Name')
 
         if issuing_ca_dn:
             self.issuing_ca_cn = RequestAuth.get_commonname(issuing_ca_dn)
         else:
-            raise NoAuthInfo
+            raise MissingAuthInfo('Missing Issuing CA Distinguished Name')
 
         if self.client_cn:
             if self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn:
@@ -214,38 +215,54 @@ class RequestAuth():
                         f'{client_dn}'
                     )
                 )
-            parts = self.client_cn.split('.')
-            if len(parts) < 4:
-                raise HTTPException(
-                    detail=(
-                        f'Invalid CommonName in client cert: {self.client_cn}'
-                    )
-                )
 
-            self.id_type = IdType(parts[1])
-            self.id = parts[0]
+            self.id_type = RequestAuth.get_idtype(self.client_cn)
+            self.id = self.client_cn.split('.')[0]
+
+    @staticmethod
+    def authenticate_request(request: starlette.requests.Request):
+        '''
+        Wrapper for static RequestAuth.authenticate method
+
+        :returns: An instance of RequestAuth
+        '''
+        return RequestAuth.authenticate(
+            request.headers['X-Client-SSL-Verify'],
+            request.headers['X-Client-SSL-Subject'],
+            request.headers['X-Client-SSL-Issuing-CA'],
+            request.client.host, HttpRequestMethod(request.method)
+        )
 
     @staticmethod
     def authenticate(tls_status: TlsStatus,
                      client_dn: str, issuing_ca_dn: str,
                      remote_addr: IpAddress, method: HttpRequestMethod):
+        '''
+        Authenticate a request based on incoming TLS headers
 
-        id_type = RequestAuth.get_idtype(client_dn)
+        :returns: An instance of RequestAuth
+        '''
+
+        client_common_name = RequestAuth.get_commonname(client_dn)
+        id_type = RequestAuth.get_idtype(client_common_name)
         if id_type == IdType.ACCOUNT:
             from .accountrequest_auth import AccountRequestAuth
             auth = AccountRequestAuth(
                 tls_status, client_dn, issuing_ca_dn, remote_addr, method
             )
+            _LOGGER.debug('Authentication for account %s', auth.id)
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(
                 tls_status, client_dn, issuing_ca_dn, remote_addr, method
             )
+            _LOGGER.debug('Authentication for member %s', auth.id)
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(
                 tls_status, client_dn, issuing_ca_dn, remote_addr, method
             )
+            _LOGGER.debug('Authentication for service %s', auth.id)
         else:
             raise ValueError(
                 f'Invalid authentication type in common name {client_dn}'
@@ -312,7 +329,7 @@ class RequestAuth():
         try:
             # Member cert gets signed by Service Member CA
             member_ca_secret = MembersCaSecret(
-                service_id, network=network.name
+                None, service_id, network=network
             )
             entity_id = member_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
@@ -390,30 +407,27 @@ class RequestAuth():
         )
 
     @staticmethod
-    def get_idtype(dname: str) -> IdType:
+    def get_idtype(commonname: str) -> IdType:
         '''
         Extracts the IdType from a distinguished name in a x.509
         certificate
 
-        :param dname: x509 distinguished name
+        :param commonname: x509 common name
         :returns: commonname
         :raises: ValueError if the commonname could not be extracted
         '''
 
-        bits = dname.split(',')
-        for keyvalue in bits:
-            if keyvalue.startswith('CN='):
-                commonname = keyvalue[(len('CN=')):]
-                commonname_bits = commonname.split('.')
-                if len(commonname_bits) < 4:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f'Invalid common name {commonname}'
-                    )
-                idtype = IdType(commonname_bits[1])
-                return idtype
+        commonname_bits = commonname.split('.')
+        if len(commonname_bits) < 4:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Invalid common name {commonname}'
+            )
 
-        raise HTTPException(
-            status_code=403,
-            detail=f'Invalid format for distinguished name: {dname}'
-        )
+        subdomain = commonname_bits[1]
+        if '-' in subdomain:
+            # For members, subdomain has format 'members-<service-id>'
+            idtype = IdType(subdomain[:subdomain.find('-')])
+        else:
+            idtype = IdType(commonname_bits[1])
+        return idtype

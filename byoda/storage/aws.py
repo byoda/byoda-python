@@ -10,6 +10,7 @@ The profile server uses noSQL storage for profile data
 '''
 
 import logging
+from typing import List
 
 import boto3
 
@@ -161,3 +162,18 @@ class AwsFileStorage(FileStorage):
         _LOGGER.debug('Uploaded %s to S3 key %s:%s', source, self.bucket, key)
 
         super().copy(source, dest)
+
+    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+        '''
+        AWS S3 supports emulated folders through keys that end with a '/'
+        '''
+        # For AWS S3, the folder path must contain a '/' at the end
+        folder_path = folder_path.rstrip('/') + '/'
+        result = self.driver.list_objects(
+            Bucket=self.bucket, Prefix=folder_path, Delimiter='/'
+        )
+        folders = [
+            folder['Prefix'] for folder in result.get('CommonPrefixes', [])
+            if not prefix or folder['Prefix'].startswith(prefix)
+        ]
+        return folders

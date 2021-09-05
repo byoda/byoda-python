@@ -93,7 +93,7 @@ class ServiceCaSecret(CaSecret):
 
         # Checks on the network postfix
         entity_id = super().review_commonname(
-            commonname, uuid_identifier=False
+            commonname, uuid_identifier=False, check_service_id=False
         )
 
         return entity_id

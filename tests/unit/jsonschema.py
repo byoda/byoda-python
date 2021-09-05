@@ -11,12 +11,18 @@ Test cases for json schema
 import sys
 import json
 import unittest
+import logging
 
 import fastjsonschema
 
 from byoda.util import Logger
 
 from byoda.datamodel import DataObject, Schema
+
+from byoda.storage import FileStorage
+
+
+_LOGGER = logging.getLogger(__name__)
 
 DEFAULT_SCHEMA = 'services/default.json'
 
@@ -36,8 +42,9 @@ class TestAccountManager(unittest.TestCase):
         test = validate(data)
         self.assertEqual(data, test)
 
+        storage_driver = FileStorage('.')
         schema = Schema(DEFAULT_SCHEMA)
-        obj = DataObject(schema)
+        obj = DataObject(schema, storage_driver)
         obj.load_from_file('tests/collateral/dataobject.json')
 
         schema.generate_graphql_schema()

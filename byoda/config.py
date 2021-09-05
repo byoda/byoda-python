@@ -39,14 +39,6 @@ memberships = {}
 # it is supporting
 server = None
 
-# The pod access the document store to read and write
-# data for the subscribed services
-document_store = None
-
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()
-
-# Includes all the variables for the server, including Network and Account
-# and going forward Services
-server = None

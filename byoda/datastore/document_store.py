@@ -7,7 +7,9 @@ Class for certificate request processing
 '''
 
 import logging
+import json
 from enum import Enum
+from typing import Dict, List
 
 from byoda.datatypes import CloudType
 from byoda.storage import FileStorage
@@ -21,8 +23,8 @@ class DocumentStoreType(Enum):
 
 class DocumentStore:
     def __init__(self):
-        self.backend = None
-        self.store_type = None
+        self.backend: FileStorage = None
+        self.store_type: DocumentStoreType = None
 
     @staticmethod
     def get_document_store(storage_type: DocumentStoreType,
@@ -47,3 +49,21 @@ class DocumentStore:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 
         return storage
+
+    def read(self, filepath) -> Dict:
+        '''
+        Reads and deserializes a JSON document
+        '''
+
+        data = self.backend.read(filepath)
+        return json.loads(data)
+
+    def write(self, filepath: str, data: Dict):
+        '''
+        Serializes to JSON and writes data to storage
+        '''
+
+        self.backend.write(filepath)
+
+    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+        return self.backend.get_folders(folder_path, prefix)

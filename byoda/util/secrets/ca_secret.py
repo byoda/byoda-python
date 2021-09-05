@@ -222,15 +222,16 @@ class CaSecret(Secret):
         longest_match = 0
         for id_type_iter in accepted_csrs:
             length = len(id_type_iter.value)
-            if (subdomain.startswith(id_type_iter.value)
+            if (subdomain.startswith(id_type_iter.value.rstrip('-'))
                     and length > longest_match):
                 id_type = id_type_iter
                 longest_match = length
 
         if not id_type:
+            accepted_csr_values = [csr.value for csr in accepted_csrs]
             raise PermissionError(
-                f'CA accepts CSRs for {accepted_csrs.join(", ")} but does not '
-                f'sign CSRs for subdomain {subdomain}'
+                f'CA accepts CSRs for {accepted_csr_values.join(", ")} but '
+                f'does not sign CSRs for subdomain {subdomain}'
             )
 
         if uuid_identifier:

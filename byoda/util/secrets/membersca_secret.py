@@ -27,13 +27,9 @@ Network = TypeVar('Network', bound='Network')
 class MembersCaSecret(CaSecret):
     ACCEPTED_CSRS = [IdType.MEMBER, IdType.MEMBER_DATA]
 
-    def __init__(self, service: str, service_id: int,
-                 network: Network):
+    def __init__(self, service: str, service_id: int, network: Network):
         '''
-        Class for the Service Members CA secret. Either paths or network
-        parameters must be provided. If paths parameter is not provided,
-        the cert_file and private_key_file attributes of the instance must
-        be set before the save() or load() members are called
+        Class for the Service Members CA secret.
 
         The first two levels of a commmon name for a member should be:
             {member_id}.members-ca-{service_id}
@@ -51,7 +47,6 @@ class MembersCaSecret(CaSecret):
 
         self.network = str(network.name)
         self.service_id = int(service_id)
-        self.service = str(service)
 
         self.paths = copy(network.paths)
         self.paths.service_id = self.service_id

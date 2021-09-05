@@ -33,6 +33,7 @@ class Server:
         self.account = None
         self.document_store = None
         self.cloud = None
+        self.paths = None
 
     def load_secrets(self, password: str = None):
         '''
@@ -63,7 +64,7 @@ class PodServer(Server):
         '''
         Loads the secrets used by the podserver
         '''
-        self.account.load_secrets(password)
+        self.account.load_secrets()
 
         # We use the account secret as client TLS cert for outbound
         # requests and as private key for the TLS server
@@ -85,4 +86,3 @@ class DirectoryServer(Server):
         Loads the secrets used by the directory server
         '''
         self.network.load_secrets()
-

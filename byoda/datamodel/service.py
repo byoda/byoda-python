@@ -9,7 +9,7 @@ Class for modeling a service on a social network
 from __future__ import annotations
 
 import logging
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Dict
 from copy import copy
 
 from byoda.datatypes import CsrSource
@@ -49,16 +49,16 @@ class Service:
         :param filepath: the file with the service schema/contract
         '''
 
-        self.name = None
-        self.service_id = None
+        self.name: str = None
+        self.service_id: int = None
 
         # The data contract for the service. TODO: versioned schemas
-        self.schema = None
+        self.schema: Schema = None
 
         # Was the schema for the service signed
-        self.signed = None
+        self.signed: bool = None
 
-        self.private_key_password = network.private_key_password
+        self.private_key_password: str = network.private_key_password
 
         # The CA signed by the Services CA of the network
         self.service_ca = None
@@ -82,6 +82,8 @@ class Service:
         # set up for the Network object, we can copy it here for the Service
         self.network = network
         self.paths = copy(network.paths)
+
+        self.storage_driver = self.paths.storage_driver
 
         if filepath:
             self.load_schema(filepath)
@@ -132,7 +134,7 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema(filepath)
+        self.schema = Schema(filepath, self.storage_driver)
 
         self.service_id = self.schema.service_id
         self.name = self.schema.name
@@ -315,7 +317,7 @@ class Service:
 
         if not self.members_ca:
             self.members_ca = MembersCaSecret(
-                self.name, self.service_id, self.network
+                None, self.service_id, self.network
             )
             self.members_ca.load(
                 with_private_key=with_private_key, password=password
@@ -344,3 +346,10 @@ class Service:
             self.data_secret.load(
                 with_private_key=with_private_key, password=password
             )
+
+    def validate(self, data: Dict):
+        '''
+        Validates the data against the json schema for the service
+        '''
+
+        self.schema.validate(data)

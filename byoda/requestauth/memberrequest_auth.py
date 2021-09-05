@@ -19,7 +19,7 @@ from byoda import config
 from byoda.datatypes import HttpRequestMethod
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import NoAuthInfo
+from byoda.exceptions import MissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class MemberRequestAuth_Fast(RequestAuth):
 
 
 class MemberRequestAuth(RequestAuth):
-    def __init__(self, service_id: int, tls_status: TlsStatus,
+    def __init__(self, tls_status: TlsStatus,
                  client_dn: str, issuing_ca_dn: str,
                  remote_addr: IpAddress, method: HttpRequestMethod):
         '''
@@ -56,18 +56,11 @@ class MemberRequestAuth(RequestAuth):
 
         server = config.server
 
-        if isinstance(service_id, int):
-            pass
-        elif isinstance(service_id, str):
-            service_id = int(service_id)
-        else:
-            raise ValueError(
-                f'service_id must be an integer, not {type(service_id)}'
-            )
+        service_id = MemberRequestAuth.get_service_id(client_dn)
 
         try:
             super().__init__(tls_status, client_dn, issuing_ca_dn, remote_addr)
-        except NoAuthInfo:
+        except MissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )
@@ -80,3 +73,32 @@ class MemberRequestAuth(RequestAuth):
         self.check_member_cert(service_id, server.network)
 
         self.is_authenticated = True
+
+    @staticmethod
+    def get_service_id(commonname: str) -> str:
+        '''
+        Extracts the service_id from the IdType from a common name
+        in a x.509 certificate for Memberships
+
+        :param commonname: x509 common name
+        :returns: service_id
+        :raises: ValueError if the service_id could not be extracted
+        '''
+
+        commonname_bits = commonname.split('.')
+        if len(commonname_bits) < 4:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Invalid common name {commonname}'
+            )
+
+        subdomain = commonname_bits[1]
+        if '-' in subdomain:
+            # For members, subdomain has format 'members-<service-id>'
+            service_id = int(subdomain[subdomain.find('-')+1:])
+            return service_id
+
+        raise HTTPException(
+            status_code=403,
+            detail=f'Invalid format for common name: {commonname}'
+        )

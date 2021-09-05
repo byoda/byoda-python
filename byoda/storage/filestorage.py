@@ -13,7 +13,7 @@ import os
 import shutil
 import logging
 from enum import Enum
-
+from typing import List
 from byoda.datatypes import CloudType
 
 _LOGGER = logging.getLogger(__name__)
@@ -187,3 +187,14 @@ class FileStorage:
         )
 
         return result
+
+    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+        '''
+        Gets the folders/directories for a directory on the a filesystem
+        '''
+        folders = []
+        for directory in os.listdir(folder_path):
+            if not prefix or directory.startswith(prefix):
+                folders.append(directory)
+
+        return folders

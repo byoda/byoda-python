@@ -140,7 +140,7 @@ class Network:
         if ServerRole.ServiceServer in self.roles:
             config.requests.cert = ()
             self.member_ca = MembersCaSecret(
-                server['service'], server['service_id'], self.paths
+                None, server['service_id'], self
             )
             self.member_ca.load(
                 with_private_key=True,
@@ -270,9 +270,7 @@ class Network:
 
     def load_services(self, directory: str = None) -> None:
         '''
-        Load a list of all the services. For a pod means
-        all subscriber services. For a directory server, it
-        means all services in the network.
+        Load a list of all the services in the network.
         '''
 
         if self.services:

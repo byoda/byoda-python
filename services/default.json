@@ -2,6 +2,7 @@
     "name": "default",
     "service_id": 0,
     "service_signature": "",
+    "version": 0,
     "schema": {
         "$schema": "https://json-schema.org/draft-07/schema#",
         "$id": "https://uuid.services.byoda.net/profile",
@@ -17,32 +18,46 @@
             "#encrypted": {
                 "encrypted_sharedsecret": "blah"
             },
-            "givenName": {
-                "type": "string",
-                "access": "private",
-                "description": "Your first given name"
-            },
-            "additionalNames": {
-                "type": "string",
-                "access": "private",
-                "description": "Any middle names"
-            },
-            "familyName": {
-                "type": "string",
-                "access": "private",
-                "description": "Your surname"
-            },
-            "email": {
-                "type": "string",
-                "access": "private"
-            },
-            "homepageUrl": {
-                "type": "string",
-                "access": "private"
-            },
-            "avatarUrl": {
-                "type": "string",
-                "access": "private"
+            "person": {
+                "type": "object",
+                "#accesscontrol": [
+                    {
+                        "member": ["read", "update", "delete"]
+                    }
+                ],
+                "properties": {
+                  "member_id": {
+                        "type": "string",
+                        "description": "Membership UUID"
+                  },
+                  "givenName": {
+                        "type": "string",
+                        "access": "private",
+                        "description": "Your first given name"
+                    },
+                    "additionalNames": {
+                        "type": "string",
+                        "access": "private",
+                        "description": "Any middle names"
+                    },
+                    "familyName": {
+                        "type": "string",
+                        "access": "private",
+                        "description": "Your surname"
+                    },
+                    "email": {
+                        "type": "string",
+                        "access": "private"
+                    },
+                    "homepageUrl": {
+                        "type": "string",
+                        "access": "private"
+                    },
+                    "avatarUrl": {
+                        "type": "string",
+                        "access": "private"
+                    }
+                }
             }
         }
     }

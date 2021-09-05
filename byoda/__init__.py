@@ -7,4 +7,4 @@ Bring your own alogithm utilities module
 '''
 
 from .config import *               # noqa: F401, F403
-from .exceptions import NoAuthInfo   # noqa: F401
+from .exceptions import MissingAuthInfo   # noqa: F401
