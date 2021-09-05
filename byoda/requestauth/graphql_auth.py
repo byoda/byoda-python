@@ -29,10 +29,10 @@ def authorize_graphql_request(service_id, auth, root, info):
 
     # We need to review whether the requestor is authorized to access
     # the data in the request
-    schema = config.server.account.memberships[service_id].schema
+    member = config.server.account.memberships[service_id]
 
     # This is the start of the data definition of the JsonSchema
-    schema_data = schema.schema_data['schema']['properties']
+    schema_data = member.schema.schema_data['schema']['properties']
 
     json_key = info.path[0]
 

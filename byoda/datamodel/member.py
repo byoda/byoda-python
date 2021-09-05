@@ -20,6 +20,8 @@ from byoda.datamodel.schema import Schema
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
 
+from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -178,10 +180,22 @@ class Member:
                 )
             )
             self.schema.validate(data)
+            self.data = data
         except OSError:
             _LOGGER.error(
                 f'Unable to read data file for service {self.service_id}'
             )
-            data = None
 
-        return data
+    @staticmethod
+    def get_data(service_id, field):
+        '''
+        Extracts the requested data field
+        '''
+
+        server = config.server
+        member = server.account.memberships[service_id]
+        member.load_data()
+        # This is the start of the data definition of the JsonSchema
+        schema_data = member.schema.schema_data['schema']['properties']
+
+        

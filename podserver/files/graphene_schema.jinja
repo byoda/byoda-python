@@ -62,6 +62,7 @@ class {{ class_name|title }}(ObjectType):
         _LOGGER.debug('Resolving {{field}}')
 {%       if class_name == 'Query' %}
         Query.authenticate(root, info)
+        Member.get_data(info.path)
 {%       endif %}
         return f'{{field}} {name}'
 
