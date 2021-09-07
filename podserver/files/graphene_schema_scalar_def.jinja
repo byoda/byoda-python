@@ -1,4 +1,3 @@
-
 {% if field_properties['type'] == 'string' %}
 {%   set scalar_type = 'String' %}
 {% elif field_properties['type'] == 'integer' %}
@@ -12,9 +11,8 @@
 {% else %}
 ERROR: {{ field_properties['type'] }} not a valid type
 {% endif %}
-    {{ field }} = {{ scalar_type }}(
 {% if field_properties['default'] %}
-        name={{ scalar_type }}(default_value="{{ field_properties['default'] }} ))"),
+{{ ' ' * (4 * indent_multiplier) }}{{ field }} = {{ scalar_type }}(default_value=("{{ field_properties['default'] }})")
+{% else %}
+{{ ' ' * (4 * indent_multiplier) }}{{ field }} = {{ scalar_type }}()
 {% endif %}
-    )
-
