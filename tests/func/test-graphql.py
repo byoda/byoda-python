@@ -64,6 +64,31 @@ class TestGraphQL(unittest.TestCase):
         result = client.execute(query)
         self.assertEqual(result['person']['givenName'], 'Steven')
 
+        query = gql(
+            '''
+                mutation Mutation {
+                    MutatePerson(
+                        memberId:"0",
+                        givenName: "Blah",
+                        additionalNames: "dunno",
+                        familyName: "Gaap",
+                        email: "test@test.com",
+                        homepageUrl: "https://some.place/",
+                        avatarUrl: "https://some.place/avatar"
+                    ) {
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
+                    }
+                }
+            '''
+        )
+        result = client.execute(query)
+        self.assertEqual(result['person']['givenName'], 'Steven')
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
