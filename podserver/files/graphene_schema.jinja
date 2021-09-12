@@ -142,7 +142,7 @@ class Mutate{{ class_name|title }}(Mutation):
 
 {%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
-class Mutation(ObjectType):
+class Mutations(ObjectType):
 {% for class_name in classes.keys()|reverse %}
 {%   if class_name != 'Query' %}
     mutate{{ class_name|title }} = Mutate{{ class_name|title }}.Field()
@@ -152,5 +152,5 @@ class Mutation(ObjectType):
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
-    return Schema(query=Query, mutation=Mutation)
+    return Schema(query=Query, mutation=Mutations)
 
