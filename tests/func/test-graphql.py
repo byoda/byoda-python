@@ -66,9 +66,9 @@ class TestGraphQL(unittest.TestCase):
 
         query = gql(
             '''
-                mutation Mutation {
-                    MutatePerson(
-                        memberId:"0",
+                mutation myFirstMutation {
+                    mutatePerson(
+                        memberId: "0",
                         givenName: "Blah",
                         additionalNames: "dunno",
                         familyName: "Gaap",
@@ -83,6 +83,7 @@ class TestGraphQL(unittest.TestCase):
                         homepageUrl
                         avatarUrl
                     }
+                    ok
                 }
             '''
         )

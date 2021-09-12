@@ -72,7 +72,7 @@ class {{ class_name|title }}(ObjectType):
         return Member.get_data({{ service_id }}, info.path)
 
 {%       else %}{# if class_name == 'Query' #}
-        return root.get('{{ field }}')
+        return root.{{ field }}
 
 {%       endif %}{# if class_name == 'Query' #}
 {%     endif %}{# if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' #}
@@ -125,7 +125,7 @@ class Mutate{{ class_name|title }}(Mutation):
 class Mutation(ObjectType):
 {% for class_name in classes.keys()|reverse %}
 {%   if class_name != 'Query' %}
-    {{ class_name }} = Field(Mutate{{ class_name|title }})
+    mutate{{ class_name|title }} = Mutate{{ class_name|title }}.Field()
 {%   endif %}
 {% endfor %}
 
