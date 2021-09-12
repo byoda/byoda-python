@@ -93,6 +93,32 @@ class Mutate{{ class_name|title }}(Mutation):
     ok = Boolean()
     {{ class_name }} = Field(lambda: {{ class_name|title }})
 
+    @staticmethod
+    def authenticate(root, info):
+        '''
+        This is middleware called by the code generated from the Jinja
+        templates implementing GraphQL support
+        '''
+
+        if not info.context or not info.context['request']:
+            raise ValueError('No info to authenticate client')
+
+        try:
+            # Checks that a client cert was provided and that the cert and
+            # certchain is correct
+            auth = RequestAuth.authenticate_request(info.context['request'])
+            if not auth.is_authenticated:
+                raise ValueError('Client is not authentication')
+        except Exception as exc:
+            raise ValueError(f'Authentication failed: {exc}')
+
+        try:
+            # Check whether the authenticated client is authorized to request
+            # the data
+            authorize_graphql_request({{ service_id}}, auth, root, info)
+        except Exception as exc:
+            raise ValueError(f'Authorization failed: {exc}')
+
     def mutate(root, info,
 {%     for field, field_properties in properties.items() %}
 {%       if 'type' in field_properties %}

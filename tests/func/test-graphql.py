@@ -66,7 +66,7 @@ class TestGraphQL(unittest.TestCase):
 
         query = gql(
             '''
-mutation myFirstMutation {
+mutation createMutation {
     mutatePerson(
         memberId: "1",
         givenName: "Steven",
