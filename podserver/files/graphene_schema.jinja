@@ -72,6 +72,8 @@ class {{ class_name|title }}(ObjectType):
         return Member.get_data({{ service_id }}, info.path)
 
 {%       else %}{# if class_name == 'Query' #}
+        if isinstance(root, dict):
+            return root.get('{{field}}')
         return root.{{ field }}
 
 {%       endif %}{# if class_name == 'Query' #}
