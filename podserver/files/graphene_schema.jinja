@@ -138,7 +138,9 @@ class Mutate{{ class_name|title }}(Mutation):
 {%       endif %}{# if 'type' in field_properties #}
 {%     endfor %}{# for field, field_properties in properties.items() #}
         )
-        return Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
+        result = Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
+        Member.set_data({{ service_id }}, info.path, result)
+        return result
 
 {%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
