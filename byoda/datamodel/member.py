@@ -10,8 +10,10 @@ import logging
 
 from uuid import uuid4
 from copy import copy
-from typing import TypeVar, Callable, Dict, List
+import json
+from typing import List, Dict, TypeVar, Callable
 
+from graphene import Mutation as GrapheneMutation
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
@@ -192,6 +194,30 @@ class Member:
                 f'Unable to read data file for service {self.service_id}'
             )
 
+    def save_data(self, data: dict):
+        '''
+        Saves the data for the membership
+        '''
+
+        if not self.data:
+            self.load_data()
+
+        try:
+            self.schema.validate(data)
+            self.data = data
+
+            data_str = json.dumps(self.data)
+            self.account.document_store.write(
+                self.paths.get(
+                    self.paths.MEMBER_DATA_FILE, service_id=self.service_id
+                ),
+                data_str
+            )
+        except OSError:
+            _LOGGER.error(
+                f'Unable to read data file for service {self.service_id}'
+            )
+
     @staticmethod
     def get_data(service_id, path: List[str]) -> Dict:
         '''
@@ -210,3 +236,40 @@ class Member:
             )
 
         return member.data[path[0]]
+
+    @staticmethod
+    def set_data(service_id, path: List[str], class_inst: GrapheneMutation
+                 ) -> None:
+        '''
+        Sets the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param path: the GraphQL path variable that shows the path taken
+        through the GraphQL data model
+        :param class_inst: the instance of the Mutation<Object> class
+        '''
+
+        server = config.server
+        member = server.account.memberships[service_id]
+
+        if not path:
+            raise ValueError('Did not get value for path parameter')
+        if len(path) > 1:
+            raise ValueError(
+                f'Got path with more than 1 item: f{", ".join(path)}'
+            )
+
+        data = {}
+        for attrib in dir(class_inst):
+            if (attrib.startswith('_') or attrib.startswith('resolve_') or
+                    attrib in ('is_type_of', 'create_type')):
+                continue
+            data[attrib] = getattr(class_inst, attrib)
+
+        # With Mutate calls, the name of the mutation (ie. mutatePerson)
+        # is included in the path
+        mutation_field = path.pop()
+
+        member.save_data(data)
+
+        return member.data

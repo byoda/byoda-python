@@ -56,14 +56,17 @@ class DocumentStore:
         '''
 
         data = self.backend.read(filepath)
-        return json.loads(data)
+        if data:
+            return json.loads(data)
+        else:
+            return {}
 
     def write(self, filepath: str, data: Dict):
         '''
         Serializes to JSON and writes data to storage
         '''
 
-        self.backend.write(filepath)
+        self.backend.write(filepath, data)
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
         return self.backend.get_folders(folder_path, prefix)

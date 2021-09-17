@@ -19,8 +19,6 @@ from byoda.requestauth import RequestAuth, authorize_graphql_request
 _LOGGER = logging.getLogger(__name__)
 
 {% set indent_multiplier = 1 %}{# used by 'scalar' template #}
-{% set with_comma = False %}{# used by 'scalar' template #}
-{% set with_definition = True %}{# used by 'scalar' template #}
 {% for class_name, properties in classes.items()|reverse %}
 
 class {{ class_name|title }}(ObjectType):
@@ -94,9 +92,32 @@ class Mutate{{ class_name|title }}(Mutation):
     ok = Boolean()
     {{ class_name }} = Field(lambda: {{ class_name|title }})
 
-{%     set with_definition = False %}{# used by 'scalar' template #}
-{%     set with_comma = True %}{# used by 'scalar' template #}
-{%     set indent_multiplier = 4 %}{# used by 'scalar' template #}
+    @staticmethod
+    def authenticate(root, info):
+        '''
+        This is middleware called by the code generated from the Jinja
+        templates implementing GraphQL support
+        '''
+
+        if not info.context or not info.context['request']:
+            raise ValueError('No info to authenticate client')
+
+        try:
+            # Checks that a client cert was provided and that the cert and
+            # certchain is correct
+            auth = RequestAuth.authenticate_request(info.context['request'])
+            if not auth.is_authenticated:
+                raise ValueError('Client is not authentication')
+        except Exception as exc:
+            raise ValueError(f'Authentication failed: {exc}')
+
+        try:
+            # Check whether the authenticated client is authorized to request
+            # the data
+            authorize_graphql_request({{ service_id}}, auth, root, info)
+        except Exception as exc:
+            raise ValueError(f'Authorization failed: {exc}')
+
     def mutate(root, info,
 {%     for field, field_properties in properties.items() %}
 {%       if 'type' in field_properties %}
@@ -105,11 +126,8 @@ class Mutate{{ class_name|title }}(Mutation):
 {%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
 {%       endif %}{# if 'type' in field_properties #}
 {%     endfor %}{# for field, field_properties in properties.items() #}
-{%     set with_comma = True %}{# used by 'scalar' template #}
                ):
         ok = True
-{%     set indent_multiplier = 3 %}{# used by 'scalar' template #}
-{%     set with_definition = True %}{# used by 'scalar' template #}
         {{ class_name }} = {{ class_name|title }}(
 {%     for field, field_properties in properties.items() %}
 {%       if 'type' in field_properties %}
@@ -119,12 +137,13 @@ class Mutate{{ class_name|title }}(Mutation):
 {%       endif %}{# if 'type' in field_properties #}
 {%     endfor %}{# for field, field_properties in properties.items() #}
         )
-        return Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
+        result = Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
+        Member.set_data({{ service_id }}, info.path, result.{{ class_name }})
+        return result
 
 {%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
-
-class Mutation(ObjectType):
+class Mutations(ObjectType):
 {% for class_name in classes.keys()|reverse %}
 {%   if class_name != 'Query' %}
     mutate{{ class_name|title }} = Mutate{{ class_name|title }}.Field()
@@ -134,4 +153,5 @@ class Mutation(ObjectType):
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
-    return Schema(query=Query, mutation=Mutation)
+    return Schema(query=Query, mutation=Mutations)
+
