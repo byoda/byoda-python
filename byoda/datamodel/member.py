@@ -165,15 +165,21 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
+    def load_schema(self):
+        '''
+        Loads the schema for the service that we're loading the membership for
+        '''
+        filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
+        self.schema = Schema(
+            filepath, self.storage_driver, with_graphql_convert=True
+        )
+
     def load_data(self):
         '''
         Loads the data stored for the membership
         '''
 
         try:
-            filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-            self.schema = Schema(filepath, self.storage_driver)
-
             data = self.account.document_store.read(
                 self.paths.get(
                     self.paths.MEMBER_DATA_FILE, service_id=self.service_id

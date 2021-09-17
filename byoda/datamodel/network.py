@@ -287,7 +287,8 @@ class Network:
 
                 service = Service.get_service(
                     self, filepath=os.path.join(root, filename),
-                    allow_unsigned_service=allow_unsigned_services
+                    allow_unsigned_service=allow_unsigned_services,
+                    with_graphql_convert=False
                 )
 
                 if service.service_id in self.services:

@@ -67,27 +67,29 @@ class TestGraphQL(unittest.TestCase):
         query = gql(
             '''
                 mutation Mutation {
-                    MutatePerson(
+                    mutatePerson(
                         memberId:"0",
-                        givenName: "Blah",
-                        additionalNames: "dunno",
-                        familyName: "Gaap",
-                        email: "test@test.com",
+                        givenName: "Steven",
+                        additionalNames: "",
+                        familyName: "Hessing",
+                        email: "steven@byoda.org",
                         homepageUrl: "https://some.place/",
                         avatarUrl: "https://some.place/avatar"
                     ) {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
+                        person {
+                            givenName
+                            additionalNames
+                            familyName
+                            email
+                            homepageUrl
+                            avatarUrl
+                        }
                     }
                 }
             '''
         )
         result = client.execute(query)
-        self.assertEqual(result['person']['givenName'], 'Steven')
+        self.assertEqual(result['mutatePerson']['person']['givenName'], 'Steven')
 
 
 if __name__ == '__main__':

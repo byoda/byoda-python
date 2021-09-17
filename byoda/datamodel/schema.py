@@ -22,7 +22,8 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
-    def __init__(self, jsonschema_filepath, storage_driver):
+    def __init__(self, jsonschema_filepath: str, storage_driver: str,
+                 with_graphql_convert: bool = False):
         '''
         Construct a schema
         '''
@@ -41,10 +42,11 @@ class Schema:
         # This is a callable to validate data against the schema
         self.validate = None
 
+        self.with_graphql_convert = with_graphql_convert
         self.storage_driver = storage_driver
         self.load(jsonschema_filepath)
 
-    def load(self, filepath):
+    def load(self, filepath: str):
         '''
         Load a schema from a file
         '''
@@ -56,7 +58,8 @@ class Schema:
         self.service_id = self.schema_data['service_id']
         self.service_signature = self.schema_data['service_signature']
         self.validate = fastjsonschema.compile(self.schema_data)
-        self.generate_graphql_schema()
+        if self.with_graphql_convert:
+            self.generate_graphql_schema()
 
     def save(self, filepath):
         '''

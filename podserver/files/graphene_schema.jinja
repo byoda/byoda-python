@@ -10,7 +10,7 @@ import logging
 
 from graphene import ObjectType, Mutation
 from graphene import Schema, Field
-from graphene import String, Boolean
+from graphene import String, Boolean, Int
 
 from byoda.datamodel import Member
 
@@ -70,9 +70,10 @@ class {{ class_name|title }}(ObjectType):
 {%       if class_name == 'Query' %}
         Query.authenticate(root, info)
         return Member.get_data({{ service_id }}, info.path)
-
 {%       else %}{# if class_name == 'Query' #}
-        return root.get('{{ field }}')
+        if hasattr(root, '{{ field }}'):
+            return root.{{ field }}
+        return root.get('{{field}}')
 
 {%       endif %}{# if class_name == 'Query' #}
 {%     endif %}{# if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' #}
@@ -122,10 +123,11 @@ class Mutate{{ class_name|title }}(Mutation):
 
 {%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
+
 class Mutation(ObjectType):
 {% for class_name in classes.keys()|reverse %}
 {%   if class_name != 'Query' %}
-    {{ class_name }} = Field(Mutate{{ class_name|title }})
+    mutate{{ class_name|title }} = Mutate{{ class_name|title }}.Field()
 {%   endif %}
 {% endfor %}
 
@@ -133,4 +135,3 @@ class Mutation(ObjectType):
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
     return Schema(query=Query, mutation=Mutation)
-
