@@ -6,21 +6,26 @@ Automatically generated code for GraphQL support for a Byoda servce
 :license    : GPLv3
 '''
 
-import logging
+import logging as loggingByoda
 
-from graphene import ObjectType, Mutation
-from graphene import Schema, Field
-from graphene import String, Boolean, Int
+from graphene import ObjectType
+from graphene import Mutation
+from graphene import Schema
+from graphene import Field
+from graphene import String
+from graphene import Boolean
+from graphene import Int
 
-from byoda.datamodel import Member
+from byoda.datamodel import Member as MemberClassByoda
 
-from byoda.requestauth import RequestAuth, authorize_graphql_request
+from byoda.requestauth import RequestAuth as RequestAuthByoda
+from byoda.requestauth import authorize_graphql_request as authorize_graphql_request_Byoda
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = loggingByoda.getLogger(__name__)
+
 
 {% set indent_multiplier = 1 %}{# used by 'scalar' template #}
 {% for class_name, properties in classes.items()|reverse %}
-
 class {{ class_name|title }}(ObjectType):
 {%   for field, field_properties in properties.items() %}
 {%     if 'type' in field_properties %}
@@ -46,7 +51,7 @@ class {{ class_name|title }}(ObjectType):
         try:
             # Checks that a client cert was provided and that the cert and
             # certchain is correct
-            auth = RequestAuth.authenticate_request(info.context['request'])
+            auth = RequestAuthByoda.authenticate_request(info.context['request'])
             if not auth.is_authenticated:
                 raise ValueError('Client is not authentication')
         except Exception as exc:
@@ -55,10 +60,9 @@ class {{ class_name|title }}(ObjectType):
         try:
             # Check whether the authenticated client is authorized to request
             # the data
-            authorize_graphql_request({{ service_id}}, auth, root, info)
+            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
         except Exception as exc:
             raise ValueError(f'Authorization failed: {exc}')
-
 {%   endif %}{# if class_name == 'Query' #}
 {# create resolvers for the non-object properties of the class #}
 {%   for field, field_properties in properties.items() %}
@@ -67,14 +71,14 @@ class {{ class_name|title }}(ObjectType):
         _LOGGER.debug('Resolving {{ field }}')
 {%       if class_name == 'Query' %}
         Query.authenticate(root, info)
-        return Member.get_data({{ service_id }}, info.path)
+        return MemberClassByoda.get_data({{ service_id }}, info.path)
 {%       else %}{# if class_name == 'Query' #}
         if hasattr(root, '{{ field }}'):
             return root.{{ field }}
         return root.get('{{field}}')
-
 {%       endif %}{# if class_name == 'Query' #}
 {%     endif %}{# if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' #}
+
 {%   endfor %}{# for field, field_properties in properties.items() #}
 
 {%   set indent_multiplier = 2 %}{# used by 'scalar' template #}
@@ -105,7 +109,7 @@ class Mutate{{ class_name|title }}(Mutation):
         try:
             # Checks that a client cert was provided and that the cert and
             # certchain is correct
-            auth = RequestAuth.authenticate_request(info.context['request'])
+            auth = RequestAuthByoda.authenticate_request(info.context['request'])
             if not auth.is_authenticated:
                 raise ValueError('Client is not authentication')
         except Exception as exc:
@@ -114,7 +118,7 @@ class Mutate{{ class_name|title }}(Mutation):
         try:
             # Check whether the authenticated client is authorized to request
             # the data
-            authorize_graphql_request({{ service_id}}, auth, root, info)
+            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
         except Exception as exc:
             raise ValueError(f'Authorization failed: {exc}')
 
@@ -138,8 +142,9 @@ class Mutate{{ class_name|title }}(Mutation):
 {%     endfor %}{# for field, field_properties in properties.items() #}
         )
         result = Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
-        Member.set_data({{ service_id }}, info.path, result)
+        MemberClassByoda.set_data({{ service_id }}, info.path, result)
         return result
+
 
 {%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}

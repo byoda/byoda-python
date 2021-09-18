@@ -238,7 +238,7 @@ class Member:
         return member.data[path[0]]
 
     @staticmethod
-    def set_data(service_id, path: List[str], class_inst: GrapheneMutation
+    def set_data(service_id, path: List[str], mutation: GrapheneMutation
                  ) -> None:
         '''
         Sets the provided data
@@ -246,7 +246,7 @@ class Member:
         :param service_id: Service ID for which the GraphQL API was called
         :param path: the GraphQL path variable that shows the path taken
         through the GraphQL data model
-        :param class_inst: the instance of the Mutation<Object> class
+        :param mutation: the instance of the Mutation<Object> class
         '''
 
         server = config.server
@@ -259,21 +259,20 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        # mutate 'function' starts with the string 'mutate' so
+        # The called mutate 'function' starts with the string 'mutate' so
         # we want what comes what came after it.
-        variable = path[0][6:].lower()
+        class_object = path[0][len('mutate'):].lower()
 
-        data = {variable: {}}
-        mutate_data = getattr(class_inst, variable)
+        # Prepare the submitted data
+        data = {class_object: {}}
+
+        # Gets the data for the mutated object
+        mutate_data = getattr(mutation, class_object)
         for attrib in dir(mutate_data):
             if (attrib.startswith('_') or attrib.startswith('resolve_') or
                     attrib in ('is_type_of', 'create_type')):
                 continue
-            data[variable][attrib] = getattr(mutate_data, attrib)
-
-        # With Mutate calls, the name of the mutation (ie. mutatePerson)
-        # is included in the path
-        mutation_field = path.pop()
+            data[class_object][attrib] = getattr(mutate_data, attrib)
 
         member.save_data(data)
 

@@ -18,7 +18,7 @@
             "#encrypted": {
                 "encrypted_sharedsecret": "blah"
             },
-            "memberInfo": {
+            "member": {
                 "type": "object",
                 "#accesscontrol": ["read"],
                 "properties": {
