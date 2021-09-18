@@ -10,7 +10,7 @@ Classes for data modeling for the server
 
 from .network import Network
 from .schema import Schema
-from .dataobject import DataObject
+from .memberdata import MemberData
 from .service import Service
 from .account import Account
 from .member import Member

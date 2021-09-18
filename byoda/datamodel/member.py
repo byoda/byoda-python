@@ -18,6 +18,7 @@ from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.memberdata import MemberData
 
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
@@ -53,7 +54,12 @@ class Member:
 
         self.service = self.network.services[service_id]
 
+        # This is the accepted data contract, which may differ from
+        # the current data contract of the service
         self.data_contract = None
+
+        # self.load_schema() will initialize the data property
+        self.data = None
 
         self.paths = copy(self.network.paths)
         self.paths.account_id = account.account_id
@@ -175,45 +181,24 @@ class Member:
         self.schema = Schema(
             filepath, self.storage_driver, with_graphql_convert=True
         )
+        self.data = MemberData(
+            self.service_id, self.schema, self.account.document_store,
+            self.storage_driver
+        )
 
     def load_data(self):
         '''
         Loads the data stored for the membership
         '''
 
-        try:
-            data = self.account.document_store.read(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_FILE, service_id=self.service_id
-                )
-            )
-            self.schema.validate(data)
-            self.data = data
-        except OSError:
-            _LOGGER.error(
-                f'Unable to read data file for service {self.service_id}'
-            )
+        self.data.load()
 
     def save_data(self, data):
         '''
         Saves the data for the membership
         '''
 
-        try:
-            self.schema.validate(data)
-            self.data = data
-
-            serialized_data = json.dumps(self.data, indent=4, sort_keys=True)
-            self.account.document_store.write(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_FILE, service_id=self.service_id
-                ),
-                serialized_data
-            )
-        except OSError:
-            _LOGGER.error(
-                f'Unable to write data file for service {self.service_id}'
-            )
+        self.data.save()
 
     @staticmethod
     def get_data(service_id, path: List[str]) -> Dict:

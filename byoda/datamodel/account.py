@@ -8,23 +8,27 @@ Class for modeling an account on a network
 
 import logging
 from uuid import UUID
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Dict
 from copy import copy
 
 import requests
 
 from byoda.datatypes import CsrSource
-
-from .member import Member
-from .service import Service
+from byoda.datastore.document_store import DocumentStore
+from byoda.util import Paths
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import DataSecret
 from byoda.util.secrets import AccountDataSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import MembersCaSecret
 
+from .member import Member
+from .service import Service
+
 from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,35 +48,35 @@ class Account:
         Constructor
         '''
 
-        self.account = account
+        self.account: str = account
 
         if isinstance(account_id, UUID):
-            self.account_id = account_id
+            self.account_id: UUID = account_id
         else:
             try:
-                self.account_id = UUID(account_id)
+                self.account_id: UUID = UUID(account_id)
             except ValueError:
                 raise (f'AccountID {account_id} is not a valid UUID')
 
-        self.document_store = None
+        self.document_store: DocumentStore = None
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
-        self.memberships = dict()
+        self.memberships: Dict[str, Member] = dict()
 
-        self.network = network
+        self.network: Network = network
 
-        self.private_key_password = network.private_key_password
+        self.private_key_password: str = network.private_key_password
 
-        self.tls_secret = None
-        self.data_secret = None
+        self.tls_secret: AccountSecret = None
+        self.data_secret: DataSecret = None
         self.tls_secret = AccountSecret(
             self.account, self.account_id, self.network
         )
         if load_tls_secret:
             self.tls_secret.load(password=self.private_key_password)
 
-        self.paths = copy(network.paths)
+        self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
