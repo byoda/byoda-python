@@ -32,15 +32,15 @@ def authorize_graphql_request(service_id, auth, root, info):
     member = config.server.account.memberships[service_id]
 
     # This is the start of the data definition of the JsonSchema
-    schema_data = member.schema.schema_data['schema']['properties']
+    json_schema = member.schema.json_schema['schema']['properties']
 
     json_key = info.path[0]
 
     # This provides the type of operation requested: Query, Mutate, Subscribe
     operation = info.operation.operation
 
-    if json_key in schema_data and _ACCESS_MARKER in schema_data[json_key]:
-        for accesscontrol in schema_data[json_key][_ACCESS_MARKER]:
+    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
+        for accesscontrol in json_schema[json_key][_ACCESS_MARKER]:
             for entity, access in accesscontrol.items():
                 if not authorize_operation(operation, access):
                     continue

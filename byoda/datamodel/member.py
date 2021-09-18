@@ -194,28 +194,25 @@ class Member:
                 f'Unable to read data file for service {self.service_id}'
             )
 
-    def save_data(self, data: dict):
+    def save_data(self, data):
         '''
         Saves the data for the membership
         '''
-
-        if not self.data:
-            self.load_data()
 
         try:
             self.schema.validate(data)
             self.data = data
 
-            data_str = json.dumps(self.data, indent=4, sort_keys=True)
+            serialized_data = json.dumps(self.data, indent=4, sort_keys=True)
             self.account.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_FILE, service_id=self.service_id
                 ),
-                data_str
+                serialized_data
             )
         except OSError:
             _LOGGER.error(
-                f'Unable to read data file for service {self.service_id}'
+                f'Unable to write data file for service {self.service_id}'
             )
 
     @staticmethod
@@ -259,20 +256,44 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        # The called mutate 'function' starts with the string 'mutate' so
-        # we want what comes what came after it.
+        # mutations are always changes to existing data
+        if not member.data:
+            member.load_data()
+
+        # We do not modify existing data as it will need to be validated
+        # by JSON Schema before it can be accepted.
+        data = copy(member.data)
+
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'mutate' so we to find out
+        # what mutation was invoked, we want what comes after it.
         class_object = path[0][len('mutate'):].lower()
 
-        # Prepare the submitted data
-        data = {class_object: {}}
-
-        # Gets the data for the mutated object
+        # Gets the data included in the mutation
         mutate_data = getattr(mutation, class_object)
-        for attrib in dir(mutate_data):
-            if (attrib.startswith('_') or attrib.startswith('resolve_') or
-                    attrib in ('is_type_of', 'create_type')):
+
+        # Get the properties of the JSON Schema, we don't support
+        # nested objects just yet
+        schema_properties = member.schema.json_schema['schema']['properties']
+        properties = schema_properties[class_object]['properties']
+
+        for key in properties.keys():
+            if properties[key]['type'] == 'object':
+                raise ValueError(
+                    'We do not support nested objects yet: %s', key
+                )
+            if properties[key]['type'] == 'array':
+                raise ValueError(
+                    'We do not support arrays yet'
+                )
+            if key.startswith('#'):
+                _LOGGER.debug(
+                    'Skipping meta-property %s in schema for service %s',
+                    key, member.service_id
+                )
                 continue
-            data[class_object][attrib] = getattr(mutate_data, attrib)
+
+            data[class_object][key] = getattr(mutate_data, key)
 
         member.save_data(data)
 

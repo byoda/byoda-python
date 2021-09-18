@@ -28,15 +28,12 @@ class Schema:
         Construct a schema
         '''
 
-        self.jsonschema = None
-        self.jsonschema_validate = None
+        # This is the original JSON data from the
+        # schema file
         self.service = None
         self.service_id = None
 
-        # This is the original JSON data from the
-        # schema file
-        self.schema_data = []
-
+        self.json_schema = []
         self.gql_schema = []
 
         # This is a callable to validate data against the schema
@@ -53,11 +50,11 @@ class Schema:
 
         data = self.storage_driver.read(filepath)
 
-        self.schema_data = json.loads(data)
-        self.name = self.schema_data['name']
-        self.service_id = self.schema_data['service_id']
-        self.service_signature = self.schema_data['service_signature']
-        self.validate = fastjsonschema.compile(self.schema_data)
+        self.json_schema = json.loads(data)
+        self.name = self.json_schema['name']
+        self.service_id = self.json_schema['service_id']
+        self.service_signature = self.json_schema['service_signature']
+        self.validate = fastjsonschema.compile(self.json_schema)
         if self.with_graphql_convert:
             self.generate_graphql_schema()
 
@@ -68,7 +65,7 @@ class Schema:
         '''
 
         self.storage_driver.write(
-            filepath, json.dumps(self.schema_data, indent=4)
+            filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
 
     def validate(self, data: dict):
@@ -136,7 +133,7 @@ class Schema:
         class
         '''
 
-        properties = self.schema_data['schema']['properties']
+        properties = self.json_schema['schema']['properties']
         classes = OrderedDict({'Query': properties})
 
         self._get_graphene_classes(classes, properties)
