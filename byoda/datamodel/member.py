@@ -206,7 +206,7 @@ class Member:
             self.schema.validate(data)
             self.data = data
 
-            data_str = json.dumps(self.data)
+            data_str = json.dumps(self.data, indent=4, sort_keys=True)
             self.account.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_FILE, service_id=self.service_id
@@ -259,12 +259,17 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        data = {}
-        for attrib in dir(class_inst):
+        # mutate 'function' starts with the string 'mutate' so
+        # we want what comes what came after it.
+        variable = path[0][6:].lower()
+
+        data = {variable: {}}
+        mutate_data = getattr(class_inst, variable)
+        for attrib in dir(mutate_data):
             if (attrib.startswith('_') or attrib.startswith('resolve_') or
                     attrib in ('is_type_of', 'create_type')):
                 continue
-            data[attrib] = getattr(class_inst, attrib)
+            data[variable][attrib] = getattr(mutate_data, attrib)
 
         # With Mutate calls, the name of the mutation (ie. mutatePerson)
         # is included in the path

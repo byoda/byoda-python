@@ -89,7 +89,9 @@ class TestGraphQL(unittest.TestCase):
             '''
         )
         result = client.execute(query)
-        self.assertEqual(result['mutatePerson']['person']['givenName'], 'Steven')
+        self.assertEqual(
+            result['mutatePerson']['person']['givenName'], 'Steven'
+        )
 
 
 if __name__ == '__main__':
