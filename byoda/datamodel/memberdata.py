@@ -9,6 +9,7 @@ import logging
 import json
 
 from typing import Dict, TypeVar
+from collections import UserDict
 
 from byoda.util.paths import Paths
 from byoda.datastore.document_store import DocumentStore
@@ -21,7 +22,7 @@ MAX_FILE_SIZE = 65536
 Member = TypeVar('Member', bound='Member')
 
 
-class MemberData:
+class MemberData(UserDict):
     '''
     Generic data object for the storing data as defined
     by the schema of services
@@ -31,7 +32,6 @@ class MemberData:
                  doc_store: DocumentStore):
 
         self.member: Member = member
-        self.data: Dict = None
         self.unvalidated_data: Dict = None
         self.schema: Schema = schema
         self.paths: Paths = paths
@@ -45,7 +45,7 @@ class MemberData:
                     service_id=self.member.service_id
                 )
             )
-            self.schema.validate(self.unvalidated_data)
+            self.validate()
         except OSError:
             _LOGGER.error(
                 'Unable to read data file for service %s',

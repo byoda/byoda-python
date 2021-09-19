@@ -44,7 +44,9 @@ class TestAccountManager(unittest.TestCase):
 
         storage_driver = FileStorage('.')
         schema = Schema(DEFAULT_SCHEMA)
-        obj = MemberData(schema, storage_driver)
+        obj = MemberData(
+            schema, storage_driver
+        )
         obj.load_from_file('tests/collateral/memberdata.json')
 
         schema.generate_graphql_schema()

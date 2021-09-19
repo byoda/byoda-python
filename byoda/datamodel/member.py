@@ -20,6 +20,8 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.memberdata import MemberData
 
+from byoda.datastore.document_store import DocumentStore
+
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
 
@@ -67,6 +69,7 @@ class Member:
         self.paths.service_id = self.service_id
 
         self.storage_driver = self.paths.storage_driver
+        self.document_store: DocumentStore = self.account.document_store
 
         self.private_key_password = account.private_key_password
         self.tls_secret = None
@@ -178,12 +181,11 @@ class Member:
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        self.schema = Schema(
+        schema = Schema(
             filepath, self.storage_driver, with_graphql_convert=True
         )
         self.data = MemberData(
-            self.service_id, self.schema, self.account.document_store,
-            self.storage_driver
+            self, schema, self.paths, self.document_store
         )
 
     def load_data(self):
@@ -217,7 +219,7 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        return member.data[path[0]]
+        return member.data.get(path[0])
 
     @staticmethod
     def set_data(service_id, path: List[str], mutation: GrapheneMutation
@@ -259,8 +261,15 @@ class Member:
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
-        schema_properties = member.schema.json_schema['schema']['properties']
-        properties = schema_properties[class_object]['properties']
+        schema = member.data.schema
+        schema_properties = schema.json_schema['schema']['properties']
+
+        # The query may be for an object for which we do not yet have
+        # any data
+        if class_object not in member.data:
+            member.data[class_object] = dict()
+
+        properties = schema_properties[class_object].get('properties', {})
 
         for key in properties.keys():
             if properties[key]['type'] == 'object':
@@ -278,7 +287,9 @@ class Member:
                 )
                 continue
 
-            data[class_object][key] = getattr(mutate_data, key)
+            member.data[class_object][key] = getattr(
+                mutate_data, key, None
+            )
 
         member.save_data(data)
 

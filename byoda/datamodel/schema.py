@@ -37,7 +37,7 @@ class Schema:
         self.gql_schema = []
 
         # This is a callable to validate data against the schema
-        self.validate = None
+        self.validate: fastjsonschema.validate = None
 
         self.with_graphql_convert = with_graphql_convert
         self.storage_driver = storage_driver
@@ -54,7 +54,9 @@ class Schema:
         self.name = self.json_schema['name']
         self.service_id = self.json_schema['service_id']
         self.service_signature = self.json_schema['service_signature']
-        self.validate = fastjsonschema.compile(self.json_schema)
+
+        self.validate = fastjsonschema.compile(self.json_schema['schema'])
+
         if self.with_graphql_convert:
             self.generate_graphql_schema()
 
@@ -68,16 +70,7 @@ class Schema:
             filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
 
-    def validate(self, data: dict):
-        '''
-        Validates the provided data
 
-        :param data: data to validate
-        :returns: validated data
-        :raises:
-        '''
-
-        return self.validate(data)
 
     def generate_graphql_schema(self):
         '''
