@@ -11,6 +11,8 @@ import json
 from enum import Enum
 from typing import Dict, List
 
+from byoda.util.secrets import DataSecret
+
 from byoda.datatypes import CloudType
 from byoda.storage import FileStorage, FileMode
 
@@ -50,24 +52,34 @@ class DocumentStore:
 
         return storage
 
-    def read(self, filepath) -> Dict:
+    def read(self, filepath: str, data_secret: DataSecret = None) -> Dict:
         '''
         Reads and deserializes a JSON document
         '''
 
         # DocumentStore only stores encrypted data, which is binary
         data = self.backend.read(filepath, file_mode=FileMode.BINARY)
-        if data:
-            return json.loads(data)
-        else:
-            return {}
 
-    def write(self, filepath: str, data: Dict):
+        if data_secret:
+            data = data_secret.decrypt(data)
+
+        if data:
+            data = json.loads(data)
+        else:
+            data = dict()
+
+        return data
+
+    def write(self, filepath: str, data: Dict, data_secret: DataSecret = None):
         '''
         Serializes to JSON and writes data to storage
         '''
 
-        # DocumentStore only stores encrypted data, which is binary
+        data = json.dumps(data, indent=4, sort_keys=True)
+
+        if data_secret:
+            data = data_secret.encrypt(data)
+
         self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:

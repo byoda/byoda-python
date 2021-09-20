@@ -127,7 +127,7 @@ class TestGraphQL(unittest.TestCase):
                 mutation Mutation {
                     mutateMember(
                         memberId: "0",
-                        joined: "2021-09-19T09:04:00"
+                        joined: "2021-09-19T09:04:00+07:00"
                     ) {
                         member {
                             memberId

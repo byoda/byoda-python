@@ -42,24 +42,37 @@ class MemberData(UserDict):
 
         self.document_store: DocumentStore = doc_store
 
-        self.symmetric_key = None
-        self.assymetric_secret = member.data_secret
-        self.load_protected_symmetric_key()
+        self.data_secret = member.data_secret
+        self.load_protected_shared_key()
 
     def load(self):
+        # FIXME: remove encryption migration step
         try:
             self.unvalidated_data = self.document_store.read(
                 self.paths.get(
-                    self.paths.MEMBER_DATA_FILE,
+                    self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
-                )
+                ),
+                self.data_secret
             )
-            self.validate()
         except OSError:
-            _LOGGER.error(
-                'Unable to read data file for service %s',
-                self.member.service_id
-            )
+            try:
+                self.unvalidated_data = self.document_store.read(
+                    self.paths.get(
+                        self.paths.MEMBER_DATA_FILE,
+                        service_id=self.member.service_id
+                    )
+                )
+                self.validate()
+                self.save()
+            except OSError:
+                _LOGGER.error(
+                    'Unable to read data file for service %s',
+                    self.member.service_id
+                )
+                raise
+
+        self.validate()
 
     def save(self):
         if not self.data:
@@ -72,13 +85,13 @@ class MemberData(UserDict):
             # Let's double check the data is valid
             self.schema.validate(self.data)
 
-            serialized_data = json.dumps(self.data, indent=4, sort_keys=True)
             self.document_store.write(
                 self.paths.get(
-                    self.paths.MEMBER_DATA_FILE,
+                    self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
                 ),
-                serialized_data
+                self.data,
+                self.data_secret
             )
         except OSError:
             _LOGGER.error(
@@ -104,7 +117,7 @@ class MemberData(UserDict):
         except Exception:
             raise
 
-    def load_protected_symmetric_key(self):
+    def load_protected_shared_key(self):
         '''
         Reads the protected symmetric key from file storage. Support
         for changing symmetric keys is currently not supported.
@@ -112,18 +125,23 @@ class MemberData(UserDict):
         filepath = self.paths.get(
             self.paths.MEMBER_DATA_SHARED_SECRET_FILE
         )
-        protected = self.member.storage_driver.read(
-            filepath, file_mode=FileMode.BINARY
-        )
+        # FIXME remove migration step for encrypted data
+        try:
+            protected = self.member.storage_driver.read(
+                filepath, file_mode=FileMode.BINARY
+            )
+        except OSError:
+            self.data_secret.create_shared_key()
+            protected = self.save_protected_shared_key()
 
-        self.assymetric_secret.load_shared_key(protected)
+        self.data_secret.load_shared_key(protected)
 
-    def save_protected_symmetric_key(self):
+    def save_protected_shared_key(self):
         '''
         Saves the protected symmetric key
         '''
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
         self.member.storage_driver.write(
-            filepath, self.assymetric_secret.protected_shared_key,
+            filepath, self.data_secret.protected_shared_key,
             file_mode=FileMode.BINARY
         )

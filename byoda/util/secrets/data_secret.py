@@ -26,7 +26,7 @@ _ROOT_DIR = os.environ['HOME'] + _BYODA_DIR
 class DataSecret(Secret):
     '''
     Interface class for the PKI secrets used for:
-    - signing and verification the signature of documents
+    - signing and verification of the signature of documents
     - encrypting and decrypting documents
 
     Properties:
@@ -43,10 +43,11 @@ class DataSecret(Secret):
                  storage_driver: FileStorage = None):
 
         super().__init__(cert_file, key_file, storage_driver)
+
         # the key to use for Fernet encryption/decryption
         self.shared_key = None
 
-        # The shared key encrypted with the pr ivate key of
+        # The shared key encrypted with the private key of
         # this secret
         self.protected_shared_key = None
 

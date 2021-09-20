@@ -10,7 +10,6 @@ import logging
 
 from uuid import uuid4
 from copy import copy
-import json
 from typing import List, Dict, TypeVar, Callable
 
 from graphene import Mutation as GrapheneMutation
