@@ -1,7 +1,7 @@
 '''
 Python module for directory and file management a.o. for secrets
 
-:maintainer : Steven Hessing (stevenhessing@live.com)
+:maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2020, 2021
 :license    : GPLv3
 '''

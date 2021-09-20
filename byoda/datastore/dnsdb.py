@@ -7,7 +7,7 @@ The DnsDb class does not use any abstraction for different
 storage technologies as PowerDNS only supports SQL databases, for
 which we have coverage through SQLAlchemy
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''

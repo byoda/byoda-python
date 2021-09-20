@@ -1,7 +1,7 @@
 '''
 Class for modeling an account on a network
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -88,11 +88,17 @@ class Account:
         Creates the account secret and data secret if they do not already
         exist
         '''
+
         self.create_account_secret(accounts_ca)
         self.create_data_secret(accounts_ca)
 
     def create_account_secret(self,
                               accounts_ca: NetworkAccountsCaSecret = None):
+        '''
+        Creates the TLS secret for an account. TODO: create Let's Encrypt
+        cert
+        '''
+
         if not self.tls_secret:
             self.tls_secret = AccountSecret(
                 self.account, self.account_id, self.network
@@ -105,6 +111,10 @@ class Account:
             )
 
     def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
+        '''
+        Creates the PKI secret used to protect all data in the document store
+        '''
+
         if not self.data_secret:
             self.data_secret = AccountDataSecret(
                 self.account, self.account_id, self.network
@@ -194,6 +204,11 @@ class Account:
         self.data_secret.load(password=self.private_key_password)
 
     def load_memberships(self):
+        '''
+        Loads the memberships of an account by iterating through
+        a directory structure in the document store of the server.
+        '''
+
         memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
         folders = self.document_store.get_folders(
             memberships_dir, prefix='service-'

@@ -3,7 +3,7 @@
 Test the GraphQL API
 
 Authentication function for GraphQL requests
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license
 '''

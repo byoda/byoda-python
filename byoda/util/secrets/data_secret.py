@@ -1,7 +1,7 @@
 '''
 Cert manipulation
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -62,6 +62,7 @@ class DataSecret(Secret):
         :raises: KeyError if no shared secret was generated or
                             loaded for this instance of Secret
         '''
+
         if not self.shared_key:
             raise KeyError('No shared secret available to encrypt')
 
@@ -73,6 +74,7 @@ class DataSecret(Secret):
         return ciphertext
 
     def decrypt(self, ciphertext: bytes) -> bytes:
+        
         '''
         Decrypts the ciphertext
 

@@ -3,7 +3,7 @@
 '''
 Test cases for json schema
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -47,7 +47,7 @@ class TestAccountManager(unittest.TestCase):
         obj = MemberData(
             schema, storage_driver
         )
-        obj.load_from_file('tests/collateral/memberdata.json')
+        obj._load_from_file('tests/collateral/memberdata.json')
 
         schema.generate_graphql_schema()
 

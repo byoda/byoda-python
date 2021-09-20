@@ -1,7 +1,7 @@
 '''
 Class for modeling the (JSON) schema to validating data
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -69,8 +69,6 @@ class Schema:
         self.storage_driver.write(
             filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
-
-
 
     def generate_graphql_schema(self):
         '''

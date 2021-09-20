@@ -1,6 +1,6 @@
 '''
 Class for modeling an element of data of a member
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -46,7 +46,10 @@ class MemberData(UserDict):
         self.load_protected_shared_key()
 
     def load(self):
-        # FIXME: remove encryption migration step
+        '''
+        Load the data from the data store
+        '''
+        
         try:
             self.unvalidated_data = self.document_store.read(
                 self.paths.get(
@@ -56,25 +59,19 @@ class MemberData(UserDict):
                 self.data_secret
             )
         except OSError:
-            try:
-                self.unvalidated_data = self.document_store.read(
-                    self.paths.get(
-                        self.paths.MEMBER_DATA_FILE,
-                        service_id=self.member.service_id
-                    )
-                )
-                self.validate()
-                self.save()
-            except OSError:
-                _LOGGER.error(
-                    'Unable to read data file for service %s',
-                    self.member.service_id
-                )
-                raise
+            _LOGGER.error(
+                'Unable to read data file for service %s',
+                self.member.service_id
+            )
+            raise
 
         self.validate()
 
     def save(self):
+        '''
+        Save the data to the data store
+        '''
+
         if not self.data:
             raise ValueError(
                 'No member data for service %s available to save',
@@ -99,10 +96,11 @@ class MemberData(UserDict):
                 self.member.service_id
             )
 
-    def load_from_file(self, filename: str):
+    def _load_from_file(self, filename: str):
         '''
         This function should only be used by test cases
         '''
+
         with open(filename) as file_desc:
             raw_data = file_desc.read(MAX_FILE_SIZE)
 
@@ -112,6 +110,7 @@ class MemberData(UserDict):
         '''
         Validates the unvalidated data against the schema
         '''
+
         try:
             self.data = self.schema.validate(self.unvalidated_data)
         except Exception:
@@ -122,17 +121,20 @@ class MemberData(UserDict):
         Reads the protected symmetric key from file storage. Support
         for changing symmetric keys is currently not supported.
         '''
+
         filepath = self.paths.get(
             self.paths.MEMBER_DATA_SHARED_SECRET_FILE
         )
-        # FIXME remove migration step for encrypted data
+
         try:
             protected = self.member.storage_driver.read(
                 filepath, file_mode=FileMode.BINARY
             )
         except OSError:
-            self.data_secret.create_shared_key()
-            protected = self.save_protected_shared_key()
+            _LOGGER.error(
+                'Can not read the protected shared key for service %s from %s',
+                self.member.service_id, filepath
+            )
 
         self.data_secret.load_shared_key(protected)
 
@@ -140,6 +142,7 @@ class MemberData(UserDict):
         '''
         Saves the protected symmetric key
         '''
+
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
         self.member.storage_driver.write(
             filepath, self.data_secret.protected_shared_key,

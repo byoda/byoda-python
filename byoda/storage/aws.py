@@ -4,7 +4,7 @@ Bring your own algorithm backend storage for the server.
 The directory server uses caching storage for server and client registrations
 The profile server uses noSQL storage for profile data
 
-:maintainer : Steven Hessing (stevenhessing@live.com)
+:maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2020, 2021
 :license    : GPLv3
 '''

@@ -1,7 +1,7 @@
 '''
 Class for modeling a social network
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -66,6 +66,9 @@ class Network:
         :returns:
         :raises: ValueError, KeyError
         '''
+
+        # TODO: continue reducing the length of this constructor
+        
         self.name = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None

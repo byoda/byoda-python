@@ -1,7 +1,12 @@
 '''
-Class for certificate request processing
+The document store handles storing the data of a pod for a service that
+the pod is a member of. This data is stored as an encrypted JSON file.
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+The DocumentStore can be extended to support different backend storage. It
+currently only supports local file systems and AWS S3. In the future it
+can be extended by for NoSQL storage to improve scalability.
+
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -34,7 +39,7 @@ class DocumentStore:
                            bucket_prefix: str = None, root_dir: str = None
                            ):
         '''
-        Factory for initating a document store
+        Factory for initiating a document store
         '''
 
         storage = DocumentStore()
@@ -52,16 +57,15 @@ class DocumentStore:
 
         return storage
 
-    def read(self, filepath: str, data_secret: DataSecret = None) -> Dict:
+    def read(self, filepath: str, data_secret: DataSecret) -> Dict:
         '''
-        Reads and deserializes a JSON document
+        Reads, decrypts and deserializes a JSON document
         '''
 
         # DocumentStore only stores encrypted data, which is binary
         data = self.backend.read(filepath, file_mode=FileMode.BINARY)
 
-        if data_secret:
-            data = data_secret.decrypt(data)
+        data = data_secret.decrypt(data)
 
         if data:
             data = json.loads(data)
@@ -70,15 +74,14 @@ class DocumentStore:
 
         return data
 
-    def write(self, filepath: str, data: Dict, data_secret: DataSecret = None):
+    def write(self, filepath: str, data: Dict, data_secret: DataSecret):
         '''
-        Serializes to JSON and writes data to storage
+        Encrypts the data, serializes it to JSON and writes the data to storage
         '''
 
         data = json.dumps(data, indent=4, sort_keys=True)
 
-        if data_secret:
-            data = data_secret.encrypt(data)
+        data = data_secret.encrypt(data)
 
         self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
@@ -88,4 +91,5 @@ class DocumentStore:
         this functionality will be emulated as it doesn't support directories
         or folders.
         '''
+
         return self.backend.get_folders(folder_path, prefix)
