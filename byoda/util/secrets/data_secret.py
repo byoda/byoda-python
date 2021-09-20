@@ -89,7 +89,7 @@ class DataSecret(Secret):
 
         return data
 
-    def create_shared_key(self, target_secret):
+    def create_shared_key(self, target_secret=None):
         '''
         Creates an encrypted shared key
 
@@ -98,6 +98,9 @@ class DataSecret(Secret):
         :returns: (none)
         :raises: (none)
         '''
+
+        if not target_secret:
+            target_secret = self
 
         _LOGGER.debug(
             f'Creating a shared key protected with cert '

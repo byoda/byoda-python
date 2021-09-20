@@ -243,9 +243,9 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        # mutations are always changes to existing data
-        if not member.data:
-            member.load_data()
+        # Any data we may have in memory may be stale when we run
+        # multiple processes so we always need to load the data
+        member.load_data()
 
         # We do not modify existing data as it will need to be validated
         # by JSON Schema before it can be accepted.

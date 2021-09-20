@@ -11,8 +11,12 @@ import json
 from typing import Dict, TypeVar
 from collections import UserDict
 
+from byoda.storage import FileMode
+
 from byoda.util.paths import Paths
+
 from byoda.datastore.document_store import DocumentStore
+
 from .schema import Schema
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,12 +34,17 @@ class MemberData(UserDict):
 
     def __init__(self, member: Member, schema: Schema, paths: Paths,
                  doc_store: DocumentStore):
-
         self.member: Member = member
         self.unvalidated_data: Dict = None
         self.schema: Schema = schema
+
         self.paths: Paths = paths
+
         self.document_store: DocumentStore = doc_store
+
+        self.symmetric_key = None
+        self.assymetric_secret = member.data_secret
+        self.load_protected_symmetric_key()
 
     def load(self):
         try:
@@ -87,7 +96,34 @@ class MemberData(UserDict):
         self.unvalidated_data = json.loads(raw_data)
 
     def validate(self):
+        '''
+        Validates the unvalidated data against the schema
+        '''
         try:
             self.data = self.schema.validate(self.unvalidated_data)
         except Exception:
             raise
+
+    def load_protected_symmetric_key(self):
+        '''
+        Reads the protected symmetric key from file storage. Support
+        for changing symmetric keys is currently not supported.
+        '''
+        filepath = self.paths.get(
+            self.paths.MEMBER_DATA_SHARED_SECRET_FILE
+        )
+        protected = self.member.storage_driver.read(
+            filepath, file_mode=FileMode.BINARY
+        )
+
+        self.assymetric_secret.load_shared_key(protected)
+
+    def save_protected_symmetric_key(self):
+        '''
+        Saves the protected symmetric key
+        '''
+        filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
+        self.member.storage_driver.write(
+            filepath, self.assymetric_secret.protected_shared_key,
+            file_mode=FileMode.BINARY
+        )

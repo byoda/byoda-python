@@ -59,14 +59,14 @@ class Paths:
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
 
-    MEMBER_DIR            = 'network-{network}/account-{account}/service-{service_id}/'                                                      # noqa
-    MEMBER_SERVICE_FILE   = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                 # noqa
-    MEMBER_CERT_FILE      = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-cert.pem'        # noqa
-    MEMBER_KEY_FILE       = 'private/network-{network}-account-{account}-member-{service_id}.key'                                            # noqa
-    MEMBER_DATA_CERT_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'   # noqa
-    MEMBER_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                                       # noqa
-    MEMBER_DATA_FILE      = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json'  # noqa
-    MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.sharedsecret'  # noqa
+    MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                         # noqa
+    MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                    # noqa
+    MEMBER_CERT_FILE               = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-cert.pem'           # noqa
+    MEMBER_KEY_FILE                = 'private/network-{network}-account-{account}-member-{service_id}.key'                                               # noqa
+    MEMBER_DATA_CERT_FILE          = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'      # noqa
+    MEMBER_DATA_KEY_FILE           = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                                          # noqa
+    MEMBER_DATA_FILE               = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json'     # noqa
+    MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Dict, List
 
 from byoda.datatypes import CloudType
-from byoda.storage import FileStorage
+from byoda.storage import FileStorage, FileMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +55,8 @@ class DocumentStore:
         Reads and deserializes a JSON document
         '''
 
-        data = self.backend.read(filepath)
+        # DocumentStore only stores encrypted data, which is binary
+        data = self.backend.read(filepath, file_mode=FileMode.BINARY)
         if data:
             return json.loads(data)
         else:
@@ -66,7 +67,13 @@ class DocumentStore:
         Serializes to JSON and writes data to storage
         '''
 
-        self.backend.write(filepath, data)
+        # DocumentStore only stores encrypted data, which is binary
+        self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+        '''
+        Get the sub-directories in a directory. With some storage backends,
+        this functionality will be emulated as it doesn't support directories
+        or folders.
+        '''
         return self.backend.get_folders(folder_path, prefix)
