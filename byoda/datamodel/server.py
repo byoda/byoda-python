@@ -2,7 +2,7 @@
 Class for modeling the different server types, ie.:
 POD server, directory server, service server
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''

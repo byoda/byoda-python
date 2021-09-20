@@ -1,0 +1,14 @@
+{
+    "member": {
+        "memberId": "0"
+    },
+    "person": {
+        "additionalNames": "",
+        "avatarUrl": "https://some.place/avatar",
+        "email": "steven@byoda.org",
+        "familyName": "Hessing",
+        "givenName": "Peter",
+        "homepageUrl": "https://some.place/",
+        "memberId": "0"
+    }
+}

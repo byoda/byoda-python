@@ -1,7 +1,7 @@
 '''
 Cert manipulation
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -26,7 +26,7 @@ _ROOT_DIR = os.environ['HOME'] + _BYODA_DIR
 class DataSecret(Secret):
     '''
     Interface class for the PKI secrets used for:
-    - signing and verification the signature of documents
+    - signing and verification of the signature of documents
     - encrypting and decrypting documents
 
     Properties:
@@ -43,10 +43,11 @@ class DataSecret(Secret):
                  storage_driver: FileStorage = None):
 
         super().__init__(cert_file, key_file, storage_driver)
+
         # the key to use for Fernet encryption/decryption
         self.shared_key = None
 
-        # The shared key encrypted with the pr ivate key of
+        # The shared key encrypted with the private key of
         # this secret
         self.protected_shared_key = None
 
@@ -61,6 +62,7 @@ class DataSecret(Secret):
         :raises: KeyError if no shared secret was generated or
                             loaded for this instance of Secret
         '''
+
         if not self.shared_key:
             raise KeyError('No shared secret available to encrypt')
 
@@ -72,6 +74,7 @@ class DataSecret(Secret):
         return ciphertext
 
     def decrypt(self, ciphertext: bytes) -> bytes:
+        
         '''
         Decrypts the ciphertext
 
@@ -89,7 +92,7 @@ class DataSecret(Secret):
 
         return data
 
-    def create_shared_key(self, target_secret):
+    def create_shared_key(self, target_secret=None):
         '''
         Creates an encrypted shared key
 
@@ -98,6 +101,9 @@ class DataSecret(Secret):
         :returns: (none)
         :raises: (none)
         '''
+
+        if not target_secret:
+            target_secret = self
 
         _LOGGER.debug(
             f'Creating a shared key protected with cert '

@@ -1,7 +1,7 @@
 '''
 Helper functions for API request processing
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license
 '''

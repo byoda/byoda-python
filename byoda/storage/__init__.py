@@ -4,11 +4,12 @@ Bring your own algorithm module for backend storage for the server.
 The directory server uses caching storage for server and client registrations
 The profile server uses NoSQL storage for profile data
 
-:maintainer : Steven Hessing (stevenhessing@live.com)
+:maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2020, 2021
 :license    : GPLv3
 '''
 
-from .cachestorage import CacheStorage, CacheStorageType      # noqa
-from .aws import AwsFileStorage                               # noqa
-from .filestorage import FileStorage                          # noqa
+# flake8: noqa=E401
+
+from .aws import AwsFileStorage
+from .filestorage import FileStorage, FileMode

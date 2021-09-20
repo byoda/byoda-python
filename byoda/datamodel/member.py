@@ -1,7 +1,7 @@
 '''
 Class for modeling an account on a network
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -10,12 +10,16 @@ import logging
 
 from uuid import uuid4
 from copy import copy
-from typing import TypeVar, Callable, Dict, List
+from typing import List, Dict, TypeVar, Callable
 
+from graphene import Mutation as GrapheneMutation
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.memberdata import MemberData
+
+from byoda.datastore.document_store import DocumentStore
 
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
@@ -51,7 +55,12 @@ class Member:
 
         self.service = self.network.services[service_id]
 
+        # This is the accepted data contract, which may differ from
+        # the current data contract of the service
         self.data_contract = None
+
+        # self.load_schema() will initialize the data property
+        self.data = None
 
         self.paths = copy(self.network.paths)
         self.paths.account_id = account.account_id
@@ -59,6 +68,7 @@ class Member:
         self.paths.service_id = self.service_id
 
         self.storage_driver = self.paths.storage_driver
+        self.document_store: DocumentStore = self.account.document_store
 
         self.private_key_password = account.private_key_password
         self.tls_secret = None
@@ -165,26 +175,31 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
+    def load_schema(self):
+        '''
+        Loads the schema for the service that we're loading the membership for
+        '''
+        filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
+        schema = Schema(
+            filepath, self.storage_driver, with_graphql_convert=True
+        )
+        self.data = MemberData(
+            self, schema, self.paths, self.document_store
+        )
+
     def load_data(self):
         '''
         Loads the data stored for the membership
         '''
 
-        try:
-            filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-            self.schema = Schema(filepath, self.storage_driver)
+        self.data.load()
 
-            data = self.account.document_store.read(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_FILE, service_id=self.service_id
-                )
-            )
-            self.schema.validate(data)
-            self.data = data
-        except OSError:
-            _LOGGER.error(
-                f'Unable to read data file for service {self.service_id}'
-            )
+    def save_data(self, data):
+        '''
+        Saves the data for the membership
+        '''
+
+        self.data.save()
 
     @staticmethod
     def get_data(service_id, path: List[str]) -> Dict:
@@ -196,8 +211,29 @@ class Member:
         member = server.account.memberships[service_id]
         member.load_data()
 
-        # This is the start of the data definition of the JsonSchema
-        schema_data = member.schema.schema_data['schema']['properties']
+        if not path:
+            raise ValueError('Did not get value for path parameter')
+        if len(path) > 1:
+            raise ValueError(
+                f'Got path with more than 1 item: f{", ".join(path)}'
+            )
+
+        return member.data.get(path[0])
+
+    @staticmethod
+    def set_data(service_id, path: List[str], mutation: GrapheneMutation
+                 ) -> None:
+        '''
+        Sets the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param path: the GraphQL path variable that shows the path taken
+        through the GraphQL data model
+        :param mutation: the instance of the Mutation<Object> class
+        '''
+
+        server = config.server
+        member = server.account.memberships[service_id]
 
         if not path:
             raise ValueError('Did not get value for path parameter')
@@ -206,4 +242,54 @@ class Member:
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
 
-        return member.data[path[0]]
+        # Any data we may have in memory may be stale when we run
+        # multiple processes so we always need to load the data
+        member.load_data()
+
+        # We do not modify existing data as it will need to be validated
+        # by JSON Schema before it can be accepted.
+        data = copy(member.data)
+
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'mutate' so we to find out
+        # what mutation was invoked, we want what comes after it.
+        class_object = path[0][len('mutate'):].lower()
+
+        # Gets the data included in the mutation
+        mutate_data = getattr(mutation, class_object)
+
+        # Get the properties of the JSON Schema, we don't support
+        # nested objects just yet
+        schema = member.data.schema
+        schema_properties = schema.json_schema['schema']['properties']
+
+        # The query may be for an object for which we do not yet have
+        # any data
+        if class_object not in member.data:
+            member.data[class_object] = dict()
+
+        properties = schema_properties[class_object].get('properties', {})
+
+        for key in properties.keys():
+            if properties[key]['type'] == 'object':
+                raise ValueError(
+                    'We do not support nested objects yet: %s', key
+                )
+            if properties[key]['type'] == 'array':
+                raise ValueError(
+                    'We do not support arrays yet'
+                )
+            if key.startswith('#'):
+                _LOGGER.debug(
+                    'Skipping meta-property %s in schema for service %s',
+                    key, member.service_id
+                )
+                continue
+
+            member.data[class_object][key] = getattr(
+                mutate_data, key, None
+            )
+
+        member.save_data(data)
+
+        return member.data

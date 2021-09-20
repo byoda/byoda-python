@@ -4,7 +4,7 @@ request_auth
 provides helper middleware functions to authenticate the client making a
 request
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''

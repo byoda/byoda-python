@@ -1,6 +1,6 @@
 FROM ubuntu:hirsute
 
-LABEL maintainer="stevenhessing@live.com"
+LABEL maintainer="steven@byoda.org"
 
 # TODO
 # 1: run gunicorn/uvicorn/fastapi/app as non-root user

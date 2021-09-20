@@ -1,30 +1,34 @@
 '''
 Class for modeling an account on a network
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
 
 import logging
 from uuid import UUID
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Dict
 from copy import copy
 
 import requests
 
 from byoda.datatypes import CsrSource
-
-from .member import Member
-from .service import Service
+from byoda.datastore.document_store import DocumentStore
+from byoda.util import Paths
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import DataSecret
 from byoda.util.secrets import AccountDataSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
 from byoda.util.secrets import MembersCaSecret
 
+from .member import Member
+from .service import Service
+
 from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,35 +48,35 @@ class Account:
         Constructor
         '''
 
-        self.account = account
+        self.account: str = account
 
         if isinstance(account_id, UUID):
-            self.account_id = account_id
+            self.account_id: UUID = account_id
         else:
             try:
-                self.account_id = UUID(account_id)
+                self.account_id: UUID = UUID(account_id)
             except ValueError:
                 raise (f'AccountID {account_id} is not a valid UUID')
 
-        self.document_store = None
+        self.document_store: DocumentStore = None
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
-        self.memberships = dict()
+        self.memberships: Dict[str, Member] = dict()
 
-        self.network = network
+        self.network: Network = network
 
-        self.private_key_password = network.private_key_password
+        self.private_key_password: str = network.private_key_password
 
-        self.tls_secret = None
-        self.data_secret = None
+        self.tls_secret: AccountSecret = None
+        self.data_secret: DataSecret = None
         self.tls_secret = AccountSecret(
             self.account, self.account_id, self.network
         )
         if load_tls_secret:
             self.tls_secret.load(password=self.private_key_password)
 
-        self.paths = copy(network.paths)
+        self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
@@ -84,11 +88,17 @@ class Account:
         Creates the account secret and data secret if they do not already
         exist
         '''
+
         self.create_account_secret(accounts_ca)
         self.create_data_secret(accounts_ca)
 
     def create_account_secret(self,
                               accounts_ca: NetworkAccountsCaSecret = None):
+        '''
+        Creates the TLS secret for an account. TODO: create Let's Encrypt
+        cert
+        '''
+
         if not self.tls_secret:
             self.tls_secret = AccountSecret(
                 self.account, self.account_id, self.network
@@ -101,6 +111,10 @@ class Account:
             )
 
     def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
+        '''
+        Creates the PKI secret used to protect all data in the document store
+        '''
+
         if not self.data_secret:
             self.data_secret = AccountDataSecret(
                 self.account, self.account_id, self.network
@@ -190,6 +204,11 @@ class Account:
         self.data_secret.load(password=self.private_key_password)
 
     def load_memberships(self):
+        '''
+        Loads the memberships of an account by iterating through
+        a directory structure in the document store of the server.
+        '''
+
         memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
         folders = self.document_store.get_folders(
             memberships_dir, prefix='service-'
@@ -211,6 +230,8 @@ class Account:
 
         member = Member(service_id, self)
         member.load_secrets()
+
+        member.load_schema()
         member.load_data()
 
         self.memberships[service_id] = member

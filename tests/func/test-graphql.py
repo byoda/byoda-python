@@ -6,7 +6,7 @@ Test the GraphQL API
 As these test cases are directly run against the GraphQL APIs, they mock
 the headers that would normally be set by the reverse proxy
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license
 '''
@@ -50,7 +50,7 @@ class TestGraphQL(unittest.TestCase):
         query = gql(
             '''
                 query {
-                    person(name: "Steven") {
+                    person {
                         givenName
                         additionalNames
                         familyName
@@ -63,6 +63,83 @@ class TestGraphQL(unittest.TestCase):
         )
         result = client.execute(query)
         self.assertEqual(result['person']['givenName'], 'Steven')
+
+        query = gql(
+            '''
+                mutation Mutation {
+                    mutatePerson(
+                        memberId:"0",
+                        givenName: "Peter",
+                        additionalNames: "",
+                        familyName: "Hessing",
+                        email: "steven@byoda.org",
+                        homepageUrl: "https://some.place/",
+                        avatarUrl: "https://some.place/avatar"
+                    ) {
+                        person {
+                            givenName
+                            additionalNames
+                            familyName
+                            email
+                            homepageUrl
+                            avatarUrl
+                        }
+                    }
+                }
+            '''
+        )
+        result = client.execute(query)
+        self.assertEqual(
+            result['mutatePerson']['person']['givenName'], 'Peter'
+        )
+
+        query = gql(
+            '''
+                mutation Mutation {
+                    mutatePerson(
+                        memberId:"0",
+                        givenName: "Steven",
+                        additionalNames: "",
+                        familyName: "Hessing",
+                        email: "steven@byoda.org",
+                        homepageUrl: "https://some.place/",
+                        avatarUrl: "https://some.place/avatar"
+                    ) {
+                        person {
+                            givenName
+                            additionalNames
+                            familyName
+                            email
+                            homepageUrl
+                            avatarUrl
+                        }
+                    }
+                }
+            '''
+        )
+
+        result = client.execute(query)
+        self.assertEqual(
+            result['mutatePerson']['person']['givenName'], 'Steven'
+        )
+        query = gql(
+            '''
+                mutation Mutation {
+                    mutateMember(
+                        memberId: "0",
+                        joined: "2021-09-19T09:04:00+07:00"
+                    ) {
+                        member {
+                            memberId
+                        }
+                    }
+                }
+            '''
+        )
+        result = client.execute(query)
+        self.assertEqual(
+            result['mutateMember']['member']['memberId'], '0'
+        )
 
 
 if __name__ == '__main__':

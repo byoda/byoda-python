@@ -1,6 +1,6 @@
 FROM ubuntu:hirsute
 
-LABEL org.opencontainers.image.authors="stevenhessing@live.com"
+LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 # TODO
 # 1: run gunicorn/uvicorn/fastapi/app as non-root user

@@ -1,7 +1,7 @@
 '''
 Cert manipulation of network secrets: root CA, accounts CA and services CA
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''

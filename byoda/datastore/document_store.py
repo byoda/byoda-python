@@ -1,7 +1,12 @@
 '''
-Class for certificate request processing
+The document store handles storing the data of a pod for a service that
+the pod is a member of. This data is stored as an encrypted JSON file.
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+The DocumentStore can be extended to support different backend storage. It
+currently only supports local file systems and AWS S3. In the future it
+can be extended by for NoSQL storage to improve scalability.
+
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -11,8 +16,10 @@ import json
 from enum import Enum
 from typing import Dict, List
 
+from byoda.util.secrets import DataSecret
+
 from byoda.datatypes import CloudType
-from byoda.storage import FileStorage
+from byoda.storage import FileStorage, FileMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +39,7 @@ class DocumentStore:
                            bucket_prefix: str = None, root_dir: str = None
                            ):
         '''
-        Factory for initating a document store
+        Factory for initiating a document store
         '''
 
         storage = DocumentStore()
@@ -50,20 +57,39 @@ class DocumentStore:
 
         return storage
 
-    def read(self, filepath) -> Dict:
+    def read(self, filepath: str, data_secret: DataSecret) -> Dict:
         '''
-        Reads and deserializes a JSON document
-        '''
-
-        data = self.backend.read(filepath)
-        return json.loads(data)
-
-    def write(self, filepath: str, data: Dict):
-        '''
-        Serializes to JSON and writes data to storage
+        Reads, decrypts and deserializes a JSON document
         '''
 
-        self.backend.write(filepath)
+        # DocumentStore only stores encrypted data, which is binary
+        data = self.backend.read(filepath, file_mode=FileMode.BINARY)
+
+        data = data_secret.decrypt(data)
+
+        if data:
+            data = json.loads(data)
+        else:
+            data = dict()
+
+        return data
+
+    def write(self, filepath: str, data: Dict, data_secret: DataSecret):
+        '''
+        Encrypts the data, serializes it to JSON and writes the data to storage
+        '''
+
+        data = json.dumps(data, indent=4, sort_keys=True)
+
+        data = data_secret.encrypt(data)
+
+        self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+        '''
+        Get the sub-directories in a directory. With some storage backends,
+        this functionality will be emulated as it doesn't support directories
+        or folders.
+        '''
+
         return self.backend.get_folders(folder_path, prefix)

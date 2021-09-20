@@ -1,7 +1,7 @@
 '''
 Class for modeling a service on a social network
 
-:maintainer : Steven Hessing <stevenhessing@live.com>
+:maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
 '''
@@ -37,7 +37,8 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, network: Network = None, filepath: str = None):
+    def __init__(self, network: Network = None, filepath: str = None,
+                 with_graphql_convert: bool = False):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -47,6 +48,8 @@ class Service:
 
         :param network: Network the service is part of
         :param filepath: the file with the service schema/contract
+        :param with_graphql_convert: should the JSON schema be converted to a
+        graphql schema? Should only be 'True' when loading a membership
         '''
 
         self.name: str = None
@@ -78,6 +81,9 @@ class Service:
         # the service
         self.data_secret = None
 
+        # Should the JSON schema be converted to GraphQL
+        self.with_graphql_convert = with_graphql_convert
+
         # The network that the service is a part of. As storage is already
         # set up for the Network object, we can copy it here for the Service
         self.network = network
@@ -93,7 +99,8 @@ class Service:
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
                     with_private_key: bool = False, password: str = None,
-                    allow_unsigned_service: bool = False) -> Service:
+                    allow_unsigned_service: bool = False,
+                    with_graphql_convert: bool = False) -> Service:
         '''
         Factory for Service class, loads the service metadata from a local
         file.
@@ -105,7 +112,10 @@ class Service:
         TODO: validate contract signature
         '''
 
-        service = Service(network=network, filepath=filepath)
+        service = Service(
+            network=network, filepath=filepath,
+            with_graphql_convert=with_graphql_convert
+        )
 
         if not service.signed and not allow_unsigned_service:
             raise ValueError(
@@ -134,7 +144,10 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema(filepath, self.storage_driver)
+        self.schema = Schema(
+            filepath, self.storage_driver,
+            with_graphql_convert=self.with_graphql_convert
+        )
 
         self.service_id = self.schema.service_id
         self.name = self.schema.name

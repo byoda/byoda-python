@@ -9,14 +9,24 @@
         "title": "default service",
         "description": "This is the default service of each network, storing only private data",
         "type": "object",
-        "required": [
-            "given_name",
-            "family_name",
-            "email"
-        ],
         "properties": {
             "#encrypted": {
                 "encrypted_sharedsecret": "blah"
+            },
+            "member": {
+                "type": "object",
+                "#accesscontrol": ["read"],
+                "properties": {
+                    "memberId": {
+                        "type": "string",
+                        "description": "Membership UUID"
+                    },
+                    "joined": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Date & time when the pod became a member of the service"
+                    }
+                }
             },
             "person": {
                 "type": "object",
@@ -26,7 +36,7 @@
                     }
                 ],
                 "properties": {
-                  "member_id": {
+                  "memberId": {
                         "type": "string",
                         "description": "Membership UUID"
                   },
@@ -47,6 +57,7 @@
                     },
                     "email": {
                         "type": "string",
+                        "format": "idn-email",
                         "access": "private"
                     },
                     "homepageUrl": {
