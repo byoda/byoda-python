@@ -1,0 +1,85 @@
+{
+    "name": "private",
+    "network_signature": {
+        "certificate": "network.network-data.byoda.net",
+        "hash_algorithm": "SHA256",
+        "signature": "ayi2edVij/kA7YFPrC91hhN14I5UCM7RBF3RdgeIWB0+EKyD6gDJUrQOSMsuNxlArn/a65Uh/9q1pvdhI57nJNVmQIg8pPov0JjqBVdb4EuPD5BtU/+65P2RanL1SXWESd6b/12kjjEL0IHK82LPIT1PoifRW6A+IfTXPRB9MwlT4qkjs+0M98I1C3lZBWLh9pGwrCdGvvnRC0xXvonpvYF8qDPGplkr6nPC5cq2L5zBx7TyVpPncNfgjMaw3so0c/FgttD7irfGdZEtDMjGbSMOEpO7vFkhQAIIPi4bJNGeBvCRlRNK/ReCSDKfwiqE/DtKA5sNngOo7zXlyj+wVrBIoJhoc1d2v42ZQJi24TsiWq98f3ci5BaHfzuWORL7+l9Dh2jhOVkLn283JLfZ/DcxJGKmBuJjXQgwf7SgK/5U+iOpzs/5/RuZD7Ka3zW0oUpmJw1y0EbUm7S9qE4wjLuXy6s3NQDdAED+4QZiqBDD3d9nxsQRkf/bCxYap7Nh",
+        "timestamp": "2021-09-22T07:19:31.345539"
+    },
+    "schema": {
+        "$id": "https://uuid.services.byoda.net/service/private",
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "description": "This is the default service of each network, storing only private data",
+        "properties": {
+            "member": {
+                "#accesscontrol": [
+                    "read"
+                ],
+                "properties": {
+                    "joined": {
+                        "description": "Date & time when the pod became a member of the service",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "Membership UUID",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "person": {
+                "#accesscontrol": [
+                    {
+                        "member": [
+                            "read",
+                            "update",
+                            "delete"
+                        ]
+                    }
+                ],
+                "properties": {
+                    "additionalNames": {
+                        "access": "private",
+                        "description": "Any middle names",
+                        "type": "string"
+                    },
+                    "avatarUrl": {
+                        "access": "private",
+                        "type": "string"
+                    },
+                    "email": {
+                        "access": "private",
+                        "format": "idn-email",
+                        "type": "string"
+                    },
+                    "familyName": {
+                        "access": "private",
+                        "description": "Your surname",
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "access": "private",
+                        "description": "Your first given name",
+                        "type": "string"
+                    },
+                    "homepageUrl": {
+                        "access": "private",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "title": "private service storing information about you",
+        "type": "object"
+    },
+    "service_id": 0,
+    "service_signature": {
+        "certificate": "data.service-data-0.byoda.net",
+        "hash_algorithm": "SHA256",
+        "signature": "W9ZHzWmdmmxw/fpTaAMyLRq8zoeP35MmWl5AhQt5QHVfGmmSo3v3KK0jsSWnFqrw1E3a+ja8r9HpxwiYnW0oFnchfkSZWqIC/156ooaqU0OZDQL0nyP7yRhqbhXU4EG6ysaTTWoOunJfN/HO8azMPISQz4IqNF0yrdOIw7jHqPa3yMYSLmwh90C4lJaIpsUuUmzi0S7qwc53JTIIcwKeNn6ttziSZ7dVE4JD5VSoMr6w7gmbi25ZGH81AtzkAabwAHBrTav8kn41LxDO83GSfpbDU05JvASXE3Ouffqs2gTcUOWrkGNFExlgKZzfZzzgzj/jVZou+Oq/pbM5OwlDxNTeDQ40ttrf7v9zkKD7RT2/1jlXWX9dLdipIjUeI47twgaVgrttWTnTuROw1R/aODvsPrUBkl7Ma0dktTLofx7kUX1bBcaemKFZPXcCcIILdHO32SaSD5Ki0v0XwZj1LNnuUU/oGnUH7Z5dkJjU0zbLsb0l5MeglbXQ/rMyVdgu",
+        "timestamp": "2021-09-21T20:38:52.312448"
+    },
+    "version": 0
+}

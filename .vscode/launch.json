@@ -73,6 +73,24 @@
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
             }
+        },
+        {
+            "name": "sign service contract",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/sign_data_contract.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--debug",
+                "--contract", "/home/steven/private.json",
+                "--signing-party", "network",
+                "--network", "byoda.net",
+                "--root-directory", "/byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            }
         }
     ]
 }

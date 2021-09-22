@@ -6,23 +6,29 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
+from byoda.util.secrets.service_secret import ServiceSecret
 import logging
 
-from uuid import uuid4
+from uuid import uuid4, UUID
 from copy import copy
 from typing import List, Dict, TypeVar, Callable
 
 from graphene import Mutation as GrapheneMutation
+
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.service import Service
-from byoda.datamodel.schema import Schema
+from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datamodel.memberdata import MemberData
 
 from byoda.datastore.document_store import DocumentStore
 
+from byoda.storage import FileStorage
+
 from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
+
+from byoda.util import Paths
 
 from byoda import config
 
@@ -45,32 +51,42 @@ class Member:
         Constructor
         '''
 
-        self.member_id = None
-        self.service_id = int(service_id)
-        self.account = account
-        self.network = self.account.network
+        self.member_id: UUID = None
+        self.service_id: int = int(service_id)
+        self.account: Account = account
+        self.network: Network = self.account.network
 
         if service_id not in self.network.services:
             raise ValueError(f'Service {service_id} not found')
 
         self.service = self.network.services[service_id]
 
-        # This is the accepted data contract, which may differ from
-        # the current data contract of the service
-        self.data_contract = None
-
         # self.load_schema() will initialize the data property
-        self.data = None
+        self.data: Dict = None
 
-        self.paths = copy(self.network.paths)
+        self.paths: Paths = copy(self.network.paths)
         self.paths.account_id = account.account_id
         self.paths.account = account.account
         self.paths.service_id = self.service_id
 
-        self.storage_driver = self.paths.storage_driver
+        self.storage_driver: FileStorage = self.paths.storage_driver
         self.document_store: DocumentStore = self.account.document_store
 
         self.private_key_password = account.private_key_password
+
+        # This is the schema a.k.a data contract that we have previously
+        # accepted, which may differ from the latest schema version offered
+        # by the service
+        self.schema: Schema = None
+
+        # We need the service data secret to verify the signature of the
+        # data contract we have previously accepted
+        # TODO: load the service data secret through an API from the service
+        self.service_data_secret = ServiceSecret(
+            None, service_id, self.network
+        )
+        self.service_data_secret.load(with_private_key=False)
+
         self.tls_secret = None
         self.data_secret = None
 
@@ -96,10 +112,10 @@ class Member:
             MemberDataSecret, members_ca
         )
 
-        member.data_contract = copy(service.schema)
+        member.schema = copy(service.schema)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
-        member.data_contract.save(filepath)
+        member.schema.save(filepath)
 
         return member
 
@@ -180,11 +196,48 @@ class Member:
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        schema = Schema(
-            filepath, self.storage_driver, with_graphql_convert=True
-        )
+        schema = Schema(filepath, self.storage_driver)
+        self.verify_schema_signatures(schema)
+        schema.generate_graphql_schema()
+
         self.data = MemberData(
             self, schema, self.paths, self.document_store
+        )
+
+    def verify_schema_signatures(self, schema: Schema):
+        '''
+        Verify the signatures for the schema, a.k.a. data contract
+
+        :raises: ValueError
+        '''
+
+        if not schema.service_signature:
+            raise ValueError('Schema does not contain a service signature')
+        if not schema.service_signature:
+            raise ValueError('Schema does not contain a service signature')
+        if not self.service.data_secret or not self.service.data_secret.cert:
+            raise ValueError(
+                'Data secret not available to verify service signature'
+            )
+        if not self.network.data_secret or not self.network.data_secret.cert:
+            raise ValueError(
+                'Network data secret not available to verify network signature'
+            )
+
+        schema.verify_signature(
+            self.service.data_secret, SignatureType.SERVICE
+        )
+
+        _LOGGER.debug(
+            'Verified service signature for service %s', self.service_id
+        )
+
+        schema.verify_signature(
+            self.network.data_secret, SignatureType.NETWORK
+        )
+
+        _LOGGER.debug(
+            'Verified network signature for service %s', self.service_id
         )
 
     def load_data(self):

@@ -14,7 +14,7 @@ from copy import copy
 
 from byoda.datatypes import CsrSource
 
-from byoda.datamodel.schema import Schema
+from byoda.datamodel.schema import Schema, SignatureType
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -37,8 +37,7 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, network: Network = None, filepath: str = None,
-                 with_graphql_convert: bool = False):
+    def __init__(self, network: Network = None, filepath: str = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -47,9 +46,9 @@ class Service:
         be called to load all the needed info for the service.
 
         :param network: Network the service is part of
-        :param filepath: the file with the service schema/contract
-        :param with_graphql_convert: should the JSON schema be converted to a
-        graphql schema? Should only be 'True' when loading a membership
+        :param filepath: the file with the service schema/contract. If this
+        optional parameter is specified, the signatures of the schema/contract
+        will not be verified.
         '''
 
         self.name: str = None
@@ -81,9 +80,6 @@ class Service:
         # the service
         self.data_secret = None
 
-        # Should the JSON schema be converted to GraphQL
-        self.with_graphql_convert = with_graphql_convert
-
         # The network that the service is a part of. As storage is already
         # set up for the Network object, we can copy it here for the Service
         self.network = network
@@ -92,15 +88,14 @@ class Service:
         self.storage_driver = self.paths.storage_driver
 
         if filepath:
-            self.load_schema(filepath)
+            self.load_schema(filepath, verify_contract_signatures=False)
 
         self.storage_driver = network.paths.storage_driver
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
                     with_private_key: bool = False, password: str = None,
-                    allow_unsigned_service: bool = False,
-                    with_graphql_convert: bool = False) -> Service:
+                    ) -> Service:
         '''
         Factory for Service class, loads the service metadata from a local
         file.
@@ -109,26 +104,20 @@ class Service:
         :param filepath: path to the file containing the data contract
 
         TODO: load the service metadata from the network directory server
-        TODO: validate contract signature
         '''
 
-        service = Service(
-            network=network, filepath=filepath,
-            with_graphql_convert=with_graphql_convert
-        )
-
-        if not service.signed and not allow_unsigned_service:
-            raise ValueError(
-                f'Service {service.name} ({service.service_id} is not signed'
-            )
+        service = Service(network=network, filepath=filepath)
 
         service.load_data_secret(with_private_key, password)
+        service.verify_schema_signatures()
+        service.schema.generate_graphql_schema()
 
         _LOGGER.debug(f'Read service from {filepath}')
 
         return service
 
-    def load_schema(self, filepath: str = None) -> bool:
+    def load_schema(self, filepath: str = None,
+                    verify_contract_signatures: bool = True) -> bool:
         '''
         Loads the schema for a service
 
@@ -146,27 +135,53 @@ class Service:
 
         self.schema = Schema(
             filepath, self.storage_driver,
-            with_graphql_convert=self.with_graphql_convert
         )
 
         self.service_id = self.schema.service_id
+
         self.name = self.schema.name
 
         self.paths.service_id = self.service_id
 
-        # TODO: check signature of service data contract
-        if self.schema.service_signature:
-            raise NotImplementedError(
-                'Data contract signature verification is not yet implemented'
-            )
-        if not self.schema.service_signature:
-            self.signed = False
-            _LOGGER.warning(
-                f'Loading unsigned schema for service_id {self.service_id}'
-            )
-
         _LOGGER.debug(
             f'Read service {self.name} wih service_id {self.service_id}'
+        )
+
+        if verify_contract_signatures:
+            self.verify_schema_signatures()
+
+    def verify_schema_signatures(self):
+        '''
+        Verify the signatures for the schema, a.k.a. data contract
+
+        :raises: ValueError
+        '''
+
+        if not self.schema.service_signature:
+            raise ValueError('Schema does not contain a service signature')
+        if not self.schema.service_signature:
+            raise ValueError('Schema does not contain a service signature')
+        if not self.data_secret or not self.data_secret.cert:
+            raise ValueError(
+                'Data secret not available to verify service signature'
+            )
+        if not self.network.data_secret or not self.network.data_secret.cert:
+            raise ValueError(
+                'Network data secret not available to verify network signature'
+            )
+
+        self.schema.verify_signature(self.data_secret, SignatureType.SERVICE)
+
+        _LOGGER.debug(
+            'Verified service signature for service %s', self.service_id
+        )
+
+        self.schema.verify_signature(
+            self.network.data_secret, SignatureType.NETWORK
+        )
+
+        _LOGGER.debug(
+            'Verified network signature for service %s', self.service_id
         )
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
@@ -231,7 +246,7 @@ class Service:
 
     def create_service_secret(self) -> None:
         '''
-        Creates the service data secret, signed by the Service CA
+        Creates the service TLS secret, signed by the Service CA
 
         :raises: ValueError if no Service CA is available to sign
         the CSR of the service secret
