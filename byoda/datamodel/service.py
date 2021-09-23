@@ -14,7 +14,9 @@ from copy import copy
 
 from byoda.datatypes import CsrSource
 
-from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.schema import Schema
+
+from byoda.util import SignatureType
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -157,10 +159,10 @@ class Service:
         :raises: ValueError
         '''
 
-        if not self.schema.service_signature:
+        if not self.schema.signatures[SignatureType.SERVICE.value]:
             raise ValueError('Schema does not contain a service signature')
-        if not self.schema.service_signature:
-            raise ValueError('Schema does not contain a service signature')
+        if not self.schema.signatures[SignatureType.NETWORK.value]:
+            raise ValueError('Schema does not contain a network signature')
         if not self.data_secret or not self.data_secret.cert:
             raise ValueError(
                 'Data secret not available to verify service signature'

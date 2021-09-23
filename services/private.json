@@ -1,11 +1,5 @@
 {
     "name": "private",
-    "network_signature": {
-        "certificate": "network.network-data.byoda.net",
-        "hash_algorithm": "SHA256",
-        "signature": "ayi2edVij/kA7YFPrC91hhN14I5UCM7RBF3RdgeIWB0+EKyD6gDJUrQOSMsuNxlArn/a65Uh/9q1pvdhI57nJNVmQIg8pPov0JjqBVdb4EuPD5BtU/+65P2RanL1SXWESd6b/12kjjEL0IHK82LPIT1PoifRW6A+IfTXPRB9MwlT4qkjs+0M98I1C3lZBWLh9pGwrCdGvvnRC0xXvonpvYF8qDPGplkr6nPC5cq2L5zBx7TyVpPncNfgjMaw3so0c/FgttD7irfGdZEtDMjGbSMOEpO7vFkhQAIIPi4bJNGeBvCRlRNK/ReCSDKfwiqE/DtKA5sNngOo7zXlyj+wVrBIoJhoc1d2v42ZQJi24TsiWq98f3ci5BaHfzuWORL7+l9Dh2jhOVkLn283JLfZ/DcxJGKmBuJjXQgwf7SgK/5U+iOpzs/5/RuZD7Ka3zW0oUpmJw1y0EbUm7S9qE4wjLuXy6s3NQDdAED+4QZiqBDD3d9nxsQRkf/bCxYap7Nh",
-        "timestamp": "2021-09-22T07:19:31.345539"
-    },
     "schema": {
         "$id": "https://uuid.services.byoda.net/service/private",
         "$schema": "https://json-schema.org/draft-07/schema#",
@@ -75,11 +69,19 @@
         "type": "object"
     },
     "service_id": 0,
-    "service_signature": {
-        "certificate": "data.service-data-0.byoda.net",
-        "hash_algorithm": "SHA256",
-        "signature": "W9ZHzWmdmmxw/fpTaAMyLRq8zoeP35MmWl5AhQt5QHVfGmmSo3v3KK0jsSWnFqrw1E3a+ja8r9HpxwiYnW0oFnchfkSZWqIC/156ooaqU0OZDQL0nyP7yRhqbhXU4EG6ysaTTWoOunJfN/HO8azMPISQz4IqNF0yrdOIw7jHqPa3yMYSLmwh90C4lJaIpsUuUmzi0S7qwc53JTIIcwKeNn6ttziSZ7dVE4JD5VSoMr6w7gmbi25ZGH81AtzkAabwAHBrTav8kn41LxDO83GSfpbDU05JvASXE3Ouffqs2gTcUOWrkGNFExlgKZzfZzzgzj/jVZou+Oq/pbM5OwlDxNTeDQ40ttrf7v9zkKD7RT2/1jlXWX9dLdipIjUeI47twgaVgrttWTnTuROw1R/aODvsPrUBkl7Ma0dktTLofx7kUX1bBcaemKFZPXcCcIILdHO32SaSD5Ki0v0XwZj1LNnuUU/oGnUH7Z5dkJjU0zbLsb0l5MeglbXQ/rMyVdgu",
-        "timestamp": "2021-09-21T20:38:52.312448"
+    "signatures": {
+        "network": {
+            "certificate": "network.network-data.byoda.net",
+            "hash_algorithm": "SHA256",
+            "signature": "Ech+NAv+L/BlQp7xHK3lrXOAn9v/7fYb1/Darkxan45/lpoDdm2LjWRA1fYGqRpEx+rke9deQGTZURPmOpqIEMaiZe5XIbybk7upWrSu2NCjDUpN6P9pwCS2Eo0BjtrldJw0t0sPMJD1B2ybirXPYfEdaDwRtWoXzSUMywLQwzcJWmS8d2iDtLvrdVdeIhBEQw1i2jNj0idr5xN5CstH2PG/D1DHFaTH4OkkH2avrKFFpQWhdD91EsQA/GWan/O3ZeWVq5ob6TQpVzqJoJfbbBs95H7BGSr73H4nnHeIT4OazDXLyJBw3dEoBFjwZx/BAn40/QKxM1XPS3RcO4R7iuMLLaLmWEZkfldjQIhLXLjL+x+WOCvRq8jBIxtUezsplQTZNOykt2wmMOD0fZCuw/XdkZ/cL9qRMmi6I/3d3EhsdPL4dgmSfzIpt84RxOdn3LQAiBP2pW1TroqmlugmD3UJUeuBqTsZOfcMTVt/pgxc7IBUIVK0Dwnjq5Krt7kF",
+            "timestamp": "2021-09-22T22:32:39"
+        },
+        "service": {
+            "certificate": "data.service-data-0.byoda.net",
+            "hash_algorithm": "SHA256",
+            "signature": "qUhCijNIFiHpjZ66+EFVWfj/qxd536e6ITX88R0AzYmfJ3ecB9Olqifdx+oSSFaMebwTFEO6s3i+SgVRDcb0r3vplksjquW54p/tD1dnWPynj+3jLpSCQGXboiGSDLTc4abBnrxWSY2m9vitJUr/uhsg9fxUZS8feVh/bykOBjt3337IHeKKOZEfpYzbYTP9oTiMLOkuuCmZ3OmKboUJksHpRWN78UsI7Ml6w8yNVuSZJ8HtRUhqFqFteNrx+nSm0P14kreY030QFrkv8bOp2KFkEqKHBJoi+AJYLVqvsyU56yYPnq1CYY4wtQmEU5Nx97ho6K8syTnGi6pWtVLiiac9QtPU6FvNg+UUxH/6iUrXEFtMNC2YrxsWJf4t7IbJ8mKjrggSXc4Hx57jDWIOZJRFZ4jNW8Y1GlEkUw0D/2dY52+fx0Dy1jIBAUj4IzAMkPd+zS2R3p7J8ws+4Wr8RwjbouhEVwfGMVSz3YGaLP7Z3XLCJqbbYeQQXLB+gsGT",
+            "timestamp": "2021-09-22T22:29:42"
+        }
     },
     "version": 0
 }

@@ -6,5 +6,10 @@ Various utility classes, variables and functions
 :license    : GPLv3
 '''
 
-from .paths import Paths                     # noqa: F401
-from .logger import Logger                   # noqa: F401
+# flake8: noqa=E401
+from .paths import Paths
+from .logger import Logger
+from .message_signature import MessageSignature
+from .message_signature import ServiceSignature
+from .message_signature import NetworkSignature
+from .message_signature import SignatureType

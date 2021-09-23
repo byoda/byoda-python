@@ -7,29 +7,25 @@ Class for modeling the (JSON) schema to validating data
 '''
 
 import json
-import base64
-from copy import copy
+from copy import deepcopy
 from typing import List, Dict
 from types import ModuleType
-from datetime import datetime
 from collections import OrderedDict
-from enum import Enum
 
 import jinja2
 
 import fastjsonschema
 
-from byoda.util.secrets import Secret
+from byoda.util import MessageSignature
+from byoda.util import ServiceSignature
+from byoda.util import NetworkSignature
+from byoda.util import SignatureType
+from byoda.util.secrets import Secret, DataSecret
 
 
 MAX_SCHEMA_SIZE = 1000000
 SCHEMA_TEMPLATE = 'podserver/files'
 CODEGEN_DIRECTORY = 'podserver/codegen'
-
-
-class SignatureType(Enum):
-    NETWORK = "network_signature"
-    SERVICE = "service_signature"
 
 
 class Schema:
@@ -47,12 +43,12 @@ class Schema:
         self.service_id = None
 
         # The signatures for the schema
-        self.service_signature: bytes = None
-        self.network_signature: bytes = None
-        self.verified_service_signature: bool = False
-        self.verified_network_signature: bool = False
+        self.signatures: Dict[str, MessageSignature] = {
+            SignatureType.SERVICE.value: None,
+            SignatureType.NETWORK.value: None,
+        }
 
-        self.json_schema = []
+        self.json_schema = {}
         self.gql_schema = []
 
         # This is a callable to validate data against the schema
@@ -71,12 +67,26 @@ class Schema:
         self.json_schema = json.loads(data)
         self.name = self.json_schema['name']
         self.service_id = self.json_schema['service_id']
-        self.service_signature = self.json_schema.get(
-            SignatureType.SERVICE.value
-        )
-        self.network_signature = self.json_schema.get(
-            SignatureType.NETWORK.value
-        )
+
+        try:
+            self.signatures[SignatureType.SERVICE.value] = \
+                ServiceSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.SERVICE.value
+                    )
+                )
+        except ValueError:
+            pass
+
+        try:
+            self.signatures[SignatureType.NETWORK.value] = \
+                NetworkSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.NETWORK.value
+                    )
+                )
+        except ValueError:
+            pass
 
         self.validate = fastjsonschema.compile(self.json_schema['schema'])
 
@@ -90,7 +100,8 @@ class Schema:
             filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
 
-    def create_signature(self, secret: Secret, signature_type: SignatureType,
+    def create_signature(self, secret: DataSecret,
+                         signature_type: SignatureType,
                          hash_algo: str = 'SHA256') -> None:
         '''
         Generate a signature for the data contract. The network will only
@@ -99,59 +110,70 @@ class Schema:
         - TODO: the network did not sign a data contract for the service with
         the same version number
         '''
-        signature_data = copy(self.json_schema)
 
-        signature_data.pop(SignatureType.NETWORK.value, None)
+        if 'signatures' not in self.json_schema:
+            self.json_schema['signatures'] = {}
+
+        if self.json_schema['signatures'].get(SignatureType.NETWORK.value):
+            raise ValueError('Network signature already exists')
 
         if signature_type == SignatureType.SERVICE:
-            signature_data.pop(SignatureType.SERVICE.value, None)
+            if self.json_schema['signatures'].get(SignatureType.SERVICE.value):
+                raise ValueError('Service signature already exists')
 
-        signature = secret.sign_message(
-            json.dumps(signature_data, sort_keys=True, indent=4),
-            hash_algorithm=hash_algo
+            message_signature = ServiceSignature(secret)
+        else:
+            message_signature = NetworkSignature(secret)
+
+        message_signature.sign_message(
+            json.dumps(self.json_schema, sort_keys=True, indent=4)
         )
 
-        signature = base64.b64encode(signature).decode('utf-8')
-        self.json_schema[signature_type.value] = {
-            'hash_algorithm': 'SHA256',
-            'signature': signature,
-            'timestamp': datetime.now().isoformat(),
-            'certificate': secret.common_name
-        }
+        # Add the signature to the original JSON Schema
+        self.json_schema['signatures'][signature_type.value] = \
+            message_signature.as_dict()
+
+        self.signatures[signature_type.value] = message_signature
 
     def verify_signature(self, secret: Secret, signature_type: SignatureType,
                          hash_algo: str = 'SHA256'):
         '''
         Verifies the signature of the data contract. The signature by the
         service only covers the data contract, the signature by the network
-        covers both the data contract and  the signature by the service.
+        covers both the data contract and the signature by the service.
         '''
 
-        signature_data = copy(self.json_schema)
+        schema = deepcopy(self.json_schema)
 
-        signature = signature_data.pop(SignatureType.NETWORK.value, None)
-        if signature_type == SignatureType.NETWORK:
-            digest = base64.b64decode(signature['signature'])
-        else:
-            signature = signature_data.pop(SignatureType.SERVICE.value, None)
-            digest = base64.b64decode(signature['signature'])
+        if 'signatures' not in schema:
+            raise ValueError('No signatures in the schema')
 
-        if signature['certificate'] != secret.common_name:
+        # signature_type.value might be 'service' in which case
+        # we check the same thing twice but that's ok
+        if (SignatureType.SERVICE.value not in schema['signatures']
+                or (signature_type == SignatureType.NETWORK and
+                    SignatureType.NETWORK.value not in schema['signatures'])):
             raise ValueError(
-                'The signing cert {} does not match the cert {}'
-                'used for verfication'.format(
-                    signature['certificate'], secret.common_name
-                )
+                f'Missing signature in JSON Schema: {signature_type.value}'
             )
 
-        secret.verify_message_signature(
-            json.dumps(signature_data, sort_keys=True, indent=4), digest
-        )
+        # A signature of a schema never covers the network signature so
+        # we remove it from the schema
+        if SignatureType.NETWORK.value in schema['signatures']:
+            signature = NetworkSignature.from_dict(
+                schema['signatures'].pop(SignatureType.NETWORK.value)
+            )
 
-        if signature_type == SignatureType.NETWORK:
-            self.verified_network_signature = True
         if signature_type == SignatureType.SERVICE:
-            self.verified_service_signature = True
+            # A signature of a schema by a service does not cover the
+            # signature of the service
+            signature = ServiceSignature.from_dict(
+                schema['signatures'].pop(SignatureType.SERVICE.value)
+            )
+
+        signature.verify_message(schema, secret)
+
+        self.signatures[signature_type.value] = signature
 
     def generate_graphql_schema(self):
         '''
@@ -163,8 +185,8 @@ class Schema:
           instance
         '''
 
-        if not (self.verified_service_signature
-                and self.verified_network_signature):
+        if not (self.signatures[SignatureType.NETWORK.value].verified
+                and self.signatures[SignatureType.SERVICE.value].verified):
             raise ValueError('Schema signatures have not been verified')
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)

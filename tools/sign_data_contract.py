@@ -14,8 +14,7 @@ import sys
 
 from byoda.datamodel import Network, Service
 
-from byoda.datamodel.schema import SignatureType
-
+from byoda.util import SignatureType
 from byoda.util import Logger
 
 _LOGGER = None
@@ -27,7 +26,10 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
-    parser.add_argument('--signing-party', '-s', type=str, default='service')
+    parser.add_argument(
+        '--signing-party', '-s', type=str, default=SignatureType.SERVICE.value,
+        choices=[i.value for i in SignatureType]
+    )
     parser.add_argument('--contract', '-c', type=str)
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
     parser.add_argument('--network', type=str, default='byoda.net')
@@ -60,37 +62,41 @@ def main(argv):
 
     network = load_network(args, network_data)
     service = load_service(args, network)
-    schema = service.schema
-    if args.signing_party == 'network':
-        if service.schema.json_schema.get(SignatureType.NETWORK.value):
+    schema = service.schema.json_schema
+
+    if 'signatures' not in schema:
+        schema['signatures'] = {}
+
+    if args.signing_party == SignatureType.NETWORK.value:
+        if schema['signatures'].get(SignatureType.NETWORK.value):
             raise ValueError('Schema has already been signed by the network')
 
-        if not service.schema.json_schema.get(SignatureType.SERVICE.value):
+        if SignatureType.SERVICE.value not in schema['signatures']:
             raise ValueError('Schema has not been signed by the service')
 
+        # We first verify the service signature before we add the network
+        # signature
         service.schema.verify_signature(
             service.data_secret, SignatureType.SERVICE
         )
+
+        # TODO: more checks on the validity of the JSON Schema
+
         service.schema.create_signature(
             network.data_secret, SignatureType.NETWORK
         )
     else:
-        if service.schema.json_schema.get(SignatureType.NETWORK.value):
+        if schema['signatures'].get(SignatureType.NETWORK.value):
             raise ValueError('Schema has already been signed by the network')
 
-        service_signature = service.schema.json_schema.get(
-            SignatureType.SERVICE.value
-        )
-        if not service_signature:
-            raise ValueError('Schema has not been signed by the service')
+        if SignatureType.SERVICE.value in schema['signatures']:
+            raise ValueError('Schema has already been signed by the service')
 
-        schema.verify_signature(service.data_secret, SignatureType.SERVICE)
-
-        schema.create_signature(
-            network.data_secret, SignatureType.NETWORK
+        service.schema.create_signature(
+            service.data_secret, SignatureType.SERVICE
         )
 
-    schema.save(args.contract)
+    service.schema.save(args.contract)
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]

@@ -83,7 +83,7 @@
             "args": [
                 "--debug",
                 "--contract", "/home/steven/private.json",
-                "--signing-party", "network",
+                "--signing-party", "service",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
 
