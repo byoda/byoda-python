@@ -7,6 +7,7 @@ Class for modeling the (JSON) schema to validating data
 '''
 
 import json
+from copy import deepcopy
 from typing import List, Dict
 from types import ModuleType
 from collections import OrderedDict
@@ -15,6 +16,12 @@ import jinja2
 
 import fastjsonschema
 
+from byoda.util import MessageSignature
+from byoda.util import ServiceSignature
+from byoda.util import NetworkSignature
+from byoda.util import SignatureType
+from byoda.util.secrets import Secret, DataSecret
+
 
 MAX_SCHEMA_SIZE = 1000000
 SCHEMA_TEMPLATE = 'podserver/files'
@@ -22,10 +29,12 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
-    def __init__(self, jsonschema_filepath: str, storage_driver: str,
-                 with_graphql_convert: bool = False):
+    def __init__(self, jsonschema_filepath: str, storage_driver: str):
         '''
-        Construct a schema
+        Construct a schema. The signatures on the data contract will not
+        be checked as we do not know yet what the service_id is of the
+        schema and this can't yet use the data secret of that service
+        to verify the signature.
         '''
 
         # This is the original JSON data from the
@@ -33,13 +42,18 @@ class Schema:
         self.service = None
         self.service_id = None
 
-        self.json_schema = []
+        # The signatures for the schema
+        self.signatures: Dict[SignatureType, MessageSignature] = {
+            SignatureType.SERVICE: None,
+            SignatureType.NETWORK: None,
+        }
+
+        self.json_schema = {}
         self.gql_schema = []
 
         # This is a callable to validate data against the schema
         self.validate: fastjsonschema.validate = None
 
-        self.with_graphql_convert = with_graphql_convert
         self.storage_driver = storage_driver
         self.load(jsonschema_filepath)
 
@@ -53,12 +67,28 @@ class Schema:
         self.json_schema = json.loads(data)
         self.name = self.json_schema['name']
         self.service_id = self.json_schema['service_id']
-        self.service_signature = self.json_schema['service_signature']
+
+        try:
+            self.signatures[SignatureType.SERVICE] = \
+                ServiceSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.SERVICE.value
+                    )
+                )
+        except ValueError:
+            pass
+
+        try:
+            self.signatures[SignatureType.NETWORK] = \
+                NetworkSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.NETWORK.value
+                    )
+                )
+        except ValueError:
+            pass
 
         self.validate = fastjsonschema.compile(self.json_schema['schema'])
-
-        if self.with_graphql_convert:
-            self.generate_graphql_schema()
 
     def save(self, filepath):
         '''
@@ -70,6 +100,81 @@ class Schema:
             filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
 
+    def create_signature(self, secret: DataSecret,
+                         signature_type: SignatureType,
+                         hash_algo: str = 'SHA256') -> None:
+        '''
+        Generate a signature for the data contract. The network will only
+        sign a service contract if:
+        - the service already has signed it.
+        - TODO: the network did not sign a data contract for the service with
+        the same version number
+        '''
+
+        if 'signatures' not in self.json_schema:
+            self.json_schema['signatures'] = {}
+
+        if self.json_schema['signatures'].get(SignatureType.NETWORK.value):
+            raise ValueError('Network signature already exists')
+
+        if signature_type == SignatureType.SERVICE:
+            if self.json_schema['signatures'].get(SignatureType.SERVICE.value):
+                raise ValueError('Service signature already exists')
+
+            message_signature = ServiceSignature(secret)
+        else:
+            message_signature = NetworkSignature(secret)
+
+        message_signature.sign_message(
+            json.dumps(self.json_schema, sort_keys=True, indent=4)
+        )
+
+        # Add the signature to the original JSON Schema
+        self.json_schema['signatures'][signature_type.value] = \
+            message_signature.as_dict()
+
+        self.signatures[signature_type] = message_signature
+
+    def verify_signature(self, secret: Secret, signature_type: SignatureType,
+                         hash_algo: str = 'SHA256'):
+        '''
+        Verifies the signature of the data contract. The signature by the
+        service only covers the data contract, the signature by the network
+        covers both the data contract and the signature by the service.
+        '''
+
+        schema = deepcopy(self.json_schema)
+
+        if 'signatures' not in schema:
+            raise ValueError('No signatures in the schema')
+
+        # signature_type.value might be 'service' in which case
+        # we check the same thing twice but that's ok
+        if (SignatureType.SERVICE.value not in schema['signatures']
+                or (signature_type == SignatureType.NETWORK and
+                    SignatureType.NETWORK.value not in schema['signatures'])):
+            raise ValueError(
+                f'Missing signature in JSON Schema: {signature_type.value}'
+            )
+
+        # A signature of a schema never covers the network signature so
+        # we remove it from the schema
+        if SignatureType.NETWORK.value in schema['signatures']:
+            signature = NetworkSignature.from_dict(
+                schema['signatures'].pop(SignatureType.NETWORK.value)
+            )
+
+        if signature_type == SignatureType.SERVICE:
+            # A signature of a schema by a service does not cover the
+            # signature of the service
+            signature = ServiceSignature.from_dict(
+                schema['signatures'].pop(SignatureType.SERVICE.value)
+            )
+
+        signature.verify_message(schema, secret)
+
+        self.signatures[signature_type] = signature
+
     def generate_graphql_schema(self):
         '''
         Generates code to enable GraphQL schema to be generated using Graphene.
@@ -79,6 +184,10 @@ class Schema:
         - we execute the generated source code and extract the resulting
           instance
         '''
+
+        if not (self.signatures[SignatureType.NETWORK].verified
+                and self.signatures[SignatureType.SERVICE].verified):
+            raise ValueError('Schema signatures have not been verified')
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
         environment = jinja2.Environment(

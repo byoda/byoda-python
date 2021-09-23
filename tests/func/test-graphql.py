@@ -68,7 +68,6 @@ class TestGraphQL(unittest.TestCase):
             '''
                 mutation Mutation {
                     mutatePerson(
-                        memberId:"0",
                         givenName: "Peter",
                         additionalNames: "",
                         familyName: "Hessing",
@@ -97,7 +96,6 @@ class TestGraphQL(unittest.TestCase):
             '''
                 mutation Mutation {
                     mutatePerson(
-                        memberId:"0",
                         givenName: "Steven",
                         additionalNames: "",
                         familyName: "Hessing",

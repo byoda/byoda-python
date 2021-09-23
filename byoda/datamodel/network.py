@@ -68,7 +68,7 @@ class Network:
         '''
 
         # TODO: continue reducing the length of this constructor
-        
+
         self.name = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
@@ -115,13 +115,20 @@ class Network:
         else:
             self.root_ca = NetworkRootCaSecret(self.paths)
 
+        self.data_secret = NetworkDataSecret(self.paths)
+
         if ServerRole.RootCa in self.roles:
             self.root_ca.load(
+                with_private_key=True, password=self.private_key_password
+            )
+            self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
         else:
             if not self.root_ca.cert:
                 self.root_ca.load(with_private_key=False)
+
+            self.data_secret.load(with_private_key=False)
 
         config.requests.verify = self.root_ca.cert_file
 
@@ -167,7 +174,6 @@ class Network:
         # Loading secrets when operating as a pod
         self.account_id = None
         self.account_secret = None
-        self.data_secret = None
         self.member_secrets = set()
         self.services = dict()
         self.account = None
@@ -282,16 +288,8 @@ class Network:
 
         for root, __dirnames, files in os.walk(directory):
             for filename in [x for x in files if x.endswith('.json')]:
-                allow_unsigned_services = False
-                # TODO: only allow signed services in pods
-                if (ServerRole.Pod in self.roles
-                        or ServerRole.DirectoryServer in self.roles):
-                    allow_unsigned_services = True
-
                 service = Service.get_service(
-                    self, filepath=os.path.join(root, filename),
-                    allow_unsigned_service=allow_unsigned_services,
-                    with_graphql_convert=False
+                    self, filepath=os.path.join(root, filename)
                 )
 
                 if service.service_id in self.services:
