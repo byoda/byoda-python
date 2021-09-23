@@ -159,9 +159,9 @@ class Service:
         :raises: ValueError
         '''
 
-        if not self.schema.signatures[SignatureType.SERVICE.value]:
+        if not self.schema.signatures[SignatureType.SERVICE]:
             raise ValueError('Schema does not contain a service signature')
-        if not self.schema.signatures[SignatureType.NETWORK.value]:
+        if not self.schema.signatures[SignatureType.NETWORK]:
             raise ValueError('Schema does not contain a network signature')
         if not self.data_secret or not self.data_secret.cert:
             raise ValueError(

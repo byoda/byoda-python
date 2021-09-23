@@ -43,9 +43,9 @@ class Schema:
         self.service_id = None
 
         # The signatures for the schema
-        self.signatures: Dict[str, MessageSignature] = {
-            SignatureType.SERVICE.value: None,
-            SignatureType.NETWORK.value: None,
+        self.signatures: Dict[SignatureType, MessageSignature] = {
+            SignatureType.SERVICE: None,
+            SignatureType.NETWORK: None,
         }
 
         self.json_schema = {}
@@ -69,7 +69,7 @@ class Schema:
         self.service_id = self.json_schema['service_id']
 
         try:
-            self.signatures[SignatureType.SERVICE.value] = \
+            self.signatures[SignatureType.SERVICE] = \
                 ServiceSignature.from_dict(
                     self.json_schema['signatures'].get(
                         SignatureType.SERVICE.value
@@ -79,7 +79,7 @@ class Schema:
             pass
 
         try:
-            self.signatures[SignatureType.NETWORK.value] = \
+            self.signatures[SignatureType.NETWORK] = \
                 NetworkSignature.from_dict(
                     self.json_schema['signatures'].get(
                         SignatureType.NETWORK.value
@@ -133,7 +133,7 @@ class Schema:
         self.json_schema['signatures'][signature_type.value] = \
             message_signature.as_dict()
 
-        self.signatures[signature_type.value] = message_signature
+        self.signatures[signature_type] = message_signature
 
     def verify_signature(self, secret: Secret, signature_type: SignatureType,
                          hash_algo: str = 'SHA256'):
@@ -173,7 +173,7 @@ class Schema:
 
         signature.verify_message(schema, secret)
 
-        self.signatures[signature_type.value] = signature
+        self.signatures[signature_type] = signature
 
     def generate_graphql_schema(self):
         '''
@@ -185,8 +185,8 @@ class Schema:
           instance
         '''
 
-        if not (self.signatures[SignatureType.NETWORK.value].verified
-                and self.signatures[SignatureType.SERVICE.value].verified):
+        if not (self.signatures[SignatureType.NETWORK].verified
+                and self.signatures[SignatureType.SERVICE].verified):
             raise ValueError('Schema signatures have not been verified')
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
