@@ -146,7 +146,9 @@ if server.cloud != CloudType.LOCAL:
         directory=NGINX_SITE_CONFIG_DIR,
         filename='virtualserver.conf',
         identifier=network_data['account_id'],
-        id_type=IdType.ACCOUNT,
+        subdomain=IdType.ACCOUNT.value,
+        cert_filepath='',
+        key_filepath='',
         alias=network.paths.account,
         network=network.name,
         public_cloud_endpoint=network.paths.storage_driver.get_url(
@@ -154,9 +156,8 @@ if server.cloud != CloudType.LOCAL:
         ),
     )
 
-    if not nginx_config.exists():
-        nginx_config.create()
-        nginx_config.reload()
+    nginx_config.create()
+    nginx_config.reload()
 
 middleware = [
     Middleware(

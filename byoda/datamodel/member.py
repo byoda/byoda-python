@@ -15,7 +15,7 @@ from typing import List, Dict, TypeVar, Callable
 
 from graphene import Mutation as GrapheneMutation
 
-from byoda.datatypes import CsrSource
+from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
@@ -29,6 +29,7 @@ from byoda.util.secrets import MemberSecret, MemberDataSecret
 from byoda.util.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
+from podserver.bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 from byoda import config
 
@@ -116,6 +117,25 @@ class Member:
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath)
+
+        if config.server.cloud != CloudType.LOCAL:
+            nginx_config = NginxConfig(
+                directory=NGINX_SITE_CONFIG_DIR,
+                filename='virtualserver.conf',
+                identifier=member.member_id,
+                subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
+                cert_filepath='',
+                key_filepath='',
+                alias=account.network.paths.account,
+                network=account.network.name,
+                public_cloud_endpoint=member.paths.storage_driver.get_url(
+                    public=True
+                ),
+            )
+
+            if not nginx_config.exists():
+                nginx_config.create()
+                nginx_config.reload()
 
         return member
 
