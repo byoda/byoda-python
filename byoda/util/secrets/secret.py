@@ -12,7 +12,6 @@ import datetime
 import re
 from copy import copy
 from typing import TypeVar
-from asn1crypto.ocsp import StatusGood
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID

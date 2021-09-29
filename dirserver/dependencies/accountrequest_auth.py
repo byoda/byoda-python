@@ -46,13 +46,9 @@ class AccountRequestAuthFast(RequestAuth):
                 x_client_ssl_issuing_ca, request.client.host
             )
         except MissingAuthInfo:
-            # Authentication for GET/POST /api/v1/network/account is optional
-            if request.method in ('GET', 'POST'):
-                return
-            else:
-                raise HTTPException(
-                    status_code=403, detail='No authentication provided'
-                )
+            raise HTTPException(
+                status_code=403, detail='No authentication provided'
+            )
 
         self.check_account_cert(server.network)
 

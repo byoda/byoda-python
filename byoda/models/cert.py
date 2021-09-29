@@ -23,15 +23,24 @@ class CertSigningRequestModel(BaseModel):
         return {'certsigningrequest': self.csr}
 
 
-class CertChainModel(BaseModel):
-    cert_chain: str
+class SignedAccountCertResponseModel(BaseModel):
     signed_cert: str
+    cert_chain: str
+    network_root_ca_cert: str
+    data_cert: str
 
     def __repr__(self):
-        return ('<CertChainModel=(certchain: str)>')
+        return(
+            '<SignedCertResponseModel={certchain: Dict[str:str], '
+            'root_ca: str, data_cert: str}>'
+        )
 
     def as_dict(self):
         return {
-            'signed_cert': self.signed_cert,
-            'cert_chain': self.cert_chain
+            'signed_cert': {
+                'cert': self.certchain.signed_cert,
+                'certchain': self.certchain.cert_chain
+            },
+            'network_root_ca_cert': str,
+            'network_data_cert': str
         }

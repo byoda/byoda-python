@@ -34,47 +34,25 @@ NETWORK = DEFAULT_NETWORK
 
 
 class TestDirectoryApis(unittest.TestCase):
-    def test_network_account_get(self):
+    def test_network_account_put(self):
         API = BASE_URL + '/v1/network/account'
 
+        uuid = uuid4()
         with open('config.yml') as file_desc:
             app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
             network_name = app_config['application']['network']
 
-        uuid = uuid4()
-        # GET, no auth
-        response = requests.get(API)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        print(data)
-        self.assertEqual(data['accounts'], 1)
-        self.assertEqual(data['remote_addr'], '127.0.0.1')
-        UUID(data['uuid'])
-
-        # GET, with auth
+        # PUT, with auth
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
         }
-        response = requests.get(API, headers=headers)
+        response = requests.put(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data['accounts'], 1)
-        self.assertEqual(data['remote_addr'], '127.0.0.1')
-        UUID(data['uuid'])
-
-        # GET, with auth
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
-            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
-        }
-        response = requests.get(API, headers=headers)
-        data = response.json()
-        self.assertEqual(data['accounts'], 1)
-        self.assertEqual(data['remote_addr'], '127.0.0.1')
-        UUID(data['uuid'])
+        self.assertEqual(data['ipv4_address'], '127.0.0.1')
+        self.assertEqual(data['ipv6_address'], None)
 
     def test_network_account_post(self):
         API = BASE_URL + '/v1/network/account'
@@ -101,11 +79,17 @@ class TestDirectoryApis(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(   # noqa
+        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
             data['cert_chain'].encode()
         )
-        account_cert = x509.load_pem_x509_certificate(      # noqa
+        account_cert = x509.load_pem_x509_certificate(          # noqa:F841
             data['signed_cert'].encode()
+        )
+        network_root_ca_cert = x509.load_pem_x509_certificate(  # noqa:F841
+            data['network_root_ca_cert'].encode()
+        )
+        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
+            data['network_root_ca_cert'].encode()
         )
 
 
