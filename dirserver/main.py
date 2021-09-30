@@ -28,6 +28,7 @@ from prometheus_fastapi_instrumentator import Instrumentator \
     as PrometheusInstrumentator
 
 from .routers import account
+from .routers import service
 
 from byoda.util.logger import Logger
 from byoda import config
@@ -97,6 +98,7 @@ FastAPIInstrumentor.instrument_app(app)
 PrometheusInstrumentator().instrument(app).expose(app)
 
 app.include_router(account.router)
+app.include_router(service.router)
 
 
 @app.get('/api/v1/status')

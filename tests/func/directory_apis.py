@@ -92,8 +92,21 @@ class TestDirectoryApis(unittest.TestCase):
             data['network_root_ca_cert'].encode()
         )
 
+    def test_network_service(self):
+        API = BASE_URL + '/v1/network/service'
+
+        response = requests.get(API)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        summary = data['service_summaries'][0]
+        self.assertEqual(summary['service_id'], 0)
+        self.assertEqual(summary['version'], 0)
+        self.assertEqual(summary['name'], 'private')
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()
+

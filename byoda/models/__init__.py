@@ -11,5 +11,6 @@ from .stats import Stats, StatsResponseModel
 from .cert import CertSigningRequestModel
 from .cert import SignedAccountCertResponseModel
 from .ipaddress import IpAddressResponseModel
+from .service import ServiceSummariesResponseModel
 
 # from .letsencrypt import LetsEncryptSecretModel
