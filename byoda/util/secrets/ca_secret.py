@@ -76,6 +76,8 @@ class CaSecret(Secret):
 
         self.ca = True
 
+        self.signs_ca_certs = False
+
         # These are the different identity types of the
         # certificates for which this secret will sign
         # CSRs

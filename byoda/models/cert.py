@@ -23,7 +23,7 @@ class CertSigningRequestModel(BaseModel):
         return {'certsigningrequest': self.csr}
 
 
-class SignedAccountCertResponseModel(BaseModel):
+class SignedCertResponseModel(BaseModel):
     signed_cert: str
     cert_chain: str
     network_root_ca_cert: str

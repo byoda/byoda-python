@@ -63,6 +63,7 @@ class MembersCaSecret(CaSecret):
 
         self.id_type = IdType.MEMBERS_CA
 
+        self.signs_ca_certs = False
         self.accepted_csrs = MembersCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CertificateSigningRequest:

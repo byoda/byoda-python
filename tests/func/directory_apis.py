@@ -24,6 +24,7 @@ from cryptography.hazmat.primitives import serialization
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
 from byoda.util.secrets import AccountSecret
+from byoda.util.secrets import ServiceCaSecret
 
 from byoda.datamodel import Network
 
@@ -92,7 +93,7 @@ class TestDirectoryApis(unittest.TestCase):
             data['network_root_ca_cert'].encode()
         )
 
-    def test_network_service(self):
+    def test_network_service_get(self):
         API = BASE_URL + '/v1/network/service'
 
         response = requests.get(API)
@@ -103,6 +104,39 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(summary['service_id'], 0)
         self.assertEqual(summary['version'], 0)
         self.assertEqual(summary['name'], 'private')
+
+    def test_network_service_post(self):
+        API = BASE_URL + '/v1/network/service'
+
+        with open('config.yml') as file_desc:
+            app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+        network = Network(app_config['dirserver'], app_config['application'])
+
+        service_id = 12345678
+        secret = ServiceCaSecret(
+            service='dir_api_test', service_id=service_id, network=network
+        )
+        csr = secret.create_csr()
+        csr = csr.public_bytes(serialization.Encoding.PEM)
+
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
+            data['cert_chain'].encode()
+        )
+        account_cert = x509.load_pem_x509_certificate(          # noqa:F841
+            data['signed_cert'].encode()
+        )
+        network_root_ca_cert = x509.load_pem_x509_certificate(  # noqa:F841
+            data['network_root_ca_cert'].encode()
+        )
+        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
+            data['network_root_ca_cert'].encode()
+        )
 
 
 if __name__ == '__main__':

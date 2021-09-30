@@ -16,7 +16,7 @@ from byoda.datatypes import IdType
 from byoda.datastore import CertStore
 
 from byoda.models import CertSigningRequestModel
-from byoda.models import SignedAccountCertResponseModel
+from byoda.models import SignedCertResponseModel
 from byoda.models import IpAddressResponseModel
 # from byoda.models import LetsEncryptSecretModel
 
@@ -32,11 +32,14 @@ router = APIRouter(
 )
 
 
-@router.post('/account', response_model=SignedAccountCertResponseModel)
+@router.post('/account', response_model=SignedCertResponseModel)
 def post_account(request: Request, csr: CertSigningRequestModel):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
+    This API is called by pods
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy
     '''
 
     _LOGGER.debug(f'POST Account API called from {request.client.host}')

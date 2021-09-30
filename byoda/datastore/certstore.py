@@ -68,7 +68,7 @@ class CertStore:
         extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints
         )
-        if extension.value.ca:
+        if not cert_auth.signs_ca_certs and extension.value.ca:
             raise ValueError('Certificates with CA bits set are not permitted')
 
         entity_id = cert_auth.review_csr(csr)

@@ -60,6 +60,7 @@ class NetworkRootCaSecret(CaSecret):
 
         self.is_root_cert = True
 
+        self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
     def create(self, expire: int = 10950):

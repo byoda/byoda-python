@@ -54,6 +54,7 @@ class NetworkAccountsCaSecret(CaSecret):
 
         self.id_type = IdType.ACCOUNTS_CA
 
+        self.signs_ca_certs = False
         self.accepted_csrs = NetworkAccountsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CSR:

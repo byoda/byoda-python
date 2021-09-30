@@ -59,6 +59,7 @@ class ServiceCaSecret(CaSecret):
         self.id_type = IdType.SERVICE_CA
 
         self.ca = True
+        self.signs_ca_certs = False
         self.accepted_csrs = (
             IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
             IdType.SERVICE_DATA,

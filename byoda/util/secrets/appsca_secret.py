@@ -57,6 +57,7 @@ class AppsCaSecret(CaSecret):
 
         self.id_type = IdType.APPS_CA
 
+        self.signs_ca_certs = False
         self.accepted_csrs = AppsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CertificateSigningRequest:

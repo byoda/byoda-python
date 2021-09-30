@@ -13,13 +13,18 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType
 
+from byoda.datastore import CertStore
+
 from byoda.models import ServiceSummariesResponseModel
+from byoda.models import SignedCertResponseModel
+
+from byoda.models import CertSigningRequestModel
 
 # from byoda.models import LetsEncryptSecretModel
 
 from byoda import config
 
-from ..dependencies.accountrequest_auth import AccountRequestAuthFast
+from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +37,8 @@ router = APIRouter(
 @router.get('/service', response_model=ServiceSummariesResponseModel)
 def get_service(request: Request, skip: int = 0, count: int = 0):
     '''
-    Get a list of summaries of available services
+    Get a list of summaries of available services.
+    This API is called by pods
     '''
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
@@ -57,3 +63,37 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
         ]
     }
     return result
+
+
+@router.post('/service', response_model=SignedCertResponseModel)
+def post_service(request: Request, csr: CertSigningRequestModel):
+    '''
+    Submit a Certificate Signing Request for the ServiceCA certificate
+    and get the cert signed by the network services CA
+    This API is called by services
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy
+    '''
+
+    _LOGGER.debug(f'POST Service API called from {request.client.host}')
+
+    network = config.server.network
+
+    certstore = CertStore(network.services_ca)
+
+    certchain = certstore.sign(
+        csr.csr, IdType.SERVICE_CA, request.client.host
+    )
+
+    signed_cert = certchain.cert_as_string()
+    cert_chain = certchain.cert_chain_as_string()
+
+    root_ca_cert = network.root_ca.cert_as_pem()
+    data_cert = network.data_secret.cert_as_pem()
+    
+    return {
+        'signed_cert': signed_cert,
+        'cert_chain': cert_chain,
+        'network_root_ca_cert': root_ca_cert,
+        'data_cert': data_cert,
+    }
