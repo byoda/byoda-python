@@ -13,7 +13,7 @@ from ipaddress import ip_address as IpAddress
 
 from fastapi import HTTPException
 
-from byoda.config import server
+from byoda import config
 
 from byoda.datatypes import HttpRequestMethod
 
@@ -49,6 +49,6 @@ class AccountRequestAuth(RequestAuth):
                     status_code=403, detail='No authentication provided'
                 )
 
-        self.check_account_cert(server.network)
+        self.check_account_cert(config.server.network)
 
         self.is_authenticated = True

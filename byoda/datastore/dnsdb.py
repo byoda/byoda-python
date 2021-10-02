@@ -16,7 +16,7 @@ import logging
 import time
 from enum import Enum
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Tuple
 from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
@@ -138,13 +138,15 @@ class DnsDb:
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
         if id_type == IdType.MEMBER:
-            return MemberSecret.create_fqdn(uuid, service_id, self.domain)
+            return MemberSecret.create_commonname(
+                uuid, service_id, self.domain
+            )
         elif id_type == IdType.ACCOUNT:
-            return AccountSecret.create_fqdn(uuid, self.domain)
+            return AccountSecret.create_commonname(uuid, self.domain)
         elif id_type == IdType.SERVICE:
-            return ServiceSecret.create_fqdn(service_id, self.domain)
+            return ServiceSecret.create_commonname(service_id, self.domain)
 
-    def decompose_fqdn(self, fqdn: str) -> (UUID, IdType, int):
+    def decompose_fqdn(self, fqdn: str) -> Tuple[UUID, IdType, int]:
         '''
         Get the uuid, the id type and, if applicable the service id from the
         FQDN

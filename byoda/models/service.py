@@ -41,7 +41,8 @@ class ServiceSummariesResponseModel(BaseModel):
 
     def __repr__(self):
         return(
-            '<ServiceSummariesResponseModel={List[ServiceSummaryResponseModel]}>'
+            '<ServiceSummariesResponseModel='
+            '{List[ServiceSummaryResponseModel]}>'
         )
 
     def as_dict(self):

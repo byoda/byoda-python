@@ -1,8 +1,9 @@
 {
+    "name": "testdummy",
     "jsonschema": {
-        "$id": "https://uuid.services.byoda.net/service/private",
+        "$id": "https://uuid.services.byoda.net/service/testdummy",
         "$schema": "https://json-schema.org/draft-07/schema#",
-        "description": "This is the default service of each network, storing only private data",
+        "description": "This is the dummy service used by test cases",
         "properties": {
             "member": {
                 "#accesscontrol": [
@@ -67,20 +68,19 @@
         "title": "private service storing information about you",
         "type": "object"
     },
-    "name": "private",
     "service_id": 0,
     "signatures": {
         "network": {
             "certificate": "network.network-data.byoda.net",
             "hash_algorithm": "SHA256",
-            "signature": "xkHvja3dFP77oFZSLV1KlncFnqinjg5QuvF0Sv2GOTzGWdBUJ6GC3lWNyKuo8iuKAGy7cRSEAJPfRu93bfaLzPYf1n9q9vtreeuRXz75YCiytSduRVqziL8Dvp934IwRmnI90W5hyqUoiburAC6lsJd4Ia4MiOf34uK7TIWQcaQn8jAmGByAs5zIwaTd37uQwXdr9StVaOk8igwS4HcFxl2zzrmDelwwWAw2SmyKW8pomae1PlBn0WXiJC7P1nQDubk/IN8oVPCKQ42z/y1/P6gHBJ/TNVIe4qZPKb8YXtF0MpiAeOXtgsLh9Tos06CFGH2+6ygdgyi9IRr7rJM8D0Aab3OIUevaE8LKwEV2R4pRVADAdWO/gXXAYo7Zhd/5+XiMBGrrKTMNIZUdWrJSpQG/88vTW41KhYJx3hpQcJkZtk19poOt+PSmdUOONWytS6fwBW9PBbU9Qih0FYym5JOqkaHubclyt9R3lgBOiYswdfG0PaQpLuBsP4V/Vagm",
-            "timestamp": "2021-10-01T06:49:01"
+            "signature": "Ech+NAv+L/BlQp7xHK3lrXOAn9v/7fYb1/Darkxan45/lpoDdm2LjWRA1fYGqRpEx+rke9deQGTZURPmOpqIEMaiZe5XIbybk7upWrSu2NCjDUpN6P9pwCS2Eo0BjtrldJw0t0sPMJD1B2ybirXPYfEdaDwRtWoXzSUMywLQwzcJWmS8d2iDtLvrdVdeIhBEQw1i2jNj0idr5xN5CstH2PG/D1DHFaTH4OkkH2avrKFFpQWhdD91EsQA/GWan/O3ZeWVq5ob6TQpVzqJoJfbbBs95H7BGSr73H4nnHeIT4OazDXLyJBw3dEoBFjwZx/BAn40/QKxM1XPS3RcO4R7iuMLLaLmWEZkfldjQIhLXLjL+x+WOCvRq8jBIxtUezsplQTZNOykt2wmMOD0fZCuw/XdkZ/cL9qRMmi6I/3d3EhsdPL4dgmSfzIpt84RxOdn3LQAiBP2pW1TroqmlugmD3UJUeuBqTsZOfcMTVt/pgxc7IBUIVK0Dwnjq5Krt7kF",
+            "timestamp": "2021-09-22T22:32:39"
         },
         "service": {
             "certificate": "data.service-data-0.byoda.net",
             "hash_algorithm": "SHA256",
-            "signature": "QO8KLpCEEYk53RWlgyzv1JMnHQkKnZUf1BOWT8lk/UTn4UHcdXHKD59GuZjcPC63G+8vizPEM3OrrTVxWz+DVTec4g3V2ehxdEO76HrSHni9RscA8+tDszOGAfKCvE0PlUelXZuyI/7AxP3JID/vpRYVn+He+F8hTXJO8RD6hOPF3ofecyo1rX9tqCFIUvd9qxTGk83Nq9iBuzgfjILzG56g8NKrAemgfcFjPe8ZnwXYfs/cZbwiJi5l4QMqGXFqB8HmmnZRBCA5SSY0r65OvxISd8e+tnRt6cGge/6MhlkyH4ZNaZanHOgp/uaT7OGSmWpByjrnU29s4CCn9OfPCM7fsonCRCSaZrPXpS5VTLe1TB2f22UEPf9tLWfNAHxzKSng8gdqt3GX+6HlPbc1mj0mJETVw3yyArJrU6/6mwZhcTgF5if4nU8si8uTp4YNoZMvM9rK5kD1gaEj0MNooHjp2XJYKkMrMjxeD1bcNs+dVz/HA0QVAcqa1Iv2Lt/p",
-            "timestamp": "2021-10-01T06:48:13"
+            "signature": "qUhCijNIFiHpjZ66+EFVWfj/qxd536e6ITX88R0AzYmfJ3ecB9Olqifdx+oSSFaMebwTFEO6s3i+SgVRDcb0r3vplksjquW54p/tD1dnWPynj+3jLpSCQGXboiGSDLTc4abBnrxWSY2m9vitJUr/uhsg9fxUZS8feVh/bykOBjt3337IHeKKOZEfpYzbYTP9oTiMLOkuuCmZ3OmKboUJksHpRWN78UsI7Ml6w8yNVuSZJ8HtRUhqFqFteNrx+nSm0P14kreY030QFrkv8bOp2KFkEqKHBJoi+AJYLVqvsyU56yYPnq1CYY4wtQmEU5Nx97ho6K8syTnGi6pWtVLiiac9QtPU6FvNg+UUxH/6iUrXEFtMNC2YrxsWJf4t7IbJ8mKjrggSXc4Hx57jDWIOZJRFZ4jNW8Y1GlEkUw0D/2dY52+fx0Dy1jIBAUj4IzAMkPd+zS2R3p7J8ws+4Wr8RwjbouhEVwfGMVSz3YGaLP7Z3XLCJqbbYeQQXLB+gsGT",
+            "timestamp": "2021-09-22T22:29:42"
         }
     },
     "version": 0

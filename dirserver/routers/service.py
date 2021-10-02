@@ -16,11 +16,11 @@ from byoda.datatypes import IdType
 from byoda.datastore import CertStore
 
 from byoda.models import ServiceSummariesResponseModel
-from byoda.models import SignedCertResponseModel
 
 from byoda.models import CertSigningRequestModel
+from byoda.models import SignedCertResponseModel
 
-# from byoda.models import LetsEncryptSecretModel
+from byoda.models import SchemaModel, SchemaResponseModel
 
 from byoda import config
 
@@ -39,6 +39,8 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
     '''
     Get a list of summaries of available services.
     This API is called by pods
+    This API does not require authentication; service schemas are
+    public information
     '''
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
@@ -81,6 +83,9 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     certstore = CertStore(network.services_ca)
 
+    # TODO: SECURITY: check if the CSR is for a service_id that already
+    # exists and that we haven't already signed a CSR for
+    # this service_id recently
     certchain = certstore.sign(
         csr.csr, IdType.SERVICE_CA, request.client.host
     )
@@ -90,10 +95,36 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     root_ca_cert = network.root_ca.cert_as_pem()
     data_cert = network.data_secret.cert_as_pem()
-    
+
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
         'network_root_ca_cert': root_ca_cert,
         'data_cert': data_cert,
+    }
+
+
+@router.patch('/service', response_model=SchemaResponseModel)
+def patch_service(request: Request, schema: SchemaModel,
+                  auth: ServiceRequestAuthFast = Depends(
+                     ServiceRequestAuthFast)):
+    '''
+    Submit a new (revision of a) service schema, aka data contract
+    for signing with the Network Data secret
+    This API is called by services
+
+    '''
+
+    _LOGGER.debug(f'POST Service API called from {request.client.host}')
+
+    network = config.server.network
+
+    # TODO: create a whole bunch of schema validation tests
+    # including one to just deserialize and reserialize and
+    # verify the signatures again
+
+    return {
+        'status': 'ACCEPTED',
+        'errors': [],
+        'timestamp': 'now',
     }

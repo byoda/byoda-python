@@ -70,13 +70,13 @@ class MemberSecret(Secret):
         a private key or cert
         '''
 
-        common_name = MemberSecret.create_fqdn(
+        common_name = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )
         return super().create_csr(common_name, ca=self.ca)
 
     @staticmethod
-    def create_fqdn(member_id: UUID, service_id: int, network: str):
+    def create_commonname(member_id: UUID, service_id: int, network: str):
         '''
         generates the FQDN for the common name in the Member TLS secret
         '''

@@ -88,7 +88,7 @@ class Schema:
         except ValueError:
             pass
 
-        self.validate = fastjsonschema.compile(self.json_schema['schema'])
+        self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
     def save(self, filepath):
         '''
@@ -233,7 +233,7 @@ class Schema:
         class
         '''
 
-        properties = self.json_schema['schema']['properties']
+        properties = self.json_schema['jsonschema']['properties']
         classes = OrderedDict({'Query': properties})
 
         self._get_graphene_classes(classes, properties)

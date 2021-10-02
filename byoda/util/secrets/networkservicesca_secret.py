@@ -82,12 +82,11 @@ class NetworkServicesCaSecret(CaSecret):
         permissable. Note that this function does not check whether the
         service identifier is already in use
 
-        :param X509 csr         : cryptography.X509.CertificateSigningRequest
+        :param csr: cryptography.X509.CertificateSigningRequest
         :returns: entity, identifier
-        :raises: ValueError if this object is not a CA
-                                  (because it only has access to the cert and
-                                  not the private_key) or if the CommonName
-                                  is not valid in the CSR for signature by this
+        :raises: ValueError if this object is not a CA (because it only has
+        access to the cert and not the private_key) or if the CommonName is
+        not valid in the CSR for signature by this
                                   CA
         '''
 

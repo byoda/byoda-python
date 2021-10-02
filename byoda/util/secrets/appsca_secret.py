@@ -108,14 +108,14 @@ class AppsCaSecret(CaSecret):
         by instances of this class        '''
 
         entity_id = CaSecret.review_commonname_by_parameters(
-            commonname, network, AppsCaSecret.ACCEPTED_CSRS, service_id=service_id,
+            commonname, network, AppsCaSecret.ACCEPTED_CSRS,
+            service_id=service_id,
             uuid_identifier=True, check_service_id=True
         )
 
         return entity_id
 
-    def review_csr(self, csr: CertificateSigningRequest,
-                   source: CsrSource = None) -> EntityId:
+    def review_csr(self, csr: CertificateSigningRequest) -> EntityId:
         '''
         Review a CSR. CSRs for registering service member are permissable.
 

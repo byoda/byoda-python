@@ -183,7 +183,7 @@ class Account:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
-            secret.add_signed_cert(certchain)
+            secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 

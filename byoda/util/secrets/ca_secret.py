@@ -187,80 +187,25 @@ class CaSecret(Secret):
     def review_commonname_by_parameters(
             commonname: str, network: str, accepted_csrs: List[str],
             service_id: int = None, uuid_identifier: bool = True,
-            check_service_id: bool = True) -> str:
+            check_service_id: bool = True) -> EntityId:
         '''
         Reviews a common name without requiring an instance of the CA class to
         be created
         '''
 
-        if not isinstance(commonname, str):
-            raise ValueError(
-                f'Common name must be of type str, not {type(commonname)}'
-            )
+        entity_id = Secret.review_commonname_by_parameters(
+            commonname, network, service_id=service_id,
+            uuid_identifier=uuid_identifier, check_service_id=check_service_id
+        )
 
-        if check_service_id and service_id is None:
-            raise ValueError(
-                'Can not check service_id as no service_id was provided'
-            )
-
-        postfix = '.' + network
-        if not commonname.endswith(postfix):
-            raise PermissionError(
-                f'Commonname {commonname} is not for network {network}'
-            )
-
-        commonname_prefix = commonname[:-1 * len(postfix)]
-
-        bits = commonname_prefix.split('.')
-        if len(bits) > 2:
-            raise ValueError(f'Invalid number of domain levels: {commonname}')
-        elif len(bits) == 2:
-            identifier, subdomain = bits
-        else:
-            identifier = None
-            subdomain = bits[0]
-
-        id_type = None
-        longest_match = 0
-        for id_type_iter in accepted_csrs:
-            length = len(id_type_iter.value)
-            if (subdomain.startswith(id_type_iter.value.rstrip('-'))
-                    and length > longest_match):
-                id_type = id_type_iter
-                longest_match = length
-
-        if not id_type:
+        if entity_id.id_type not in accepted_csrs:
             accepted_csr_values = [csr.value for csr in accepted_csrs]
             raise PermissionError(
-                f'CA accepts CSRs for {accepted_csr_values.join(", ")} but '
-                f'does not sign CSRs for subdomain {subdomain}'
+                f'CA accepts CSRs for {", ".join(accepted_csr_values)} but '
+                f'does not sign CSRs for subdomain {entity_id.id_type.value}'
             )
 
-        if uuid_identifier:
-            try:
-                if not isinstance(identifier, UUID):
-                    identifier = UUID(identifier)
-            except ValueError:
-                raise ValueError(
-                    f'Common name {commonname} does not have a valid UUID '
-                    'identifier'
-                )
-
-        cn_service_id = subdomain[len(id_type.value):]
-
-        if cn_service_id == '':
-            cn_service_id = None
-        elif cn_service_id is not None:
-            cn_service_id = int(cn_service_id)
-
-        if check_service_id:
-            if cn_service_id != service_id:
-                raise PermissionError(
-                    f'Request for incorrect service {cn_service_id} in common '
-                    f'name {commonname}'
-                )
-
-        return EntityId(id_type, identifier, service_id)
+        return entity_id
 
     def sign_csr(self, csr: CSR, expire: int = 365) -> CertChain:
         '''

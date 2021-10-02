@@ -62,7 +62,7 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = ServiceSecret.create_fqdn(self.service_id, self.network)
+        common_name = ServiceSecret.create_commonname(self.service_id, self.network)
 
         return super().create_csr(common_name, ca=self.ca)
 
@@ -83,7 +83,7 @@ class ServiceSecret(Secret):
         return entity_id
 
     @staticmethod
-    def create_fqdn(service_id: int, network: str):
+    def create_commonname(service_id: int, network: str) -> str:
         '''
         Returns FQDN to use in the common name of a secret
         '''
@@ -92,6 +92,27 @@ class ServiceSecret(Secret):
         if not isinstance(network, str):
             raise ('Network parameter must be a string')
 
-        fqdn = f'service.{IdType.SERVICE.value}{service_id}.{network}'
+        common_name = f'service.{IdType.SERVICE.value}{service_id}.{network}'
 
-        return fqdn
+        return common_name
+
+    @staticmethod
+    def parse_commonname(commonname: str, network: Network) -> EntityId:
+        '''
+        Validate the common name of a Service secret
+        :returns: service_id
+        Extracts the service_id from the common name of a Service secret
+        '''
+
+        entity_id = Secret.review_commonname_by_parameters(
+            commonname, network.name, check_service_id=False,
+            uuid_identifier=False
+        )
+
+        if entity_id.id_type != IdType.SERVICE:
+            raise ValueError(f'Invalid {commonname} for a Service secret')
+
+        if not entity_id.service_id:
+            raise ValueError(f'No service ID in commonname {commonname}')
+
+        return entity_id

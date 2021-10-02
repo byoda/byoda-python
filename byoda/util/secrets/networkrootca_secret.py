@@ -11,8 +11,10 @@ from copy import copy
 
 from byoda.util import Paths
 
-from byoda.datatypes import CsrSource
+from byoda.datatypes import CsrSource, EntityId
 from byoda.datatypes import IdType
+
+from byoda import config
 
 from .secret import CSR
 from .ca_secret import CaSecret
@@ -116,14 +118,14 @@ class NetworkRootCaSecret(CaSecret):
         return entity_id
 
     def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
-                   ) -> str:
+                   ) -> EntityId:
         '''
         Review a CSR. CSRs from NetworkAccountCA and NetworkServicesCA are
         permissable.
 
         :param csr: cryptography.X509.CertificateSigningRequest
         :param source: source of the CSR
-        :returns: 'accounts-ca' or 'services-ca'
+        :returns: entity_id for the common name in the CSR
         :raises: ValueError if this object is not a CA because it only has
         access to the cert and not the private_key) or if the CommonName is
         not valid in the CSR for signature by this CA
@@ -140,6 +142,6 @@ class NetworkRootCaSecret(CaSecret):
 
         common_name = super().review_csr(csr)
 
-        common_name_prefix = self.review_commonname(common_name)
+        entity_id = self.review_commonname(common_name)
 
-        return common_name_prefix
+        return entity_id

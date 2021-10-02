@@ -185,7 +185,7 @@ class Member:
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
-        secret.add_signed_cert(certchain)
+        secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 
@@ -337,7 +337,7 @@ class Member:
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
         schema = member.data.schema
-        schema_properties = schema.json_schema['schema']['properties']
+        schema_properties = schema.json_schema['jsonschema']['properties']
 
         # The query may be for an object for which we do not yet have
         # any data

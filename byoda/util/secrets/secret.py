@@ -10,8 +10,9 @@ import os
 import logging
 import datetime
 import re
+from uuid import UUID
 from copy import copy
-from typing import TypeVar
+from typing import TypeVar, List
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -27,6 +28,10 @@ from certvalidator import ValidationContext
 from certvalidator import ValidationError, PathBuildingError
 
 from byoda.storage.filestorage import FileStorage, FileMode
+
+from byoda.datatypes import IdType
+from byoda.datatypes import EntityId
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +59,7 @@ CaSecret = TypeVar('CaSecret', bound='CaSecret')
 
 
 class CertChain:
-    def __init__(self, signed_cert: Certificate, cert_chain
+    def __init__(self, signed_cert: Certificate, cert_chain: List[Certificate]
                  ):
         '''
         Represents a signed cert and the list of certs of issuing CAs
@@ -67,8 +72,8 @@ class CertChain:
         :raises: (none)
         '''
 
-        self.signed_cert = signed_cert
-        self.cert_chain = cert_chain
+        self.signed_cert: Certificate = signed_cert
+        self.cert_chain: List[Certificate] = cert_chain
 
     def __str__(self) -> str:
         '''
@@ -136,31 +141,31 @@ class Secret:
         :raises: (none)
         '''
 
-        self.private_key = None
-        self.private_key_file = key_file
+        self.private_key: rsa.RSAPrivateKey = None
+        self.private_key_file: str = key_file
 
-        self.cert = None
-        self.cert_file = cert_file
+        self.cert: Certificate = None
+        self.cert_file: str = cert_file
 
         # The password to use for saving the private key
         # to a file
-        self.password = None
+        self.password: str = None
 
-        self.common_name = None
+        self.common_name: str = None
 
         if storage_driver:
-            self.storage_driver = storage_driver
+            self.storage_driver: FileStorage = storage_driver
 
         # Certchains never include the root cert!
         # Certs higher in the certchain hierarchy come after
         # certs signed by those certs.
-        self.cert_chain = []
+        self.cert_chain: List[Certificate] = []
 
         # Is this a self-signed cert?
-        self.is_root_cert = False
+        self.is_root_cert: bool = False
 
-        # is this a secret of a CA
-        self.ca = False
+        # is this a secret of a CA. For CAs, use the CaSecret class
+        self.ca: bool = False
 
     def create(self, common_name: str, issuing_ca: CaSecret = None,
                expire: int = 30, key_size: int = _RSA_KEYSIZE,
@@ -215,7 +220,7 @@ class Secret:
         :raises: (none)
         '''
 
-        subject = issuer = self.get_cert_name()
+        subject = issuer = self._get_cert_name()
 
         self.is_root_cert = True
         self.cert = x509.CertificateBuilder().subject_name(
@@ -243,9 +248,9 @@ class Secret:
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
         generate the signed certificate
 
-        :param str common_name: common_name for the certificate
-        :param int key_size: length of the key in bits
-        :param bool ca: create a secret for an CA
+        :param common_name: common_name for the certificate
+        :param key_size: length of the key in bits
+        :param ca: create a secret for an CA
         :returns: the Certificate Signature Request
         :raises: ValueError if the Secret instance already has a private key
                  or set
@@ -268,7 +273,7 @@ class Secret:
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
         csr = x509.CertificateSigningRequestBuilder().subject_name(
-            self.get_cert_name()
+            self._get_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=None
@@ -277,7 +282,7 @@ class Secret:
 
         return csr
 
-    def get_cert_name(self):
+    def _get_cert_name(self):
         '''
         Generate an X509.Name instance for a cert
 
@@ -318,11 +323,11 @@ class Secret:
         _LOGGER.debug(
             f'Getting CSR with common name {self.common_name} signed'
         )
-        self.add_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
+        self.from_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
 
-    def add_signed_cert(self, cert_chain: CertChain):
+    def from_signed_cert(self, cert_chain: CertChain):
         '''
-        Adds the CA-signed cert and the certchain for the issuing CA
+        Adds the CA-signed cert and the certchain with the issuing CA
         to the certificate
 
         :param CertChain cert_chain: cert and its chain of issuing CAs
@@ -688,3 +693,127 @@ class Secret:
         '''
 
         return self.cert.fingerprint(hashes.SHA256)
+
+    def review_commonname(self, commonname: str, uuid_identifier=True,
+                          check_service_id=True) -> str:
+        '''
+        Checks if the structure of common name matches that of a byoda secret.
+        Parses the entity type, the identifier and optionally the service_id
+        from the common name
+
+        :param commonname: the commonname to check
+        :param uuid_identifier: whether to check if the identifier is a UUID
+        :param check_service_id: should any service_id in the common name
+        match the service_id attribute of the secret?
+        :returns: commonname with the network domain stripped off, ie. for
+        'uuid.accounts.byoda.net' it will return 'uuid.accounts'.
+        :raises: ValueError if the commonname is not a string
+        '''
+
+        service_id = getattr(self, 'service_id', None)
+
+        entity_id = Secret.review_commonname_by_parameters(
+            commonname,
+            self.network,
+            service_id=service_id,
+            uuid_identifier=uuid_identifier,
+            check_service_id=check_service_id
+        )
+
+        return entity_id
+
+    @staticmethod
+    def review_commonname_by_parameters(
+            commonname: str, network: str,
+            service_id: int = None, uuid_identifier: bool = True,
+            check_service_id: bool = True) -> EntityId:
+        '''
+        Basic review for a common name
+
+        :returns: the common name with the domain name chopped off
+        :raises: ValueError
+        '''
+
+        if not isinstance(commonname, str):
+            raise ValueError(
+                f'Common name must be of type str, not {type(commonname)}'
+            )
+
+        if check_service_id and service_id is None:
+            raise ValueError(
+                'Can not check service_id as no service_id was provided'
+            )
+
+        hostname, subdomain, domain = commonname.split('.', 2)
+        if not (hostname and subdomain and domain):
+            raise ValueError(f'Invalid common name: {commonname}')
+
+        if not commonname.endswith('.' + network):
+            raise PermissionError(
+                f'Commonname {commonname} is not for network {network}'
+            )
+
+        commonname_prefix = commonname[:-(len(network) + 1)]
+
+        bits = commonname_prefix.split('.')
+        if len(bits) > 2:
+            raise ValueError(f'Invalid number of domain levels: {commonname}')
+        elif len(bits) == 2:
+            identifier, subdomain = bits
+        else:
+            identifier = None
+            subdomain = bits[0]
+
+        if uuid_identifier:
+            try:
+                identifier = UUID(identifier)
+            except ValueError:
+                raise ValueError(
+                    f'Common name {commonname} does not have a valid UUID '
+                    'identifier'
+                )
+
+        # We have subdomains like 'account', 'member-123', 'network-data' and
+        # 'service-ca-123'
+        # We first want to check if the last segment is a number
+        cn_service_id = None
+        bits = subdomain.split('-')
+        if len(bits) > 1:
+            cn_service_id = bits[-1]
+            try:
+                cn_service_id = int(cn_service_id)
+                subdomain = '-'.join(bits)[:-1]
+            except ValueError:
+                cn_service_id = None
+                if check_service_id:
+                    raise ValueError(
+                        f'Invalid service id in subdomain {subdomain}'
+                    )
+
+        _LOGGER.debug('cn service id %s', cn_service_id)
+        if (cn_service_id is not None
+                and (cn_service_id < 0 or cn_service_id > (pow(2, 32) - 1))):
+            raise ValueError(
+                f'Service ID {cn_service_id} out of range in '
+                f'{commonname}'
+            )
+
+        id_type = None
+        for id_type_iter in IdType.by_value_lengths():
+            if (subdomain.startswith(id_type_iter.value.rstrip('-'))):
+                id_type = id_type_iter
+                break
+
+        _LOGGER.debug(f'Found IdType {id_type}')
+        if not id_type:
+            raise ValueError(
+                f'Commonname {commonname} is not for a known certificate type'
+            )
+
+        if check_service_id and cn_service_id != service_id:
+            raise PermissionError(
+                f'Request for incorrect service {cn_service_id} in common '
+                f'name {commonname}'
+            )
+
+        return EntityId(id_type, identifier, cn_service_id)

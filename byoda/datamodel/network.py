@@ -128,8 +128,6 @@ class Network:
             if not self.root_ca.cert:
                 self.root_ca.load(with_private_key=False)
 
-            self.data_secret.load(with_private_key=False)
-
         config.requests.verify = self.root_ca.cert_file
 
         # Loading secrets for when operating as a directory server
@@ -272,7 +270,7 @@ class Network:
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
-        secret.add_signed_cert(certchain)
+        secret.from_signed_cert(certchain)
         secret.save(password=password)
 
         return secret
