@@ -49,7 +49,7 @@ class MemberData(UserDict):
         '''
         Load the data from the data store
         '''
-        
+
         try:
             self.unvalidated_data = self.document_store.read(
                 self.paths.get(

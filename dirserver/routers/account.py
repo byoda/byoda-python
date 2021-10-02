@@ -52,6 +52,7 @@ def post_account(request: Request, csr: CertSigningRequestModel):
         csr.csr, IdType.ACCOUNT, request.client.host
     )
 
+    # TODO: SECURITY: check if the UUID is already in use
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
 

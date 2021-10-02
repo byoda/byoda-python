@@ -11,6 +11,8 @@ import logging
 from pydantic import BaseModel
 from typing import Optional, Dict, List
 
+from byoda.datatypes import ReviewStatusType
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -43,9 +45,12 @@ class SchemaModel(BaseModel):
 
 
 class SchemaResponseModel(BaseModel):
-    status: str
+    status: ReviewStatusType
     errors: List[str]
     timestamp: str
+
+    class Config:
+        use_enum_values = True
 
     def __repr__(self):
         return(

@@ -8,10 +8,11 @@
 
 
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 
-from byoda.datatypes import IdType
+from byoda.datatypes import IdType, ReviewStatusType
 
 from byoda.datastore import CertStore
 
@@ -123,8 +124,37 @@ def patch_service(request: Request, schema: SchemaModel,
     # including one to just deserialize and reserialize and
     # verify the signatures again
 
+    status = ReviewStatusType.ACCEPTED
+    errors = []
+
+    if not schema.signatures:
+        status = ReviewStatusType.REJECTED
+        errors.append('Missing service signature')
+    else:
+        if (not schema.signatures['service']
+                or not schema.signatures['service'].get('signature')):
+            status = ReviewStatusType.REJECTED
+            errors.append('Missing service signature')
+
+    if schema.signatures.get('network'):
+        status = ReviewStatusType.REJECTED
+        errors.append('network signature already present')
+
+    service_id = schema.service_id
+    if service_id not in network.services:
+        status = ReviewStatusType.REJECTED
+        errors.append(f'Unregistered service ID {service_id}')
+    else:
+        current_schema = network.services[service_id]['json_schema']
+        if schema.version <= current_schema['version']:
+            status = ReviewStatusType.REJECTED
+            errors.append(
+                f'Schema version {schema.version} is less than current '
+                f'schema version '
+            )
+
     return {
-        'status': 'ACCEPTED',
-        'errors': [],
-        'timestamp': 'now',
+        'status': status,
+        'errors': errors,
+        'timestamp': datetime.utcnow().isoformat(),
     }

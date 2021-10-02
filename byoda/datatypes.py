@@ -99,3 +99,9 @@ class CertStatus(Enum):
     OK              = 'ok'
     RENEW           = 'renew'
     EXPIRED         = 'expired'
+
+
+class ReviewStatusType(Enum):
+    ACCEPTED        = 'ACCEPTED'
+    REJECTED        = 'REJECTED'
+    
