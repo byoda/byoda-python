@@ -177,6 +177,7 @@ class Network:
         self.account = None
         if ServerRole.Pod in self.roles:
             # TODO: client should read this from a directory server API
+            self.load_secrets()
             self.load_services(directory='services/')
 
     @staticmethod

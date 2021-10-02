@@ -92,7 +92,6 @@ server.set_document_store(
 #     letsencrypt.create()
 
 network = Network(network_data, network_data)
-network.load_secrets()
 server.network = network
 server.paths = network.paths
 server.account = network.load_account(
