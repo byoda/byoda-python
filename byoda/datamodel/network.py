@@ -9,6 +9,7 @@ Class for modeling a social network
 import os
 import logging
 from uuid import UUID
+from typing import List, Dict, Set
 
 from byoda.util import Paths
 from byoda import config
@@ -69,11 +70,11 @@ class Network:
 
         # TODO: continue reducing the length of this constructor
 
-        self.name = application.get('network', config.DEFAULT_NETWORK)
+        self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
 
-        roles = server.get('roles', [])
+        roles: Set[str] = server.get('roles', [])
         if roles and type(roles) not in (set, list):
             roles = [roles]
 
@@ -85,37 +86,38 @@ class Network:
             except ValueError:
                 raise ValueError(f'Invalid role {role}')
 
-        self.root_dir = application.get(
+        self.root_dir: str = application.get(
             'root_dir', os.environ['HOME'] + '.byoda'
         )
 
-        self.private_key_password = server['private_key_password']
+        self.private_key_password: str = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            bucket_prefix = server['bucket_prefix']
-            account = 'pod'
+            bucket_prefix: str = server['bucket_prefix']
+            account: str = 'pod'
         else:
             bucket_prefix = None
             account = None
 
         # FileStorage.get_storage ignores bucket_prefix parameter
         # when local storage is used.
-        private_object_storage = FileStorage.get_storage(
+        private_object_storage: FileStorage = FileStorage.get_storage(
             server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
         )
 
-        self.paths = Paths(
+        self.paths: Paths = Paths(
             root_directory=self.root_dir, network=self.name,
             account=account, storage_driver=private_object_storage
         )
 
         # Everyone must at least have the root ca cert.
+        self.root_ca: NetworkRootCaSecret = None
         if root_ca:
-            self.root_ca = root_ca
+            self.root_ca: NetworkRootCaSecret = root_ca
         else:
             self.root_ca = NetworkRootCaSecret(self.paths)
 
-        self.data_secret = NetworkDataSecret(self.paths)
+        self.data_secret: NetworkDataSecret = NetworkDataSecret(self.paths)
 
         if ServerRole.RootCa in self.roles:
             self.root_ca.load(
@@ -131,9 +133,15 @@ class Network:
         config.requests.verify = self.root_ca.cert_file
 
         # Loading secrets for when operating as a directory server
-        self.accounts_ca = None
-        self.services_ca = None
-        self.services = dict()
+        self.accounts_ca: NetworkAccountsCaSecret = None
+        self.services_ca: ServiceCaSecret = None
+
+        # Services that are only registered will have:
+        #   network.services[service_id] = None
+        # Services for which a schema has been accepted (after a call to
+        # PATCH /network/services will have as value an instance of the
+        # Service class)
+        self.services: Dict = dict()
 
         self.service_ca = None
         if ServerRole.ServiceCa in self.roles:

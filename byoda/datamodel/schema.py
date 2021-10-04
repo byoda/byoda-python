@@ -29,12 +29,12 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
-    def __init__(self, jsonschema_filepath: str, storage_driver: str):
+    def __init__(self, schema: dict):
         '''
         Construct a schema. The signatures on the data contract will not
-        be checked as we do not know yet what the service_id is of the
-        schema and this can't yet use the data secret of that service
-        to verify the signature.
+        be checked in the constructor as we do not know yet what the
+        service_id is of the schema and this means we can't use the data
+        secret yet of that service to verify the signature.
         '''
 
         # This is the original JSON data from the
@@ -48,23 +48,30 @@ class Schema:
             SignatureType.NETWORK: None,
         }
 
-        self.json_schema = {}
+        self.json_schema = schema
         self.gql_schema = []
 
         # This is a callable to validate data against the schema
         self.validate: fastjsonschema.validate = None
 
-        self.storage_driver = storage_driver
-        self.load(jsonschema_filepath)
+        self.load()
 
-    def load(self, filepath: str):
+    def get_schema(filepath: str, storage_driver: str):
         '''
-        Load a schema from a file
+        Facory to read schema from a file
+        '''
+        data = storage_driver.read(filepath)
+        json_schema = json.loads(data)
+
+        schema = Schema(json_schema)
+
+        return schema
+
+    def load(self):
+        '''
+        Load a schema from a dict
         '''
 
-        data = self.storage_driver.read(filepath)
-
-        self.json_schema = json.loads(data)
         self.name = self.json_schema['name']
         self.service_id = self.json_schema['service_id']
 
@@ -90,13 +97,13 @@ class Schema:
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
-    def save(self, filepath):
+    def save(self, filepath, storage_driver):
         '''
         Write a schema to a JSON file, ie. when an account becomes
         a member of the service that the schema belongs to
         '''
 
-        self.storage_driver.write(
+        storage_driver.write(
             filepath, json.dumps(self.json_schema, indent=4, sort_keys=True)
         )
 
@@ -141,6 +148,7 @@ class Schema:
         Verifies the signature of the data contract. The signature by the
         service only covers the data contract, the signature by the network
         covers both the data contract and the signature by the service.
+        :raises: ValueError
         '''
 
         schema = deepcopy(self.json_schema)

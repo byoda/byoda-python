@@ -116,7 +116,7 @@ class Member:
         member.schema = copy(service.schema)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
-        member.schema.save(filepath)
+        member.schema.save(filepath, member.paths.storage_driver)
 
         if config.server.cloud != CloudType.LOCAL:
             nginx_config = NginxConfig(
@@ -216,7 +216,7 @@ class Member:
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        schema = Schema(filepath, self.storage_driver)
+        schema = Schema.get_schema(filepath, self.storage_driver)
         self.verify_schema_signatures(schema)
         schema.generate_graphql_schema()
 

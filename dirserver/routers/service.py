@@ -13,21 +13,25 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType, ReviewStatusType
-
+from byoda.datamodel import Schema
 from byoda.datastore import CertStore
 
 from byoda.models import ServiceSummariesResponseModel
-
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedCertResponseModel
-
 from byoda.models import SchemaModel, SchemaResponseModel
+
+from byoda.util.secrets import Secret
+
+from byoda.util import SignatureType
 
 from byoda import config
 
 from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
 
 _LOGGER = logging.getLogger(__name__)
+
+MAX_SERVICE_LIST = 100
 
 router = APIRouter(
     prefix='/api/v1/network',
@@ -51,7 +55,7 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
     services = list(network.services.values())
 
     if count == 0:
-        count = len(services)
+        count = max(len(services), MAX_SERVICE_LIST)
 
     result = {
         'service_summaries': [
@@ -90,6 +94,13 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     certchain = certstore.sign(
         csr.csr, IdType.SERVICE_CA, request.client.host
     )
+
+    # We make sure the key for the services in the network exists, even if
+    # the schema for the service has not yet been provided through the PATCH
+    # API
+    service_id = Secret.get_commonname(certchain.signed_cert)
+    if service_id not in network.services:
+        network.services[service_id] = None
 
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
@@ -152,6 +163,18 @@ def patch_service(request: Request, schema: SchemaModel,
                 f'Schema version {schema.version} is less than current '
                 f'schema version '
             )
+        else:
+            service = network.services[service_id]
+            service_contract = Schema(schema)
+            try:
+                service_contract.verify_signature(
+                    service.data_secret, SignatureType.SERVICE
+                )
+            except ValueError:
+                status = ReviewStatusType.REJECTED
+                errors.append(
+                    'Service signature of schema is invalid'
+                )
 
     return {
         'status': status,

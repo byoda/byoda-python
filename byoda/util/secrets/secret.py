@@ -301,6 +301,18 @@ class Secret:
             ]
         )
 
+    @staticmethod
+    def extract_commonname(cert: x509.Certificate) -> str:
+        '''
+        Extracts the common name from a the subject of a certificate
+        '''
+
+        for attrib in cert.subject:
+            if attrib.oid == NameOID.COMMON_NAME:
+                commonname = attrib.value
+
+        return commonname
+
     def csr_as_pem(self, csr):
         '''
         Returns the BASE64 encoded byte string for the CSR

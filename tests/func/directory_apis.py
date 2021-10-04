@@ -21,10 +21,10 @@ import json
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from cryptography.x509.oid import NameOID
 
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
+from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceSecret
@@ -155,13 +155,9 @@ class TestDirectoryApis(unittest.TestCase):
         service_secret = ServiceSecret('dir_api_test', service_id, network)
         service_csr = service_secret.create_csr()
         certchain = secret.sign_csr(service_csr)
-        for attrib in certchain.signed_cert.subject:
-            if attrib.oid == NameOID.COMMON_NAME:
-                service_cn = attrib.value
+        service_cn = Secret.extract_commonname(certchain.signed_cert)
 
-        for attrib in serviceca_cert.subject:
-            if attrib.oid == NameOID.COMMON_NAME:
-                serviceca_cn = attrib.value
+        serviceca_cn = Secret.extract_commonname(serviceca_cert)
 
         with open('tests/collateral/dummy-service-schema.json') as file_desc:
             schema = json.load(file_desc)

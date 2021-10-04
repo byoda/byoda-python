@@ -135,7 +135,7 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema(
+        self.schema = Schema.get_schema(
             filepath, self.storage_driver,
         )
 
