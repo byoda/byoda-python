@@ -147,7 +147,10 @@ if server.cloud != CloudType.LOCAL:
 for service in network.services.values():
     service.schema.generate_graphql_schema()
 
-app = setup_api(config.app_config)
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', config.app_config
+)
 
 for service in network.services.values():
     app.add_route(

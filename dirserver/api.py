@@ -11,7 +11,6 @@ import logging
 from starlette.middleware import Middleware
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
-from starlette.middleware.authentication import AuthenticationMiddleware
 
 from fastapi import FastAPI
 
@@ -23,8 +22,6 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from prometheus_fastapi_instrumentator import \
     Instrumentator as PrometheusInstrumentator
-
-from byoda.requestauth.requestauth import MTlsAuthBackend
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,13 +40,12 @@ def setup_api(title, description, version, app_config):
     trace.set_tracer_provider(TracerProvider())
     if app_config:
         jaeger_exporter = jaeger.JaegerSpanExporter(
-            service_name='podserver',
+            service_name='dirserver',
             agent_host_name=app_config['application'].get(
                 'jaeger_host', '127.0.0.1'
             ),
             agent_port=6831,
         )
-
         trace.get_tracer_provider().add_span_processor(
             BatchExportSpanProcessor(jaeger_exporter)
         )
@@ -62,6 +58,5 @@ def setup_api(title, description, version, app_config):
     FastAPIInstrumentor.instrument_app(app)
     PrometheusInstrumentator().instrument(app).expose(app)
 
-    app.add_middleware(AuthenticationMiddleware, backend=MTlsAuthBackend())
-
     return app
+

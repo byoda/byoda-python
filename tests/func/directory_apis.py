@@ -42,16 +42,17 @@ from byoda.util import Paths
 from byoda import config
 from byoda.config import DEFAULT_NETWORK
 
-from dirserver.main import app
-BASE_URL = 'http://localhost:8000/api'
+from dirserver.api import setup_api
+
 
 # Settings must match config.yml used by directory server
 NETWORK = DEFAULT_NETWORK
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 
-TEST_PORT = 9000
 TEST_DIR = '/tmp/byoda-tests/dir_apis'
+TEST_PORT = 9000
+BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
 
 class TestDirectoryApis(unittest.TestCase):
@@ -63,12 +64,16 @@ class TestDirectoryApis(unittest.TestCase):
 
         os.makedirs(TEST_DIR)
 
+        app = setup_api(
+            'Byoda test dirserver', 'server for testing directory APIs',
+            'v0.0.1', None
+        )
         self.proc = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
                 'host': '127.0.0.1',
-                'port': 8000,
+                'port': TEST_PORT,
                 'log_level': 'debug'
             },
             daemon=True
