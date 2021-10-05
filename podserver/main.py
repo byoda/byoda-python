@@ -6,34 +6,19 @@ POD server for Bring Your Own Data and Algorithms
 :license    : GPLv3
 '''
 
+
 import os
 import sys
 
 import requests
 
 import uvicorn
-
-from starlette.middleware import Middleware
-from starlette_context import plugins
-from starlette_context.middleware import RawContextMiddleware
-from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.graphql import GraphQLApp
 
-from fastapi import FastAPI
-
-from opentelemetry import trace
-from opentelemetry.exporter import jaeger
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchExportSpanProcessor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-from prometheus_fastapi_instrumentator import \
-    Instrumentator as PrometheusInstrumentator
+from .api import setup_api
 
 from byoda import config
 from byoda.util.logger import Logger
-
-from byoda.requestauth.requestauth import MTlsAuthBackend
 
 from byoda.datamodel import Network
 from byoda.datamodel import PodServer
@@ -159,44 +144,10 @@ if server.cloud != CloudType.LOCAL:
     nginx_config.create()
     nginx_config.reload()
 
-middleware = [
-    Middleware(
-        RawContextMiddleware,
-        plugins=(
-            plugins.RequestIdPlugin(),
-            plugins.CorrelationIdPlugin()
-        )
-    )
-]
-
-trace.set_tracer_provider(TracerProvider())
-if config.app_config:
-    jaeger_exporter = jaeger.JaegerSpanExporter(
-        service_name='podserver',
-        agent_host_name=config.app_config['application'].get(
-            'jaeger_host', '127.0.0.1'
-        ),
-        agent_port=6831,
-    )
-
-    trace.get_tracer_provider().add_span_processor(
-        BatchExportSpanProcessor(jaeger_exporter)
-    )
-
 for service in network.services.values():
     service.schema.generate_graphql_schema()
 
-app = FastAPI(
-    title='BYODA pod server',
-    description='The pod server for a BYODA network',
-    version='v0.0.1',
-    middleware=middleware
-)
-
-FastAPIInstrumentor.instrument_app(app)
-PrometheusInstrumentator().instrument(app).expose(app)
-
-app.add_middleware(AuthenticationMiddleware, backend=MTlsAuthBackend())
+app = setup_api(config.app_config)
 
 for service in network.services.values():
     app.add_route(
