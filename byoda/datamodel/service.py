@@ -191,7 +191,7 @@ class Service:
         '''
         Creates all the secrets of a service
 
-        :raises PermissionError
+        :raises RuntimeError, PermissionError
         '''
 
         if (self.service_ca or self.members_ca or self.apps_ca or

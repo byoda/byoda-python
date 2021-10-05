@@ -17,7 +17,7 @@ class CertSigningRequestModel(BaseModel):
     csr: str
 
     def __repr__(self):
-        return ('<Cert=(csr: str)>')
+        return ('<Csr=(csr: str)>')
 
     def as_dict(self):
         return {'certsigningrequest': self.csr}
@@ -44,3 +44,13 @@ class SignedCertResponseModel(BaseModel):
             'network_root_ca_cert': str,
             'network_data_cert': str
         }
+
+
+class CertChainRequestModel(BaseModel):
+    certchain: str
+
+    def __repr__(self):
+        return('<CertRequestModel(certchain: str)>')
+
+    def as_dict(self):
+        return {'certchain': self.certchain}

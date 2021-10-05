@@ -13,19 +13,24 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType, ReviewStatusType
+
+from byoda.datamodel import Service
 from byoda.datamodel import Schema
 from byoda.datastore import CertStore
 
 from byoda.models import ServiceSummariesResponseModel
+from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedCertResponseModel
 from byoda.models import SchemaModel, SchemaResponseModel
+from byoda.models.ipaddress import IpAddressResponseModel
 
 from byoda.util.secrets import Secret
 
 from byoda.util import SignatureType
 
 from byoda import config
+from byoda.util.secrets.data_secret import DataSecret
 
 from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
 
@@ -72,6 +77,50 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
     return result
 
 
+@router.put('/service', response_model=IpAddressResponseModel)
+def put_service(request: Request, certchain=CertChainRequestModel,
+                auth: ServiceRequestAuthFast = Depends(
+                    ServiceRequestAuthFast)):
+    '''
+    Registers a known service with its IP address and its data cert
+    '''
+
+    _LOGGER.debug(f'PUT Service API called from {request.client.host}')
+
+    network = config.server.network
+
+    service_id = auth.service_id
+
+    if service_id not in network.services:
+        raise ValueError(f'Registration for unknown service: {service_id}')
+
+    service = network.services[service_id]
+
+    if service is None:
+        service = Service(network)
+        network.services[service_id] = service
+
+    if not service.data_secret:
+        service.data_secret = DataSecret(service.name, service_id, network)
+
+    service.data_secret.from_string(certchain.certchain)
+
+    service.data_secret.save(overwrite=True)
+
+    _LOGGER.debug(
+        f'Updating registration for service id {service_id} with remote'
+        f'address {auth.remote_addr}'
+    )
+
+    network.dnsdb.create_update(
+        service_id, IdType.SERVICE, auth.remote_addr
+    )
+
+    return {
+        'ipv4_address': auth.remote_addr
+    }
+
+
 @router.post('/service', response_model=SignedCertResponseModel)
 def post_service(request: Request, csr: CertSigningRequestModel):
     '''
@@ -98,9 +147,19 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     # We make sure the key for the services in the network exists, even if
     # the schema for the service has not yet been provided through the PATCH
     # API
-    service_id = Secret.get_commonname(certchain.signed_cert)
-    if service_id not in network.services:
-        network.services[service_id] = None
+    commonname = Secret.extract_commonname(certchain.signed_cert)
+    entity_id = Secret.review_commonname_by_parameters(
+        commonname, network.name, uuid_identifier=False,
+        check_service_id=False
+    )
+
+    if entity_id.service_id is None:
+        raise ValueError(
+            f'No service id found in common name {commonname}'
+        )
+
+    if entity_id.service_id not in network.services:
+        network.services[entity_id.service_id] = None
 
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
@@ -156,16 +215,17 @@ def patch_service(request: Request, schema: SchemaModel,
         status = ReviewStatusType.REJECTED
         errors.append(f'Unregistered service ID {service_id}')
     else:
-        current_schema = network.services[service_id]['json_schema']
-        if schema.version <= current_schema['version']:
-            status = ReviewStatusType.REJECTED
-            errors.append(
-                f'Schema version {schema.version} is less than current '
-                f'schema version '
-            )
+        service = network.services[service_id]
+        if service is not None:
+            current_schema = network.services[service_id].get('json_schema')
+            if schema.version <= current_schema['version']:
+                status = ReviewStatusType.REJECTED
+                errors.append(
+                    f'Schema version {schema.version} is less than current '
+                    f'schema version '
+                )
         else:
-            service = network.services[service_id]
-            service_contract = Schema(schema)
+            service_contract = Schema(schema.as_dict())
             try:
                 service_contract.verify_signature(
                     service.data_secret, SignatureType.SERVICE

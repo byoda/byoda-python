@@ -74,7 +74,6 @@ class DataSecret(Secret):
         return ciphertext
 
     def decrypt(self, ciphertext: bytes) -> bytes:
-        
         '''
         Decrypts the ciphertext
 

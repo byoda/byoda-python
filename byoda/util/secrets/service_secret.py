@@ -62,7 +62,9 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        common_name = ServiceSecret.create_commonname(self.service_id, self.network)
+        common_name = ServiceSecret.create_commonname(
+            self.service_id, self.network
+        )
 
         return super().create_csr(common_name, ca=self.ca)
 

@@ -12,37 +12,76 @@ the headers that would normally be set by the reverse proxy
 '''
 
 import sys
-
-from uuid import uuid4
+import os
 import unittest
 import requests
+import shutil
 import yaml
 import json
+from uuid import uuid4
+from copy import copy
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
-from byoda.util.logger import Logger
-from byoda.config import DEFAULT_NETWORK
+from multiprocessing import Process
+import uvicorn
+
+from byoda.datamodel import Network
+from byoda.datamodel import DirectoryServer
+from byoda.datamodel import Service
+
 from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceSecret
 
-from byoda.datamodel import DirectoryServer
+from byoda.util.logger import Logger
+from byoda.util import Paths
 
 from byoda import config
+from byoda.config import DEFAULT_NETWORK
 
-from byoda.datamodel import Network
-
+from dirserver.main import app
 BASE_URL = 'http://localhost:8000/api'
 
 # Settings must match config.yml used by directory server
 NETWORK = DEFAULT_NETWORK
+DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
+
+TEST_PORT = 9000
+TEST_DIR = '/tmp/byoda-tests/dir_apis'
 
 
 class TestDirectoryApis(unittest.TestCase):
+    def setUp(self):
+        try:
+            shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(TEST_DIR)
+
+        self.proc = Process(
+            target=uvicorn.run,
+            args=(app,),
+            kwargs={
+                'host': '127.0.0.1',
+                'port': 8000,
+                'log_level': 'debug'
+            },
+            daemon=True
+        )
+        self.proc.start()
+        network = Network.create('test.net', TEST_DIR, 'byoda')
+
+        service = Service(network, DEFAULT_SCHEMA)
+        service.create_secrets(network.services_ca)
+
+    def tearDown(self):
+        self.proc.terminate()
+
     def test_network_account_put(self):
         API = BASE_URL + '/v1/network/account'
 
@@ -113,7 +152,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(summary['version'], 0)
         self.assertEqual(summary['name'], 'private')
 
-    def test_network_service_post_patch(self):
+    def test_network_service_creation(self):
         API = BASE_URL + '/v1/network/service'
 
         with open('config.yml') as file_desc:
@@ -159,6 +198,19 @@ class TestDirectoryApis(unittest.TestCase):
 
         serviceca_cn = Secret.extract_commonname(serviceca_cert)
 
+        # Update registration with data cert
+        paths = copy(network.paths)
+        paths.service_id = service_id
+        filepath = paths.get(Paths.SERVICE_DATA_CERT_FILE)
+        with open(filepath) as file_desc:
+            certchain_pem = file_desc.readlines()
+
+        response = requests.put(API, json={'certchain': certchain_pem})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['ipv4_address'], '127.0.0.1')
+
+        # Send the service schema
         with open('tests/collateral/dummy-service-schema.json') as file_desc:
             schema = json.load(file_desc)
 
@@ -181,4 +233,3 @@ if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()
-

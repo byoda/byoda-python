@@ -21,7 +21,7 @@ from byoda.datatypes import CloudType, ServerRole
 
 from byoda import config
 
-TEST_DIR = '/tmp/byoda-func-test-secrets'
+TEST_DIR = '/tmp/byoda-test-secrets'
 NETWORK = config.DEFAULT_NETWORK
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
