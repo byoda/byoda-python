@@ -23,6 +23,9 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import \
     Instrumentator as PrometheusInstrumentator
 
+from .routers import account
+from .routers import service
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -58,5 +61,9 @@ def setup_api(title, description, version, app_config):
     FastAPIInstrumentor.instrument_app(app)
     PrometheusInstrumentator().instrument(app).expose(app)
 
+    app.include_router(account.router)
+    app.include_router(service.router)
+
     return app
 
+def setup_server

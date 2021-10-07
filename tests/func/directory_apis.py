@@ -40,23 +40,34 @@ from byoda.util.logger import Logger
 from byoda.util import Paths
 
 from byoda import config
-from byoda.config import DEFAULT_NETWORK
 
 from dirserver.api import setup_api
 
 
 # Settings must match config.yml used by directory server
-NETWORK = DEFAULT_NETWORK
+NETWORK = 'test.net'
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 
+CONFIG_FILE = 'tests/collateral/config.yml'
 TEST_DIR = '/tmp/byoda-tests/dir_apis'
 TEST_PORT = 9000
 BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
+_LOGGER = None
+
 
 class TestDirectoryApis(unittest.TestCase):
-    def setUp(self):
+    PROCESS = None
+    APP_CONFIG = None
+
+    @classmethod
+    def setUpClass(cls):
+        _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+        with open(CONFIG_FILE) as file_desc:
+            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -68,7 +79,7 @@ class TestDirectoryApis(unittest.TestCase):
             'Byoda test dirserver', 'server for testing directory APIs',
             'v0.0.1', None
         )
-        self.proc = Process(
+        cls.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
@@ -78,22 +89,30 @@ class TestDirectoryApis(unittest.TestCase):
             },
             daemon=True
         )
-        self.proc.start()
-        network = Network.create('test.net', TEST_DIR, 'byoda')
+        cls.PROCESS.start()
+        network = Network.create(
+            cls.APP_CONFIG['application']['network'],
+            cls.APP_CONFIG['application']['root_dir'],
+            cls.APP_CONFIG['dirserver']['private_key_password']
+        )
+
+        config.server = DirectoryServer()
+        config.server.network = network
+        config.network = network
 
         service = Service(network, DEFAULT_SCHEMA)
         service.create_secrets(network.services_ca)
 
-    def tearDown(self):
-        self.proc.terminate()
+    @classmethod
+    def tearDownClass(cls):
+        cls.PROCESS.terminate()
 
     def test_network_account_put(self):
         API = BASE_URL + '/v1/network/account'
 
         uuid = uuid4()
-        with open('config.yml') as file_desc:
-            app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
-            network_name = app_config['application']['network']
+
+        network_name = TestDirectoryApis.APP_CONFIG['application']['network']
 
         # PUT, with auth
         headers = {
@@ -110,10 +129,10 @@ class TestDirectoryApis(unittest.TestCase):
     def test_network_account_post(self):
         API = BASE_URL + '/v1/network/account'
 
-        with open('config.yml') as file_desc:
-            app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
-
-        network = Network(app_config['dirserver'], app_config['application'])
+        network = Network(
+            TestDirectoryApis.APP_CONFIG['dirserver'],
+            TestDirectoryApis.APP_CONFIG['application']
+        )
 
         uuid = uuid4()
         secret = AccountSecret(

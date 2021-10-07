@@ -11,9 +11,6 @@ import sys
 import yaml
 import uvicorn
 
-from .routers import account
-from .routers import service
-
 from .api import setup_api
 
 from byoda.util.logger import Logger
@@ -56,9 +53,6 @@ app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
     'v0.0.1', config.app_config
 )
-
-app.include_router(account.router)
-app.include_router(service.router)
 
 
 @app.get('/api/v1/status')
