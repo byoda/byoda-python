@@ -17,6 +17,7 @@ from byoda.datatypes import CsrSource
 from byoda.datamodel.schema import Schema
 
 from byoda.util import SignatureType
+from byoda.util import Paths
 
 from byoda.util.secrets import Secret
 from byoda.util.secrets import NetworkServicesCaSecret
@@ -39,7 +40,8 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, network: Network = None, filepath: str = None):
+    def __init__(self, network: Network = None, filepath: str = None,
+                 service_id: int = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -54,7 +56,7 @@ class Service:
         '''
 
         self.name: str = None
-        self.service_id: int = None
+        self.service_id: int = service_id
 
         # The data contract for the service. TODO: versioned schemas
         self.schema: Schema = None
@@ -86,13 +88,18 @@ class Service:
         # set up for the Network object, we can copy it here for the Service
         self.network = network
         self.paths = copy(network.paths)
+        self.paths.service_id = service_id
 
         self.storage_driver = self.paths.storage_driver
 
+        # If we have enough info, let's make sure the directory exists
+        if self.network and self.service_id:
+            self.storage_driver.create_directory(
+                self.paths.get(Paths.SERVICE_DIR)
+            )
+
         if filepath:
             self.load_schema(filepath, verify_contract_signatures=False)
-
-        self.storage_driver = network.paths.storage_driver
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
@@ -139,11 +146,12 @@ class Service:
             filepath, self.storage_driver,
         )
 
-        self.service_id = self.schema.service_id
-
         self.name = self.schema.name
-
+        self.service_id = self.schema.service_id
         self.paths.service_id = self.service_id
+
+        # We make sure that the directory exists
+        self.paths.create_directory(self.paths.get(Paths.SERVICE_DIR))
 
         _LOGGER.debug(
             f'Read service {self.name} wih service_id {self.service_id}'
@@ -185,6 +193,13 @@ class Service:
         _LOGGER.debug(
             'Verified network signature for service %s', self.service_id
         )
+
+    def validate(self, data: Dict):
+        '''
+        Validates the data against the json schema for the service
+        '''
+
+        self.schema.validate(data)
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
                        password: str = None) -> None:
@@ -376,10 +391,3 @@ class Service:
             self.data_secret.load(
                 with_private_key=with_private_key, password=password
             )
-
-    def validate(self, data: Dict):
-        '''
-        Validates the data against the json schema for the service
-        '''
-
-        self.schema.validate(data)

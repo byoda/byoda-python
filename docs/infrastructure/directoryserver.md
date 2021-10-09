@@ -65,7 +65,7 @@ gpgsql-host=192.168.1.11
 gpgsql-port=5432
 gpgsql-dbname=byodadns
 gpgsql-user=powerdns
-gpgsql-password=D1YHp4S2mI3e
+gpgsql-password=<password>
 gpgsql-dnssec=yes
 EOF
 
@@ -75,7 +75,7 @@ webserver=yes
 webserver-address=0.0.0.0
 webserver-allow-from=127.0.0.1,192.168.1.0/24
 api=yes
-api-key=hLYM6Vgv4a2J
+api-key=<api-key>   
 EOF
 
 create DNS zones for accounts.byoda.net, services.byoda.net and members.byoda.net
@@ -83,6 +83,8 @@ create DNS zones for accounts.byoda.net, services.byoda.net and members.byoda.ne
 # This table allows us to remove FQDNS from the database 1 week after they've last registered
 
 ALTER TABLE RECORDS ADD db_expire integer;
+
+Using  http://192.168.1.11:9191/login
 
 Create DNS zone for byoda.net with NS records for {accounts,services,members}.byoda.net
 

@@ -26,11 +26,14 @@ from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
 from byoda.util.secrets import Secret
+from byoda.util.secrets import ServiceCaSecret
+from byoda.util.secrets import ServiceDataSecret
 
 from byoda.util import SignatureType
 
 from byoda import config
 from byoda.util.secrets.data_secret import DataSecret
+
 
 from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
 
@@ -77,50 +80,6 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
     return result
 
 
-@router.put('/service', response_model=IpAddressResponseModel)
-def put_service(request: Request, certchain=CertChainRequestModel,
-                auth: ServiceRequestAuthFast = Depends(
-                    ServiceRequestAuthFast)):
-    '''
-    Registers a known service with its IP address and its data cert
-    '''
-
-    _LOGGER.debug(f'PUT Service API called from {request.client.host}')
-
-    network = config.server.network
-
-    service_id = auth.service_id
-
-    if service_id not in network.services:
-        raise ValueError(f'Registration for unknown service: {service_id}')
-
-    service = network.services[service_id]
-
-    if service is None:
-        service = Service(network)
-        network.services[service_id] = service
-
-    if not service.data_secret:
-        service.data_secret = DataSecret(service.name, service_id, network)
-
-    service.data_secret.from_string(certchain.certchain)
-
-    service.data_secret.save(overwrite=True)
-
-    _LOGGER.debug(
-        f'Updating registration for service id {service_id} with remote'
-        f'address {auth.remote_addr}'
-    )
-
-    network.dnsdb.create_update(
-        service_id, IdType.SERVICE, auth.remote_addr
-    )
-
-    return {
-        'ipv4_address': auth.remote_addr
-    }
-
-
 @router.post('/service', response_model=SignedCertResponseModel)
 def post_service(request: Request, csr: CertSigningRequestModel):
     '''
@@ -158,20 +117,75 @@ def post_service(request: Request, csr: CertSigningRequestModel):
             f'No service id found in common name {commonname}'
         )
 
-    if entity_id.service_id not in network.services:
-        network.services[entity_id.service_id] = None
-
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
 
     root_ca_cert = network.root_ca.cert_as_pem()
     data_cert = network.data_secret.cert_as_pem()
 
+    if entity_id.service_id not in network.services:
+        service = Service(network=network, service_id=entity_id.service_id)
+        network.services[entity_id.service_id] = service
+
+        service.service_ca = ServiceCaSecret(None, service.service_id, network)
+        service.service_ca.cert = certchain.signed_cert
+        service.service_ca.save()
+
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
         'network_root_ca_cert': root_ca_cert,
         'data_cert': data_cert,
+    }
+
+
+@router.put('/service/{service_id}', response_model=IpAddressResponseModel)
+def put_service(request: Request, service_id: int,
+                certchain=CertChainRequestModel,
+                auth: ServiceRequestAuthFast = Depends(
+                    ServiceRequestAuthFast)):
+    '''
+    Registers a known service with its IP address and its data cert
+    '''
+
+    _LOGGER.debug(f'PUT Service API called from {request.client.host}')
+
+    network = config.server.network
+
+    if service_id != auth.service_id:
+        raise ValueError(
+            f'Service ID {service_id} of PUT call does not match '
+            f'service ID {auth.service_id} in client cert'
+        )
+
+    if service_id not in network.services:
+        raise ValueError(f'Registration for unknown service: {service_id}')
+
+    service = network.services.get(service_id)
+
+    if service is None:
+        raise ValueError(f'Unkown service id: {service_id}')
+
+    if not service.data_secret:
+        service.data_secret = ServiceDataSecret(
+            service.name, service_id, network
+        )
+
+    service.data_secret.from_string(certchain.certchain)
+
+    service.data_secret.save(overwrite=True)
+
+    _LOGGER.debug(
+        f'Updating registration for service id {service_id} with remote'
+        f'address {auth.remote_addr}'
+    )
+
+    network.dnsdb.create_update(
+        service_id, IdType.SERVICE, auth.remote_addr
+    )
+
+    return {
+        'ipv4_address': auth.remote_addr
     }
 
 

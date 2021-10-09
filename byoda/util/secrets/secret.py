@@ -567,7 +567,7 @@ class Secret:
         data = self.certchain_as_pem()
 
         self.storage_driver.write(
-            self.cert_file, data, file_mode=FileMode.BINARY
+            self.cert_file, data, file_mode=FileMode.TEXT
         )
 
         if self.private_key:
@@ -585,9 +585,9 @@ class Secret:
                 file_mode=FileMode.BINARY
             )
 
-    def certchain_as_pem(self) -> bytes:
+    def certchain_as_pem(self) -> str:
         '''
-        :returns: the certchain as a bytes array
+        :returns: the certchain as a str
         '''
 
         data = bytes()
@@ -601,7 +601,7 @@ class Secret:
             data += str.encode(cert_info)
             data += cert.public_bytes(serialization.Encoding.PEM)
 
-        return data
+        return data.decode('utf-8')
 
     def save_tmp_private_key(self) -> str:
         '''

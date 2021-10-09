@@ -13,6 +13,16 @@ from pydantic import BaseModel
 _LOGGER = logging.getLogger(__name__)
 
 
+class CertChainRequestModel(BaseModel):
+    certchain: str
+
+    def __repr__(self):
+        return ('<CertChain=(certchain: str)>')
+
+    def as_dict(self):
+        return {'certchainrequest': self.certchain}
+
+
 class CertSigningRequestModel(BaseModel):
     csr: str
 
@@ -44,13 +54,3 @@ class SignedCertResponseModel(BaseModel):
             'network_root_ca_cert': str,
             'network_data_cert': str
         }
-
-
-class CertChainRequestModel(BaseModel):
-    certchain: str
-
-    def __repr__(self):
-        return('<CertRequestModel(certchain: str)>')
-
-    def as_dict(self):
-        return {'certchain': self.certchain}

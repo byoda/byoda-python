@@ -420,14 +420,14 @@ class DnsDb:
             )
         return
 
-    def _get_domain_id(self, conn: Engine, subdomain: str):
+    def _get_domain_id(self, conn: Engine, subdomain: str,
+                       create_missing: bool = True) -> int:
         '''
         Get the Powerdns domain_id for the subdomain from Postgres
 
-        :param conn: sqlalchemy connection instance
+        :param sqlalchemy connection instance
         :param subdomain: string with the domain
-        :returns: integer with the domain_id
-        :raises: ValueError if the domain can not be found
+        :returns: domain_id
         '''
 
         stmt = select(
@@ -437,10 +437,21 @@ class DnsDb:
         )
 
         domains = conn.execute(stmt)
-        domain_id = domains.first().id
+        first = domains.first()
 
-        if not domain_id:
-            raise ValueError(f'Could not find ID for domain {subdomain}')
+        if not first:
+            if create_missing:
+                _LOGGER.info('Creating table for domain {subdomain}')
+                self._upsert_subdomain(subdomain)
+                return self._get_domain_id(
+                    conn, subdomain, create_missing=False
+                )
+            else:
+                raise ValueError(
+                    f'Could not find or create ID for domain {subdomain}'
+                )
+        else:
+            domain_id = first.id
 
         return domain_id
 

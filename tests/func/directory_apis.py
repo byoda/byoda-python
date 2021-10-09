@@ -18,6 +18,7 @@ import requests
 import shutil
 import yaml
 import json
+import time
 from uuid import uuid4
 from copy import copy
 
@@ -35,11 +36,14 @@ from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceSecret
+from byoda.util.secrets import ServiceDataSecret
 
 from byoda.util.logger import Logger
 from byoda.util import Paths
 
 from byoda import config
+
+from byoda.datastore import DnsDb
 
 from dirserver.api import setup_api
 
@@ -51,6 +55,7 @@ SERVICE_ID = 12345678
 
 CONFIG_FILE = 'tests/collateral/config.yml'
 TEST_DIR = '/tmp/byoda-tests/dir_apis'
+SERVICE_DIR = TEST_DIR + '/service'
 TEST_PORT = 9000
 BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
@@ -74,6 +79,22 @@ class TestDirectoryApis(unittest.TestCase):
             pass
 
         os.makedirs(TEST_DIR)
+        os.makedirs(
+            f'{SERVICE_DIR}/network-{cls.APP_CONFIG["application"]["network"]}'
+            f'/services/service-{SERVICE_ID}'
+        )
+
+        network = Network.create(
+            cls.APP_CONFIG['application']['network'],
+            cls.APP_CONFIG['application']['root_dir'],
+            cls.APP_CONFIG['dirserver']['private_key_password']
+        )
+        network.dnsdb = DnsDb.setup(
+           cls.APP_CONFIG['dirserver']['dnsdb'], network.name
+        )
+        config.server = DirectoryServer()
+        config.server.network = network
+        config.network = network
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
@@ -90,18 +111,7 @@ class TestDirectoryApis(unittest.TestCase):
             daemon=True
         )
         cls.PROCESS.start()
-        network = Network.create(
-            cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['application']['root_dir'],
-            cls.APP_CONFIG['dirserver']['private_key_password']
-        )
-
-        config.server = DirectoryServer()
-        config.server.network = network
-        config.network = network
-
-        service = Service(network, DEFAULT_SCHEMA)
-        service.create_secrets(network.services_ca)
+        time.sleep(3)
 
     @classmethod
     def tearDownClass(cls):
@@ -164,28 +174,13 @@ class TestDirectoryApis(unittest.TestCase):
             data['network_root_ca_cert'].encode()
         )
 
-    def test_network_service_get(self):
-        API = BASE_URL + '/v1/network/service'
-
-        response = requests.get(API)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 1)
-        summary = data['service_summaries'][0]
-        self.assertEqual(summary['service_id'], 0)
-        self.assertEqual(summary['version'], 0)
-        self.assertEqual(summary['name'], 'private')
-
     def test_network_service_creation(self):
         API = BASE_URL + '/v1/network/service'
 
-        with open('config.yml') as file_desc:
-            app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
-
-        network = Network(app_config['dirserver'], app_config['application'])
-
-        config.server = DirectoryServer()
-        config.server.network = network
+        # We can not use deepcopy here so do two copies
+        network = copy(config.server.network)
+        network.paths = copy(config.server.network.paths)
+        network.paths._root_directory = SERVICE_DIR
 
         service_id = SERVICE_ID
         secret = ServiceCaSecret(
@@ -215,6 +210,14 @@ class TestDirectoryApis(unittest.TestCase):
             data['network_root_ca_cert'].encode()
         )
 
+        # Check that the service CA public cert was written to the network
+        # directory of the dirserver
+        testsecret = ServiceCaSecret(
+            service='dir_api_test', service_id=service_id,
+            network=config.server.network
+        )
+        testsecret.load(with_private_key=False)
+
         service_secret = ServiceSecret('dir_api_test', service_id, network)
         service_csr = service_secret.create_csr()
         certchain = secret.sign_csr(service_csr)
@@ -222,14 +225,27 @@ class TestDirectoryApis(unittest.TestCase):
 
         serviceca_cn = Secret.extract_commonname(serviceca_cert)
 
-        # Update registration with data cert
-        paths = copy(network.paths)
-        paths.service_id = service_id
-        filepath = paths.get(Paths.SERVICE_DATA_CERT_FILE)
-        with open(filepath) as file_desc:
-            certchain_pem = file_desc.readlines()
+        # Create and register the the public cert of the data secret,
+        # which the directory server needs to validate the service signature
+        # of the schema for the service
+        service_data_secret = ServiceDataSecret(
+            'dir_api_test', service_id, network
+        )
+        service_data_csr = service_data_secret.create_csr()
+        data_certchain = secret.sign_csr(service_data_csr)
+        service_data_secret.from_signed_cert(data_certchain)
 
-        response = requests.put(API, json={'certchain': certchain_pem})
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={service_cn}',
+            'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
+        }
+
+        data_certchain = service_data_secret.certchain_as_pem()
+        response = requests.put(
+            API + '/' + str(service_id), headers=headers,
+            json={'certchain': data_certchain}
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
@@ -251,6 +267,18 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         print(data)
+
+        # Get the list of service summaries
+        API = BASE_URL + '/v1/network/service'
+
+        response = requests.get(API)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        summary = data['service_summaries'][0]
+        self.assertEqual(summary['service_id'], 0)
+        self.assertEqual(summary['version'], 0)
+        self.assertEqual(summary['name'], 'private')
 
 
 if __name__ == '__main__':

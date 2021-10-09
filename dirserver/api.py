@@ -65,5 +65,3 @@ def setup_api(title, description, version, app_config):
     app.include_router(service.router)
 
     return app
-
-def setup_server

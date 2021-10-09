@@ -53,6 +53,11 @@ class Network:
     key of the network.
     '''
 
+    # Limit for restricted services
+    MAX_RESTRICTED_SERVICE_ID = 65535
+    # Pods should only accept test service IDs when running in DEBUG mode
+    MIN_TEST_SERVICE_ID = 4293918720
+
     def __init__(self, server: dict, application: dict,
                  root_ca: NetworkRootCaSecret = None):
         '''
