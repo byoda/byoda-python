@@ -274,19 +274,31 @@ class TestDirectoryApis(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        print(data)
+        self.assertEqual(data['status'], 'ACCEPTED')
+        self.assertEqual(len(data['errors']), 0)
 
-        # Get the list of service summaries
-        API = BASE_URL + '/v1/network/service'
+        # Get the fully-signed data contract for the service
+        API = BASE_URL + f'/v1/network/service/{service_id}'
 
         response = requests.get(API)
         self.assertEqual(response.status_code, 200)
         data = response.json()
+        self.assertEqual(len(data), 9)
+        self.assertEqual(data['service_id'], SERVICE_ID)
+        self.assertEqual(data['version'], 1)
+        self.assertEqual(data['name'], 'dummyservice')
+        self.assertEqual(len(data['signatures']), 2)
+
+        # Get the list of service summaries
+        API = BASE_URL + '/v1/network/services'
+        response = requests.get(API)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
         self.assertEqual(len(data), 1)
-        summary = data['service_summaries'][0]
-        self.assertEqual(summary['service_id'], 0)
-        self.assertEqual(summary['version'], 0)
-        self.assertEqual(summary['name'], 'private')
+        service_summary = data['service_summaries'][0]
+        self.assertEqual(service_summary['service_id'], SERVICE_ID)
+        self.assertEqual(service_summary['version'], 1)
+        self.assertEqual(service_summary['name'], 'dummyservice')
 
 
 if __name__ == '__main__':

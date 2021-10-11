@@ -102,17 +102,7 @@ def get_service(request: Request, service_id: int):
 
     schema = network.services.get(service_id).schema
 
-    result = SchemaModel(
-        schema.service_id,
-        schema.version,
-        schema.name,
-        schema.title,
-        schema.description,
-        schema.supportemail,
-        schema.signatures,
-
-    )
-    return result.as_dict()
+    return schema.json_schema
 
 
 @router.post('/service', response_model=SignedCertResponseModel)
@@ -299,6 +289,9 @@ def patch_service(request: Request, schema: SchemaModel,
                         service.data_secret, SignatureType.SERVICE
                     )
                     service.schema = service_contract
+                    service.schema.create_signature(
+                        network.data_secret, SignatureType.NETWORK
+                    )
                 except ValueError:
                     status = ReviewStatusType.REJECTED
                     errors.append(

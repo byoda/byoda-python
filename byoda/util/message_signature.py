@@ -96,7 +96,8 @@ class MessageSignature:
         self.verified = True
         return self.signature
 
-    def verify_message(self, message: str, secret: DataSecret):
+    def verify_message(self, message: str, secret: DataSecret,
+                       hash_algo: str = 'SHA256'):
         '''
         Verify the digest for the message
         '''
@@ -116,8 +117,7 @@ class MessageSignature:
             )
 
         self.secret.verify_message_signature(
-            json.dumps(message, sort_keys=True, indent=4),
-            self.signature
+            message, self.signature, hash_algorithm=hash_algo
         )
 
         self.verified = True

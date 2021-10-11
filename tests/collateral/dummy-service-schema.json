@@ -1,5 +1,9 @@
 {
     "name": "testdummy",
+    "description": "Service used for functional test cases",
+    "owner": "Steven",
+    "supportemail": "steven@byoda.org",
+    "website": "https://www.byoda.org/",
     "jsonschema": {
         "$id": "https://uuid.services.byoda.net/service/testdummy",
         "$schema": "https://json-schema.org/draft-07/schema#",

@@ -9,7 +9,7 @@ API models for service schema aka. data contracts
 import logging
 
 from pydantic import BaseModel
-from typing import Optional, Dict, List
+from typing import Dict, List
 
 from byoda.datatypes import ReviewStatusType
 
@@ -20,10 +20,10 @@ class SchemaModel(BaseModel):
     service_id: int
     version: int
     name: str
-    description: Optional[str] = None
+    description: str
     owner: str
     website: str
-    supportemail: Optional[str] = None
+    supportemail: str
     signatures: Dict
     # Can't use 'schema' as property as it conflicts with a property
     # of the pydantic.BaseModel class
