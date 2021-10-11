@@ -225,7 +225,7 @@ class DnsDb:
 
             # TODO: when we have multiple directory servers, the local
             # 'cache' of domains_id might be out of date
-            subdomain = fqdn.split('.')[1]
+            hostname, subdomain = fqdn.split('.', 1)
             if subdomain not in self._domain_ids:
                 domain_id = self._upsert_subdomain(subdomain)
                 self._domain_ids[subdomain] = domain_id
@@ -361,9 +361,9 @@ class DnsDb:
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate
 
-        :param uuid: client
+        :param uuid: accoun_id or member_id. Can be None for id_type.SERVICE
         :param id_type: account / member / service
-        :param service_id: service identifier, required for IdType.service
+        :param service_id: service identifier, required for IdType.SERVICE
         :returns: (None)
         :raises: ValueError
         '''

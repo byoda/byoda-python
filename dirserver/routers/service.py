@@ -4,6 +4,16 @@
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
 :license    : GPLv3
+
+The registration of a service in the network takes four steps:
+1: Create a Service CA key/cert and request signature by the Network Services
+   CA via a POST /api/v1/network/service request.
+2: Register the service and its data cert using a
+   PUT /api/v1/network/service/{service_id} request.
+3: Submit the service-signed schema for the service and get it signed by
+   the network using the PATCH /api/v1/network/service request.
+4: Download the fully signed schema and publish it on the web site for the
+   service using the GET /api/v1/network/service request.
 '''
 
 
@@ -18,7 +28,7 @@ from byoda.datamodel import Service
 from byoda.datamodel import Schema
 from byoda.datastore import CertStore
 
-from byoda.models import ServiceSummariesResponseModel
+from byoda.models import ServiceSummariesModel
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedCertResponseModel
@@ -32,8 +42,6 @@ from byoda.util.secrets import ServiceDataSecret
 from byoda.util import SignatureType
 
 from byoda import config
-from byoda.util.secrets.data_secret import DataSecret
-
 
 from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
 
@@ -46,17 +54,15 @@ router = APIRouter(
     dependencies=[]
 )
 
-
-@router.get('/service', response_model=ServiceSummariesResponseModel)
-def get_service(request: Request, skip: int = 0, count: int = 0):
+@router.get('/services', response_model=ServiceSummariesModel)
+def get_services(request: Request, skip: int = 0, count: int = 0):
     '''
-    Get a list of summaries of available services.
-    This API is called by pods
-    This API does not require authentication; service schemas are
+    Get a list of summaries of the available services. This API is called by
+    pods. This API does not require authentication as service schemas are
     public information
     '''
 
-    _LOGGER.debug(f'GET Service API called from {request.client.host}')
+    _LOGGER.debug(f'GET Services API called from {request.client.host}')
 
     network = config.server.network
 
@@ -69,15 +75,44 @@ def get_service(request: Request, skip: int = 0, count: int = 0):
         'service_summaries': [
             {
                 'service_id': service.service_id,
-                'version': service.schema.json_schema['version'],
-                'name': service.schema.json_schema['name'],
-                'title': service.schema.json_schema.get('title'),
-                'description': service.schema.json_schema.get('description'),
-                'supportemail': service.schema.json_schema.get('supportemail'),
+                'version': service.schema.version,
+                'name': service.schema.name,
+                'description': service.schema.description,
+                'owner': service.schema.owner,
+                'website': service.schema.website,
+                'supportemail': service.schema.supportemail,
             } for service in services[skip: count]
         ]
     }
     return result
+
+
+@router.get('/service/{service_id}', response_model=SchemaModel)
+def get_service(request: Request, service_id: int):
+    '''
+    Get either the data contract of the specified service or a list of
+    summaries of the available services. This API is called by pods
+    This API does not require authentication as service schemas are
+    public information
+    '''
+
+    _LOGGER.debug(f'GET Service API called from {request.client.host}')
+
+    network = config.server.network
+
+    schema = network.services.get(service_id).schema
+
+    result = SchemaModel(
+        schema.service_id,
+        schema.version,
+        schema.name,
+        schema.title,
+        schema.description,
+        schema.supportemail,
+        schema.signatures,
+
+    )
+    return result.as_dict()
 
 
 @router.post('/service', response_model=SignedCertResponseModel)
@@ -94,11 +129,14 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     network = config.server.network
 
+    # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(network.services_ca)
 
-    # TODO: SECURITY: check if the CSR is for a service_id that already
-    # exists and that we haven't already signed a CSR for
-    # this service_id recently
+    # We sign the cert first, then extract the service ID from the
+    # signed cert and check if the service with the service ID already
+    # exists.
+    # TODO: extract common name from the CSR so that this code will
+    # have a more logical flow where we check first before we sign
     certchain = certstore.sign(
         csr.csr, IdType.SERVICE_CA, request.client.host
     )
@@ -112,24 +150,35 @@ def post_service(request: Request, csr: CertSigningRequestModel):
         check_service_id=False
     )
 
-    if entity_id.service_id is None:
+    service_id = entity_id.service_id
+    if service_id is None:
         raise ValueError(
             f'No service id found in common name {commonname}'
         )
 
+    if service_id in network.services:
+        raise ValueError(
+            f'A CA certificate for service ID {service_id} has already '
+            'been signed'
+        )
+
+    # Create the service and add it to the network
+    service = Service(network=network, service_id=service_id)
+    network.services[entity_id.service_id] = service
+
+    # Get the certs as strings so we can return them
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
-
     root_ca_cert = network.root_ca.cert_as_pem()
     data_cert = network.data_secret.cert_as_pem()
 
-    if entity_id.service_id not in network.services:
-        service = Service(network=network, service_id=entity_id.service_id)
-        network.services[entity_id.service_id] = service
-
-        service.service_ca = ServiceCaSecret(None, service.service_id, network)
-        service.service_ca.cert = certchain.signed_cert
-        service.service_ca.save()
+    # We save the public key in the network directory tree. Not sure
+    # if we actually need to do this as we can check any cert of the service
+    # and its members through the cert chain that is chained to the network
+    # root CA
+    service.service_ca = ServiceCaSecret(None, service.service_id, network)
+    service.service_ca.cert = certchain.signed_cert
+    service.service_ca.save()
 
     return {
         'signed_cert': signed_cert,
@@ -141,7 +190,7 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
 @router.put('/service/{service_id}', response_model=IpAddressResponseModel)
 def put_service(request: Request, service_id: int,
-                certchain=CertChainRequestModel,
+                certchain: CertChainRequestModel,
                 auth: ServiceRequestAuthFast = Depends(
                     ServiceRequestAuthFast)):
     '''
@@ -181,7 +230,7 @@ def put_service(request: Request, service_id: int,
     )
 
     network.dnsdb.create_update(
-        service_id, IdType.SERVICE, auth.remote_addr
+        None, IdType.SERVICE, auth.remote_addr, service_id=service_id
     )
 
     return {
@@ -225,30 +274,36 @@ def patch_service(request: Request, schema: SchemaModel,
         errors.append('network signature already present')
 
     service_id = schema.service_id
-    if service_id not in network.services:
+    if service_id != auth.service_id:
         status = ReviewStatusType.REJECTED
-        errors.append(f'Unregistered service ID {service_id}')
+        errors.append(
+            f'Service ID {service_id} in schema does not match service '
+            f'id {auth.service_id} in client cert'
+        )
     else:
-        service = network.services[service_id]
-        if service is not None:
-            current_schema = network.services[service_id].get('json_schema')
-            if schema.version <= current_schema['version']:
+        service = network.services.get(service_id)
+        if not service:
+            status = ReviewStatusType.REJECTED
+            errors.append(f'Unregistered service ID {service_id}')
+        else:
+            if service.schema and schema.version <= service.schema['version']:
                 status = ReviewStatusType.REJECTED
                 errors.append(
                     f'Schema version {schema.version} is less than current '
                     f'schema version '
                 )
-        else:
-            service_contract = Schema(schema.as_dict())
-            try:
-                service_contract.verify_signature(
-                    service.data_secret, SignatureType.SERVICE
-                )
-            except ValueError:
-                status = ReviewStatusType.REJECTED
-                errors.append(
-                    'Service signature of schema is invalid'
-                )
+            else:
+                service_contract = Schema(schema.as_dict())
+                try:
+                    service_contract.verify_signature(
+                        service.data_secret, SignatureType.SERVICE
+                    )
+                    service.schema = service_contract
+                except ValueError:
+                    status = ReviewStatusType.REJECTED
+                    errors.append(
+                        'Service signature of schema is invalid'
+                    )
 
     return {
         'status': status,

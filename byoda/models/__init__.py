@@ -12,7 +12,7 @@ from .cert import CertChainRequestModel
 from .cert import CertSigningRequestModel
 from .cert import SignedCertResponseModel
 from .ipaddress import IpAddressResponseModel
-from .service import ServiceSummariesResponseModel
+from .service import ServiceSummariesModel
 from .schema import SchemaModel, SchemaResponseModel
 
 # from .letsencrypt import LetsEncryptSecretModel

@@ -36,12 +36,12 @@ class ServiceSummaryResponseModel(BaseModel):
         }
 
 
-class ServiceSummariesResponseModel(BaseModel):
+class ServiceSummariesModel(BaseModel):
     service_summaries: List[ServiceSummaryResponseModel]
 
     def __repr__(self):
         return(
-            '<ServiceSummariesResponseModel='
+            '<ServiceSummariesModel='
             '{List[ServiceSummaryResponseModel]}>'
         )
 

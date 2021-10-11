@@ -20,8 +20,9 @@ class SchemaModel(BaseModel):
     service_id: int
     version: int
     name: str
-    title: Optional[str] = None
     description: Optional[str] = None
+    owner: str
+    website: str
     supportemail: Optional[str] = None
     signatures: Dict
     # Can't use 'schema' as property as it conflicts with a property
@@ -36,8 +37,9 @@ class SchemaModel(BaseModel):
             'service_id': self.service_id,
             'version': self.version,
             'name': self.name,
-            'title': self.title,
             'description': self.description,
+            'owner': self.owner,
+            'website': self.website,
             'supportemail': self.supportemail,
             'signatures': self.signatures,
             'jsonschema': self.jsonschema,

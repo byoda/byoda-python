@@ -31,8 +31,10 @@ import uvicorn
 from byoda.datamodel import Network
 from byoda.datamodel import DirectoryServer
 from byoda.datamodel import Service
+from byoda.datamodel import Schema
+from byoda.util.message_signature import SignatureType
 
-from byoda.util.secrets import Secret
+from byoda.util.secrets import Secret, data_secret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceSecret
@@ -251,10 +253,14 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
 
         # Send the service schema
-        with open('tests/collateral/dummy-service-schema.json') as file_desc:
-            schema = json.load(file_desc)
+        with open(DEFAULT_SCHEMA) as file_desc:
+            schema_data = json.load(file_desc)
 
-        schema['service_id'] = service_id
+        schema_data['service_id'] = service_id
+        schema_data['version'] = 1
+
+        schema = Schema(schema_data)
+        schema.create_signature(service_data_secret, SignatureType.SERVICE)
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -262,7 +268,9 @@ class TestDirectoryApis(unittest.TestCase):
             'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
         }
 
-        response = requests.patch(API, headers=headers, json=schema)
+        response = requests.patch(
+            API, headers=headers, json=schema.json_schema
+        )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
