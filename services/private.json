@@ -1,4 +1,5 @@
 {
+    "description": "the private service for which no data will be shared with services or their members",
     "jsonschema": {
         "$id": "https://uuid.services.byoda.net/service/private",
         "$schema": "https://json-schema.org/draft-07/schema#",
@@ -68,20 +69,23 @@
         "type": "object"
     },
     "name": "private",
+    "owner": "Steven Hessing",
     "service_id": 0,
     "signatures": {
         "network": {
             "certificate": "network.network-data.byoda.net",
             "hash_algorithm": "SHA256",
-            "signature": "xkHvja3dFP77oFZSLV1KlncFnqinjg5QuvF0Sv2GOTzGWdBUJ6GC3lWNyKuo8iuKAGy7cRSEAJPfRu93bfaLzPYf1n9q9vtreeuRXz75YCiytSduRVqziL8Dvp934IwRmnI90W5hyqUoiburAC6lsJd4Ia4MiOf34uK7TIWQcaQn8jAmGByAs5zIwaTd37uQwXdr9StVaOk8igwS4HcFxl2zzrmDelwwWAw2SmyKW8pomae1PlBn0WXiJC7P1nQDubk/IN8oVPCKQ42z/y1/P6gHBJ/TNVIe4qZPKb8YXtF0MpiAeOXtgsLh9Tos06CFGH2+6ygdgyi9IRr7rJM8D0Aab3OIUevaE8LKwEV2R4pRVADAdWO/gXXAYo7Zhd/5+XiMBGrrKTMNIZUdWrJSpQG/88vTW41KhYJx3hpQcJkZtk19poOt+PSmdUOONWytS6fwBW9PBbU9Qih0FYym5JOqkaHubclyt9R3lgBOiYswdfG0PaQpLuBsP4V/Vagm",
-            "timestamp": "2021-10-01T06:49:01"
+            "signature": "QutUZjSa0sn0Aleffu2knD6ccdl1MWsxk6eeJtZcXGt66zoxOnL0ptT78w4+VLTBgfscWE0deQ7KQ1xn5a367BSbU4MVD1fiRJ7yRj71oGcrm6F63/H7lt5dKV2QBZ28/C99Ak1TYa3q+g9EQH50TbMHG3NrOwFtWQFjxlwjpgV0jhmtFs15VI3f5BP7j3JU3EDpDzvoRHspLGLMHJOy3hG5VXAuC5JIf/zrrPZDG5abewiN0pbrEwYqKzcoGXahMpxgTFGJviJarKnrOco4W/oN+cii+w0RPIhpCK0lw7jbt+gmTLgMsfTDfON97ELcUKOG8kvfGq+V2TUJazY1VkaAc2ynLEdsWwr1JVAljfHwjvJu5DJqG2k/M8wpLSjddKzzfthRJgYUj35gQYbHtaPYa6jD4ib0RMeFbC6yliy/kGCB/0JNwg5ZioSpGFWDklhdTJw1hBOsSkHI1zPv+Q3IR9eJC8BerZm5xdo40HyjlJcHowfICGlPkaqufHfM",
+            "timestamp": "2021-10-11T21:23:12"
         },
         "service": {
             "certificate": "data.service-data-0.byoda.net",
             "hash_algorithm": "SHA256",
-            "signature": "QO8KLpCEEYk53RWlgyzv1JMnHQkKnZUf1BOWT8lk/UTn4UHcdXHKD59GuZjcPC63G+8vizPEM3OrrTVxWz+DVTec4g3V2ehxdEO76HrSHni9RscA8+tDszOGAfKCvE0PlUelXZuyI/7AxP3JID/vpRYVn+He+F8hTXJO8RD6hOPF3ofecyo1rX9tqCFIUvd9qxTGk83Nq9iBuzgfjILzG56g8NKrAemgfcFjPe8ZnwXYfs/cZbwiJi5l4QMqGXFqB8HmmnZRBCA5SSY0r65OvxISd8e+tnRt6cGge/6MhlkyH4ZNaZanHOgp/uaT7OGSmWpByjrnU29s4CCn9OfPCM7fsonCRCSaZrPXpS5VTLe1TB2f22UEPf9tLWfNAHxzKSng8gdqt3GX+6HlPbc1mj0mJETVw3yyArJrU6/6mwZhcTgF5if4nU8si8uTp4YNoZMvM9rK5kD1gaEj0MNooHjp2XJYKkMrMjxeD1bcNs+dVz/HA0QVAcqa1Iv2Lt/p",
-            "timestamp": "2021-10-01T06:48:13"
+            "signature": "SCDIhhqtnDRoNZXPGUGF52p6azz9d6mGIzAaUgL805nkwCkmH/5tLiOZl9JzzJVa+tUw0yAEKJhEPs7e5KCrwf020EKd4dEOnCXnBhuMMVidVbAD44Ir+/m8k8HMxw8mqWzDsrs96U5ZqXk3iPaLmoxtoMwnSG3a3CteCPMh6ChHjbrl4GlIDSDPpJr89M/UdC0fLvvUVhu9TK3W56PsFNUwMSa1yBLcJgfsOmhlX8eyYAtd+tDpv2tWLrVmic8aoLjAhn58sRkXjbjzg+UobeW2H1skB5S8NGhulRLWJhFBxfK6Mjoonax3I6UE2/R0/ebzy0zlmtHTXF0mNMzC1/wmgcM1uw9nX0YqLoB+eQAQPRV/4QRq/inC1VyYvbMA6GiRXMaiynq6pN3UicSIeL9QbtAhJqK3wxPICYjmdp7qZI5EjthKBiaVu+Drwc3eIBEjrikaW69W3fZ1MuE2cUuVfw6pwGbpQ/m/iCdt1xQ8/6Up2wI5wPjMGt0Be6Qx",
+            "timestamp": "2021-10-11T21:23:04"
         }
     },
-    "version": 0
+    "supportemail": "steven@byoda.org",
+    "version": 1,
+    "website": "https://www.byoda.org/"
 }

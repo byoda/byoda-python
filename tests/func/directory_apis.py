@@ -30,18 +30,17 @@ import uvicorn
 
 from byoda.datamodel import Network
 from byoda.datamodel import DirectoryServer
-from byoda.datamodel import Service
 from byoda.datamodel import Schema
 from byoda.util.message_signature import SignatureType
 
-from byoda.util.secrets import Secret, data_secret
+from byoda.util.secrets import Secret
 from byoda.util.secrets import AccountSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceDataSecret
 
 from byoda.util.logger import Logger
-from byoda.util import Paths
+
 
 from byoda import config
 
@@ -183,12 +182,14 @@ class TestDirectoryApis(unittest.TestCase):
         network = copy(config.server.network)
         network.paths = copy(config.server.network.paths)
         network.paths._root_directory = SERVICE_DIR
+        if not network.paths.secrets_directory_exists():
+            network.paths.create_secrets_directory()
 
         service_id = SERVICE_ID
-        secret = ServiceCaSecret(
+        serviceca_secret = ServiceCaSecret(
             service='dir_api_test', service_id=service_id, network=network
         )
-        csr = secret.create_csr()
+        csr = serviceca_secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = requests.post(
@@ -203,7 +204,7 @@ class TestDirectoryApis(unittest.TestCase):
             data['signed_cert'].encode()
         )
         # TODO: populate a secret from a CertChain
-        secret.cert = serviceca_cert
+        serviceca_secret.cert = serviceca_cert
 
         network_root_ca_cert = x509.load_pem_x509_certificate(  # noqa:F841
             data['network_root_ca_cert'].encode()
@@ -222,9 +223,11 @@ class TestDirectoryApis(unittest.TestCase):
 
         service_secret = ServiceSecret('dir_api_test', service_id, network)
         service_csr = service_secret.create_csr()
-        certchain = secret.sign_csr(service_csr)
-        service_cn = Secret.extract_commonname(certchain.signed_cert)
+        certchain = serviceca_secret.sign_csr(service_csr)
+        service_secret.from_signed_cert(certchain)
+        service_secret.save()
 
+        service_cn = Secret.extract_commonname(certchain.signed_cert)
         serviceca_cn = Secret.extract_commonname(serviceca_cert)
 
         # Create and register the the public cert of the data secret,
@@ -234,8 +237,9 @@ class TestDirectoryApis(unittest.TestCase):
             'dir_api_test', service_id, network
         )
         service_data_csr = service_data_secret.create_csr()
-        data_certchain = secret.sign_csr(service_data_csr)
+        data_certchain = serviceca_secret.sign_csr(service_data_csr)
         service_data_secret.from_signed_cert(data_certchain)
+        service_data_secret.save()
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -244,6 +248,7 @@ class TestDirectoryApis(unittest.TestCase):
         }
 
         data_certchain = service_data_secret.certchain_as_pem()
+
         response = requests.put(
             API + '/' + str(service_id), headers=headers,
             json={'certchain': data_certchain}
@@ -288,6 +293,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'dummyservice')
         self.assertEqual(len(data['signatures']), 2)
+        schema = Schema(data)
 
         # Get the list of service summaries
         API = BASE_URL + '/v1/network/services'

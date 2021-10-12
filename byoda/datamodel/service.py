@@ -151,7 +151,9 @@ class Service:
         self.paths.service_id = self.service_id
 
         # We make sure that the directory exists
-        self.paths.create_directory(self.paths.get(Paths.SERVICE_DIR))
+        self.paths.storage_driver.create_directory(
+            self.paths.get(Paths.SERVICE_DIR)
+        )
 
         _LOGGER.debug(
             f'Read service {self.name} wih service_id {self.service_id}'
@@ -167,9 +169,9 @@ class Service:
         :raises: ValueError
         '''
 
-        if not self.schema.signatures[SignatureType.SERVICE]:
+        if not self.schema.signatures[SignatureType.SERVICE.value]:
             raise ValueError('Schema does not contain a service signature')
-        if not self.schema.signatures[SignatureType.NETWORK]:
+        if not self.schema.signatures[SignatureType.NETWORK.value]:
             raise ValueError('Schema does not contain a network signature')
         if not self.data_secret or not self.data_secret.cert:
             raise ValueError(

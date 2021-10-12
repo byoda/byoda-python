@@ -231,10 +231,10 @@ class Member:
         :raises: ValueError
         '''
 
-        if not schema.signatures[SignatureType.SERVICE]:
+        if not schema.signatures[SignatureType.SERVICE.value]:
             raise ValueError('Schema does not contain a service signature')
 
-        if not schema.signatures[SignatureType.NETWORK]:
+        if not schema.signatures[SignatureType.NETWORK.value]:
             raise ValueError('Schema does not contain a network signature')
 
         if not self.service.data_secret or not self.service.data_secret.cert:

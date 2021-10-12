@@ -13,6 +13,7 @@ import argparse
 import sys
 
 from byoda.datamodel import Network, Service
+from byoda.storage.filestorage import FileStorage
 
 from byoda.util import SignatureType
 from byoda.util import Logger
@@ -96,7 +97,8 @@ def main(argv):
             service.data_secret, SignatureType.SERVICE
         )
 
-    service.schema.save(args.contract)
+    storage_driver = FileStorage('/byoda')
+    service.schema.save(args.contract, storage_driver=storage_driver)
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]

@@ -39,6 +39,7 @@ from byoda.util.secrets import Secret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceDataSecret
 
+from byoda.util import Paths
 from byoda.util import SignatureType
 
 from byoda import config
@@ -159,8 +160,6 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     # Get the certs as strings so we can return them
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
-    root_ca_cert = network.root_ca.cert_as_pem()
-    data_cert = network.data_secret.cert_as_pem()
 
     # We save the public key in the network directory tree. Not sure
     # if we actually need to do this as we can check any cert of the service
@@ -168,7 +167,11 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     # root CA
     service.service_ca = ServiceCaSecret(None, service.service_id, network)
     service.service_ca.cert = certchain.signed_cert
+    service.service_ca.cert_chain = certchain.cert_chain
     service.service_ca.save()
+
+    root_ca_cert = network.root_ca.cert_as_pem()
+    data_cert = network.data_secret.cert_as_pem()
 
     return {
         'signed_cert': signed_cert,
@@ -292,6 +295,9 @@ def patch_service(request: Request, schema: SchemaModel,
                     service.schema.create_signature(
                         network.data_secret, SignatureType.NETWORK
                     )
+                    storage_driver = network.paths.storage_driver
+                    filepath = network.paths.get(Paths.SERVICE_FILE)
+                    service_contract.save(filepath, storage_driver)
                 except ValueError:
                     status = ReviewStatusType.REJECTED
                     errors.append(

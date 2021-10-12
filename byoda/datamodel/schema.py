@@ -22,6 +22,7 @@ from byoda.util import NetworkSignature
 from byoda.util import SignatureType
 from byoda.util.secrets import Secret, DataSecret
 
+from byoda.storage import FileStorage
 
 Service = TypeVar('Service')
 
@@ -47,7 +48,7 @@ class Schema:
         self.json_schema: Dict = schema
 
         # Note that we have getters/setters for the top-level properties
-        if not self.service_id:
+        if self.service_id is None:
             raise ValueError('Schema must have a Service ID')
 
         if self.version is None:
@@ -124,7 +125,7 @@ class Schema:
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
-    def save(self, filepath, storage_driver):
+    def save(self, filepath: str, storage_driver: FileStorage):
         '''
         Write a schema to a JSON file, ie. when an account becomes
         a member of the service that the schema belongs to
@@ -187,6 +188,7 @@ class Schema:
                 f'Missing signature in JSON Schema: {signature_type.value}'
             )
 
+        original_schema = None
         if SignatureType.NETWORK.value in schema['signatures']:
             # A signature of a schema never covers the network signature so
             # we remove it from the schema
@@ -196,7 +198,8 @@ class Schema:
             )
 
         if signature_type == SignatureType.SERVICE:
-            original_schema = deepcopy(schema)
+            if not original_schema:
+                original_schema = deepcopy(schema)
             # A signature of a schema by a service does not cover the
             # signature of the service so we temporarily remove it
             signature = ServiceSignature.from_dict(
