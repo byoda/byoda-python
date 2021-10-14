@@ -9,7 +9,7 @@ Class for modeling a social network
 import os
 import logging
 from uuid import UUID
-from typing import List, Dict, Set
+from typing import Dict, Set
 
 from byoda.util import Paths
 from byoda import config

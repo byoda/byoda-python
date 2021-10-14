@@ -31,7 +31,6 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
-Account = TypeVar('Account', bound='Account')
 Network = TypeVar('Network', bound='Network')
 
 

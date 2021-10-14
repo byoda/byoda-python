@@ -69,7 +69,7 @@ class TestDirectoryApis(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
             cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
