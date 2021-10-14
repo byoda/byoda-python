@@ -31,6 +31,7 @@ class Server:
         self.server_type = None
         self.network = None
         self.account = None
+        self.service = None
         self.document_store = None
         self.cloud = None
         self.paths = None
@@ -86,3 +87,17 @@ class DirectoryServer(Server):
         Loads the secrets used by the directory server
         '''
         self.network.load_secrets()
+
+
+class ServiceServer(Server):
+    def __init__(self):
+        super().__init__()
+
+        self.server_type = ServerType.SERVICE
+
+    def load_secrets(self, password: str = None):
+        '''
+        Loads the secrets used by the directory server
+        '''
+
+        self.service.load_secrets(with_private_key=True, password=password)

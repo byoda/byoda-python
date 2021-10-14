@@ -95,7 +95,6 @@ class TestDirectoryApis(unittest.TestCase):
         )
         config.server = DirectoryServer()
         config.server.network = network
-        config.network = network
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',

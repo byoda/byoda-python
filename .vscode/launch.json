@@ -22,9 +22,8 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--type", "MEMBERSHIP",
-                "--account-id", "9f6c55d7-b35e-4eb9-bc5e-614fdd355e6f",
-                "--service-id", "0",
+                "--type", "SERVICE",
+                "--service-id", "1",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
 
@@ -34,6 +33,22 @@
             },
         },
         {
+            "name": "create_service_secrets",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/create_service_secrets.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--debug",
+                "--schema", "services/directory.json",
+                "--network", "byoda.net",
+                "--root-directory", "/byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            },
+        },        {
             "name": "dirserver",
             "type": "python",
             "request": "launch",
@@ -51,6 +66,22 @@
             }
         },
         {
+            "name": "svcserver",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "console": "integratedTerminal",
+            "args": [
+                "svcserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "6000",
+                "--proxy-headers"
+            ],
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws"
+            }
+        },        {
             "name": "podserver LOCAL",
             "type": "python",
             "request": "launch",

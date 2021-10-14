@@ -16,12 +16,10 @@ from .api import setup_api
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.datamodel import DirectoryServer
+from byoda.datamodel import ServiceServer
+from byoda.datamodel import Service
 from byoda.datamodel import Network
 
-from byoda.datastore import DnsDb
-
-from .routers import account
 from .routers import service
 
 _LOGGER = None
@@ -36,25 +34,26 @@ _LOGGER = Logger.getLogger(
     logfile=config.app_config['application'].get('logfile')
 )
 
-server = DirectoryServer()
-server.network = Network(
-    config.app_config['dirserver'], config.app_config['application']
+network = Network(
+    config.app_config['svcserver'], config.app_config['application']
 )
-server.load_secrets()
-server.network.load_services('./services/')
-server.network.dnsdb = DnsDb.setup(
-    config.app_config['dirserver']['dnsdb'], server.network.name
+server = ServiceServer()
+server.service = Service(
+    network, config.app_config['svcserver']['service_file'],
+    config.app_config['svcserver']['service_id']
+)
+server.load_secrets(
+    password=config.app_config['svcserver']['private_key_password']
 )
 
 config.server = server
-
 
 if not os.environ.get('SERVER_NAME') and config.server.network.name:
     os.environ['SERVER_NAME'] = config.server.network.name
 
 app = setup_api(
-    'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', config.app_config, [account, service]
+    'BYODA service server', 'A server hosting a service in a BYODA network',
+    'v0.0.1', config.app_config, [service]
 )
 
 
@@ -63,4 +62,4 @@ async def status():
     return {'status': 'healthy'}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=6000)

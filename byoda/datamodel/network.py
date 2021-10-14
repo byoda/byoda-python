@@ -24,6 +24,7 @@ from .account import Account
 from byoda.storage.filestorage import FileStorage
 
 from byoda.util.secrets import Secret
+from byoda.util.secrets import DataSecret
 from byoda.util.secrets import NetworkRootCaSecret
 from byoda.util.secrets import NetworkDataSecret
 from byoda.util.secrets import NetworkAccountsCaSecret
@@ -83,7 +84,7 @@ class Network:
         if roles and type(roles) not in (set, list):
             roles = [roles]
 
-        self.roles = set()
+        self.roles: Set = set()
         for role in roles:
             try:
                 role_type = ServerRole(role)
@@ -139,48 +140,16 @@ class Network:
 
         # Loading secrets for when operating as a directory server
         self.accounts_ca: NetworkAccountsCaSecret = None
+        self.services_ca: NetworkServicesCaSecret = None
+        self.tls_secret: Secret = None
+        self.data_secret: DataSecret = None
+
+        self.services: Dict[int: Service] = dict()
+
+        # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None
-
-        # Services that are only registered will have:
-        #   network.services[service_id] = None
-        # Services for which a schema has been accepted (after a call to
-        # PATCH /network/services will have as value an instance of the
-        # Service class)
-        self.services: Dict = dict()
-
-        self.service_ca = None
-        if ServerRole.ServiceCa in self.roles:
-            self.service_ca = ServiceCaSecret(server['service'], self.paths)
-            self.service_ca.load(
-                with_private_key=True, password=self.private_key_password
-            )
-
-        # Loading secrets when operating a service
-        self.service_secret = None
-        self.member_ca = None
-        if ServerRole.ServiceServer in self.roles:
-            config.requests.cert = ()
-            self.member_ca = MembersCaSecret(
-                None, server['service_id'], self
-            )
-            self.member_ca.load(
-                with_private_key=True,
-                password=self.private_key_password
-            )
-
-            self.service_secret = ServiceSecret(
-                server['service'], server['service_id'], self.paths
-            )
-            self.service_secret.load(
-                with_private_key=True,
-                password=self.private_key_password
-            )
-            self.service_secret.load()
-
-            # We use the service secret as client TLS cert for outbound
-            # requests
-            filepath = self.service_secret.save_tmp_private_key()
-            config.requests.cert = (self.service_secret.cert_file, filepath)
+        self.service_secret: ServiceSecret = None
+        self.member_ca: MembersCaSecret = None
 
         # Loading secrets when operating as a pod
         self.account_id = None

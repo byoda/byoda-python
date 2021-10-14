@@ -21,5 +21,6 @@ svcserver:
   name: 'serviceserver'
   roles:
     - service
-  service: default
-  private_key_password: '<changeme>'
+  service_id: 1
+  service_file: directory.json
+  private_key_password: 'byoda'

@@ -27,6 +27,8 @@ from byoda.util.secrets import AppsCaSecret
 from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceDataSecret
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account', bound='Account')
@@ -67,27 +69,27 @@ class Service:
         self.private_key_password: str = network.private_key_password
 
         # The CA signed by the Services CA of the network
-        self.service_ca = None
+        self.service_ca: ServiceCaSecret = None
 
         # CA signs secrets of new members of the service
-        self.members_ca = None
+        self.members_ca: MembersCaSecret = None
 
         # CA signs secrets of apps that run with a delegation of
         # the data contract of the service
-        self.apps_ca = None
+        self.apps_ca: AppsCaSecret = None
 
         # The secret used as server cert for incoming TLS connections
         # and as client cert in outbound TLS connections
-        self.tls_secret = None
+        self.tls_secret: ServiceSecret = None
 
         # The secret used to sign documents, ie. the data contract for
         # the service
-        self.data_secret = None
+        self.data_secret: ServiceDataSecret = None
 
         # The network that the service is a part of. As storage is already
         # set up for the Network object, we can copy it here for the Service
-        self.network = network
-        self.paths = copy(network.paths)
+        self.network: Network = network
+        self.paths: Paths = copy(network.paths)
         self.paths.service_id = service_id
 
         self.storage_driver = self.paths.storage_driver
@@ -346,7 +348,7 @@ class Service:
         '''
         Loads all the secrets of a service
         '''
-        if self.service_ca:
+        if not self.service_ca:
             self.service_ca = ServiceCaSecret(
                 self.name, self.service_id, self.network
             )
@@ -380,6 +382,11 @@ class Service:
 
         if not self.data_secret:
             self.load_data_secret(with_private_key, password=password)
+
+        # We use the service secret as client TLS cert for outbound
+        # requests
+        filepath = self.tls_secret.save_tmp_private_key()
+        config.requests.cert = (self.tls_secret.cert_file, filepath)
 
     def load_data_secret(self, with_private_key: bool, password: str):
         '''

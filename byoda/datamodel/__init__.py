@@ -18,5 +18,6 @@ from .member import Member
 
 from .server import Server
 from .server import PodServer
+from .server import ServiceServer
 from .server import DirectoryServer
 from .server import ServerType
