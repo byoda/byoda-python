@@ -52,7 +52,7 @@ def main(argv):
     parser.add_argument('--account-id', '-c', type=str, default=None)
     parser.add_argument('--member', '-m', type=str, default=None)
     parser.add_argument('--password', '-p', type=str, default='byoda')
-
+    parser.add_argument('--local', '-l', action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     # Network constructor expects parameters to be in a dict
@@ -91,7 +91,7 @@ def main(argv):
 
     # Need to set role to allow loading of unsigned services
     network.roles = [ServerRole.Pod]
-    # network.load_services('./services/')
+    # network.load_services()
 
     if args.type in (CertType.NETWORK, CertType.SERVICE):
         service = create_service(args, network)

@@ -41,7 +41,7 @@ server.network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
 server.load_secrets()
-server.network.load_services('./services/')
+server.network.load_services()
 server.network.dnsdb = DnsDb.setup(
     config.app_config['dirserver']['dnsdb'], server.network.name
 )

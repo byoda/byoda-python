@@ -160,7 +160,7 @@ class Network:
         if ServerRole.Pod in self.roles:
             # TODO: client should read this from a directory server API
             self.load_secrets()
-            self.load_services(directory='services/')
+            self.load_services()
 
     @staticmethod
     def create(network_name, root_dir, password):
@@ -263,15 +263,18 @@ class Network:
         Load a list of all the services in the network.
         '''
 
+        if not directory:
+            directory = self.paths.get(Paths.SERVICES_DIR)
+
         if self.services:
-            _LOGGER.debug('Reloading list of services')
+            _LOGGER.debug('Clearing list of services of the network')
             self.services = dict()
 
-        for root, __dirnames, files in os.walk(directory):
-            for filename in [x for x in files if x.endswith('.json')]:
-                service = Service.get_service(
-                    self, filepath=os.path.join(root, filename)
-                )
+        _LOGGER.debug('Loading the list of services of the network')
+        for root, __dirnames, filename in os.walk(directory):
+            if root.startswith('service') and filename.endswith('.json'):
+                filepath = os.path.join(root, filename)
+                service = Service.get_service(self, filepath=filepath)
 
                 if service.service_id in self.services:
                     raise ValueError(

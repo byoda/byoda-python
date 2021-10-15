@@ -82,7 +82,7 @@ server.paths = network.paths
 server.account = network.load_account(
     network_data['account_id'], load_tls_secret=True
 )
-network.load_services('./services/')
+network.load_services()
 
 config.server = server
 

@@ -25,10 +25,11 @@ class Paths:
 
     # Templates for location of directories and files
     # all paths not starting with '/' will have the root directory prepended
-    CONFIG_FILE          = 'config.yml'              # noqa
-    SECRETS_DIR          = 'private/'                # noqa
-    NETWORK_DIR          = 'network-{network}'       # noqa
-    NETWORK_FILE         = 'network-{network}.json'  # noqa
+    CONFIG_FILE          = 'config.yml'                     # noqa
+    SECRETS_DIR          = 'private/'                       # noqa
+    NETWORK_DIR          = 'network-{network}'              # noqa
+    NETWORK_FILE         = 'network-{network}.json'         # noqa
+    SERVICES_DIR         = 'network-{network}/services/'    # noqa
 
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                      # noqa

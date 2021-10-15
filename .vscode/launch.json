@@ -113,8 +113,8 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--contract", "services/private.json",
-                "--signing-party", "service",
+                "--contract", "/byoda/network-byoda.net/services/service-0/private.json",
+                "--signing-party", "network",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"
 

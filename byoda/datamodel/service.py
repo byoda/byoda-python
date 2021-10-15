@@ -100,6 +100,7 @@ class Service:
             )
 
         if filepath:
+            _LOGGER.info(f'Loading service from file {filepath}')
             self.load_schema(filepath, verify_contract_signatures=False)
 
     @classmethod
@@ -108,7 +109,7 @@ class Service:
                     ) -> Service:
         '''
         Factory for Service class, loads the service metadata from a local
-        file.
+        file and verifies its signatures
 
         :param network: the network to which service belongs
         :param filepath: path to the file containing the data contract
@@ -383,9 +384,11 @@ class Service:
             self.load_data_secret(with_private_key, password=password)
 
         # We use the service secret as client TLS cert for outbound
-        # requests
-        filepath = self.tls_secret.save_tmp_private_key()
-        config.requests.cert = (self.tls_secret.cert_file, filepath)
+        # requests. We only do this if we read the private key
+        # for the TLS/service secret
+        if with_private_key:
+            filepath = self.tls_secret.save_tmp_private_key()
+            config.requests.cert = (self.tls_secret.cert_file, filepath)
 
     def load_data_secret(self, with_private_key: bool, password: str):
         '''
