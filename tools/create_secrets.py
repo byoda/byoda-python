@@ -40,19 +40,9 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
-    parser.add_argument(
-        '--type', '-t', choices=CertType.__members__,
-        default=CertType.ACCOUNT.value
-    )
     parser.add_argument('--network', '-n', type=str, default='test')
-    parser.add_argument('--service', '-s', type=str, default='default')
-    parser.add_argument('--service-id', '-i', type=str, default='0')
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
-    parser.add_argument('--account', '-a', type=str, default='pod')
-    parser.add_argument('--account-id', '-c', type=str, default=None)
-    parser.add_argument('--member', '-m', type=str, default=None)
     parser.add_argument('--password', '-p', type=str, default='byoda')
-    parser.add_argument('--local', '-l', action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     # Network constructor expects parameters to be in a dict
@@ -65,11 +55,6 @@ def main(argv):
         'root_dir': args.root_directory,
     }
 
-    if args.local is False:
-        raise NotImplementedError(
-            'Getting certs signed over the Internet is not yet supported'
-        )
-
     global _LOGGER
     _LOGGER = Logger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
@@ -81,10 +66,6 @@ def main(argv):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
 
-    request_type = args.type.lower()
-    args.type = CertType(request_type)
-
-    if args.type == CertType.NETWORK:
         network = create_network(args, network_data)
     else:
         network = load_network(args, network_data)

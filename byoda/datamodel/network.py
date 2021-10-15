@@ -192,7 +192,7 @@ class Network:
         root_ca = NetworkRootCaSecret(paths=paths)
 
         if root_ca.cert_file_exists():
-            root_ca.load(password=password)
+            root_ca.load(with_private_key=True, password=password)
         else:
             root_ca.create(expire=100*365)
             root_ca.save(password=password)
