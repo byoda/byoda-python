@@ -11,6 +11,8 @@ import logging
 from uuid import UUID
 from typing import Dict, Set
 
+import passgen
+
 from byoda.util import Paths
 from byoda import config
 
@@ -195,7 +197,9 @@ class Network:
             root_ca.load(with_private_key=True, password=password)
         else:
             root_ca.create(expire=100*365)
-            root_ca.save(password=password)
+            root_ca_password = passgen.passgen(length=48)
+            root_ca.save(password=root_ca_password)
+            _LOGGER.debug(f'Saving root CA using password {root_ca_password}')
 
         network_data = {
             'network': network_name, 'root_dir': root_dir,

@@ -18,6 +18,7 @@ import shutil
 
 from byoda.util import Logger
 
+from byoda.datamodel import Network
 from byoda.util.secrets import NetworkRootCaSecret
 
 from byoda.util import Paths
@@ -48,27 +49,10 @@ def main(argv):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
 
-    cert_dir = f'{root_dir}/network-{args.network}'
-    os.makedirs(cert_dir, exist_ok=True)
-    key_dir = f'{root_dir}/private/'
-    os.makedirs(key_dir, exist_ok=True)
-    os.chmod(key_dir, 0o700)
-
-    paths = Paths(network=args.network, root_directory=root_dir)
-    root_ca = NetworkRootCaSecret(paths=paths)
-
-    if root_ca.cert_file_exists():
-        raise ValueError(f'Root CA cert file exists at {root_ca.cert_file}')
-    if root_ca.private_key_file_exists():
-        raise ValueError(
-            f'Root CA key file exists at {root_ca.private_key_file}'
-        )
-
     _LOGGER.debug(
         f'Creating root CA cert and private key under {args.root_directory}'
     )
-    root_ca.create(expire=100*365)
-    root_ca.save(password=args.password)
+    Network.create(args.network, args.root_dir, args.password)
 
 
 if __name__ == '__main__':

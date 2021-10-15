@@ -99,10 +99,7 @@ def main(argv):
 
 def create_network(args: argparse.ArgumentParser, network_data: dict[str, str]
                    ) -> Network:
-    network = Network.create(
-        network_data['network'], network_data['root_dir'],
-        network_data['private_key_password']
-    )
+
 
     return network
 
