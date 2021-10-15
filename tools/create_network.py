@@ -19,10 +19,6 @@ import shutil
 from byoda.util import Logger
 
 from byoda.datamodel import Network
-from byoda.util.secrets import NetworkRootCaSecret
-
-from byoda.util import Paths
-
 
 _LOGGER = None
 

@@ -2,7 +2,6 @@ application:
   debug: True
   environment: 'dev'
   logfile: '/tmp/byoda.log'
-  root_dir: '/opt/byoda'
   # Changing the network if you want to set up your own network and
   # directory server. This setting overrides any configured NETWORK
   # environment variable
@@ -13,13 +12,15 @@ dirserver:
   name: 'directoryserver'
   # Connection string for the Postgresql server for PowerDNS
   dnsdb: "postgresql://<username>:<password>@<ip>/byodadns"
+  root_dir: '/opt/byoda/dirserver'
   roles:
     - directory
   private_key_password: '<changeme>'
 
 svcserver:
   name: 'serviceserver'
-  roles:
+  root_dir: '/opt/byoda/service-1'
+    roles:
     - service
   service_id: 1
   service_file: directory.json

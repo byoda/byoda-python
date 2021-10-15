@@ -67,11 +67,11 @@ class Network:
         Set up the network
 
         :param server: section from config.yml with key 'dirserver',
-        'podserver' etc, with keys 'roles', 'private_key_password' and
-        parameters specific to the role. A directory server must have key
-        'dnsdb'
-        :param application: section from config.yml with keys 'network' and
-        'root_dir'
+        'svcserver', 'podserver' etc, with keys 'roles', 'root_dir'
+        'private_key_password' and parameters specific to the role. A
+        directory server must have key 'dnsdb'
+        :param application: section from config.yml with keys 'network',
+        'debug', 'logfile', 'environment'
         :returns:
         :raises: ValueError, KeyError
         '''
@@ -94,7 +94,7 @@ class Network:
             except ValueError:
                 raise ValueError(f'Invalid role {role}')
 
-        self.root_dir: str = application.get(
+        self.root_dir: str = server.get(
             'root_dir', os.environ['HOME'] + '.byoda'
         )
 

@@ -6,14 +6,14 @@ sudo apt-get -y install python3.9 pipenv
 or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
 
 - Set up a domain
-You need a domain, we'll use 'byoda.net' as example here. You'll have to register the
+You need a domain, we'll use 'somecooldomain.net' as example here. You'll have to register the
 domain with a domain registrar (like [hover.com](https://www.hover.com/)) and create NS records that point to the public IP address of your server.
 
 - Set up a database server
 The ACLs for the server should allow TCP/UDP port 53 from anywhere and port 9191 from trusted IPs. All other ports should be blocked for external traffic.
 
 Postgres
-
+```
 mkdir -p ~/.secrets
 chmod 700 ~/.secrets
 
@@ -54,7 +54,7 @@ psql -h localhost -U postgres -d postgres -f /tmp/byodadns.sql
 rm /tmp/byodadns.sql
 
 psql -h localhost -U powerdns -d byodadns -f docs/powerdns-pgsql.schema
-"
+```
 
 - Set up the name server
 PowerDNS
@@ -87,33 +87,47 @@ api=yes
 api-key=<api-key>
 EOF
 
-create DNS zones for accounts.byoda.net, services.byoda.net and members.byoda.net
+```
 
-# This table allows us to remove FQDNS from the database 1 week after they've last registered
+This table modification allows us to remove FQDNS from the database 1 week after they've last registered
 
+```
 ALTER TABLE RECORDS ADD db_expire integer;
+```
 
-Using  http://${SERVERIP}:9191/login
+Using  http://${SERVERIP}:9191/login, create DNS zone for byoda.net with NS records for {accounts,services,members}.byoda.net
 
-Create DNS zone for byoda.net with NS records for {accounts,services,members}.byoda.net
-
+```
 docker run -d --restart unless-stopped\
     -v pda-data:/data \
     -p 9191:80 \
     --name pdns-admin \
     ngoduykhanh/powerdns-admin:latest
-
 ```
 
 - Create your CA
 On a private server, preferably air-gapped,
+```
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
 pipenv shell
+
+BYODA_DOMAIN=somecooldomain.net
+
 # This password is used for intermediate network CAs, not the network root CA
 PASSWORD=$(passgen -n 1 -l 48)
-tools/create_network.py --network byoda.net --debug --password ${PASSWORD}
-# Save the password for the root CA from the log messages to your password manager like 1password, keepass2, lastpass etc.
+tools/create_network.py --network ${BYODA_DOMAIN} --debug --password ${PASSWORD}
+# Save the password for the root CA from the log message containing:
+#   'Saving root CA using password'
+# to your password manager like 1password, keepass2, lastpass etc.
+
+# copy all files except the private key for the root ca from the tempoarily
+# not air-gapped server to the directory server
+ssh ${DIRSERVER} "sudo mkdir /var/lib/byoda/{private,network-${BYODA_DOMAIN}}
+ssh ${DIRSERVER} "sudo chown -R $USER /var/lib/byoda"
+scp ~/.byoda/private/network-${BYODA_DOMAIN}-{accounts-ca,services-ca,data}.key \
+     ${DIRSERVER}:/var/lib/byoda/private/
+scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:/var/lib/byoda/network-${BYODA_DOMAIN}
 
 - Set up the directory server
 - Set up the DNS records
