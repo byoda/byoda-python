@@ -110,7 +110,9 @@ On a private server, preferably air-gapped,
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
 pipenv shell
-tools/create_network.py --network byoda.net --debug
+# This password is used for intermediate network CAs, not the network root CA
+PASSWORD=$(passgen -n 1 -l 48)
+tools/create_network.py --network byoda.net --debug --password ${PASSWORD}
 # Save the password for the root CA from the log messages to your password manager like 1password, keepass2, lastpass etc.
 
 - Set up the directory server

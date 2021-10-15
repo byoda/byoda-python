@@ -52,7 +52,7 @@ def main(argv):
     _LOGGER.debug(
         f'Creating root CA cert and private key under {args.root_directory}'
     )
-    Network.create(args.network, args.root_dir, args.password)
+    Network.create(args.network, root_dir, args.password)
 
 
 if __name__ == '__main__':
