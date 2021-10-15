@@ -48,7 +48,7 @@ class Paths:
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
 
     SERVICE_DIR                  = 'network-{network}/services/service-{service_id}/'                                     # noqa
-    SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-{service_id}.json'            # noqa
+    SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-contract.json'                # noqa
     SERVICE_CA_CERT_FILE         = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-ca-cert.pem'         # noqa
     SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-members-ca-cert.pem' # noqa
     SERVICE_APPS_CA_CERT_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-apps-ca-cert.pem'    # noqa

@@ -269,16 +269,21 @@ class Network:
 
         if not directory:
             directory = self.paths.get(Paths.SERVICES_DIR)
+            if not os.path.exists(directory):
+                os.mkdir(directory)
+                return
 
         if self.services:
             _LOGGER.debug('Clearing list of services of the network')
             self.services = dict()
 
         _LOGGER.debug('Loading the list of services of the network')
-        for root, __dirnames, filename in os.walk(directory):
-            if root.startswith('service') and filename.endswith('.json'):
-                filepath = os.path.join(root, filename)
-                service = Service.get_service(self, filepath=filepath)
+        for root, __dirnames, files in os.walk(directory):
+            for filename in files:
+                if (root.startswith('service-')
+                        and filename == 'service-contract.json'):
+                    filepath = os.path.join(root, filename)
+                    service = Service.get_service(self, filepath=filepath)
 
                 if service.service_id in self.services:
                     raise ValueError(
