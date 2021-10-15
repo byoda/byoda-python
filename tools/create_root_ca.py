@@ -48,9 +48,11 @@ def main(argv):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
 
-    os.makedirs(f'{root_dir}/network-{args.network}/', exist_ok=True)
-    os.makedirs(f'{root_dir}/network-private/', exist_ok=True)
-    os.chmod(root_dir, 0o700)
+    cert_dir = f'{root_dir}/network-{args.network}''
+    os.makedirs(cert_dir, exist_ok=True)
+    key_dir = f'{root_dir}/private/'
+    os.makedirs(key_dir, exist_ok=True)
+    os.chmod(key_dir, 0o700)
 
     paths = Paths(network=args.network, root_directory=root_dir)
     root_ca = NetworkRootCaSecret(paths=paths)
