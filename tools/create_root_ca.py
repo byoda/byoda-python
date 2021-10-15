@@ -48,7 +48,7 @@ def main(argv):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
 
-    cert_dir = f'{root_dir}/network-{args.network}''
+    cert_dir = f'{root_dir}/network-{args.network}'
     os.makedirs(cert_dir, exist_ok=True)
     key_dir = f'{root_dir}/private/'
     os.makedirs(key_dir, exist_ok=True)
