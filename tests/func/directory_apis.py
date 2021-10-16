@@ -48,6 +48,8 @@ from byoda.datastore import DnsDb
 
 from dirserver.api import setup_api
 
+from dirserver.routers import account
+from dirserver.routers import service
 
 # Settings must match config.yml used by directory server
 NETWORK = 'test.net'
@@ -98,7 +100,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', None
+            'v0.0.1', None, [account, service]
         )
         cls.PROCESS = Process(
             target=uvicorn.run,
@@ -167,11 +169,8 @@ class TestDirectoryApis(unittest.TestCase):
         account_cert = x509.load_pem_x509_certificate(          # noqa:F841
             data['signed_cert'].encode()
         )
-        network_root_ca_cert = x509.load_pem_x509_certificate(  # noqa:F841
-            data['network_root_ca_cert'].encode()
-        )
         network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_root_ca_cert'].encode()
+            data['network_data_cert'].encode()
         )
 
     def test_network_service_creation(self):
@@ -205,11 +204,8 @@ class TestDirectoryApis(unittest.TestCase):
         # TODO: populate a secret from a CertChain
         serviceca_secret.cert = serviceca_cert
 
-        network_root_ca_cert = x509.load_pem_x509_certificate(  # noqa:F841
-            data['network_root_ca_cert'].encode()
-        )
         network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_root_ca_cert'].encode()
+            data['network_data_cert'].encode()
         )
 
         # Check that the service CA public cert was written to the network

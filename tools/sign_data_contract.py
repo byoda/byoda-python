@@ -31,7 +31,7 @@ def main(argv):
         '--signing-party', '-s', type=str, default=SignatureType.SERVICE.value,
         choices=[i.value for i in SignatureType]
     )
-    parser.add_argument('--contract', '-c', type=str)
+    parser.add_argument('--schema', '-s', type=str)
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
     parser.add_argument('--network', type=str, default='byoda.net')
     parser.add_argument('--password', '-p', type=str, default='byoda')
@@ -98,7 +98,7 @@ def main(argv):
         )
 
     storage_driver = FileStorage('/byoda')
-    service.schema.save(args.contract, storage_driver=storage_driver)
+    service.schema.save(args.schema, storage_driver=storage_driver)
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
@@ -125,7 +125,7 @@ def load_service(args, network):
     Load service and its secrets
     '''
     service = Service(
-        network=network, filepath=args.contract,
+        network=network, filepath=args.schema,
     )
 
     if args.signing_party == 'service':

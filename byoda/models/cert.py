@@ -36,13 +36,12 @@ class CertSigningRequestModel(BaseModel):
 class SignedCertResponseModel(BaseModel):
     signed_cert: str
     cert_chain: str
-    network_root_ca_cert: str
-    data_cert: str
+    network_data_cert: str
 
     def __repr__(self):
         return(
             '<SignedCertResponseModel={certchain: Dict[str:str], '
-            'root_ca: str, data_cert: str}>'
+            'data_cert: str}>'
         )
 
     def as_dict(self):
@@ -51,6 +50,5 @@ class SignedCertResponseModel(BaseModel):
                 'cert': self.certchain.signed_cert,
                 'certchain': self.certchain.cert_chain
             },
-            'network_root_ca_cert': str,
-            'network_data_cert': str
+            'network_data_cert': self.network_data_cert
         }

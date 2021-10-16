@@ -40,9 +40,9 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--schema", "services/directory.json",
+                "--schema", "services/private.json",
                 "--network", "byoda.net",
-                "--root-directory", "/byoda"
+                "--root-directory", "/tmp/byoda"
 
             ],
             "env": {
@@ -113,7 +113,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--contract", "/byoda/network-byoda.net/services/service-0/private.json",
+                "--schema", "/byoda/network-byoda.net/services/service-0/private.json",
                 "--signing-party", "network",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"

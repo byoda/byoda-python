@@ -9,6 +9,7 @@ Cert manipulation
 import logging
 from typing import List
 
+from cryptography import x509
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
 
@@ -35,6 +36,14 @@ class CertChain:
 
         self.signed_cert: Certificate = signed_cert
         self.cert_chain: List[Certificate] = cert_chain
+
+    @staticmethod
+    def from_string(signed_cert: str, cert_chain: str):
+
+        return CertChain(
+            x509.load_pem_x509_certificate(signed_cert),
+            x509.load_pem_x509_certificate(cert_chain)
+        )
 
     def __str__(self) -> str:
         '''

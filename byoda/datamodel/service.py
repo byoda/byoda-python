@@ -12,6 +12,8 @@ import logging
 from typing import TypeVar, Callable, Dict
 from copy import copy
 
+from cryptography.hazmat.primitives import serialization
+
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.schema import Schema
@@ -19,7 +21,7 @@ from byoda.datamodel.schema import Schema
 from byoda.util import SignatureType
 from byoda.util import Paths
 
-from byoda.util.secrets import Secret
+from byoda.util.secrets import Secret, CSR
 from byoda.util.secrets import NetworkServicesCaSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import MembersCaSecret
@@ -28,10 +30,14 @@ from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceDataSecret
 
 from byoda import config
+from byoda.util.secrets.certchain import CertChain
+from byoda.util.secrets.secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
+
+NETWORK_SERVICE_API = 'https://dir.{network}/api/v1/network/service'
 
 
 class Service:
@@ -206,7 +212,7 @@ class Service:
         self.schema.validate(data)
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
-                       password: str = None) -> None:
+                       local: False, password: str = None) -> None:
         '''
         Creates all the secrets of a service
 
@@ -235,16 +241,21 @@ class Service:
 
     def create_service_ca(self,
                           network_services_ca: NetworkServicesCaSecret = None,
-                          ) -> None:
+                          local: bool = False) -> None:
         '''
         Create the service CA
 
+        :param local: should the CSR be signed by a local key or using a
+        request to the directory server of the network
         :raises: ValueError if the service ca already exists
         '''
 
-        self.service_ca = self._create_secret(
-            ServiceCaSecret, network_services_ca
-        )
+        if local:
+            self.service_ca = self._create_secret(
+                ServiceCaSecret, network_services_ca
+            )
+        else:
+            self.service_ca = self._create_secret(ServiceCaSecret, None)
 
     def create_members_ca(self) -> None:
         '''
@@ -306,19 +317,6 @@ class Service:
                 'Name and service_id of the service have not been defined'
             )
 
-        if not issuing_ca:
-            # TODO
-            if type(secret_cls) != ServiceCaSecret:
-                raise ValueError(
-                    f'No issuing_ca was provided for creating a '
-                    f'{type(secret_cls)}'
-                )
-            else:
-                raise NotImplementedError(
-                    'Getting a signed certificate from a network directory'
-                    'server is not yet implemented'
-                )
-
         secret = secret_cls(
             self.name, self.service_id, network=self.network
         )
@@ -336,12 +334,52 @@ class Service:
             )
 
         csr = secret.create_csr()
-        issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-        certchain = issuing_ca.sign_csr(csr)
+        certchain = self.get_csr_signature(secret_cls, csr, issuing_ca)
+
         secret.from_signed_cert(certchain)
         secret.save(password=self.private_key_password)
 
         return secret
+
+    def get_csr_signature(self, secret_cls: Callable, csr: CSR,
+                          issuing_ca: CaSecret) -> CertChain:
+        '''
+        Gets the signed cert(chain) for the CSR. If issuing_ca parameter is
+        specified then the CSR will be signed directly by the private key
+        of the issuing_ca, otherwise the CSR will be send in a
+        POST /api/v1/network/service API call to the directory server of the
+        network
+        '''
+        if issuing_ca:
+            issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+            certchain = issuing_ca.sign_csr(csr)
+        else:
+            if type(secret_cls) != ServiceCaSecret:
+                raise ValueError(
+                    f'No issuing_ca was provided for creating a '
+                    f'{type(secret_cls)}'
+                )
+            url = NETWORK_SERVICE_API.format(network=self.network.name)
+            csr_pem = csr.public_bytes(serialization.Encoding.PEM)
+
+            response = config.requests.post(
+                url, json={'csr': str(csr_pem, 'utf-8')}
+            )
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            certchain = CertChain.from_string(
+                data['signed_cert'], data['cert_chain']
+            )
+            # Every time we receive the network data cert, we
+            # save it as it may have changed
+            network = config.server.network
+            network.data_secret.from_string(
+                data['network_data_cert']
+            )
+            network.data_secret.save(
+                password=network.private_key_password, overwrite=True
+            )
+        return certchain
 
     def load_secrets(self, with_private_key: bool = True, password: str = None
                      ) -> None:

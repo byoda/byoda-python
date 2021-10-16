@@ -170,14 +170,12 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     service.service_ca.cert_chain = certchain.cert_chain
     service.service_ca.save()
 
-    root_ca_cert = network.root_ca.cert_as_pem()
     data_cert = network.data_secret.cert_as_pem()
 
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
-        'network_root_ca_cert': root_ca_cert,
-        'data_cert': data_cert,
+        'network_data_cert': data_cert,
     }
 
 

@@ -488,7 +488,7 @@ class Secret:
     def from_string(self, cert: str, certchain: str = None):
         '''
         Loads an X.509 cert and certchain from a string. If the cert has an
-        certchain then the certchain can either be included at the beginning
+        certchain then the certchain can either be included at the end
         of the cert_data or can be provided as a separate parameter
 
         :param cert: the base64-encoded cert

@@ -56,13 +56,11 @@ def post_account(request: Request, csr: CertSigningRequestModel):
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
 
-    root_ca_cert = network.root_ca.cert_as_pem()
     data_cert = network.data_secret.cert_as_pem()
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
-        'network_root_ca_cert': root_ca_cert,
-        'data_cert': data_cert,
+        'network_data_cert': data_cert,
     }
 
 

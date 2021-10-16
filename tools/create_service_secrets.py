@@ -12,6 +12,7 @@ import sys
 import os
 import argparse
 import shutil
+import json
 
 from byoda.util import Logger
 
@@ -30,8 +31,8 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
-    parser.add_argument('--network', '-n', type=str, default='test')
     parser.add_argument('--schema', '-s', type=str)
+    parser.add_argument('--network', '-n', type=str, default='test')
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
     parser.add_argument('--password', '-p', type=str, default='byoda')
     parser.add_argument(
@@ -63,7 +64,9 @@ def main(argv):
     network = load_network(args, network_data)
 
     service = Service(network=network, filepath=args.schema)
-    service.create_secrets(network.services_ca, password=args.password)
+    service.create_secrets(
+        network.services_ca, password=args.password, local=False
+    )
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
