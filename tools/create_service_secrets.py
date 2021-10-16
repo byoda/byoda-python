@@ -12,7 +12,8 @@ import sys
 import os
 import argparse
 import shutil
-import json
+
+import requests
 
 from byoda.util import Logger
 
@@ -57,9 +58,21 @@ def main(argv):
     )
 
     root_dir = args.root_directory
+
     if root_dir.startswith('/tmp') and os.path.exists(root_dir):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
+
+    network_dir = f'{root_dir}/network-{args.network}'
+    network_cert_filepath = (
+        network_dir + f'/network-{args.network}-root-ca-cert.pem'
+    )
+
+    if not os.path.exists(network_cert_filepath):
+        os.makedirs(network_dir, exist_ok=True)
+        resp = requests.get(f'https://dir.{args.network}/root-ca.pem')
+        with open(network_cert_filepath, 'w') as file_desc:
+            file_desc.write(resp.text)
 
     network = load_network(args, network_data)
 
@@ -84,7 +97,7 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
 
     network.root_ca = NetworkRootCaSecret(network.paths)
 
-    network.load_secrets()
+    network.root_ca.load(with_private_key=False)
 
     return network
 

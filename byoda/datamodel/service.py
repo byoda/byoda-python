@@ -354,11 +354,13 @@ class Service:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
         else:
-            if type(secret_cls) != ServiceCaSecret:
+            if isinstance(secret_cls, ServiceCaSecret):
                 raise ValueError(
                     f'No issuing_ca was provided for creating a '
                     f'{type(secret_cls)}'
                 )
+
+            # Let's get the ServiceCA cert signed by the NetworkServicesCA
             url = NETWORK_SERVICE_API.format(network=self.network.name)
             csr_pem = csr.public_bytes(serialization.Encoding.PEM)
 
@@ -371,7 +373,8 @@ class Service:
                 data['signed_cert'], data['cert_chain']
             )
             # Every time we receive the network data cert, we
-            # save it as it may have changed
+            # save it as it could have changed since the last time we
+            # got it
             network = config.server.network
             network.data_secret.from_string(
                 data['network_data_cert']

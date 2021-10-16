@@ -16,7 +16,7 @@ The registration of a service in the network takes four steps:
    service using the GET /api/v1/network/service request.
 '''
 
-
+import os
 import logging
 from datetime import datetime
 
@@ -168,7 +168,12 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     service.service_ca = ServiceCaSecret(None, service.service_id, network)
     service.service_ca.cert = certchain.signed_cert
     service.service_ca.cert_chain = certchain.cert_chain
-    service.service_ca.save()
+
+    os.makedirs(os.path.dirname(service.service_ca.cert_file), exist_ok=True)
+
+    # If someone else already registered a Service then saving the cert will
+    # raise an exception
+    service.service_ca.save(overwrite=False)
 
     data_cert = network.data_secret.cert_as_pem()
 
