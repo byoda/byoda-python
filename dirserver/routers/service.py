@@ -83,6 +83,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
                 'website': service.schema.website,
                 'supportemail': service.schema.supportemail,
             } for service in services[skip: count]
+            if service.schema and service.schema.version
         ]
     }
     return result

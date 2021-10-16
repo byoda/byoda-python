@@ -22,7 +22,9 @@ from byoda.util import SignatureType
 from byoda.util import Paths
 
 from byoda.util.secrets import Secret, CSR
+from byoda.util.secrets import CaSecret
 from byoda.util.secrets import NetworkServicesCaSecret
+from byoda.util.secrets import NetworkDataSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import MembersCaSecret
 from byoda.util.secrets import AppsCaSecret
@@ -30,8 +32,6 @@ from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceDataSecret
 
 from byoda import config
-from byoda.util.secrets.certchain import CertChain
-from byoda.util.secrets.secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -383,6 +383,8 @@ class Service:
         # save it as it could have changed since the last time we
         # got it
         network = config.server.network
+        if not network.data_secret:
+            network.data_secret = NetworkDataSecret(network.paths)
         network.data_secret.from_string(
             data['network_data_cert']
         )
