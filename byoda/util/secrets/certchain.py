@@ -39,11 +39,9 @@ class CertChain:
 
     @staticmethod
     def from_string(signed_cert: str, cert_chain: str):
-
-        return CertChain(
-            x509.load_pem_x509_certificate(signed_cert),
-            x509.load_pem_x509_certificate(cert_chain)
-        )
+        cert = x509.load_pem_x509_certificate(signed_cert)
+        chain = x509.load_pem_x509_certificate(cert_chain)
+        return CertChain(cert, chain)
 
     def __str__(self) -> str:
         '''

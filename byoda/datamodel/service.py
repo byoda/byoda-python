@@ -367,7 +367,11 @@ class Service:
             response = config.requests.post(
                 url, json={'csr': str(csr_pem, 'utf-8')}
             )
-            self.assertEqual(response.status_code, 200)
+            if response.status_code != 200:
+                raise ValueError(
+                    f'Failed to POST to API {NETWORK_SERVICE_API}: '
+                    f'{response.statuscode}'
+                )
             data = response.json()
             certchain = CertChain.from_string(
                 data['signed_cert'], data['cert_chain']
