@@ -1,5 +1,7 @@
 # Setting up a BYODA network
 
+While it is possible to set up your own BYODA network, it is not recommended. In general I believe the consolidation of various services in a single network is the right model. Still, you might disagree with that or you just might want to set up your own network for testing purposes so here are the instructions on setting up your own network.
+
 A basic BYODA network has the following server roles:
 - Postgres server as backend for the PowerDNS server
 - A PowerDNS server
@@ -47,7 +49,7 @@ echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
 echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
 chmod 600 ~/.pgpass
 
-export SERVERIP=$(curl http://ifconfig.co)
+export DIRSERVER=$(curl http://ifconfig.co)
 
 passgen -n 1 >~/.secrets/sql_powerdns.password
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
@@ -64,7 +66,7 @@ rm /tmp/byodadns.sql
 psql -h localhost -U powerdns -d byodadns -f docs/powerdns-pgsql.schema
 ```
 
-## Set up a DNS server (or more)
+## Set up a DNS server
 The ACLs for the server should allow TCP/UDP port 53 from anywhere and port 9191 from trusted IPs. All other ports should be blocked for external traffic.
 
 
@@ -109,7 +111,7 @@ This table modification allows us to remove FQDNS from the database 1 week after
 ALTER TABLE RECORDS ADD db_expire integer;
 ```
 
-Using  http://${SERVERIP}:9191/login, create DNS zone for byoda.net with NS records for subdomains {accounts,services,members}.byoda.net
+Using  http://${DIRSERVER}:9191/login, create DNS zone for byoda.net with NS records for subdomains {accounts,services,members}.byoda.net
 
 ```
 docker run -d --restart unless-stopped\
@@ -119,9 +121,17 @@ docker run -d --restart unless-stopped\
     ngoduykhanh/powerdns-admin:latest
 ```
 
-- Create your CA
-On a private server, preferably air-gapped,
+## Create your CA
+
+Each network has the following secrets:
+- Network Root CA: self-signed, store off-line
+- Network Services CA: signed by Network Root CA, signs CSRs for the ServiceCA of each service in the network
+- Network Accounts CA: signed by the Network Root CA, signs CSRs for pods/clients
+- Network Data: Signed by Network Root CA, used to sign documents such as service schemas/data contracts so pods/clients can validate that the service is supported by the network
+
+On a private server, preferably air-gapped:
 ```
+cd ${BYODA_HOME}
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
 pipenv shell
@@ -131,6 +141,7 @@ BYODA_DOMAIN=somecooldomain.net
 # This password is used for intermediate network CAs, not the network root CA
 PASSWORD=$(passgen -n 1 -l 48)
 
+export PYTHONPATH=${PYTHONPATH}:$(pwd)
 tools/create_network.py --network ${BYODA_DOMAIN} --debug --password ${PASSWORD} 2>&1 | /tmp/network.log
 # Save the password for the root CA from the log message containing:
 #   'Saving root CA using password'
@@ -153,8 +164,50 @@ Byoda code requires python 3.9 or later, ie. for Ubuntu:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt-get -y install python3.9 pipenv
+
 ```
 or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
 
+```
+BYODA_HOME=/opt/byoda
+sudo mkdir ${BYODA_HOME}
+sudo chown -R $USER:$USER ${BYODA_HOME}
+git clone https://github.com/StevenHessing/byoda-python
+cd byoda-python
+sudo cp docs/files/gunicorn-systemd /etc/systemd/system/dirserver.service
+sudo systemctl daemon-reload
+sudo systemctl enable dirserver
+cp config-sample.yml config.yml
+```
 
-- Set up the DNS records
+Edit the config.yml, including the connection string for your Postgres server
+
+There is currently an issue with 'pipenv' to install the modules so we install
+python modules globally:
+
+```
+sudo pip install -r requirements.txt
+```
+
+Now we have to create the network, using the 'create_network.py' tool:
+```
+```
+
+We install nginx as reverse proxy in for the directory server:
+```
+sudo apt install nginx
+sudo rm -f /etc/nginx/conf.d/default.conf
+sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-nginx-virtualserver.conf /etc/nginx/conf.d/default.conf
+
+sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/nginx/conf.d/default.conf
+sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/nginx/conf.d/default.conf
+```
+
+You can't start NGINX just yet as the directory server must have a trusted TLS cert/key. Set up a [Let's Encrypt](https://www.letsencrypt.org) install on the directory server. Please follow the instructions from Let's Encrypt on how to do this. I recommend adding a virtual server to nginx for HTTP on port 80 for web-based verification of ownership of your domain and installing a cronjob to renew the cert/key periodically.
+
+Now we just have to start nginx and the directory server
+
+```
+sudo systemctl start dirserver nginx
+```
+

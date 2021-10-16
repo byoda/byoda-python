@@ -15,24 +15,6 @@
             }
         },
         {
-            "name": "create_secrets",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/create_secrets.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--debug",
-                "--type", "SERVICE",
-                "--service-id", "1",
-                "--network", "byoda.net",
-                "--root-directory", "/byoda"
-
-            ],
-            "env": {
-                "PYTHONPATH": "."
-            },
-        },
-        {
             "name": "create_service_secrets",
             "type": "python",
             "request": "launch",
@@ -113,7 +95,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--schema", "/byoda/network-byoda.net/services/service-0/private.json",
+                "--contract", "/tmp/byoda/network-byoda.net/services/service-0/private.json",
                 "--signing-party", "network",
                 "--network", "byoda.net",
                 "--root-directory", "/byoda"

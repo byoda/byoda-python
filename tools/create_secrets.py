@@ -37,6 +37,7 @@ _ROOT_DIR = os.environ['HOME'] + '/.byoda'
 
 
 def main(argv):
+    raise RuntimeError('This script is obsolete')
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
@@ -100,8 +101,7 @@ def main(argv):
 def create_network(args: argparse.ArgumentParser, network_data: dict[str, str]
                    ) -> Network:
 
-
-    return network
+    pass
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]

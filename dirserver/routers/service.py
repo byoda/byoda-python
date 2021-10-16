@@ -55,6 +55,7 @@ router = APIRouter(
     dependencies=[]
 )
 
+
 @router.get('/services', response_model=ServiceSummariesModel)
 def get_services(request: Request, skip: int = 0, count: int = 0):
     '''

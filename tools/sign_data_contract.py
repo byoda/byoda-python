@@ -31,7 +31,7 @@ def main(argv):
         '--signing-party', '-s', type=str, default=SignatureType.SERVICE.value,
         choices=[i.value for i in SignatureType]
     )
-    parser.add_argument('--schema', '-s', type=str)
+    parser.add_argument('--contract', '-c', type=str)
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
     parser.add_argument('--network', type=str, default='byoda.net')
     parser.add_argument('--password', '-p', type=str, default='byoda')

@@ -346,7 +346,6 @@ class Schema:
 
         self.json_schema['version'] = value
 
-
     @property
     def name(self):
         if not self.json_schema:
