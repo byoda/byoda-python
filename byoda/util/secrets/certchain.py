@@ -19,8 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CertChain:
-    def __init__(self, signed_cert: Certificate, cert_chain: List[Certificate]
-                 ):
+    def __init__(self, signed_cert: Certificate,
+                 cert_chain: List[Certificate]):
         '''
         Represents a signed cert and the list of certs of issuing CAs
         that signed the cert. Does not include the root cert. This class
@@ -36,12 +36,6 @@ class CertChain:
 
         self.signed_cert: Certificate = signed_cert
         self.cert_chain: List[Certificate] = cert_chain
-
-    @staticmethod
-    def from_string(signed_cert: str, cert_chain: str):
-        cert = x509.load_pem_x509_certificate(signed_cert)
-        chain = x509.load_pem_x509_certificate(cert_chain)
-        return CertChain(cert, chain)
 
     def __str__(self) -> str:
         '''

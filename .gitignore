@@ -4,9 +4,6 @@ uwsgi.yml
 # We store code generated for parsing GraphQL queries here
 podserver/codegen/*
 
-Pipfile
-
-Pipfile.lock
 
 .gitconfig
 

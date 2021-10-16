@@ -17,11 +17,13 @@ import requests
 
 from byoda.util import Logger
 
-from byoda.datamodel import Network, Service
-
+from byoda.datamodel import Network
+from byoda.datamodel import Service
+from byoda.datamodel import Server
 
 from byoda.util.secrets import NetworkRootCaSecret
 
+from byoda import config
 
 _LOGGER = None
 
@@ -91,6 +93,9 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
     '''
 
     network = Network(network_data, network_data)
+
+    config.server = Server()
+    config.server.network = network
 
     if not network.paths.network_directory_exists():
         raise ValueError(f'Network {args.network} not found')

@@ -285,10 +285,10 @@ class Network:
                     filepath = os.path.join(root, filename)
                     service = Service.get_service(self, filepath=filepath)
 
-                if service.service_id in self.services:
-                    raise ValueError(
-                        f'Duplicate service_id: {service.service_id}'
-                    )
+                    if service.service_id in self.services:
+                        raise ValueError(
+                            f'Duplicate service_id: {service.service_id}'
+                        )
 
                 self.services[service.service_id] = service
 

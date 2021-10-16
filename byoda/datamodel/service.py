@@ -334,15 +334,14 @@ class Service:
             )
 
         csr = secret.create_csr()
-        certchain = self.get_csr_signature(secret_cls, csr, issuing_ca)
+        self.get_csr_signature(secret, csr, issuing_ca)
 
-        secret.from_signed_cert(certchain)
         secret.save(password=self.private_key_password)
 
         return secret
 
-    def get_csr_signature(self, secret_cls: Callable, csr: CSR,
-                          issuing_ca: CaSecret) -> CertChain:
+    def get_csr_signature(self, secret: Secret, csr: CSR,
+                          issuing_ca: CaSecret) -> None:
         '''
         Gets the signed cert(chain) for the CSR. If issuing_ca parameter is
         specified then the CSR will be signed directly by the private key
@@ -350,43 +349,47 @@ class Service:
         POST /api/v1/network/service API call to the directory server of the
         network
         '''
+
         if issuing_ca:
+            # We have the private key of the issuing CA so can
+            # sign ourselves and be done with it
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
-        else:
-            if isinstance(secret_cls, ServiceCaSecret):
-                raise ValueError(
+            secret.from_signed_cert(certchain)
+            return
+
+        if not isinstance(secret, ServiceCaSecret):
+            raise ValueError(
                     f'No issuing_ca was provided for creating a '
-                    f'{type(secret_cls)}'
+                    f'{type(secret)}'
                 )
 
-            # Let's get the ServiceCA cert signed by the NetworkServicesCA
-            url = NETWORK_SERVICE_API.format(network=self.network.name)
-            csr_pem = csr.public_bytes(serialization.Encoding.PEM)
+        # We have to get our signature from the directory server
+        url = NETWORK_SERVICE_API.format(network=self.network.name)
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM)
 
-            response = config.requests.post(
-                url, json={'csr': str(csr_pem, 'utf-8')}
+        response = config.requests.post(
+            url, json={'csr': str(csr_pem, 'utf-8')}
+        )
+        if response.status_code != 200:
+            raise ValueError(
+                f'Failed to POST to API {NETWORK_SERVICE_API}: '
+                f'{response.statuscode}'
             )
-            if response.status_code != 200:
-                raise ValueError(
-                    f'Failed to POST to API {NETWORK_SERVICE_API}: '
-                    f'{response.statuscode}'
-                )
-            data = response.json()
-            certchain = CertChain.from_string(
-                data['signed_cert'], data['cert_chain']
-            )
-            # Every time we receive the network data cert, we
-            # save it as it could have changed since the last time we
-            # got it
-            network = config.server.network
-            network.data_secret.from_string(
-                data['network_data_cert']
-            )
-            network.data_secret.save(
-                password=network.private_key_password, overwrite=True
-            )
-        return certchain
+        data = response.json()
+        secret.from_string(data['signed_cert'] + data['cert_chain'])
+
+        # Every time we receive the network data cert, we
+        # save it as it could have changed since the last time we
+        # got it
+        network = config.server.network
+        network.data_secret.from_string(
+            data['network_data_cert']
+        )
+        network.data_secret.save(
+            password=network.private_key_password, overwrite=True
+        )
+        return
 
     def load_secrets(self, with_private_key: bool = True, password: str = None
                      ) -> None:
