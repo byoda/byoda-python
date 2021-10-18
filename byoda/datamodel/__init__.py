@@ -13,6 +13,7 @@ from .schema import Schema
 from .schema import SignatureType
 from .memberdata import MemberData
 from .service import Service
+from .service import NETWORK_SERVICE_API
 from .account import Account
 from .member import Member
 

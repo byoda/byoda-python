@@ -11,12 +11,17 @@ Manages the signing of a data contract of a service.
 import os
 import argparse
 import sys
+import json
+
+import requests
 
 from byoda.datamodel import Network, Service
+from byoda.datamodel import NETWORK_SERVICE_API
 from byoda.storage.filestorage import FileStorage
 
 from byoda.util import SignatureType
 from byoda.util import Logger
+from byoda.util.secrets.service_secret import ServiceSecret
 
 _LOGGER = None
 
@@ -36,7 +41,7 @@ def main(argv):
     parser.add_argument('--network', type=str, default='byoda.net')
     parser.add_argument('--password', '-p', type=str, default='byoda')
     parser.add_argument(
-        '--local', default=True, action='store_false'
+        '--local', default=False, action='store_true'
     )
     args = parser.parse_args()
 
@@ -49,11 +54,6 @@ def main(argv):
         'network': args.network,
         'root_dir': args.root_directory,
     }
-
-    if args.local is False:
-        raise NotImplementedError(
-            'Getting certs signed over the Internet is not yet supported'
-        )
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -81,11 +81,32 @@ def main(argv):
             service.data_secret, SignatureType.SERVICE
         )
 
-        # TODO: more checks on the validity of the JSON Schema
-
-        service.schema.create_signature(
-            network.data_secret, SignatureType.NETWORK
-        )
+        if args.local:
+            service.schema.create_signature(
+                network.data_secret, SignatureType.NETWORK
+            )
+        else:
+            service_secret = ServiceSecret(None, service.service_id, network)
+            service_secret.load(with_private_key=True)
+            key_path = service_secret.save_tmp_private_key()
+            url = NETWORK_SERVICE_API.format(network=args.network)
+            response = requests.patch(
+                url, cert=(service_secret.cert_file, key_path)
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data['errors']:
+                    _LOGGER.debug('Validation of service by the network failed')
+                    for error in data['errors']:
+                        _LOGGER.debug(f'Validation error: {error}')
+                else:
+                    response = requests.get(
+                        f'{url}/service_id={service.service_id}'
+                    )
+                    if response.status_code == 200:
+                        with open(args.contract, 'w') as file_desc:
+                            file_desc.write(response.text)
+                        _LOGGER.debug('Network validation')
     else:
         if schema['signatures'].get(SignatureType.NETWORK.value):
             raise ValueError('Schema has already been signed by the network')
@@ -97,8 +118,12 @@ def main(argv):
             service.data_secret, SignatureType.SERVICE
         )
 
-    storage_driver = FileStorage('/byoda')
-    service.schema.save(args.schema, storage_driver=storage_driver)
+    if not args.root_directory.startswith('/'):
+        # Hack to make relative paths work with the FileStorage class
+        args.root_directory = os.getcwd()
+
+    storage_driver = FileStorage(args.root_directory)
+    service.schema.save(args.contract, storage_driver=storage_driver)
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
@@ -125,7 +150,7 @@ def load_service(args, network):
     Load service and its secrets
     '''
     service = Service(
-        network=network, filepath=args.schema,
+        network=network, filepath=args.contract,
     )
 
     if args.signing_party == 'service':

@@ -71,20 +71,7 @@
     "name": "private",
     "owner": "Steven Hessing",
     "service_id": 0,
-    "signatures": {
-        "network": {
-            "certificate": "network.network-data.byoda.net",
-            "hash_algorithm": "SHA256",
-            "signature": "QutUZjSa0sn0Aleffu2knD6ccdl1MWsxk6eeJtZcXGt66zoxOnL0ptT78w4+VLTBgfscWE0deQ7KQ1xn5a367BSbU4MVD1fiRJ7yRj71oGcrm6F63/H7lt5dKV2QBZ28/C99Ak1TYa3q+g9EQH50TbMHG3NrOwFtWQFjxlwjpgV0jhmtFs15VI3f5BP7j3JU3EDpDzvoRHspLGLMHJOy3hG5VXAuC5JIf/zrrPZDG5abewiN0pbrEwYqKzcoGXahMpxgTFGJviJarKnrOco4W/oN+cii+w0RPIhpCK0lw7jbt+gmTLgMsfTDfON97ELcUKOG8kvfGq+V2TUJazY1VkaAc2ynLEdsWwr1JVAljfHwjvJu5DJqG2k/M8wpLSjddKzzfthRJgYUj35gQYbHtaPYa6jD4ib0RMeFbC6yliy/kGCB/0JNwg5ZioSpGFWDklhdTJw1hBOsSkHI1zPv+Q3IR9eJC8BerZm5xdo40HyjlJcHowfICGlPkaqufHfM",
-            "timestamp": "2021-10-11T21:23:12"
-        },
-        "service": {
-            "certificate": "data.service-data-0.byoda.net",
-            "hash_algorithm": "SHA256",
-            "signature": "SCDIhhqtnDRoNZXPGUGF52p6azz9d6mGIzAaUgL805nkwCkmH/5tLiOZl9JzzJVa+tUw0yAEKJhEPs7e5KCrwf020EKd4dEOnCXnBhuMMVidVbAD44Ir+/m8k8HMxw8mqWzDsrs96U5ZqXk3iPaLmoxtoMwnSG3a3CteCPMh6ChHjbrl4GlIDSDPpJr89M/UdC0fLvvUVhu9TK3W56PsFNUwMSa1yBLcJgfsOmhlX8eyYAtd+tDpv2tWLrVmic8aoLjAhn58sRkXjbjzg+UobeW2H1skB5S8NGhulRLWJhFBxfK6Mjoonax3I6UE2/R0/ebzy0zlmtHTXF0mNMzC1/wmgcM1uw9nX0YqLoB+eQAQPRV/4QRq/inC1VyYvbMA6GiRXMaiynq6pN3UicSIeL9QbtAhJqK3wxPICYjmdp7qZI5EjthKBiaVu+Drwc3eIBEjrikaW69W3fZ1MuE2cUuVfw6pwGbpQ/m/iCdt1xQ8/6Up2wI5wPjMGt0Be6Qx",
-            "timestamp": "2021-10-11T21:23:04"
-        }
-    },
+    "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
     "website": "https://www.byoda.org/"

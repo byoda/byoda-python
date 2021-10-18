@@ -97,3 +97,4 @@ cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 tools/sign_data_contract.py --debug --schema ${SERVICE_CONTRACT} --signing-party service --network ${BYODA_NETWORK} --root-directory ${SERVICE_DIR}
 tools/sign_data_contract.py --debug --schema ${SERVICE_CONTRACT} --signing-party network --network ${BYODA_NETWORK} --root-directory ${SERVICE_DIR}
+cp ${SERVICE_CONTRACT} $SERVICE_DIR/network-${BYODA_NET}/service-${SERVICE_ID}/service.json
