@@ -372,10 +372,10 @@ class Service:
         response = config.requests.post(
             url, json={'csr': str(csr_pem, 'utf-8')}
         )
-        if response.status_code != 200:
+        if response.status_code != 201:
             raise ValueError(
                 f'Failed to POST to API {NETWORK_SERVICE_API}: '
-                f'{response.statuscode}'
+                f'{response.status_code}'
             )
         data = response.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
