@@ -96,9 +96,8 @@
             "args": [
                 "--debug",
                 "--contract", "/tmp/byoda/network-byoda.net/services/service-0/service.json",
-                "--signing-party", "network",
                 "--network", "byoda.net",
-                "--root-directory", "/byoda"
+                "--root-directory", "/tmp/byoda"
 
             ],
             "env": {

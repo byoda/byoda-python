@@ -33,7 +33,7 @@ def main(argv):
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     parser.add_argument(
-        '--signing-party', '-s', type=str, default=SignatureType.SERVICE.value,
+        '--signing-party', '-s', type=str, default=None,
         choices=[i.value for i in SignatureType]
     )
     parser.add_argument('--contract', '-c', type=str)
@@ -68,55 +68,24 @@ def main(argv):
     if 'signatures' not in schema:
         schema['signatures'] = {}
 
-    if args.signing_party == SignatureType.NETWORK.value:
-        if schema['signatures'].get(SignatureType.NETWORK.value):
-            raise ValueError('Schema has already been signed by the network')
+    result = None
+    if (not args.signing_party
+            or args.signing_party == SignatureType.SERVICE.value):
+        try:
+            create_service_signature(service)
+            result = True
+        except Exception as exc:
+            _LOGGER.exception(f'Failed to get service signature: {exc}')
+            result = False
 
-        if SignatureType.SERVICE.value not in schema['signatures']:
-            raise ValueError('Schema has not been signed by the service')
+    if (result is not False and (
+            not args.signing_party
+            or args.signing_party == SignatureType.NETWORK.value)):
+        result = create_network_signature(service, args)
 
-        # We first verify the service signature before we add the network
-        # signature
-        service.schema.verify_signature(
-            service.data_secret, SignatureType.SERVICE
-        )
-
-        if args.local:
-            service.schema.create_signature(
-                network.data_secret, SignatureType.NETWORK
-            )
-        else:
-            service_secret = ServiceSecret(None, service.service_id, network)
-            service_secret.load(with_private_key=True)
-            key_path = service_secret.save_tmp_private_key()
-            url = NETWORK_SERVICE_API.format(network=args.network)
-            response = requests.patch(
-                url, cert=(service_secret.cert_file, key_path)
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if data['errors']:
-                    _LOGGER.debug('Validation of service by the network failed')
-                    for error in data['errors']:
-                        _LOGGER.debug(f'Validation error: {error}')
-                else:
-                    response = requests.get(
-                        f'{url}/service_id={service.service_id}'
-                    )
-                    if response.status_code == 200:
-                        with open(args.contract, 'w') as file_desc:
-                            file_desc.write(response.text)
-                        _LOGGER.debug('Network validation')
-    else:
-        if schema['signatures'].get(SignatureType.NETWORK.value):
-            raise ValueError('Schema has already been signed by the network')
-
-        if SignatureType.SERVICE.value in schema['signatures']:
-            raise ValueError('Schema has already been signed by the service')
-
-        service.schema.create_signature(
-            service.data_secret, SignatureType.SERVICE
-        )
+    if not result:
+        _LOGGER.error('Failed to get the network signature')
+        sys.exit(1)
 
     if not args.root_directory.startswith('/'):
         # Hack to make relative paths work with the FileStorage class
@@ -124,6 +93,76 @@ def main(argv):
 
     storage_driver = FileStorage(args.root_directory)
     service.schema.save(args.contract, storage_driver=storage_driver)
+
+
+def create_service_signature(service):
+    schema = service.schema.json_schema
+
+    if SignatureType.SERVICE.value in schema['signatures']:
+        raise ValueError('Schema has already been signed by the service')
+
+    if schema['signatures'].get(SignatureType.NETWORK.value):
+        raise ValueError('Schema has already been signed by the network')
+
+    service.schema.create_signature(
+        service.data_secret, SignatureType.SERVICE
+    )
+
+
+def create_network_signature(service, args) -> bool:
+    '''
+    Add network signature to the service schema/data contract,
+    either locally or by a directory server over the network
+
+    :returns: was signing the schema/contract successful?
+    '''
+    schema = service.schema.json_schema
+    network = service.network
+
+    if SignatureType.SERVICE.value not in schema['signatures']:
+        raise ValueError('Schema has not been signed by the service')
+
+    if schema['signatures'].get(SignatureType.NETWORK.value):
+        raise ValueError('Schema has already been signed by the network')
+
+    # We first verify the service signature before we add the network
+    # signature
+    service.schema.verify_signature(
+        service.data_secret, SignatureType.SERVICE
+    )
+
+    if args.local:
+        # When signing locally, the service contract gets updated
+        # with the network signature
+        service.schema.create_signature(
+            network.data_secret, SignatureType.NETWORK
+        )
+        return True
+    else:
+        service_secret = ServiceSecret(None, service.service_id, network)
+        service_secret.load(with_private_key=True)
+        key_path = service_secret.save_tmp_private_key()
+        url = NETWORK_SERVICE_API.format(network=args.network)
+        response = requests.patch(
+            url, cert=(service_secret.cert_file, key_path)
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data['errors']:
+                _LOGGER.debug('Validation of service by the network failed')
+                for error in data['errors']:
+                    _LOGGER.debug(f'Validation error: {error}')
+
+                return False
+            else:
+                response = requests.get(
+                    f'{url}/service_id={service.service_id}'
+                )
+                if response.status_code == 200:
+                    service.schema.json_schema = response.text
+                    return True
+
+                return False
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
@@ -153,7 +192,7 @@ def load_service(args, network):
         network=network, filepath=args.contract,
     )
 
-    if args.signing_party == 'service':
+    if not args.signing_party or args.signing_party == 'service':
         service.load_secrets(with_private_key=True, password=args.password)
     else:
         service.load_secrets(with_private_key=False)

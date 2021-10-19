@@ -115,7 +115,7 @@ class ServiceSecret(Secret):
         if entity_id.id_type != IdType.SERVICE:
             raise ValueError(f'Invalid {commonname} for a Service secret')
 
-        if not entity_id.service_id:
+        if entity_id.service_id is None:
             raise ValueError(f'No service ID in commonname {commonname}')
 
         return entity_id
