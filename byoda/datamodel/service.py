@@ -333,6 +333,7 @@ class Service:
                 'already exists'
             )
 
+        # TODO: SECURITY: add constraints
         csr = secret.create_csr()
         self.get_csr_signature(secret, csr, issuing_ca)
 

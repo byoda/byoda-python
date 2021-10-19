@@ -167,6 +167,7 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
+                # TODO: SECURITY: add constraints
                 csr = secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
                 url = f'https://dir.{self.network}/api/v1/network/account'
@@ -180,6 +181,7 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
+            # TODO: SECURITY: add constraints
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)

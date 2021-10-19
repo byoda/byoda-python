@@ -108,7 +108,9 @@ def get_service(request: Request, service_id: int):
     return schema.json_schema
 
 
-@router.post('/service', response_model=SignedCertResponseModel)
+@router.post(
+    '/service', response_model=SignedCertResponseModel, status_code=201
+)
 def post_service(request: Request, csr: CertSigningRequestModel):
     '''
     Submit a Certificate Signing Request for the ServiceCA certificate

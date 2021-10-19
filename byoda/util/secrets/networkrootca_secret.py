@@ -14,8 +14,6 @@ from byoda.util import Paths
 from byoda.datatypes import CsrSource, EntityId
 from byoda.datatypes import IdType
 
-from byoda import config
-
 from .secret import CSR
 from .ca_secret import CaSecret
 
@@ -91,6 +89,8 @@ class NetworkRootCaSecret(CaSecret):
         :returns: the common name with the network domain stripped off
         :raises: ValueError if the commonname is not valid for this class
         '''
+
+        # TODO: SECURITY: add constraints
 
         # Checks on commonname type and the network postfix
         entity_id = super().review_commonname(

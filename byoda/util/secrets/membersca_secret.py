@@ -76,6 +76,7 @@ class MembersCaSecret(CaSecret):
                                 a private key or cert
         '''
 
+        # TODO: SECURITY: add constraints
         name = self.id_type.value.rstrip('-')
         common_name = (
             f'{name}.{self.id_type.value}{self.service_id}.'

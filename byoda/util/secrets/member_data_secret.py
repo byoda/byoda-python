@@ -88,6 +88,7 @@ class MemberDataSecret(DataSecret):
                                 a private key or cert
         '''
 
+        # TODO: SECURITY: add constraints
         common_name = (
             f'{self.member_id}.{self.id_type.value}{self.service_id}'
             f'.{self.network}'

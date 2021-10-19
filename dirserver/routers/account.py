@@ -32,7 +32,9 @@ router = APIRouter(
 )
 
 
-@router.post('/account', response_model=SignedCertResponseModel)
+@router.post(
+    '/account', response_model=SignedCertResponseModel, status_code=201
+)
 def post_account(request: Request, csr: CertSigningRequestModel):
     '''
     Submit a Certificate Signing Request and get the signed

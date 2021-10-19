@@ -148,6 +148,7 @@ class Secret:
         )
 
         if issuing_ca:
+            # TODO: SECURITY: add constraints
             csr = self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr, expire)
         else:
@@ -202,6 +203,7 @@ class Secret:
         if self.private_key or self.cert:
             raise ValueError('Secret already has a cert or private key')
 
+        # TODO: SECURITY: add constraints
         self.common_name = common_name
 
         _LOGGER.debug(

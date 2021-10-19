@@ -182,6 +182,7 @@ class Member:
                 'Service API for signing certs is not yet available'
             )
 
+        # TODO: SECURITY: add constraints
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)

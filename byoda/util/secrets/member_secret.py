@@ -70,6 +70,7 @@ class MemberSecret(Secret):
         a private key or cert
         '''
 
+        # TODO: SECURITY: add constraints
         common_name = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )

@@ -9,7 +9,6 @@ Cert manipulation
 import logging
 from typing import List
 
-from cryptography import x509
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
 
@@ -83,4 +82,3 @@ class CertChain:
         '''
 
         storage_driver.write(filepath, str(self))
-

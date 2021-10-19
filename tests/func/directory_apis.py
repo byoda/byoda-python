@@ -161,7 +161,7 @@ class TestDirectoryApis(unittest.TestCase):
         response = requests.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         data = response.json()
         issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
             data['cert_chain'].encode()
@@ -193,7 +193,7 @@ class TestDirectoryApis(unittest.TestCase):
         response = requests.post(
             API, json={'csr': str(csr, 'utf-8')}
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         data = response.json()
         issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
             data['cert_chain'].encode()
@@ -203,7 +203,7 @@ class TestDirectoryApis(unittest.TestCase):
         )
         # TODO: populate a secret from a CertChain
         serviceca_secret.cert = serviceca_cert
-
+        serviceca_secret.cert_chain = [issuing_ca_cert]
         network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
             data['network_data_cert'].encode()
         )

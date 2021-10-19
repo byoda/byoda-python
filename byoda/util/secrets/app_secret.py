@@ -60,6 +60,7 @@ class MemberSecret(Secret):
 
         self.member_id = member_id
 
+        # TODO: SECURITY: add constraints
         common_name = (
             f'{member_id}.{self.id_type.value}{self.service_id}.{network}'
         )

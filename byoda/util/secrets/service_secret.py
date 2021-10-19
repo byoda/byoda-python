@@ -62,6 +62,7 @@ class ServiceSecret(Secret):
         or cert
         '''
 
+        # TODO: SECURITY: add constraints
         common_name = ServiceSecret.create_commonname(
             self.service_id, self.network
         )

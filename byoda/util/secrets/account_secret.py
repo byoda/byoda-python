@@ -67,6 +67,7 @@ class AccountSecret(Secret):
         if account_id:
             self.account_id = account_id
 
+        # TODO: SECURITY: add constraints
         if not self.network:
             raise ValueError('Network not defined')
 

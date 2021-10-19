@@ -14,7 +14,7 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util import Paths
 
-from byoda.datatypes import IdType, CsrSource, EntityId
+from byoda.datatypes import IdType, EntityId
 from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ class AppsCaSecret(CaSecret):
                                 a private key or cert
         '''
 
+        # TODO: SECURITY: add constraints
         common_name = (
             f'apps-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'

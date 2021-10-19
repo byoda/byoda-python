@@ -11,8 +11,7 @@ import datetime
 import logging
 from typing import List
 
-from copy import copy
-from uuid import UUID
+from copy import deepcopy
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
@@ -250,8 +249,11 @@ class CaSecret(Secret):
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-        cert_chain = copy(self.cert_chain)
+        cert_chain = []
         if not self.is_root_cert:
-            cert_chain.append(self.cert)
+            cert_chain = [deepcopy(self.cert)]
+
+        if self.cert_chain:
+            cert_chain.extend(deepcopy(self.cert_chain))
 
         return CertChain(cert, cert_chain)

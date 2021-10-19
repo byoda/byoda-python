@@ -67,6 +67,7 @@ class NetworkAccountsCaSecret(CaSecret):
 
         '''
 
+        # TODO: SECURITY: add constraints
         commonname = (
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )

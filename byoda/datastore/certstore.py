@@ -55,9 +55,7 @@ class CertStore:
                  ValueError if there is something else unacceptable in the CSR
         '''
 
-        if type(csr) in (str, bytes):
-            pass
-        else:
+        if type(csr) not in (str, bytes):
             raise ValueError('CSR must be a string or a byte array')
 
         cert_auth = self.ca_secret
@@ -74,12 +72,16 @@ class CertStore:
         entity_id = cert_auth.review_csr(csr)
 
         if entity_id.id_type == IdType.SERVICE:
-            raise NotImplementedError('Service certs are not yet supported')
+            raise NotImplementedError(
+                'Service certs are not supported for this API, '
+                'only ServiceCA certs'
+            )
         elif entity_id.id_type == IdType.MEMBER:
-            raise NotImplementedError('Member certs are not yet supported')
+            raise NotImplementedError(
+                'Member certs are not supported for this API'
+            )
 
         # TODO: add check on whether the UUID is already in use
-
         certchain = cert_auth.sign_csr(csr, 365*3)
 
         id_type = entity_id.id_type.value.strip('-')
