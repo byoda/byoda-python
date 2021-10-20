@@ -119,9 +119,11 @@ def get_service(request: Request, service_id: int):
         if service is None:
             raise ValueError(f'Unkown service id: {service_id}')
 
-    schema = service.schema
+    if not service.schema:
+        filepath = network.paths.get(Paths.SERVICE_FILE)
+        service.load_schema(filepath)
 
-    return schema.json_schema
+    return service.schema.json_schema
 
 
 @router.post(
