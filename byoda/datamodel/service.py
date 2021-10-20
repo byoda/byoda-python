@@ -373,6 +373,72 @@ class Service:
 
         return secret
 
+    def get_csr_signature(self, secret: Secret, csr: CSR,
+                          issuing_ca: CaSecret) -> None:
+        '''
+        Gets the signed cert(chain) for the CSR and saves returned cert and the
+        existing private key.
+        If the issuing_ca parameter is specified then the CSR will be signed
+        directly by the private key of the issuing_ca, otherwise the CSR will be
+        send in a POST /api/v1/network/service API call to the directory server
+        of the network
+        '''
+
+        if (isinstance(secret, ServiceCaSecret) and (
+                self.registration_status != RegistrationStatus.Unknown
+                or secret.cert_file_exists())):
+            # TODO: support renewal of ServiceCA cert
+            raise ValueError('ServiceCA cert has already been signed')
+
+        if issuing_ca:
+            # We have the private key of the issuing CA so can
+            # sign ourselves and be done with it
+            issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+            certchain = issuing_ca.sign_csr(csr)
+            secret.from_signed_cert(certchain)
+            secret.save()
+            # We do not set self.registration_status as locally signing
+            # does not provide informaiton about the status of service in
+            # the network
+            return
+
+        if not isinstance(secret, ServiceCaSecret):
+            raise ValueError(
+                    f'No issuing_ca was provided for creating a '
+                    f'{type(secret)}'
+                )
+
+        # We have to get our signature from the directory server
+        data = {
+            'csr': str(
+                csr.public_bytes(serialization.Encoding.PEM), 'utf-8'
+            )
+        }
+
+        response = RestApiClient.call(
+            Paths.NETWORKSERVICE_API, HttpMethod.POST, data=data
+        )
+        if response.status_code != 201:
+            raise ValueError(
+                f'Failed to POST to API {NETWORK_SERVICE_API}: '
+                f'{response.status_code}'
+            )
+        data = response.json()
+        secret.from_string(data['signed_cert'] + data['cert_chain'])
+        self.registration_status = RegistrationStatus.CsrSigned
+        secret.save()
+
+        # Every time we receive the network data cert, we
+        # save it as it could have changed since the last time we
+        # got it
+        network = config.server.network
+        if not network.data_secret:
+            network.data_secret = NetworkDataSecret(network.paths)
+        network.data_secret.from_string(data['network_data_cert'])
+        network.data_secret.save(
+            password=network.private_key_password, overwrite=True
+        )
+
     @staticmethod
     def is_registered(service_id: int,
                       registration_status: RegistrationStatus = None) -> bool:
@@ -400,7 +466,7 @@ class Service:
                 f'on servers of type {type(server)}'
             )
 
-        status = Service.get_status(service_id)
+        status = Service.get_registration_status(service_id)
 
         if status == RegistrationStatus.Unknown:
             return False
@@ -459,73 +525,6 @@ class Service:
 
         return RegistrationStatus.Unknown
 
-
-    def get_csr_signature(self, secret: Secret, csr: CSR,
-                          issuing_ca: CaSecret) -> None:
-        '''
-        Gets the signed cert(chain) for the CSR and saves returned cert and the
-        existing private key.
-        If the issuing_ca parameter is specified then the CSR will be signed
-        directly by the private key of the issuing_ca, otherwise the CSR will be
-        send in a POST /api/v1/network/service API call to the directory server
-        of the network
-        '''
-
-        if (isinstance(secret, ServiceCaSecret) and (
-                self.registration_status != RegistrationStatus.Unknown
-                or secret.cert_file_exists())):
-            # TODO: support renewal of ServiceCA cert
-            raise ValueError('ServiceCA cert has already been signed')
-
-        if issuing_ca:
-            # We have the private key of the issuing CA so can
-            # sign ourselves and be done with it
-            issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-            certchain = issuing_ca.sign_csr(csr)
-            secret.from_signed_cert(certchain)
-
-            # We do not set self.registration_status as locally signing
-            # does not provide informaiton about the status of service in
-            # the network
-            return
-
-        if not isinstance(secret, ServiceCaSecret):
-            raise ValueError(
-                    f'No issuing_ca was provided for creating a '
-                    f'{type(secret)}'
-                )
-
-        # We have to get our signature from the directory server
-        url = NETWORK_SERVICE_API.format(network=self.network.name)
-        csr_pem = csr.public_bytes(serialization.Encoding.PEM)
-
-        response = config.requests.post(
-            url, json={'csr': str(csr_pem, 'utf-8')}
-        )
-        if response.status_code != 201:
-            raise ValueError(
-                f'Failed to POST to API {NETWORK_SERVICE_API}: '
-                f'{response.status_code}'
-            )
-        data = response.json()
-        secret.from_string(data['signed_cert'] + data['cert_chain'])
-        self.registration_status = RegistrationStatus.CsrSigned
-        secret.save()
-
-        # Every time we receive the network data cert, we
-        # save it as it could have changed since the last time we
-        # got it
-        network = config.server.network
-        if not network.data_secret:
-            network.data_secret = NetworkDataSecret(network.paths)
-        network.data_secret.from_string(
-            data['network_data_cert']
-        )
-        network.data_secret.save(
-            password=network.private_key_password, overwrite=True
-        )
-        return
-
     def register_service(self):
         '''
         Registers the service with the network using the Service TLS secret
@@ -545,15 +544,16 @@ class Service:
             )
 
         key_path = self.tls_secret.save_tmp_private_key()
-        data_certchain = self.data_secret.certchain_as_pem()
+        data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
 
-        client = RestApiClient.call(
+        response = RestApiClient.call(
             Paths.NETWORKSERVICE_API,
             HttpMethod.PUT,
             secret=self.tls_secret,
             data=data_certchain,
             service_id=self.service_id
         )
+        return response
 
     def load_secrets(self, with_private_key: bool = True, password: str = None
                      ) -> None:

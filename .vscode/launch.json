@@ -15,22 +15,6 @@
             }
         },
         {
-            "name": "create_service_secrets",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/create_service_secrets.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--debug",
-                "--schema", "services/private.json",
-                "--network", "byoda.net",
-                "--root-directory", "/tmp/byoda"
-
-            ],
-            "env": {
-                "PYTHONPATH": "."
-            },
-        },        {
             "name": "dirserver",
             "type": "python",
             "request": "launch",
@@ -86,6 +70,23 @@
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda"
             }
+        },
+        {
+            "name": "create_service_secrets",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/create_service_secrets.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--debug",
+                "--schema", "services/private.json",
+                "--network", "byoda.net",
+                "--root-directory", "/tmp/byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            },
         },
         {
             "name": "sign data contract",

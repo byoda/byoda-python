@@ -606,7 +606,7 @@ class Secret:
 
         return data.decode('utf-8')
 
-    def save_tmp_private_key(self) -> str:
+    def save_tmp_private_key(self, filepath: str = '/tmp/private.key') -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
         so both the requests library and nginx can read it
@@ -615,9 +615,8 @@ class Secret:
         :raises: (none)
         '''
 
-        # TODO: check if file can be deleted after cert/key are added
-        # to the requests.Session()
-        filepath = '/tmp/private.key'
+        # TODO: SECURITY check if file can be deleted after cert/key
+        # are added to the requests.Session()
         _LOGGER.debug('Saving private key to %s', filepath)
         private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:

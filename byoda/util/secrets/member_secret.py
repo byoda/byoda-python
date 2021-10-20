@@ -98,3 +98,12 @@ class MemberSecret(Secret):
     def load(self, with_private_key: bool = True, password: str = 'byoda'):
         super().load(with_private_key=with_private_key, password=password)
         self.member_id = UUID(self.common_name.split('.')[0])
+
+    def save_tmp_private_key(self):
+        '''
+        Save the private key for the MemberSecret so nginx and the python
+        requests module can use it.
+        '''
+        return super().save_tmp_private_key(
+            filepath=f'/tmp/private-member-{self.member_id}.key'
+        )

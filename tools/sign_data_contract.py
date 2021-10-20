@@ -22,6 +22,8 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.util import SignatureType
 from byoda.util import Logger
+from byoda.util import Paths
+from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 from byoda.util.secrets.service_secret import ServiceSecret
 
 from byoda import config
@@ -198,11 +200,12 @@ def create_network_signature(service, args) -> bool:
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
         service_secret.load(with_private_key=True)
-        key_path = service_secret.save_tmp_private_key()
-        url = NETWORK_SERVICE_API.format(network=args.network)
-        response = requests.patch(
-            url, cert=(service_secret.cert_file, key_path),
-            json=service.schema.json_schema
+        response = RestApiClient.call(
+            Paths.NETWORKSERVICE_API,
+            HttpMethod.PATCH,
+            secret=service_secret,
+            data=service.schema.json_schema,
+            service_id=service.service_id
         )
         if response.status_code == 200:
             data = response.json()

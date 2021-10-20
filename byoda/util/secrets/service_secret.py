@@ -119,3 +119,12 @@ class ServiceSecret(Secret):
             raise ValueError(f'No service ID in commonname {commonname}')
 
         return entity_id
+
+    def save_tmp_private_key(self):
+        '''
+        Save the private key for the ServiceSecret so nginx and the python
+        requests module can use it.
+        '''
+        return super().save_tmp_private_key(
+            filepath='/tmp/private-service.key'
+        )

@@ -69,8 +69,10 @@ class ApiClient:
             self.session.timout = 3
             if secret:
                 key_path = secret.save_tmp_private_key()
+                self.session.cert = (secret.cert_file, key_path)
+            else:
+                self.session.cert = None
 
-            self.session.cert = (secret.cert_file, key_path)
             if isinstance(secret, MemberSecret):
                 self.session.verify = server.network.root_ca.cert_file()
         else:
