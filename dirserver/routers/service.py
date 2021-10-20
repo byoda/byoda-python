@@ -289,7 +289,20 @@ def patch_service(request: Request, schema: SchemaModel,
             f'id {auth.service_id} in client cert'
         )
     else:
-        service = network.services.get(service_id)
+        if service_id not in network.services:
+            # So this worker process does not know about the service. Let's
+            # see if a CSR for the service secret has previously been signed
+            # and the resulting cert saved
+            if not Service.is_registered(service_id):
+                service = None
+            else:
+                service = Service(network, service_id=service_id)
+                service.registration_status = RegistrationStatus.CsrSigned
+                # Add service to in-memory cache
+                network.services[service_id] = service
+        else:
+            service = network.services.get(service_id)
+
         if not service:
             status = ReviewStatusType.REJECTED
             errors.append(f'Unregistered service ID {service_id}')
