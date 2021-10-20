@@ -12,10 +12,7 @@ import os
 import argparse
 import sys
 
-import requests
-
 from byoda.datamodel import Network, Service
-from byoda.datamodel import NETWORK_SERVICE_API
 from byoda.datamodel.server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 from byoda.storage.filestorage import FileStorage

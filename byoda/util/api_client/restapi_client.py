@@ -49,6 +49,13 @@ class RestApiClient:
         Calls an API using the right credentials and accepted CAs
         '''
 
+        if (method == HttpMethod.POST
+                and (service_id is not None or member_id is not None
+                or account_id is not None)):
+            raise ValueError(
+                'BYODA POST APIs do not accept query parameters'
+            )
+    
         response = ApiClient.call(
             api, method.value, secret=secret, params=params, data=data, service_id=service_id,
             member_id=member_id, account_id=account_id

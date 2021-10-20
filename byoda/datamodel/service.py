@@ -46,8 +46,6 @@ _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 
-NETWORK_SERVICE_API = 'https://dir.{network}/api/v1/network/service'
-
 
 class RegistrationStatus(Enum):
     # flake8: noqa=E221
@@ -421,7 +419,7 @@ class Service:
         )
         if response.status_code != 201:
             raise ValueError(
-                f'Failed to POST to API {NETWORK_SERVICE_API}: '
+                f'Failed to POST to API {Paths.NETWORKSERVICE_API}: '
                 f'{response.status_code}'
             )
         data = response.json()
