@@ -17,6 +17,7 @@ from enum import Enum
 from cryptography.hazmat.primitives import serialization
 
 from byoda.datamodel.server import DirectoryServer, ServerType
+from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.datatypes import CsrSource
 
@@ -494,7 +495,8 @@ class Service:
         if isinstance(server, DirectoryServer):
             try:
                 self.network.dnsdb.lookup(
-                    None, IdType.SERVICE, service_id=self.service_id
+                    None, IdType.SERVICE, DnsRecordType.A,
+                    service_id=self.service_id,
                 )
                 return RegistrationStatus.Registered
             except KeyError:

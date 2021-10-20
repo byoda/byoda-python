@@ -205,7 +205,6 @@ def create_network_signature(service, args) -> bool:
             HttpMethod.PATCH,
             secret=service_secret,
             data=service.schema.json_schema,
-            service_id=service.service_id
         )
         if response.status_code == 200:
             data = response.json()
