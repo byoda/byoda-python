@@ -112,7 +112,9 @@ def main(argv):
         args.root_directory = os.getcwd()
 
     storage_driver = FileStorage(args.root_directory)
-    service.schema.save(args.contract, storage_driver=storage_driver)
+    service.schema.save(
+        service.paths.get(Paths.SERVICE_FILE), storage_driver=storage_driver
+    )
 
 
 def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
@@ -222,7 +224,9 @@ def create_network_signature(service, args) -> bool:
                     service_id=service.service_id
                 )
                 if response.status_code == 200:
-                    service.schema.json_schema = response.text
+                    raw = response.raw
+                    text = response.text
+                    service.schema.json_schema = response.json
                     service.registration_status = \
                         RegistrationStatus.SchemaSigned
                     return True

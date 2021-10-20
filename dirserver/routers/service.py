@@ -216,7 +216,7 @@ def put_service(request: Request, service_id: int,
         if not Service.is_registered(service_id):
             raise ValueError(f'Registration for unknown service: {service_id}')
 
-        service = Service(None, service_id=service_id)
+        service = Service(network, service_id=service_id)
         service.registration_status = RegistrationStatus.CsrSigned
         network.services[service_id] = service
     else:

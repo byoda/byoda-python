@@ -96,7 +96,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--contract", "/tmp/byoda/network-byoda.net/services/service-0/service-contract.json",
+                "--contract", "services/private.json",
                 "--network", "byoda.net",
                 "--root-directory", "/tmp/byoda"
 
