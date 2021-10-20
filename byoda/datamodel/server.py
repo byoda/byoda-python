@@ -21,9 +21,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ServerType(Enum):
-    POD         = 'pod'             # noqa: E221
-    DIRECTORY   = 'directory'       # noqa: E221
-    SERVICE     = 'service'         # noqa: E221
+    Pod         = 'pod'             # noqa: E221
+    Directory   = 'directory'       # noqa: E221
+    Service     = 'service'         # noqa: E221
 
 
 class Server:
@@ -59,7 +59,7 @@ class PodServer(Server):
     def __init__(self):
         super().__init__()
 
-        self.server_type = ServerType.POD
+        self.server_type = ServerType.Pod
 
     def load_secrets(self, password: str = None):
         '''
@@ -80,7 +80,7 @@ class DirectoryServer(Server):
     def __init__(self):
         super().__init__()
 
-        self.server_type = ServerType.DIRECTORY
+        self.server_type = ServerType.Directory
 
     def load_secrets(self, connection: str = None):
         '''
@@ -93,7 +93,7 @@ class ServiceServer(Server):
     def __init__(self):
         super().__init__()
 
-        self.server_type = ServerType.SERVICE
+        self.server_type = ServerType.Service
 
     def load_secrets(self, password: str = None):
         '''

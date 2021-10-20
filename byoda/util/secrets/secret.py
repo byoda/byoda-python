@@ -281,6 +281,7 @@ class Secret:
             f'Getting CSR with common name {self.common_name} signed'
         )
         self.from_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
+        self.save(password=self.password)
 
     def from_signed_cert(self, cert_chain: CertChain):
         '''
@@ -748,7 +749,7 @@ class Secret:
                         f'Invalid service id in subdomain {subdomain}'
                     )
 
-        _LOGGER.debug('cn service id %s', cn_service_id)
+        _LOGGER.debug('Common name for service id %s', cn_service_id)
         if (cn_service_id is not None
                 and (cn_service_id < 0 or cn_service_id > (pow(2, 32) - 1))):
             raise ValueError(

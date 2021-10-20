@@ -21,6 +21,7 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
+from byoda.datamodel.service import RegistrationStatus
 
 from byoda.datatypes import IdType, ReviewStatusType
 
@@ -36,6 +37,7 @@ from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
 from byoda.util.secrets import Secret
+from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceDataSecret
 
@@ -208,12 +210,19 @@ def put_service(request: Request, service_id: int,
         )
 
     if service_id not in network.services:
-        raise ValueError(f'Registration for unknown service: {service_id}')
+        # So this worker process does not know about the service. Let's
+        # see if a CSR for the service secret has previously been signed
+        # and the resulting cert saved
+        if not Service.is_registered(service_id):
+            raise ValueError(f'Registration for unknown service: {service_id}')
 
-    service = network.services.get(service_id)
-
-    if service is None:
-        raise ValueError(f'Unkown service id: {service_id}')
+        service = Service(None, service_id=service_id)
+        service.registration_status = RegistrationStatus.CsrSigned
+        network.services[service_id] = service
+    else:
+        service = network.services.get(service_id)
+        if service is None:
+            raise ValueError(f'Unkown service id: {service_id}')
 
     if not service.data_secret:
         service.data_secret = ServiceDataSecret(

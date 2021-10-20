@@ -8,7 +8,8 @@ storage technologies are in the byoda.storage module
 :license    : GPLv3
 '''
 
-from .dnsdb import DnsDb                        # noqa: F401
-from .certstore import CertStore                # noqa: F401
-from .document_store import DocumentStore       # noqa: F401
-from .document_store import DocumentStoreType   # noqa: F401
+# flake8: noqa=E221
+from .dnsdb import DnsDb
+from .certstore import CertStore
+from .document_store import DocumentStore
+from .document_store import DocumentStoreType

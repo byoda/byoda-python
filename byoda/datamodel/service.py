@@ -6,20 +6,28 @@ Class for modeling a service on a social network
 :license    : GPLv3
 '''
 
-from __future__ import annotations
 
+import os
 import logging
+import socket
 from typing import TypeVar, Callable, Dict
 from copy import copy
+from enum import Enum
 
 from cryptography.hazmat.primitives import serialization
+
+from byoda.datamodel.server import DirectoryServer, ServerType
 
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.server import ServiceServer
 
 from byoda.util import SignatureType
 from byoda.util import Paths
+
+from byoda.datatypes import IdType
+from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 
 from byoda.util.secrets import Secret, CSR
 from byoda.util.secrets import CaSecret
@@ -38,6 +46,14 @@ _LOGGER = logging.getLogger(__name__)
 Network = TypeVar('Network', bound='Network')
 
 NETWORK_SERVICE_API = 'https://dir.{network}/api/v1/network/service'
+
+
+class RegistrationStatus(Enum):
+    # flake8: noqa=E221
+    Unknown         = 0
+    CsrSigned       = 1
+    Registered      = 2
+    SchemaSigned    = 3
 
 
 class Service:
@@ -64,6 +80,9 @@ class Service:
 
         self.name: str = None
         self.service_id: int = service_id
+
+        self.registration_status: RegistrationStatus = \
+            RegistrationStatus.Unknown
 
         # The data contract for the service. TODO: versioned schemas
         self.schema: Schema = None
@@ -111,8 +130,7 @@ class Service:
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
-                    with_private_key: bool = False, password: str = None,
-                    ) -> Service:
+                    with_private_key: bool = False, password: str = None):
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures
@@ -210,6 +228,22 @@ class Service:
         '''
 
         self.schema.validate(data)
+
+    def schema_file_exists(self) -> bool:
+        '''
+        Check if the file with the schema exists on the local file system
+        '''
+
+        server = config.server
+
+        if type(server) not in (DirectoryServer, ServiceServer):
+            raise ValueError(
+                'This function should only be called from Directory- and '
+                f'Service-servers, not from a {type(server)}'
+            )
+
+        filepath = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
+        return os.path.exists(filepath)
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
                        local: False, password: str = None) -> None:
@@ -337,19 +371,111 @@ class Service:
         csr = secret.create_csr()
         self.get_csr_signature(secret, csr, issuing_ca)
 
-        secret.save(password=self.private_key_password)
-
         return secret
+
+    @staticmethod
+    def is_registered(service_id: int,
+                      registration_status: RegistrationStatus = None) -> bool:
+        '''
+        Checks is the service is registered in the network. When running
+        on the directory server, this can check whether a CSR was signed,
+        whether an IP address for the service registered and where the
+        serice schema/data contract was signed by the network.
+        :param registration_status: if not defined, any status except for
+        RegistrationStatus.Unknown will result in True being returned.
+        It is not allowed to specify RegistrationStatus.Unknown. For other
+        values, the value is compared to the registration status of the service
+        '''
+
+        server = config.server
+        network = config.server.network
+
+        if registration_status == RegistrationStatus.Unknown:
+            raise ValueError('Can not check on unknown registration status')
+
+        if type(server) not in (DirectoryServer, ServiceServer):
+            if registration_status != RegistrationStatus.SchemaSigned:
+                raise ValueError(
+                f'Can not check registration status {registration_status.value} '
+                f'on servers of type {type(server)}'
+            )
+
+        status = Service.get_status(service_id)
+
+        if status == RegistrationStatus.Unknown:
+            return False
+
+        if not registration_status:
+            return True
+
+        return status == registration_status.value
+
+    def get_registration_status(self) -> RegistrationStatus:
+        '''
+        Checks what the registration status if of a service in the
+        Service server or the Directory server.
+        '''
+        server = config.server
+
+        if not self.schema:
+            if self.schema_file_exists():
+                self.load_schema(self.paths.get(Paths.SERVICE_FILE))
+
+        if self.schema.signatures.get('network'):
+            return RegistrationStatus.SchemaSigned
+
+        if isinstance(server, DirectoryServer):
+            try:
+                self.network.dnsdb.lookup(
+                    None, IdType.SERVICE, service_id=self.service_id
+                )
+                return RegistrationStatus.Registered
+            except KeyError:
+                _LOGGER.debug(f'DB lookup of service {self.service_id} failed')
+        else:
+            fqdn = ServiceSecret.create_commonname(
+                self.service_id, self.network.name
+            )
+            try:
+                socket.gethostbyname(fqdn)
+                return RegistrationStatus.Registered
+            except socket.gaierror:
+                _LOGGER.debug(f'DNS lookup of {fqdn} failed')
+
+        if not self.service_ca:
+            self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
+            if self.service_ca.cert_file_exists():
+                if isinstance(server, ServiceServer):
+                    self.service_ca.load(
+                        with_private_key=True, password=self.private_key_password
+                    )
+                else:
+                    self.service_ca.load(with_private_key=False)
+
+                return RegistrationStatus.CsrSigned
+        else:
+            if self.service_ca.cert:
+                return RegistrationStatus.CsrSigned
+
+        return RegistrationStatus.Unknown
+
 
     def get_csr_signature(self, secret: Secret, csr: CSR,
                           issuing_ca: CaSecret) -> None:
         '''
-        Gets the signed cert(chain) for the CSR. If issuing_ca parameter is
-        specified then the CSR will be signed directly by the private key
-        of the issuing_ca, otherwise the CSR will be send in a
-        POST /api/v1/network/service API call to the directory server of the
-        network
+        Gets the signed cert(chain) for the CSR and saves returned cert and the
+        existing private key.
+        If the issuing_ca parameter is specified then the CSR will be signed
+        directly by the private key of the issuing_ca, otherwise the CSR will be
+        send in a POST /api/v1/network/service API call to the directory server
+        of the network
         '''
+
+        if (isinstance(secret, ServiceCaSecret) and (
+                self.registration_status != RegistrationStatus.Unknown
+                or secret.cert_file_exists())):
+            # TODO: support renewal of ServiceCA cert
+            raise ValueError('ServiceCA cert has already been signed')
 
         if issuing_ca:
             # We have the private key of the issuing CA so can
@@ -357,6 +483,10 @@ class Service:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
+
+            # We do not set self.registration_status as locally signing
+            # does not provide informaiton about the status of service in
+            # the network
             return
 
         if not isinstance(secret, ServiceCaSecret):
@@ -379,6 +509,8 @@ class Service:
             )
         data = response.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
+        self.registration_status = RegistrationStatus.CsrSigned
+        secret.save()
 
         # Every time we receive the network data cert, we
         # save it as it could have changed since the last time we
@@ -393,6 +525,35 @@ class Service:
             password=network.private_key_password, overwrite=True
         )
         return
+
+    def register_service(self):
+        '''
+        Registers the service with the network using the Service TLS secret
+
+        :raises: ValueError if the function is not called by a
+        ServerType.Service
+        '''
+
+        server = config.server
+        if server and not isinstance(server, ServiceServer):
+            raise ValueError('Only Service servers can register a service')
+
+        if self.registration_status == RegistrationStatus.Unknown:
+            raise ValueError(
+                'Can not register a service before its CSR has been signed '
+                'by the network'
+            )
+
+        key_path = self.tls_secret.save_tmp_private_key()
+        data_certchain = self.data_secret.certchain_as_pem()
+
+        client = RestApiClient.call(
+            Paths.NETWORKSERVICE_API,
+            HttpMethod.PUT,
+            secret=self.tls_secret,
+            data=data_certchain,
+            service_id=self.service_id
+        )
 
     def load_secrets(self, with_private_key: bool = True, password: str = None
                      ) -> None:

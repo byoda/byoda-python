@@ -20,6 +20,7 @@ from byoda.util import MessageSignature
 from byoda.util import ServiceSignature
 from byoda.util import NetworkSignature
 from byoda.util import SignatureType
+
 from byoda.util.secrets import Secret, DataSecret
 
 from byoda.storage import FileStorage

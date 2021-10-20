@@ -70,6 +70,10 @@ class Paths:
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
+    # APIs
+    NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                      # noqa
+    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'         # noqa
+
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,
                  network: str = None,
@@ -128,6 +132,34 @@ class Paths:
         )
         if path[0] != '/':
             path = self._root_directory + '/' + path
+
+        return path
+
+    @staticmethod
+    def resolve(path_template: str, network: str, service_id: int = None,
+                member_id: UUID = None, account_id: UUID = None) -> str:
+        '''
+        Resolves variables in a string without requiring an instance
+        of the Paths class. For file-system paths, this function does
+        not prefix the path with the root directory such as specified
+        for an instance of this class
+        '''
+
+        path = path_template.replace('{network}', network)
+
+        if service_id is not None:
+            path = path.replace('{service_id}', str(service_id))
+
+        if member_id:
+            path = path.replace('{member_id}', str(member_id))
+
+        if account_id:
+            path = path.format('{account_id}', str(account_id))
+
+        # Remove any unresolved variables in the template
+        for param in '/{member_id}', '/{account_id}', '/{service_id}':
+            if param in path:
+                path = path.replace(param, '')
 
         return path
 

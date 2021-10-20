@@ -361,7 +361,7 @@ class DnsDb:
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate
 
-        :param uuid: accoun_id or member_id. Can be None for id_type.SERVICE
+        :param uuid: account_id or member_id. Can be None for id_type.SERVICE
         :param id_type: account / member / service
         :param service_id: service identifier, required for IdType.SERVICE
         :returns: (None)
