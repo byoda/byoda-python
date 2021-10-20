@@ -466,7 +466,8 @@ class Service:
                 f'on servers of type {type(server)}'
             )
 
-        status = Service.get_registration_status(service_id)
+        service = Service(network, service_id=service_id)
+        status = service.get_registration_status()
 
         if status == RegistrationStatus.Unknown:
             return False
