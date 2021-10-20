@@ -224,9 +224,7 @@ def create_network_signature(service, args) -> bool:
                     service_id=service.service_id
                 )
                 if response.status_code == 200:
-                    raw = response.raw
-                    text = response.text
-                    service.schema.json_schema = response.json
+                    service.schema.json_schema = response.json()
                     service.registration_status = \
                         RegistrationStatus.SchemaSigned
                     return True
