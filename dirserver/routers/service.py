@@ -37,7 +37,6 @@ from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
 from byoda.util.secrets import Secret
-from byoda.util.secrets import ServiceSecret
 from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import ServiceDataSecret
 
@@ -304,6 +303,10 @@ def patch_service(request: Request, schema: SchemaModel,
             else:
                 service_contract = Schema(schema.as_dict())
                 try:
+                    if not service.data_secret:
+                        service.data_secret = ServiceDataSecret(
+                            None, service_id, network
+                        )
                     service_contract.verify_signature(
                         service.data_secret, SignatureType.SERVICE
                     )
