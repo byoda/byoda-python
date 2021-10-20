@@ -320,6 +320,7 @@ def patch_service(request: Request, schema: SchemaModel,
                         service.data_secret = ServiceDataSecret(
                             None, service_id, network
                         )
+                        service.data_secret.load(with_private_key=False)
                     service_contract.verify_signature(
                         service.data_secret, SignatureType.SERVICE
                     )
