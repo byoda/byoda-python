@@ -488,7 +488,7 @@ class Service:
             if self.schema_file_exists():
                 self.load_schema(self.paths.get(Paths.SERVICE_FILE))
 
-        if self.schema.signatures.get('network'):
+        if self.schema and self.schema.signatures.get('network'):
             return RegistrationStatus.SchemaSigned
 
         if isinstance(server, DirectoryServer):

@@ -216,11 +216,16 @@ def create_network_signature(service, args) -> bool:
 
                 return False
             else:
-                response = requests.get(
-                    f'{url}/service_id={service.service_id}'
+                response = RestApiClient.call(
+                    Paths.NETWORKSERVICE_API,
+                    HttpMethod.GET,
+                    secret=service_secret,
+                    service_id=service.service_id
                 )
                 if response.status_code == 200:
                     service.schema.json_schema = response.text
+                    service.registration_status = \
+                        RegistrationStatus.SchemaSigned
                     return True
 
                 return False
