@@ -118,7 +118,7 @@ def get_service(request: Request, service_id: int):
         if not Service.is_registered(service_id):
             raise ValueError(f'Request for unknown service: {service_id}')
 
-        network.add_service(service_id)
+        service = network.add_service(service_id)
     else:
         service = network.services.get(service_id)
         if service is None:

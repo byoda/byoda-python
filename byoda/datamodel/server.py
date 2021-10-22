@@ -12,6 +12,7 @@ import logging
 from enum import Enum
 from typing import TypeVar
 
+
 from byoda.util import Paths
 
 from byoda import config
@@ -19,10 +20,12 @@ from byoda import config
 from byoda.datatypes import CloudType
 
 from byoda.datastore import DocumentStoreType, DocumentStore
+from byoda.util.api_client.restapi_client import RestApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network')
+RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class ServerType(Enum):
@@ -65,6 +68,7 @@ class PodServer(Server):
         super().__init__()
 
         self.server_type = ServerType.Pod
+        self.service_summaries = None
 
     def load_secrets(self, password: str = None):
         '''
@@ -79,6 +83,55 @@ class PodServer(Server):
         config.requests.cert = (
             self.account.tls_secret.cert_file, filepath
         )
+
+    def get_registered_services(self, network):
+        '''
+        Downloads a list of service summaries
+        '''
+
+        self.network = network
+
+        url = network.paths.get(Paths.NETWORKSERVICES_API)
+        response = RestApiClient.call(url)
+
+        if response.status_code == 200:
+            self.service_summaries = response.json()
+            _LOGGER.debug(
+                f'Read summaries for {len(self.service_summaries)} services'
+            )
+        else:
+            _LOGGER.debug(
+                'Failed to retrieve list of services from the network: '
+                f'HTTP {response.status_code}'
+            )
+
+    def load_joined_services(self, network):
+        '''
+        Load the services that the account for the pod has joined
+        '''
+
+        self.network = network
+
+        folders = network.paths.storage_driver.get_folders(
+            Paths.SERVICES_DIR
+        )
+        for folder in [f for f in folders if f.startswith('service-')]:
+            service_id = folder.split('-')[-1]
+
+            service = network.add_service(
+                service_id, RegistrationStatus.SchemaSigned
+            )
+
+            service_file = self.network.paths.get(
+                Paths.SERVICE_FILE, service_id=service_id
+            )
+
+            try:
+                service.load_schema(service_file)
+            except (ValueError, RuntimeError, OSError) as exc:
+                _LOGGER.exception(
+                    f'Failed to load service from {service_file}: {exc}'
+                )
 
 
 class DirectoryServer(Server):
@@ -102,7 +155,7 @@ class DirectoryServer(Server):
 
         self.network = network
 
-        service_dir = self.network.paths.get(Paths.SERVICES_DIR)
+        service_dir = network.paths.get(Paths.SERVICES_DIR)
 
         services_dirs = [
             svcdir for svcdir in next(os.walk(service_dir))[1]
@@ -111,12 +164,11 @@ class DirectoryServer(Server):
 
         for svcdir in services_dirs:
             service_id = svcdir.split('-')[-1]
-            if self.network.services.get(service_id):
+            if network.services.get(service_id):
                 # We already have the service in memory
                 continue
 
-            self.network.add_service(service_id)
-            service = self.network.services[service_id]
+            service = network.add_service(service_id)
 
             service_file = self.network.paths.get(
                 Paths.SERVICE_FILE, service_id=service_id

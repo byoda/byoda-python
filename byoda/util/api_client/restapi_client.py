@@ -41,9 +41,9 @@ class RestApiClient:
         pass
 
     @staticmethod
-    def call(api: str, method: HttpMethod, secret: Secret = None, params: Dict = None,
-             data: Dict = None, service_id: int = None, member_id: UUID = None,
-             account_id: UUID = None) -> requests.Response:
+    def call(api: str, method: HttpMethod = HttpMethod.GET, secret: Secret = None,
+             params: Dict = None, data: Dict = None, service_id: int = None,
+             member_id: UUID = None, account_id: UUID = None) -> requests.Response:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -55,7 +55,7 @@ class RestApiClient:
             raise ValueError(
                 'BYODA POST APIs do not accept query parameters'
             )
-    
+
         response = ApiClient.call(
             api, method.value, secret=secret, params=params, data=data, service_id=service_id,
             member_id=member_id, account_id=account_id

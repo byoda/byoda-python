@@ -73,6 +73,7 @@ class Paths:
     # APIs
     NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                      # noqa
     NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'         # noqa
+    NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                     # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

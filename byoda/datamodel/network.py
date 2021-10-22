@@ -160,10 +160,6 @@ class Network:
         self.member_secrets = set()
         self.services = dict()
         self.account = None
-        if ServerRole.Pod in self.roles:
-            # TODO: client should read this from a directory server API
-            self.load_secrets()
-            self.load_services()
 
     @staticmethod
     def create(network_name, root_dir, password):
@@ -293,10 +289,10 @@ class Network:
         return account
 
     def add_service(self, service_id: int,
-                    registration_status: RegistrationStatus = None):
+                    registration_status: RegistrationStatus = None) -> Service:
         '''
-        Adds a service to the in-memory list of known services. If the
-        service is already known then no exception will be thrown
+        Adds a service to the in-memory list of known services. No exception
+        will be thrown if the service is already known
         '''
 
         if service_id in self.services:
@@ -316,3 +312,5 @@ class Network:
                 registration_status
         else:
             service.registration_status = service.get_registration_status()
+
+        return service
