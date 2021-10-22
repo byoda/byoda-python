@@ -37,17 +37,17 @@ _LOGGER = Logger.getLogger(
 )
 
 server = DirectoryServer()
-server.network = Network(
+config.server = server
+
+network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
+server.get_registered_services(network)
 server.load_secrets()
-server.network.load_services()
+
 server.network.dnsdb = DnsDb.setup(
     config.app_config['dirserver']['dnsdb'], server.network.name
 )
-
-config.server = server
-
 
 if not os.environ.get('SERVER_NAME') and config.server.network.name:
     os.environ['SERVER_NAME'] = config.server.network.name

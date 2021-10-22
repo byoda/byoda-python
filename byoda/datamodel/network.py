@@ -10,6 +10,7 @@ import os
 import logging
 from uuid import UUID
 from typing import Dict, Set
+from typing import Callable
 
 import passgen
 
@@ -19,9 +20,7 @@ from byoda import config
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
 
-
-from .service import Service
-from .account import Account
+from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
 
@@ -35,7 +34,9 @@ from byoda.util.secrets import ServiceCaSecret
 from byoda.util.secrets import MembersCaSecret
 from byoda.util.secrets import ServiceSecret
 
-from typing import Callable
+from .service import Service
+from .account import Account
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -263,36 +264,6 @@ class Network:
 
         return secret
 
-    def load_services(self, directory: str = None) -> None:
-        '''
-        Load a list of all the services in the network.
-        '''
-
-        if not directory:
-            directory = self.paths.get(Paths.SERVICES_DIR)
-            if not os.path.exists(directory):
-                os.mkdir(directory)
-                return
-
-        if self.services:
-            _LOGGER.debug('Clearing list of services of the network')
-            self.services = dict()
-
-        _LOGGER.debug('Loading the list of services of the network')
-        for root, __dirnames, files in os.walk(directory):
-            for filename in files:
-                if (root.startswith('service-')
-                        and filename == 'service-contract.json'):
-                    filepath = os.path.join(root, filename)
-                    service = Service.get_service(self, filepath=filepath)
-
-                    if service.service_id in self.services:
-                        raise ValueError(
-                            f'Duplicate service_id: {service.service_id}'
-                        )
-
-                self.services[service.service_id] = service
-
     def load_secrets(self) -> None:
         '''
         Loads the secrets of the network, except for the root CA
@@ -320,3 +291,28 @@ class Network:
         account = Account(account_id, self, load_tls_secret=load_tls_secret)
 
         return account
+
+    def add_service(self, service_id: int,
+                    registration_status: RegistrationStatus = None):
+        '''
+        Adds a service to the in-memory list of known services. If the
+        service is already known then no exception will be thrown
+        '''
+
+        if service_id in self.services:
+            _LOGGER.debug(f'Service {service_id} is already in memory')
+            service = self.services[service_id]
+        else:
+            service = Service(self, service_id=service_id)
+            self.services[service_id] = service
+
+        if (registration_status and
+                registration_status != RegistrationStatus.Unknown):
+            _LOGGER.debug(
+                f'Setting service {service_id} to status '
+                f'{registration_status}'
+            )
+            service.registration_status = \
+                registration_status
+        else:
+            service.registration_status = service.get_registration_status()

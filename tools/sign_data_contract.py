@@ -15,13 +15,16 @@ import sys
 from byoda.datamodel import Network, Service
 from byoda.datamodel.server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
+
 from byoda.storage.filestorage import FileStorage
 
 from byoda.util import SignatureType
 from byoda.util import Logger
 from byoda.util import Paths
-from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
-from byoda.util.secrets.service_secret import ServiceSecret
+
+from byoda.util.api_client import HttpMethod, RestApiClient
+from byoda.util.secrets import ServiceSecret
+from byoda.util.secrets import NetworkDataSecret
 
 from byoda import config
 
@@ -70,20 +73,22 @@ def main(argv):
     config.server.network = network
     config.server.service = service
 
-    service.registration_status = service.get_registration_status()
-    if service.registration_status == RegistrationStatus.Unknown:
-        raise ValueError('Please use "create_service_secrets.py" script first')
+    if not args.local:
+        service.registration_status = service.get_registration_status()
+        if service.registration_status == RegistrationStatus.Unknown:
+            raise ValueError('Please use "create_service_secrets.py" script first')
 
     schema = service.schema.json_schema
 
     if 'signatures' not in schema:
         schema['signatures'] = {}
 
-    response = service.register_service()
-    if response.status_code != 200:
-        raise ValueError(
-            f'Failed to register service: {response.status_code}'
-        )
+    if not args.local:
+        response = service.register_service()
+        if response.status_code != 200:
+            raise ValueError(
+                f'Failed to register service: {response.status_code}'
+            )
 
     result = None
     if (not args.signing_party
@@ -192,10 +197,11 @@ def create_network_signature(service, args) -> bool:
     if args.local:
         # When signing locally, the service contract gets updated
         # with the network signature
+        network.data_secret = NetworkDataSecret(network.paths)
+        network.data_secret.load(with_private_key=True, password=args.password)
         service.schema.create_signature(
             network.data_secret, SignatureType.NETWORK
         )
-        return True
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
         service_secret.load(with_private_key=True)
@@ -224,9 +230,13 @@ def create_network_signature(service, args) -> bool:
                     service.schema.json_schema = response.json()
                     service.registration_status = \
                         RegistrationStatus.SchemaSigned
-                    return True
+                else:
+                    return False
 
-                return False
+    _LOGGER.debug(
+        'Added network signature '
+        f'{service.schema.json_schema["signatures"]["network"]}'
+    )
 
 
 if __name__ == '__main__':

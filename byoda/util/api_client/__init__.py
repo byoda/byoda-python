@@ -8,3 +8,4 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 # flake8: noqa=F401
 #from .api_client import ApiClient
 from .restapi_client import RestApiClient
+from .restapi_client import HttpMethod

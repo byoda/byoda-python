@@ -7,8 +7,12 @@ POD server, directory server, service server
 :license    : GPLv3
 '''
 
+import os
 import logging
 from enum import Enum
+from typing import TypeVar
+
+from byoda.util import Paths
 
 from byoda import config
 
@@ -16,8 +20,9 @@ from byoda.datatypes import CloudType
 
 from byoda.datastore import DocumentStoreType, DocumentStore
 
-
 _LOGGER = logging.getLogger(__name__)
+
+Network = TypeVar('Network')
 
 
 class ServerType(Enum):
@@ -87,6 +92,39 @@ class DirectoryServer(Server):
         Loads the secrets used by the directory server
         '''
         self.network.load_secrets()
+
+    def get_registered_services(self, network: Network):
+        '''
+        Get the list of registered services in the network by
+        scanning the directory tree. Add the services to the
+        network.services dict if they are not already in there.
+        '''
+
+        self.network = network
+
+        service_dir = self.network.paths.get(Paths.SERVICES_DIR)
+
+        services_dirs = [
+            svcdir for svcdir in next(os.walk(service_dir))[1]
+            if svcdir.startswith('service-')
+        ]
+
+        for svcdir in services_dirs:
+            service_id = svcdir.split('-')[-1]
+            if self.network.services.get(service_id):
+                # We already have the service in memory
+                continue
+
+            self.network.add_service(service_id)
+            service = self.network.services[service_id]
+
+            service_file = self.network.paths.get(
+                Paths.SERVICE_FILE, service_id=service_id
+            )
+            if os.path.exists(service_file):
+                service.load_schema(service_file)
+            else:
+                service.registration_status = service.get_registration_status()
 
 
 class ServiceServer(Server):

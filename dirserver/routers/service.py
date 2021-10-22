@@ -21,6 +21,8 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import HTTPException
+
 from byoda.datamodel.service import RegistrationStatus
 
 from byoda.datatypes import IdType, ReviewStatusType
@@ -28,6 +30,8 @@ from byoda.datatypes import IdType, ReviewStatusType
 from byoda.datamodel import Service
 from byoda.datamodel import Schema
 from byoda.datastore import CertStore
+from byoda.datamodel import Server
+from byoda.datamodel import Network
 
 from byoda.models import ServiceSummariesModel
 from byoda.models import CertChainRequestModel
@@ -67,7 +71,10 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 
     _LOGGER.debug(f'GET Services API called from {request.client.host}')
 
-    network = config.server.network
+    server: Server = config.server
+    network: Network = config.server.network
+
+    server.get_registered_services()
 
     services = list(network.services.values())
 
@@ -109,19 +116,24 @@ def get_service(request: Request, service_id: int):
         # see if a CSR for the service secret has previously been signed
         # and the resulting cert saved
         if not Service.is_registered(service_id):
-            raise ValueError(f'Registration for unknown service: {service_id}')
+            raise ValueError(f'Request for unknown service: {service_id}')
 
-        service = Service(network, service_id=service_id)
-        service.registration_status = RegistrationStatus.CsrSigned
-        network.services[service_id] = service
+        network.add_service(service_id)
     else:
         service = network.services.get(service_id)
         if service is None:
             raise ValueError(f'Unkown service id: {service_id}')
 
+        if not service.schema:
+            service.registration_status = service.get_registration_status()
+            if service.registration_status == RegistrationStatus.SchemaSigned:
+                filepath = network.paths.get(
+                    Paths.SERVICE_FILE, service_id=service_id
+                )
+                service.load_schema(filepath)
+
     if not service.schema:
-        filepath = network.paths.get(Paths.SERVICE_FILE)
-        service.load_schema(filepath)
+        raise HTTPException(404, f'Service {service_id} not found')
 
     return service.schema.json_schema
 

@@ -159,7 +159,7 @@ class Service:
         '''
 
         # TODO: implement validation of the service definition using
-        # JSON-Schema
+        # JSON-Schema meta schema
 
         if filepath is None:
             raise NotImplementedError(
@@ -187,6 +187,8 @@ class Service:
         if verify_contract_signatures:
             self.verify_schema_signatures()
 
+        self.registration_status = RegistrationStatus.SchemaSigned
+
     def verify_schema_signatures(self):
         '''
         Verify the signatures for the schema, a.k.a. data contract
@@ -199,13 +201,12 @@ class Service:
         if not self.schema.signatures[SignatureType.NETWORK.value]:
             raise ValueError('Schema does not contain a network signature')
         if not self.data_secret or not self.data_secret.cert:
-            raise ValueError(
-                'Data secret not available to verify service signature'
-            )
+            # Let's see if we can read the data secret ourselves
+            self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
+            self.data_secret.load(with_private_key=False)
         if not self.network.data_secret or not self.network.data_secret.cert:
-            raise ValueError(
-                'Network data secret not available to verify network signature'
-            )
+            self.network.data_secret = NetworkDataSecret(self.network.paths)
+            self.network.data_secret.load(with_private_key=False)
 
         self.schema.verify_signature(self.data_secret, SignatureType.SERVICE)
 
