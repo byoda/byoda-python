@@ -74,7 +74,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
     server: Server = config.server
     network: Network = config.server.network
 
-    server.get_registered_services()
+    server.get_registered_services(network)
 
     services = list(network.services.values())
 
