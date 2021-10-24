@@ -21,7 +21,7 @@ from byoda.datatypes import CloudType, ServerRole
 
 from byoda import config
 
-TEST_DIR = '/tmp/byoda-test-secrets'
+TEST_DIR = '/tmp/byoda-tests/secrets'
 NETWORK = config.DEFAULT_NETWORK
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
@@ -40,12 +40,13 @@ class TestAccountManager(unittest.TestCase):
         #
         # Test creation of the CA hierarchy
         network = Network.create('test.net', TEST_DIR, 'byoda')
+        config.server.network = network
 
         # Need to set role to allow loading of unsigned services
         network.roles = [ServerRole.Pod]
 
         service = Service(network, DEFAULT_SCHEMA)
-        service.create_secrets(network.services_ca)
+        service.create_secrets(network.services_ca, local=True)
 
         account_id = uuid4()
         account = Account(account_id, network)

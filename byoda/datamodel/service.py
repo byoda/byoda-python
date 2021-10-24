@@ -186,8 +186,7 @@ class Service:
 
         if verify_contract_signatures:
             self.verify_schema_signatures()
-
-        self.registration_status = RegistrationStatus.SchemaSigned
+            self.registration_status = RegistrationStatus.SchemaSigned
 
     def verify_schema_signatures(self):
         '''
@@ -246,7 +245,7 @@ class Service:
         return os.path.exists(filepath)
 
     def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
-                       local: False, password: str = None) -> None:
+                       local: bool = False, password: str = None) -> None:
         '''
         Creates all the secrets of a service
 
@@ -266,7 +265,7 @@ class Service:
         if not self.paths.secrets_directory_exists():
             self.paths.create_secrets_directory()
 
-        self.create_service_ca(network_services_ca)
+        self.create_service_ca(network_services_ca, local=True)
 
         self.create_apps_ca()
         self.create_members_ca()
