@@ -178,6 +178,7 @@ class RequestAuth():
         self.account_id = None
         self.service_id = None
         self.member_id = None
+        self.domain = None
 
         #
         # Process the headers and if auth is 'required', throw
@@ -186,7 +187,7 @@ class RequestAuth():
         if (isinstance(tls_status, TlsStatus) and
                 tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS)):
             raise HTTPException(
-                status_code=400, detail=f'Client TLS status is {tls_status}'
+                status_code=403, detail=f'Client TLS status is {tls_status}'
             )
         elif not tls_status:
             raise MissingAuthInfo('Missing TLS status')
@@ -202,7 +203,9 @@ class RequestAuth():
             raise MissingAuthInfo('Missing Issuing CA Distinguished Name')
 
         if self.client_cn:
-            if self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn:
+            if (self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn
+                    or self.client_cn == 'None'
+                    or self.issuing_ca_cn == 'None'):
                 # Somehow a self-signed cert made it through the certchain
                 # check
                 _LOGGER.warning(
@@ -218,7 +221,10 @@ class RequestAuth():
                 )
 
             self.id_type = RequestAuth.get_idtype(self.client_cn)
-            self.id = self.client_cn.split('.')[0]
+            self.id, subdomain = self.client_cn.split('.')[0:2]
+            self.domain = self.client_cn.split('.', 3)[-2]
+            if '-' in subdomain:
+                self.service_id = subdomain.split('-')[1]
 
     @staticmethod
     def authenticate_request(request: starlette.requests.Request):
@@ -329,10 +335,10 @@ class RequestAuth():
         # client
         try:
             # Member cert gets signed by Service Member CA
-            member_ca_secret = MembersCaSecret(
+            members_ca_secret = MembersCaSecret(
                 None, service_id, network=network
             )
-            entity_id = member_ca_secret.review_commonname(self.client_cn)
+            entity_id = members_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
             self.service_id = entity_id.service_id
 

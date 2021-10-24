@@ -23,6 +23,7 @@ from byoda.datastore import DnsDb
 
 from .routers import account
 from .routers import service
+from .routers import member
 
 _LOGGER = None
 
@@ -54,7 +55,7 @@ if not os.environ.get('SERVER_NAME') and config.server.network.name:
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', config.app_config, [account, service]
+    'v0.0.1', config.app_config, [account, service, member]
 )
 
 

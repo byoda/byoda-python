@@ -56,7 +56,7 @@ IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
 
-CaSecret = TypeVar('CaSecret', bound='CaSecret')
+CaSecret = TypeVar('CaSecret')
 
 
 class Secret:

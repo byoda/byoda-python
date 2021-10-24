@@ -28,9 +28,11 @@ from cryptography.hazmat.primitives import serialization
 from multiprocessing import Process
 import uvicorn
 
+# from byoda.datamodel import Account
 from byoda.datamodel import Network
-from byoda.datamodel import DirectoryServer
 from byoda.datamodel import Schema
+from byoda.datamodel import DirectoryServer
+
 from byoda.util.message_signature import SignatureType
 
 from byoda.util.secrets import Secret
@@ -45,11 +47,13 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byoda.datastore import DnsDb
+from byoda.util.secrets.membersca_secret import MembersCaSecret
 
 from dirserver.api import setup_api
 
 from dirserver.routers import account
 from dirserver.routers import service
+from dirserver.routers import member
 
 # Settings must match config.yml used by directory server
 NETWORK = 'test.net'
@@ -100,7 +104,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', None, [account, service]
+            'v0.0.1', None, [account, service, member]
         )
         cls.PROCESS = Process(
             target=uvicorn.run,
@@ -300,6 +304,34 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(service_summary['service_id'], SERVICE_ID)
         self.assertEqual(service_summary['version'], 1)
         self.assertEqual(service_summary['name'], 'dummyservice')
+
+        # Now test membership
+        API = BASE_URL + '/v1/network/member'
+
+        # account = Account(uuid4(), network)
+        # member_secret = MemberSecret(service_id, account)
+        # csr = member_secret.create_csr()
+        # csr.sign(serviceca_secret)
+
+        membersca_secret = MembersCaSecret(
+            None, service_id, config.server.network
+        )
+        membersca_csr = membersca_secret.create_csr()
+        certchain = serviceca_secret.sign_csr(membersca_csr)
+        membersca_secret.from_signed_cert(certchain)
+        membersca_secret.save()
+
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN={uuid4()}.members-12345678.functestbyoda.net',
+            'X-Client-SSL-Issuing-CA': f'CN={membersca_secret.common_name}'
+        }
+
+        response = requests.put(API, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['ipv4_address'], '127.0.0.1')
 
 
 if __name__ == '__main__':

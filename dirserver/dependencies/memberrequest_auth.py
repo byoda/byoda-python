@@ -22,8 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MemberRequestAuthFast(RequestAuth):
-    def __init__(self,
-                 request: Request, service_id: int,
+    def __init__(self, request: Request,
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),
                  x_client_ssl_subject: Optional[str] = Header(None),
                  x_client_ssl_issuing_ca: Optional[str] = Header(None)):
@@ -40,15 +39,6 @@ class MemberRequestAuthFast(RequestAuth):
 
         server = config.server
 
-        if isinstance(service_id, int):
-            pass
-        elif isinstance(service_id, str):
-            service_id = int(service_id)
-        else:
-            raise ValueError(
-                f'service_id must be an integer, not {type(service_id)}'
-            )
-
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
@@ -56,7 +46,7 @@ class MemberRequestAuthFast(RequestAuth):
             )
         except MissingAuthInfo:
             raise HTTPException(
-                status_code=401, detail='Authentication failed'
+                status_code=403, detail='Authentication failed'
             )
 
         if self.client_cn is None and self.issuing_ca_cn is None:
@@ -64,6 +54,6 @@ class MemberRequestAuthFast(RequestAuth):
                 status_code=401, detail='Authentication failed'
             )
 
-        self.check_member_cert(service_id, server.network)
+        self.check_member_cert(self.service_id, server.network)
 
         self.is_authenticated = True

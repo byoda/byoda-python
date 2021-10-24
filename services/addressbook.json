@@ -1,9 +1,9 @@
 {
-    "description": "The directory service can be used to find friends/family/colleagues and establish links with them",
+    "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
     "jsonschema": {
         "$id": "https://uuid.services.byoda.net/service/directory",
         "$schema": "https://json-schema.org/draft-07/schema#",
-        "description": "The directory service can be used to find friends/family/colleagues and establish links with them",
+        "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
         "properties": {
             "member": {
                 "#accesscontrol": [
@@ -94,7 +94,7 @@
         "title": "directory to find your contacts to establish links with",
         "type": "object"
     },
-    "name": "directory",
+    "name": "addressbook",
     "owner": "Steven Hessing",
     "service_id": 1,
     "signatures": {
