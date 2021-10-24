@@ -13,9 +13,9 @@ from enum import Enum
 from datetime import datetime
 from typing import Dict
 
-from byoda.util.secrets.data_secret import DataSecret
-from byoda.util.secrets import ServiceDataSecret
-from byoda.util.secrets import NetworkDataSecret
+from byoda.secrets.data_secret import DataSecret
+from byoda.secrets import ServiceDataSecret
+from byoda.secrets import NetworkDataSecret
 
 _LOGGER = logging.getLogger(__name__)
 

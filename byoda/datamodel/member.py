@@ -6,7 +6,7 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-from byoda.util.secrets.service_secret import ServiceSecret
+from byoda.secrets.service_secret import ServiceSecret
 import logging
 
 from uuid import uuid4, UUID
@@ -25,8 +25,8 @@ from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
 
-from byoda.util.secrets import MemberSecret, MemberDataSecret
-from byoda.util.secrets import Secret, MembersCaSecret
+from byoda.secrets import MemberSecret, MemberDataSecret
+from byoda.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
 from podserver.bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR

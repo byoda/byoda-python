@@ -35,11 +35,11 @@ from byoda.datamodel import DirectoryServer
 
 from byoda.util.message_signature import SignatureType
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import AccountSecret
-from byoda.util.secrets import ServiceCaSecret
-from byoda.util.secrets import ServiceSecret
-from byoda.util.secrets import ServiceDataSecret
+from byoda.secrets import Secret
+from byoda.secrets import AccountSecret
+from byoda.secrets import ServiceCaSecret
+from byoda.secrets import ServiceSecret
+from byoda.secrets import ServiceDataSecret
 
 from byoda.util.logger import Logger
 
@@ -47,7 +47,7 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byoda.datastore import DnsDb
-from byoda.util.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from dirserver.api import setup_api
 

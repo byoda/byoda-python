@@ -13,10 +13,10 @@ from uuid import UUID
 
 import requests
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import AccountSecret
-from byoda.util.secrets import MemberSecret
-from byoda.util.secrets import ServiceSecret
+from byoda.secrets import Secret
+from byoda.secrets import AccountSecret
+from byoda.secrets import MemberSecret
+from byoda.secrets import ServiceSecret
 
 from byoda.util import Paths
 from byoda import config

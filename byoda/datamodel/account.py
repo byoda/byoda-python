@@ -17,12 +17,12 @@ from byoda.datatypes import CsrSource
 from byoda.datastore.document_store import DocumentStore
 from byoda.util import Paths
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import AccountSecret
-from byoda.util.secrets import DataSecret
-from byoda.util.secrets import AccountDataSecret
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import MembersCaSecret
+from byoda.secrets import Secret
+from byoda.secrets import AccountSecret
+from byoda.secrets import DataSecret
+from byoda.secrets import AccountDataSecret
+from byoda.secrets import NetworkAccountsCaSecret
+from byoda.secrets import MembersCaSecret
 
 from .member import Member
 from .service import Service

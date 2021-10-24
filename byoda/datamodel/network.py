@@ -24,15 +24,15 @@ from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import DataSecret
-from byoda.util.secrets import NetworkRootCaSecret
-from byoda.util.secrets import NetworkDataSecret
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import NetworkServicesCaSecret
-from byoda.util.secrets import ServiceCaSecret
-from byoda.util.secrets import MembersCaSecret
-from byoda.util.secrets import ServiceSecret
+from byoda.secrets import Secret
+from byoda.secrets import DataSecret
+from byoda.secrets import NetworkRootCaSecret
+from byoda.secrets import NetworkDataSecret
+from byoda.secrets import NetworkAccountsCaSecret
+from byoda.secrets import NetworkServicesCaSecret
+from byoda.secrets import ServiceCaSecret
+from byoda.secrets import MembersCaSecret
+from byoda.secrets import ServiceSecret
 
 from .service import Service
 from .account import Account

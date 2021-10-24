@@ -15,7 +15,7 @@ from uuid import UUID
 import requests
 
 
-from byoda.util.secrets import Secret
+from byoda.secrets import Secret
 
 from .api_client import ApiClient
 

@@ -6,7 +6,7 @@ Helper functions for API request processing
 :license
 '''
 
-from byoda.util.secrets.service_secret import ServiceSecret
+from byoda.secrets.service_secret import ServiceSecret
 import logging
 from enum import Enum
 
@@ -24,7 +24,7 @@ from starlette.requests import Request as StarletteRequest
 from byoda.datamodel import Network
 from byoda.datatypes import IdType, HttpRequestMethod
 
-from byoda.util.secrets import (
+from byoda.secrets import (
     MembersCaSecret,
     ServiceCaSecret,
     NetworkAccountsCaSecret,

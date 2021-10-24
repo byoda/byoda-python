@@ -21,7 +21,7 @@ from byoda.datamodel import Network
 from byoda.datamodel import Service
 from byoda.datamodel import Server
 
-from byoda.util.secrets import NetworkRootCaSecret
+from byoda.secrets import NetworkRootCaSecret
 
 from byoda import config
 

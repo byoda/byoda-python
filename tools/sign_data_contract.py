@@ -23,8 +23,8 @@ from byoda.util import Logger
 from byoda.util import Paths
 
 from byoda.util.api_client import HttpMethod, RestApiClient
-from byoda.util.secrets import ServiceSecret
-from byoda.util.secrets import NetworkDataSecret
+from byoda.secrets import ServiceSecret
+from byoda.secrets import NetworkDataSecret
 
 from byoda import config
 

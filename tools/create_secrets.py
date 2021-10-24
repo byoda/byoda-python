@@ -25,8 +25,8 @@ from byoda.datatypes import CertType, CloudType, ServerRole
 from byoda.datastore import DocumentStoreType
 
 
-from byoda.util.secrets import NetworkRootCaSecret
-from byoda.util.secrets import MembersCaSecret
+from byoda.secrets import NetworkRootCaSecret
+from byoda.secrets import MembersCaSecret
 
 from byoda import config
 

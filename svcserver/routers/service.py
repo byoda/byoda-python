@@ -35,9 +35,9 @@ from byoda.models import SignedCertResponseModel
 from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import ServiceCaSecret
-from byoda.util.secrets import ServiceDataSecret
+from byoda.secrets import Secret
+from byoda.secrets import ServiceCaSecret
+from byoda.secrets import ServiceDataSecret
 
 from byoda.util import Paths
 from byoda.util import SignatureType
