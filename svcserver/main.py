@@ -45,6 +45,7 @@ server.service = Service(
 server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
 )
+server.service.load_schema(verify_contract_signatures=True)
 
 config.server = server
 

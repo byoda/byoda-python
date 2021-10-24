@@ -28,7 +28,7 @@ class CertStore:
         '''
         Constructor
 
-        :param ca_secret: the CA cert to sign CSRs with
+        :param ca_secret: the CA cert/key to sign CSRs with
         :param connectionstring: the location to store processed CSRs
         :returns: (none)
         :raises: NotImplementedError if connectionstring has a value other
