@@ -16,7 +16,7 @@ from byoda.datatypes import IdType
 from byoda.datastore import CertStore
 
 from byoda.models import CertSigningRequestModel
-from byoda.models import SignedCertResponseModel
+from byoda.models import SignedAccountCertResponseModel
 from byoda.models import IpAddressResponseModel
 # from byoda.models import LetsEncryptSecretModel
 
@@ -33,7 +33,8 @@ router = APIRouter(
 
 
 @router.post(
-    '/account', response_model=SignedCertResponseModel, status_code=201
+    '/account', response_model=SignedAccountCertResponseModel,
+    status_code=201
 )
 def post_account(request: Request, csr: CertSigningRequestModel):
     '''
@@ -58,11 +59,11 @@ def post_account(request: Request, csr: CertSigningRequestModel):
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
 
-    data_cert = network.data_secret.cert_as_pem()
+    network_data_cert_chain = network.data_secret.cert_as_pem()
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
-        'network_data_cert': data_cert,
+        'network_data_cert_chain': network_data_cert_chain,
     }
 
 

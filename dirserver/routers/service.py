@@ -36,7 +36,7 @@ from byoda.datamodel import Network
 from byoda.models import ServiceSummariesModel
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
-from byoda.models import SignedCertResponseModel
+from byoda.models import SignedServiceCertResponseModel
 from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
@@ -139,7 +139,7 @@ def get_service(request: Request, service_id: int):
 
 
 @router.post(
-    '/service', response_model=SignedCertResponseModel, status_code=201
+    '/service', response_model=SignedServiceCertResponseModel, status_code=201
 )
 def post_service(request: Request, csr: CertSigningRequestModel):
     '''
@@ -214,7 +214,7 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
-        'network_data_cert': data_cert,
+        'network_data_cert_chain': data_cert,
     }
 
 

@@ -41,7 +41,7 @@ def setup_api(title, description, version, app_config, routers: List):
     trace.set_tracer_provider(TracerProvider())
     if app_config:
         jaeger_exporter = jaeger.JaegerSpanExporter(
-            service_name='dirserver',
+            service_name='svcserver',
             agent_host_name=app_config['application'].get(
                 'jaeger_host', '127.0.0.1'
             ),

@@ -492,7 +492,7 @@ class Secret:
         '''
         Loads an X.509 cert and certchain from a string. If the cert has an
         certchain then the certchain can either be included at the end
-        of the cert_data or can be provided as a separate parameter
+        of the string of the cert or can be provided as a separate parameter
 
         :param cert: the base64-encoded cert
         :param certchain: the
@@ -568,6 +568,9 @@ class Secret:
 
         _LOGGER.debug('Saving cert to %s', self.cert_file)
         data = self.certchain_as_pem()
+
+        directory = os.path.dirname(self.cert_file)
+        self.storage_driver.create_directory(directory)
 
         self.storage_driver.write(
             self.cert_file, data, file_mode=FileMode.TEXT

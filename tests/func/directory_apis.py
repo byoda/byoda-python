@@ -174,7 +174,7 @@ class TestDirectoryApis(unittest.TestCase):
             data['signed_cert'].encode()
         )
         network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_data_cert'].encode()
+            data['network_data_cert_chain'].encode()
         )
 
     def test_network_service_creation(self):
@@ -209,7 +209,7 @@ class TestDirectoryApis(unittest.TestCase):
         serviceca_secret.cert = serviceca_cert
         serviceca_secret.cert_chain = [issuing_ca_cert]
         network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_data_cert'].encode()
+            data['network_data_cert_chain'].encode()
         )
 
         # Check that the service CA public cert was written to the network
@@ -324,7 +324,7 @@ class TestDirectoryApis(unittest.TestCase):
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={uuid4()}.members-12345678.functestbyoda.net',
+                f'CN={uuid4()}.members-12345678.byodafunctest.net',
             'X-Client-SSL-Issuing-CA': f'CN={membersca_secret.common_name}'
         }
 

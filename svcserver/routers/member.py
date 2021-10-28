@@ -14,6 +14,7 @@ It takes 3 steps for a pod to become a member of service:
 
 
 import logging
+from copy import copy
 
 from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException
@@ -26,7 +27,7 @@ from byoda.datastore import CertStore
 
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
-from byoda.models import SignedCertResponseModel
+from byoda.models import SignedMemberCertResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
 
 from byoda.secrets import Secret
@@ -46,7 +47,8 @@ router = APIRouter(
 )
 
 
-@router.post('/member', response_model=SignedCertResponseModel)
+@router.post('/member', response_model=SignedMemberCertResponseModel,
+             status_code=201)
 def post_member(request: Request, csr: CertSigningRequestModel):
     '''
     Submit a Certificate Signing Request for the Member certificate
@@ -70,7 +72,7 @@ def post_member(request: Request, csr: CertSigningRequestModel):
     # TODO: extract common name from the CSR so that this code will
     # have a more logical flow where we check first before we sign
     certchain = certstore.sign(
-        csr.csr, IdType.Member, request.client.host
+        csr.csr, IdType.MEMBER, request.client.host
     )
 
     # We make sure the key for the services in the network exists, even if
@@ -97,19 +99,19 @@ def post_member(request: Request, csr: CertSigningRequestModel):
     signed_cert = certchain.cert_as_string()
     cert_chain = certchain.cert_chain_as_string()
 
-    data_cert = service.data_secret.cert_as_pem()
+    service_data_cert_chain = service.data_secret.cert_as_pem()
 
     _LOGGER.info(f'Signed certificate with commonname {commonname}')
 
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
-        'data_cert': data_cert,
+        'service_data_cert_chain': service_data_cert_chain,
     }
 
 
 @router.put('/member/{service_id}', response_model=IpAddressResponseModel)
-def put_member(request: Request,
+def put_member(request: Request, service_id: int,
                certchain: CertChainRequestModel,
                auth: MemberRequestAuthFast = Depends(
                    MemberRequestAuthFast)):
@@ -122,6 +124,12 @@ def put_member(request: Request,
     network = config.server.network
     service = config.server.service
 
+    if service_id != auth.service_id:
+        _LOGGER.debug(
+            f'Service ID {service_id} query parameter does not match'
+            f'Service ID {auth.service_id} in the M-TLS client secret'
+        )
+
     if service.service_id != auth.service_id:
         _LOGGER.debug(
             f'Service ID {service.service_id} of PUT call does not match '
@@ -129,18 +137,18 @@ def put_member(request: Request,
         )
         raise HTTPException(404)
 
-    paths = network.paths
+    paths = copy(network.paths)
+    paths.account = 'pod'
+
     # We use a trick here to make sure we get unique filenames for the
     # member data secret by replacing the service_id in the template
     # with the member_id
     member_data_secret = Secret(
         cert_file=paths.get(
-            Paths.MEMBER_DATA_CERT_FILE, account='pod',
-            service_id=auth.member_id
+            Paths.MEMBER_DATA_CERT_FILE, service_id=auth.member_id
         ),
         key_file=paths.get(
-            Paths.MEMBER_DATA_KEY_FILE, account='pod',
-            service_id=auth.member_id
+            Paths.MEMBER_DATA_KEY_FILE, service_id=auth.member_id
         ),
         storage_driver=network.paths.storage_driver
     )

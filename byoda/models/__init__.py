@@ -10,7 +10,9 @@ Models for input and output of FastAPI APIs
 from .stats import Stats, StatsResponseModel
 from .cert import CertChainRequestModel
 from .cert import CertSigningRequestModel
-from .cert import SignedCertResponseModel
+from .cert import SignedAccountCertResponseModel
+from .cert import SignedServiceCertResponseModel
+from .cert import SignedMemberCertResponseModel
 from .ipaddress import IpAddressResponseModel
 from .service import ServiceSummariesModel
 from .schema import SchemaModel, SchemaResponseModel

@@ -433,7 +433,7 @@ class Service:
         network = config.server.network
         if not network.data_secret:
             network.data_secret = NetworkDataSecret(network.paths)
-        network.data_secret.from_string(data['network_data_cert'])
+        network.data_secret.from_string(data['network_data_cert_chain'])
         network.data_secret.save(
             password=network.private_key_password, overwrite=True
         )

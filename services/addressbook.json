@@ -1,7 +1,7 @@
 {
     "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
     "jsonschema": {
-        "$id": "https://uuid.services.byoda.net/service/directory",
+        "$id": "https://uuid.services.byoda.net/service/addressbook",
         "$schema": "https://json-schema.org/draft-07/schema#",
         "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
         "properties": {
@@ -91,7 +91,7 @@
                 }
             }
         },
-        "title": "directory to find your contacts to establish links with",
+        "title": "Address book to find your contacts to establish links with",
         "type": "object"
     },
     "name": "addressbook",

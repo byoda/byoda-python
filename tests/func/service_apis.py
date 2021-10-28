@@ -17,52 +17,41 @@ import unittest
 import requests
 import shutil
 import yaml
-import json
 import time
 from uuid import uuid4
-from copy import copy
-
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 
 from multiprocessing import Process
 import uvicorn
 
-# from byoda.datamodel import Account
+from cryptography.hazmat.primitives import serialization
+
 from byoda.datamodel import Network
 from byoda.datamodel import Schema
 from byoda.datamodel import ServiceServer
-
-from byoda.util.message_signature import SignatureType
+from byoda.datamodel import Service
 
 from byoda.secrets import Secret
-from byoda.secrets import AccountSecret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import ServiceSecret
-from byoda.secrets import ServiceDataSecret
+from byoda.secrets import MemberSecret
+from byoda.secrets import MemberDataSecret
 
 from byoda.util.logger import Logger
 
 
 from byoda import config
 
-from byoda.secrets.membersca_secret import MembersCaSecret
+from svcserver.api import setup_api
 
-from dirserver.api import setup_api
-
-from dirserver.routers import account
-from dirserver.routers import service
-from dirserver.routers import member
+from svcserver.routers import service
+from svcserver.routers import member
 
 # Settings must match config.yml used by directory server
 NETWORK = 'test.net'
-DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
+DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 
 CONFIG_FILE = 'tests/collateral/config.yml'
-TEST_DIR = '/tmp/byoda-tests/dir_apis'
-SERVICE_DIR = TEST_DIR + '/service'
-TEST_PORT = 9000
+SERVICE_DIR = None
+TEST_PORT = 5000
 BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
 _LOGGER = None
@@ -79,29 +68,45 @@ class TestDirectoryApis(unittest.TestCase):
         with open(CONFIG_FILE) as file_desc:
             cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
+        test_dir = cls.APP_CONFIG['svcserver']['root_dir']
         try:
-            shutil.rmtree(TEST_DIR)
+            shutil.rmtree(test_dir)
         except FileNotFoundError:
             pass
 
-        os.makedirs(TEST_DIR)
-        os.makedirs(
-            f'{SERVICE_DIR}/network-{cls.APP_CONFIG["application"]["network"]}'
+        os.makedirs(test_dir)
+
+        global SERVICE_DIR
+        SERVICE_DIR = test_dir + '/service'
+        service_dir = (
+            f'{SERVICE_DIR}/network-'
+            f'{cls.APP_CONFIG["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
+        os.makedirs(service_dir)
+        shutil.copy(DUMMY_SCHEMA, f'{service_dir}/service-contract.json')
 
         network = Network.create(
             cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['dirserver']['root_dir'],
-            cls.APP_CONFIG['dirserver']['private_key_password']
+            cls.APP_CONFIG['svcserver']['root_dir'],
+            cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
         config.server = ServiceServer()
         config.server.network = network
+        config.server.service = Service(
+            network,
+            f'{service_dir}/service-contract.json',
+            cls.APP_CONFIG['svcserver']['service_id']
+        )
+        config.server.service.create_secrets(
+            network.services_ca, local=True,
+            password=cls.APP_CONFIG['svcserver']['private_key_password']
+        )
 
         app = setup_api(
-            'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', None, [account, service, member]
+            'Byoda test svcserver', 'server for testing service APIs',
+            'v0.0.1', None, [service, member]
         )
         cls.PROCESS = Process(
             target=uvicorn.run,
@@ -120,166 +125,8 @@ class TestDirectoryApis(unittest.TestCase):
     def tearDownClass(cls):
         cls.PROCESS.terminate()
 
-    def test_network_account_put(self):
-        API = BASE_URL + '/v1/network/account'
-
-        uuid = uuid4()
-
-        network_name = TestDirectoryApis.APP_CONFIG['application']['network']
-
-        # PUT, with auth
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
-            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
-        }
-        response = requests.put(API, headers=headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['ipv4_address'], '127.0.0.1')
-        self.assertEqual(data['ipv6_address'], None)
-
-    def test_network_account_post(self):
-        API = BASE_URL + '/v1/network/account'
-
-        network = Network(
-            TestDirectoryApis.APP_CONFIG['dirserver'],
-            TestDirectoryApis.APP_CONFIG['application']
-        )
-
-        uuid = uuid4()
-        secret = AccountSecret(
-            account='dir_api_test', account_id=uuid, network=network
-        )
-        csr = secret.create_csr()
-        csr = csr.public_bytes(serialization.Encoding.PEM)
-        fqdn = AccountSecret.create_commonname(uuid, network.name)
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={fqdn}',
-            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
-        }
-        response = requests.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=headers
-        )
-        self.assertEqual(response.status_code, 201)
-        data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
-            data['cert_chain'].encode()
-        )
-        account_cert = x509.load_pem_x509_certificate(          # noqa:F841
-            data['signed_cert'].encode()
-        )
-        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_data_cert'].encode()
-        )
-
-    def test_network_service_creation(self):
-        API = BASE_URL + '/v1/network/service'
-
-        # We can not use deepcopy here so do two copies
-        network = copy(config.server.network)
-        network.paths = copy(config.server.network.paths)
-        network.paths._root_directory = SERVICE_DIR
-        if not network.paths.secrets_directory_exists():
-            network.paths.create_secrets_directory()
-
-        service_id = SERVICE_ID
-        serviceca_secret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id, network=network
-        )
-        csr = serviceca_secret.create_csr()
-        csr = csr.public_bytes(serialization.Encoding.PEM)
-
-        response = requests.post(
-            API, json={'csr': str(csr, 'utf-8')}
-        )
-        self.assertEqual(response.status_code, 201)
-        data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
-            data['cert_chain'].encode()
-        )
-        serviceca_cert = x509.load_pem_x509_certificate(        # noqa:F841
-            data['signed_cert'].encode()
-        )
-        # TODO: populate a secret from a CertChain
-        serviceca_secret.cert = serviceca_cert
-        serviceca_secret.cert_chain = [issuing_ca_cert]
-        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
-            data['network_data_cert'].encode()
-        )
-
-        # Check that the service CA public cert was written to the network
-        # directory of the dirserver
-        testsecret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id,
-            network=config.server.network
-        )
-        testsecret.load(with_private_key=False)
-
-        service_secret = ServiceSecret('dir_api_test', service_id, network)
-        service_csr = service_secret.create_csr()
-        certchain = serviceca_secret.sign_csr(service_csr)
-        service_secret.from_signed_cert(certchain)
-        service_secret.save()
-
-        service_cn = Secret.extract_commonname(certchain.signed_cert)
-        serviceca_cn = Secret.extract_commonname(serviceca_cert)
-
-        # Create and register the the public cert of the data secret,
-        # which the directory server needs to validate the service signature
-        # of the schema for the service
-        service_data_secret = ServiceDataSecret(
-            'dir_api_test', service_id, network
-        )
-        service_data_csr = service_data_secret.create_csr()
-        data_certchain = serviceca_secret.sign_csr(service_data_csr)
-        service_data_secret.from_signed_cert(data_certchain)
-        service_data_secret.save()
-
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={service_cn}',
-            'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
-        }
-
-        data_certchain = service_data_secret.certchain_as_pem()
-
-        response = requests.put(
-            API + '/' + str(service_id), headers=headers,
-            json={'certchain': data_certchain}
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['ipv4_address'], '127.0.0.1')
-
-        # Send the service schema
-        with open(DEFAULT_SCHEMA) as file_desc:
-            schema_data = json.load(file_desc)
-
-        schema_data['service_id'] = service_id
-        schema_data['version'] = 1
-
-        schema = Schema(schema_data)
-        schema.create_signature(service_data_secret, SignatureType.SERVICE)
-
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={service_cn}',
-            'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
-        }
-
-        response = requests.patch(
-            API, headers=headers, json=schema.json_schema
-        )
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'ACCEPTED')
-        self.assertEqual(len(data['errors']), 0)
-
-        # Get the fully-signed data contract for the service
-        API = BASE_URL + f'/v1/network/service/{service_id}'
+    def test_service_get(self):
+        API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
 
         response = requests.get(API)
         self.assertEqual(response.status_code, 200)
@@ -288,47 +135,74 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['service_id'], SERVICE_ID)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'dummyservice')
-        self.assertEqual(len(data['signatures']), 2)
-        schema = Schema(data)
+        # Schema is not signed for this test case
+        # self.assertEqual(len(data['signatures']), 2)
+        schema = Schema(data)           # noqa: F841
 
-        # Get the list of service summaries
-        API = BASE_URL + '/v1/network/services'
-        response = requests.get(API)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 1)
-        service_summary = data['service_summaries'][0]
-        self.assertEqual(service_summary['service_id'], SERVICE_ID)
-        self.assertEqual(service_summary['version'], 1)
-        self.assertEqual(service_summary['name'], 'dummyservice')
+    def test_member_putpost(self):
+        API = BASE_URL + '/v1/service/member'
 
-        # Now test membership
-        API = BASE_URL + '/v1/network/member'
-
+        # network = config.server.network
         # account = Account(uuid4(), network)
-        # member_secret = MemberSecret(service_id, account)
-        # csr = member_secret.create_csr()
-        # csr.sign(serviceca_secret)
+        service = config.server.service
 
-        membersca_secret = MembersCaSecret(
-            None, service_id, config.server.network
+        member_id = uuid4()
+
+        # HACK: MemberSecret takes an Account instance as third parameter but
+        # we use a Service instance instead
+        service.paths.account = 'pod'
+        secret = MemberSecret(member_id, SERVICE_ID, service)
+        csr = secret.create_csr()
+        csr = csr.public_bytes(serialization.Encoding.PEM)
+
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}, headers=None
         )
-        membersca_csr = membersca_secret.create_csr()
-        certchain = serviceca_secret.sign_csr(membersca_csr)
-        membersca_secret.from_signed_cert(certchain)
-        membersca_secret.save()
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+
+        self.assertTrue('signed_cert' in data)
+        self.assertTrue('cert_chain' in data)
+        self.assertTrue('service_data_cert_chain' in data)
+
+        signed_secret = MemberSecret(member_id, SERVICE_ID, service)
+        signed_secret.from_string(
+            data['signed_cert'], certchain=data['cert_chain']
+        )
+
+        service_data_cert_chain = secret.from_string(       # noqa: F841
+            data['service_data_cert_chain']
+        )
+
+        membersecret_commonname = Secret.extract_commonname(signed_secret.cert)
+        memberscasecret_commonname = Secret.extract_commonname(
+            signed_secret.cert_chain[0]
+        )
+
+        # PUT, with auth
+        # In the PUT body we put the member data secret as a service may
+        # have use for it in the future.
+        member_data_secret = MemberDataSecret(member_id, SERVICE_ID, service)
+        csr = member_data_secret.create_csr()
+        cert_chain = service.members_ca.sign_csr(csr)
+        member_data_secret.from_signed_cert(cert_chain)
+        member_data_certchain = member_data_secret.certchain_as_pem()
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={uuid4()}.members-12345678.functestbyoda.net',
-            'X-Client-SSL-Issuing-CA': f'CN={membersca_secret.common_name}'
+                f'CN={membersecret_commonname}',
+            'X-Client-SSL-Issuing-CA':
+                f'CN={memberscasecret_commonname}'
         }
-
-        response = requests.put(API, headers=headers)
+        response = requests.put(
+            f'{API}/{SERVICE_ID}', headers=headers,
+            json={'certchain': member_data_certchain}
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
+        self.assertEqual(data['ipv6_address'], None)
 
 
 if __name__ == '__main__':

@@ -76,10 +76,6 @@ class CertStore:
                 'Service certs are not supported for this API, '
                 'only ServiceCA certs'
             )
-        elif entity_id.id_type == IdType.MEMBER:
-            raise NotImplementedError(
-                'Member certs are not supported for this API'
-            )
 
         # TODO: add check on whether the UUID is already in use
         certchain = cert_auth.sign_csr(csr, 365*3)
