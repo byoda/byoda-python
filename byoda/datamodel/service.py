@@ -302,7 +302,7 @@ class Service:
             self.service_ca = self._create_secret(
                 ServiceCaSecret, None, private_key_password=private_key_password
             )
-        _LOGGER.debug(
+        _LOGGER.info(
             '!!! Private key password for the off-line Service CA: '
             f'{private_key_password}'
         )
@@ -578,18 +578,29 @@ class Service:
         )
         return response
 
-    def load_secrets(self, with_private_key: bool = True, password: str = None
-                     ) -> None:
+    def load_secrets(self, with_private_key: bool = True, password: str = None,
+                     service_ca_password=None) -> None:
         '''
         Loads all the secrets of a service
+
+        :param with_private_key: Load the private keys for all secrets except the
+        Service CA key
+        :param password: password to use for private keys of all secrets except
+        the Service CA
+        :param service_ca_password: optional password to use for private key of the
+        Service CA. If not specified, only the cert of the Service CA will be loaded.
         '''
+
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(
                 self.name, self.service_id, self.network
             )
-            self.service_ca.load(
-                with_private_key=with_private_key, password=password
-            )
+            if service_ca_password:
+                self.service_ca.load(
+                    with_private_key=True, password=service_ca_password
+                )
+            else:
+                self.service_ca.load(with_private_key=False)
 
         if not self.apps_ca:
             self.apps_ca = AppsCaSecret(
