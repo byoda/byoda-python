@@ -44,12 +44,13 @@ config.server = server
 network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
-server.get_registered_services(network)
-server.load_secrets()
 
 server.network.dnsdb = DnsDb.setup(
     config.app_config['dirserver']['dnsdb'], server.network.name
 )
+
+server.get_registered_services(network)
+server.load_secrets()
 
 if not os.environ.get('SERVER_NAME') and config.server.network.name:
     os.environ['SERVER_NAME'] = config.server.network.name
