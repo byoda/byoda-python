@@ -32,14 +32,14 @@ class DirectoryServer(Server):
         '''
         self.network.load_secrets()
 
-    def get_registered_services(self, network: Network):
+    def get_registered_services(self):
         '''
         Get the list of registered services in the network by
         scanning the directory tree. Add the services to the
         network.services dict if they are not already in there.
         '''
 
-        self.network = network
+        network = self.network
 
         service_dir = network.paths.get(Paths.SERVICES_DIR)
 
