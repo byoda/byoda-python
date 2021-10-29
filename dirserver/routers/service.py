@@ -278,8 +278,8 @@ def put_service(request: Request, service_id: int,
     }
 
 
-@router.patch('/service', response_model=SchemaResponseModel)
-def patch_service(request: Request, schema: SchemaModel,
+@router.patch('/service/{service_id}', response_model=SchemaResponseModel)
+def patch_service(request: Request, schema: SchemaModel, service_id: int,
                   auth: ServiceRequestAuthFast = Depends(
                      ServiceRequestAuthFast)):
     '''
@@ -291,6 +291,16 @@ def patch_service(request: Request, schema: SchemaModel,
 
     _LOGGER.debug(f'POST Service API called from {request.client.host}')
 
+    if service_id != auth.service_id:
+        raise HTTPException(
+            403, 'Service ID query parameter does not match the client cert'
+        )
+
+    if service_id != schema.service_id:
+        raise HTTPException(
+            403, f'Service_ID query parameter {service_id} does not match '
+            f'the ServiceID parameter in the schema {schema.service_id}'
+        )
     network = config.server.network
 
     # TODO: create a whole bunch of schema validation tests

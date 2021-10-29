@@ -70,7 +70,7 @@ class ApiClient:
             if secret:
                 key_path = secret.save_tmp_private_key()
                 _LOGGER.debug(
-                    'Setting client cert/key to {secret.cert_file}, {key_path}'
+                    f'Setting client cert/key to {secret.cert_file}, {key_path}'
                 )
                 self.session.cert = (secret.cert_file, key_path)
             else:
