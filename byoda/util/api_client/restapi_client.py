@@ -59,7 +59,7 @@ class RestApiClient:
             try:
                 _LOGGER.debug('Removing identifier from end of request for POST call')
                 int(paths[-1])
-                shortend_api = '/'.join(paths[0:-2])
+                shortend_api = '/'.join(paths[0:-1])
                 _LOGGER.debug(f'Modified POST API call from {api} to {shortend_api}')
                 api = shortend_api
             except:
