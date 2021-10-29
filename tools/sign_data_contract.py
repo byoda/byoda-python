@@ -217,27 +217,30 @@ def create_network_signature(service, args) -> bool:
             secret=service_secret,
             data=service.schema.json_schema,
         )
-        if response.status_code == 200:
-            data = response.json()
-            if data['errors']:
-                _LOGGER.debug('Validation of service by the network failed')
-                for error in data['errors']:
-                    _LOGGER.debug(f'Validation error: {error}')
+        if response.status_code != 200:
+            return False
 
-                return False
+        data = response.json()
+        if data['errors']:
+            _LOGGER.debug('Validation of service by the network failed')
+            for error in data['errors']:
+                _LOGGER.debug(f'Validation error: {error}')
+
+            return False
+        else:
+            response = RestApiClient.call(
+                service.paths.get(Paths.NETWORKSERVICE_API),
+                HttpMethod.GET,
+                secret=service_secret,
+                service_id=service.service_id
+            )
+            if response.status_code == 200:
+                service.schema.json_schema = response.json()
+                service.registration_status = \
+                    RegistrationStatus.SchemaSigned
+                return True
             else:
-                response = RestApiClient.call(
-                    service.paths.get(Paths.NETWORKSERVICE_API),
-                    HttpMethod.GET,
-                    secret=service_secret,
-                    service_id=service.service_id
-                )
-                if response.status_code == 200:
-                    service.schema.json_schema = response.json()
-                    service.registration_status = \
-                        RegistrationStatus.SchemaSigned
-                else:
-                    return False
+                return False
 
     _LOGGER.debug(
         'Added network signature '
