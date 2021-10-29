@@ -349,7 +349,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
             status = ReviewStatusType.REJECTED
             errors.append(f'Unregistered service ID {service_id}')
         else:
-            if service.schema and schema.version <= service.schema['version']:
+            if service.schema and schema.version <= service.schema.version:
                 status = ReviewStatusType.REJECTED
                 errors.append(
                     f'Schema version {schema.version} is less than current '
