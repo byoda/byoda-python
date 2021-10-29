@@ -16,14 +16,14 @@ from enum import Enum
 
 from cryptography.hazmat.primitives import serialization
 
-from byoda.datamodel.server import DirectoryServer, ServerType
 from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.schema import Schema
-from byoda.datamodel.server import ServiceServer
-
+from byoda.servers.server import ServerType
+from byoda.servers.service_server import ServiceServer
+from byoda.servers.directory_server import DirectoryServer
 from byoda.util import SignatureType
 from byoda.util import Paths
 
@@ -162,14 +162,17 @@ class Service:
         # JSON-Schema meta schema
 
         if filepath is None:
+            if not verify_contract_signatures:
+                raise ValueError(
+                    'The signatures for Schemas downloaded from the network '
+                    'must always be validated'
+                )
             raise NotImplementedError(
                 'Downloading service definitions from the directory server '
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema.get_schema(
-            filepath, self.storage_driver,
-        )
+        self.schema = Schema.get_schema(filepath, self.storage_driver)
 
         self.name = self.schema.name
         self.service_id = self.schema.service_id

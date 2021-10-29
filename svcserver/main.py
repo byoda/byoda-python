@@ -16,15 +16,19 @@ from .api import setup_api
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.datamodel import ServiceServer
+from byoda.servers import ServiceServer
 from byoda.datamodel import Service
 from byoda.datamodel import Network
+
+from byoda.util import Paths
 
 from .routers import service
 
 _LOGGER = None
 
-with open('config.yml') as file_desc:
+# We support the
+config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+with open(config_file) as file_desc:
     config.app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
 debug = config.app_config['application']['debug']
@@ -39,13 +43,15 @@ network = Network(
 )
 server = ServiceServer()
 server.service = Service(
-    network, config.app_config['svcserver']['service_file'],
-    config.app_config['svcserver']['service_id']
+    network, None, config.app_config['svcserver']['service_id']
 )
 server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
 )
-server.service.load_schema(verify_contract_signatures=True)
+schema_file = server.service.paths.get(Paths.SERVICE_FILE)
+server.service.load_schema(
+    filepath=schema_file, verify_contract_signatures=True
+)
 
 config.server = server
 

@@ -32,7 +32,7 @@
             }
         },
         {
-            "name": "svcserver",
+            "name": "svcserver: private",
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
@@ -45,9 +45,29 @@
             ],
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
-                "SERVER_NAME": "devws"
+                "SERVER_NAME": "devws",
+                "CONFIG_FILE": "config.yml"
             }
-        },        {
+        },
+        {
+            "name": "svcserver: addressbook",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "console": "integratedTerminal",
+            "args": [
+                "svcserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "6001",
+                "--proxy-headers"
+            ],
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws",
+                "CONFIG_FILE": "config-addressbook.yml"
+            }
+        },
+        {
             "name": "podserver LOCAL",
             "type": "python",
             "request": "launch",

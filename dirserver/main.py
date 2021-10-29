@@ -16,7 +16,8 @@ from .api import setup_api
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.datamodel import DirectoryServer
+from byoda.servers import DirectoryServer
+
 from byoda.datamodel import Network
 
 from byoda.datastore import DnsDb
