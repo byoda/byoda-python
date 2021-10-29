@@ -31,7 +31,7 @@ import uvicorn
 # from byoda.datamodel import Account
 from byoda.datamodel import Network
 from byoda.datamodel import Schema
-from byoda.datamodel import DirectoryServer
+from byoda.servers import DirectoryServer
 
 from byoda.util.message_signature import SignatureType
 

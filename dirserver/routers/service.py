@@ -30,7 +30,7 @@ from byoda.datatypes import IdType, ReviewStatusType
 from byoda.datamodel import Service
 from byoda.datamodel import Schema
 from byoda.datastore import CertStore
-from byoda.datamodel import Server
+from byoda.servers import Server
 from byoda.datamodel import Network
 
 from byoda.models import ServiceSummariesModel
