@@ -86,7 +86,7 @@ server.account = network.load_account(
 
 server.load_secrets(password=network.private_key_password)
 
-server.get_registered_services(network)
+server.get_registered_services()
 server.load_joined_services(network)
 
 config.server = server
