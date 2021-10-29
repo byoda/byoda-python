@@ -131,6 +131,10 @@ class Paths:
         if '{account}' in path_template and not self._account:
             raise ValueError('No account specified')
 
+        _LOGGER.debug(
+            f'Formatting template with network {self._network}, '
+            f'account: {self._account} and service_id {service_id}'
+        )
         path = path_template.format(
             network=self._network,
             account=self._account,
