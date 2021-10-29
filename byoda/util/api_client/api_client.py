@@ -95,7 +95,10 @@ class ApiClient:
             api, network.name, service_id=service_id, member_id=member_id,
             account_id=account_id
         )
-
+        _LOGGER.debug(
+            f'Calling {method} {api} with query parameters {params} and '
+            f'data: {data}'
+        )
         response = client.session.request(method, api, params=params, json=data)
 
         return response
