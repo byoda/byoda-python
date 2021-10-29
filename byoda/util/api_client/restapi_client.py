@@ -59,8 +59,9 @@ class RestApiClient:
             try:
                 _LOGGER.debug('Removing identifier from end of request for POST call')
                 int(paths[-1])
-                shorter_api = '/'.join(paths[0:-2])
-                _LOGGER.debug(f'Modified POST API call from {api} to {shorter_api}')
+                shortend_api = '/'.join(paths[0:-2])
+                _LOGGER.debug(f'Modified POST API call from {api} to {shortend_api}')
+                api = shortend_api
             except:
                 # API URL did not end with an ID specifier
                 pass
