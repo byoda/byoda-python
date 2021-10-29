@@ -394,8 +394,6 @@ class Service:
             secret, csr, issuing_ca, private_key_password=private_key_password
         )
 
-        self.save
-
         return secret
 
     def get_csr_signature(self, secret: Secret, csr: CSR,
