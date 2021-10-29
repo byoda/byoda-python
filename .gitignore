@@ -1,4 +1,5 @@
 config.yml
+config-addressbook.yml
 uwsgi.yml
 
 # We store code generated for parsing GraphQL queries here

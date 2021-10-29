@@ -23,5 +23,4 @@ svcserver:
     roles:
     - service
   service_id: 1
-  service_file: directory.json
   private_key_password: 'byoda'
