@@ -69,10 +69,10 @@ class Network:
 
         :param server: section from config.yml with key 'dirserver',
         'svcserver', 'podserver' etc, with keys 'roles', 'root_dir'
-        'private_key_password' and parameters specific to the role. A
-        directory server must have key 'dnsdb'
+        'private_key_password', 'logfile' and parameters specific to the
+        role. A directory server must have key 'dnsdb'
         :param application: section from config.yml with keys 'network',
-        'debug', 'logfile', 'environment'
+        'debug', 'environment'
         :returns:
         :raises: ValueError, KeyError
         '''

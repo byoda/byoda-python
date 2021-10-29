@@ -35,7 +35,7 @@ debug = config.app_config['application']['debug']
 verbose = not debug
 _LOGGER = Logger.getLogger(
     sys.argv[0], debug=debug, verbose=verbose,
-    logfile=config.app_config['application'].get('logfile')
+    logfile=config.app_config['dirserver'].get('logfile')
 )
 
 server = DirectoryServer()
