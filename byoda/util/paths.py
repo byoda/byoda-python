@@ -116,7 +116,12 @@ class Paths:
         and the service parameter is not specified
         '''
 
+        _LOGGER.debug(
+            f'Got template {path_template}, service_id {service_id} and '
+            'member_id {member_id}'
+        )
         if service_id is None:
+            _LOGGER.debug(f'Setting service_id to {self.service_id}')
             service_id = self.service_id
 
         if '{network}' in path_template and not self._network:

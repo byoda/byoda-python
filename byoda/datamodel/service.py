@@ -417,8 +417,9 @@ class Service:
             )
         }
 
+        url = self.paths.get(Paths.NETWORKSERVICE_API)
         response = RestApiClient.call(
-            self.paths.get(Paths.NETWORKSERVICE_API), HttpMethod.POST, data=data
+            url, HttpMethod.POST, data=data
         )
         if response.status_code != 201:
             raise ValueError(
@@ -550,11 +551,9 @@ class Service:
         key_path = self.tls_secret.save_tmp_private_key()
         data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
 
+        url = self.paths.get(Paths.NETWORKSERVICE_API)
         response = RestApiClient.call(
-            self.paths.get(Paths.NETWORKSERVICE_API),
-            HttpMethod.PUT,
-            secret=self.tls_secret,
-            data=data_certchain,
+            url, HttpMethod.PUT, secret=self.tls_secret, data=data_certchain,
             service_id=self.service_id
         )
         return response
