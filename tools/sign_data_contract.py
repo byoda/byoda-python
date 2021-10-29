@@ -206,7 +206,7 @@ def create_network_signature(service, args) -> bool:
         service_secret = ServiceSecret(None, service.service_id, network)
         service_secret.load(with_private_key=True)
         response = RestApiClient.call(
-            Paths.NETWORKSERVICE_API,
+            service.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PATCH,
             secret=service_secret,
             data=service.schema.json_schema,
@@ -221,7 +221,7 @@ def create_network_signature(service, args) -> bool:
                 return False
             else:
                 response = RestApiClient.call(
-                    Paths.NETWORKSERVICE_API,
+                    service.paths.get(Paths.NETWORKSERVICE_API),
                     HttpMethod.GET,
                     secret=service_secret,
                     service_id=service.service_id

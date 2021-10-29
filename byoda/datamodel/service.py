@@ -418,7 +418,7 @@ class Service:
         }
 
         response = RestApiClient.call(
-            Paths.NETWORKSERVICE_API, HttpMethod.POST, data=data
+            self.paths.get(Paths.NETWORKSERVICE_API), HttpMethod.POST, data=data
         )
         if response.status_code != 201:
             raise ValueError(
@@ -551,7 +551,7 @@ class Service:
         data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
 
         response = RestApiClient.call(
-            Paths.NETWORKSERVICE_API,
+            self.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PUT,
             secret=self.tls_secret,
             data=data_certchain,
