@@ -190,6 +190,7 @@ def create_network_signature(service, args) -> bool:
 
     # We first verify the service signature before we add the network
     # signature
+    _LOGGER.debug('Verifying service signature')
     service.schema.verify_signature(
         service.data_secret, SignatureType.SERVICE
     )
@@ -204,7 +205,7 @@ def create_network_signature(service, args) -> bool:
         )
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
-        service_secret.load(with_private_key=True)
+        service_secret.load(with_private_key=True, password=args.password)
         response = RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PATCH,
