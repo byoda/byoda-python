@@ -114,8 +114,10 @@ def main(argv):
         args.root_directory = os.getcwd()
 
     storage_driver = FileStorage(args.root_directory)
+    filepath = service.paths.get(Paths.SERVICE_FILE)
+    _LOGGER.debug(f'Saving signed schema to {filepath}')
     service.schema.save(
-        service.paths.get(Paths.SERVICE_FILE), storage_driver=storage_driver
+        filepath, storage_driver=storage_driver
     )
 
 
