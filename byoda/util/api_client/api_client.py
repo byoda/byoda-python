@@ -69,11 +69,17 @@ class ApiClient:
             self.session.timout = 3
             if secret:
                 key_path = secret.save_tmp_private_key()
+                _LOGGER.debug(
+                    'Setting client cert/key to {secret.cert_file}, {key_path}'
+                )
                 self.session.cert = (secret.cert_file, key_path)
             else:
                 self.session.cert = None
 
             if isinstance(secret, MemberSecret):
+                # For calls by Accounts and Services to the directory server,
+                # we do not have to set the root CA as the directory server
+                # uses a Let's Encrypt cert
                 self.session.verify = server.network.root_ca.cert_file()
         else:
             self.session = config.client_pools[type(secret)]
