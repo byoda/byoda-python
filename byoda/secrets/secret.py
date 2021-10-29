@@ -552,16 +552,17 @@ class Secret:
         :param password: password to decrypt the private_key
         :param overwrite: should any existing files be overwritten
         :returns: (none)
-        :raises: (none)
+        :raises: PermissionError if the file for the cert and/or key
+        already exist and overwrite == False
         '''
 
         if not overwrite and self.storage_driver.exists(self.cert_file):
-            raise ValueError(
+            raise PermissionError(
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
             )
         if not overwrite and self.storage_driver.exists(self.private_key_file):
-            raise ValueError(
+            raise PermissionError(
                 f'Can not save the private key because the key already '
                 f'exists at {self.private_key_file}'
             )

@@ -14,6 +14,8 @@ from typing import TypeVar, Callable, Dict
 from copy import copy
 from enum import Enum
 
+import passgen
+
 from cryptography.hazmat.primitives import serialization
 
 from byoda.datastore.dnsdb import DnsRecordType
@@ -279,20 +281,31 @@ class Service:
                           network_services_ca: NetworkServicesCaSecret = None,
                           local: bool = False) -> None:
         '''
-        Create the service CA
+        Create the service CA using a generated password for the private key. This
+        password is different then the passwords for the other secrets as the
+        Service CA should have additional security implemented and should be stored
+        off-line
 
         :param local: should the CSR be signed by a local key or using a
         request to the directory server of the network
         :raises: ValueError if the service ca already exists
         '''
 
+        private_key_password = passgen.passgen(length=48)
+
         if local:
             self.service_ca = self._create_secret(
-                ServiceCaSecret, network_services_ca
+                ServiceCaSecret, network_services_ca,
+                private_key_password=private_key_password
             )
         else:
-            self.service_ca = self._create_secret(ServiceCaSecret, None)
-
+            self.service_ca = self._create_secret(
+                ServiceCaSecret, None, private_key_password=private_key_password
+            )
+        _LOGGER.debug(
+            '!!! Private key password for the off-line Service CA: '
+            f'{private_key_password}'
+        )
     def create_members_ca(self) -> None:
         '''
         Creates the member CA, signed by the Service CA
@@ -302,7 +315,8 @@ class Service:
         '''
 
         self.members_ca = self._create_secret(
-            MembersCaSecret, self.service_ca
+            MembersCaSecret, self.service_ca,
+            private_key_password=self.private_key_password
         )
 
     def create_apps_ca(self) -> None:
@@ -310,7 +324,10 @@ class Service:
         Create the CA that signs application secrets
         '''
 
-        self.apps_ca = self._create_secret(AppsCaSecret, self.service_ca)
+        self.apps_ca = self._create_secret(
+            AppsCaSecret, self.service_ca,
+            private_key_password=self.private_key_password
+        )
 
     def create_service_secret(self) -> None:
         '''
@@ -321,7 +338,8 @@ class Service:
         '''
 
         self.service_secret = self._create_secret(
-            ServiceSecret, self.service_ca
+            ServiceSecret, self.service_ca,
+            private_key_password=self.private_key_password
         )
 
     def create_data_secret(self) -> None:
@@ -333,11 +351,12 @@ class Service:
         '''
 
         self.data_secret = self._create_secret(
-            ServiceDataSecret, self.service_ca
+            ServiceDataSecret, self.service_ca,
+            private_key_password=self.private_key_password
         )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
-                       ) -> Secret:
+    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret,
+                       private_key_password: str = None) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -371,12 +390,17 @@ class Service:
 
         # TODO: SECURITY: add constraints
         csr = secret.create_csr()
-        self.get_csr_signature(secret, csr, issuing_ca)
+        self.get_csr_signature(
+            secret, csr, issuing_ca, private_key_password=private_key_password
+        )
+
+        self.save
 
         return secret
 
     def get_csr_signature(self, secret: Secret, csr: CSR,
-                          issuing_ca: CaSecret) -> None:
+                          issuing_ca: CaSecret,
+                          private_key_password: str = None) -> None:
         '''
         Gets the signed cert(chain) for the CSR and saves returned cert and the
         existing private key.
@@ -398,9 +422,9 @@ class Service:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-            secret.save()
+            secret.save(password=private_key_password, overwrite=False)
             # We do not set self.registration_status as locally signing
-            # does not provide informaiton about the status of service in
+            # does not provide information about the status of service in
             # the network
             return
 
@@ -429,7 +453,7 @@ class Service:
         data = response.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
         self.registration_status = RegistrationStatus.CsrSigned
-        secret.save()
+        secret.save(password=private_key_password, overwrite=False)
 
         # Every time we receive the network data cert, we
         # save it as it could have changed since the last time we
@@ -438,9 +462,7 @@ class Service:
         if not network.data_secret:
             network.data_secret = NetworkDataSecret(network.paths)
         network.data_secret.from_string(data['network_data_cert_chain'])
-        network.data_secret.save(
-            password=network.private_key_password, overwrite=True
-        )
+        network.data_secret.save(overwrite=True)
 
     @staticmethod
     def is_registered(service_id: int,

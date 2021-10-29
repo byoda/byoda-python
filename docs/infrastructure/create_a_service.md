@@ -65,9 +65,13 @@ cd ${BYODA_HOME}
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
-tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_NET} --root-directory ${SERVICE_DIR}
+sudo pip3 install passgen
+PASSWORD=$(passgen -n 1)
+echo "Passwords for service secrets except the Service CA: ${PASSWORD}
+tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_NET} --root-directory ${SERVICE_DIR} --password ${PASSWORD}
 ```
 
+Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
 Now you can copy all secrets except the private key of the ServiceCA to the server you want to host the service.
 ```
 SERVER_IP=<IP address of your server>

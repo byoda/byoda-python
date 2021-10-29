@@ -207,7 +207,10 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     # If someone else already registered a Service then saving the cert will
     # raise an exception
-    service.service_ca.save(overwrite=False)
+    try:
+        service.service_ca.save(overwrite=False)
+    except PermissionError:
+        raise HTTPException(409, 'Service CA certificate already exists')
 
     data_cert = network.data_secret.cert_as_pem()
 
