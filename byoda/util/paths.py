@@ -143,6 +143,8 @@ class Paths:
         if path[0] != '/':
             path = self._root_directory + '/' + path
 
+        _LOGGER.debug(f'Template resolved to {path}')
+
         return path
 
     @staticmethod
