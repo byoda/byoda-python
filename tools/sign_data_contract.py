@@ -194,10 +194,12 @@ def create_network_signature(service, args) -> bool:
     service.schema.verify_signature(
         service.data_secret, SignatureType.SERVICE
     )
+    _LOGGER.debug('Service signature has been verified')
 
     if args.local:
         # When signing locally, the service contract gets updated
         # with the network signature
+        _LOGGER.debug('Locally creating network signature')
         network.data_secret = NetworkDataSecret(network.paths)
         network.data_secret.load(with_private_key=True, password=args.password)
         service.schema.create_signature(
@@ -206,6 +208,7 @@ def create_network_signature(service, args) -> bool:
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
         service_secret.load(with_private_key=True, password=args.password)
+        _LOGGER.debug('Requesting network signature from the directory server')
         response = RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PATCH,
