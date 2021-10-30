@@ -37,6 +37,7 @@ _LOGGER = Logger.getLogger(
     sys.argv[0], debug=debug, verbose=verbose,
     logfile=config.app_config['svcserver'].get('logfile')
 )
+_LOGGER.debug(f'Read configuration file: {config_file}')
 
 network = Network(
     config.app_config['svcserver'], config.app_config['application']
@@ -48,6 +49,10 @@ server.service = Service(
 server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
 )
+server.service.service_secret.save_tmp_private_key(
+    filepath=f'/tmp/service-{server.service.service_id}'
+)
+
 schema_file = server.service.paths.get(Paths.SERVICE_FILE)
 server.service.load_schema(
     filepath=schema_file, verify_contract_signatures=True
