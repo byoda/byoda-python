@@ -50,7 +50,7 @@ server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
 )
 server.service.tls_secret.save_tmp_private_key(
-    filepath=f'/tmp/service-{server.service.service_id}'
+    f'/tmp/service-{server.service.service_id}'
 )
 
 schema_file = server.service.paths.get(Paths.SERVICE_FILE)
