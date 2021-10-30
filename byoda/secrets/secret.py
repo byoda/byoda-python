@@ -619,8 +619,7 @@ class Secret:
         :raises: (none)
         '''
 
-        # TODO: SECURITY check if file can be deleted after cert/key
-        # are added to the requests.Session()
+        # private key is used both by nginx server and requests client
         _LOGGER.debug('Saving private key to %s', filepath)
         private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:
