@@ -57,8 +57,8 @@ class TestAccountManager(unittest.TestCase):
         network.services = {SERVICE_ID: None}
         member = account.join(
             service=service, members_ca=service.members_ca
-
         )
+
         self.assertIsNotNone(member.member_id)
         account.data_secret.validate(network.root_ca)
 

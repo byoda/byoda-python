@@ -43,7 +43,7 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 load_tls_secret=False, account='pod'):
+                 load_tls_secret: bool = False, account: str = 'pod'):
         '''
         Constructor
         '''
@@ -68,9 +68,8 @@ class Account:
 
         self.private_key_password: str = network.private_key_password
 
-        self.tls_secret: AccountSecret = None
         self.data_secret: DataSecret = None
-        self.tls_secret = AccountSecret(
+        self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )
         if load_tls_secret:

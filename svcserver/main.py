@@ -39,12 +39,13 @@ _LOGGER = Logger.getLogger(
 )
 _LOGGER.debug(f'Read configuration file: {config_file}')
 
-network = Network(
+server = ServiceServer()
+
+server.network = Network(
     config.app_config['svcserver'], config.app_config['application']
 )
-server = ServiceServer()
 server.service = Service(
-    network, None, config.app_config['svcserver']['service_id']
+    server.network, None, config.app_config['svcserver']['service_id']
 )
 server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
@@ -56,10 +57,10 @@ server.service.load_schema(
     filepath=schema_file, verify_contract_signatures=True
 )
 
-config.server = server
+if not os.environ.get('SERVER_NAME') and server.network.name:
+    os.environ['SERVER_NAME'] = server.network.name
 
-if not os.environ.get('SERVER_NAME') and config.server.network.name:
-    os.environ['SERVER_NAME'] = config.server.network.name
+config.server = server
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
