@@ -49,7 +49,7 @@ server.service = Service(
 server.load_secrets(
     password=config.app_config['svcserver']['private_key_password']
 )
-server.service.service_secret.save_tmp_private_key(
+server.service.tls_secret.save_tmp_private_key(
     filepath=f'/tmp/service-{server.service.service_id}'
 )
 
