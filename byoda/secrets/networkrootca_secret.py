@@ -58,8 +58,11 @@ class NetworkRootCaSecret(CaSecret):
             self.network = network
             self.paths = None
 
-        self.is_root_cert = True
+        # X.509 constraints
+        self.ca: bool = True
+        self.max_path_length: int = 3
 
+        self.is_root_cert = True
         self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 

@@ -71,9 +71,11 @@ class CaSecret(Secret):
 
         super().__init__(cert_file, key_file, storage_driver)
 
-        self.is_root_cert = False
+        self.is_root_cert: bool = False
 
-        self.ca = True
+        # X.509 constraints
+        self.ca: bool = True
+        self.max_path_length: int = 0
 
         self.signs_ca_certs = False
 

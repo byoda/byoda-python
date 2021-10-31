@@ -107,8 +107,10 @@ class Secret:
         # Is this a self-signed cert?
         self.is_root_cert: bool = False
 
+        # X.509 constraints
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
+        self.max_path_length: int = None
 
     def create(self, common_name: str, issuing_ca: CaSecret = None,
                expire: int = 30, key_size: int = _RSA_KEYSIZE,
@@ -221,7 +223,7 @@ class Secret:
             self._get_cert_name()
         ).add_extension(
             x509.BasicConstraints(
-                ca=ca, path_length=None
+                ca=ca, path_length=4
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 

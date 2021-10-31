@@ -42,6 +42,11 @@ class NetworkServicesCaSecret(CaSecret):
         self.id_type = IdType.SERVICES_CA
 
         self.signs_ca_certs = True
+
+        # X.509 constraints
+        self.ca: bool = True
+        self.max_path_length: int = 2
+
         self.accepted_csrs = [IdType.SERVICE_CA]
 
     def create_csr(self) -> CSR:

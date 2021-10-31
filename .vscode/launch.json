@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python:/home/ehesste/src/byoda-python"
             }
         },
         {

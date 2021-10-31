@@ -57,6 +57,10 @@ class AppsCaSecret(CaSecret):
 
         self.id_type = IdType.APPS_CA
 
+        # X.509 constraints
+        self.ca = True
+        self.max_path_length = 0
+
         self.signs_ca_certs = False
         self.accepted_csrs = AppsCaSecret.ACCEPTED_CSRS
 

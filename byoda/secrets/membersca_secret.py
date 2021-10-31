@@ -63,6 +63,10 @@ class MembersCaSecret(CaSecret):
 
         self.id_type = IdType.MEMBERS_CA
 
+        # X.509 constraints
+        self.ca = True
+        self.max_path_length = 0
+
         self.signs_ca_certs = False
         self.accepted_csrs = MembersCaSecret.ACCEPTED_CSRS
 

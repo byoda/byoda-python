@@ -1,6 +1,5 @@
 '''
-Cert manipulation for service secrets: Service CA, Service Members CA and
-Service secret
+Cert manipulation for service secrets: Service CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
@@ -58,8 +57,10 @@ class ServiceCaSecret(CaSecret):
 
         self.id_type = IdType.SERVICE_CA
 
-        self.ca = True
-        self.signs_ca_certs = False
+        self.ca: bool = True
+        self.signs_ca_certs: bool = True
+        self.max_path_length: int = 1
+
         self.accepted_csrs = (
             IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
             IdType.SERVICE_DATA,
