@@ -13,7 +13,8 @@ import unittest
 from byoda.util import Logger
 
 from byoda.datamodel import Network, Service, Account
-from byoda.datamodel import DirectoryServer
+
+from byoda.servers import DirectoryServer
 
 from byoda.datastore import DocumentStoreType
 

@@ -37,7 +37,11 @@ class NetworkDataSecret(DataSecret):
             key_file=self.paths.get(Paths.NETWORK_DATA_KEY_FILE),
             storage_driver=self.paths.storage_driver
         )
+
+        # X.509 constraints
         self.ca = False
+        self.max_path_length = None
+
         self.is_root_cert = False
         self.issuing_ca = None
         self.id_type = IdType.NETWORK_DATA

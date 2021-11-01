@@ -223,7 +223,7 @@ class Secret:
             self._get_cert_name()
         ).add_extension(
             x509.BasicConstraints(
-                ca=ca, path_length=4
+                ca=ca, path_length=self.max_path_length
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
