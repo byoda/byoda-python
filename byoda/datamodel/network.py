@@ -196,7 +196,9 @@ class Network:
             root_ca.create(expire=100*365)
             root_ca_password = passgen.passgen(length=48)
             root_ca.save(password=root_ca_password)
-            _LOGGER.debug(f'Saving root CA using password {root_ca_password}')
+            _LOGGER.info(
+                f'!!! Saving root CA using password {root_ca_password}'
+            )
 
         network_data = {
             'network': network_name, 'root_dir': root_dir,
@@ -218,6 +220,9 @@ class Network:
         network.services_ca = Network._create_secret(
             network.name, NetworkServicesCaSecret, root_ca, paths, password
         )
+
+        # Create the services directory to enable the directory server to start
+        os.mkdir(paths.get(Paths.SERVICES_DIR))
 
         return network
 

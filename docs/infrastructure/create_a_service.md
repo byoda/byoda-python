@@ -48,7 +48,7 @@ We create the service secrets using the 'tools/create_service_secrets.py' script
 
 ```
 export BYODA_HOME=/opt/byoda
-export BYODA_NET=byoda.net
+export BYODA_DOMAIN=byoda.net
 
 
 export SERVICE_CONTRACT=<path-to-your-service-file>
@@ -66,9 +66,10 @@ git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 sudo pip3 install passgen
-PASSWORD=$(passgen -n 1)
+PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}
-tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_NET} --root-directory ${SERVICE_DIR} --password ${PASSWORD}
+tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
+
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
@@ -90,7 +91,7 @@ As you just created the ServiceData secret in step #2, you can generate the serv
 
 ```
 export BYODA_HOME=/opt/byoda
-export BYODA_NET=byoda.net
+export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=<path-to-your-service-file>
 
@@ -99,6 +100,4 @@ export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
-tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --signing-party service --network ${BYODA_NETWORK} --root-directory ${SERVICE_DIR} --password=${PASSWORD}
-tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --signing-party network --network ${BYODA_NETWORK} --root-directory ${SERVICE_DIR} --password=${PASSWORD}
-cp ${SERVICE_CONTRACT} $SERVICE_DIR/network-${BYODA_NET}/service-${SERVICE_ID}/service.json
+tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password=${PASSWORD}

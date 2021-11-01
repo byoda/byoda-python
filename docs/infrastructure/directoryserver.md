@@ -142,7 +142,8 @@ BYODA_DOMAIN=somecooldomain.net
 PASSWORD=$(passgen -n 1 -l 48)
 
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
-tools/create_network.py --network ${BYODA_DOMAIN} --debug --password ${PASSWORD} 2>&1 | /tmp/network.log
+export ROOT_DIR=/opt/byoda/dirserver
+tools/create_network.py --debug --network ${BYODA_DOMAIN} --root-dir=${ROOT_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/network.log
 # Save the password for the root CA from the log message containing:
 #   'Saving root CA using password'
 # to your password manager like 1password, keepass2, lastpass etc.
@@ -164,10 +165,18 @@ Byoda code requires python 3.9 or later, ie. for Ubuntu:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt-get -y install python3.9 pipenv
-
 ```
 or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
 
+
+There is currently an issue with 'pipenv' to install the modules so we install
+python modules globally:
+
+```
+sudo pip install -r requirements.txt
+```
+
+Clone the repo:
 ```
 BYODA_HOME=/opt/byoda
 sudo mkdir ${BYODA_HOME}
@@ -182,16 +191,6 @@ cp config-sample.yml config.yml
 
 Edit the config.yml, including the connection string for your Postgres server
 
-There is currently an issue with 'pipenv' to install the modules so we install
-python modules globally:
-
-```
-sudo pip install -r requirements.txt
-```
-
-Now we have to create the network, using the 'create_network.py' tool:
-```
-```
 
 We install nginx as reverse proxy in for the directory server:
 ```
