@@ -6,6 +6,7 @@ Helper functions for API request processing
 :license
 '''
 
+from byoda.secrets.service_secret import ServiceSecret
 import logging
 from enum import Enum
 
@@ -23,7 +24,7 @@ from starlette.requests import Request as StarletteRequest
 from byoda.datamodel import Network
 from byoda.datatypes import IdType, HttpRequestMethod
 
-from byoda.util.secrets import (
+from byoda.secrets import (
     MembersCaSecret,
     ServiceCaSecret,
     NetworkAccountsCaSecret,
@@ -177,6 +178,7 @@ class RequestAuth():
         self.account_id = None
         self.service_id = None
         self.member_id = None
+        self.domain = None
 
         #
         # Process the headers and if auth is 'required', throw
@@ -185,7 +187,7 @@ class RequestAuth():
         if (isinstance(tls_status, TlsStatus) and
                 tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS)):
             raise HTTPException(
-                status_code=400, detail=f'Client TLS status is {tls_status}'
+                status_code=403, detail=f'Client TLS status is {tls_status}'
             )
         elif not tls_status:
             raise MissingAuthInfo('Missing TLS status')
@@ -201,7 +203,9 @@ class RequestAuth():
             raise MissingAuthInfo('Missing Issuing CA Distinguished Name')
 
         if self.client_cn:
-            if self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn:
+            if (self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn
+                    or self.client_cn == 'None'
+                    or self.issuing_ca_cn == 'None'):
                 # Somehow a self-signed cert made it through the certchain
                 # check
                 _LOGGER.warning(
@@ -217,7 +221,10 @@ class RequestAuth():
                 )
 
             self.id_type = RequestAuth.get_idtype(self.client_cn)
-            self.id = self.client_cn.split('.')[0]
+            self.id, subdomain = self.client_cn.split('.')[0:2]
+            self.domain = self.client_cn.split('.', 3)[-2]
+            if '-' in subdomain:
+                self.service_id = subdomain.split('-')[1]
 
     @staticmethod
     def authenticate_request(request: starlette.requests.Request):
@@ -328,10 +335,10 @@ class RequestAuth():
         # client
         try:
             # Member cert gets signed by Service Member CA
-            member_ca_secret = MembersCaSecret(
+            members_ca_secret = MembersCaSecret(
                 None, service_id, network=network
             )
-            entity_id = member_ca_secret.review_commonname(self.client_cn)
+            entity_id = members_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
             self.service_id = entity_id.service_id
 
@@ -350,7 +357,7 @@ class RequestAuth():
                 )
             ) from exc
 
-    def check_service_cert(self, service_id: int, network: Network) -> None:
+    def check_service_cert(self, network: Network) -> None:
         '''
         Checks if the MTLS client certificate was signed the cert chain
         for members of the service
@@ -361,6 +368,11 @@ class RequestAuth():
                 status_code=401, detail='Missing MTLS client cert'
             )
 
+        # Check that the client common name is well-formed and
+        # extract the service_id
+        entity_id = ServiceSecret.parse_commonname(self.client_cn, network)
+        service_id = entity_id.service_id
+
         try:
             # Service secret gets signed by Service CA
             service_ca_secret = ServiceCaSecret(
@@ -370,9 +382,7 @@ class RequestAuth():
             self.service_id = entity_id.service_id
 
             # Service CA secret gets signed by Network Services CA
-            networkservices_ca_secret = NetworkServicesCaSecret(
-                network=network.name
-            )
+            networkservices_ca_secret = NetworkServicesCaSecret(network.paths)
             networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
             raise HTTPException(
@@ -427,7 +437,8 @@ class RequestAuth():
         subdomain = commonname_bits[1]
         if '-' in subdomain:
             # For members, subdomain has format 'members-<service-id>'
-            idtype = IdType(subdomain[:subdomain.find('-')])
+            idtype = IdType(subdomain[:subdomain.find('-')+1])
         else:
             idtype = IdType(commonname_bits[1])
+
         return idtype

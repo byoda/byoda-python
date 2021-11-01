@@ -69,11 +69,11 @@ class PodRequestAuth(RequestAuth):
                         'with an account secret'
                     )
                 )
-            self.check_account_cert(config.network)
+            self.check_account_cert(config.server.network)
         elif self.id_type == IdType.MEMBER:
-            self.check_member_cert(service_id, config.network)
+            self.check_member_cert(service_id, config.server.network)
         elif self.id_type == IdType.SERVICE:
-            self.check_service_cert(service_id, config.network)
+            self.check_service_cert(service_id, config.server.network)
         else:
             raise HTTPException(
                 status_code=400, detail=f'Unknown IdType: {self.id_type}'

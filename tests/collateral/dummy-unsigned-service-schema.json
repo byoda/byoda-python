@@ -1,0 +1,78 @@
+{
+    "name": "dummyservice",
+    "description": "Service used for functional test cases",
+    "owner": "Steven",
+    "supportemail": "steven@byoda.org",
+    "website": "https://www.byoda.org/",
+    "jsonschema": {
+        "$id": "https://uuid.services.byoda.net/service/testdummy",
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "description": "This is the dummy service used by test cases",
+        "properties": {
+            "member": {
+                "#accesscontrol": [
+                    "read"
+                ],
+                "properties": {
+                    "joined": {
+                        "description": "Date & time when the pod became a member of the service",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "Membership UUID",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "person": {
+                "#accesscontrol": [
+                    {
+                        "member": [
+                            "read",
+                            "update",
+                            "delete"
+                        ]
+                    }
+                ],
+                "properties": {
+                    "additionalNames": {
+                        "access": "private",
+                        "description": "Any middle names",
+                        "type": "string"
+                    },
+                    "avatarUrl": {
+                        "access": "private",
+                        "type": "string"
+                    },
+                    "email": {
+                        "access": "private",
+                        "format": "idn-email",
+                        "type": "string"
+                    },
+                    "familyName": {
+                        "access": "private",
+                        "description": "Your surname",
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "access": "private",
+                        "description": "Your first given name",
+                        "type": "string"
+                    },
+                    "homepageUrl": {
+                        "access": "private",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "title": "private service storing information about you",
+        "type": "object"
+    },
+    "service_id": 12345678,
+    "signatures": {},
+    "version": 1
+}

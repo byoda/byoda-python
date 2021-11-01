@@ -6,5 +6,6 @@ Bring your own alogithm utilities module
 :license    : GPLv3
 '''
 
-from .config import *               # noqa: F401, F403
-from .exceptions import MissingAuthInfo   # noqa: F401
+# flake8: noqa=F401, F403
+from .config import *
+from .exceptions import MissingAuthInfo

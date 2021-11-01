@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+
+'''
+Test the Directory APIs
+
+As these test cases are directly run against the web APIs, they mock
+the headers that would normally be set by the reverse proxy
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021
+:license
+'''
+
+import sys
+import os
+import unittest
+import requests
+import shutil
+import yaml
+import time
+from uuid import uuid4
+
+from multiprocessing import Process
+import uvicorn
+
+from cryptography.hazmat.primitives import serialization
+
+from byoda.datamodel import Network
+from byoda.datamodel import Schema
+from byoda.servers import ServiceServer
+from byoda.datamodel import Service
+
+from byoda.secrets import Secret
+from byoda.secrets import MemberSecret
+from byoda.secrets import MemberDataSecret
+
+from byoda.util.logger import Logger
+
+
+from byoda import config
+
+from svcserver.api import setup_api
+
+from svcserver.routers import service
+from svcserver.routers import member
+
+# Settings must match config.yml used by directory server
+NETWORK = 'test.net'
+DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
+SERVICE_ID = 12345678
+
+CONFIG_FILE = 'tests/collateral/config.yml'
+SERVICE_DIR = None
+TEST_PORT = 5000
+BASE_URL = f'http://localhost:{TEST_PORT}/api'
+
+_LOGGER = None
+
+
+class TestDirectoryApis(unittest.TestCase):
+    PROCESS = None
+    APP_CONFIG = None
+
+    @classmethod
+    def setUpClass(cls):
+        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+        with open(CONFIG_FILE) as file_desc:
+            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+        test_dir = cls.APP_CONFIG['svcserver']['root_dir']
+        try:
+            shutil.rmtree(test_dir)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(test_dir)
+
+        global SERVICE_DIR
+        SERVICE_DIR = test_dir + '/service'
+        service_dir = (
+            f'{SERVICE_DIR}/network-'
+            f'{cls.APP_CONFIG["application"]["network"]}'
+            f'/services/service-{SERVICE_ID}'
+        )
+        os.makedirs(service_dir)
+        shutil.copy(DUMMY_SCHEMA, f'{service_dir}/service-contract.json')
+
+        network = Network.create(
+            cls.APP_CONFIG['application']['network'],
+            cls.APP_CONFIG['svcserver']['root_dir'],
+            cls.APP_CONFIG['svcserver']['private_key_password']
+        )
+
+        config.server = ServiceServer()
+        config.server.network = network
+        config.server.service = Service(
+            network,
+            f'{service_dir}/service-contract.json',
+            cls.APP_CONFIG['svcserver']['service_id']
+        )
+        config.server.service.create_secrets(
+            network.services_ca, local=True,
+            password=cls.APP_CONFIG['svcserver']['private_key_password']
+        )
+
+        app = setup_api(
+            'Byoda test svcserver', 'server for testing service APIs',
+            'v0.0.1', None, [service, member]
+        )
+        cls.PROCESS = Process(
+            target=uvicorn.run,
+            args=(app,),
+            kwargs={
+                'host': '127.0.0.1',
+                'port': TEST_PORT,
+                'log_level': 'debug'
+            },
+            daemon=True
+        )
+        cls.PROCESS.start()
+        time.sleep(3)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.PROCESS.terminate()
+
+    def test_service_get(self):
+        API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
+
+        response = requests.get(API)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 9)
+        self.assertEqual(data['service_id'], SERVICE_ID)
+        self.assertEqual(data['version'], 1)
+        self.assertEqual(data['name'], 'dummyservice')
+        # Schema is not signed for this test case
+        # self.assertEqual(len(data['signatures']), 2)
+        schema = Schema(data)           # noqa: F841
+
+    def test_member_putpost(self):
+        API = BASE_URL + '/v1/service/member'
+
+        # network = config.server.network
+        # account = Account(uuid4(), network)
+        service = config.server.service
+
+        member_id = uuid4()
+
+        # HACK: MemberSecret takes an Account instance as third parameter but
+        # we use a Service instance instead
+        service.paths.account = 'pod'
+        secret = MemberSecret(member_id, SERVICE_ID, service)
+        csr = secret.create_csr()
+        csr = csr.public_bytes(serialization.Encoding.PEM)
+
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}, headers=None
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+
+        self.assertTrue('signed_cert' in data)
+        self.assertTrue('cert_chain' in data)
+        self.assertTrue('service_data_cert_chain' in data)
+
+        signed_secret = MemberSecret(member_id, SERVICE_ID, service)
+        signed_secret.from_string(
+            data['signed_cert'], certchain=data['cert_chain']
+        )
+
+        service_data_cert_chain = secret.from_string(       # noqa: F841
+            data['service_data_cert_chain']
+        )
+
+        membersecret_commonname = Secret.extract_commonname(signed_secret.cert)
+        memberscasecret_commonname = Secret.extract_commonname(
+            signed_secret.cert_chain[0]
+        )
+
+        # PUT, with auth
+        # In the PUT body we put the member data secret as a service may
+        # have use for it in the future.
+        member_data_secret = MemberDataSecret(member_id, SERVICE_ID, service)
+        csr = member_data_secret.create_csr()
+        cert_chain = service.members_ca.sign_csr(csr)
+        member_data_secret.from_signed_cert(cert_chain)
+        member_data_certchain = member_data_secret.certchain_as_pem()
+
+        headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN={membersecret_commonname}',
+            'X-Client-SSL-Issuing-CA':
+                f'CN={memberscasecret_commonname}'
+        }
+        response = requests.put(
+            f'{API}/{SERVICE_ID}', headers=headers,
+            json={'certchain': member_data_certchain}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['ipv4_address'], '127.0.0.1')
+        self.assertEqual(data['ipv6_address'], None)
+
+
+if __name__ == '__main__':
+    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+    unittest.main()

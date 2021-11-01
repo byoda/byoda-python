@@ -15,8 +15,3 @@ from .memberdata import MemberData
 from .service import Service
 from .account import Account
 from .member import Member
-
-from .server import Server
-from .server import PodServer
-from .server import DirectoryServer
-from .server import ServerType

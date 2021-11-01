@@ -43,7 +43,7 @@ class TestAccountManager(unittest.TestCase):
         self.assertEqual(data, test)
 
         storage_driver = FileStorage('.')
-        schema = Schema(DEFAULT_SCHEMA)
+        schema = Schema.get_schema(DEFAULT_SCHEMA)
         obj = MemberData(
             schema, storage_driver
         )

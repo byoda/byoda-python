@@ -11,7 +11,7 @@ provides helper functions to authenticate the client making the request
 import logging
 from typing import Optional
 
-from byoda.config import server
+from byoda import config
 
 from fastapi import Header, HTTPException, Request
 
@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class ServiceRequestAuthFast(RequestAuth):
     def __init__(self,
-                 request: Request, service_id: int,
+                 request: Request,
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),
                  x_client_ssl_subject: Optional[str] = Header(None),
                  x_client_ssl_issuing_ca: Optional[str] = Header(None)):
@@ -38,15 +38,6 @@ class ServiceRequestAuthFast(RequestAuth):
         :returns: (n/a)
         :raises: HTTPException
         '''
-
-        if isinstance(service_id, int):
-            pass
-        elif isinstance(service_id, str):
-            service_id = int(service_id)
-        else:
-            raise ValueError(
-                f'service_id must be an integer, not {type(service_id)}'
-            )
 
         try:
             super().__init__(
@@ -67,6 +58,6 @@ class ServiceRequestAuthFast(RequestAuth):
         # applicable CA and then review if that CA would have signed
         # the commonname found in the certchain presented by the
         # client.
-        self.check_service_cert(service_id, server.network)
+        self.check_service_cert(config.server.network)
 
         self.is_authenticated = True

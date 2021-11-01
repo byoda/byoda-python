@@ -25,10 +25,11 @@ class Paths:
 
     # Templates for location of directories and files
     # all paths not starting with '/' will have the root directory prepended
-    CONFIG_FILE          = 'config.yml'              # noqa
-    SECRETS_DIR          = 'private/'                # noqa
-    NETWORK_DIR          = 'network-{network}'       # noqa
-    NETWORK_FILE         = 'network-{network}.json'  # noqa
+    CONFIG_FILE          = 'config.yml'                     # noqa
+    SECRETS_DIR          = 'private/'                       # noqa
+    NETWORK_DIR          = 'network-{network}'              # noqa
+    NETWORK_FILE         = 'network-{network}.json'         # noqa
+    SERVICES_DIR         = 'network-{network}/services/'    # noqa
 
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
     NETWORK_ROOT_CA_KEY_FILE      = 'private/network-{network}-root-ca.key'                                      # noqa
@@ -47,7 +48,7 @@ class Paths:
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
 
     SERVICE_DIR                  = 'network-{network}/services/service-{service_id}/'                                     # noqa
-    SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-{service_id}.json'            # noqa
+    SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-contract.json'                # noqa
     SERVICE_CA_CERT_FILE         = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-ca-cert.pem'         # noqa
     SERVICE_MEMBERS_CA_CERT_FILE = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-members-ca-cert.pem' # noqa
     SERVICE_APPS_CA_CERT_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-apps-ca-cert.pem'    # noqa
@@ -68,6 +69,11 @@ class Paths:
     MEMBER_DATA_FILE               = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json'            # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
+
+    # APIs
+    NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                      # noqa
+    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'         # noqa
+    NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                     # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,
@@ -110,7 +116,12 @@ class Paths:
         and the service parameter is not specified
         '''
 
+        _LOGGER.debug(
+            f'Got template {path_template}, service_id {service_id} and '
+            'member_id {member_id}'
+        )
         if service_id is None:
+            _LOGGER.debug(f'Setting service_id to {self.service_id}')
             service_id = self.service_id
 
         if '{network}' in path_template and not self._network:
@@ -120,13 +131,47 @@ class Paths:
         if '{account}' in path_template and not self._account:
             raise ValueError('No account specified')
 
+        _LOGGER.debug(
+            f'Formatting template with network {self._network}, '
+            f'account: {self._account} and service_id {service_id}'
+        )
         path = path_template.format(
             network=self._network,
             account=self._account,
             service_id=service_id,
         )
-        if path[0] != '/':
+        if path[0] != '/' and not path.startswith('http'):
             path = self._root_directory + '/' + path
+
+        _LOGGER.debug(f'Template resolved to {path}')
+
+        return path
+
+    @staticmethod
+    def resolve(path_template: str, network: str, service_id: int = None,
+                member_id: UUID = None, account_id: UUID = None) -> str:
+        '''
+        Resolves variables in a string without requiring an instance
+        of the Paths class. For file-system paths, this function does
+        not prefix the path with the root directory such as specified
+        for an instance of this class
+        '''
+
+        path = path_template.replace('{network}', network)
+
+        if service_id is not None:
+            path = path.replace('{service_id}', str(service_id))
+
+        if member_id:
+            path = path.replace('{member_id}', str(member_id))
+
+        if account_id:
+            path = path.format('{account_id}', str(account_id))
+
+        # Remove any unresolved variables in the template
+        for param in '/{member_id}', '/{account_id}', '/{service_id}':
+            if param in path:
+                path = path.replace(param, '')
 
         return path
 

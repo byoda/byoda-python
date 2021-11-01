@@ -49,21 +49,21 @@ class MemberData(UserDict):
         '''
         Load the data from the data store
         '''
-        
+
+        filepath = self.paths.get(
+            self.paths.MEMBER_DATA_PROTECTED_FILE,
+            service_id=self.member.service_id
+        )
+
         try:
             self.unvalidated_data = self.document_store.read(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_PROTECTED_FILE,
-                    service_id=self.member.service_id
-                ),
-                self.data_secret
+                filepath, self.data_secret
             )
-        except OSError:
+        except FileNotFoundError:
             _LOGGER.error(
-                'Unable to read data file for service %s',
-                self.member.service_id
+                'Unable to read data file for service'
+                f'{self.member.service_id} from {filepath}'
             )
-            raise
 
         self.validate()
 

@@ -10,6 +10,7 @@ Non-specific data types
 
 from enum import Enum
 from collections import namedtuple
+from os import stat
 
 
 class ServerRole(Enum):
@@ -23,20 +24,23 @@ class ServerRole(Enum):
 
 
 class IdType(Enum):
+    SERVICE_DATA         = 'service-data-'
     NETWORK_DATA         = 'network-data'
     ACCOUNTS_CA          = 'accounts-ca'
-    SERVICES_CA          = 'services-ca'
-    ACCOUNT              = 'accounts'
-    MEMBER               = 'members'
-    SERVICE              = 'service-'
-    APP                  = 'apps-'
-    SERVICE_CA           = 'service-ca-'
-    APPS_CA              = 'apps-ca-'
-    MEMBERS_CA           = 'members-ca-'
-    SERVICE_DATA         = 'service-data-'
     ACCOUNT_DATA         = 'account-data'
     MEMBER_DATA          = 'member-data-'
+    SERVICES_CA          = 'services-ca'
+    SERVICE_CA           = 'service-ca-'
+    MEMBERS_CA           = 'members-ca-'
+    APPS_CA              = 'apps-ca-'
+    ACCOUNT              = 'accounts'
+    MEMBER               = 'members-'
+    SERVICE              = 'service-'
+    APP                  = 'apps-'
 
+    @staticmethod
+    def by_value_lengths():
+        return sorted(list(IdType), key=lambda k: len(k.value), reverse=True)
 
 # The UUID is the value for the specified IdType, ie with IdType.MEMBER
 # the uuid is for the member_id. The service_id field then specifies
@@ -95,3 +99,9 @@ class CertStatus(Enum):
     OK              = 'ok'
     RENEW           = 'renew'
     EXPIRED         = 'expired'
+
+
+class ReviewStatusType(Enum):
+    ACCEPTED        = 'ACCEPTED'
+    REJECTED        = 'REJECTED'
+    

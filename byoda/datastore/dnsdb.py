@@ -16,7 +16,7 @@ import logging
 import time
 from enum import Enum
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Tuple
 from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
@@ -25,7 +25,7 @@ from sqlalchemy.future import select
 # from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
-from byoda.util.secrets import MemberSecret, AccountSecret, ServiceSecret
+from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
 
 from byoda.datatypes import IdType
 
@@ -138,13 +138,15 @@ class DnsDb:
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
         if id_type == IdType.MEMBER:
-            return MemberSecret.create_fqdn(uuid, service_id, self.domain)
+            return MemberSecret.create_commonname(
+                uuid, service_id, self.domain
+            )
         elif id_type == IdType.ACCOUNT:
-            return AccountSecret.create_fqdn(uuid, self.domain)
+            return AccountSecret.create_commonname(uuid, self.domain)
         elif id_type == IdType.SERVICE:
-            return ServiceSecret.create_fqdn(service_id, self.domain)
+            return ServiceSecret.create_commonname(service_id, self.domain)
 
-    def decompose_fqdn(self, fqdn: str) -> (UUID, IdType, int):
+    def decompose_fqdn(self, fqdn: str) -> Tuple[UUID, IdType, int]:
         '''
         Get the uuid, the id type and, if applicable the service id from the
         FQDN
@@ -223,7 +225,7 @@ class DnsDb:
 
             # TODO: when we have multiple directory servers, the local
             # 'cache' of domains_id might be out of date
-            subdomain = fqdn.split('.')[1]
+            hostname, subdomain = fqdn.split('.', 1)
             if subdomain not in self._domain_ids:
                 domain_id = self._upsert_subdomain(subdomain)
                 self._domain_ids[subdomain] = domain_id
@@ -359,9 +361,9 @@ class DnsDb:
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate
 
-        :param uuid: client
+        :param uuid: account_id or member_id. Can be None for id_type.SERVICE
         :param id_type: account / member / service
-        :param service_id: service identifier, required for IdType.service
+        :param service_id: service identifier, required for IdType.SERVICE
         :returns: (None)
         :raises: ValueError
         '''
@@ -418,14 +420,14 @@ class DnsDb:
             )
         return
 
-    def _get_domain_id(self, conn: Engine, subdomain: str):
+    def _get_domain_id(self, conn: Engine, subdomain: str,
+                       create_missing: bool = True) -> int:
         '''
         Get the Powerdns domain_id for the subdomain from Postgres
 
-        :param conn: sqlalchemy connection instance
+        :param sqlalchemy connection instance
         :param subdomain: string with the domain
-        :returns: integer with the domain_id
-        :raises: ValueError if the domain can not be found
+        :returns: domain_id
         '''
 
         stmt = select(
@@ -435,10 +437,21 @@ class DnsDb:
         )
 
         domains = conn.execute(stmt)
-        domain_id = domains.first().id
+        first = domains.first()
 
-        if not domain_id:
-            raise ValueError(f'Could not find ID for domain {subdomain}')
+        if not first:
+            if create_missing:
+                _LOGGER.info('Creating table for domain {subdomain}')
+                self._upsert_subdomain(subdomain)
+                return self._get_domain_id(
+                    conn, subdomain, create_missing=False
+                )
+            else:
+                raise ValueError(
+                    f'Could not find or create ID for domain {subdomain}'
+                )
+        else:
+            domain_id = first.id
 
         return domain_id
 

@@ -6,37 +6,23 @@ POD server for Bring Your Own Data and Algorithms
 :license    : GPLv3
 '''
 
+
 import os
 import sys
 
 import requests
 
 import uvicorn
-
-from starlette.middleware import Middleware
-from starlette_context import plugins
-from starlette_context.middleware import RawContextMiddleware
-from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.graphql import GraphQLApp
 
-from fastapi import FastAPI
-
-from opentelemetry import trace
-from opentelemetry.exporter import jaeger
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchExportSpanProcessor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-from prometheus_fastapi_instrumentator import \
-    Instrumentator as PrometheusInstrumentator
+from .api import setup_api
 
 from byoda import config
 from byoda.util.logger import Logger
 
-from byoda.requestauth.requestauth import MTlsAuthBackend
-
 from byoda.datamodel import Network
-from byoda.datamodel import PodServer
+
+from byoda.servers import PodServer
 
 from byoda.datatypes import CloudType, IdType
 from byoda.datastore import DocumentStoreType
@@ -97,7 +83,11 @@ server.paths = network.paths
 server.account = network.load_account(
     network_data['account_id'], load_tls_secret=True
 )
-network.load_services('./services/')
+
+server.load_secrets(password=network.private_key_password)
+
+server.get_registered_services()
+server.load_joined_services(network)
 
 config.server = server
 
@@ -146,7 +136,9 @@ if server.cloud != CloudType.LOCAL:
         directory=NGINX_SITE_CONFIG_DIR,
         filename='virtualserver.conf',
         identifier=network_data['account_id'],
-        id_type=IdType.ACCOUNT,
+        subdomain=IdType.ACCOUNT.value,
+        cert_filepath='',
+        key_filepath='',
         alias=network.paths.account,
         network=network.name,
         public_cloud_endpoint=network.paths.storage_driver.get_url(
@@ -154,48 +146,16 @@ if server.cloud != CloudType.LOCAL:
         ),
     )
 
-    if not nginx_config.exists():
-        nginx_config.create()
-        nginx_config.reload()
-
-middleware = [
-    Middleware(
-        RawContextMiddleware,
-        plugins=(
-            plugins.RequestIdPlugin(),
-            plugins.CorrelationIdPlugin()
-        )
-    )
-]
-
-trace.set_tracer_provider(TracerProvider())
-if config.app_config:
-    jaeger_exporter = jaeger.JaegerSpanExporter(
-        service_name='podserver',
-        agent_host_name=config.app_config['application'].get(
-            'jaeger_host', '127.0.0.1'
-        ),
-        agent_port=6831,
-    )
-
-    trace.get_tracer_provider().add_span_processor(
-        BatchExportSpanProcessor(jaeger_exporter)
-    )
+    nginx_config.create()
+    nginx_config.reload()
 
 for service in network.services.values():
     service.schema.generate_graphql_schema()
 
-app = FastAPI(
-    title='BYODA pod server',
-    description='The pod server for a BYODA network',
-    version='v0.0.1',
-    middleware=middleware
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', config.app_config
 )
-
-FastAPIInstrumentor.instrument_app(app)
-PrometheusInstrumentator().instrument(app).expose(app)
-
-app.add_middleware(AuthenticationMiddleware, backend=MTlsAuthBackend())
 
 for service in network.services.values():
     app.add_route(

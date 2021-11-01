@@ -6,7 +6,7 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-from byoda.util.secrets.service_secret import ServiceSecret
+from byoda.secrets.service_secret import ServiceSecret
 import logging
 
 from uuid import uuid4, UUID
@@ -15,7 +15,7 @@ from typing import List, Dict, TypeVar, Callable
 
 from graphene import Mutation as GrapheneMutation
 
-from byoda.datatypes import CsrSource
+from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
@@ -25,10 +25,11 @@ from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
 
-from byoda.util.secrets import MemberSecret, MemberDataSecret
-from byoda.util.secrets import Secret, MembersCaSecret
+from byoda.secrets import MemberSecret, MemberDataSecret
+from byoda.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
+from podserver.bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 from byoda import config
 
@@ -115,7 +116,26 @@ class Member:
         member.schema = copy(service.schema)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
-        member.schema.save(filepath)
+        member.schema.save(filepath, member.paths.storage_driver)
+
+        if config.server.cloud != CloudType.LOCAL:
+            nginx_config = NginxConfig(
+                directory=NGINX_SITE_CONFIG_DIR,
+                filename='virtualserver.conf',
+                identifier=member.member_id,
+                subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
+                cert_filepath='',
+                key_filepath='',
+                alias=account.network.paths.account,
+                network=account.network.name,
+                public_cloud_endpoint=member.paths.storage_driver.get_url(
+                    public=True
+                ),
+            )
+
+            if not nginx_config.exists():
+                nginx_config.create()
+                nginx_config.reload()
 
         return member
 
@@ -162,10 +182,11 @@ class Member:
                 'Service API for signing certs is not yet available'
             )
 
+        # TODO: SECURITY: add constraints
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
-        secret.add_signed_cert(certchain)
+        secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 
@@ -196,7 +217,7 @@ class Member:
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        schema = Schema(filepath, self.storage_driver)
+        schema = Schema.get_schema(filepath, self.storage_driver)
         self.verify_schema_signatures(schema)
         schema.generate_graphql_schema()
 
@@ -211,10 +232,10 @@ class Member:
         :raises: ValueError
         '''
 
-        if not schema.signatures[SignatureType.SERVICE]:
+        if not schema.signatures[SignatureType.SERVICE.value]:
             raise ValueError('Schema does not contain a service signature')
 
-        if not schema.signatures[SignatureType.NETWORK]:
+        if not schema.signatures[SignatureType.NETWORK.value]:
             raise ValueError('Schema does not contain a network signature')
 
         if not self.service.data_secret or not self.service.data_secret.cert:
@@ -317,7 +338,7 @@ class Member:
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
         schema = member.data.schema
-        schema_properties = schema.json_schema['schema']['properties']
+        schema_properties = schema.json_schema['jsonschema']['properties']
 
         # The query may be for an object for which we do not yet have
         # any data

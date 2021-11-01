@@ -13,7 +13,7 @@ base and hook in to logic there.
 import logging
 import datetime
 
-from byoda.util.secrets import TlsSecret
+from byoda.secrets import TlsSecret
 
 from byoda.datatypes import CertStatus
 

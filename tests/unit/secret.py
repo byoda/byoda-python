@@ -13,7 +13,8 @@ import unittest
 from byoda.util import Logger
 
 from byoda.datamodel import Network, Service, Account
-from byoda.datamodel import Server
+
+from byoda.servers import DirectoryServer
 
 from byoda.datastore import DocumentStoreType
 
@@ -21,9 +22,10 @@ from byoda.datatypes import CloudType, ServerRole
 
 from byoda import config
 
-TEST_DIR = '/tmp/byoda-func-test-secrets'
+TEST_DIR = '/tmp/byoda-tests/secrets'
 NETWORK = config.DEFAULT_NETWORK
-DEFAULT_SCHEMA = 'services/default.json'
+DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
+SERVICE_ID = 12345678
 
 
 class TestAccountManager(unittest.TestCase):
@@ -39,26 +41,25 @@ class TestAccountManager(unittest.TestCase):
         #
         # Test creation of the CA hierarchy
         network = Network.create('test.net', TEST_DIR, 'byoda')
+        config.server.network = network
 
         # Need to set role to allow loading of unsigned services
         network.roles = [ServerRole.Pod]
 
         service = Service(network, DEFAULT_SCHEMA)
-        service.create_secrets(network.services_ca)
+        service.create_secrets(network.services_ca, local=True)
 
         account_id = uuid4()
         account = Account(account_id, network)
         account.create_secrets(network.accounts_ca)
 
-        # We have to load services here to allow unsigned services to
-        # be read, which we need because we create a MemberSecret later
-        # on
-        network.load_services('./services/')
-
+        # Create a dummy entry for the services in the network, otherwise
+        # account.join(service) fails
+        network.services = {SERVICE_ID: None}
         member = account.join(
             service=service, members_ca=service.members_ca
-
         )
+
         self.assertIsNotNone(member.member_id)
         account.data_secret.validate(network.root_ca)
 
@@ -100,7 +101,7 @@ if __name__ == '__main__':
     shutil.rmtree(TEST_DIR, ignore_errors=True)
     os.mkdir(TEST_DIR)
 
-    config.server = Server()
+    config.server = DirectoryServer()
     config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType('LOCAL'),

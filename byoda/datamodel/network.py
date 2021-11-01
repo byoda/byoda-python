@@ -9,6 +9,10 @@ Class for modeling a social network
 import os
 import logging
 from uuid import UUID
+from typing import Dict, Set
+from typing import Callable
+
+import passgen
 
 from byoda.util import Paths
 from byoda import config
@@ -16,22 +20,23 @@ from byoda import config
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
 
+from byoda.datamodel.service import RegistrationStatus
+
+from byoda.storage.filestorage import FileStorage
+
+from byoda.secrets import Secret
+from byoda.secrets import DataSecret
+from byoda.secrets import NetworkRootCaSecret
+from byoda.secrets import NetworkDataSecret
+from byoda.secrets import NetworkAccountsCaSecret
+from byoda.secrets import NetworkServicesCaSecret
+from byoda.secrets import ServiceCaSecret
+from byoda.secrets import MembersCaSecret
+from byoda.secrets import ServiceSecret
 
 from .service import Service
 from .account import Account
 
-from byoda.storage.filestorage import FileStorage
-
-from byoda.util.secrets import Secret
-from byoda.util.secrets import NetworkRootCaSecret
-from byoda.util.secrets import NetworkDataSecret
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import NetworkServicesCaSecret
-from byoda.util.secrets import ServiceCaSecret
-from byoda.util.secrets import MembersCaSecret
-from byoda.util.secrets import ServiceSecret
-
-from typing import Callable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,32 +57,37 @@ class Network:
     key of the network.
     '''
 
+    # Limit for restricted services
+    MAX_RESTRICTED_SERVICE_ID = 65535
+    # Pods should only accept test service IDs when running in DEBUG mode
+    MIN_TEST_SERVICE_ID = 4293918720
+
     def __init__(self, server: dict, application: dict,
                  root_ca: NetworkRootCaSecret = None):
         '''
         Set up the network
 
         :param server: section from config.yml with key 'dirserver',
-        'podserver' etc, with keys 'roles', 'private_key_password' and
-        parameters specific to the role. A directory server must have key
-        'dnsdb'
-        :param application: section from config.yml with keys 'network' and
-        'root_dir'
+        'svcserver', 'podserver' etc, with keys 'roles', 'root_dir'
+        'private_key_password', 'logfile' and parameters specific to the
+        role. A directory server must have key 'dnsdb'
+        :param application: section from config.yml with keys 'network',
+        'debug', 'environment'
         :returns:
         :raises: ValueError, KeyError
         '''
 
         # TODO: continue reducing the length of this constructor
 
-        self.name = application.get('network', config.DEFAULT_NETWORK)
+        self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
 
-        roles = server.get('roles', [])
+        roles: Set[str] = server.get('roles', [])
         if roles and type(roles) not in (set, list):
             roles = [roles]
 
-        self.roles = set()
+        self.roles: Set = set()
         for role in roles:
             try:
                 role_type = ServerRole(role)
@@ -85,37 +95,38 @@ class Network:
             except ValueError:
                 raise ValueError(f'Invalid role {role}')
 
-        self.root_dir = application.get(
+        self.root_dir: str = server.get(
             'root_dir', os.environ['HOME'] + '.byoda'
         )
 
-        self.private_key_password = server['private_key_password']
+        self.private_key_password: str = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            bucket_prefix = server['bucket_prefix']
-            account = 'pod'
+            bucket_prefix: str = server['bucket_prefix']
+            account: str = 'pod'
         else:
             bucket_prefix = None
             account = None
 
         # FileStorage.get_storage ignores bucket_prefix parameter
         # when local storage is used.
-        private_object_storage = FileStorage.get_storage(
+        private_object_storage: FileStorage = FileStorage.get_storage(
             server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
         )
 
-        self.paths = Paths(
+        self.paths: Paths = Paths(
             root_directory=self.root_dir, network=self.name,
             account=account, storage_driver=private_object_storage
         )
 
         # Everyone must at least have the root ca cert.
+        self.root_ca: NetworkRootCaSecret = None
         if root_ca:
-            self.root_ca = root_ca
+            self.root_ca: NetworkRootCaSecret = root_ca
         else:
             self.root_ca = NetworkRootCaSecret(self.paths)
 
-        self.data_secret = NetworkDataSecret(self.paths)
+        self.data_secret: NetworkDataSecret = NetworkDataSecret(self.paths)
 
         if ServerRole.RootCa in self.roles:
             self.root_ca.load(
@@ -128,48 +139,20 @@ class Network:
             if not self.root_ca.cert:
                 self.root_ca.load(with_private_key=False)
 
-            self.data_secret.load(with_private_key=False)
-
         config.requests.verify = self.root_ca.cert_file
 
         # Loading secrets for when operating as a directory server
-        self.accounts_ca = None
-        self.services_ca = None
-        self.services = dict()
+        self.accounts_ca: NetworkAccountsCaSecret = None
+        self.services_ca: NetworkServicesCaSecret = None
+        self.tls_secret: Secret = None
+        self.data_secret: DataSecret = None
 
-        self.service_ca = None
-        if ServerRole.ServiceCa in self.roles:
-            self.service_ca = ServiceCaSecret(server['service'], self.paths)
-            self.service_ca.load(
-                with_private_key=True, password=self.private_key_password
-            )
+        self.services: Dict[int: Service] = dict()
 
-        # Loading secrets when operating a service
-        self.service_secret = None
-        self.member_ca = None
-        if ServerRole.ServiceServer in self.roles:
-            config.requests.cert = ()
-            self.member_ca = MembersCaSecret(
-                None, server['service_id'], self
-            )
-            self.member_ca.load(
-                with_private_key=True,
-                password=self.private_key_password
-            )
-
-            self.service_secret = ServiceSecret(
-                server['service'], server['service_id'], self.paths
-            )
-            self.service_secret.load(
-                with_private_key=True,
-                password=self.private_key_password
-            )
-            self.service_secret.load()
-
-            # We use the service secret as client TLS cert for outbound
-            # requests
-            filepath = self.service_secret.save_tmp_private_key()
-            config.requests.cert = (self.service_secret.cert_file, filepath)
+        # Secrets for a service must be loaded using SvcServer.load_secrets()
+        self.services_ca: ServiceCaSecret = None
+        self.service_secret: ServiceSecret = None
+        self.member_ca: MembersCaSecret = None
 
         # Loading secrets when operating as a pod
         self.account_id = None
@@ -177,9 +160,6 @@ class Network:
         self.member_secrets = set()
         self.services = dict()
         self.account = None
-        if ServerRole.Pod in self.roles:
-            # TODO: client should read this from a directory server API
-            self.load_services(directory='services/')
 
     @staticmethod
     def create(network_name, root_dir, password):
@@ -211,10 +191,14 @@ class Network:
         root_ca = NetworkRootCaSecret(paths=paths)
 
         if root_ca.cert_file_exists():
-            root_ca.load(password=password)
+            root_ca.load(with_private_key=True, password=password)
         else:
             root_ca.create(expire=100*365)
-            root_ca.save(password=password)
+            root_ca_password = passgen.passgen(length=48)
+            root_ca.save(password=root_ca_password)
+            _LOGGER.info(
+                f'!!! Saving root CA using password {root_ca_password}'
+            )
 
         network_data = {
             'network': network_name, 'root_dir': root_dir,
@@ -236,6 +220,9 @@ class Network:
         network.services_ca = Network._create_secret(
             network.name, NetworkServicesCaSecret, root_ca, paths, password
         )
+
+        # Create the services directory to enable the directory server to start
+        os.mkdir(paths.get(Paths.SERVICES_DIR))
 
         return network
 
@@ -269,35 +256,14 @@ class Network:
             secret.load(password=password)
             return secret
 
+        # TODO: SECURITY: add constraints
         csr = secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
-        secret.add_signed_cert(certchain)
+        secret.from_signed_cert(certchain)
         secret.save(password=password)
 
         return secret
-
-    def load_services(self, directory: str = None) -> None:
-        '''
-        Load a list of all the services in the network.
-        '''
-
-        if self.services:
-            _LOGGER.debug('Reloading list of services')
-            self.services = dict()
-
-        for root, __dirnames, files in os.walk(directory):
-            for filename in [x for x in files if x.endswith('.json')]:
-                service = Service.get_service(
-                    self, filepath=os.path.join(root, filename)
-                )
-
-                if service.service_id in self.services:
-                    raise ValueError(
-                        f'Duplicate service_id: {service.service_id}'
-                    )
-
-                self.services[service.service_id] = service
 
     def load_secrets(self) -> None:
         '''
@@ -326,3 +292,30 @@ class Network:
         account = Account(account_id, self, load_tls_secret=load_tls_secret)
 
         return account
+
+    def add_service(self, service_id: int,
+                    registration_status: RegistrationStatus = None) -> Service:
+        '''
+        Adds a service to the in-memory list of known services. No exception
+        will be thrown if the service is already known
+        '''
+
+        if service_id in self.services:
+            _LOGGER.debug(f'Service {service_id} is already in memory')
+            service = self.services[service_id]
+        else:
+            service = Service(self, service_id=service_id)
+            self.services[service_id] = service
+
+        if (registration_status and
+                registration_status != RegistrationStatus.Unknown):
+            _LOGGER.debug(
+                f'Setting service {service_id} to status '
+                f'{registration_status}'
+            )
+            service.registration_status = \
+                registration_status
+        else:
+            service.registration_status = service.get_registration_status()
+
+        return service

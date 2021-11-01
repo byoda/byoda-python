@@ -155,7 +155,7 @@ def do_dns_lookup(fqdn):
     resolver.timeout = 1
     resolver.lifetime = 1
 
-    answer = resolver.query(fqdn)
+    answer = resolver.resolve(fqdn)
     dns_ip = ip_address(list(answer.rrset.items.keys())[0].address)
 
     return dns_ip

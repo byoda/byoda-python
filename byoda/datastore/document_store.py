@@ -16,7 +16,7 @@ import json
 from enum import Enum
 from typing import Dict, List
 
-from byoda.util.secrets import DataSecret
+from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.storage import FileStorage, FileMode

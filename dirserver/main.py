@@ -11,31 +11,20 @@ import sys
 import yaml
 import uvicorn
 
-from starlette.middleware import Middleware
-
-from starlette_context import plugins
-from starlette_context.middleware import RawContextMiddleware
-
-from fastapi import FastAPI
-
-from opentelemetry import trace
-from opentelemetry.exporter import jaeger
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchExportSpanProcessor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-from prometheus_fastapi_instrumentator import Instrumentator \
-    as PrometheusInstrumentator
-
-from .routers import account
+from .api import setup_api
 
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.datamodel import DirectoryServer
+from byoda.servers import DirectoryServer
+
 from byoda.datamodel import Network
 
 from byoda.datastore import DnsDb
+
+from .routers import account
+from .routers import service
+from .routers import member
 
 _LOGGER = None
 
@@ -46,57 +35,30 @@ debug = config.app_config['application']['debug']
 verbose = not debug
 _LOGGER = Logger.getLogger(
     sys.argv[0], debug=debug, verbose=verbose,
-    logfile=config.app_config['application'].get('logfile')
+    logfile=config.app_config['dirserver'].get('logfile')
 )
 
 server = DirectoryServer()
+config.server = server
+
 server.network = Network(
     config.app_config['dirserver'], config.app_config['application']
 )
-server.load_secrets()
-server.network.load_services('./services/')
+
 server.network.dnsdb = DnsDb.setup(
     config.app_config['dirserver']['dnsdb'], server.network.name
 )
 
-config.server = server
-config.network = server.network
+server.get_registered_services()
+server.load_secrets()
 
-if not os.environ.get('SERVER_NAME') and config.network.name:
-    os.environ['SERVER_NAME'] = config.network.name
+if not os.environ.get('SERVER_NAME') and config.server.network.name:
+    os.environ['SERVER_NAME'] = config.server.network.name
 
-middleware = [
-    Middleware(
-        RawContextMiddleware,
-        plugins=(
-            plugins.RequestIdPlugin(),
-            plugins.CorrelationIdPlugin()
-        )
-    )
-]
-
-trace.set_tracer_provider(TracerProvider())
-jaeger_exporter = jaeger.JaegerSpanExporter(
-    service_name='dirserver',
-    agent_host_name=config.app_config['application'].get(
-        'jaeger_host', '127.0.0.1'
-    ),
-    agent_port=6831,
+app = setup_api(
+    'BYODA directory server', 'The directory server for a BYODA network',
+    'v0.0.1', config.app_config, [account, service, member]
 )
-trace.get_tracer_provider().add_span_processor(
-    BatchExportSpanProcessor(jaeger_exporter)
-)
-
-app = FastAPI(
-    title='BYODA directory server',
-    description='The directory server for a BYODA network',
-    version='v0.0.1',
-    middleware=middleware
-)
-FastAPIInstrumentor.instrument_app(app)
-PrometheusInstrumentator().instrument(app).expose(app)
-
-app.include_router(account.router)
 
 
 @app.get('/api/v1/status')

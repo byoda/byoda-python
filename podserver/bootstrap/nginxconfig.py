@@ -28,13 +28,15 @@ HTACCESS_FILE = '/etc/nginx/htaccess.db'
 
 class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
-                 id_type: IdType, alias: str, network: str,
-                 public_cloud_endpoint: str):
+                 subdomain: str, cert_filepath: str, key_filepath: str,
+                 alias: str, network: str, public_cloud_endpoint: str):
         '''
         Manages nginx configuration files for virtual servers
 
         :param identifier: either the account_id or the member_id
-        :param id_type: either IdType.ACCOUNT or IdType.MEMBERSHIP
+        :param subdomain: subdomain of the CN for the cert
+        :param cert_filepath: location of the public cert for the CN
+        :param key_filepath: location of the unencrypted private key
         :param alias: alias for the account or membership
         :param network: name of the joined network
         :param directory: location of the template and final nginx
@@ -46,8 +48,10 @@ class NginxConfig(TargetConfig):
         '''
 
         self.identifier = identifier
-        self.id_type = id_type
+        self.subdomain = subdomain
         self.alias = alias
+        self.cert_filepath = cert_filepath
+        self.key_filepath = key_filepath
         self.network = network
         self.public_cloud_endpoint = public_cloud_endpoint
         self.directory = directory
@@ -78,7 +82,9 @@ class NginxConfig(TargetConfig):
 
         output = templ.render(
             identifier=self.identifier,
-            id_type=self.id_type.value,
+            subdomain=self.subdomain,
+            cert_filepath=self.cert_filepath,
+            key_filepath=self.key_filepath,
             alias=self.alias,
             network=self.network,
             public_cloud_endpoint=self.public_cloud_endpoint

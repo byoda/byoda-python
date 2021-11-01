@@ -14,7 +14,7 @@ from cryptography import x509
 
 from byoda.datatypes import IdType
 
-from byoda.util.secrets import Secret, CertChain
+from byoda.secrets import Secret, CertChain
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class CertStore:
         '''
         Constructor
 
-        :param ca_secret: the CA cert to sign CSRs with
+        :param ca_secret: the CA cert/key to sign CSRs with
         :param connectionstring: the location to store processed CSRs
         :returns: (none)
         :raises: NotImplementedError if connectionstring has a value other
@@ -55,9 +55,7 @@ class CertStore:
                  ValueError if there is something else unacceptable in the CSR
         '''
 
-        if type(csr) in (str, bytes):
-            pass
-        else:
+        if type(csr) not in (str, bytes):
             raise ValueError('CSR must be a string or a byte array')
 
         cert_auth = self.ca_secret
@@ -68,22 +66,23 @@ class CertStore:
         extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints
         )
-        if extension.value.ca:
+        if not cert_auth.signs_ca_certs and extension.value.ca:
             raise ValueError('Certificates with CA bits set are not permitted')
 
         entity_id = cert_auth.review_csr(csr)
 
         if entity_id.id_type == IdType.SERVICE:
-            raise NotImplementedError('Service certs are not yet supported')
-        elif entity_id.id_type == IdType.MEMBER:
-            raise NotImplementedError('Member certs are not yet supported')
+            raise NotImplementedError(
+                'Service certs are not supported for this API, '
+                'only ServiceCA certs'
+            )
 
         # TODO: add check on whether the UUID is already in use
-
         certchain = cert_auth.sign_csr(csr, 365*3)
 
+        id_type = entity_id.id_type.value.strip('-')
         _LOGGER.info(
-            f'Signed CSR for {entity_id.id} for {entity_id.id_type.value} '
+            f'Signed the CSR for {entity_id.id} for {id_type} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

@@ -15,25 +15,6 @@
             }
         },
         {
-            "name": "create_secrets",
-            "type": "python",
-            "request": "launch",
-            "program": "tools/create_secrets.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--debug",
-                "--type", "MEMBERSHIP",
-                "--account-id", "9f6c55d7-b35e-4eb9-bc5e-614fdd355e6f",
-                "--service-id", "0",
-                "--network", "byoda.net",
-                "--root-directory", "/byoda"
-
-            ],
-            "env": {
-                "PYTHONPATH": "."
-            },
-        },
-        {
             "name": "dirserver",
             "type": "python",
             "request": "launch",
@@ -48,6 +29,42 @@
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
                 "SERVER_NAME": "devws"
+            }
+        },
+        {
+            "name": "svcserver: private",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "console": "integratedTerminal",
+            "args": [
+                "svcserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "6000",
+                "--proxy-headers"
+            ],
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws",
+                "CONFIG_FILE": "config.yml"
+            }
+        },
+        {
+            "name": "svcserver: addressbook",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "console": "integratedTerminal",
+            "args": [
+                "svcserver.main:app",
+                "--host", "0.0.0.0",
+                "--port", "6001",
+                "--proxy-headers"
+            ],
+            "env": {
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "SERVER_NAME": "devws",
+                "CONFIG_FILE": "config-addressbook.yml"
             }
         },
         {
@@ -75,17 +92,33 @@
             }
         },
         {
-            "name": "sign service contract",
+            "name": "create_service_secrets",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/create_service_secrets.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--debug",
+                "--schema", "services/private.json",
+                "--network", "byoda.net",
+                "--root-directory", "/tmp/byoda"
+
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            },
+        },
+        {
+            "name": "sign data contract",
             "type": "python",
             "request": "launch",
             "program": "tools/sign_data_contract.py",
             "console": "integratedTerminal",
             "args": [
                 "--debug",
-                "--contract", "/home/steven/private.json",
-                "--signing-party", "service",
+                "--contract", "services/private.json",
                 "--network", "byoda.net",
-                "--root-directory", "/byoda"
+                "--root-directory", "/tmp/byoda"
 
             ],
             "env": {

@@ -17,12 +17,12 @@ from byoda.datatypes import CsrSource
 from byoda.datastore.document_store import DocumentStore
 from byoda.util import Paths
 
-from byoda.util.secrets import Secret
-from byoda.util.secrets import AccountSecret
-from byoda.util.secrets import DataSecret
-from byoda.util.secrets import AccountDataSecret
-from byoda.util.secrets import NetworkAccountsCaSecret
-from byoda.util.secrets import MembersCaSecret
+from byoda.secrets import Secret
+from byoda.secrets import AccountSecret
+from byoda.secrets import DataSecret
+from byoda.secrets import AccountDataSecret
+from byoda.secrets import NetworkAccountsCaSecret
+from byoda.secrets import MembersCaSecret
 
 from .member import Member
 from .service import Service
@@ -43,7 +43,7 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 load_tls_secret=False, account='pod'):
+                 load_tls_secret: bool = False, account: str = 'pod'):
         '''
         Constructor
         '''
@@ -68,9 +68,8 @@ class Account:
 
         self.private_key_password: str = network.private_key_password
 
-        self.tls_secret: AccountSecret = None
         self.data_secret: DataSecret = None
-        self.tls_secret = AccountSecret(
+        self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )
         if load_tls_secret:
@@ -167,6 +166,7 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
+                # TODO: SECURITY: add constraints
                 csr = secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
                 url = f'https://dir.{self.network}/api/v1/network/account'
@@ -180,10 +180,11 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
+            # TODO: SECURITY: add constraints
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
-            secret.add_signed_cert(certchain)
+            secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 

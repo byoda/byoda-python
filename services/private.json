@@ -1,6 +1,6 @@
 {
-    "name": "private",
-    "schema": {
+    "description": "the private service for which no data will be shared with services or their members",
+    "jsonschema": {
         "$id": "https://uuid.services.byoda.net/service/private",
         "$schema": "https://json-schema.org/draft-07/schema#",
         "description": "This is the default service of each network, storing only private data",
@@ -68,20 +68,11 @@
         "title": "private service storing information about you",
         "type": "object"
     },
+    "name": "private",
+    "owner": "Steven Hessing",
     "service_id": 0,
-    "signatures": {
-        "network": {
-            "certificate": "network.network-data.byoda.net",
-            "hash_algorithm": "SHA256",
-            "signature": "Ech+NAv+L/BlQp7xHK3lrXOAn9v/7fYb1/Darkxan45/lpoDdm2LjWRA1fYGqRpEx+rke9deQGTZURPmOpqIEMaiZe5XIbybk7upWrSu2NCjDUpN6P9pwCS2Eo0BjtrldJw0t0sPMJD1B2ybirXPYfEdaDwRtWoXzSUMywLQwzcJWmS8d2iDtLvrdVdeIhBEQw1i2jNj0idr5xN5CstH2PG/D1DHFaTH4OkkH2avrKFFpQWhdD91EsQA/GWan/O3ZeWVq5ob6TQpVzqJoJfbbBs95H7BGSr73H4nnHeIT4OazDXLyJBw3dEoBFjwZx/BAn40/QKxM1XPS3RcO4R7iuMLLaLmWEZkfldjQIhLXLjL+x+WOCvRq8jBIxtUezsplQTZNOykt2wmMOD0fZCuw/XdkZ/cL9qRMmi6I/3d3EhsdPL4dgmSfzIpt84RxOdn3LQAiBP2pW1TroqmlugmD3UJUeuBqTsZOfcMTVt/pgxc7IBUIVK0Dwnjq5Krt7kF",
-            "timestamp": "2021-09-22T22:32:39"
-        },
-        "service": {
-            "certificate": "data.service-data-0.byoda.net",
-            "hash_algorithm": "SHA256",
-            "signature": "qUhCijNIFiHpjZ66+EFVWfj/qxd536e6ITX88R0AzYmfJ3ecB9Olqifdx+oSSFaMebwTFEO6s3i+SgVRDcb0r3vplksjquW54p/tD1dnWPynj+3jLpSCQGXboiGSDLTc4abBnrxWSY2m9vitJUr/uhsg9fxUZS8feVh/bykOBjt3337IHeKKOZEfpYzbYTP9oTiMLOkuuCmZ3OmKboUJksHpRWN78UsI7Ml6w8yNVuSZJ8HtRUhqFqFteNrx+nSm0P14kreY030QFrkv8bOp2KFkEqKHBJoi+AJYLVqvsyU56yYPnq1CYY4wtQmEU5Nx97ho6K8syTnGi6pWtVLiiac9QtPU6FvNg+UUxH/6iUrXEFtMNC2YrxsWJf4t7IbJ8mKjrggSXc4Hx57jDWIOZJRFZ4jNW8Y1GlEkUw0D/2dY52+fx0Dy1jIBAUj4IzAMkPd+zS2R3p7J8ws+4Wr8RwjbouhEVwfGMVSz3YGaLP7Z3XLCJqbbYeQQXLB+gsGT",
-            "timestamp": "2021-09-22T22:29:42"
-        }
-    },
-    "version": 0
+    "signatures": {},
+    "supportemail": "steven@byoda.org",
+    "version": 1,
+    "website": "https://www.byoda.org/"
 }

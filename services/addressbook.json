@@ -1,0 +1,105 @@
+{
+    "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+    "jsonschema": {
+        "$id": "https://uuid.services.byoda.net/service/addressbook",
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+        "properties": {
+            "member": {
+                "#accesscontrol": [
+                    "read"
+                ],
+                "properties": {
+                    "joined": {
+                        "description": "Date & time when the pod became a member of the service",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "Membership UUID",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "person": {
+                "#accesscontrol": [
+                    {
+                        "member": [
+                            "read",
+                            "update",
+                            "delete"
+                        ]
+                    },
+                    {
+                        "network": [
+                            "read"
+                        ]
+                    }
+
+                ],
+                "properties": {
+                    "avatarUrl": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "format": "idn-email",
+                        "type": "string",
+                        "#accesscontrol": [
+                            {
+                                "network": "search:exact"
+                            }
+                        ]
+                    },
+                    "familyName": {
+                        "description": "Your surname",
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "description": "Your first given name",
+                        "type": "string"
+                    },
+                    "homepageUrl": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "links": {
+                "#accesscontrol": [
+                    {
+                        "member": [
+                            "read",
+                            "update",
+                            "delete"
+                        ]
+                    }
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "target": {
+                        "type": "string"
+                    },
+                    "bidirectional": {
+                        "type": "boolean"
+                    },
+                    "state": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "title": "Address book to find your contacts to establish links with",
+        "type": "object"
+    },
+    "name": "addressbook",
+    "owner": "Steven Hessing",
+    "service_id": 1,
+    "signatures": {
+    },
+    "supportemail": "steven@byoda.org",
+    "version": 1,
+    "website": "https://www.byoda.org/"
+}
