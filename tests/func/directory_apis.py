@@ -273,7 +273,7 @@ class TestDirectoryApis(unittest.TestCase):
         }
 
         response = requests.patch(
-            API, headers=headers, json=schema.json_schema
+            API + f'/{service_id}', headers=headers, json=schema.json_schema
         )
 
         self.assertEqual(response.status_code, 200)
