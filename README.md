@@ -24,7 +24,7 @@ The exchange of data between pods and services is controlled by a data contract.
 ## Hosting the data pod
 The data pod is available as a Docker container that can run on AWS Fargate/ECS. The data pod uses object storage for storing data. It currently only supports AWS S3 storage. Over time, the plan is to add support for additional clouds, i.e Google Cloud Storage and Azure Storage Accounts. The pod software can also run on a host to enable local testing on a developer workstation
 
-## Peer to peer networkling
+## Peer to peer networking
 The data pod hosts both GraphQL and REST APIs. Apps and services uses GraphQL for managing data in the pod. The REST APIs will be used for:
 - peer-to-peer queries traveling the pods in the network
 - management of the pod, password recovery etc.
