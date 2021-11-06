@@ -26,6 +26,9 @@ from byoda.datamodel.schema import Schema
 from byoda.servers.server import ServerType
 from byoda.servers.service_server import ServiceServer
 from byoda.servers.directory_server import DirectoryServer
+
+from byoda.util.api_client import ApiClient
+
 from byoda.util import SignatureType
 from byoda.util import Paths
 
@@ -45,6 +48,10 @@ from byoda.secrets import ServiceDataSecret
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
+
+# The well-known service IDs
+BYODA_PRIVATE_SERVICE = 0
+BYODA_ADDRESSBOOK_SERVICE = 1
 
 Network = TypeVar('Network', bound='Network')
 
@@ -578,6 +585,31 @@ class Service:
         )
         return response
 
+    def download_schema(self, save: bool = True, filepath: str = None) -> str:
+        '''
+        Downloads the latest schema from the webserver of the service
+
+        :param filepath: location where to store the schema. If not specified,
+        the default location will be used
+        :returns: the schema as string
+        '''
+
+        if save and not filepath:
+            filepath = self.paths.get(Paths.SERVICE_FILE)
+
+        url = self.paths.get(Paths.SERVICE_DATACERT_DOWNLOAD)
+        resp = ApiClient.call(url)
+        if resp.status_code == 200:
+            if save:
+                with open(filepath, 'w') as file_desc:
+                    file_desc.write(resp.text)
+
+            return resp.text
+
+        raise FileNotFoundError(
+            f'Download failed for {url}: {resp.status_code}'
+        )
+
     def load_secrets(self, with_private_key: bool = True, password: str = None,
                      service_ca_password=None) -> None:
         '''
@@ -636,7 +668,8 @@ class Service:
             filepath = self.tls_secret.save_tmp_private_key()
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
-    def load_data_secret(self, with_private_key: bool, password: str):
+    def load_data_secret(self, with_private_key: bool, password: str,
+                         download: bool = False):
         '''
         Loads the certificate of the data secret of the service
         '''
@@ -645,6 +678,40 @@ class Service:
             self.data_secret = ServiceDataSecret(
                 self.name, self.service_id, self.network
             )
+            try:
+                self.data_secret.load(
+                    with_private_key=with_private_key, password=password
+                )
+                return
+            except FileNotFoundError as exc:
+                if not download:
+                    _LOGGER.exception(
+                        'Could not read service data secret for service: '
+                        f'{self.service_id}: {exc}'
+                    )
+                    raise
+
+            cert = self.download_data_secret()
+            with open(self.data_secret.cert_file, 'w') as file_desc:
+                file_desc.write(cert)
+
             self.data_secret.load(
                 with_private_key=with_private_key, password=password
             )
+
+    def download_data_secret(self) -> str:
+        '''
+        Downloads the data secret from the web service for the service
+
+        :returns: the cert in PEM format
+        '''
+
+        resp = ApiClient.call(self.paths.get(Paths.SERVICE_DATACERT_DOWNLOAD))
+        if resp.status_code == 200:
+            return resp.text
+
+        raise FileNotFoundError(
+            f'Could not download data cert for service {self.service_id}: '
+            f'{resp.status_code}'
+        )
+

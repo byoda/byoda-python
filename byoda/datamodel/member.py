@@ -29,7 +29,8 @@ from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
-from podserver.bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
+from byoda.util import NginxConfig
+from byoda.util import NGINX_SITE_CONFIG_DIR
 
 from byoda import config
 
@@ -57,11 +58,6 @@ class Member:
         self.account: Account = account
         self.network: Network = self.account.network
 
-        if service_id not in self.network.services:
-            raise ValueError(f'Service {service_id} not found')
-
-        self.service = self.network.services[service_id]
-
         # self.load_schema() will initialize the data property
         self.data: Dict = None
 
@@ -74,6 +70,19 @@ class Member:
         self.document_store: DocumentStore = self.account.document_store
 
         self.private_key_password = account.private_key_password
+
+        if self.service_id not in self.network.services:
+            try:
+                self.service = Service.get_service(
+                    self.network, filepath=self.paths.get(Paths.SERVICE_FILE)
+                )
+            except FileNotFoundError:
+                service = Service(self.network, service_id=self.service_id)
+                service.download_data_secret()
+                service.download_schema(save=True)
+            self.network.services[self.service_id] = self.service
+
+        self.service = self.network.services[service_id]
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
@@ -131,6 +140,7 @@ class Member:
                 public_cloud_endpoint=member.paths.storage_driver.get_url(
                     public=True
                 ),
+
             )
 
             if not nginx_config.exists():

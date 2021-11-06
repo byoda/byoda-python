@@ -34,7 +34,6 @@ class HttpMethod(Enum):
 
 class RestApiClient:
     '''
-
     '''
 
     def __init__(self):

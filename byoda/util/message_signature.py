@@ -7,13 +7,12 @@ Python module for managing signatures of documents
 '''
 
 import logging
-import json
 import base64
 from enum import Enum
 from datetime import datetime
 from typing import Dict
 
-from byoda.secrets.data_secret import DataSecret
+from byoda.secrets import DataSecret
 from byoda.secrets import ServiceDataSecret
 from byoda.secrets import NetworkDataSecret
 

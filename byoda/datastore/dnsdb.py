@@ -478,7 +478,19 @@ class DnsDb:
             )
             conn.execute(do_nothing_stmt)
 
-            return self._get_domain_id(conn, subdomain)
+            domain_id = self._get_domain_id(conn, subdomain)
+
+            soa = f'{subdomain} hostmaster.@ 0 10800 3600 604800 3600'
+            with self._engine.connect() as conn:
+                stmt = insert(
+                    self._records_table
+                ).values(
+                    name='@', content=soa,
+                    domain_id=self._domain_ids[subdomain],
+                    type='SOA', ttl=DEFAULT_TTL, prio=0,
+                    auth=True
+                )
+            return domain_id
 
 
 @event.listens_for(Engine, "before_cursor_execute")

@@ -15,7 +15,6 @@ import requests
 
 from byoda.datatypes import CsrSource
 from byoda.datastore.document_store import DocumentStore
-from byoda.util import Paths
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -23,6 +22,10 @@ from byoda.secrets import DataSecret
 from byoda.secrets import AccountDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
+
+from byoda.util import Paths
+from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 from .member import Member
 from .service import Service
@@ -43,7 +46,7 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 load_tls_secret: bool = False, account: str = 'pod'):
+                 account: str = 'pod'):
         '''
         Constructor
         '''
@@ -68,12 +71,13 @@ class Account:
 
         self.private_key_password: str = network.private_key_password
 
-        self.data_secret: DataSecret = None
+        self.data_secret: DataSecret = AccountDataSecret(
+            account_id=self.account_id, network=network
+
+        )
         self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )
-        if load_tls_secret:
-            self.tls_secret.load(password=self.private_key_password)
 
         self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
@@ -159,8 +163,7 @@ class Account:
             )
 
         if not issuing_ca:
-            # TODO
-            if type(secret_cls) != AccountSecret:
+            if secret_cls != AccountSecret and secret_cls != AccountDataSecret:
                 raise ValueError(
                     f'No issuing_ca was provided for creating a '
                     f'{type(secret_cls)}'
@@ -169,10 +172,10 @@ class Account:
                 # TODO: SECURITY: add constraints
                 csr = secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
-                url = f'https://dir.{self.network}/api/v1/network/account'
+                url = f'https://dir.{self.network.name}/api/v1/network/account'
 
                 resp = requests.post(url, json=payload)
-                if resp.status_code != requests.codes.OK:
+                if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
 
                 cert_data = resp.json()
@@ -180,7 +183,6 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
-            # TODO: SECURITY: add constraints
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
@@ -237,13 +239,27 @@ class Account:
 
         self.memberships[service_id] = member
 
+    def register(self):
+        '''
+        Register the pod with the directory server of the network
+        '''
+
+        # Register pod to directory server
+        url = self.paths.get(Paths.NETWORKACCOUNT_API)
+
+        resp = RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
+
+        _LOGGER.debug(
+            f'Registered account with directory server: {resp.status_code}'
+        )
+
     def join(self, service: Service = None, service_id: int = None,
              members_ca: MembersCaSecret = None) -> Member:
         '''
         Join a service for the first time
         '''
 
-        if ((not service_id and not service)
+        if ((service_id is None and not service)
                 or (service_id and service)):
             raise ValueError('Either service_id or service must be speicfied')
 
@@ -252,9 +268,9 @@ class Account:
                 f'service must be of instance Service and not {type(Service)}'
             )
 
-        if service_id:
+        if service_id is not None:
             service_id = int(service_id)
-            service = Service(service_d=service_id, network=self.network)
+            service = Service(service_id=service_id, network=self.network)
 
         if not self.paths.member_directory_exists(service.service_id):
             self.paths.create_member_directory(service.service_id)

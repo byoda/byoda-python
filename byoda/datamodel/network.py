@@ -34,8 +34,9 @@ from byoda.secrets import ServiceCaSecret
 from byoda.secrets import MembersCaSecret
 from byoda.secrets import ServiceSecret
 
+from byoda.util.api_client import ApiClient
+
 from .service import Service
-from .account import Account
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -137,7 +138,20 @@ class Network:
             )
         else:
             if not self.root_ca.cert:
-                self.root_ca.load(with_private_key=False)
+                try:
+                    self.root_ca.load(with_private_key=False)
+                except FileNotFoundError:
+                    resp = ApiClient.call(
+                        Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
+                    )
+                    if resp.status_code != 200:
+                        raise ValueError(
+                            'No network cert available locally or from the '
+                            'network'
+                        )
+                    data = resp.text
+                    private_object_storage.write(self.root_ca.cert_file, data)
+                    self.root_ca.load(with_private_key=False)
 
         config.requests.verify = self.root_ca.cert_file
 
@@ -282,16 +296,6 @@ class Network:
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
-
-    def load_account(self, account_id: UUID, load_tls_secret: bool = True
-                     ) -> Account:
-        '''
-        Loads an account and its secrets
-        '''
-
-        account = Account(account_id, self, load_tls_secret=load_tls_secret)
-
-        return account
 
     def add_service(self, service_id: int,
                     registration_status: RegistrationStatus = None) -> Service:

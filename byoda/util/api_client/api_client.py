@@ -85,20 +85,24 @@ class ApiClient:
             self.session = config.client_pools[type(secret)]
 
     @staticmethod
-    def call(api: str, method: str, secret:Secret = None, params: Dict = None,
+    def call(api: str, method: str = 'GET', secret:Secret = None, params: Dict = None,
              data: Dict = None, service_id: int = None, member_id: UUID = None,
-             account_id: UUID = None) -> requests.Response:
+             account_id: UUID = None, network_name: str = None) -> requests.Response:
 
         '''
         Calls an API using the right credentials and accepted CAs
         '''
 
-        network = config.server.network
+        # This is used by the bootstrap of the pod, when the global variable is not yet
+        # set
+        if not network_name:
+            network = config.server.network
+            network_name = network.name
 
         client = ApiClient(secret=secret, service_id=service_id)
 
         api = Paths.resolve(
-            api, network.name, service_id=service_id, member_id=member_id,
+            api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
         )
         _LOGGER.debug(

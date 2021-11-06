@@ -70,6 +70,11 @@ class Paths:
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
+    # Downloads
+    NETWORK_CERT_DOWNLOAD      = 'https://dir.{network}/root-ca.pem'                                 # noqa
+    SERVICE_DATACERT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'    # noqa
+    SERVICE_CONTRACT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'    # noqa
+
     # APIs
     NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                      # noqa
     NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'         # noqa
