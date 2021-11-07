@@ -1,0 +1,18 @@
+application:
+  debug: True
+  environment: 'dev'
+  logfile: '/tmp/byoda.log'
+  # Changing the network if you want to set up your own network and
+  # directory server. This setting overrides any configured NETWORK
+  # environment variable
+  network: 'testdns.net'
+  jaeger_host: 127.0.0.1
+
+dirserver:
+  name: 'directoryserver'
+  root_dir: '/tmp/byoda-tests/dns'
+  # Connection string for the Postgresql server for PowerDNS
+  dnsdb: "postgresql://powerdns:D1YHp4S2mI3e@192.168.1.11/byodadns"
+  roles:
+    - directory
+  private_key_password: 'byoda'

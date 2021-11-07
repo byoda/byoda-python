@@ -24,6 +24,7 @@ from byoda.datastore.dnsdb import DnsRecordType
 from byoda.datastore.dnsdb import DnsDb
 
 
+CONFIG = 'tests/collateral/config-dnsdb-test.yml'
 TEST_DIR = '/tmp/byoda-func-test-secrets'
 NETWORK = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
@@ -32,16 +33,19 @@ TEST_SERVICE_ID = 4294967295
 TEST_UUID = 'd5c35a25-f171-4f0b-8d2f-d0808f40d0fd'
 TEST_FIRST_IP = '10.255.255.254'
 TEST_SECOND_IP = '10.255.255.253'
-TEST_NETWORK = DEFAULT_NETWORK
+TEST_NETWORK = None
 
 
 class TestDnsDb(unittest.TestCase):
     def test_dnsdb(self):
-        with open('config.yml') as file_desc:
+        with open(CONFIG) as file_desc:
             config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
+        global TEST_NETWORK
+        TEST_NETWORK = config['application']['network']
+
         dnsdb = DnsDb.setup(
-            config['dirserver']['dnsdb'], config['application']['network']
+            config['dirserver']['dnsdb'], TEST_NETWORK
         )
 
         # SERVICE
@@ -162,8 +166,11 @@ def do_dns_lookup(fqdn):
 
 
 def delete_test_data():
-    with open('config.yml') as file_desc:
+    with open(CONFIG) as file_desc:
         config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+    global TEST_NETWORK
+    TEST_NETWORK = config['application']['network']
 
     dnsdb = DnsDb.setup(config['dirserver']['dnsdb'], TEST_NETWORK)
     with dnsdb._engine.connect() as conn:
@@ -177,6 +184,17 @@ def delete_test_data():
                 f'{TEST_UUID}.accounts.{TEST_NETWORK}',
                 dnsdb._records_table.c.name ==
                 f'{TEST_SERVICE_ID}.services.{TEST_NETWORK}'
+            )
+        )
+        conn.execute(stmt)
+
+        stmt = delete(
+            dnsdb._domains_table
+        ).where(
+            or_(
+                dnsdb._domains_table.c.name == f'accounts.{TEST_NETWORK}',
+                dnsdb._domains_table.c.name == f'service-{TEST_SERVICE_ID}.{TEST_NETWORK}',        # noqa: E501
+                dnsdb._domains_table.c.name == f'members-{TEST_SERVICE_ID}.{TEST_NETWORK}',        # noqa: E501
             )
         )
         conn.execute(stmt)
