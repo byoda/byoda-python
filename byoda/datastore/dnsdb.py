@@ -214,6 +214,10 @@ class DnsDb:
                 )
                 if existing_value and value == existing_value:
                     # Nothing to change
+                    _LOGGER.debug(
+                        f'No DNS changed needed for FQDN {fqdn} with IP '
+                        f'{value}'
+                    )
                     continue
 
                 record_replaced = record_replaced or self.remove(
@@ -496,14 +500,11 @@ class DnsDb:
                 type='SOA', ttl=DEFAULT_TTL, prio=0,
                 auth=True
             )
-            on_conflict_stmt = stmt.on_conflict_do_nothing(
-                index_elements=['name']
-            )
             # on_conflict requires a constraint on the 'name' column of the
             # 'records' table
             # on_conflict_stmt = stmt.on_conflict_do_nothing(
             #    index_elements=['name']
-            #)
+            # )
             conn.execute(stmt)
 
             ns = 'dir.byoda.net.'
@@ -519,10 +520,14 @@ class DnsDb:
             # 'records' table
             # on_conflict_stmt = stmt.on_conflict_do_nothing(
             #    index_elements=['name']
-            #)
+            # )
 
             conn.execute(stmt)
 
+            _LOGGER.debug(
+                f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
+            )
+            
             return domain_id
 
 
