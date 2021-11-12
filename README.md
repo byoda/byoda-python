@@ -13,6 +13,9 @@ This repo hosts the reference implementation (in Python) of the Byoda directory 
 The directory server is supporting the registration API for pods using CA signed certs and DNS hosting. It does not yet support the APIs for services.
 The pod is currently bootstrapping and running in a container in a public cloud and hosting GraphQL API for accessing data for the 'Default' (0) service. The pod currently supports AWS S3 object storage.
 
+## Redesigning social media services
+A number of blog posts on Medium describe the ideas about how social media should be refactored. BYODA is a reference implementation of those ideas
+
 ## Tech overview
 The platform consists of:
 - A directory server hosts REST APIs for registration, Certificate Authority, and DNS services for pods and services
