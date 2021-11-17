@@ -6,7 +6,6 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-from byoda.secrets.service_secret import ServiceSecret
 import logging
 
 from uuid import uuid4, UUID
@@ -25,6 +24,7 @@ from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
 
+from byoda.secrets import ServiceSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
@@ -33,6 +33,8 @@ from byoda.util import NginxConfig
 from byoda.util import NGINX_SITE_CONFIG_DIR
 
 from byoda import config
+from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +74,11 @@ class Member:
         self.private_key_password = account.private_key_password
 
         if self.service_id not in self.network.services:
+            # Make sure the directory exists
+            self.storage_driver.create_directory(
+                self.paths.get(Paths.SERVICE_DIR), exist_ok=True
+            )
+
             try:
                 self.service = Service.get_service(
                     self.network, filepath=self.paths.get(Paths.SERVICE_FILE)
@@ -80,7 +87,8 @@ class Member:
                 service = Service(self.network, service_id=self.service_id)
                 service.download_data_secret()
                 service.download_schema(save=True)
-            self.network.services[self.service_id] = self.service
+
+            self.network.services[self.service_id] = service
 
         self.service = self.network.services[service_id]
 
@@ -95,14 +103,17 @@ class Member:
         self.service_data_secret = ServiceSecret(
             None, service_id, self.network
         )
-        self.service_data_secret.load(with_private_key=False)
+        try:
+            self.service_data_secret.load(with_private_key=False)
+        except FileNotFoundError:
+            service.download_data_secret()
 
         self.tls_secret = None
         self.data_secret = None
 
     @staticmethod
     def create(service: Service, account: Account, members_ca:
-               MembersCaSecret = None):
+               MembersCaSecret = None, bootstrap: bool = False):
         '''
         Factory for a new membership
         '''
@@ -113,14 +124,11 @@ class Member:
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
         )
-        member.tls_secret = member._create_secret(MemberSecret, members_ca)
-
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
-        member.data_secret = member._create_secret(
-            MemberDataSecret, members_ca
-        )
+
+        member.create_secrets(members_ca=members_ca)
 
         member.schema = copy(service.schema)
 
@@ -149,6 +157,14 @@ class Member:
 
         return member
 
+    def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+        '''
+        Creates the secrets for a membership
+        '''
+
+        self.tls_secret = self._create_secret(MemberSecret, members_ca)
+        self.data_secret = self._create_secret(MemberDataSecret, members_ca)
+
     def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
                        ) -> Secret:
         '''
@@ -163,12 +179,7 @@ class Member:
 
         if not self.member_id:
             raise ValueError(
-                'Account_id for the account has not been defined'
-            )
-
-        if not issuing_ca:
-            raise NotImplementedError(
-                'Service API for signing member certs is not yet implemented'
+                'Member_id for the account has not been defined'
             )
 
         secret = secret_cls(
@@ -188,15 +199,31 @@ class Member:
             )
 
         if not issuing_ca:
-            raise ValueError(
-                'Service API for signing certs is not yet available'
-            )
+            if secret_cls != MemberSecret and secret_cls != MemberDataSecret:
+                raise ValueError(
+                    f'No issuing_ca was provided for creating a '
+                    f'{type(secret_cls)}'
+                )
+            else:
+                csr = secret.create_csr()
+                payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
 
-        # TODO: SECURITY: add constraints
-        csr = secret.create_csr()
-        issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-        certchain = issuing_ca.sign_csr(csr)
-        secret.from_signed_cert(certchain)
+                resp = RestApiClient.call(
+                    Paths.SERVICEMEMBER_API, HttpMethod.POST,
+                    data=payload, service_id=self.service_id
+                )
+                if resp.status_code != 201:
+                    raise RuntimeError('Certificate signing request failed')
+
+                cert_data = resp.json()
+                secret.from_string(
+                    cert_data['signed_cert'], certchain=cert_data['cert_chain']
+                )
+        else:
+            csr = secret.create_csr()
+            issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+            certchain = issuing_ca.sign_csr(csr)
+            secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 

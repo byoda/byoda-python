@@ -77,7 +77,7 @@ def main(argv):
         service.registration_status = service.get_registration_status()
         if service.registration_status == RegistrationStatus.Unknown:
             raise ValueError(
-                'Please use "create_service_secrets.py" script first'
+                'Please use "create_tls_secrets.py" script first'
             )
 
     schema = service.schema.json_schema

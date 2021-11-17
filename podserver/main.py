@@ -102,7 +102,7 @@ server.paths = network.paths
 
 server.get_registered_services()
 
-account = Account(network_data['account_id'], network)
+account = Account(network_data['account_id'], network, bootstrap=bootstrapping)
 
 server.account = account
 

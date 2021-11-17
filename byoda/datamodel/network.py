@@ -153,8 +153,6 @@ class Network:
                     private_object_storage.write(self.root_ca.cert_file, data)
                     self.root_ca.load(with_private_key=False)
 
-        config.requests.verify = self.root_ca.cert_file
-
         # Loading secrets for when operating as a directory server
         self.accounts_ca: NetworkAccountsCaSecret = None
         self.services_ca: NetworkServicesCaSecret = None
@@ -165,7 +163,7 @@ class Network:
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None
-        self.service_secret: ServiceSecret = None
+        self.tls_secret: ServiceSecret = None
         self.member_ca: MembersCaSecret = None
 
         # Loading secrets when operating as a pod

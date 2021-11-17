@@ -7,8 +7,9 @@ Test the Secret class
 import sys
 import os
 import shutil
-from uuid import uuid4
 import unittest
+import subprocess
+from uuid import uuid4
 
 from byoda.util import Logger
 
@@ -43,15 +44,26 @@ class TestAccountManager(unittest.TestCase):
         network = Network.create('test.net', TEST_DIR, 'byoda')
         config.server.network = network
 
+        network.services_ca.validate(network.root_ca, with_openssl=True)
+        network.accounts_ca.validate(network.root_ca, with_openssl=True)
+
         # Need to set role to allow loading of unsigned services
         network.roles = [ServerRole.Pod]
 
         service = Service(network, DEFAULT_SCHEMA)
         service.create_secrets(network.services_ca, local=True)
 
+        service.service_ca.validate(network.root_ca, with_openssl=True)
+        service.apps_ca.validate(network.root_ca, with_openssl=True)
+        service.tls_secret.validate(network.root_ca, with_openssl=True)
+        service.data_secret.validate(network.root_ca, with_openssl=True)
+
         account_id = uuid4()
         account = Account(account_id, network)
         account.create_secrets(network.accounts_ca)
+
+        account.tls_secret.validate(network.root_ca, with_openssl=True)
+        account.data_secret.validate(network.root_ca, with_openssl=True)
 
         # Create a dummy entry for the services in the network, otherwise
         # account.join(service) fails
@@ -61,7 +73,8 @@ class TestAccountManager(unittest.TestCase):
         )
 
         self.assertIsNotNone(member.member_id)
-        account.data_secret.validate(network.root_ca)
+        member.tls_secret.validate(network.root_ca, with_openssl=True)
+        member.data_secret.validate(network.root_ca, with_openssl=True)
 
         # Certchain validation fails as network.services_ca
         # is in the cert chain of account.data_secret and is

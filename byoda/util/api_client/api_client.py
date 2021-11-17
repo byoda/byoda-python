@@ -76,11 +76,14 @@ class ApiClient:
             else:
                 self.session.cert = None
 
-            if isinstance(secret, MemberSecret):
+            self.session.verify = True
+            if service_id is not None or isinstance(secret, MemberSecret):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
-                self.session.verify = server.network.root_ca.cert_file()
+                self.session.verify = server.network.root_ca.cert_file
+
+            config.client_pools[type(secret)] = self.session
         else:
             self.session = config.client_pools[type(secret)]
 
@@ -109,6 +112,8 @@ class ApiClient:
             f'Calling {method} {api} with query parameters {params} and '
             f'data: {data}'
         )
-        response = client.session.request(method, api, params=params, json=data)
+        response = client.session.request(
+            method, api, params=params, json=data
+        )
 
         return response

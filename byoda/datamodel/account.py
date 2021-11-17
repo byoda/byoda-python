@@ -10,6 +10,7 @@ import logging
 from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
+from uuid import uuid4
 
 import requests
 
@@ -46,7 +47,7 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 account: str = 'pod'):
+                 account: str = 'pod', bootstrap: bool = False):
         '''
         Constructor
         '''
@@ -84,7 +85,7 @@ class Account:
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
 
-        self.load_memberships()
+        self.load_memberships(bootstrap=bootstrap)
 
     def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
@@ -123,7 +124,8 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not self.data_secret.cert_file_exists():
+        if (not self.data_secret.cert_file_exists()
+                    or not self.data_secret.cert):
             _LOGGER.info('Creating account data secret')
             self.data_secret = self._create_secret(
                 AccountDataSecret, accounts_ca
@@ -169,11 +171,11 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
-                # TODO: SECURITY: add constraints
                 csr = secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
-                url = f'https://dir.{self.network.name}/api/v1/network/account'
+                url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
+                # TODO: Refactor to use RestClientApi
                 resp = requests.post(url, json=payload)
                 if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
@@ -206,7 +208,7 @@ class Account:
         )
         self.data_secret.load(password=self.private_key_password)
 
-    def load_memberships(self):
+    def load_memberships(self, bootstrap: bool = False):
         '''
         Loads the memberships of an account by iterating through
         a directory structure in the document store of the server.
@@ -219,9 +221,10 @@ class Account:
 
         for folder in folders:
             service_id = int(folder[8:])
-            self.load_membership(service_id=service_id)
+            self.load_membership(service_id=service_id, bootstrap=bootstrap)
 
-    def load_membership(self, service_id: int) -> Member:
+    def load_membership(self, service_id: int,
+                        bootstrap: bool = False) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -231,10 +234,22 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        member = Member(service_id, self)
-        member.load_secrets()
+        try:
+            member = Member(service_id, self)
+            member.load_secrets()
+        except FileNotFoundError:
+            if bootstrap:
+                member.member_id = uuid4()
+                member.create_secrets()
+            else:
+                raise
 
-        member.load_schema()
+        try:
+            member.load_schema()
+        except FileNotFoundError:
+            if bootstrap:
+                service = Service(self.network, service_id=service_id)
+                service.download_schema(self.network)
         member.load_data()
 
         self.memberships[service_id] = member

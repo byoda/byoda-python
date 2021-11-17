@@ -49,19 +49,19 @@ class RestApiClient:
         '''
 
         if method == HttpMethod.POST:
-            if (service_id is not None or member_id is not None
-                or account_id is not None):
+            if member_id is not None or account_id is not None:
                 raise ValueError(
-                    'BYODA POST APIs do not accept query parameters'
+                    'BYODA POST APIs do not accept query parameters for '
+                    'member_id and account_id'
                 )
-            paths = api.split('/')
             try:
                 _LOGGER.debug('Removing identifier from end of request for POST call')
+                paths = api.split('/')
                 int(paths[-1])
                 shortend_api = '/'.join(paths[0:-1])
                 _LOGGER.debug(f'Modified POST API call from {api} to {shortend_api}')
                 api = shortend_api
-            except:
+            except (KeyError, ValueError):
                 # API URL did not end with an ID specifier
                 pass
 

@@ -10,6 +10,8 @@ import os
 import logging
 import datetime
 import re
+import tempfile
+import subprocess
 from uuid import UUID
 from copy import copy
 from typing import TypeVar, List
@@ -298,12 +300,13 @@ class Secret:
         self.cert = cert_chain.signed_cert
         self.cert_chain = cert_chain.cert_chain
 
-    def validate(self, root_ca):
+    def validate(self, root_ca: CaSecret, with_openssl: bool = False):
         '''
-        Validate that the cert and its certchain are achored to the root cert.
+        Validate that the cert and its certchain are anchored to the root cert.
         This function does not check certificate recovation or OCSP
 
         :param Secret root_ca: the self-signed root CA to validate against
+        :param with_openssl: also use the openssl binary to validate the cert
         :returns: (none)
         :raises: ValueError if the certchain is invalid
         '''
@@ -323,6 +326,51 @@ class Secret:
             validator.validate_usage(set())
         except (ValidationError, PathBuildingError) as exc:
             raise ValueError(f'Certchain failed validation: {exc}') from exc
+
+        if not with_openssl:
+            return
+
+        tmpdir = tempfile.TemporaryDirectory()
+        rootfile = tmpdir.name + '/rootca.pem'
+        with open(rootfile, 'w') as file_desc:
+            file_desc.write(root_ca.cert_as_pem().decode('utf-8'))
+
+        certfile = tmpdir.name + '/cert.pem'
+        with open(certfile, 'w') as file_desc:
+            file_desc.write(self.cert_as_pem().decode('utf-8'))
+
+        cmd = [
+            'openssl', 'verify',
+            '-CAfile', rootfile,
+        ]
+
+        if self.cert_chain:
+            chainfile = tmpdir.name + '/chain.pem'
+            with open(chainfile, 'w') as file_desc:
+                for cert in self.cert_chain:
+                    file_desc.write(
+                        cert.public_bytes(
+                            serialization.Encoding.PEM
+                        ).decode('utf-8')
+                    )
+            cmd.extend(['-untrusted', chainfile])
+
+        cmd.append(certfile)
+        result = subprocess.run(cmd)
+
+        if result.returncode != 0:
+            raise ValueError(
+                f'Certificate validation with command {" ".join(cmd)} '
+                f'failed: {result.returncode} for cert {certfile} and '
+                f'root CA {rootfile}'
+            )
+
+        tmpdir.cleanup()
+
+        _LOGGER.debug(
+            'Successfully validated certchain using OpenSSL for '
+            f'cert {certfile} and root CA {rootfile}'
+        )
 
     def sign_message(self, message: str, hash_algorithm: str = 'SHA256'
                      ) -> bytes:

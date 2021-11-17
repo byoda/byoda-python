@@ -187,11 +187,6 @@ class Service:
         self.service_id = self.schema.service_id
         self.paths.service_id = self.service_id
 
-        # We make sure that the directory exists
-        self.paths.storage_driver.create_directory(
-            self.paths.get(Paths.SERVICE_DIR)
-        )
-
         _LOGGER.debug(
             f'Read service {self.name} wih service_id {self.service_id}'
         )
@@ -281,7 +276,7 @@ class Service:
 
         self.create_apps_ca()
         self.create_members_ca()
-        self.create_service_secret()
+        self.create_tls_secret()
         self.create_data_secret()
 
     def create_service_ca(self,
@@ -336,7 +331,7 @@ class Service:
             private_key_password=self.private_key_password
         )
 
-    def create_service_secret(self) -> None:
+    def create_tls_secret(self) -> None:
         '''
         Creates the service TLS secret, signed by the Service CA
 
@@ -344,7 +339,7 @@ class Service:
         the CSR of the service secret
         '''
 
-        self.service_secret = self._create_secret(
+        self.tls_secret = self._create_secret(
             ServiceSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
@@ -597,8 +592,12 @@ class Service:
         if save and not filepath:
             filepath = self.paths.get(Paths.SERVICE_FILE)
 
-        url = self.paths.get(Paths.SERVICE_DATACERT_DOWNLOAD)
-        resp = ApiClient.call(url)
+        self.storage_driver.create_directory(
+            self.paths.get(Paths.SERVICE_DIR)
+        )
+        resp = ApiClient.call(
+            Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
+        )
         if resp.status_code == 200:
             if save:
                 with open(filepath, 'w') as file_desc:
@@ -706,7 +705,9 @@ class Service:
         :returns: the cert in PEM format
         '''
 
-        resp = ApiClient.call(self.paths.get(Paths.SERVICE_DATACERT_DOWNLOAD))
+        resp = ApiClient.call(
+            Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
+        )
         if resp.status_code == 200:
             return resp.text
 
