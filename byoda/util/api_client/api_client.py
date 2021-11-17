@@ -109,8 +109,8 @@ class ApiClient:
             account_id=account_id
         )
         _LOGGER.debug(
-            f'Calling {method} {api} with query parameters {params} and '
-            f'data: {data}'
+            f'Calling {method} {api} with query parameters {params} '
+            f'with root CA file: {client.session.verify} and data: {data} '
         )
         response = client.session.request(
             method, api, params=params, json=data
