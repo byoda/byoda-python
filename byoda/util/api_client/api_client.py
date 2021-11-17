@@ -39,7 +39,7 @@ class ApiClient:
     misc. settings (ie. 'timeout')
     '''
 
-    def __init__(self, secret: Secret = None, service_id: int = None):
+    def __init__(self, api: str, secret: Secret = None, service_id: int = None):
         '''
         Maintains a pool of connections for different destinations
 
@@ -77,7 +77,7 @@ class ApiClient:
                 self.session.cert = None
 
             self.session.verify = True
-            if service_id is not None or isinstance(secret, MemberSecret):
+            if not api.startswith(f'https://dir'):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
@@ -102,7 +102,7 @@ class ApiClient:
             network = config.server.network
             network_name = network.name
 
-        client = ApiClient(secret=secret, service_id=service_id)
+        client = ApiClient(api, secret=secret, service_id=service_id)
 
         api = Paths.resolve(
             api, network_name, service_id=service_id, member_id=member_id,
