@@ -600,13 +600,12 @@ class Service:
         )
         if resp.status_code == 200:
             if save:
-                with open(filepath, 'w') as file_desc:
-                    file_desc.write(resp.text)
+                self.storage_driver.write(filepath, resp.text)
 
             return resp.text
 
         raise FileNotFoundError(
-            f'Download failed for {url}: {resp.status_code}'
+            f'Download of service schema failed: {resp.status_code}'
         )
 
     def load_secrets(self, with_private_key: bool = True, password: str = None,
@@ -668,7 +667,7 @@ class Service:
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
     def load_data_secret(self, with_private_key: bool, password: str,
-                         download: bool = False):
+                         download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
         '''
@@ -677,28 +676,27 @@ class Service:
             self.data_secret = ServiceDataSecret(
                 self.name, self.service_id, self.network
             )
-            try:
+
+            if not self.data_secret.cert_file_exists():
+                if download:
+                    if with_private_key:
+                        raise ValueError(
+                            'Can not download private key of the secret from '
+                            'the network'
+                        )
+                    self.download_data_secret()
+                else:
+                    _LOGGER.exception(
+                        'Could not read service data secret for service: '
+                        f'{self.service_id}: {self.data_secret.cert_file}'
+                    )
+                    raise FileNotFoundError(self.data_secret.cert_file)
+            else:
                 self.data_secret.load(
                     with_private_key=with_private_key, password=password
                 )
-                return
-            except FileNotFoundError as exc:
-                if not download:
-                    _LOGGER.exception(
-                        'Could not read service data secret for service: '
-                        f'{self.service_id}: {exc}'
-                    )
-                    raise
 
-            cert = self.download_data_secret()
-            with open(self.data_secret.cert_file, 'w') as file_desc:
-                file_desc.write(cert)
-
-            self.data_secret.load(
-                with_private_key=with_private_key, password=password
-            )
-
-    def download_data_secret(self) -> str:
+    def download_data_secret(self, save: bool = True) -> str:
         '''
         Downloads the data secret from the web service for the service
 
@@ -709,6 +707,11 @@ class Service:
             Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
         )
         if resp.status_code == 200:
+            if save:
+                self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
+                self.data_secret.from_string(resp.text)
+                self.data_secret.save()
+
             return resp.text
 
         raise FileNotFoundError(

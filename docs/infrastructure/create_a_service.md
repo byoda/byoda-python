@@ -67,7 +67,7 @@ cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
-echo "Passwords for service secrets except the Service CA: ${PASSWORD}
+echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
 tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
 
 ```

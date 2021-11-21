@@ -64,9 +64,13 @@ class PodServer(Server):
         response = RestApiClient.call(url)
 
         if response.status_code == 200:
-            self.service_summaries = response.json()
+            summaries = response.json()
+            self.network.service_summaries = summaries.get(
+                'service_summaries', []
+            )
             _LOGGER.debug(
-                f'Read summaries for {len(self.service_summaries)} services'
+                f'Read summaries for {len(self.network.service_summaries)} '
+                'services'
             )
         else:
             _LOGGER.debug(

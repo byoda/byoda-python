@@ -244,12 +244,8 @@ class Account:
             else:
                 raise
 
-        try:
-            member.load_schema()
-        except FileNotFoundError:
-            if bootstrap:
-                service = Service(self.network, service_id=service_id)
-                service.download_schema(self.network)
+        member.load_schema(bootstrap=bootstrap)
+
         member.load_data()
 
         self.memberships[service_id] = member

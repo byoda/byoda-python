@@ -24,7 +24,7 @@ from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
 
-from byoda.secrets import ServiceSecret
+from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
@@ -84,11 +84,11 @@ class Member:
                     self.network, filepath=self.paths.get(Paths.SERVICE_FILE)
                 )
             except FileNotFoundError:
-                service = Service(self.network, service_id=self.service_id)
-                service.download_data_secret()
-                service.download_schema(save=True)
+                self.service = Service(self.network, service_id=self.service_id)
+                self.service.download_data_secret(save=True)
+                self.service.download_schema(save=True)
 
-            self.network.services[self.service_id] = service
+            self.network.services[self.service_id] = self.service
 
         self.service = self.network.services[service_id]
 
@@ -100,13 +100,14 @@ class Member:
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         # TODO: load the service data secret through an API from the service
-        self.service_data_secret = ServiceSecret(
+        self.service_data_secret = ServiceDataSecret(
             None, service_id, self.network
         )
-        try:
+        if self.service_data_secret.cert_file_exists():
             self.service_data_secret.load(with_private_key=False)
-        except FileNotFoundError:
-            service.download_data_secret()
+        else:
+            service.download_data_secret(save=True)
+            self.service_data_secret.load(with_private_key=False)
 
         self.tls_secret = None
         self.data_secret = None
@@ -162,8 +163,29 @@ class Member:
         Creates the secrets for a membership
         '''
 
-        self.tls_secret = self._create_secret(MemberSecret, members_ca)
-        self.data_secret = self._create_secret(MemberDataSecret, members_ca)
+        if self.tls_secret and self.tls_secret.cert_file_exists():
+            self.tls_secret = MemberSecret(
+                None, self.service_id, self.account
+            )
+            self.tls_secret.load(
+                with_private_key=True, password=self.private_key_password
+            )
+            self.member_id = self.tls_secret.member_id
+        else:
+            self.tls_secret = self._create_secret(MemberSecret, members_ca)
+
+        if self.data_secret and self.data_secret.cert_file_exists():
+            self.data_secret = MemberDataSecret(
+                self.member_id, self.service_id, self.account
+            )
+            self.data_secret.load(
+                with_private_key=True, password=self.private_key_password
+
+            )
+        else:
+            self.data_secret = self._create_secret(
+                MemberDataSecret, members_ca
+            )
 
     def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
                        ) -> Secret:
@@ -249,12 +271,24 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def load_schema(self):
+    def load_schema(self, bootstrap: bool = False):
         '''
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        schema = Schema.get_schema(filepath, self.storage_driver)
+
+        if self.storage_driver.exists(filepath):
+            schema = Schema.get_schema(filepath, self.storage_driver)
+        else:
+            if not bootstrap:
+                _LOGGER.exception(
+                    'Service contract file {filepath} does not exist'
+                )
+                raise FileNotFoundError(filepath)
+            else:
+                self.service.download_schema(save=True, filepath=filepath)
+                schema = Schema.get_schema(filepath, self.storage_driver)
+
         self.verify_schema_signatures(schema)
         schema.generate_graphql_schema()
 
@@ -276,21 +310,15 @@ class Member:
             raise ValueError('Schema does not contain a network signature')
 
         if not self.service.data_secret or not self.service.data_secret.cert:
-            raise ValueError(
-                'Data secret not available to verify service signature'
-            )
-
-        if not self.network.data_secret or not self.network.data_secret.cert:
-            raise ValueError(
-                'Network data secret not available to verify network signature'
-            )
+            service = Service(self.network, service_id=self.service_id)
+            service.download_data_secret(save=True)
 
         schema.verify_signature(
             self.service.data_secret, SignatureType.SERVICE
         )
 
         _LOGGER.debug(
-            'Verified service signature for service %s', self.service_id
+            f'Verified service signature for service {self.service_id}'
         )
 
         schema.verify_signature(
@@ -298,7 +326,7 @@ class Member:
         )
 
         _LOGGER.debug(
-            'Verified network signature for service %s', self.service_id
+            f'Verified network signature for service {self.service_id}'
         )
 
     def load_data(self):
@@ -306,7 +334,8 @@ class Member:
         Loads the data stored for the membership
         '''
 
-        self.data.load()
+        if self.data:
+            self.data.load()
 
     def save_data(self, data):
         '''

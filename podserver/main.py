@@ -28,6 +28,7 @@ from starlette.graphql import GraphQLApp
 from .api import setup_api
 
 from byoda import config
+from byoda.util import Paths
 from byoda.util.logger import Logger
 
 from byoda.datamodel import Network
@@ -57,7 +58,7 @@ server = config.server
 # The BOOTSTRAP environment variable should only be set during
 # initial creation of the pod as otherwise existing secrets might
 # be discarded when there issues with accessing the storage bucket
-bootstrapping = os.environ.get('BOOTSTRAP', None)
+bootstrap = os.environ.get('BOOTSTRAP', None)
 
 # Remaining environment variables used:
 network_data = {
@@ -97,12 +98,15 @@ server.set_document_store(
 #     letsencrypt.create()
 
 network = Network(network_data, network_data)
+
 server.network = network
 server.paths = network.paths
 
 server.get_registered_services()
 
-account = Account(network_data['account_id'], network, bootstrap=bootstrapping)
+# TODO: if we have a pod secret, should we compare its commonname with the
+# account_id environment variable?
+account = Account(network_data['account_id'], network, bootstrap=bootstrap)
 
 server.account = account
 
@@ -112,7 +116,7 @@ try:
     )
     _LOGGER.debug('Read account TLS secret')
 except FileNotFoundError:
-    if bootstrapping:
+    if bootstrap:
         account.create_account_secret()
         _LOGGER.info('Creating account secret during bootstrap')
     else:
@@ -124,15 +128,12 @@ try:
     )
     _LOGGER.debug('Read account data secret')
 except FileNotFoundError:
-    if bootstrapping:
+    if bootstrap:
         account.create_data_secret()
         _LOGGER.info('Creating account secret during bootstrap')
     else:
         raise ValueError('Failed to load account TLS secret')
 
-
-# Account constructor already loads joined services
-# server.load_joined_services(network)
 
 config.server = server
 
@@ -157,10 +158,11 @@ nginx_config = NginxConfig(
 nginx_config.create()
 nginx_config.reload()
 
-if bootstrapping and BYODA_PRIVATE_SERVICE not in network.services:
+if bootstrap and BYODA_PRIVATE_SERVICE not in network.services:
     server.join_service(BYODA_PRIVATE_SERVICE, network_data)
 
 for service in network.services.values():
+    service.load_schema(service.paths.get(Paths.SERVICE_FILE))
     service.schema.generate_graphql_schema()
 
 app = setup_api(
