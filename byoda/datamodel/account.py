@@ -15,7 +15,9 @@ from uuid import uuid4
 import requests
 
 from byoda.datatypes import CsrSource
-from byoda.datastore.document_store import DocumentStore
+from byoda.datastore import DocumentStore
+from byoda.datamodel import Schema
+from byoda.datamodel import MemberData
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -36,7 +38,7 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class Account:
@@ -125,7 +127,7 @@ class Account:
             )
 
         if (not self.data_secret.cert_file_exists()
-                    or not self.data_secret.cert):
+                or not self.data_secret.cert):
             _LOGGER.info('Creating account data secret')
             self.data_secret = self._create_secret(
                 AccountDataSecret, accounts_ca
@@ -237,14 +239,40 @@ class Account:
         try:
             member = Member(service_id, self)
             member.load_secrets()
+            member.data = MemberData(
+                member, member.paths, member.document_store
+            )
+            member.data.load_protected_shared_key()
         except FileNotFoundError:
             if bootstrap:
-                member.member_id = uuid4()
-                member.create_secrets()
-            else:
-                raise
+                if not member:
+                    member.member_id = uuid4()
+                if not member.tls_secret or not member.data_secret:
+                    member.create_secrets()
 
-        member.load_schema(bootstrap=bootstrap)
+                if not member.paths._exists(member.paths.MEMBER_SERVICE_FILE):
+                    filepath = member.paths.get(
+                        member.paths.MEMBER_SERVICE_FILE
+                    )
+                    member.service.download_schema(
+                        save=True, filepath=filepath
+                    )
+                    member.schema = Schema.get_schema(
+                        filepath, member.storage_driver
+                    )
+
+                filepath = member.paths.get(
+                    member.paths.MEMBER_DATA_SHARED_SECRET_FILE
+                )
+
+                if not member.paths._exists(filepath):
+                    member.data_secret.create_shared_key()
+
+                if not member.data:
+                    member.data = MemberData(
+                        member, member.paths, member.document_store
+                    )
+                    member.data.save_protected_shared_key()
 
         member.load_data()
 

@@ -696,7 +696,7 @@ class Service:
                     with_private_key=with_private_key, password=password
                 )
 
-    def download_data_secret(self, save: bool = True) -> str:
+    def download_data_secret(self, save: bool = True, failhard: bool = False) -> str:
         '''
         Downloads the data secret from the web service for the service
 
@@ -710,7 +710,7 @@ class Service:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
                 self.data_secret.from_string(resp.text)
-                self.data_secret.save()
+                self.data_secret.save(overwrite=(not failhard))
 
             return resp.text
 

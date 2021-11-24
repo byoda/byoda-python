@@ -20,16 +20,13 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 import os
 import sys
 
-import requests
-
 import uvicorn
 from starlette.graphql import GraphQLApp
 
 from .api import setup_api
 
 from byoda import config
-from byoda.util import Paths
-from byoda.util.logger import Logger
+from byoda.util import Logger
 
 from byoda.datamodel import Network
 from byoda.datamodel import Account
@@ -161,19 +158,15 @@ nginx_config.reload()
 if bootstrap and BYODA_PRIVATE_SERVICE not in network.services:
     server.join_service(BYODA_PRIVATE_SERVICE, network_data)
 
-for service in network.services.values():
-    service.load_schema(service.paths.get(Paths.SERVICE_FILE))
-    service.schema.generate_graphql_schema()
-
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', config.app_config
 )
 
-for service in network.services.values():
+for member in account.memberships.values():
     app.add_route(
-        f'/api/v1/data/service-{service.service_id}',
-        GraphQLApp(schema=service.schema.gql_schema)
+        f'/api/v1/data/service-{member.service_id}',
+        GraphQLApp(schema=member.schema.gql_schema)
     )
 
 

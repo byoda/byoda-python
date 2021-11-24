@@ -18,7 +18,6 @@ from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
-from byoda.datamodel.memberdata import MemberData
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -40,7 +39,8 @@ from byoda.util.api_client.restapi_client import HttpMethod
 _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account', bound='Account')
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
+MemberData = TypeVar('MemberData', bound='MemberData')
 
 
 class Member:
@@ -60,8 +60,7 @@ class Member:
         self.account: Account = account
         self.network: Network = self.account.network
 
-        # self.load_schema() will initialize the data property
-        self.data: Dict = None
+        self.data: MemberData = None
 
         self.paths: Paths = copy(self.network.paths)
         self.paths.account_id = account.account_id
@@ -79,34 +78,36 @@ class Member:
                 self.paths.get(Paths.SERVICE_DIR), exist_ok=True
             )
 
+            filepath = self.paths.get(Paths.MEMBER_SERVICE_FILE)
             try:
                 self.service = Service.get_service(
-                    self.network, filepath=self.paths.get(Paths.SERVICE_FILE)
+                    self.network, filepath=filepath
                 )
             except FileNotFoundError:
-                self.service = Service(self.network, service_id=self.service_id)
-                self.service.download_data_secret(save=True)
-                self.service.download_schema(save=True)
+                self.service = Service(
+                    self.network, service_id=self.service_id
+                )
+
+                self.service.download_data_secret(save=True, failhard=False)
 
             self.network.services[self.service_id] = self.service
-
-        self.service = self.network.services[service_id]
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
         # by the service
-        self.schema: Schema = None
+        self.schema: Schema = self.load_schema()
+
+        self.service = self.network.services[service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
-        # TODO: load the service data secret through an API from the service
         self.service_data_secret = ServiceDataSecret(
             None, service_id, self.network
         )
         if self.service_data_secret.cert_file_exists():
             self.service_data_secret.load(with_private_key=False)
         else:
-            service.download_data_secret(save=True)
+            self.download_data_secret(save=True)
             self.service_data_secret.load(with_private_key=False)
 
         self.tls_secret = None
@@ -131,8 +132,6 @@ class Member:
 
         member.create_secrets(members_ca=members_ca)
 
-        member.schema = copy(service.schema)
-
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
 
@@ -149,7 +148,6 @@ class Member:
                 public_cloud_endpoint=member.paths.storage_driver.get_url(
                     public=True
                 ),
-
             )
 
             if not nginx_config.exists():
@@ -271,7 +269,7 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def load_schema(self, bootstrap: bool = False):
+    def load_schema(self) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
@@ -280,21 +278,22 @@ class Member:
         if self.storage_driver.exists(filepath):
             schema = Schema.get_schema(filepath, self.storage_driver)
         else:
-            if not bootstrap:
-                _LOGGER.exception(
-                    'Service contract file {filepath} does not exist'
-                )
-                raise FileNotFoundError(filepath)
-            else:
-                self.service.download_schema(save=True, filepath=filepath)
-                schema = Schema.get_schema(filepath, self.storage_driver)
+            # Pods should explicitly load an accepted schema, not
+            # just what the latest schema offered by a service. So we
+            # leave the below commented out
+            # self.service.download_schema(save=True, filepath=filepath)
+            # schema = Schema.get_schema(filepath, self.storage_driver)
+
+            _LOGGER.exception(
+                f'Service contract file {filepath} does not exist for the '
+                'member'
+            )
+            raise FileNotFoundError(filepath)
 
         self.verify_schema_signatures(schema)
         schema.generate_graphql_schema()
 
-        self.data = MemberData(
-            self, schema, self.paths, self.document_store
-        )
+        return schema
 
     def verify_schema_signatures(self, schema: Schema):
         '''
@@ -334,8 +333,7 @@ class Member:
         Loads the data stored for the membership
         '''
 
-        if self.data:
-            self.data.load()
+        self.data.load()
 
     def save_data(self, data):
         '''
@@ -403,7 +401,7 @@ class Member:
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
-        schema = member.data.schema
+        schema = member.schema
         schema_properties = schema.json_schema['jsonschema']['properties']
 
         # The query may be for an object for which we do not yet have

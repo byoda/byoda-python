@@ -15,6 +15,7 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
+from fastjsonschema import JsonSchemaValueException     # noqa: F401
 
 from byoda.util import MessageSignature
 from byoda.util import ServiceSignature
