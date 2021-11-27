@@ -12,8 +12,6 @@ from uuid import uuid4, UUID
 from copy import copy
 from typing import List, Dict, TypeVar, Callable
 
-from graphene import Mutation as GrapheneMutation
-
 from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
@@ -38,9 +36,9 @@ from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)
 
-Account = TypeVar('Account', bound='Account')
+Account = TypeVar('Account')
 Network = TypeVar('Network')
-MemberData = TypeVar('MemberData', bound='MemberData')
+MemberData = TypeVar('MemberData')
 
 
 class Member:
@@ -115,7 +113,7 @@ class Member:
 
     @staticmethod
     def create(service: Service, account: Account, members_ca:
-               MembersCaSecret = None, bootstrap: bool = False):
+               MembersCaSecret = None):
         '''
         Factory for a new membership
         '''
@@ -354,7 +352,8 @@ class Member:
 
         if not path:
             raise ValueError('Did not get value for path parameter')
-        if len(path) > 1:
+        path = [p for p in path if p is not None and p != 'Query']
+        if len(path) > 2:
             raise ValueError(
                 f'Got path with more than 1 item: f{", ".join(path)}'
             )
@@ -362,7 +361,7 @@ class Member:
         return member.data.get(path[0])
 
     @staticmethod
-    def set_data(service_id, path: List[str], mutation: GrapheneMutation
+    def set_data(service_id, path: List[str], mutation: str
                  ) -> None:
         '''
         Sets the provided data

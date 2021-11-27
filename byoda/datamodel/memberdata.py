@@ -141,7 +141,7 @@ class MemberData(Dict):
                 self.member.service_id, filepath
             )
             raise
-        
+
     def save_protected_shared_key(self):
         '''
         Saves the protected symmetric key

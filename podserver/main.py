@@ -23,7 +23,8 @@ import sys
 import uvicorn
 from starlette.graphql import GraphQLApp
 
-from .api import setup_api
+import strawberry
+from strawberry.fastapi import GraphQLRouter
 
 from byoda import config
 from byoda.util import Logger
@@ -37,10 +38,10 @@ from byoda.servers import PodServer
 from byoda.datatypes import CloudType, IdType
 from byoda.datastore import DocumentStoreType
 
-# from .bootstrap import LetsEncryptConfig
 from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 # from .routers import member
+from .api import setup_api
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -164,9 +165,10 @@ app = setup_api(
 )
 
 for member in account.memberships.values():
-    app.add_route(
-        f'/api/v1/data/service-{member.service_id}',
-        GraphQLApp(schema=member.schema.gql_schema)
+    graphql_app = GraphQLRouter(member.schema.gql_schema)
+    app.include_router(
+        graphql_app,
+        prefix=f'/api/v1/data/service-{member.service_id}',
     )
 
 

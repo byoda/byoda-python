@@ -125,6 +125,19 @@
             "env": {
                 "PYTHONPATH": "."
             }
+        },
+        {
+            "name": "strawberry test server",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/steven/.local/share/virtualenvs/byoda-python-XGPnGlwV/bin/strawberry",
+            "console": "integratedTerminal",
+            "args": [
+                "server", "straw_test"
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            }
         }
     ]
 }

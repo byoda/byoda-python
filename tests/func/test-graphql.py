@@ -14,11 +14,7 @@ the headers that would normally be set by the reverse proxy
 import sys
 import unittest
 
-from gql import Client
-from gql import gql
-from gql.transport.requests import RequestsHTTPTransport
-# this is for GQL 3.x
-# from gql.transport.aiohttp import AIOHTTPTransport
+from python_graphql_client import GraphqlClient
 
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
@@ -29,26 +25,22 @@ BASE_URL = 'http://localhost:8001/api'
 uuid = '9cf09af6-ad55-4c2f-a552-9bde79ea9026'
 service_id = 0
 
-TRANSPORT = RequestsHTTPTransport(
-    url=BASE_URL + '/v1/data/service-0',
-    timeout=300,
-    use_json=True,
-    headers={
-        'X-Client-SSL-Verify': 'SUCCESS',
-        'X-Client-SSL-Subject': f'CN={uuid}.members-{service_id}.{NETWORK}',
-        'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
-    }
-)
+
+
+
+HEADERS = {
+    'X-Client-SSL-Verify': 'SUCCESS',
+    'X-Client-SSL-Subject': f'CN={uuid}.members-{service_id}.{NETWORK}',
+    'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
+}
 
 
 class TestGraphQL(unittest.TestCase):
     def test_member_get(self):
-        # Create a GraphQL client using the defined transport
-        client = Client(
-            transport=TRANSPORT, fetch_schema_from_transport=True,
-        )
-        query = gql(
-            '''
+
+        url = BASE_URL + '/v1/data/service-0'
+        client = GraphqlClient(endpoint=url)
+        query = '''
                 query {
                     person {
                         givenName
@@ -60,14 +52,12 @@ class TestGraphQL(unittest.TestCase):
                     }
                 }
             '''
-        )
-        result = client.execute(query)
+        result = client.execute(query=query, headers=HEADERS)
         # self.assertEqual(result['person'], None)
         # self.assertEqual(result['person']['givenName'], 'Steven')
         # self.assertEqual(result['person']['givenName'], 'Peter')
 
-        query = gql(
-            '''
+        query = '''
                 mutation Mutation {
                     mutatePerson(
                         givenName: "Peter",
@@ -88,14 +78,12 @@ class TestGraphQL(unittest.TestCase):
                     }
                 }
             '''
-        )
-        result = client.execute(query)
+        result = client.execute(query=query, headers=HEADERS)
         self.assertEqual(
             result['mutatePerson']['person']['givenName'], 'Peter'
         )
 
-        query = gql(
-            '''
+        query = '''
                 mutation Mutation {
                     mutatePerson(
                         givenName: "Steven",
@@ -116,14 +104,12 @@ class TestGraphQL(unittest.TestCase):
                     }
                 }
             '''
-        )
 
-        result = client.execute(query)
+        result = client.execute(query=query, headers=HEADERS)
         self.assertEqual(
             result['mutatePerson']['person']['givenName'], 'Steven'
         )
-        query = gql(
-            '''
+        query = '''
                 mutation Mutation {
                     mutateMember(
                         memberId: "0",
@@ -135,7 +121,6 @@ class TestGraphQL(unittest.TestCase):
                     }
                 }
             '''
-        )
         result = client.execute(query)
         self.assertEqual(
             result['mutateMember']['member']['memberId'], '0'

@@ -8,16 +8,16 @@ a server that hosts a BYODA Service
 '''
 
 import logging
-from typing import TypeVar, Dict
+from typing import TypeVar, Dict, List
 
 from byoda.datatypes import CloudType, IdType
 
 from byoda.util.api_client import RestApiClient
 from byoda.util import Paths
 
-from byoda import config
-
 from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
+
+from byoda import config
 
 from .server import Server
 from .server import ServerType
@@ -37,7 +37,7 @@ class PodServer(Server):
         super().__init__()
 
         self.server_type = ServerType.Pod
-        self.service_summaries = None
+        self.service_summaries: List = None
 
     def load_secrets(self, password: str = None):
         '''
