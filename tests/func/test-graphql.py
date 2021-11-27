@@ -25,9 +25,6 @@ BASE_URL = 'http://localhost:8001/api'
 uuid = '9cf09af6-ad55-4c2f-a552-9bde79ea9026'
 service_id = 0
 
-
-
-
 HEADERS = {
     'X-Client-SSL-Verify': 'SUCCESS',
     'X-Client-SSL-Subject': f'CN={uuid}.members-{service_id}.{NETWORK}',
@@ -53,12 +50,10 @@ class TestGraphQL(unittest.TestCase):
                 }
             '''
         result = client.execute(query=query, headers=HEADERS)
-        # self.assertEqual(result['person'], None)
-        # self.assertEqual(result['person']['givenName'], 'Steven')
-        # self.assertEqual(result['person']['givenName'], 'Peter')
+        # self.assertEqual(result['data']['person']['givenName'], 'Steven')
 
         query = '''
-                mutation Mutation {
+                mutation {
                     mutatePerson(
                         givenName: "Peter",
                         additionalNames: "",
@@ -67,20 +62,18 @@ class TestGraphQL(unittest.TestCase):
                         homepageUrl: "https://some.place/",
                         avatarUrl: "https://some.place/avatar"
                     ) {
-                        person {
-                            givenName
-                            additionalNames
-                            familyName
-                            email
-                            homepageUrl
-                            avatarUrl
-                        }
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
                     }
                 }
             '''
         result = client.execute(query=query, headers=HEADERS)
         self.assertEqual(
-            result['mutatePerson']['person']['givenName'], 'Peter'
+            result['person']['givenName'], 'Peter'
         )
 
         query = '''

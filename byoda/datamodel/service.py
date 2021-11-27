@@ -10,6 +10,7 @@ Class for modeling a service on a social network
 import os
 import logging
 import socket
+import json
 from typing import TypeVar, Callable, Dict
 from copy import copy
 from enum import Enum
@@ -133,8 +134,9 @@ class Service:
             )
 
         if filepath:
-            _LOGGER.info(f'Loading service from file {filepath}')
-            self.load_schema(filepath, verify_contract_signatures=False)
+            raw_data = self.storage_driver.read(filepath)
+            data = json.loads(raw_data)
+            self.service_id = data['service_id']
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
@@ -152,6 +154,8 @@ class Service:
         service = Service(network=network, filepath=filepath)
 
         service.load_data_secret(with_private_key, password)
+
+        service.load_schema(filepath)
         service.verify_schema_signatures()
         service.schema.generate_graphql_schema()
 
@@ -181,7 +185,11 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema.get_schema(filepath, self.storage_driver)
+        self.schema = Schema.get_schema(
+            filepath, self.storage_driver,
+            service_data_secret=self.data_secret,
+            network_data_secret=self.network.data_secret,
+        )
 
         self.name = self.schema.name
         self.service_id = self.schema.service_id

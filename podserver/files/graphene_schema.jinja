@@ -75,7 +75,7 @@ class Query:
     def {{ class_name }}(self, info: Info) -> {{ class_name|title }}:
         _LOGGER.debug('Resolving {{ class_name }}')
         Query.authenticate(self, info)
-        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info.path)
+        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
         {{ class_name }} = {{ class_name|title }}()
         return {{ class_name }}
 {% endfor %}{# if for class_name, class_properties in classes.items() #}
@@ -109,21 +109,26 @@ class Mutation:
             raise ValueError(f'Authorization failed: {exc}')
 
 {% for class_name, properties in classes.items()|reverse %}
-    @strawberry.mutation
-    def mutate{{ class_name|title }}(root, info,
+    @strawberry.field
+    def mutate{{ class_name|title }}(self, info,
 {%   for field, field_properties in properties.items() %}
 {%     if 'type' in field_properties %}
 {%       if field_properties['type'] not in ('object', 'array') %}
-                {{ field }}: {{ type_map[field_properties['type']] }} = None,
+                {{ field }}: {{ type_map[field_properties['type']] }},
 {%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
 {%     endif %}{# if 'type' in field_properties #}
 {%   endfor %}{# for field, field_properties in properties.items() #}
             ) -> {{ class_name|title }}:
         _LOGGER.debug('Root query for mutate{{ field|title }}')
-        Mutation.authenticate(root, info)
-        MemberClassByoda.set_data({{ service_id }}, info.path, root)
-        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info.path)
-        return {{ class_name|title }}
+        Mutation.authenticate(self, info)
+        data = MemberClassByoda.set_data({{ service_id }}, info)
+        # info.context['data'] = data
+        # info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
+        return {{ class_name|title }}(
+{%   for field, field_properties in properties.items() %}
+                {{ field }}=data['{{ class_name }}']['{{ field }}'],
+{%   endfor %}{# for field, field_properties in properties.items() #}
+        )
 
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
 

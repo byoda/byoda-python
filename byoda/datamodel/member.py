@@ -12,6 +12,8 @@ from uuid import uuid4, UUID
 from copy import copy
 from typing import List, Dict, TypeVar, Callable
 
+from strawberry.types import Info
+
 from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
@@ -274,7 +276,11 @@ class Member:
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
         if self.storage_driver.exists(filepath):
-            schema = Schema.get_schema(filepath, self.storage_driver)
+            schema = Schema.get_schema(
+                filepath, self.storage_driver,
+                service_data_secret=self.service.data_secret,
+                network_data_secret=self.network.data_secret,
+            )
         else:
             # Pods should explicitly load an accepted schema, not
             # just what the latest schema offered by a service. So we
@@ -341,28 +347,33 @@ class Member:
         self.data.save()
 
     @staticmethod
-    def get_data(service_id, path: List[str]) -> Dict:
+    def get_data(service_id, info: Info) -> Dict:
         '''
         Extracts the requested data field
         '''
+
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Query':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}" '
+                f'instead of "Query"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
 
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
 
-        if not path:
-            raise ValueError('Did not get value for path parameter')
-        path = [p for p in path if p is not None and p != 'Query']
-        if len(path) > 2:
-            raise ValueError(
-                f'Got path with more than 1 item: f{", ".join(path)}'
-            )
-
-        return member.data.get(path[0])
+        return member.data.get(info.path.key)
 
     @staticmethod
-    def set_data(service_id, path: List[str], mutation: str
-                 ) -> None:
+    def set_data(service_id, info: Info) -> None:
         '''
         Sets the provided data
 
@@ -372,15 +383,22 @@ class Member:
         :param mutation: the instance of the Mutation<Object> class
         '''
 
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Mutation':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}"" '
+                f'instead of "Query"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
+
         server = config.server
         member = server.account.memberships[service_id]
-
-        if not path:
-            raise ValueError('Did not get value for path parameter')
-        if len(path) > 1:
-            raise ValueError(
-                f'Got path with more than 1 item: f{", ".join(path)}'
-            )
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
@@ -393,10 +411,10 @@ class Member:
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = path[0][len('mutate'):].lower()
+        class_object = info.path.key[len('mutate'):].lower()
 
         # Gets the data included in the mutation
-        mutate_data = getattr(mutation, class_object)
+        mutate_data: Dict = info.selected_fields[0].arguments
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
@@ -426,9 +444,7 @@ class Member:
                 )
                 continue
 
-            member.data[class_object][key] = getattr(
-                mutate_data, key, None
-            )
+            member.data[class_object][key] = mutate_data[key]
 
         member.save_data(data)
 

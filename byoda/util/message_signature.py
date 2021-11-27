@@ -25,7 +25,8 @@ class SignatureType(Enum):
 
 
 class MessageSignature:
-    def __init__(self, secret: DataSecret, hash_algorithm: str = 'SHA256'):
+    def __init__(self, data_secret: DataSecret,
+                 hash_algorithm: str = 'SHA256'):
         '''
         Constructor
 
@@ -43,22 +44,28 @@ class MessageSignature:
         self.base64_signature: str = None
         self.timestamp: datetime = None
 
-        self.hash_algorithm = hash_algorithm
-        self.secret: DataSecret = secret
-        if secret:
-            self.certificate: str = secret.common_name
-        self.verified = False
+        self.hash_algorithm: str = hash_algorithm
+        self.secret: DataSecret = data_secret
+        if data_secret:
+            self.certificate_cn: str = data_secret.common_name
 
-    def as_dict(self):
+        self.verified: bool = False
+
+    def as_dict(self) -> Dict:
+        if self.secret:
+            common_name = self.secret.common_name
+        else:
+            common_name = 'unknown'
+
         return {
             'signature': self.base64_signature,
             'hash_algorithm': self.hash_algorithm,
             'timestamp': self.timestamp.isoformat(timespec='seconds'),
-            'certificate': self.secret.common_name
+            'certificate': common_name
         }
 
     @staticmethod
-    def from_dict(data: Dict[str, str]):
+    def from_dict(data: Dict[str, str], data_secret=None):
         '''
         Factory, parse the data from the JSON Schema
         '''
@@ -66,11 +73,11 @@ class MessageSignature:
         if not data:
             raise ValueError('No data in provided in dict')
 
-        sig = MessageSignature(None, data['hash_algorithm'])
+        sig = MessageSignature(data_secret, data['hash_algorithm'])
         sig.base64_signature = data['signature']
         sig.signature = base64.b64decode(sig.base64_signature)
         sig.timestamp = datetime.fromisoformat(data['timestamp'])
-        sig.certificate = data['certificate']
+        sig.certificate_cn = data['certificate']
 
         return sig
 
@@ -101,21 +108,21 @@ class MessageSignature:
         Verify the digest for the message
         '''
 
-        if self.secret:
+        if not self.secret:
             raise ValueError('secret is not defined')
 
-        self.secret = secret
-        self.certificate: str = secret.common_name
+        self.data_secret: DataSecret = secret
+        self.certificate_cn: str = secret.common_name
 
-        if not self.certificate == self.secret.common_name:
+        if not self.certificate_cn == self.data_secret.common_name:
             raise ValueError(
                 'The signing cert {} does not match the cert {}'
                 'used for verfication'.format(
-                    self.certificate, self.secret.common_name
+                    self.certificate_cn, self.secret.common_name
                 )
             )
 
-        self.secret.verify_message_signature(
+        self.data_secret.verify_message_signature(
             message, self.signature, hash_algorithm=hash_algo
         )
 
