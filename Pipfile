@@ -34,8 +34,8 @@ passgen = "1.1.1"
 strawberry-graphql = {extras = ["fastapi"], version = "*"}
 prometheus-fastapi-instrumentator = "*"
 python-graphql-client = "*"
-python-hcl2 = "*"
 cd = "*"
+python-hcl2 = "*"
 
 [dev-packages]
 

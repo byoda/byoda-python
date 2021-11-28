@@ -73,11 +73,11 @@ class TestGraphQL(unittest.TestCase):
             '''
         result = client.execute(query=query, headers=HEADERS)
         self.assertEqual(
-            result['person']['givenName'], 'Peter'
+            result['data']['mutatePerson']['givenName'], 'Peter'
         )
 
         query = '''
-                mutation Mutation {
+                mutation {
                     mutatePerson(
                         givenName: "Steven",
                         additionalNames: "",
@@ -86,37 +86,33 @@ class TestGraphQL(unittest.TestCase):
                         homepageUrl: "https://some.place/",
                         avatarUrl: "https://some.place/avatar"
                     ) {
-                        person {
-                            givenName
-                            additionalNames
-                            familyName
-                            email
-                            homepageUrl
-                            avatarUrl
-                        }
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
                     }
                 }
             '''
 
         result = client.execute(query=query, headers=HEADERS)
         self.assertEqual(
-            result['mutatePerson']['person']['givenName'], 'Steven'
+            result['data']['mutatePerson']['givenName'], 'Steven'
         )
         query = '''
-                mutation Mutation {
+                mutation {
                     mutateMember(
                         memberId: "0",
                         joined: "2021-09-19T09:04:00+07:00"
                     ) {
-                        member {
-                            memberId
-                        }
+                        memberId
                     }
                 }
             '''
-        result = client.execute(query)
+        result = client.execute(query, headers=HEADERS)
         self.assertEqual(
-            result['mutateMember']['member']['memberId'], '0'
+            result['data']['mutateMember']['memberId'], '0'
         )
 
 

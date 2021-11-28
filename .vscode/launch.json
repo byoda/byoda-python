@@ -133,7 +133,7 @@
             "program": "/home/steven/.local/share/virtualenvs/byoda-python-XGPnGlwV/bin/strawberry",
             "console": "integratedTerminal",
             "args": [
-                "server", "straw_test"
+                "server", "strawsample"
             ],
             "env": {
                 "PYTHONPATH": "."

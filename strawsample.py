@@ -1,34 +1,42 @@
 from __future__ import annotations
 
-import typing
 import strawberry
-
-
-@strawberry.type
-class Book:
-    title: str
-    author: Author
-
+from strawberry.types import Info
 
 @strawberry.type
-class Author:
-    name: str
-    books: typing.List['Book']
+class Person:
+    @strawberry.field
+    def givenName(self, info: Info) -> str:
+        return info.context['data'].get('givenName')
+
+    @strawberry.field
+    def familyName(self, info: Info) -> str:
+        return info.context['data'].get('familyName')
 
 
 @strawberry.type
 class Query:
-    books: typing.List[Book]
-    authors: typing.List[Author]
+    @strawberry.field
+    def person(self, info: Info) -> Person:
+        info.context['data'] = {
+            'givenName': 'Peter',
+            'familyName': 'Bob'
+
+        }
+        return Person()
 
 
 @strawberry.type
 class Mutation:
     @strawberry.field
-    def addBook(self, title: str, author: str) -> Book:
-        print(f'Adding {title} by {author}')
+    def mutatePerson(self, info: Info, givenName: str, familyName: str) -> Person:
+        print(f'Adding {givenName} {familyName}')
+        info.context['data'] = {
+            'givenName': 'Peter',
+            'familyName': 'Bob'
 
-        return Book(title=title, author=author)
+        }
+        return Person()
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

@@ -78,8 +78,8 @@ class Query:
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
         {{ class_name }} = {{ class_name|title }}()
         return {{ class_name }}
-{% endfor %}{# if for class_name, class_properties in classes.items() #}
 
+{% endfor %}{# if for class_name, class_properties in classes.items() #}
 @strawberry.type
 class Mutation:
     @staticmethod
@@ -119,16 +119,19 @@ class Mutation:
 {%     endif %}{# if 'type' in field_properties #}
 {%   endfor %}{# for field, field_properties in properties.items() #}
             ) -> {{ class_name|title }}:
-        _LOGGER.debug('Root query for mutate{{ field|title }}')
+        _LOGGER.debug('Root query for mutate{{ class_name|title }}')
         Mutation.authenticate(self, info)
-        data = MemberClassByoda.set_data({{ service_id }}, info)
-        # info.context['data'] = data
-        # info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        return {{ class_name|title }}(
+        info.context['data'] = {
 {%   for field, field_properties in properties.items() %}
-                {{ field }}=data['{{ class_name }}']['{{ field }}'],
+{%     if 'type' in field_properties %}
+{%       if field_properties['type'] not in ('object', 'array') %}
+                '{{ field }}': {{ field }},
+{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%     endif %}{# if 'type' in field_properties #}
 {%   endfor %}{# for field, field_properties in properties.items() #}
-        )
+        }
+        MemberClassByoda.set_data({{ service_id }}, info)
+        return {{ class_name|title }}()
 
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
 

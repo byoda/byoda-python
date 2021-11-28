@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e687808242449083ef0ebde97d4299f539cafb1d06e49d67a26010a0c423a28a"
+            "sha256": "e45e7a847fd9c8f8e267b3b5de3198cf553a5f385436af88e764c2466396f6b6"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -171,6 +171,13 @@
                 "sha256:df4f613cf7ad9a588cc381aaf4a512d26265ecebd5eb9e1ba12f1319eb85a6a0"
             ],
             "version": "==1.5.2"
+        },
+        "cd": {
+            "hashes": [
+                "sha256:8afb77a3d873ff182d57e27f0e0b332a5914adbe5f0a25f5dea4584f35137424"
+            ],
+            "index": "pypi",
+            "version": "==1.1.0"
         },
         "certifi": {
             "hashes": [
@@ -400,7 +407,7 @@
                 "sha256:c78d09596d347e1cffd266c5384abfedf43ed1eae08729773bebb3d527fe5a14",
                 "sha256:e65975b6a13878f9113a1fa5320760585b522d139944e005936b1b8358d0651a"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4'",
+            "markers": "python_version >= '3.6' and python_version < '4.0'",
             "version": "==3.1.6"
         },
         "greenlet": {
@@ -1069,7 +1076,7 @@
                 "sha256:bd8710dd26752039c668604f6be2aaf741b56f7811c5924a4dcdfd74359244f3",
                 "sha256:f28143aa4716dbc8f6193f5682176a3c33cd26aaae05d9ecf66c186a9887cc2d"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4'",
+            "markers": "python_version >= '3.6' and python_version < '4.0'",
             "version": "==0.3.0"
         },
         "six": {
@@ -1145,11 +1152,11 @@
                 "fastapi"
             ],
             "hashes": [
-                "sha256:65206374c6a47397d9d0be733b1ad09b8b15756b33a538984fc912db947be973",
-                "sha256:dba33be063ef70d872a0bc3a6ce6b86cf4ce862d9f8d17bc4e55a27d569ac157"
+                "sha256:02e8e1d11d7d4d665739377e28c0a8042cc355dfc9ebc3f66d95f4e90f4849f0",
+                "sha256:72c51e4e613161b6e879a9b2472c75cfd1bc0f3eebcd1f9b0df3074605fa5f75"
             ],
             "index": "pypi",
-            "version": "==0.89.1"
+            "version": "==0.90.1"
         },
         "thrift": {
             "hashes": [
@@ -1170,7 +1177,7 @@
                 "sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece",
                 "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==1.26.7"
         },
         "uvicorn": {
