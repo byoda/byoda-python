@@ -519,6 +519,9 @@ class Service:
 
         if not self.schema:
             if self.schema_file_exists():
+                if not self.data_secret or not self.data_secret.cert():
+                    self.load_data_secret(with_private_key=False, password=None)
+
                 self.load_schema(self.paths.get(Paths.SERVICE_FILE))
 
         if self.schema and self.schema.signatures.get('network'):
@@ -674,11 +677,14 @@ class Service:
             filepath = self.tls_secret.save_tmp_private_key()
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
-    def load_data_secret(self, with_private_key: bool, password: str,
+    def load_data_secret(self, with_private_key: bool, password: str = None,
                          download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
         '''
+
+        if with_private_key and not password:
+            raise ValueError('Can not read data secret private key without password')
 
         if not self.data_secret:
             self.data_secret = ServiceDataSecret(
