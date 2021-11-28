@@ -23,6 +23,7 @@ from byoda.datamodel import Network
 from byoda.util import Paths
 
 from .routers import service
+from .routers import member
 
 _LOGGER = None
 
@@ -62,9 +63,11 @@ if not os.environ.get('SERVER_NAME') and server.network.name:
 
 config.server = server
 
+server.service.register_service()
+
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
-    'v0.0.1', config.app_config, [service]
+    'v0.0.1', config.app_config, [service, member]
 )
 
 

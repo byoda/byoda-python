@@ -65,7 +65,8 @@ class DocumentStore:
         # DocumentStore only stores encrypted data, which is binary
         data = self.backend.read(filepath, file_mode=FileMode.BINARY)
 
-        data = data_secret.decrypt(data)
+        if data_secret:
+            data = data_secret.decrypt(data)
 
         if data:
             data = json.loads(data)

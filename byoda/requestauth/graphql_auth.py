@@ -32,7 +32,7 @@ def authorize_graphql_request(service_id, auth, root, info):
     member = config.server.account.memberships[service_id]
 
     # This is the start of the data definition of the JsonSchema
-    json_schema = member.data.schema.json_schema['jsonschema']['properties']
+    json_schema = member.schema.json_schema['jsonschema']['properties']
 
     json_key = info.path[0]
 

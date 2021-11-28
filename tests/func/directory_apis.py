@@ -94,7 +94,7 @@ class TestDirectoryApis(unittest.TestCase):
         network = Network.create(
             cls.APP_CONFIG['application']['network'],
             cls.APP_CONFIG['dirserver']['root_dir'],
-            cls.APP_CONFIG['dirserver']['private_key_password']
+            cls.APP_CONFIG['dirserver']['private_key_password'],
         )
         network.dnsdb = DnsDb.setup(
            cls.APP_CONFIG['dirserver']['dnsdb'], network.name

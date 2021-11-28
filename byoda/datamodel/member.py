@@ -6,38 +6,41 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-from byoda.secrets.service_secret import ServiceSecret
 import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import List, Dict, TypeVar, Callable
+from typing import Dict, TypeVar, Callable
 
-from graphene import Mutation as GrapheneMutation
+from strawberry.types import Info
 
 from byoda.datatypes import CsrSource, CloudType, IdType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
-from byoda.datamodel.memberdata import MemberData
 
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
 
+from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
-from podserver.bootstrap import NginxConfig, NGINX_SITE_CONFIG_DIR
+from byoda.util import NginxConfig
+from byoda.util import NGINX_SITE_CONFIG_DIR
 
 from byoda import config
+from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 
 _LOGGER = logging.getLogger(__name__)
 
-Account = TypeVar('Account', bound='Account')
-Network = TypeVar('Network', bound='Network')
+Account = TypeVar('Account')
+Network = TypeVar('Network')
+MemberData = TypeVar('MemberData')
 
 
 class Member:
@@ -57,13 +60,7 @@ class Member:
         self.account: Account = account
         self.network: Network = self.account.network
 
-        if service_id not in self.network.services:
-            raise ValueError(f'Service {service_id} not found')
-
-        self.service = self.network.services[service_id]
-
-        # self.load_schema() will initialize the data property
-        self.data: Dict = None
+        self.data: MemberData = None
 
         self.paths: Paths = copy(self.network.paths)
         self.paths.account_id = account.account_id
@@ -75,18 +72,43 @@ class Member:
 
         self.private_key_password = account.private_key_password
 
+        if self.service_id not in self.network.services:
+            # Make sure the directory exists
+            self.storage_driver.create_directory(
+                self.paths.get(Paths.SERVICE_DIR), exist_ok=True
+            )
+
+            filepath = self.paths.get(Paths.MEMBER_SERVICE_FILE)
+            try:
+                self.service = Service.get_service(
+                    self.network, filepath=filepath
+                )
+            except FileNotFoundError:
+                self.service = Service(
+                    self.network, service_id=self.service_id
+                )
+
+                self.service.download_data_secret(save=True, failhard=False)
+
+            self.network.services[self.service_id] = self.service
+
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
         # by the service
-        self.schema: Schema = None
+        self.schema: Schema = self.load_schema()
+
+        self.service = self.network.services[service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
-        # TODO: load the service data secret through an API from the service
-        self.service_data_secret = ServiceSecret(
+        self.service_data_secret = ServiceDataSecret(
             None, service_id, self.network
         )
-        self.service_data_secret.load(with_private_key=False)
+        if self.service_data_secret.cert_file_exists():
+            self.service_data_secret.load(with_private_key=False)
+        else:
+            self.download_data_secret(save=True)
+            self.service_data_secret.load(with_private_key=False)
 
         self.tls_secret = None
         self.data_secret = None
@@ -104,16 +126,11 @@ class Member:
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
         )
-        member.tls_secret = member._create_secret(MemberSecret, members_ca)
-
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
-        member.data_secret = member._create_secret(
-            MemberDataSecret, members_ca
-        )
 
-        member.schema = copy(service.schema)
+        member.create_secrets(members_ca=members_ca)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
@@ -139,6 +156,35 @@ class Member:
 
         return member
 
+    def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+        '''
+        Creates the secrets for a membership
+        '''
+
+        if self.tls_secret and self.tls_secret.cert_file_exists():
+            self.tls_secret = MemberSecret(
+                None, self.service_id, self.account
+            )
+            self.tls_secret.load(
+                with_private_key=True, password=self.private_key_password
+            )
+            self.member_id = self.tls_secret.member_id
+        else:
+            self.tls_secret = self._create_secret(MemberSecret, members_ca)
+
+        if self.data_secret and self.data_secret.cert_file_exists():
+            self.data_secret = MemberDataSecret(
+                self.member_id, self.service_id, self.account
+            )
+            self.data_secret.load(
+                with_private_key=True, password=self.private_key_password
+
+            )
+        else:
+            self.data_secret = self._create_secret(
+                MemberDataSecret, members_ca
+            )
+
     def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
                        ) -> Secret:
         '''
@@ -153,12 +199,7 @@ class Member:
 
         if not self.member_id:
             raise ValueError(
-                'Account_id for the account has not been defined'
-            )
-
-        if not issuing_ca:
-            raise NotImplementedError(
-                'Service API for signing member certs is not yet implemented'
+                'Member_id for the account has not been defined'
             )
 
         secret = secret_cls(
@@ -178,15 +219,31 @@ class Member:
             )
 
         if not issuing_ca:
-            raise ValueError(
-                'Service API for signing certs is not yet available'
-            )
+            if secret_cls != MemberSecret and secret_cls != MemberDataSecret:
+                raise ValueError(
+                    f'No issuing_ca was provided for creating a '
+                    f'{type(secret_cls)}'
+                )
+            else:
+                csr = secret.create_csr()
+                payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
 
-        # TODO: SECURITY: add constraints
-        csr = secret.create_csr()
-        issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-        certchain = issuing_ca.sign_csr(csr)
-        secret.from_signed_cert(certchain)
+                resp = RestApiClient.call(
+                    Paths.SERVICEMEMBER_API, HttpMethod.POST,
+                    data=payload, service_id=self.service_id
+                )
+                if resp.status_code != 201:
+                    raise RuntimeError('Certificate signing request failed')
+
+                cert_data = resp.json()
+                secret.from_string(
+                    cert_data['signed_cert'], certchain=cert_data['cert_chain']
+                )
+        else:
+            csr = secret.create_csr()
+            issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
+            certchain = issuing_ca.sign_csr(csr)
+            secret.from_signed_cert(certchain)
 
         secret.save(password=self.private_key_password)
 
@@ -212,18 +269,35 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def load_schema(self):
+    def load_schema(self) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
         filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
-        schema = Schema.get_schema(filepath, self.storage_driver)
+
+        if self.storage_driver.exists(filepath):
+            schema = Schema.get_schema(
+                filepath, self.storage_driver,
+                service_data_secret=self.service.data_secret,
+                network_data_secret=self.network.data_secret,
+            )
+        else:
+            # Pods should explicitly load an accepted schema, not
+            # just what the latest schema offered by a service. So we
+            # leave the below commented out
+            # self.service.download_schema(save=True, filepath=filepath)
+            # schema = Schema.get_schema(filepath, self.storage_driver)
+
+            _LOGGER.exception(
+                f'Service contract file {filepath} does not exist for the '
+                'member'
+            )
+            raise FileNotFoundError(filepath)
+
         self.verify_schema_signatures(schema)
         schema.generate_graphql_schema()
 
-        self.data = MemberData(
-            self, schema, self.paths, self.document_store
-        )
+        return schema
 
     def verify_schema_signatures(self, schema: Schema):
         '''
@@ -239,21 +313,15 @@ class Member:
             raise ValueError('Schema does not contain a network signature')
 
         if not self.service.data_secret or not self.service.data_secret.cert:
-            raise ValueError(
-                'Data secret not available to verify service signature'
-            )
-
-        if not self.network.data_secret or not self.network.data_secret.cert:
-            raise ValueError(
-                'Network data secret not available to verify network signature'
-            )
+            service = Service(self.network, service_id=self.service_id)
+            service.download_data_secret(save=True)
 
         schema.verify_signature(
             self.service.data_secret, SignatureType.SERVICE
         )
 
         _LOGGER.debug(
-            'Verified service signature for service %s', self.service_id
+            f'Verified service signature for service {self.service_id}'
         )
 
         schema.verify_signature(
@@ -261,7 +329,7 @@ class Member:
         )
 
         _LOGGER.debug(
-            'Verified network signature for service %s', self.service_id
+            f'Verified network signature for service {self.service_id}'
         )
 
     def load_data(self):
@@ -279,27 +347,33 @@ class Member:
         self.data.save()
 
     @staticmethod
-    def get_data(service_id, path: List[str]) -> Dict:
+    def get_data(service_id, info: Info) -> Dict:
         '''
         Extracts the requested data field
         '''
+
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Query':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}" '
+                f'instead of "Query"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
 
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
 
-        if not path:
-            raise ValueError('Did not get value for path parameter')
-        if len(path) > 1:
-            raise ValueError(
-                f'Got path with more than 1 item: f{", ".join(path)}'
-            )
-
-        return member.data.get(path[0])
+        return member.data.get(info.path.key)
 
     @staticmethod
-    def set_data(service_id, path: List[str], mutation: GrapheneMutation
-                 ) -> None:
+    def set_data(service_id, info: Info) -> None:
         '''
         Sets the provided data
 
@@ -309,15 +383,22 @@ class Member:
         :param mutation: the instance of the Mutation<Object> class
         '''
 
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Mutation':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}"" '
+                f'instead of "Query"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
+
         server = config.server
         member = server.account.memberships[service_id]
-
-        if not path:
-            raise ValueError('Did not get value for path parameter')
-        if len(path) > 1:
-            raise ValueError(
-                f'Got path with more than 1 item: f{", ".join(path)}'
-            )
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
@@ -330,14 +411,14 @@ class Member:
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = path[0][len('mutate'):].lower()
+        class_object = info.path.key[len('mutate'):].lower()
 
         # Gets the data included in the mutation
-        mutate_data = getattr(mutation, class_object)
+        mutate_data: Dict = info.selected_fields[0].arguments
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
-        schema = member.data.schema
+        schema = member.schema
         schema_properties = schema.json_schema['jsonschema']['properties']
 
         # The query may be for an object for which we do not yet have
@@ -363,9 +444,7 @@ class Member:
                 )
                 continue
 
-            member.data[class_object][key] = getattr(
-                mutate_data, key, None
-            )
+            member.data[class_object][key] = mutate_data[key]
 
         member.save_data(data)
 

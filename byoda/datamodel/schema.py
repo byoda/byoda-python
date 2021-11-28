@@ -6,7 +6,10 @@ Class for modeling the (JSON) schema to validating data
 :license    : GPLv3
 '''
 
+from abc import abstractmethod
+import sys
 import json
+import logging
 from copy import deepcopy
 from typing import List, Dict, Set, TypeVar
 from types import ModuleType
@@ -15,6 +18,9 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
+from fastjsonschema import JsonSchemaValueException
+from byoda.secrets.network_data_secret import NetworkDataSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret     # noqa: F401
 
 from byoda.util import MessageSignature
 from byoda.util import ServiceSignature
@@ -25,11 +31,21 @@ from byoda.secrets import Secret, DataSecret
 
 from byoda.storage import FileStorage
 
+_LOGGER = logging.getLogger(__name__)
+
 Service = TypeVar('Service')
 
 MAX_SCHEMA_SIZE = 1000000
 SCHEMA_TEMPLATE = 'podserver/files'
 CODEGEN_DIRECTORY = 'podserver/codegen'
+
+# Translation from jsondata data type to Python data type in the Jinja template
+TYPE_MAP = {
+    'string': 'str',
+    'integer': 'int',
+    'number': 'float',
+    'boolean': 'bool',
+}
 
 
 class Schema:
@@ -80,9 +96,14 @@ class Schema:
         # This is a callable to validate data against the JSON schema
         self.validate: fastjsonschema.validate = None
 
-        self.load()
+        self.service_data_secret: ServiceDataSecret = None
+        self.network_data_secret: NetworkDataSecret = None
 
-    def get_schema(filepath: str, storage_driver: str):
+    @staticmethod
+    def get_schema(filepath: str, storage_driver: str,
+                   service_data_secret: ServiceDataSecret,
+                   network_data_secret: NetworkDataSecret,
+                   verify_contract_signatures: bool = True):
         '''
         Facory to read schema from a file
         '''
@@ -90,6 +111,10 @@ class Schema:
         json_schema = json.loads(data)
 
         schema = Schema(json_schema)
+        schema.service_data_secret = service_data_secret
+        schema.network_data_secret = network_data_secret
+
+        schema.load(verify_contract_signatures=verify_contract_signatures)
 
         return schema
 
@@ -101,7 +126,7 @@ class Schema:
 
         return json.dumps(self.json_schema, sort_keys=True, indent=4)
 
-    def load(self):
+    def load(self, verify_contract_signatures: bool = True):
         '''
         Load a schema from a dict
         '''
@@ -110,19 +135,32 @@ class Schema:
             self.service_signature = ServiceSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.SERVICE.value
-                )
+                ),
+                data_secret=self.service_data_secret
+
             )
         except ValueError:
-            pass
+            if verify_contract_signatures:
+                _LOGGER.exception(
+                    'No Service signature in contract for service '
+                    f'{self.service_id}'
+                )
+                raise
 
         try:
             self.network_signature = NetworkSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.NETWORK.value
-                )
+                ),
+                data_secret=self.network_data_secret
             )
         except ValueError:
-            pass
+            if verify_contract_signatures:
+                _LOGGER.exception(
+                    'No Network signature in contract for service '
+                    f'{self.service_id}'
+                )
+                raise
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
@@ -195,7 +233,8 @@ class Schema:
             # we remove it from the schema
             original_schema = deepcopy(schema)
             signature = NetworkSignature.from_dict(
-                schema['signatures'].pop(SignatureType.NETWORK.value)
+                schema['signatures'].pop(SignatureType.NETWORK.value),
+                data_secret=self.network_data_secret
             )
 
         if signature_type == SignatureType.SERVICE:
@@ -203,10 +242,14 @@ class Schema:
                 original_schema = deepcopy(schema)
             # A signature of a schema by a service does not cover the
             # signature of the service so we temporarily remove it
+            if not secret or not secret.cert:
+                secret = self.service_data_secret
+
             signature = ServiceSignature.from_dict(
                 schema['signatures'].pop(
                     SignatureType.SERVICE.value
-                )
+                ),
+                data_secret=secret
             )
 
         schema_str = self.as_string()
@@ -248,7 +291,7 @@ class Schema:
 
         code = template.render(
             service_id=self.service_id,
-            classes=classes
+            classes=classes, type_map=TYPE_MAP
         )
 
         with open(code_filename, 'w') as file_desc:
@@ -260,7 +303,12 @@ class Schema:
 
         # This trick keeps the result of the parsed code out of globals()
         # and locals()
-        module = ModuleType(f'Query{self.service_id}')
+        module_name = f'Query{self.service_id}'
+        module = ModuleType(module_name)
+
+        # we need to add the module to the list of modules otherwise
+        # introspection by Strawberry module fails
+        sys.modules[module_name] = module
 
         # Now we execute the code as being part of the module we generated
         exec(code, module.__dict__)
@@ -276,8 +324,8 @@ class Schema:
         '''
 
         properties = self.json_schema['jsonschema']['properties']
-        classes = OrderedDict({'Query': properties})
 
+        classes = OrderedDict()
         self._get_graphene_classes(classes, properties)
 
         return classes
@@ -443,7 +491,7 @@ class Schema:
         self.json_schema['supportemail'] = value
 
     @property
-    def network_signature(self):
+    def network_signature(self) -> MessageSignature:
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -454,10 +502,11 @@ class Schema:
         return network_signature.get['signature']
 
     @network_signature.setter
-    def network_signature(self, value):
-        if value and not isinstance(value, str):
+    def network_signature(self, value: MessageSignature):
+        if value and not isinstance(value, MessageSignature):
             raise ValueError(
-                f'Support email must be an str, not of type {type(value)}'
+                'Support email must be an MessageSignature, '
+                f'not of type {type(value)}'
             )
 
         if not self.json_schema:
@@ -467,10 +516,10 @@ class Schema:
         if not network_signature:
             self.json_schema['signatures']['network'] = {}
 
-        self.json_schema['signatures']['network']['signature'] = value
+        self.json_schema['signatures']['network'] = value.as_dict()
 
     @property
-    def service_signature(self):
+    def service_signature(self) -> MessageSignature:
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -481,10 +530,11 @@ class Schema:
         return service_signature.get['signature']
 
     @service_signature.setter
-    def service_signature(self, value):
-        if value and not isinstance(value, str):
+    def service_signature(self, value: MessageSignature):
+        if value and not isinstance(value, MessageSignature):
             raise ValueError(
-                f'Support email must be an str, not of type {type(value)}'
+                f'service_signature must be an MessageSignature, '
+                f'not of type {type(value)}'
             )
 
         if not self.json_schema:
@@ -494,7 +544,7 @@ class Schema:
         if not service_signature:
             self.json_schema['signatures']['service'] = {}
 
-        self.json_schema['signatures']['service']['signature'] = value
+        self.json_schema['signatures']['service'] = value.as_dict()
 
     @property
     def signatures(self):

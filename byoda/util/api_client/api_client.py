@@ -39,7 +39,7 @@ class ApiClient:
     misc. settings (ie. 'timeout')
     '''
 
-    def __init__(self, secret: Secret = None, service_id: int = None):
+    def __init__(self, api: str, secret: Secret = None, service_id: int = None):
         '''
         Maintains a pool of connections for different destinations
 
@@ -76,35 +76,44 @@ class ApiClient:
             else:
                 self.session.cert = None
 
-            if isinstance(secret, MemberSecret):
+            self.session.verify = True
+            if not api.startswith(f'https://dir'):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
-                self.session.verify = server.network.root_ca.cert_file()
+                self.session.verify = server.network.root_ca.cert_file
+
+            config.client_pools[type(secret)] = self.session
         else:
             self.session = config.client_pools[type(secret)]
 
     @staticmethod
-    def call(api: str, method: str, secret:Secret = None, params: Dict = None,
+    def call(api: str, method: str = 'GET', secret:Secret = None, params: Dict = None,
              data: Dict = None, service_id: int = None, member_id: UUID = None,
-             account_id: UUID = None) -> requests.Response:
+             account_id: UUID = None, network_name: str = None) -> requests.Response:
 
         '''
         Calls an API using the right credentials and accepted CAs
         '''
 
-        network = config.server.network
+        # This is used by the bootstrap of the pod, when the global variable is not yet
+        # set
+        if not network_name:
+            network = config.server.network
+            network_name = network.name
 
-        client = ApiClient(secret=secret, service_id=service_id)
+        client = ApiClient(api, secret=secret, service_id=service_id)
 
         api = Paths.resolve(
-            api, network.name, service_id=service_id, member_id=member_id,
+            api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
         )
         _LOGGER.debug(
-            f'Calling {method} {api} with query parameters {params} and '
-            f'data: {data}'
+            f'Calling {method} {api} with query parameters {params} '
+            f'with root CA file: {client.session.verify} and data: {data} '
         )
-        response = client.session.request(method, api, params=params, json=data)
+        response = client.session.request(
+            method, api, params=params, json=data
+        )
 
         return response

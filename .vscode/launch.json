@@ -88,7 +88,8 @@
                 "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
-                "PRIVATE_KEY_SECRET": "byoda"
+                "PRIVATE_KEY_SECRET": "byoda",
+                "BOOTSTRAP": "BOOTSTRAP"
             }
         },
         {
@@ -120,6 +121,19 @@
                 "--network", "byoda.net",
                 "--root-directory", "/tmp/byoda"
 
+            ],
+            "env": {
+                "PYTHONPATH": "."
+            }
+        },
+        {
+            "name": "strawberry test server",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/steven/.local/share/virtualenvs/byoda-python-XGPnGlwV/bin/strawberry",
+            "console": "integratedTerminal",
+            "args": [
+                "server", "strawsample"
             ],
             "env": {
                 "PYTHONPATH": "."

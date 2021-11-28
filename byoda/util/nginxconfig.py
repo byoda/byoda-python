@@ -10,13 +10,15 @@ import os
 import signal
 import logging
 from uuid import UUID
+from abc import ABC, abstractmethod
+from htpasswd.basic import UserExists
 
 from jinja2 import Template
 
 import htpasswd
 
 from byoda.datatypes import IdType
-from .targetconfig import TargetConfig
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,10 +28,31 @@ NGINX_PID_FILE = '/run/nginx.pid'
 HTACCESS_FILE = '/etc/nginx/htaccess.db'
 
 
+class TargetConfig(ABC):
+    '''
+    TargetConfig is an abstract base class that describes a target
+    configuration and provides methods to check whether the the target
+    configuration is in place, and if not, methods to implement the
+    target configuration
+    '''
+    @abstractmethod
+    def __init__(self):
+        return NotImplementedError
+
+    @abstractmethod
+    def exists(self):
+        return NotImplementedError
+
+    @abstractmethod
+    def create(self):
+        return NotImplementedError
+
+
 class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
-                 alias: str, network: str, public_cloud_endpoint: str):
+                 alias: str, network: str, public_cloud_endpoint: str,
+                 port: int, root_dir: str = '/byoda'):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -56,6 +79,8 @@ class NginxConfig(TargetConfig):
         self.public_cloud_endpoint = public_cloud_endpoint
         self.directory = directory
         self.filename = filename
+        self.root_dir = root_dir
+        self.port = port
 
         self.config_filepath = f'{directory}/{filename}'
         self.template_filepath = f'{directory}/{filename}' + '.jinja2'
@@ -77,8 +102,13 @@ class NginxConfig(TargetConfig):
         '''
 
         _LOGGER.debug('Rendering template %s', self.template_filepath)
-        with open(self.template_filepath) as file_desc:
-            templ = Template(file_desc.read())
+        try:
+            with open(self.template_filepath) as file_desc:
+                templ = Template(file_desc.read())
+        except FileNotFoundError:
+            filepath = 'podserver/files/virtualserver.conf.jinja2'
+            with open(filepath) as file_desc:
+                templ = Template(file_desc.read())
 
         output = templ.render(
             identifier=self.identifier,
@@ -87,15 +117,23 @@ class NginxConfig(TargetConfig):
             key_filepath=self.key_filepath,
             alias=self.alias,
             network=self.network,
-            public_cloud_endpoint=self.public_cloud_endpoint
+            public_cloud_endpoint=self.public_cloud_endpoint,
+            root_dir=self.root_dir,
+            port=self.port
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
 
-        if self.id_type == IdType.ACCOUNT:
+        if self.subdomain == IdType.ACCOUNT.value:
             # We also create a htpasswd file
+            if not os.path.exists(HTACCESS_FILE):
+                open(HTACCESS_FILE, 'w')
+
             with htpasswd.Basic(HTACCESS_FILE, mode='md5') as userdb:
-                userdb.add(self.identifier.split('-')[0], password)
+                try:
+                    userdb.add(self.identifier.split('-')[0], password)
+                except UserExists:
+                    pass
             _LOGGER.debug('Created htaccess.db file')
 
     def reload(self):
@@ -105,9 +143,14 @@ class NginxConfig(TargetConfig):
 
         try:
             with open(NGINX_PID_FILE) as file_desc:
-                pid = int(file_desc.readline().strip())
+                try:
+                    pid = int(file_desc.readline().strip())
+                    os.kill(pid, signal.SIGHUP)
+                    _LOGGER.debug('Sent SIGHUB to nginx process with pid %s', pid)
+                except ValueError:
+                    # No valid value in pid file means that nginx is not
+                    # running, which can happen on a dev workstation
+                    _LOGGER.warning('Could not find pid of nginx process')
 
-            os.kill(pid, signal.SIGHUP)
-            _LOGGER.debug('Sent SIGHUB to nginx process with pid %s', pid)
         except FileNotFoundError:
             _LOGGER.debug('Unable to read NGINX pid file: %s', NGINX_PID_FILE)

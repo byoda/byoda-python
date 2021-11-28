@@ -21,7 +21,7 @@ class ServerRole(Enum):
     ContentServer        = 'content'
     Pod                  = 'pod'
     Client               = 'client'
-
+    Test                 = 'test'
 
 class IdType(Enum):
     SERVICE_DATA         = 'service-data-'
@@ -104,4 +104,3 @@ class CertStatus(Enum):
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'
     REJECTED        = 'REJECTED'
-    

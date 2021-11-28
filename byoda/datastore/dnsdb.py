@@ -113,11 +113,10 @@ class DnsDb:
                 'records', dnsdb._metadata, autoload_with=dnsdb._engine
             )
 
-            for subdomain in ('accounts', 'services', 'members'):
-                domain_id = dnsdb._get_domain_id(
-                    conn, f'{subdomain}.{network_name}'
-                )
-                dnsdb._domain_ids[subdomain] = domain_id
+            # Ensure the 'accounts' subdomain for the network exists
+            subdomain = f'accounts.{network_name}'
+            domain_id = dnsdb._get_domain_id(conn, subdomain)
+            dnsdb._domain_ids[subdomain] = domain_id
 
         return dnsdb
 
@@ -215,6 +214,10 @@ class DnsDb:
                 )
                 if existing_value and value == existing_value:
                     # Nothing to change
+                    _LOGGER.debug(
+                        f'No DNS changed needed for FQDN {fqdn} with IP '
+                        f'{value}'
+                    )
                     continue
 
                 record_replaced = record_replaced or self.remove(
@@ -228,17 +231,16 @@ class DnsDb:
             hostname, subdomain = fqdn.split('.', 1)
             if subdomain not in self._domain_ids:
                 domain_id = self._upsert_subdomain(subdomain)
-                self._domain_ids[subdomain] = domain_id
+            else:
+                domain_id = self._domain_ids[subdomain]
 
             with self._engine.connect() as conn:
                 stmt = insert(
                     self._records_table
                 ).values(
-                    name=fqdn, content=str(value),
-                    domain_id=self._domain_ids[subdomain],
-                    db_expire=db_expire,
-                    type=dns_record_type.value, ttl=DEFAULT_TTL, prio=0,
-                    auth=True
+                    name=fqdn, content=str(value), domain_id=domain_id,
+                    db_expire=db_expire, type=dns_record_type.value,
+                    ttl=DEFAULT_TTL, prio=0, auth=True
                 )
 
                 conn.execute(stmt)
@@ -430,6 +432,9 @@ class DnsDb:
         :returns: domain_id
         '''
 
+        if subdomain in self._domain_ids:
+            return self._domain_ids[subdomain]
+
         stmt = select(
             self._domains_table.c.id
         ).where(
@@ -441,7 +446,7 @@ class DnsDb:
 
         if not first:
             if create_missing:
-                _LOGGER.info('Creating table for domain {subdomain}')
+                _LOGGER.info('Creating domain {subdomain} in DnsDB')
                 self._upsert_subdomain(subdomain)
                 return self._get_domain_id(
                     conn, subdomain, create_missing=False
@@ -455,7 +460,7 @@ class DnsDb:
 
         return domain_id
 
-    def _upsert_subdomain(self, subdomain: str):
+    def _upsert_subdomain(self, subdomain: str) -> bool:
         '''
         Adds subdomain to list of domains
 
@@ -465,20 +470,65 @@ class DnsDb:
         :raises:
         '''
 
+        if subdomain in self._domain_ids:
+            raise ValueError(
+                f'Subdomain {subdomain} already has domain id '
+                f'{self._domain_ids[subdomain]}'
+            )
+
         with self._engine.connect() as conn:
             stmt = insert(
                 self._domains_table
             ).values(
                 name=subdomain,
                 type='NATIVE'
-            )
-
-            do_nothing_stmt = stmt.on_conflict_do_nothing(
+            ).on_conflict_do_nothing(
                 index_elements=['name']
             )
-            conn.execute(do_nothing_stmt)
+            conn.execute(stmt)
 
-            return self._get_domain_id(conn, subdomain)
+            domain_id = self._get_domain_id(conn, subdomain)
+            self._domain_ids[subdomain] = domain_id
+
+            soa = \
+                f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
+            stmt = insert(
+                self._records_table
+            ).values(
+                name=subdomain, content=soa,
+                domain_id=domain_id,
+                type='SOA', ttl=DEFAULT_TTL, prio=0,
+                auth=True
+            )
+            # on_conflict requires a constraint on the 'name' column of the
+            # 'records' table
+            # on_conflict_stmt = stmt.on_conflict_do_nothing(
+            #    index_elements=['name']
+            # )
+            conn.execute(stmt)
+
+            ns = 'dir.byoda.net.'
+            stmt = insert(
+                self._records_table
+            ).values(
+                name='@', content=ns,
+                domain_id=domain_id,
+                type='NS', ttl=DEFAULT_TTL, prio=0,
+                auth=True
+            )
+            # on_conflict requires a constraint on the 'name' column of the
+            # 'records' table
+            # on_conflict_stmt = stmt.on_conflict_do_nothing(
+            #    index_elements=['name']
+            # )
+
+            conn.execute(stmt)
+
+            _LOGGER.debug(
+                f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
+            )
+            
+            return domain_id
 
 
 @event.listens_for(Engine, "before_cursor_execute")

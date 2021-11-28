@@ -8,38 +8,42 @@ Automatically generated code for GraphQL support for a Byoda servce
 
 # flake8: noqa=E501
 
-import logging as loggingByoda
+from __future__ import annotations
 
-from graphene import ObjectType
-from graphene import Mutation
-from graphene import Schema
-from graphene import Field
-from graphene import String
-from graphene import Boolean
-from graphene import Int
+import strawberry
+from strawberry.types import Info
 
 from byoda.datamodel import Member as MemberClassByoda
+
+import logging as loggingByoda
+
+# from byoda.datamodel import Member as MemberClassByoda
 
 from byoda.requestauth import RequestAuth as RequestAuthByoda
 from byoda.requestauth import authorize_graphql_request as authorize_graphql_request_Byoda
 
+
 _LOGGER = loggingByoda.getLogger(__name__)
 
-
-{% set indent_multiplier = 1 %}{# used by 'scalar' template #}
-{% for class_name, properties in classes.items()|reverse %}
-class {{ class_name|title }}(ObjectType):
+{% for class_name, properties in classes.items() %}
+@strawberry.type
+class {{ class_name|title }}:
 {%   for field, field_properties in properties.items() %}
 {%     if 'type' in field_properties %}
 {%       if field_properties['type'] not in ('object', 'array') %}
-{%         include 'graphene_schema_scalar_def.jinja' %}
+    @strawberry.field
+    def {{ field }}(self, info: Info) -> {{ type_map[field_properties['type']] }}:
+        return info.context['data']['{{ field }}']
+
 {%       elif field_properties['type'] == 'object' %}
     {{ field }} = Field({{ field|title }})
 {%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
 {%     endif %}{# if 'type' in field_properties #}
 {%   endfor %}{# for field, field_properties in properties.items() #}
+{% endfor %}{# for field, field_properties in properties.items() #}
 
-{%   if class_name == 'Query' %}
+@strawberry.type
+class Query:
     @staticmethod
     def authenticate(root, info):
         '''
@@ -65,100 +69,73 @@ class {{ class_name|title }}(ObjectType):
             authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
         except Exception as exc:
             raise ValueError(f'Authorization failed: {exc}')
-{%   endif %}{# if class_name == 'Query' #}
-{# create resolvers for the non-object properties of the class #}
+
+{% for class_name, class_properties in classes.items() %}
+    @strawberry.field
+    def {{ class_name }}(self, info: Info) -> {{ class_name|title }}:
+        _LOGGER.debug('Resolving {{ class_name }}')
+        Query.authenticate(self, info)
+        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
+        {{ class_name }} = {{ class_name|title }}()
+        return {{ class_name }}
+
+{% endfor %}{# if for class_name, class_properties in classes.items() #}
+@strawberry.type
+class Mutation:
+    @staticmethod
+    def authenticate(root, info):
+        '''
+        This is middleware called by the code generated from the Jinja
+        templates implementing GraphQL support
+        '''
+
+        if not info.context or not info.context['request']:
+            raise ValueError('No info to authenticate client')
+
+        try:
+            # Checks that a client cert was provided and that the cert and
+            # certchain is correct
+            auth = RequestAuthByoda.authenticate_request(info.context['request'])
+            if not auth.is_authenticated:
+                raise ValueError('Client is not authentication')
+        except Exception as exc:
+            raise ValueError(f'Authentication failed: {exc}')
+
+        try:
+            # Check whether the authenticated client is authorized to request
+            # the data
+            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
+        except Exception as exc:
+            raise ValueError(f'Authorization failed: {exc}')
+
+{% for class_name, properties in classes.items()|reverse %}
+    @strawberry.field
+    def mutate{{ class_name|title }}(self, info,
 {%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' %}
-    def resolve_{{field}}(root, info):
-        _LOGGER.debug('Resolving {{ field }}')
-{%       if class_name == 'Query' %}
-        Query.authenticate(root, info)
-        return MemberClassByoda.get_data({{ service_id }}, info.path)
-{%       else %}{# if class_name == 'Query' #}
-        if hasattr(root, '{{ field }}'):
-            return root.{{ field }}
-        return root.get('{{field}}')
-{%       endif %}{# if class_name == 'Query' #}
-{%     endif %}{# if 'type' in field_properties and not field.startswith('#') and field_properties['type'] != 'array' #}
-
+{%     if 'type' in field_properties %}
+{%       if field_properties['type'] not in ('object', 'array') %}
+                {{ field }}: {{ type_map[field_properties['type']] }},
+{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%     endif %}{# if 'type' in field_properties #}
 {%   endfor %}{# for field, field_properties in properties.items() #}
+            ) -> {{ class_name|title }}:
+        _LOGGER.debug('Root query for mutate{{ class_name|title }}')
+        Mutation.authenticate(self, info)
+        info.context['data'] = {
+{%   for field, field_properties in properties.items() %}
+{%     if 'type' in field_properties %}
+{%       if field_properties['type'] not in ('object', 'array') %}
+                '{{ field }}': {{ field }},
+{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%     endif %}{# if 'type' in field_properties #}
+{%   endfor %}{# for field, field_properties in properties.items() #}
+        }
+        MemberClassByoda.set_data({{ service_id }}, info)
+        return {{ class_name|title }}()
 
-{%   set indent_multiplier = 2 %}{# used by 'scalar' template #}
-{%   if class_name != 'Query' %}
-class Mutate{{ class_name|title }}(Mutation):
-    class Arguments:
-{%     for field, field_properties in properties.items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
-{%           include 'graphene_schema_scalar_def.jinja' %}
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
-
-    ok = Boolean()
-    {{ class_name }} = Field(lambda: {{ class_name|title }})
-
-    @staticmethod
-    def authenticate(root, info):
-        '''
-        This is middleware called by the code generated from the Jinja
-        templates implementing GraphQL support
-        '''
-
-        if not info.context or not info.context['request']:
-            raise ValueError('No info to authenticate client')
-
-        try:
-            # Checks that a client cert was provided and that the cert and
-            # certchain is correct
-            auth = RequestAuthByoda.authenticate_request(info.context['request'])
-            if not auth.is_authenticated:
-                raise ValueError('Client is not authentication')
-        except Exception as exc:
-            raise ValueError(f'Authentication failed: {exc}')
-
-        try:
-            # Check whether the authenticated client is authorized to request
-            # the data
-            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
-        except Exception as exc:
-            raise ValueError(f'Authorization failed: {exc}')
-
-    def mutate(root, info,
-{%     for field, field_properties in properties.items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
-               {{ field }},
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
-               ):
-        ok = True
-        {{ class_name }} = {{ class_name|title }}(
-{%     for field, field_properties in properties.items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
-            {{ field }}={{ field }},
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
-        )
-        result = Mutate{{ class_name|title }}({{ class_name }}={{ class_name }}, ok=ok)
-        MemberClassByoda.set_data({{ service_id }}, info.path, result)
-        return result
-
-
-{%   endif %}{# if class_name != 'Query' #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
-class Mutations(ObjectType):
-{% for class_name in classes.keys()|reverse %}
-{%   if class_name != 'Query' %}
-    mutate{{ class_name|title }} = Mutate{{ class_name|title }}.Field()
-{%   endif %}
-{% endfor %}
-
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
-    return Schema(query=Query, mutation=Mutations)
+    return strawberry.Schema(query=Query, mutation=Mutation)
 

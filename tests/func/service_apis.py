@@ -34,8 +34,8 @@ from byoda.secrets import Secret
 from byoda.secrets import MemberSecret
 from byoda.secrets import MemberDataSecret
 
-from byoda.util.logger import Logger
-
+from byoda.util import Logger
+from byoda.util import Paths
 
 from byoda import config
 
@@ -50,7 +50,6 @@ DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 
 CONFIG_FILE = 'tests/collateral/config.yml'
-SERVICE_DIR = None
 TEST_PORT = 5000
 BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
@@ -76,15 +75,13 @@ class TestDirectoryApis(unittest.TestCase):
 
         os.makedirs(test_dir)
 
-        global SERVICE_DIR
-        SERVICE_DIR = test_dir + '/service'
+
         service_dir = (
-            f'{SERVICE_DIR}/network-'
+            f'{test_dir}/network-'
             f'{cls.APP_CONFIG["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
         os.makedirs(service_dir)
-        shutil.copy(DUMMY_SCHEMA, f'{service_dir}/service-contract.json')
 
         network = Network.create(
             cls.APP_CONFIG['application']['network'],
@@ -94,14 +91,25 @@ class TestDirectoryApis(unittest.TestCase):
 
         config.server = ServiceServer()
         config.server.network = network
-        config.server.service = Service(
-            network,
-            f'{service_dir}/service-contract.json',
-            cls.APP_CONFIG['svcserver']['service_id']
+
+        service_file = config.server.network.paths.get(
+            Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
+        shutil.copy(DUMMY_SCHEMA, service_file)
+
+        config.server.service = Service(
+            network, service_file, cls.APP_CONFIG['svcserver']['service_id']
+        )
+
         config.server.service.create_secrets(
             network.services_ca, local=True,
             password=cls.APP_CONFIG['svcserver']['private_key_password']
+        )
+        service_file = config.server.service.paths.get(
+            Paths.SERVICE_FILE, service_id=config.server.service.service_id
+        )
+        config.server.service.load_schema(
+            service_file, verify_contract_signatures=False
         )
 
         app = setup_api(

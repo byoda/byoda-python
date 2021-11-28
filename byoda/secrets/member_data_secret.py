@@ -94,4 +94,4 @@ class MemberDataSecret(DataSecret):
             f'.{self.network}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=True)
+        return super().create_csr(common_name, key_size=4096, ca=False)

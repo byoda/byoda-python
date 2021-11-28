@@ -9,7 +9,6 @@ import logging
 import json
 
 from typing import Dict, TypeVar
-from collections import UserDict
 
 from byoda.storage import FileMode
 
@@ -17,7 +16,7 @@ from byoda.util.paths import Paths
 
 from byoda.datastore.document_store import DocumentStore
 
-from .schema import Schema
+from .schema import JsonSchemaValueException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,24 +25,20 @@ MAX_FILE_SIZE = 65536
 Member = TypeVar('Member', bound='Member')
 
 
-class MemberData(UserDict):
+class MemberData(Dict):
     '''
     Generic data object for the storing data as defined
     by the schema of services
     '''
 
-    def __init__(self, member: Member, schema: Schema, paths: Paths,
+    def __init__(self, member: Member, paths: Paths,
                  doc_store: DocumentStore):
         self.member: Member = member
         self.unvalidated_data: Dict = None
-        self.schema: Schema = schema
 
         self.paths: Paths = paths
 
         self.document_store: DocumentStore = doc_store
-
-        self.data_secret = member.data_secret
-        self.load_protected_shared_key()
 
     def load(self):
         '''
@@ -57,13 +52,14 @@ class MemberData(UserDict):
 
         try:
             self.unvalidated_data = self.document_store.read(
-                filepath, self.data_secret
+                filepath, self.member.data_secret
             )
         except FileNotFoundError:
             _LOGGER.error(
                 'Unable to read data file for service'
                 f'{self.member.service_id} from {filepath}'
             )
+            return
 
         self.validate()
 
@@ -72,7 +68,8 @@ class MemberData(UserDict):
         Save the data to the data store
         '''
 
-        if not self.data:
+        # MemberData inherits from dict so has a length
+        if not len(self):
             raise ValueError(
                 'No member data for service %s available to save',
                 self.member.service_id
@@ -80,15 +77,15 @@ class MemberData(UserDict):
 
         try:
             # Let's double check the data is valid
-            self.schema.validate(self.data)
+            self.member.schema.validate(self)
 
             self.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
                 ),
-                self.data,
-                self.data_secret
+                self,
+                self.member.data_secret
             )
         except OSError:
             _LOGGER.error(
@@ -112,8 +109,15 @@ class MemberData(UserDict):
         '''
 
         try:
-            self.data = self.schema.validate(self.unvalidated_data)
-        except Exception:
+            if self.unvalidated_data is not None:
+                self.update(
+                    self.member.schema.validate(self.unvalidated_data)
+                )
+        except JsonSchemaValueException as exc:
+            _LOGGER.warning(
+                'Failed to validate data for service_id '
+                f'{self.member.service_id}: {exc}'
+            )
             raise
 
     def load_protected_shared_key(self):
@@ -130,13 +134,13 @@ class MemberData(UserDict):
             protected = self.member.storage_driver.read(
                 filepath, file_mode=FileMode.BINARY
             )
+            self.member.data_secret.load_shared_key(protected)
         except OSError:
             _LOGGER.error(
                 'Can not read the protected shared key for service %s from %s',
                 self.member.service_id, filepath
             )
-
-        self.data_secret.load_shared_key(protected)
+            raise
 
     def save_protected_shared_key(self):
         '''
@@ -145,6 +149,6 @@ class MemberData(UserDict):
 
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
         self.member.storage_driver.write(
-            filepath, self.data_secret.protected_shared_key,
+            filepath, self.member.data_secret.protected_shared_key,
             file_mode=FileMode.BINARY
         )

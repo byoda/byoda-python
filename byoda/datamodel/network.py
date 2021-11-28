@@ -8,8 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
-from uuid import UUID
-from typing import Dict, Set
+from typing import Dict, Set, List
 from typing import Callable
 
 import passgen
@@ -25,7 +24,6 @@ from byoda.datamodel.service import RegistrationStatus
 from byoda.storage.filestorage import FileStorage
 
 from byoda.secrets import Secret
-from byoda.secrets import DataSecret
 from byoda.secrets import NetworkRootCaSecret
 from byoda.secrets import NetworkDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
@@ -34,8 +32,9 @@ from byoda.secrets import ServiceCaSecret
 from byoda.secrets import MembersCaSecret
 from byoda.secrets import ServiceSecret
 
+from byoda.util.api_client import ApiClient
+
 from .service import Service
-from .account import Account
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,7 +62,7 @@ class Network:
     MIN_TEST_SERVICE_ID = 4293918720
 
     def __init__(self, server: dict, application: dict,
-                 root_ca: NetworkRootCaSecret = None):
+                 root_ca: NetworkRootCaSecret = None, bootstrap: bool = True):
         '''
         Set up the network
 
@@ -135,23 +134,54 @@ class Network:
             self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
+        elif ServerRole.Test in self.roles:
+            self.data_secret = Network._create_secret(
+                self.name, NetworkDataSecret, self.root_ca, self.paths,
+                self.private_key_password
+            )
+
         else:
             if not self.root_ca.cert:
-                self.root_ca.load(with_private_key=False)
-
-        config.requests.verify = self.root_ca.cert_file
+                try:
+                    self.root_ca.load(with_private_key=False)
+                except FileNotFoundError:
+                    resp = ApiClient.call(
+                        Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
+                    )
+                    if resp.status_code != 200:
+                        raise ValueError(
+                            'No network cert available locally or from the '
+                            'network'
+                        )
+                    data = resp.text
+                    private_object_storage.write(self.root_ca.cert_file, data)
+                    self.root_ca.from_string(data)
+            if not self.data_secret.cert:
+                if self.data_secret.cert_file_exists():
+                    self.data_secret.load(with_private_key=False)
+                else:
+                    resp = ApiClient.call(
+                        Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
+                    )
+                    if resp.status_code != 200:
+                        raise ValueError(
+                            'No network cert available locally or from the '
+                            'network'
+                        )
+                    self.data_secret.from_string(resp.text)
+                    self.data_secret.save()
 
         # Loading secrets for when operating as a directory server
         self.accounts_ca: NetworkAccountsCaSecret = None
         self.services_ca: NetworkServicesCaSecret = None
         self.tls_secret: Secret = None
-        self.data_secret: DataSecret = None
 
         self.services: Dict[int: Service] = dict()
+        self.service_summaries: List = []
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None
-        self.service_secret: ServiceSecret = None
+        self.tls_secret: ServiceSecret = None
         self.member_ca: MembersCaSecret = None
 
         # Loading secrets when operating as a pod
@@ -162,7 +192,7 @@ class Network:
         self.account = None
 
     @staticmethod
-    def create(network_name, root_dir, password):
+    def create(network_name: str, root_dir: str, password: str):
         '''
         Factory for creating a new Byoda network and its secrets.
 
@@ -202,16 +232,17 @@ class Network:
 
         network_data = {
             'network': network_name, 'root_dir': root_dir,
-            'private_key_password': password
+            'private_key_password': password, 'roles': ['test']
         }
-        network = Network(network_data, network_data, root_ca)
+        network = Network(network_data, network_data, root_ca, bootstrap=True)
 
         # Root CA, signs Accounts CA, Services CA and
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
         # as we use the Let's Encrypt cert for TLS termination
-        network.data_secret = Network._create_secret(
-            network.name, NetworkDataSecret, root_ca, paths, password
-        )
+        if not network.data_secret or not network.data_secret.cert:
+            network.data_secret = Network._create_secret(
+                network.name, NetworkDataSecret, root_ca, paths, password
+            )
 
         network.accounts_ca = Network._create_secret(
             network.name, NetworkAccountsCaSecret, root_ca, paths, password
@@ -222,7 +253,7 @@ class Network:
         )
 
         # Create the services directory to enable the directory server to start
-        os.mkdir(paths.get(Paths.SERVICES_DIR))
+        os.makedirs(paths.get(Paths.SERVICES_DIR), exist_ok=True)
 
         return network
 
@@ -282,16 +313,6 @@ class Network:
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
-
-    def load_account(self, account_id: UUID, load_tls_secret: bool = True
-                     ) -> Account:
-        '''
-        Loads an account and its secrets
-        '''
-
-        account = Account(account_id, self, load_tls_secret=load_tls_secret)
-
-        return account
 
     def add_service(self, service_id: int,
                     registration_status: RegistrationStatus = None) -> Service:

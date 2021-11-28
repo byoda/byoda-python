@@ -10,6 +10,7 @@ Class for modeling a service on a social network
 import os
 import logging
 import socket
+import json
 from typing import TypeVar, Callable, Dict
 from copy import copy
 from enum import Enum
@@ -26,6 +27,9 @@ from byoda.datamodel.schema import Schema
 from byoda.servers.server import ServerType
 from byoda.servers.service_server import ServiceServer
 from byoda.servers.directory_server import DirectoryServer
+
+from byoda.util.api_client import ApiClient
+
 from byoda.util import SignatureType
 from byoda.util import Paths
 
@@ -45,6 +49,10 @@ from byoda.secrets import ServiceDataSecret
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
+
+# The well-known service IDs
+BYODA_PRIVATE_SERVICE = 0
+BYODA_ADDRESSBOOK_SERVICE = 1
 
 Network = TypeVar('Network', bound='Network')
 
@@ -126,8 +134,10 @@ class Service:
             )
 
         if filepath:
-            _LOGGER.info(f'Loading service from file {filepath}')
-            self.load_schema(filepath, verify_contract_signatures=False)
+            raw_data = self.storage_driver.read(filepath)
+            data = json.loads(raw_data)
+            self.service_id = data['service_id']
+            self.name = data['name']
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
@@ -145,6 +155,8 @@ class Service:
         service = Service(network=network, filepath=filepath)
 
         service.load_data_secret(with_private_key, password)
+
+        service.load_schema(filepath)
         service.verify_schema_signatures()
         service.schema.generate_graphql_schema()
 
@@ -174,16 +186,16 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema.get_schema(filepath, self.storage_driver)
+        self.schema = Schema.get_schema(
+            filepath, self.storage_driver,
+            service_data_secret=self.data_secret,
+            network_data_secret=self.network.data_secret,
+            verify_contract_signatures=verify_contract_signatures
+        )
 
         self.name = self.schema.name
         self.service_id = self.schema.service_id
         self.paths.service_id = self.service_id
-
-        # We make sure that the directory exists
-        self.paths.storage_driver.create_directory(
-            self.paths.get(Paths.SERVICE_DIR)
-        )
 
         _LOGGER.debug(
             f'Read service {self.name} wih service_id {self.service_id}'
@@ -274,7 +286,7 @@ class Service:
 
         self.create_apps_ca()
         self.create_members_ca()
-        self.create_service_secret()
+        self.create_tls_secret()
         self.create_data_secret()
 
     def create_service_ca(self,
@@ -329,7 +341,7 @@ class Service:
             private_key_password=self.private_key_password
         )
 
-    def create_service_secret(self) -> None:
+    def create_tls_secret(self) -> None:
         '''
         Creates the service TLS secret, signed by the Service CA
 
@@ -337,7 +349,7 @@ class Service:
         the CSR of the service secret
         '''
 
-        self.service_secret = self._create_secret(
+        self.tls_secret = self._create_secret(
             ServiceSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
@@ -509,6 +521,9 @@ class Service:
 
         if not self.schema:
             if self.schema_file_exists():
+                if not self.data_secret or not self.data_secret.cert():
+                    self.load_data_secret(with_private_key=False, password=None)
+
                 self.load_schema(self.paths.get(Paths.SERVICE_FILE))
 
         if self.schema and self.schema.signatures.get('network'):
@@ -578,6 +593,34 @@ class Service:
         )
         return response
 
+    def download_schema(self, save: bool = True, filepath: str = None) -> str:
+        '''
+        Downloads the latest schema from the webserver of the service
+
+        :param filepath: location where to store the schema. If not specified,
+        the default location will be used
+        :returns: the schema as string
+        '''
+
+        if save and not filepath:
+            filepath = self.paths.get(Paths.SERVICE_FILE)
+
+        self.storage_driver.create_directory(
+            self.paths.get(Paths.SERVICE_DIR)
+        )
+        resp = ApiClient.call(
+            Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
+        )
+        if resp.status_code == 200:
+            if save:
+                self.storage_driver.write(filepath, resp.text)
+
+            return resp.text
+
+        raise FileNotFoundError(
+            f'Download of service schema failed: {resp.status_code}'
+        )
+
     def load_secrets(self, with_private_key: bool = True, password: str = None,
                      service_ca_password=None) -> None:
         '''
@@ -636,15 +679,59 @@ class Service:
             filepath = self.tls_secret.save_tmp_private_key()
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
-    def load_data_secret(self, with_private_key: bool, password: str):
+    def load_data_secret(self, with_private_key: bool, password: str = None,
+                         download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
         '''
+
+        if with_private_key and not password:
+            raise ValueError('Can not read data secret private key without password')
 
         if not self.data_secret:
             self.data_secret = ServiceDataSecret(
                 self.name, self.service_id, self.network
             )
-            self.data_secret.load(
-                with_private_key=with_private_key, password=password
-            )
+
+            if not self.data_secret.cert_file_exists():
+                if download:
+                    if with_private_key:
+                        raise ValueError(
+                            'Can not download private key of the secret from '
+                            'the network'
+                        )
+                    self.download_data_secret()
+                else:
+                    _LOGGER.exception(
+                        'Could not read service data secret for service: '
+                        f'{self.service_id}: {self.data_secret.cert_file}'
+                    )
+                    raise FileNotFoundError(self.data_secret.cert_file)
+            else:
+                self.data_secret.load(
+                    with_private_key=with_private_key, password=password
+                )
+
+    def download_data_secret(self, save: bool = True, failhard: bool = False) -> str:
+        '''
+        Downloads the data secret from the web service for the service
+
+        :returns: the cert in PEM format
+        '''
+
+        resp = ApiClient.call(
+            Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
+        )
+        if resp.status_code == 200:
+            if save:
+                self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
+                self.data_secret.from_string(resp.text)
+                self.data_secret.save(overwrite=(not failhard))
+
+            return resp.text
+
+        raise FileNotFoundError(
+            f'Could not download data cert for service {self.service_id}: '
+            f'{resp.status_code}'
+        )
+

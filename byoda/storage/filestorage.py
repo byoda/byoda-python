@@ -114,6 +114,10 @@ class FileStorage:
         :param file_mode: read file as text or as binary
         '''
 
+        # We mimic k/v store where there are no 'directories' or 'folders'
+        # that you have to create
+        os.makedirs(os.path.split(filepath)[0], exist_ok=True)
+
         with open(filepath, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
@@ -193,6 +197,10 @@ class FileStorage:
         Gets the folders/directories for a directory on the a filesystem
         '''
         folders = []
+
+        # Make sure the folder exists
+        self.create_directory(folder_path, exist_ok=True)
+
         for directory in os.listdir(folder_path):
             if not prefix or directory.startswith(prefix):
                 folders.append(directory)

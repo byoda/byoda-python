@@ -67,7 +67,7 @@ cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
-echo "Passwords for service secrets except the Service CA: ${PASSWORD}
+echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
 tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
 
 ```
@@ -101,3 +101,14 @@ export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password=${PASSWORD}
+```
+
+Install nginx as reverse proxy using the template in docs/files/nginx-service.conf
+
+To test the service certificate signed by the root CA of the network, you can use openssl and/or curl:
+```
+openssl s_client -connect service.service-0.byoda.net:443 -CAfile root-ca.pem
+
+curl  https://service.service-0.byoda.net/network-byoda.net-service-0-data-cert.pem -o network-byoda.net-service-0-data-cert.pem --cacert root-ca.pem
+```
+

@@ -10,12 +10,14 @@ import logging
 from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
+from uuid import uuid4
 
 import requests
 
 from byoda.datatypes import CsrSource
-from byoda.datastore.document_store import DocumentStore
-from byoda.util import Paths
+from byoda.datastore import DocumentStore
+from byoda.datamodel import Schema
+from byoda.datamodel import MemberData
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -23,6 +25,10 @@ from byoda.secrets import DataSecret
 from byoda.secrets import AccountDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
+
+from byoda.util import Paths
+from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 from .member import Member
 from .service import Service
@@ -32,7 +38,7 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class Account:
@@ -43,7 +49,7 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 load_tls_secret: bool = False, account: str = 'pod'):
+                 account: str = 'pod', bootstrap: bool = False):
         '''
         Constructor
         '''
@@ -68,19 +74,20 @@ class Account:
 
         self.private_key_password: str = network.private_key_password
 
-        self.data_secret: DataSecret = None
+        self.data_secret: DataSecret = AccountDataSecret(
+            account_id=self.account_id, network=network
+
+        )
         self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )
-        if load_tls_secret:
-            self.tls_secret.load(password=self.private_key_password)
 
         self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
 
-        self.load_memberships()
+        self.load_memberships(bootstrap=bootstrap)
 
     def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
@@ -119,7 +126,8 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not self.data_secret.cert_file_exists():
+        if (not self.data_secret.cert_file_exists()
+                or not self.data_secret.cert):
             _LOGGER.info('Creating account data secret')
             self.data_secret = self._create_secret(
                 AccountDataSecret, accounts_ca
@@ -159,20 +167,19 @@ class Account:
             )
 
         if not issuing_ca:
-            # TODO
-            if type(secret_cls) != AccountSecret:
+            if secret_cls != AccountSecret and secret_cls != AccountDataSecret:
                 raise ValueError(
                     f'No issuing_ca was provided for creating a '
                     f'{type(secret_cls)}'
                 )
             else:
-                # TODO: SECURITY: add constraints
                 csr = secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
-                url = f'https://dir.{self.network}/api/v1/network/account'
+                url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
+                # TODO: Refactor to use RestClientApi
                 resp = requests.post(url, json=payload)
-                if resp.status_code != requests.codes.OK:
+                if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
 
                 cert_data = resp.json()
@@ -180,7 +187,6 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
-            # TODO: SECURITY: add constraints
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
@@ -204,7 +210,7 @@ class Account:
         )
         self.data_secret.load(password=self.private_key_password)
 
-    def load_memberships(self):
+    def load_memberships(self, bootstrap: bool = False):
         '''
         Loads the memberships of an account by iterating through
         a directory structure in the document store of the server.
@@ -217,9 +223,10 @@ class Account:
 
         for folder in folders:
             service_id = int(folder[8:])
-            self.load_membership(service_id=service_id)
+            self.load_membership(service_id=service_id, bootstrap=bootstrap)
 
-    def load_membership(self, service_id: int) -> Member:
+    def load_membership(self, service_id: int,
+                        bootstrap: bool = False) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -229,13 +236,61 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        member = Member(service_id, self)
-        member.load_secrets()
+        try:
+            member = Member(service_id, self)
+            member.load_secrets()
+            member.data = MemberData(
+                member, member.paths, member.document_store
+            )
+            member.data.load_protected_shared_key()
+        except FileNotFoundError:
+            if bootstrap:
+                if not member:
+                    member.member_id = uuid4()
+                if not member.tls_secret or not member.data_secret:
+                    member.create_secrets()
 
-        member.load_schema()
+                if not member.paths._exists(member.paths.MEMBER_SERVICE_FILE):
+                    filepath = member.paths.get(
+                        member.paths.MEMBER_SERVICE_FILE
+                    )
+                    member.service.download_schema(
+                        save=True, filepath=filepath
+                    )
+                    member.schema = Schema.get_schema(
+                        filepath, member.storage_driver
+                    )
+
+                filepath = member.paths.get(
+                    member.paths.MEMBER_DATA_SHARED_SECRET_FILE
+                )
+
+                if not member.paths._exists(filepath):
+                    member.data_secret.create_shared_key()
+
+                if not member.data:
+                    member.data = MemberData(
+                        member, member.paths, member.document_store
+                    )
+                    member.data.save_protected_shared_key()
+
         member.load_data()
 
         self.memberships[service_id] = member
+
+    def register(self):
+        '''
+        Register the pod with the directory server of the network
+        '''
+
+        # Register pod to directory server
+        url = self.paths.get(Paths.NETWORKACCOUNT_API)
+
+        resp = RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
+
+        _LOGGER.debug(
+            f'Registered account with directory server: {resp.status_code}'
+        )
 
     def join(self, service: Service = None, service_id: int = None,
              members_ca: MembersCaSecret = None) -> Member:
@@ -243,7 +298,7 @@ class Account:
         Join a service for the first time
         '''
 
-        if ((not service_id and not service)
+        if ((service_id is None and not service)
                 or (service_id and service)):
             raise ValueError('Either service_id or service must be speicfied')
 
@@ -252,9 +307,9 @@ class Account:
                 f'service must be of instance Service and not {type(Service)}'
             )
 
-        if service_id:
+        if service_id is not None:
             service_id = int(service_id)
-            service = Service(service_d=service_id, network=self.network)
+            service = Service(service_id=service_id, network=self.network)
 
         if not self.paths.member_directory_exists(service.service_id):
             self.paths.create_member_directory(service.service_id)
