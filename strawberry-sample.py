@@ -1,8 +1,4 @@
-import strawberry
-
-
 from __future__ import annotations
-
 
 import typing
 import strawberry
@@ -34,5 +30,6 @@ class Mutation:
         print(f'Adding {title} by {author}')
 
         return Book(title=title, author=author)
+
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

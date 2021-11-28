@@ -3,6 +3,7 @@ from __future__ import annotations
 import strawberry
 from strawberry.types import Info
 
+
 @strawberry.type
 class Person:
     @strawberry.field
@@ -29,7 +30,8 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.field
-    def mutatePerson(self, info: Info, givenName: str, familyName: str) -> Person:
+    def mutatePerson(self, info: Info, givenName: str,
+                     familyName: str) -> Person:
         print(f'Adding {givenName} {familyName}')
         info.context['data'] = {
             'givenName': 'Peter',

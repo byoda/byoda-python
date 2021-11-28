@@ -137,6 +137,7 @@ class Service:
             raw_data = self.storage_driver.read(filepath)
             data = json.loads(raw_data)
             self.service_id = data['service_id']
+            self.name = data['name']
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
@@ -189,6 +190,7 @@ class Service:
             filepath, self.storage_driver,
             service_data_secret=self.data_secret,
             network_data_secret=self.network.data_secret,
+            verify_contract_signatures=verify_contract_signatures
         )
 
         self.name = self.schema.name

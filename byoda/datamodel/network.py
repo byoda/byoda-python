@@ -8,8 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
-from uuid import UUID
-from typing import Dict, Set
+from typing import Dict, Set, List
 from typing import Callable
 
 import passgen
@@ -25,7 +24,6 @@ from byoda.datamodel.service import RegistrationStatus
 from byoda.storage.filestorage import FileStorage
 
 from byoda.secrets import Secret
-from byoda.secrets import DataSecret
 from byoda.secrets import NetworkRootCaSecret
 from byoda.secrets import NetworkDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
@@ -255,7 +253,7 @@ class Network:
         )
 
         # Create the services directory to enable the directory server to start
-        os.mkdir(paths.get(Paths.SERVICES_DIR))
+        os.makedirs(paths.get(Paths.SERVICES_DIR), exist_ok=True)
 
         return network
 
@@ -342,5 +340,3 @@ class Network:
             service.registration_status = service.get_registration_status()
 
         return service
-
-

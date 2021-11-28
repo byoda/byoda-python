@@ -102,7 +102,8 @@ class Schema:
     @staticmethod
     def get_schema(filepath: str, storage_driver: str,
                    service_data_secret: ServiceDataSecret,
-                   network_data_secret: NetworkDataSecret):
+                   network_data_secret: NetworkDataSecret,
+                   verify_contract_signatures: bool = True):
         '''
         Facory to read schema from a file
         '''
@@ -113,7 +114,7 @@ class Schema:
         schema.service_data_secret = service_data_secret
         schema.network_data_secret = network_data_secret
 
-        schema.load()
+        schema.load(verify_contract_signatures=verify_contract_signatures)
 
         return schema
 
@@ -125,7 +126,7 @@ class Schema:
 
         return json.dumps(self.json_schema, sort_keys=True, indent=4)
 
-    def load(self):
+    def load(self, verify_contract_signatures: bool = True):
         '''
         Load a schema from a dict
         '''
@@ -139,11 +140,12 @@ class Schema:
 
             )
         except ValueError:
-            _LOGGER.warning(
-                'No Service signature in contract for service '
-                f'{self.service_id}'
-            )
-            raise
+            if verify_contract_signatures:
+                _LOGGER.exception(
+                    'No Service signature in contract for service '
+                    f'{self.service_id}'
+                )
+                raise
 
         try:
             self.network_signature = NetworkSignature.from_dict(
@@ -153,11 +155,12 @@ class Schema:
                 data_secret=self.network_data_secret
             )
         except ValueError:
-            _LOGGER.warning(
-                'No Network signature in contract for service '
-                f'{self.service_id}'
-            )
-            raise
+            if verify_contract_signatures:
+                _LOGGER.exception(
+                    'No Network signature in contract for service '
+                    f'{self.service_id}'
+                )
+                raise
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
@@ -239,11 +242,14 @@ class Schema:
                 original_schema = deepcopy(schema)
             # A signature of a schema by a service does not cover the
             # signature of the service so we temporarily remove it
+            if not secret or not secret.cert:
+                secret = self.service_data_secret
+
             signature = ServiceSignature.from_dict(
                 schema['signatures'].pop(
                     SignatureType.SERVICE.value
                 ),
-                data_secret=self.service_data_secret
+                data_secret=secret
             )
 
         schema_str = self.as_string()

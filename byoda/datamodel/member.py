@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import List, Dict, TypeVar, Callable
+from typing import Dict, TypeVar, Callable
 
 from strawberry.types import Info
 
