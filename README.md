@@ -14,7 +14,7 @@ The directory server is supporting the registration API for pods using CA signed
 The pod is currently bootstrapping and running in a container in a public cloud and hosting GraphQL API for accessing data for the 'Default' (0) service. The pod currently supports AWS S3 object storage.
 
 ## Redesigning social media services
-A number of blog posts on Medium describe the ideas about how social media should be refactored. BYODA is a reference implementation of those ideas
+A [number of blog posts on Medium](https://stevenhessing.medium.com/) describe the ideas about how social media should be refactored. BYODA is a reference implementation of those ideas
 
 ## Tech overview
 The platform consists of:
