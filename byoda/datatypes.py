@@ -69,6 +69,11 @@ class CloudType(Enum):
     LOCAL                = 'LOCAL'
 
 
+class StorageType(Enum):
+    PRIVATE = 'private'
+    PUBLIC = 'public'
+
+
 class CsrSource(Enum):
     WEBAPI         = 1
     LOCAL          = 2

@@ -6,7 +6,6 @@ Class for modeling the (JSON) schema to validating data
 :license    : GPLv3
 '''
 
-from abc import abstractmethod
 import sys
 import json
 import logging
@@ -18,9 +17,8 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
-from fastjsonschema import JsonSchemaValueException
 from byoda.secrets.network_data_secret import NetworkDataSecret
-from byoda.secrets.service_data_secret import ServiceDataSecret     # noqa: F401
+from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.util import MessageSignature
 from byoda.util import ServiceSignature

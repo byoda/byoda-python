@@ -25,7 +25,6 @@ psycopg2-binary = "==2.8.6"
 fastjsonschema = "==2.15.1"
 dnspython = "==2.1.0"
 apache-libcloud = "==3.3.1"
-boto3 = "==1.17.42"
 htpasswd = "*"
 pyRFC3339 = "==1.1"
 SQLAlchemy = "==1.4.15"
@@ -35,7 +34,9 @@ strawberry-graphql = {extras = ["fastapi"], version = "*"}
 prometheus-fastapi-instrumentator = "*"
 python-graphql-client = "*"
 cd = "*"
-python-hcl2 = "*"
+boto3 = "*"
+azure-storage-blob = "*"
+azure-identity = "*"
 
 [dev-packages]
 

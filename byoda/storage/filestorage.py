@@ -62,8 +62,16 @@ class FileStorage:
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
             storage = AwsFileStorage(bucket_prefix, root_dir)
-        else:
+        elif cloud == CloudType.AZURE:
+            from .azure import AzureFileStorage
+            storage = AzureFileStorage(bucket_prefix, root_dir)
+        elif cloud == CloudType.LOCAL:
+            _LOGGER.debug('Using LOCAL storage')
             storage = FileStorage(root_dir)
+        else:
+            raise NotImplementedError(
+                f'There is no support for cloud {cloud}'
+            )
 
         _LOGGER.debug(f'Initialized {cloud} storage')
 
