@@ -50,9 +50,9 @@ class AzureFileStorage(FileStorage):
 
         self.buckets: Dict[str:str] = {
             StorageType.PRIVATE:
-                f'{bucket_prefix}-{StorageType.PRIVATE.value}.{domain}',
+                f'{bucket_prefix}{StorageType.PRIVATE.value}.{domain}',
             StorageType.PUBLIC:
-                f'{bucket_prefix}-{StorageType.PUBLIC.value}.{domain}'
+                f'{bucket_prefix}{StorageType.PUBLIC.value}.{domain}'
         }
         # Azure enforces the use of containers so we keep a cache of
         # authenticated ContainerClient instances for each container
@@ -163,12 +163,12 @@ class AzureFileStorage(FileStorage):
     def exists(self, filepath: str,
                storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
-        Checks is a file exists on S3 storage
+        Checks is a file exists on Azure object storage
 
         :param filepath: the key for the object on S3 storage
         :returns: bool on whether the key exists
         '''
-        if super().exists(filepath):
+        if storage_type == StorageType.PRIVATE and super().exists(filepath):
             _LOGGER.debug(f'{filepath} exists in local cache')
             return True
         else:
@@ -215,9 +215,11 @@ class AzureFileStorage(FileStorage):
         )
 
         container_client.create_container()
+        _LOGGER.debug(f'Created container {container}')
 
     def copy(self, source: str, dest: str,
-             file_mode: FileMode = FileMode.TEXT) -> None:
+             file_mode: FileMode = FileMode.TEXT,
+             storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Copies a file from the local file system to the Azure storage account
 
@@ -235,11 +237,12 @@ class AzureFileStorage(FileStorage):
         blob_client = container_client.get_blob_client(blob)
         file_desc = super().open(source, OpenMode.READ, file_mode)
         blob_client.upload_blob(file_desc)
-        _LOGGER.debug(
-            f'Uploaded {source} to {container}:{blob}')
+
+        _LOGGER.debug(f'Uploaded {source} to {container}:{blob}')
 
         # We populate the local disk cache also with the copy
-        super().copy(source, dest)
+        if storage_type == StorageType.PRIVATE:
+            super().copy(source, dest)
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
         '''

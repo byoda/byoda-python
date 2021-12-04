@@ -41,6 +41,8 @@ class FileStorage:
         else:
             self.local_path = '/' + local_path.strip('/') + '/'
 
+        os.makedirs(self.local_path, exists_ok=True)
+        
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
         self.bucket = bucket
 
