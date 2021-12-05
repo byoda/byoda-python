@@ -1,11 +1,18 @@
 '''
-Bring your own algorithm backend storage for the server.
+Bring your own data & algorithm backend storage for the server running on
+Azure.
 
-The directory server uses caching storage for server and client registrations
-The profile server uses noSQL storage for profile data
+For Azure, we use 'Managed Identity' assigned to a VM for authentication
+
+Assigning a managed identity to an existing VM using aAzure CLL:
+  az vm identity assign -g <resource-group> -n <vm-name>
+
+Azure rights to assign:
+  Contributor
+  Storage Blob Data Contributor
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2020, 2021
+:copyright  : Copyright 2021
 :license    : GPLv3
 '''
 
@@ -147,7 +154,8 @@ class AzureFileStorage(FileStorage):
         :param data: the data to be written to the file
         '''
 
-        super().write(filepath, data, file_mode=file_mode)
+        if storage_type == StorageType.PRIVATE:
+            super().write(filepath, data, file_mode=file_mode)
 
         container_client, container, blob = self._get_container_client(
             filepath, storage_type=storage_type
