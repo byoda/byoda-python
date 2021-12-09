@@ -40,7 +40,7 @@ sudo docker run -d --restart unless-stopped \
     -v /var/lib/postgresql/data:/var/lib/postgresql/data \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
-     postgres:latest
+     postgres:13
 
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client

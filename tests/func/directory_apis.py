@@ -43,7 +43,6 @@ from byoda.secrets import ServiceDataSecret
 
 from byoda.util.logger import Logger
 
-
 from byoda import config
 
 from byoda.datastore import DnsDb

@@ -8,7 +8,6 @@ import sys
 import os
 import shutil
 import unittest
-import subprocess
 from uuid import uuid4
 
 from byoda.util import Logger

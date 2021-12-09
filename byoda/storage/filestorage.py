@@ -13,7 +13,7 @@ import os
 import shutil
 import logging
 from enum import Enum
-from typing import List
+from typing import List, Tuple, BinaryIO
 from byoda.datatypes import CloudType
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class OpenMode(Enum):
 
 
 class FileMode(Enum):
-    TEXT     = ''           # noqa: E221
+    TEXT     = ''          # noqa: E221
     BINARY   = 'b'          # noqa: E221
 
 
@@ -36,21 +36,37 @@ class FileStorage:
     '''
 
     def __init__(self, local_path: str, bucket: str = None):
-        if not local_path:
-            self.local_path = '/tmp/'
-        else:
-            self.local_path = '/' + local_path.strip('/') + '/'
 
-        os.makedirs(self.local_path, exists_ok=True)
+        # These properties are only applicable if this instance
+        # is derived from one of the cloud-storage classes
+        self.cache_enabled = None
+        self.cache_path = None
+
+        if not isinstance(self, FileStorage):
+            if local_path:
+                self.cache_enabled = True
+                self.local_path: str = '/' + local_path.strip('/') + '/'
+                self.cache_path = self.local_path
+            else:
+                self.cache_enabled: bool = False
+                self.local_path: str = '/tmp/'
+        else:
+            if not local_path:
+                raise ValueError('Must specify local path')
+
+            self.local_path: str = '/' + local_path.strip('/') + '/'
+
+        os.makedirs(self.local_path, exist_ok=True)
 
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
-        self.bucket = bucket
 
     @staticmethod
-    def get_storage(cloud: CloudType, bucket_prefix: str, root_dir=str):
+    def get_storage(cloud: CloudType, bucket_prefix: str, root_dir: str = None
+                    ):
         '''
         Factory for FileStorage and classes derived from it
 
+        For GCP, the environment variable
         :param cloud: the cloud that we are looking to use for object
         storage
         :param bucket: the bucket storing the data
@@ -67,6 +83,9 @@ class FileStorage:
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
             storage = AzureFileStorage(bucket_prefix, root_dir)
+        elif cloud == CloudType.GCP:
+            from .gcp import GcpFileStorage
+            storage = GcpFileStorage(bucket_prefix, root_dir)
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
             storage = FileStorage(root_dir)
@@ -79,28 +98,49 @@ class FileStorage:
 
         return storage
 
+    def get_full_path(self, filepath: str, create_dir: bool = True
+                      ) -> Tuple[str, str]:
+        '''
+        Returns the absolute path for the file path relative
+        to the local directory
+
+        :param filepath: relative path to the file
+        :param create_dir: should an attempt be made to create the directory
+        :returns: dirpath (ending in '/'), filename
+        '''
+
+        # We mimic k/v store where there are no 'directories' or 'folders'
+        # that you have to create
+        relative_path, filename = os.path.split(filepath)
+        dirpath = self.local_path + relative_path
+
+        if create_dir:
+            os.makedirs(dirpath, exist_ok=True)
+
+        return dirpath + '/', filename
+
     def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,
-             file_mode: FileMode = FileMode.TEXT):
+             file_mode: FileMode = FileMode.BINARY) -> BinaryIO:
         '''
         Open a file on the local file system
         '''
 
-        # First we need to make sure the path in the local file system
-        # exists
-        path, filename = os.path.split(filepath)
-        self.create_directory(path, exist_ok=True)
+        dirpath, filename = self.get_full_path(filepath)
 
-        _LOGGER.debug('Opening local file %s', filepath)
-        return open(filepath, f'{open_mode.value}{file_mode.value}')
+        _LOGGER.debug(f'Opening local file {dirpath}{filename}')
+        return open(
+            dirpath + filename, f'{open_mode.value}{file_mode.value}'
+        )
 
-    def close(self, file_descriptor):
+    def close(self, file_descriptor: BinaryIO):
         '''
         Closes a file descriptor as returned by self.open()
         '''
 
         file_descriptor.close()
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.TEXT) -> str:
+    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
+             ) -> str:
         '''
         Read a file
 
@@ -109,14 +149,16 @@ class FileStorage:
         :returns: str or bytes, depending on the file_mode parameter
         '''
 
-        _LOGGER.debug('Reading local file %s', filepath)
-        with open(filepath, f'r{file_mode.value}') as file_desc:
+        dirpath, filename = self.get_full_path(filepath)
+
+        _LOGGER.debug(f'Reading local file {dirpath}{filename}')
+        with open(dirpath + filename, f'r{file_mode.value}') as file_desc:
             data = file_desc.read()
 
         return data
 
     def write(self, filepath: str, data: str,
-              file_mode: FileMode = FileMode.TEXT) -> None:
+              file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Writes a str or bytes to the local file system
 
@@ -124,15 +166,13 @@ class FileStorage:
         :param file_mode: read file as text or as binary
         '''
 
-        # We mimic k/v store where there are no 'directories' or 'folders'
-        # that you have to create
-        os.makedirs(os.path.split(filepath)[0], exist_ok=True)
+        dirpath, filename = self.get_full_path(filepath)
 
-        with open(filepath, f'w{file_mode.value}') as file_desc:
+        with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
     def append(self, filepath: str, data: str,
-               file_mode: FileMode = FileMode.TEXT):
+               file_mode: FileMode = FileMode.BINARY):
         '''
         Append data to a file
 
@@ -140,7 +180,10 @@ class FileStorage:
         :param data: array of data to write to the file
         :param file_mode: read file as text or as binary
         '''
-        with open(filepath, f'w{file_mode.value}') as file_desc:
+
+        dirpath, filename = self.get_full_path(filepath)
+
+        with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
     def exists(self, filepath: str) -> bool:
@@ -150,10 +193,35 @@ class FileStorage:
         :param filepath: location of the file on the file system
         :returns: whether the file exists or not
         '''
+
+        dirpath, filename = self.get_full_path(filepath, create_dir=False)
+
         exists = os.path.exists(filepath)
         if not exists:
-            _LOGGER.debug('File not found in local filesystem: %s', filepath)
+            _LOGGER.debug(
+                f'File not found in local filesystem: {dirpath}{filename}'
+            )
         return exists
+
+    def delete(self, filepath: str) -> bool:
+        '''
+        Delete the file from the local file system
+        :param filepath: location of the file on the file system
+        :returns: whether the file exists or not
+        '''
+
+        dirpath, filename = self.get_full_path(filepath)
+        try:
+            if filename:
+                try:
+                    os.remove(dirpath + filename)
+                except IsADirectoryError:
+                    shutil.rmtree(dirpath, ignore_errors=True)
+            else:
+                shutil.rmtree(dirpath, ignore_errors=True)
+            return True
+        except FileNotFoundError:
+            return False
 
     def get_url(self, public: bool = True) -> str:
         '''
@@ -174,7 +242,8 @@ class FileStorage:
         exists
         '''
 
-        return os.makedirs(directory, exist_ok=True)
+        dirpath, filename = self.get_full_path(directory, create_dir=False)
+        return os.makedirs(dirpath, exist_ok=True)
 
     def getmtime(self, filepath: str) -> float:
         '''
@@ -183,24 +252,26 @@ class FileStorage:
         :param filepath: location of the file on the file system
         :returns: the number of seconds since epoch that the file was modified
         '''
-        return os.stat.getmtime(filepath)
 
-    def delete(self, filepath: str) -> None:
-        return os.remove(filepath)
+        dirpath, filename = self.get_full_path(filepath)
+        return os.stat.getmtime(dirpath + filename)
 
-    def copy(self, source: str, dest: str) -> str:
+    def copy(self, src: str, dest: str) -> None:
         '''
         Copies a file on the local file system
-
-        :returns: path to the destination file
         '''
-        result = shutil.copy(source, dest)
+        src_dirpath, src_filename = self.get_full_path(src)
+        dest_dirpath, dest_filename = self.get_full_path(dest)
+        os.makedirs(dest_dirpath, exist_ok=True)
 
-        _LOGGER.debug(
-            'Copied %s to %s on the local file system', source, result
+        result = shutil.copy(
+            src_dirpath + src_filename, dest_dirpath + dest_filename
         )
 
-        return result
+        _LOGGER.debug(
+            f'Copied {src_dirpath}{src_filename} to '
+            f'{dest_dirpath}{dest_filename} on the local file system: {result}'
+        )
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
         '''
@@ -208,10 +279,9 @@ class FileStorage:
         '''
         folders = []
 
-        # Make sure the folder exists
-        self.create_directory(folder_path, exist_ok=True)
+        dir_path = self.get_full_path(folder_path)[0]
 
-        for directory in os.listdir(folder_path):
+        for directory in os.listdir(dir_path):
             if not prefix or directory.startswith(prefix):
                 folders.append(directory)
 

@@ -624,7 +624,7 @@ class Secret:
         self.storage_driver.create_directory(directory)
 
         self.storage_driver.write(
-            self.cert_file, data, file_mode=FileMode.TEXT
+            self.cert_file, data, file_mode=FileMode.BINARY
         )
 
         if self.private_key:
