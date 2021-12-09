@@ -10,7 +10,7 @@ The profile server uses noSQL storage for profile data
 '''
 
 import logging
-from typing import List
+from typing import Set
 
 import boto3
 
@@ -227,7 +227,7 @@ class AwsFileStorage(FileStorage):
 
     def get_folders(self, folder_path: str, prefix: str = None,
                     storage_type: StorageType = StorageType.PRIVATE
-                    ) -> List[str]:
+                    ) -> Set[str]:
         '''
         AWS S3 supports emulated folders through keys that end with a '/'
         '''
@@ -237,10 +237,10 @@ class AwsFileStorage(FileStorage):
             Bucket=self.buckets[storage_type.value],
             Prefix=folder_path, Delimiter='/'
         )
-        folders = []
+        folders = set()
         for folder in result.get('CommonPrefixes', []):
             final_path = folder['Prefix'].rstrip('/').split('/')[-1]
             if not prefix or final_path.startswith(prefix):
-                folders.append(folder['Prefix'])
+                folders.add(folder['Prefix'])
 
         return folders

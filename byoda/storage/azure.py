@@ -21,7 +21,7 @@ Azure rights to assign:
 '''
 
 import logging
-from typing import List, Dict
+from typing import Set, Dict
 
 
 from azure.identity import DefaultAzureCredential
@@ -290,7 +290,7 @@ class AzureFileStorage(FileStorage):
 
     def get_folders(self, folder_path: str, prefix: str = None,
                     storage_type: StorageType = StorageType.PRIVATE
-                    ) -> List[str]:
+                    ) -> Set[str]:
         '''
         Azure Storage let's you walk through blobs whose name start
         with a prefix
@@ -299,11 +299,11 @@ class AzureFileStorage(FileStorage):
         container_client, container, blob = self._get_container_client(
             folder_path, storage_type=storage_type
         )
-        folders = []
+        folders = set()
         for folder in container_client.walk_blobs(name_starts_with=prefix):
             if (folder.name.endswith('/')
                     and (not prefix or folder.name.startswith(prefix))):
-                folders.append(folder.name)
+                folders.add(folder.name)
 
         if prefix:
             _LOGGER.debug(
