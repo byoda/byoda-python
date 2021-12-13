@@ -94,9 +94,7 @@ class Network:
             except ValueError:
                 raise ValueError(f'Invalid role {role}')
 
-        self.root_dir: str = server.get(
-            'root_dir', os.environ['HOME'] + '.byoda'
-        )
+        self.root_dir: str = server['root_dir']
 
         self.private_key_password: str = server['private_key_password']
 

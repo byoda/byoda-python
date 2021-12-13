@@ -87,7 +87,7 @@ class PodServer(Server):
             raise ValueError(f'Already a member of service {service_id}')
 
         member = self.account.join(service_id=service_id)
-        key_filepath = member.tls_secret.sasave_tmp_private_key()
+        key_filepath = member.tls_secret.save_tmp_private_key()
         network = self.network
         if self.cloud != CloudType.LOCAL:
             nginx_config = NginxConfig(

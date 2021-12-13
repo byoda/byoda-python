@@ -27,7 +27,7 @@ class NetworkDataSecret(DataSecret):
         :param paths: instance of Paths class defining the directory structure
         and file names of a BYODA network
         :raises: ValueError if both 'paths' and 'network' parameters are
-        specified
+        specifiedq
         '''
 
         self.network = paths.network

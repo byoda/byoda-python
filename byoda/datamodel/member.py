@@ -95,7 +95,12 @@ class Member:
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
         # by the service
-        self.schema: Schema = self.load_schema()
+        try:
+            self.schema: Schema = self.load_schema()
+        except FileNotFoundError:
+            # We do not have the schema file for a service that the pod did
+            # not join yet
+            pass
 
         self.service = self.network.services[service_id]
 
@@ -114,14 +119,26 @@ class Member:
         self.data_secret = None
 
     @staticmethod
-    def create(service: Service, account: Account, members_ca:
-               MembersCaSecret = None):
+    def create(service: Service, schema_version: int,
+               account: Account, members_ca: MembersCaSecret = None):
         '''
         Factory for a new membership
         '''
 
-        member = Member(service.service_id, account)
+        member = Member(service.service_id, schema_version, account)
         member.member_id = uuid4()
+
+        member.service.download_schema(
+            filepath=member.paths.MEMBER_SERVICE_FILE
+        )
+        member.schema = member.load_schema()
+        if (schema_version is not None
+                and member.schema.version != schema_version):
+            raise ValueError(
+                f'Downloaded schema for service_id {service.service_id} '
+                f'has version {member.schema.version} instead of version '
+                f'{schema_version} as requested'
+            )
 
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
@@ -282,12 +299,6 @@ class Member:
                 network_data_secret=self.network.data_secret,
             )
         else:
-            # Pods should explicitly load an accepted schema, not
-            # just what the latest schema offered by a service. So we
-            # leave the below commented out
-            # self.service.download_schema(save=True, filepath=filepath)
-            # schema = Schema.get_schema(filepath, self.storage_driver)
-
             _LOGGER.exception(
                 f'Service contract file {filepath} does not exist for the '
                 'member'

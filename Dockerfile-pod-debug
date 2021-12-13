@@ -15,7 +15,7 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
         curl \
-		ca-certificates \
+        ca-certificates \
         libgirepository1.0-dev \
         libcairo2-dev \
         python3.9-dev \
@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y \
         pipenv \
         nginx \
     && apt-get -y clean \
-	&& rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 ###
 ### Byoda bits
@@ -39,9 +39,6 @@ RUN mkdir -p \
     byoda-python
 
 COPY podserver/files/index.html /var/www/wwwroot/
-
-# Install the Python packages before copying the code
-RUN pipenv install --system --deploy
 
 ###
 ### nginx bits
@@ -79,6 +76,7 @@ EXPOSE 22
 
 
 COPY . byoda-python/
+RUN cd /podserver/byoda-python && pipenv lock -r >requirements.txt && pip3 install  --no-cache-dir -r requirements.txt
 COPY podserver/files/config.yml byoda-python/
 COPY podserver/files/startup.sh .
 

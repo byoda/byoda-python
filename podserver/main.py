@@ -21,9 +21,7 @@ import os
 import sys
 
 import uvicorn
-from starlette.graphql import GraphQLApp
 
-import strawberry
 from strawberry.fastapi import GraphQLRouter
 
 from byoda import config
@@ -67,7 +65,7 @@ network_data = {
     'account_secret': os.environ.get('ACCOUNT_SECRET'),
     'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
     'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
-    'root_dir': os.environ.get('ROOT_DIR', '/byoda-pod'),
+    'root_dir': os.environ.get('ROOT_DIR', os.environ['HOME'] + '/.byoda'),
     'roles': ['pod'],
 }
 
@@ -116,7 +114,7 @@ try:
 except FileNotFoundError:
     if bootstrap:
         account.create_account_secret()
-        _LOGGER.info('Creating account secret during bootstrap')
+        _LOGGER.info('Created account secret during bootstrap')
     else:
         raise ValueError('Failed to load account TLS secret')
 
@@ -128,7 +126,7 @@ try:
 except FileNotFoundError:
     if bootstrap:
         account.create_data_secret()
-        _LOGGER.info('Creating account secret during bootstrap')
+        _LOGGER.info('Created account secret during bootstrap')
     else:
         raise ValueError('Failed to load account TLS secret')
 

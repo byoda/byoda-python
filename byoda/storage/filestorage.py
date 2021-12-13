@@ -112,7 +112,13 @@ class FileStorage:
         # We mimic k/v store where there are no 'directories' or 'folders'
         # that you have to create
         relative_path, filename = os.path.split(filepath)
-        dirpath = self.local_path + relative_path
+
+        # Special case for LOCAL storage, where we do not need to prefix
+        # the path with the local path for cache storage
+        if self.cache_enabled:
+            dirpath = self.local_path + relative_path
+        else:
+            dirpath = relative_path
 
         if create_dir:
             os.makedirs(dirpath, exist_ok=True)
@@ -157,7 +163,7 @@ class FileStorage:
 
         return data
 
-    def write(self, filepath: str, data: str,
+    def write(self, filepath: str, data: bytes,
               file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Writes a str or bytes to the local file system
@@ -165,6 +171,9 @@ class FileStorage:
         :param filepath: location of the file on the file system
         :param file_mode: read file as text or as binary
         '''
+
+        if isinstance(data, str) and file_mode == FileMode.BINARY:
+            data = data.encode('utf-8')
 
         dirpath, filename = self.get_full_path(filepath)
 

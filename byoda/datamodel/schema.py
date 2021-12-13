@@ -17,6 +17,8 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
+from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
+
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 

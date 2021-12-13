@@ -72,7 +72,7 @@ class Paths:
 
     # Downloads
     NETWORK_CERT_DOWNLOAD      = 'https://dir.{network}/root-ca.pem'                                                                      # noqa
-    NETWORK_DATACERT_DOWNLOAD  = 'https://dir.{network}/root-ca.pem'                                                                      # noqa
+    NETWORK_DATACERT_DOWNLOAD  = 'https://dir.{network}/root-data.pem'                                                                    # noqa
     SERVICE_DATACERT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'    # noqa
     SERVICE_CONTRACT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/service-contract.json'                                   # noqa
 
@@ -126,7 +126,7 @@ class Paths:
 
         _LOGGER.debug(
             f'Got template {path_template}, service_id {service_id} and '
-            'member_id {member_id}'
+            f'member_id {member_id}'
         )
         if service_id is None:
             _LOGGER.debug(f'Setting service_id to {self.service_id}')

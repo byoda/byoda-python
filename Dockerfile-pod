@@ -40,9 +40,6 @@ RUN mkdir -p \
 
 COPY podserver/files/index.html /var/www/wwwroot/
 
-# Install the Python packages before copying the code
-RUN pipenv install --system --deploy
-
 ###
 ### nginx bits
 ###
@@ -59,6 +56,7 @@ RUN touch /etc/nginx/htaccess.db
 EXPOSE 443
 
 COPY . byoda-python/
+RUN cd /podserver/byoda-python && pipenv lock -r >requirements.txt && pip3 install  --no-cache-dir -r requirements.txt
 COPY podserver/files/config.yml byoda-python/
 COPY podserver/files/startup.sh .
 

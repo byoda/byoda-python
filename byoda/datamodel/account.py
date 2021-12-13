@@ -245,9 +245,10 @@ class Account:
             member.data.load_protected_shared_key()
         except FileNotFoundError:
             if bootstrap:
-                if not member:
-                    member.member_id = uuid4()
                 if not member.tls_secret or not member.data_secret:
+                    if not member.member_id:
+                        member.member_id = uuid4()
+
                     member.create_secrets()
 
                 if not member.paths._exists(member.paths.MEMBER_SERVICE_FILE):
@@ -258,7 +259,9 @@ class Account:
                         save=True, filepath=filepath
                     )
                     member.schema = Schema.get_schema(
-                        filepath, member.storage_driver
+                        filepath, member.storage_driver,
+                        member.service.data_secret,
+                        self.network.data_secret
                     )
 
                 filepath = member.paths.get(
@@ -293,7 +296,8 @@ class Account:
         )
 
     def join(self, service: Service = None, service_id: int = None,
-             members_ca: MembersCaSecret = None) -> Member:
+             schema_version: int = None, members_ca: MembersCaSecret = None
+             ) -> Member:
         '''
         Join a service for the first time
         '''
@@ -314,7 +318,7 @@ class Account:
         if not self.paths.member_directory_exists(service.service_id):
             self.paths.create_member_directory(service.service_id)
 
-        member = Member.create(service, self, members_ca)
+        member = Member.create(service, schema_version, self, members_ca)
 
         self.memberships[member.member_id] = member
 
