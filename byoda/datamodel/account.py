@@ -251,9 +251,9 @@ class Account:
 
                     member.create_secrets()
 
-                if not member.paths._exists(member.paths.MEMBER_SERVICE_FILE):
+                if not member.paths._exists(member.paths.SERVICE_FILE):
                     filepath = member.paths.get(
-                        member.paths.MEMBER_SERVICE_FILE
+                        member.paths.SERVICE_FILE
                     )
                     member.service.download_schema(
                         save=True, filepath=filepath

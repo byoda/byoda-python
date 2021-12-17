@@ -13,6 +13,7 @@ from copy import copy
 from typing import Dict, TypeVar, Callable
 
 from strawberry.types import Info
+from byoda.datamodel import schema
 
 from byoda.datatypes import CsrSource, CloudType, IdType
 
@@ -57,6 +58,7 @@ class Member:
 
         self.member_id: UUID = None
         self.service_id: int = int(service_id)
+
         self.account: Account = account
         self.network: Network = self.account.network
 
@@ -78,14 +80,26 @@ class Member:
                 self.paths.get(Paths.SERVICE_DIR), exist_ok=True
             )
 
-            filepath = self.paths.get(Paths.MEMBER_SERVICE_FILE)
+            # Here we read the service contract as currently published
+            # by the service, which may differ from the one we have
+            # previously accepted
+            filepath = self.paths.get(Paths.SERVICE_FILE)
             try:
                 self.service = Service.get_service(
-                    self.network, filepath=filepath
+                    self.network, filepath=filepath,
+                    account=self.account.account
                 )
+                self.service.verify_schema_signatures()
             except FileNotFoundError:
+                # if the service contract is not yet available for
+                # this membership then it should be downloaded at
+                # a later point
+                _LOGGER.info(
+                    f'Service contract file {filepath} does not exist'
+                )
                 self.service = Service(
-                    self.network, service_id=self.service_id
+                    self.network, service_id=self.service_id,
+                    account=self.account.account
                 )
 
                 self.service.download_data_secret(save=True, failhard=False)
@@ -125,13 +139,15 @@ class Member:
         Factory for a new membership
         '''
 
-        member = Member(service.service_id, schema_version, account)
+        member = Member(service.service_id, account)
         member.member_id = uuid4()
 
         member.service.download_schema(
             filepath=member.paths.MEMBER_SERVICE_FILE
         )
+
         member.schema = member.load_schema()
+
         if (schema_version is not None
                 and member.schema.version != schema_version):
             raise ValueError(

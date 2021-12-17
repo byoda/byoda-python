@@ -157,7 +157,8 @@ class Paths:
 
     @staticmethod
     def resolve(path_template: str, network: str, service_id: int = None,
-                member_id: UUID = None, account_id: UUID = None) -> str:
+                member_id: UUID = None, account_id: UUID = None,
+                account: str = None) -> str:
         '''
         Resolves variables in a string without requiring an instance
         of the Paths class. For file-system paths, this function does
@@ -174,12 +175,18 @@ class Paths:
             path = path.replace('{member_id}', str(member_id))
 
         if account_id:
-            path = path.format('{account_id}', str(account_id))
+            path = path.replace('{account_id}', str(account_id))
+
+        if account:
+            path = path.replace('{account}', account)
 
         # Remove any unresolved variables in the template
         for param in '/{member_id}', '/{account_id}', '/{service_id}':
             if param in path:
                 path = path.replace(param, '')
+
+        if path[0] != '/' and not path.startswith('http'):
+            path = self._root_directory + '/' + path
 
         return path
 

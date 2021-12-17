@@ -92,6 +92,8 @@ class Schema:
         self.gql_schema: List = []
 
         self.verified_signatures: Set[MessageSignature] = set()
+        self._service_signature: ServiceSignature = None
+        self._network_signature: NetworkSignature = None
 
         # This is a callable to validate data against the JSON schema
         self.validate: fastjsonschema.validate = None
@@ -132,7 +134,7 @@ class Schema:
         '''
 
         try:
-            self.service_signature = ServiceSignature.from_dict(
+            self._service_signature = ServiceSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.SERVICE.value
                 ),
@@ -148,7 +150,7 @@ class Schema:
                 raise
 
         try:
-            self.network_signature = NetworkSignature.from_dict(
+            self._network_signature = NetworkSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.NETWORK.value
                 ),
@@ -499,10 +501,13 @@ class Schema:
         if not network_signature:
             raise ValueError('No network signature avaiable')
 
-        return network_signature.get['signature']
+        return self._network_signature
 
     @network_signature.setter
     def network_signature(self, value: MessageSignature):
+        '''
+        Updates the Network signature in the json_schema dict
+        '''
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 'Support email must be an MessageSignature, '
@@ -512,11 +517,15 @@ class Schema:
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
+        self._network_signature = value
+
         network_signature = self.json_schema['signatures'].get('network')
         if not network_signature:
             self.json_schema['signatures']['network'] = {}
 
         self.json_schema['signatures']['network'] = value.as_dict()
+
+        return value
 
     @property
     def service_signature(self) -> MessageSignature:
@@ -527,10 +536,14 @@ class Schema:
         if not service_signature:
             raise ValueError('No service signature avaiable')
 
-        return service_signature.get['signature']
+        return self._service_signature
 
     @service_signature.setter
-    def service_signature(self, value: MessageSignature):
+    def service_signature(self, value: MessageSignature) -> MessageSignature:
+        '''
+        Updates the Service signature in the json_schema dict
+        '''
+
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 f'service_signature must be an MessageSignature, '
@@ -540,11 +553,15 @@ class Schema:
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
+        self._service_signature = value
+
         service_signature = self.json_schema['signatures'].get('service')
         if not service_signature:
             self.json_schema['signatures']['service'] = {}
 
         self.json_schema['signatures']['service'] = value.as_dict()
+
+        return self._service_signature
 
     @property
     def signatures(self):
