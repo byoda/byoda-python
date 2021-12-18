@@ -501,8 +501,6 @@ class Schema:
         if not network_signature:
             raise ValueError('No network signature avaiable')
 
-        return self._network_signature
-
     @network_signature.setter
     def network_signature(self, value: MessageSignature):
         '''
@@ -525,7 +523,6 @@ class Schema:
 
         self.json_schema['signatures']['network'] = value.as_dict()
 
-        return value
 
     @property
     def service_signature(self) -> MessageSignature:
