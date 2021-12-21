@@ -70,17 +70,17 @@ class NginxConfig(TargetConfig):
         public bucket
         '''
 
-        self.identifier = identifier
-        self.subdomain = subdomain
-        self.alias = alias
-        self.cert_filepath = cert_filepath
-        self.key_filepath = key_filepath
-        self.network = network
-        self.public_cloud_endpoint = public_cloud_endpoint
-        self.directory = directory
-        self.filename = filename
-        self.root_dir = root_dir
-        self.port = port
+        self.identifier: str = str(identifier)
+        self.subdomain: str = subdomain
+        self.alias: str = alias
+        self.cert_filepath: str = cert_filepath
+        self.key_filepath: str = key_filepath
+        self.network: str = network
+        self.public_cloud_endpoint: str = public_cloud_endpoint
+        self.directory: str = directory
+        self.filename: str = filename
+        self.root_dir: str = root_dir
+        self.port: int = port
 
         if self.subdomain == IdType.ACCOUNT.value:
             self.config_filepath = f'{directory}/account.conf'
@@ -115,7 +115,7 @@ class NginxConfig(TargetConfig):
                 templ = Template(file_desc.read())
 
         output = templ.render(
-            identifier=self.identifier,
+            identifier=str(self.identifier),
             subdomain=self.subdomain,
             cert_filepath=self.cert_filepath,
             key_filepath=self.key_filepath,

@@ -93,15 +93,15 @@ nginx_config = NginxConfig(
     filename='virtualserver.conf',
     identifier=network_data['account_id'],
     subdomain=IdType.ACCOUNT.value,
-    cert_filepath='',
-    key_filepath='',
+    cert_filepath=account.tls_secret.cert_file,
+    key_filepath=account.tls_secret.unencrypted_private_key_file,
     alias=network.paths.account,
     network=network.name,
     public_cloud_endpoint=network.paths.storage_driver.get_url(
         public=True
     ),
     port=PodServer.HTTP_PORT,
-    root_dir=server.network.paths.root_directory
+    root_dir=server.network.paths.root_directory()
 )
 
 nginx_config.create()

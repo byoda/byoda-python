@@ -142,20 +142,22 @@ class Member:
         if not self.member_id:
             self.load_secrets()
 
+        self.tls_secret.save_tmp_private_key()
+        
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
             identifier=self.member_id,
-            subdomain=f'{IdType.MEMBER.value}-{self.service_id}',
-            cert_filepath='',
-            key_filepath='',
+            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
+            cert_filepath=self.tls_secret.cert_file,
+            key_filepath=self.tls_secret.unencrypted_private_key_file,
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
                 public=True
             ),
             port=PodServer.HTTP_PORT,
-            root_dir=config.server.network.paths.root_directory
+            root_dir=config.server.network.paths.root_directory()
         )
 
         nginx_config.create()

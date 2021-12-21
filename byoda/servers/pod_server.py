@@ -34,6 +34,7 @@ class PodServer(Server):
 
         self.server_type = ServerType.Pod
         self.service_summaries: List = None
+        self.account_unencrypted_private_key_file: str = None
 
     def load_secrets(self, password: str = None):
         '''
