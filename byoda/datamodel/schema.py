@@ -6,6 +6,7 @@ Class for modeling the (JSON) schema to validating data
 :license    : GPLv3
 '''
 
+import os
 import sys
 import json
 import logging
@@ -295,6 +296,9 @@ class Schema:
             service_id=self.service_id,
             classes=classes, type_map=TYPE_MAP
         )
+
+        # TODO: not elegant when not running in container or Visual Code
+        os.makedirs(CODEGEN_DIRECTORY, exist_ok=True)
 
         with open(code_filename, 'w') as file_desc:
             file_desc.write(code)
