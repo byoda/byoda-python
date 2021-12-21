@@ -82,7 +82,11 @@ class NginxConfig(TargetConfig):
         self.root_dir = root_dir
         self.port = port
 
-        self.config_filepath = f'{directory}/{filename}'
+        if self.subdomain == IdType.ACCOUNT.value:
+            self.config_filepath = f'{directory}/account.conf'
+        else:
+            self.config_filepath = f'{directory}/member-{identifier}.conf'
+
         self.template_filepath = f'{directory}/{filename}' + '.jinja2'
 
     def exists(self) -> bool:

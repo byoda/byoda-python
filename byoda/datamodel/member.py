@@ -168,24 +168,23 @@ class Member:
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
 
-        if config.server.cloud != CloudType.LOCAL:
-            nginx_config = NginxConfig(
-                directory=NGINX_SITE_CONFIG_DIR,
-                filename='virtualserver.conf',
-                identifier=member.member_id,
-                subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
-                cert_filepath='',
-                key_filepath='',
-                alias=account.network.paths.account,
-                network=account.network.name,
-                public_cloud_endpoint=member.paths.storage_driver.get_url(
-                    public=True
-                ),
-            )
+        nginx_config = NginxConfig(
+            directory=NGINX_SITE_CONFIG_DIR,
+            filename='virtualserver.conf',
+            identifier=member.member_id,
+            subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
+            cert_filepath='',
+            key_filepath='',
+            alias=account.network.paths.account,
+            network=account.network.name,
+            public_cloud_endpoint=member.paths.storage_driver.get_url(
+                public=True
+            ),
+        )
 
-            if not nginx_config.exists():
-                nginx_config.create()
-                nginx_config.reload()
+        if not nginx_config.exists():
+            nginx_config.create()
+            nginx_config.reload()
 
         return member
 
