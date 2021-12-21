@@ -68,7 +68,7 @@ class Account:
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
-        self.memberships: Dict[str, Member] = dict()
+        self.memberships: Dict[int, Member] = dict()
 
         self.network: Network = network
 

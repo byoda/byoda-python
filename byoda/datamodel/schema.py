@@ -523,7 +523,6 @@ class Schema:
 
         self.json_schema['signatures']['network'] = value.as_dict()
 
-
     @property
     def service_signature(self) -> MessageSignature:
         if not self.json_schema:

@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Current File",
             "type": "python",
@@ -94,6 +95,25 @@
             }
         },
         {
+            "program": "podserver/podworker.py",
+            "name": "podworker",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CLOUD": "LOCAL",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda",
+                "BOOTSTRAP": "BOOTSTRAP",
+                "PYTHONPATH": "."
+            }
+        },
+        {
             "name": "create_service_secrets",
             "type": "python",
             "request": "launch",
@@ -108,7 +128,7 @@
             ],
             "env": {
                 "PYTHONPATH": "."
-            },
+            }
         },
         {
             "name": "sign data contract",
