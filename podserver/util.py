@@ -75,4 +75,3 @@ def get_environment_vars() -> Dict:
         data['daemonize'] = True
 
     return data
-

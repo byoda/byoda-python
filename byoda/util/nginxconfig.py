@@ -150,7 +150,9 @@ class NginxConfig(TargetConfig):
                 try:
                     pid = int(file_desc.readline().strip())
                     os.kill(pid, signal.SIGHUP)
-                    _LOGGER.debug('Sent SIGHUB to nginx process with pid %s', pid)
+                    _LOGGER.debug(
+                        'Sent SIGHUP to nginx process with pid %s', pid
+                    )
                 except ValueError:
                     # No valid value in pid file means that nginx is not
                     # running, which can happen on a dev workstation

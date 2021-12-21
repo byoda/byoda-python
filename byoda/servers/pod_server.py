@@ -83,7 +83,7 @@ class PodServer(Server):
         if service_id in self.account.memberships:
             raise ValueError(f'Already a member of service {service_id}')
 
-        member = self.account.join(service_id=service_id)
+        self.account.join(service_id=service_id)
 
     def load_joined_services(self, network) -> None:
         '''

@@ -143,7 +143,7 @@ class Member:
             self.load_secrets()
 
         self.tls_secret.save_tmp_private_key()
-        
+
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',

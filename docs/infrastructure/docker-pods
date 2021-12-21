@@ -14,13 +14,19 @@ else
     echo "Docker build failed"
 fi
 
-docker stop byoda; docker rm byoda; docker run \
+sudo docker stop byoda
+sudo docker rm byoda
+sudo rm -rf /byoda
+sudo mkdir /byoda
+ACCOUNT_ID=$(uuid -v 4)
+echo "Creating container for account_id ${ACCOUNT_ID}"
+sudo docker run \
     --name byoda \
-    -p 444:443 -p 2222:22 \
+    -p 443:443 -p 2222:22 \
     -e "CLOUD=LOCAL" \
     -e "BUCKET_PREFIX=byoda" \
     -e "NETWORK=byoda.net" \
-    -e "ACCOUNT_ID=9794044e-4024-48e0-b346-069dddd6764a" \
+    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=supersecret" \
     -e "LOGLEVEL=DEBUG" \
     -e "PRIVATE_KEY_SECRET=byoda" \
