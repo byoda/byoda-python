@@ -243,6 +243,7 @@ class Account:
                 member, member.paths, member.document_store
             )
             member.data.load_protected_shared_key()
+            member.create_nginx_config()
         except FileNotFoundError:
             if bootstrap:
                 if not member.tls_secret or not member.data_secret:

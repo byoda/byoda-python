@@ -13,9 +13,10 @@ from copy import copy
 from typing import Dict, TypeVar, Callable
 
 from strawberry.types import Info
-from byoda.datamodel import schema
 
-from byoda.datatypes import CsrSource, CloudType, IdType
+from byoda.servers import PodServer
+
+from byoda.datatypes import CsrSource, IdType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
@@ -132,6 +133,34 @@ class Member:
         self.tls_secret = None
         self.data_secret = None
 
+    def create_nginx_config(self):
+        '''
+        Generates the Nginx virtual server configuration for
+        the membership
+        '''
+
+        if not self.member_id:
+            self.load_secrets()
+
+        nginx_config = NginxConfig(
+            directory=NGINX_SITE_CONFIG_DIR,
+            filename='virtualserver.conf',
+            identifier=self.member_id,
+            subdomain=f'{IdType.MEMBER.value}-{self.service_id}',
+            cert_filepath='',
+            key_filepath='',
+            alias=self.network.paths.account,
+            network=self.network.name,
+            public_cloud_endpoint=self.paths.storage_driver.get_url(
+                public=True
+            ),
+            port=PodServer.HTTP_PORT,
+            root_dir=config.server.network.paths.root_directory
+        )
+
+        nginx_config.create()
+        nginx_config.reload()
+
     @staticmethod
     def create(service: Service, schema_version: int,
                account: Account, members_ca: MembersCaSecret = None):
@@ -167,24 +196,6 @@ class Member:
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
-
-        nginx_config = NginxConfig(
-            directory=NGINX_SITE_CONFIG_DIR,
-            filename='virtualserver.conf',
-            identifier=member.member_id,
-            subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
-            cert_filepath='',
-            key_filepath='',
-            alias=account.network.paths.account,
-            network=account.network.name,
-            public_cloud_endpoint=member.paths.storage_driver.get_url(
-                public=True
-            ),
-        )
-
-        if not nginx_config.exists():
-            nginx_config.create()
-            nginx_config.reload()
 
         return member
 

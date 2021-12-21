@@ -10,12 +10,8 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar, Dict, List
 
-from byoda.datatypes import CloudType, IdType
-
 from byoda.util.api_client import RestApiClient
 from byoda.util import Paths
-
-from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 from byoda import config
 
@@ -83,30 +79,10 @@ class PodServer(Server):
         Join a service
         '''
 
-        if service_id in self.network.services:
+        if service_id in self.account.memberships:
             raise ValueError(f'Already a member of service {service_id}')
 
         member = self.account.join(service_id=service_id)
-        key_filepath = member.tls_secret.save_tmp_private_key()
-        network = self.network
-        if self.cloud != CloudType.LOCAL:
-            nginx_config = NginxConfig(
-                directory=NGINX_SITE_CONFIG_DIR,
-                filename='virtualserver.conf',
-                identifier=member.member_id,
-                subdomain=IdType.MEMBER.value,
-                cert_filepath=member.tls_secret.cert_file,
-                key_filepath=key_filepath,
-                network=network.name,
-                public_cloud_endpoint=network.paths.storage_driver.get_url(
-                    public=True
-                ),
-                port=self.HTTP_PORT,
-                root_dir=self.network.paths.root_directory
-            )
-
-            nginx_config.create()
-            nginx_config.reload()
 
     def load_joined_services(self, network) -> None:
         '''
