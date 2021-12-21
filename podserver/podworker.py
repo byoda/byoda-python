@@ -100,6 +100,15 @@ def run_bootstrap_tasks(data: Dict):
         account.tls_secret.load(
             password=account.private_key_password
         )
+        common_name = account.tls_secret.common_name
+        if not common_name.startswith(str(account.account_id)):
+            error_msg = (
+                f'Common name of existing account secret {common_name}'
+                'does not match ACCOUNT_ID environment variable '
+                f'{data["account_id"]}'
+            )
+            _LOGGER.exception(error_msg)
+            raise ValueError(error_msg)
         _LOGGER.debug('Read account TLS secret')
     except FileNotFoundError:
         account.create_account_secret()
