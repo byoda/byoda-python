@@ -52,10 +52,14 @@ def get_environment_vars() -> Dict:
         'account_secret': os.environ.get('ACCOUNT_SECRET'),
         'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
-        'root_dir': os.environ.get('ROOT_DIR', os.environ['HOME'] + '/.byoda'),
+        'root_dir': os.environ.get('ROOT_DIR'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
         'roles': ['pod'],
     }
+
+    if data['cloud'] == CloudType.LOCAL and not data['root_dir']:
+        data['root_dir'] = os.environ['HOME'] + '/.byoda'
+
     data['debug'] = False
 
     if data.get('loglevel', '').upper() == 'DEBUG':
