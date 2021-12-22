@@ -27,7 +27,7 @@ if [ "${WORKERS}" = "" ]; then
     WORKERS=2
 fi
 
-uvicorn --chdir /podserver/byoda-python --port 8001 --workers ${WORKERS} --no-use-colors --proxy-headers --forwarded-allow-ips 127.0.0.1 podserver.main:app
+uvicorn --port 8001 --workers ${WORKERS} --no-use-colors --proxy-headers --forwarded-allow-ips 127.0.0.1 podserver.main:app
 
 # Wait for 15 minutes if we crash so the owner of the pod can check the logs
 if [[ "$?" != "0" ]]; then
