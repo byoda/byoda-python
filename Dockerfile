@@ -1,1 +1,1 @@
-Dockerfile-pod-debug
+Dockerfile-pod

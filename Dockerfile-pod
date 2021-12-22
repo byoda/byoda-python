@@ -1,13 +1,14 @@
-FROM ubuntu:hirsute
+FROM ubuntu:impish
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 # TODO
-# 1: run gunicorn/uvicorn/fastapi/app as non-root user
+# 1: run uvicorn/fastapi/app as non-root user
 # 2: use nginx from Nginx Inc docker repo
 # 3: optimize for size
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8
 WORKDIR /podserver
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8001/api/v1/status || exit 1
@@ -15,7 +16,7 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
         curl \
-		ca-certificates \
+        ca-certificates \
         libgirepository1.0-dev \
         libcairo2-dev \
         python3.9-dev \
@@ -25,7 +26,7 @@ RUN apt-get update && apt-get install -y \
         pipenv \
         nginx \
     && apt-get -y clean \
-	&& rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 ###
 ### Byoda bits

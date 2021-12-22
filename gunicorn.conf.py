@@ -1,3 +1,18 @@
+'''
+Gunicorn acts as process manager for uvicorn. Gunicorn does not support ASGI,
+uvicorn does
+
+Supported environment variables:
+  - WORKERS: number of processes to be launched by gunicorn, defaults to 2.
+    Setting it to 0 will cause workers to be launched based on the number of
+    cores in the pod
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021
+:license    : GPLv3
+'''
+
+import os
 import multiprocessing
 
 # Sample config file:
@@ -7,5 +22,9 @@ import multiprocessing
 
 forwarded_allow_ips = "127.0.0.1"
 
-workers = multiprocessing.cpu_count() * 2 + 1
+workers = os.environ.get('WORKERS', 2)
+
+if workers == 0:
+    workers = multiprocessing.cpu_count() * 2 + 1
+
 worker_class = "uvicorn.workers.UvicornWorker"

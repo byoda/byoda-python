@@ -14,26 +14,29 @@ else
     echo "Docker build failed"
 fi
 
+LOGLEVEL=INFO
+ACCOUNT_ID=$(uuid -v 4)
+CLOUD="LOCAL"
+ROOT_DIR="/byoda"
 sudo docker stop byoda
 sudo docker rm byoda
-sudo rm -rf /byoda
-sudo mkdir /byoda
-ACCOUNT_ID=$(uuid -v 4)
+sudo rm -rf ${ROOT_DIR}
+sudo mkdir -p ${ROOT_DIR}
 echo "Creating container for account_id ${ACCOUNT_ID}"
 sudo docker run \
     --name byoda \
     -p 443:443 -p 2222:22 \
-    -e "CLOUD=LOCAL" \
+    -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=byoda" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=supersecret" \
-    -e "LOGLEVEL=DEBUG" \
+    -e "LOGLEVEL=${LOGLEVEL}" \
     -e "PRIVATE_KEY_SECRET=byoda" \
     -e "PYTHONPATH=/home/steven/src/byoda-python" \
     -e "BOOTSTRAP=BOOTSTRAP" \
-    -e "ROOT_DIR=/byoda" \
-    -v /byoda:/byoda \
+    -e "ROOT_DIR=${ROOT_DIR}" \
+    -v ${ROOT_DIR}:/${ROOT_DIR} \
     byoda/byoda-pod:latest
 ```
 
