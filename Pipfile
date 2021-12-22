@@ -28,7 +28,7 @@ htpasswd = "*"
 pyRFC3339 = "==1.1"
 SQLAlchemy = "==1.4.15"
 Jinja2 = "==3.0.1"
-passgen = "1.1.1"
+passgen = "==1.1.1"
 strawberry-graphql = {extras = ["fastapi"], version = "*"}
 prometheus-fastapi-instrumentator = "*"
 python-graphql-client = "*"
