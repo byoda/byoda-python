@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-gunicorn = "==20.0.4"
 uvloop = "==0.15.2"
 httptools = "==0.1.1"
 uvicorn = {version = "==0.13.4", extras = ["standard"]}
