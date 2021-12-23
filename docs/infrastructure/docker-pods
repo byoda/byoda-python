@@ -26,6 +26,7 @@ fi
 
 sudo docker stop byoda
 sudo docker rm byoda
+sudo docker image rm byoda/byoda-pod
 sudo rm -rf ${ROOT_DIR}
 sudo mkdir -p ${ROOT_DIR}
 echo "Creating container for account_id ${ACCOUNT_ID}"

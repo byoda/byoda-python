@@ -29,7 +29,7 @@ if [ "${WORKERS}" = "" ]; then
 fi
 
 
-gunicorn -c gunicorn.conf.py podserver.main:app
+pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app
 
 # Wait for 15 minutes if we crash so the owner of the pod can check the logs
 if [[ "$?" != "0" ]]; then

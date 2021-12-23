@@ -28,7 +28,7 @@ from azure.identity import DefaultAzureCredential
 
 # Import the client object from the SDK library
 from azure.storage.blob import ContainerClient
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 
 from byoda.datatypes import StorageType
 
@@ -269,7 +269,14 @@ class AzureFileStorage(FileStorage):
             directory, storage_type=storage_type
         )
 
-        container_client.create_container()
+        try:
+            container_client.create_container()
+        except ResourceExistsError as exc:
+            if not exist_ok:
+                raise PermissionError(
+                    f'Container {container} already exists: {exc}'
+                )
+
         _LOGGER.debug(f'Created container {container}')
 
     def copy(self, source: str, dest: str,
