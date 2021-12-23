@@ -17,7 +17,13 @@ fi
 LOGLEVEL=INFO
 CLOUD="LOCAL"
 ROOT_DIR="/byoda"
-ACCOUNT_ID=$(uuid -v 4)
+if [ -f "~/.byoda-account_id" ]; then
+    ACCOUNT_ID=$(cat ~/.byoda-account_id)
+else
+    ACCOUNT_ID=$(uuid -v 4)
+    echo $ACCOUNT_ID >~/.byoda-account_id
+fi
+
 sudo docker stop byoda
 sudo docker rm byoda
 sudo rm -rf ${ROOT_DIR}

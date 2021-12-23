@@ -21,14 +21,15 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 
-byoda-python/podserver/podworker.py
+cd /podserver/byoda-python
+pipenv run podserver/podworker.py
 
 if [ "${WORKERS}" = "" ]; then
     WORKERS=2
 fi
 
 
-gunicorn --chdir /podserver/byoda-python -c /podserver/byoda-python/gunicorn.conf.py --pythonpath /podserver/byoda-python podserver.main:app
+gunicorn -c gunicorn.conf.py podserver.main:app
 
 # Wait for 15 minutes if we crash so the owner of the pod can check the logs
 if [[ "$?" != "0" ]]; then

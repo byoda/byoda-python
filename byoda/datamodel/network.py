@@ -140,9 +140,9 @@ class Network:
 
         else:
             if not self.root_ca.cert:
-                if self.root_ca.cert_file_exists():
+                try:
                     self.root_ca.load(with_private_key=False)
-                else:
+                except FileNotFoundError:
                     resp = ApiClient.call(
                         Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
                     )
@@ -156,9 +156,9 @@ class Network:
                     self.root_ca.save()
 
             if not self.data_secret.cert:
-                if self.data_secret.cert_file_exists():
+                try:
                     self.data_secret.load(with_private_key=False)
-                else:
+                except FileNotFoundError:
                     resp = ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )
