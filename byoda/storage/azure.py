@@ -48,7 +48,7 @@ class AzureFileStorage(FileStorage):
         Abstraction of storage of files on Azure storage accounts
 
         :param bucket_prefix: prefix of the storage account, to which
-        '-private' and '-public' will be appended
+        'private' and 'public' will be appended
         :param cache_path: path to the cache on the local file system
         '''
 
@@ -87,9 +87,14 @@ class AzureFileStorage(FileStorage):
 
         if '/' not in filepath:
             filepath = filepath + '/'
+        else:
+            filepath = filepath.lstrip('/')
 
         container, blob = filepath.split('/', 1)
 
+        _LOGGER.debug(
+            f'Finding container client for {container} with blob {blob}'
+        )
         if container not in self.clients[storage_type.value]:
             url = self.buckets[storage_type.value]
             container_client = ContainerClient(
@@ -138,8 +143,14 @@ class AzureFileStorage(FileStorage):
 
         # Download the data from the blob and save it to disk cache
         # TODO: can we do async / await here?
-        download_stream = blob_client.download_blob()
-        data = download_stream.readall()
+        try:
+            download_stream = blob_client.download_blob()
+            data = download_stream.readall()
+        except ResourceNotFoundError as exc:
+            raise FileNotFoundError(
+                f'Azure blob {blob} not found in {container}: {exc}'
+            )
+
         file_desc = super().open(
             filepath, OpenMode.WRITE, file_mode=file_mode
         )

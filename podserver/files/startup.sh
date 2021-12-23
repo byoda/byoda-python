@@ -21,7 +21,7 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 
-podserver/podworker.py
+byoda-python/podserver/podworker.py
 
 if [ "${WORKERS}" = "" ]; then
     WORKERS=2

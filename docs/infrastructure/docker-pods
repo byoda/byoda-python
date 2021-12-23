@@ -15,9 +15,9 @@ else
 fi
 
 LOGLEVEL=INFO
-ACCOUNT_ID=$(uuid -v 4)
 CLOUD="LOCAL"
 ROOT_DIR="/byoda"
+ACCOUNT_ID=$(uuid -v 4)
 sudo docker stop byoda
 sudo docker rm byoda
 sudo rm -rf ${ROOT_DIR}
