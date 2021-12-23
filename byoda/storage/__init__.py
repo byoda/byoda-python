@@ -11,5 +11,4 @@ The profile server uses NoSQL storage for profile data
 
 # flake8: noqa=E401
 
-from .aws import AwsFileStorage
 from .filestorage import FileStorage, FileMode

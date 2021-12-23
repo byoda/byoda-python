@@ -14,6 +14,7 @@ import shutil
 import logging
 from enum import Enum
 from typing import List, Tuple, BinaryIO
+
 from byoda.datatypes import CloudType
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,7 +43,10 @@ class FileStorage:
         self.cache_enabled = None
         self.cache_path = None
 
-        if not isinstance(self, FileStorage):
+        # Hack: in factory we can't import derived classes so we
+        # compare on the string representation of those classes
+        derived_class = self.__module__.split('.')[-1]
+        if derived_class in ('aws', 'azure', 'gcp'):
             if local_path:
                 self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
@@ -123,7 +127,7 @@ class FileStorage:
         if create_dir:
             os.makedirs(dirpath, exist_ok=True)
 
-        return dirpath + '/', filename
+        return dirpath.rstrip('/') + '/', filename
 
     def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,
              file_mode: FileMode = FileMode.BINARY) -> BinaryIO:
