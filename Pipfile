@@ -36,7 +36,6 @@ cd = "*"
 boto3 = "*"
 azure-storage-blob = "*"
 azure-identity = "*"
-pygobject = "*"
 google-cloud-storage = "*"
 python-daemon = "*"
 

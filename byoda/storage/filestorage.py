@@ -26,7 +26,7 @@ class OpenMode(Enum):
 
 
 class FileMode(Enum):
-    TEXT     = ''          # noqa: E221
+    TEXT     = ''           # noqa: E221
     BINARY   = 'b'          # noqa: E221
 
 
