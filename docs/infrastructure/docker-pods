@@ -17,33 +17,7 @@ fi
 LOGLEVEL=INFO
 CLOUD="LOCAL"
 ROOT_DIR="/byoda"
-if [ -f "~/.byoda-account_id" ]; then
-    ACCOUNT_ID=$(cat ~/.byoda-account_id)
-else
-    ACCOUNT_ID=$(uuid -v 4)
-    echo $ACCOUNT_ID >~/.byoda-account_id
-fi
-
-sudo docker stop byoda
-sudo docker rm byoda
-sudo rm -rf ${ROOT_DIR}
-sudo mkdir -p ${ROOT_DIR}
-echo "Creating container for account_id ${ACCOUNT_ID}"
-sudo docker run \
-    --name byoda \
-    -p 443:443 -p 2222:22 \
-    -e "CLOUD=${CLOUD}" \
-    -e "BUCKET_PREFIX=byoda" \
-    -e "NETWORK=byoda.net" \
-    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
-    -e "ACCOUNT_SECRET=supersecret" \
-    -e "LOGLEVEL=${LOGLEVEL}" \
-    -e "PRIVATE_KEY_SECRET=byoda" \
-    -e "PYTHONPATH=/home/steven/src/byoda-python" \
-    -e "BOOTSTRAP=BOOTSTRAP" \
-    -e "ROOT_DIR=${ROOT_DIR}" \
-    -v ${ROOT_DIR}:/${ROOT_DIR} \
-    byoda/byoda-pod:latest
+m
 ```
 
 ### Update the ECS service definition

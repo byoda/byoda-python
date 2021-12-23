@@ -71,6 +71,9 @@ def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     exists = storage.exists(write_filepath)
     test.assertTrue(exists)
 
+    exists = storage.exists('blahblah/blahblah')
+    test.assertFalse(exists)
+    
     subdirs = storage.get_folders('test/')
     test.assertEqual(len(subdirs), 2)
 

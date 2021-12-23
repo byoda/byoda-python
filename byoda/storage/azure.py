@@ -210,7 +210,8 @@ class AzureFileStorage(FileStorage):
                 f'Checking if key {filepath} exists in the Azure storage '
                 f'account {self.buckets[storage_type.value]}'
             )
-            if container_client.exists():
+            blob_client = container_client.get_blob_client(blob)
+            if blob_client.exists():
                 _LOGGER.debug(
                     f'{filepath} exists in Azure storage account '
                     f'{self.buckets[storage_type.value]}'
