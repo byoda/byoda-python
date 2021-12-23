@@ -38,7 +38,7 @@ azure-storage-blob = "*"
 azure-identity = "*"
 google-cloud-storage = "*"
 python-daemon = "*"
-gunicorn = "20.1.0"
+gunicorn = "==20.1.0"
 
 [dev-packages]
 
