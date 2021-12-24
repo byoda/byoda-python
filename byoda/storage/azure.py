@@ -271,11 +271,8 @@ class AzureFileStorage(FileStorage):
 
         try:
             container_client.create_container()
-        except ResourceExistsError as exc:
-            if not exist_ok:
-                raise PermissionError(
-                    f'Container {container} already exists: {exc}'
-                )
+        except ResourceExistsError:
+            pass
 
         _LOGGER.debug(f'Created container {container}')
 

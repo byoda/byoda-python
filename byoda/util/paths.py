@@ -148,8 +148,6 @@ class Paths:
             account=self._account,
             service_id=service_id,
         )
-        if path[0] != '/' and not path.startswith('http'):
-            path = self._root_directory + '/' + path
 
         _LOGGER.debug(f'Template resolved to {path}')
 
@@ -184,9 +182,6 @@ class Paths:
         for param in '/{member_id}', '/{account_id}', '/{service_id}':
             if param in path:
                 path = path.replace(param, '')
-
-        if path[0] != '/' and not path.startswith('http'):
-            path = self._root_directory + '/' + path
 
         return path
 

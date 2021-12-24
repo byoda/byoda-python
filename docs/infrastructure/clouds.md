@@ -1,4 +1,4 @@
-Supported clouds:
+Supported clouds: AWS, Azure and GCP
 
 AWS:
 - 12 months free:
@@ -17,8 +17,8 @@ GCP:
 - credits: $300, 90 days expiration
 - always free (only in us-east1, us-west1, us-central1):
   - 1 x e2.micro (2c, 1GB) VM
-  - 5GB storage , 1GB data out (except China & Australia)
+  - 5GB storage, 1GB data out (except China & Australia)
 
-Cloudflare:
+Cloudflare (CDNs are not yet supported):
 - always free:
   - CDN, unlimited bandwidth

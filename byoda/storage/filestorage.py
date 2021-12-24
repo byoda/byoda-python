@@ -15,7 +15,7 @@ import logging
 from enum import Enum
 from typing import List, Tuple, BinaryIO
 
-from byoda.datatypes import CloudType
+from byoda.datatypes import CloudType, StorageType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,18 +116,14 @@ class FileStorage:
         # We mimic k/v store where there are no 'directories' or 'folders'
         # that you have to create
         relative_path, filename = os.path.split(filepath)
+        relative_path = relative_path.rstrip('/')
 
-        # Special case for LOCAL storage, where we do not need to prefix
-        # the path with the local path for cache storage
-        if self.cache_enabled:
-            dirpath = self.local_path + relative_path
-        else:
-            dirpath = relative_path
+        dirpath = self.local_path + relative_path
 
         if create_dir:
             os.makedirs(dirpath, exist_ok=True)
 
-        return dirpath.rstrip('/') + '/', filename
+        return dirpath, filename
 
     def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,
              file_mode: FileMode = FileMode.BINARY) -> BinaryIO:
@@ -137,9 +133,9 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(filepath)
 
-        _LOGGER.debug(f'Opening local file {dirpath}{filename}')
+        _LOGGER.debug(f'Opening local file {dirpath}/{filename}')
         return open(
-            dirpath + filename, f'{open_mode.value}{file_mode.value}'
+            f'{dirpath}/{filename}', f'{open_mode.value}{file_mode.value}'
         )
 
     def close(self, file_descriptor: BinaryIO):
@@ -181,7 +177,9 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(filepath)
 
-        with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
+        filepath = dirpath.rstrip('/') + '/' + filename
+        openmode = f'w{file_mode.value}'
+        with open(filepath, openmode) as file_desc:
             file_desc.write(data)
 
     def append(self, filepath: str, data: str,
@@ -209,10 +207,10 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(filepath, create_dir=False)
 
-        exists = os.path.exists(filepath)
+        exists = os.path.exists(f'{dirpath}/{filename}')
         if not exists:
             _LOGGER.debug(
-                f'File not found in local filesystem: {dirpath}{filename}'
+                f'File not found in local filesystem: {dirpath}/{filename}'
             )
         return exists
 
@@ -269,13 +267,13 @@ class FileStorage:
         dirpath, filename = self.get_full_path(filepath)
         return os.stat.getmtime(dirpath + filename)
 
-    def copy(self, src: str, dest: str) -> None:
+    def copy(self, src: str, dest: str,
+             storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Copies a file on the local file system
         '''
         src_dirpath, src_filename = self.get_full_path(src)
         dest_dirpath, dest_filename = self.get_full_path(dest)
-        os.makedirs(dest_dirpath, exist_ok=True)
 
         result = shutil.copy(
             src_dirpath + src_filename, dest_dirpath + dest_filename

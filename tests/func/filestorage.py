@@ -17,6 +17,8 @@ import requests
 import shutil
 import unittest
 from typing import Type
+from byoda.storage.aws import AwsFileStorage
+from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
 
 from byoda.util.logger import Logger
@@ -52,10 +54,15 @@ class TestFileStorage(unittest.TestCase):
         )
         run_file_tests(self, storage)
 
+    def test_local_storage(self):
+        storage = FileStorage(ROOT_DIR)
+        run_file_tests(self, storage)
+
 
 def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     storage.copy(
-        '/profile', 'test/profile', storage_type=StorageType.PRIVATE
+        '/profile', 'test/profile',
+        storage_type=StorageType.PRIVATE
     )
 
     with open('/etc/profile', 'rb') as file_desc:
@@ -73,16 +80,18 @@ def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
 
     exists = storage.exists('blahblah/blahblah')
     test.assertFalse(exists)
-    
+
     subdirs = storage.get_folders('test/')
     test.assertEqual(len(subdirs), 2)
 
     subdirs = storage.get_folders('test/', prefix='sub')
     test.assertEqual(len(subdirs), 1)
 
-    url = storage.get_url() + 'test/profile'
-    response = requests.get(url, allow_redirects=False)
-    test.assertIn(response.status_code, (302, 403, 409))
+    if (type(storage) in
+            (AzureFileStorage, AwsFileStorage, GcpFileStorage)):
+        url = storage.get_url() + 'test/profile'
+        response = requests.get(url, allow_redirects=False)
+        test.assertIn(response.status_code, (302, 403, 409))
 
     storage.delete('test/profile')
     storage.delete('test/anothersubdir/profile-write')
