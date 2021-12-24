@@ -98,7 +98,7 @@ def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     storage.delete('test/subdir/profile-write')
 
     # GCP delete also deletes empty parent 'folders'??
-    if not isinstance(storage, GcpFileStorage):
+    if not type(storage) in (AzureFileStorage, GcpFileStorage):
         storage.delete('test/subdir/')
         storage.delete('test/anothersubdir/')
         storage.delete('test')
