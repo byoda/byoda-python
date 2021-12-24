@@ -157,8 +157,11 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(filepath)
 
-        _LOGGER.debug(f'Reading local file {dirpath}{filename}')
-        with open(dirpath + filename, f'r{file_mode.value}') as file_desc:
+        updated_filepath = f'{dirpath}/{filename}'
+        openmode = f'r{file_mode.value}'
+
+        _LOGGER.debug(f'Reading local file {updated_filepath}')
+        with open(updated_filepath, openmode) as file_desc:
             data = file_desc.read()
 
         return data
@@ -177,9 +180,11 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(filepath)
 
-        filepath = dirpath.rstrip('/') + '/' + filename
+        updated_filepath = f'{dirpath}/{filename}'
         openmode = f'w{file_mode.value}'
-        with open(filepath, openmode) as file_desc:
+
+        _LOGGER.debug(f'Writing local file {updated_filepath}')
+        with open(updated_filepath, openmode) as file_desc:
             file_desc.write(data)
 
     def append(self, filepath: str, data: str,

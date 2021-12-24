@@ -81,7 +81,10 @@ class ApiClient:
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
-                self.session.verify = server.network.root_ca.cert_file
+                self.session.verify = (
+                    server.paths._root_directory + '/' +
+                    server.network.root_ca.cert_file
+                )
 
             config.client_pools[type(secret)] = self.session
         else:
