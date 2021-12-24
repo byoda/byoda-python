@@ -222,6 +222,7 @@ class Account:
         )
 
         for folder in folders:
+            # The fo
             service_id = int(folder[8:])
             self.load_membership(service_id=service_id, bootstrap=bootstrap)
 

@@ -313,7 +313,14 @@ class AzureFileStorage(FileStorage):
         for folder in iterator:
             if (folder.name.endswith('/')
                     and (not prefix or folder.name.startswith(prefix))):
-                folders.add(folder.name)
+                full_path = folder.name
+                path_components = full_path.rstrip('/').split('/')
+                if path_components:
+                    folder_name = path_components[-1]
+                else:
+                    folder_name = folder.name
+
+                folders.add(folder_name)
 
         if prefix:
             _LOGGER.debug(
