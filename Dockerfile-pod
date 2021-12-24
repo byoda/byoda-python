@@ -53,7 +53,7 @@ RUN touch /etc/nginx/htaccess.db
 EXPOSE 443
 
 COPY . byoda-python/
-RUN cd /podserver/byoda-python && pipenv install && pipenv clean
+RUN cd /podserver/byoda-python && pipenv install --deploy --ignore-pipfile && pipenv clean
 COPY podserver/files/config.yml byoda-python/
 COPY podserver/files/startup.sh .
 
