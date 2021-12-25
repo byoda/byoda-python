@@ -16,7 +16,9 @@ from strawberry.types import Info
 
 from byoda.servers import PodServer
 
-from byoda.datatypes import CsrSource, IdType
+from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
+from byoda.datatypes import StorageType
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema, SignatureType
@@ -154,7 +156,7 @@ class Member:
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
-                public=True
+                StorageType.PUBLIC
             ),
             port=PodServer.HTTP_PORT,
             root_dir=config.server.network.paths.root_directory()
