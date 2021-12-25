@@ -51,9 +51,15 @@ class FileStorage:
                 self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
                 self.cache_path = self.local_path
+
             else:
                 self.cache_enabled: bool = False
                 self.local_path: str = '/tmp/'
+
+            for files in os.listdir(self.cache_path):
+                filepath = os.path.join(self.cache_path, files)
+                shutil.rmtree(filepath)
+
         else:
             if not local_path:
                 raise ValueError('Must specify local path')

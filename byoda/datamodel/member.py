@@ -151,8 +151,13 @@ class Member:
             filename='virtualserver.conf',
             identifier=self.member_id,
             subdomain=f'{IdType.MEMBER.value}{self.service_id}',
-            cert_filepath=self.tls_secret.cert_file,
-            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            cert_filepath=(
+                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+            ),
+            key_filepath=(
+                self.paths.root_directory() + '/' +
+                self.tls_secret.unencrypted_private_key_file
+            ),
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
