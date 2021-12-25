@@ -21,6 +21,7 @@ from byoda.datatypes import IdType
 from byoda.datatypes import StorageType
 
 from byoda.datamodel.service import Service
+from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
 from byoda.datastore.document_store import DocumentStore
@@ -44,8 +45,6 @@ _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
-MemberData = TypeVar('MemberData')
-
 
 class Member:
     '''
@@ -154,10 +153,7 @@ class Member:
             cert_filepath=(
                 self.paths.root_directory() + '/' + self.tls_secret.cert_file
             ),
-            key_filepath=(
-                self.paths.root_directory() + '/' +
-                self.tls_secret.unencrypted_private_key_file
-            ),
+            key_filepath=self.tls_secret.unencrypted_private_key_file,
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
@@ -180,8 +176,13 @@ class Member:
         member = Member(service.service_id, account)
         member.member_id = uuid4()
 
+        member.create_secrets()
+
+        if not member.paths._exists(member.paths.SERVICE_FILE):
+            filepath = member.paths.get(member.paths.SERVICE_FILE
+                                        )
         member.service.download_schema(
-            filepath=member.paths.MEMBER_SERVICE_FILE
+            save=True, filepath=member.paths.MEMBER_SERVICE_FILE
         )
 
         member.schema = member.load_schema()
@@ -202,6 +203,14 @@ class Member:
         )
 
         member.create_secrets(members_ca=members_ca)
+
+        member.data_secret.create_shared_key()
+
+        member.data = MemberData(
+            member, member.paths, member.document_store
+        )
+
+        member.data.save_protected_shared_key()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)

@@ -237,47 +237,13 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        try:
-            member = Member(service_id, self)
-            member.load_secrets()
-            member.data = MemberData(
-                member, member.paths, member.document_store
-            )
-            member.data.load_protected_shared_key()
-            member.create_nginx_config()
-        except FileNotFoundError:
-            if bootstrap:
-                if not member.tls_secret or not member.data_secret:
-                    if not member.member_id:
-                        member.member_id = uuid4()
-
-                    member.create_secrets()
-
-                if not member.paths._exists(member.paths.SERVICE_FILE):
-                    filepath = member.paths.get(
-                        member.paths.SERVICE_FILE
-                    )
-                    member.service.download_schema(
-                        save=True, filepath=filepath
-                    )
-                    member.schema = Schema.get_schema(
-                        filepath, member.storage_driver,
-                        member.service.data_secret,
-                        self.network.data_secret
-                    )
-
-                filepath = member.paths.get(
-                    member.paths.MEMBER_DATA_SHARED_SECRET_FILE
-                )
-
-                if not member.paths._exists(filepath):
-                    member.data_secret.create_shared_key()
-
-                if not member.data:
-                    member.data = MemberData(
-                        member, member.paths, member.document_store
-                    )
-                    member.data.save_protected_shared_key()
+        member = Member(service_id, self)
+        member.load_secrets()
+        member.data = MemberData(
+            member, member.paths, member.document_store
+        )
+        member.data.load_protected_shared_key()
+        member.create_nginx_config()
 
         member.load_data()
 
