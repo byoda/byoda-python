@@ -31,7 +31,7 @@ from byoda.datamodel import Account
 
 from byoda.servers import PodServer
 
-from byoda.datatypes import CloudType, IdType
+from byoda.datatypes import CloudType, IdType, StorageType
 from byoda.datastore import DocumentStoreType
 
 from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
@@ -98,7 +98,7 @@ nginx_config = NginxConfig(
     alias=network.paths.account,
     network=network.name,
     public_cloud_endpoint=network.paths.storage_driver.get_url(
-        public=True
+        StorageType.PUBLIC
     ),
     port=PodServer.HTTP_PORT,
     root_dir=server.network.paths.root_directory()
