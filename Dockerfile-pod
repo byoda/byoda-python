@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
 WORKDIR /podserver
 
-HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8001/api/v1/status || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
