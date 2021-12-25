@@ -28,7 +28,6 @@ if [ "${WORKERS}" = "" ]; then
     WORKERS=2
 fi
 
-
 pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app
 
 # Wait for 15 minutes if we crash so the owner of the pod can check the logs
