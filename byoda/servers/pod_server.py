@@ -27,7 +27,7 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class PodServer(Server):
-    HTTP_PORT = 8001
+    HTTP_PORT = 8000
 
     def __init__(self):
         super().__init__()
