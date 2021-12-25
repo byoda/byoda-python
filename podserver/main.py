@@ -93,7 +93,9 @@ nginx_config = NginxConfig(
     filename='virtualserver.conf',
     identifier=network_data['account_id'],
     subdomain=IdType.ACCOUNT.value,
-    cert_filepath=account.tls_secret.cert_file,
+    cert_filepath=(
+        server.paths.root_directory() + '/' + account.tls_secret.cert_file
+    ),
     key_filepath=account.tls_secret.unencrypted_private_key_file,
     alias=network.paths.account,
     network=network.name,
