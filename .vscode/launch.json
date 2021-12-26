@@ -4,6 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "name": "Current File",
             "type": "python",
@@ -93,6 +95,25 @@
             }
         },
         {
+            "program": "podserver/podworker.py",
+            "name": "podworker",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CLOUD": "LOCAL",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_SECRET": "supersecret",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda",
+                "BOOTSTRAP": "BOOTSTRAP",
+                "PYTHONPATH": "."
+            }
+        },
+        {
             "name": "create_service_secrets",
             "type": "python",
             "request": "launch",
@@ -107,7 +128,7 @@
             ],
             "env": {
                 "PYTHONPATH": "."
-            },
+            }
         },
         {
             "name": "sign data contract",
@@ -138,6 +159,18 @@
             "env": {
                 "PYTHONPATH": "."
             }
+        },
+        {
+            "name": "file_storage_test",
+            "type": "python",
+            "request": "launch",
+            "program": "tests/func/filestorage.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": ".",
+                "GOOGLE_APPLICATION_CREDENTIALS": "/home/steven/.secrets/gcp-sa-byoda-storage.json"
+            },
         }
     ]
+
 }

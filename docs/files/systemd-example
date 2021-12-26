@@ -7,7 +7,7 @@ After=network.target
 WorkingDirectory=/opt/byoda/byoda-python
 EnvironmentFile=/etc/default/dirserver
 # For directory server
-# make sure user wwww-data exists and that it has write access to a new directory /var/log/byoda
+# make sure user www-data exists and that it has write access to a new directory /var/log/byoda
 ExecStart=gunicorn -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --log-file /var/log/byoda/gunicorn-dir.log -c /opt/byoda/byoda-python/gunicorn.conf.py  dirserver.main:app
 # For a server hosting a service
 # ExecStart=gunicorn -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:6000 --log-file /var/log/byoda/gunicorn-svc0.log -c /opt/byoda/byoda-python/gunicorn.conf.py  svcserver.main:app

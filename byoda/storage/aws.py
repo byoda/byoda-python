@@ -10,9 +10,11 @@ The profile server uses noSQL storage for profile data
 '''
 
 import logging
-from typing import List
+from typing import Set
 
 import boto3
+
+from byoda.datatypes import StorageType
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
@@ -36,14 +38,18 @@ class AwsFileStorage(FileStorage):
 
         self.driver = boto3.client('s3')
 
-        self.cache_path = cache_path
-        if cache_path:
-            super().__init__(cache_path)
+        super().__init__(cache_path)
 
-        self.bucket = f'{bucket_prefix}-private'
-        self.public_bucket = f'{bucket_prefix}-public'
+        self.buckets = {
+            StorageType.PRIVATE.value: f'{bucket_prefix}-private',
+            StorageType.PUBLIC.value: f'{bucket_prefix}-public',
+        }
 
-        _LOGGER.debug('Initialized boto S3 client for bucket %s', self.bucket)
+        _LOGGER.debug(
+            'Initialized boto S3 client for buckets '
+            f'{self.buckets[StorageType.PRIVATE.value]} and '
+            f'{self.buckets[StorageType.PUBLIC.value]}'
+        )
 
     def _get_key(self, filepath: str) -> str:
         '''
@@ -52,7 +58,13 @@ class AwsFileStorage(FileStorage):
 
         return filepath.lstrip('/')
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.TEXT) -> str:
+    def get_storage_prefix(self, bucket):
+        path = 'gs://{}/'.format(bucket)
+
+        return path
+
+    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
+             storage_type=StorageType.PRIVATE) -> str:
         '''
         Reads a file from S3 storage. If a locally cached copy is available it
         uses that instead of reading from S3 storage. If a locally cached copy
@@ -61,11 +73,14 @@ class AwsFileStorage(FileStorage):
 
         :param filepath: the S3 key; path + filename
         :param file_mode: is the data in the file text or binary
+        :param storage_type: use bucket for private or public storage
         :returns: array as str or bytes with the data read from the file
         '''
 
         try:
-            if self.cache_path:
+            # TODO: support conditional downloads based on timestamp of local
+            # file
+            if self.cache_enabled:
                 data = super().read(filepath, file_mode)
                 _LOGGER.debug('Read %s from cache', filepath)
                 return data
@@ -73,71 +88,104 @@ class AwsFileStorage(FileStorage):
             pass
 
         key = self._get_key(filepath)
+
         file_desc = super().open(
             filepath, OpenMode.WRITE, file_mode=FileMode.BINARY
         )
-
-        self.driver.download_fileobj(self.bucket, key, file_desc)
-
+        self.driver.download_fileobj(
+            self.buckets[storage_type.value], key, file_desc
+        )
         super().close(file_desc)
 
-        _LOGGER.debug('Read %s from AWS S3 and saved it to %s', key, filepath)
+        _LOGGER.debug(
+            f'Read {key} from AWS S3 and saved it to {filepath}'
+        )
 
         data = super().read(filepath, file_mode)
 
         return data
 
     def write(self, filepath: str, data: str,
-              file_mode: FileMode = FileMode.TEXT) -> None:
+              file_mode: FileMode = FileMode.BINARY,
+              storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes data to S3 storage.
 
         :param filepath: the key of the S3 object
         :param data: the data to be written to the file
+        :param file_mode: is the data in the file text or binary
+        :param storage_type: use private or public storage bucket
         '''
-        super().write(filepath, data, file_mode=file_mode)
 
+        # We always have to write to local storage as AWS object upload uses
+        # the local file
+        if storage_type == StorageType.PRIVATE:
+            super().write(filepath, data, file_mode=file_mode)
+
+        # TODO: can we do async / await here?
         key = self._get_key(filepath)
         file_desc = super().open(filepath, OpenMode.READ, file_mode)
-        self.driver.upload_fileobj(file_desc, self.bucket, key)
-        _LOGGER.debug('Wrote %s to AWS S3')
+        self.driver.upload_fileobj(
+            file_desc, self.buckets[storage_type.value], key
+        )
+        _LOGGER.debug(f'Wrote {key} to AWS S3')
 
-    def exists(self, filepath: str) -> bool:
+    def exists(self, filepath: str,
+               storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
         Checks is a file exists on S3 storage
 
         :param filepath: the key for the object on S3 storage
+        :param storage_type: use private or public storage bucket
         :returns: bool on whether the key exists
         '''
-        if super().exists(filepath):
-            _LOGGER.debug('%s exists in local cache', filepath)
+
+        if (storage_type == StorageType.PRIVATE and self.cache_enabled
+                and super().exists(filepath)):
+            _LOGGER.debug(f'{filepath} exists in local cache')
             return True
         else:
-            _LOGGER.debug('Checking if key %s exists in AWS S3', filepath)
+            _LOGGER.debug(f'Checking if key {filepath} exists in AWS S3')
             try:
                 key = self._get_key(filepath)
-                self.driver.head_object(Bucket=self.bucket, Key=key)
+                self.driver.head_object(
+                    Bucket=self.buckets[storage_type.value], Key=key
+                )
                 return True
             except boto3.exceptions.botocore.exceptions.ClientError:
                 return False
 
-    def get_url(self, public: bool = True) -> str:
+    def delete(self, filepath: str,
+               storage_type: StorageType = StorageType.PRIVATE) -> bool:
+
+        if storage_type == StorageType.PRIVATE:
+            super().delete(filepath)
+
+        key = self._get_key(filepath)
+        response = self.driver.delete_object(
+            Bucket=self.buckets[storage_type.value], Key=key
+        )
+
+        return response['ResponseMetadata']['HTTPStatusCode'] == 204
+
+    def get_url(self, storage_type: StorageType = StorageType.PRIVATE
+                ) -> str:
         '''
         Get the URL for the public storage bucket, ie. something like
         'https://<bucket>.s3.us-west-1.amazonaws.com'
         '''
 
-        if public:
-            bucket = self.public_bucket
-        else:
-            bucket = self.bucket
-
-        data = self.driver.head_bucket(Bucket=bucket)
+        data = self.driver.head_bucket(Bucket=self.buckets[storage_type.value])
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
-        return f'https://{bucket}.s3-{region}.amazonaws.com'
+        return (
+            f'https://{self.buckets[storage_type.value]}.s3-{region}'
+            '.amazonaws.com/'
+        )
 
-    def create_directory(self, directory: str, exist_ok: bool = True) -> bool:
+    def create_directory(self, directory: str, exist_ok: bool = True,
+                         storage_type: StorageType = StorageType.PRIVATE
+                         ) -> bool:
         '''
         Directories do not exist on S3 storage but this function makes sure
         the directory exists in the local cache
@@ -146,10 +194,15 @@ class AwsFileStorage(FileStorage):
         :returns: whether the file exists or not
         '''
 
-        return super().create_directory(directory, exist_ok=exist_ok)
+        # We need to create the local directory regardless whether caching
+        # is enabled for the Pod because upload/download uses a local file
+        if storage_type == StorageType.PRIVATE:
+            return super().create_directory(directory, exist_ok=exist_ok)
 
     def copy(self, source: str, dest: str,
-             file_mode: FileMode = FileMode.TEXT) -> None:
+             file_mode: FileMode = FileMode.BINARY,
+             storage_type: StorageType = StorageType.PRIVATE,
+             exist_ok=True) -> None:
         '''
         Copies a file from the local file system to the S3 object storage
 
@@ -157,23 +210,37 @@ class AwsFileStorage(FileStorage):
         :param dest: key for the S3 object to copy the file to
         :parm file_mode: how the file should be opened
         '''
+
         key = self._get_key(dest)
-        self.driver.upload_file(source, self.bucket, key)
-        _LOGGER.debug('Uploaded %s to S3 key %s:%s', source, self.bucket, key)
+        dirpath, filename = self.get_full_path(source, create_dir=False)
+        self.driver.upload_file(
+            dirpath + filename, self.buckets[storage_type.value], key
+        )
+        _LOGGER.debug(
+            f'Uploaded {source} to S3 key {self.buckets[storage_type.value]}'
+            f': {key}'
+        )
 
-        super().copy(source, dest)
+        # We populate the local disk cache also with the copy
+        if storage_type == StorageType.PRIVATE and self.cache_enabled:
+            super().copy(source, dest)
 
-    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+    def get_folders(self, folder_path: str, prefix: str = None,
+                    storage_type: StorageType = StorageType.PRIVATE
+                    ) -> Set[str]:
         '''
         AWS S3 supports emulated folders through keys that end with a '/'
         '''
         # For AWS S3, the folder path must contain a '/' at the end
         folder_path = folder_path.rstrip('/') + '/'
         result = self.driver.list_objects(
-            Bucket=self.bucket, Prefix=folder_path, Delimiter='/'
+            Bucket=self.buckets[storage_type.value],
+            Prefix=folder_path, Delimiter='/'
         )
-        folders = [
-            folder['Prefix'] for folder in result.get('CommonPrefixes', [])
-            if not prefix or folder['Prefix'].startswith(prefix)
-        ]
+        folders = set()
+        for folder in result.get('CommonPrefixes', []):
+            final_path = folder['Prefix'].rstrip('/').split('/')[-1]
+            if not prefix or final_path.startswith(prefix):
+                folders.add(folder['Prefix'])
+
         return folders

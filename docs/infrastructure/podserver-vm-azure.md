@@ -14,7 +14,7 @@ az account list-locations -o table
 
 First we set a set of variables for the deployment and create a work directory
 ```
-VM_SKU=Standard_B1s
+VM_SKU=Standard_B1ls
 PAYMENT_SCHEME='Regular'        # 'Spot' is not supported for B SKUs
 REGION='westus2'
 BYODA_DIR="${HOME}/.byoda"

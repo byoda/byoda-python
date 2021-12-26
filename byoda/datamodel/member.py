@@ -14,9 +14,14 @@ from typing import Dict, TypeVar, Callable
 
 from strawberry.types import Info
 
-from byoda.datatypes import CsrSource, CloudType, IdType
+from byoda.servers import PodServer
+
+from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
+from byoda.datatypes import StorageType
 
 from byoda.datamodel.service import Service
+from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
 from byoda.datastore.document_store import DocumentStore
@@ -40,8 +45,6 @@ _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
-MemberData = TypeVar('MemberData')
-
 
 class Member:
     '''
@@ -57,6 +60,7 @@ class Member:
 
         self.member_id: UUID = None
         self.service_id: int = int(service_id)
+
         self.account: Account = account
         self.network: Network = self.account.network
 
@@ -78,14 +82,26 @@ class Member:
                 self.paths.get(Paths.SERVICE_DIR), exist_ok=True
             )
 
-            filepath = self.paths.get(Paths.MEMBER_SERVICE_FILE)
+            # Here we read the service contract as currently published
+            # by the service, which may differ from the one we have
+            # previously accepted
+            filepath = self.paths.get(Paths.SERVICE_FILE)
             try:
                 self.service = Service.get_service(
-                    self.network, filepath=filepath
+                    self.network, filepath=filepath,
+                    account=self.account.account
                 )
+                self.service.verify_schema_signatures()
             except FileNotFoundError:
+                # if the service contract is not yet available for
+                # this membership then it should be downloaded at
+                # a later point
+                _LOGGER.info(
+                    f'Service contract file {filepath} does not exist'
+                )
                 self.service = Service(
-                    self.network, service_id=self.service_id
+                    self.network, service_id=self.service_id,
+                    account=self.account.account
                 )
 
                 self.service.download_data_secret(save=True, failhard=False)
@@ -95,7 +111,12 @@ class Member:
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
         # by the service
-        self.schema: Schema = self.load_schema()
+        try:
+            self.schema: Schema = self.load_schema()
+        except FileNotFoundError:
+            # We do not have the schema file for a service that the pod did
+            # not join yet
+            pass
 
         self.service = self.network.services[service_id]
 
@@ -113,15 +134,66 @@ class Member:
         self.tls_secret = None
         self.data_secret = None
 
+    def create_nginx_config(self):
+        '''
+        Generates the Nginx virtual server configuration for
+        the membership
+        '''
+
+        if not self.member_id:
+            self.load_secrets()
+
+        self.tls_secret.save_tmp_private_key()
+
+        nginx_config = NginxConfig(
+            directory=NGINX_SITE_CONFIG_DIR,
+            filename='virtualserver.conf',
+            identifier=self.member_id,
+            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
+            cert_filepath=(
+                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+            ),
+            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            alias=self.network.paths.account,
+            network=self.network.name,
+            public_cloud_endpoint=self.paths.storage_driver.get_url(
+                StorageType.PUBLIC
+            ),
+            port=PodServer.HTTP_PORT,
+            root_dir=config.server.network.paths.root_directory()
+        )
+
+        nginx_config.create()
+        nginx_config.reload()
+
     @staticmethod
-    def create(service: Service, account: Account, members_ca:
-               MembersCaSecret = None):
+    def create(service: Service, schema_version: int,
+               account: Account, members_ca: MembersCaSecret = None):
         '''
         Factory for a new membership
         '''
 
         member = Member(service.service_id, account)
         member.member_id = uuid4()
+
+        member.create_secrets()
+
+        if not member.paths._exists(member.paths.SERVICE_FILE):
+            filepath = member.paths.get(member.paths.SERVICE_FILE
+                                        )
+        member.service.download_schema(
+            save=True, filepath=member.paths.MEMBER_SERVICE_FILE
+        )
+
+        member.schema = member.load_schema()
+
+        if (schema_version is not None
+                and member.schema.version != schema_version):
+            raise ValueError(
+                f'Downloaded schema for service_id {service.service_id} '
+                f'has version {member.schema.version} instead of version '
+                f'{schema_version} as requested'
+            )
 
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
@@ -132,27 +204,16 @@ class Member:
 
         member.create_secrets(members_ca=members_ca)
 
+        member.data_secret.create_shared_key()
+
+        member.data = MemberData(
+            member, member.paths, member.document_store
+        )
+
+        member.data.save_protected_shared_key()
+
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
-
-        if config.server.cloud != CloudType.LOCAL:
-            nginx_config = NginxConfig(
-                directory=NGINX_SITE_CONFIG_DIR,
-                filename='virtualserver.conf',
-                identifier=member.member_id,
-                subdomain=f'{IdType.MEMBER.value}-{member.service_id}',
-                cert_filepath='',
-                key_filepath='',
-                alias=account.network.paths.account,
-                network=account.network.name,
-                public_cloud_endpoint=member.paths.storage_driver.get_url(
-                    public=True
-                ),
-            )
-
-            if not nginx_config.exists():
-                nginx_config.create()
-                nginx_config.reload()
 
         return member
 
@@ -282,12 +343,6 @@ class Member:
                 network_data_secret=self.network.data_secret,
             )
         else:
-            # Pods should explicitly load an accepted schema, not
-            # just what the latest schema offered by a service. So we
-            # leave the below commented out
-            # self.service.download_schema(save=True, filepath=filepath)
-            # schema = Schema.get_schema(filepath, self.storage_driver)
-
             _LOGGER.exception(
                 f'Service contract file {filepath} does not exist for the '
                 'member'

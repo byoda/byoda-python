@@ -69,19 +69,33 @@ class ApiClient:
             self.session.timout = 3
             if secret:
                 key_path = secret.save_tmp_private_key()
-                _LOGGER.debug(
-                    f'Setting client cert/key to {secret.cert_file}, {key_path}'
+                cert_filepath = (
+                    server.paths.root_directory() + '/' + secret.cert_file
                 )
-                self.session.cert = (secret.cert_file, key_path)
+                _LOGGER.debug(
+                    f'Setting client cert/key to {cert_filepath}, {key_path}'
+                )
+                self.session.cert = (cert_filepath, key_path)
             else:
                 self.session.cert = None
 
             self.session.verify = True
-            if not api.startswith(f'https://dir'):
+            if api.startswith(f'https://dir'):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
-                self.session.verify = server.network.root_ca.cert_file
+                self.session.verify = True
+                _LOGGER.debug(
+                    'Disabled using byoda certchain for server cert '
+                    'verification'
+                )
+            else:
+                filepath = (
+                    server.paths._root_directory + '/' +
+                    server.network.root_ca.cert_file
+                )
+                self.session.verify = filepath
+                _LOGGER.debug(f'Set server cert validation to {filepath}')
 
             config.client_pools[type(secret)] = self.session
         else:

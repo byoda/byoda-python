@@ -70,19 +70,23 @@ class NginxConfig(TargetConfig):
         public bucket
         '''
 
-        self.identifier = identifier
-        self.subdomain = subdomain
-        self.alias = alias
-        self.cert_filepath = cert_filepath
-        self.key_filepath = key_filepath
-        self.network = network
-        self.public_cloud_endpoint = public_cloud_endpoint
-        self.directory = directory
-        self.filename = filename
-        self.root_dir = root_dir
-        self.port = port
+        self.identifier: str = str(identifier)
+        self.subdomain: str = subdomain
+        self.alias: str = alias
+        self.cert_filepath: str = cert_filepath
+        self.key_filepath: str = key_filepath
+        self.network: str = network
+        self.public_cloud_endpoint: str = public_cloud_endpoint
+        self.directory: str = directory
+        self.filename: str = filename
+        self.root_dir: str = root_dir
+        self.port: int = port
 
-        self.config_filepath = f'{directory}/{filename}'
+        if self.subdomain == IdType.ACCOUNT.value:
+            self.config_filepath = f'{directory}/account.conf'
+        else:
+            self.config_filepath = f'{directory}/member-{identifier}.conf'
+
         self.template_filepath = f'{directory}/{filename}' + '.jinja2'
 
     def exists(self) -> bool:
@@ -111,7 +115,7 @@ class NginxConfig(TargetConfig):
                 templ = Template(file_desc.read())
 
         output = templ.render(
-            identifier=self.identifier,
+            identifier=str(self.identifier),
             subdomain=self.subdomain,
             cert_filepath=self.cert_filepath,
             key_filepath=self.key_filepath,
@@ -146,7 +150,9 @@ class NginxConfig(TargetConfig):
                 try:
                     pid = int(file_desc.readline().strip())
                     os.kill(pid, signal.SIGHUP)
-                    _LOGGER.debug('Sent SIGHUB to nginx process with pid %s', pid)
+                    _LOGGER.debug(
+                        'Sent SIGHUP to nginx process with pid %s', pid
+                    )
                 except ValueError:
                     # No valid value in pid file means that nginx is not
                     # running, which can happen on a dev workstation

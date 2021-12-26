@@ -1,13 +1,14 @@
-FROM ubuntu:hirsute
+FROM ubuntu:impish
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 # TODO
-# 1: run gunicorn/uvicorn/fastapi/app as non-root user
+# 1: run uvicorn/fastapi/app as non-root user
 # 2: use nginx from Nginx Inc docker repo
 # 3: optimize for size
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8
 WORKDIR /podserver
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
@@ -15,12 +16,13 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
         curl \
-		ca-certificates \
+        ca-certificates \
         python3 \
         python3-pip \
+        pipenv \
         nginx \
     && apt-get -y clean \
-	&& rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 ###
 ### Byoda bits
@@ -34,10 +36,6 @@ RUN mkdir -p \
     byoda-python
 
 COPY podserver/files/index.html /var/www/wwwroot/
-
-# Install the Python packages before copying the code
-COPY requirements.txt byoda-python/
-RUN pip3 install  --no-cache-dir -r byoda-python/requirements.txt
 
 ###
 ### nginx bits
@@ -55,6 +53,7 @@ RUN touch /etc/nginx/htaccess.db
 EXPOSE 443
 
 COPY . byoda-python/
+RUN cd /podserver/byoda-python && pipenv install --deploy --ignore-pipfile && pipenv clean
 COPY podserver/files/config.yml byoda-python/
 COPY podserver/files/startup.sh .
 

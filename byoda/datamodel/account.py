@@ -68,7 +68,7 @@ class Account:
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
-        self.memberships: Dict[str, Member] = dict()
+        self.memberships: Dict[int, Member] = dict()
 
         self.network: Network = network
 
@@ -222,6 +222,7 @@ class Account:
         )
 
         for folder in folders:
+            # The fo
             service_id = int(folder[8:])
             self.load_membership(service_id=service_id, bootstrap=bootstrap)
 
@@ -236,43 +237,13 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        try:
-            member = Member(service_id, self)
-            member.load_secrets()
-            member.data = MemberData(
-                member, member.paths, member.document_store
-            )
-            member.data.load_protected_shared_key()
-        except FileNotFoundError:
-            if bootstrap:
-                if not member:
-                    member.member_id = uuid4()
-                if not member.tls_secret or not member.data_secret:
-                    member.create_secrets()
-
-                if not member.paths._exists(member.paths.MEMBER_SERVICE_FILE):
-                    filepath = member.paths.get(
-                        member.paths.MEMBER_SERVICE_FILE
-                    )
-                    member.service.download_schema(
-                        save=True, filepath=filepath
-                    )
-                    member.schema = Schema.get_schema(
-                        filepath, member.storage_driver
-                    )
-
-                filepath = member.paths.get(
-                    member.paths.MEMBER_DATA_SHARED_SECRET_FILE
-                )
-
-                if not member.paths._exists(filepath):
-                    member.data_secret.create_shared_key()
-
-                if not member.data:
-                    member.data = MemberData(
-                        member, member.paths, member.document_store
-                    )
-                    member.data.save_protected_shared_key()
+        member = Member(service_id, self)
+        member.load_secrets()
+        member.data = MemberData(
+            member, member.paths, member.document_store
+        )
+        member.data.load_protected_shared_key()
+        member.create_nginx_config()
 
         member.load_data()
 
@@ -293,7 +264,8 @@ class Account:
         )
 
     def join(self, service: Service = None, service_id: int = None,
-             members_ca: MembersCaSecret = None) -> Member:
+             schema_version: int = None, members_ca: MembersCaSecret = None
+             ) -> Member:
         '''
         Join a service for the first time
         '''
@@ -314,7 +286,7 @@ class Account:
         if not self.paths.member_directory_exists(service.service_id):
             self.paths.create_member_directory(service.service_id)
 
-        member = Member.create(service, self, members_ca)
+        member = Member.create(service, schema_version, self, members_ca)
 
         self.memberships[member.member_id] = member
 

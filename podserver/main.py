@@ -17,13 +17,10 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 '''
 
 
-import os
 import sys
 
 import uvicorn
-from starlette.graphql import GraphQLApp
 
-import strawberry
 from strawberry.fastapi import GraphQLRouter
 
 from byoda import config
@@ -31,14 +28,15 @@ from byoda.util import Logger
 
 from byoda.datamodel import Network
 from byoda.datamodel import Account
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 from byoda.servers import PodServer
 
-from byoda.datatypes import CloudType, IdType
+from byoda.datatypes import CloudType, IdType, StorageType
 from byoda.datastore import DocumentStoreType
 
 from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
+
+from .util import get_environment_vars
 
 # from .routers import member
 from .api import setup_api
@@ -51,32 +49,11 @@ DIR_API_BASE_URL = 'https://dir.{network}/api'
 config.server = PodServer()
 server = config.server
 
-
-# When we are bootstrapping, we create any secrets that are missing.
-# The BOOTSTRAP environment variable should only be set during
-# initial creation of the pod as otherwise existing secrets might
-# be discarded when there issues with accessing the storage bucket
-bootstrap = os.environ.get('BOOTSTRAP', None)
-
 # Remaining environment variables used:
-network_data = {
-    'cloud': CloudType(os.environ.get('CLOUD', 'LOCAL')),
-    'bucket_prefix': os.environ['BUCKET_PREFIX'],
-    'network': os.environ.get('NETWORK', config.DEFAULT_NETWORK),
-    'account_id': os.environ.get('ACCOUNT_ID'),
-    'account_secret': os.environ.get('ACCOUNT_SECRET'),
-    'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
-    'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
-    'root_dir': os.environ.get('ROOT_DIR', '/byoda-pod'),
-    'roles': ['pod'],
-}
-
-debug = False
-if network_data['loglevel'] == 'DEBUG':
-    debug = True
+network_data = get_environment_vars()
 
 _LOGGER = Logger.getLogger(
-    sys.argv[0], json_out=False, debug=debug,
+    sys.argv[0], json_out=False, debug=network_data['debug'],
     loglevel=network_data['loglevel'], logfile=LOG_FILE
 )
 
@@ -104,60 +81,33 @@ server.get_registered_services()
 
 # TODO: if we have a pod secret, should we compare its commonname with the
 # account_id environment variable?
-account = Account(network_data['account_id'], network, bootstrap=bootstrap)
+account = Account(network_data['account_id'], network, bootstrap=False)
+account.tls_secret.load(password=account.private_key_password)
+account.data_secret.load(password=account.private_key_password)
+account.register()
 
 server.account = account
-
-try:
-    account.tls_secret.load(
-        password=account.private_key_password
-    )
-    _LOGGER.debug('Read account TLS secret')
-except FileNotFoundError:
-    if bootstrap:
-        account.create_account_secret()
-        _LOGGER.info('Creating account secret during bootstrap')
-    else:
-        raise ValueError('Failed to load account TLS secret')
-
-try:
-    account.data_secret.load(
-        password=account.private_key_password
-    )
-    _LOGGER.debug('Read account data secret')
-except FileNotFoundError:
-    if bootstrap:
-        account.create_data_secret()
-        _LOGGER.info('Creating account secret during bootstrap')
-    else:
-        raise ValueError('Failed to load account TLS secret')
-
-
-config.server = server
-
-server.account.register()
 
 nginx_config = NginxConfig(
     directory=NGINX_SITE_CONFIG_DIR,
     filename='virtualserver.conf',
     identifier=network_data['account_id'],
     subdomain=IdType.ACCOUNT.value,
-    cert_filepath='',
-    key_filepath='',
+    cert_filepath=(
+        server.paths.root_directory() + '/' + account.tls_secret.cert_file
+    ),
+    key_filepath=account.tls_secret.unencrypted_private_key_file,
     alias=network.paths.account,
     network=network.name,
     public_cloud_endpoint=network.paths.storage_driver.get_url(
-        public=True
+        StorageType.PUBLIC
     ),
     port=PodServer.HTTP_PORT,
-    root_dir=server.network.paths.root_directory
+    root_dir=server.network.paths.root_directory()
 )
 
 nginx_config.create()
 nginx_config.reload()
-
-if bootstrap and BYODA_PRIVATE_SERVICE not in network.services:
-    server.join_service(BYODA_PRIVATE_SERVICE, network_data)
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',

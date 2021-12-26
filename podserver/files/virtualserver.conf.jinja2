@@ -1,8 +1,8 @@
 server {
 {% if subdomain == 'accounts' %}
-    listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport;
+    listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
 {% else %}
-    listen       443 ssl
+    listen       443 ssl;
 {% endif %}
 
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
@@ -17,7 +17,7 @@ server {
 {% else %}
     ssl_verify_client on;
 {% endif -%}
-    ssl_verifiy_depth 5;
+    ssl_verify_depth 5;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
     ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;

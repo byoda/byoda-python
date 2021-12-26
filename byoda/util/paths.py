@@ -72,7 +72,7 @@ class Paths:
 
     # Downloads
     NETWORK_CERT_DOWNLOAD      = 'https://dir.{network}/root-ca.pem'                                                                      # noqa
-    NETWORK_DATACERT_DOWNLOAD  = 'https://dir.{network}/root-ca.pem'                                                                      # noqa
+    NETWORK_DATACERT_DOWNLOAD  = 'https://dir.{network}/root-data.pem'                                                                    # noqa
     SERVICE_DATACERT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'    # noqa
     SERVICE_CONTRACT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/service-contract.json'                                   # noqa
 
@@ -126,7 +126,7 @@ class Paths:
 
         _LOGGER.debug(
             f'Got template {path_template}, service_id {service_id} and '
-            'member_id {member_id}'
+            f'member_id {member_id}'
         )
         if service_id is None:
             _LOGGER.debug(f'Setting service_id to {self.service_id}')
@@ -148,8 +148,6 @@ class Paths:
             account=self._account,
             service_id=service_id,
         )
-        if path[0] != '/' and not path.startswith('http'):
-            path = self._root_directory + '/' + path
 
         _LOGGER.debug(f'Template resolved to {path}')
 
@@ -157,7 +155,8 @@ class Paths:
 
     @staticmethod
     def resolve(path_template: str, network: str, service_id: int = None,
-                member_id: UUID = None, account_id: UUID = None) -> str:
+                member_id: UUID = None, account_id: UUID = None,
+                account: str = None) -> str:
         '''
         Resolves variables in a string without requiring an instance
         of the Paths class. For file-system paths, this function does
@@ -174,7 +173,10 @@ class Paths:
             path = path.replace('{member_id}', str(member_id))
 
         if account_id:
-            path = path.format('{account_id}', str(account_id))
+            path = path.replace('{account_id}', str(account_id))
+
+        if account:
+            path = path.replace('{account}', account)
 
         # Remove any unresolved variables in the template
         for param in '/{member_id}', '/{account_id}', '/{service_id}':

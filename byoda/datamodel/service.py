@@ -73,7 +73,7 @@ class Service:
     '''
 
     def __init__(self, network: Network = None, filepath: str = None,
-                 service_id: int = None):
+                 service_id: int = None, account: str = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -85,10 +85,16 @@ class Service:
         :param filepath: the file with the service schema/contract. If this
         optional parameter is specified, the signatures of the schema/contract
         will not be verified.
+        :param service_id: the service_id for the service
+        :param account: the label of the account that has a membership of
+        this service
         '''
 
         self.name: str = None
         self.service_id: int = service_id
+
+        # Label for the account, used when service is loaded for a membership
+        self.account: str = account
 
         self.registration_status: RegistrationStatus = \
             RegistrationStatus.Unknown
@@ -141,7 +147,8 @@ class Service:
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
-                    with_private_key: bool = False, password: str = None):
+                    with_private_key: bool = False, password: str = None,
+                    account: str = None):
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures
@@ -149,15 +156,13 @@ class Service:
         :param network: the network to which service belongs
         :param filepath: path to the file containing the data contract
 
-        TODO: load the service metadata from the network directory server
         '''
 
-        service = Service(network=network, filepath=filepath)
+        service = Service(network=network, filepath=filepath, account=account)
 
         service.load_data_secret(with_private_key, password)
 
         service.load_schema(filepath)
-        service.verify_schema_signatures()
         service.schema.generate_graphql_schema()
 
         _LOGGER.debug(f'Read service from {filepath}')
@@ -602,12 +607,20 @@ class Service:
         :returns: the schema as string
         '''
 
-        if save and not filepath:
-            filepath = self.paths.get(Paths.SERVICE_FILE)
+        if save:
+            # Resolve any variables in the value for the filepath variable
+            # and make sure the destination directory exists
+            if not filepath:
+                filepath = self.paths.get(Paths.SERVICE_FILE)
+                self.storage_driver.create_directory(
+                    self.paths.get(Paths.SERVICE_DIR)
+                )
+            else:
+                filepath = self.paths.get(filepath)
+                self.storage_driver.create_directory(
+                    self.paths.get(Paths.MEMBER_DIR)
+                )
 
-        self.storage_driver.create_directory(
-            self.paths.get(Paths.SERVICE_DIR)
-        )
         resp = ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )

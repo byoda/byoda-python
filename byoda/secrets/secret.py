@@ -89,6 +89,9 @@ class Secret:
         self.private_key: rsa.RSAPrivateKey = None
         self.private_key_file: str = key_file
 
+        # There is no default location for this file.
+        self.unencrypted_private_key_file: str = None
+
         self.cert: Certificate = None
         self.cert_file: str = cert_file
 
@@ -624,7 +627,7 @@ class Secret:
         self.storage_driver.create_directory(directory)
 
         self.storage_driver.write(
-            self.cert_file, data, file_mode=FileMode.TEXT
+            self.cert_file, data, file_mode=FileMode.BINARY
         )
 
         if self.private_key:
@@ -671,9 +674,12 @@ class Secret:
 
         # private key is used both by nginx server and requests client
         _LOGGER.debug('Saving private key to %s', filepath)
+
         private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:
             file_desc.write(private_key_pem)
+
+        self.unencrypted_private_key_file = filepath
 
         return filepath
 

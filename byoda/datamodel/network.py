@@ -94,9 +94,7 @@ class Network:
             except ValueError:
                 raise ValueError(f'Invalid role {role}')
 
-        self.root_dir: str = server.get(
-            'root_dir', os.environ['HOME'] + '.byoda'
-        )
+        self.root_dir: str = server['root_dir']
 
         self.private_key_password: str = server['private_key_password']
 
@@ -154,12 +152,13 @@ class Network:
                             'network'
                         )
                     data = resp.text
-                    private_object_storage.write(self.root_ca.cert_file, data)
                     self.root_ca.from_string(data)
+                    self.root_ca.save()
+
             if not self.data_secret.cert:
-                if self.data_secret.cert_file_exists():
+                try:
                     self.data_secret.load(with_private_key=False)
-                else:
+                except FileNotFoundError:
                     resp = ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )

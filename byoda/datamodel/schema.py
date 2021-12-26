@@ -6,7 +6,7 @@ Class for modeling the (JSON) schema to validating data
 :license    : GPLv3
 '''
 
-from abc import abstractmethod
+import os
 import sys
 import json
 import logging
@@ -18,9 +18,10 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
-from fastjsonschema import JsonSchemaValueException
+from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
+
 from byoda.secrets.network_data_secret import NetworkDataSecret
-from byoda.secrets.service_data_secret import ServiceDataSecret     # noqa: F401
+from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.util import MessageSignature
 from byoda.util import ServiceSignature
@@ -92,6 +93,8 @@ class Schema:
         self.gql_schema: List = []
 
         self.verified_signatures: Set[MessageSignature] = set()
+        self._service_signature: ServiceSignature = None
+        self._network_signature: NetworkSignature = None
 
         # This is a callable to validate data against the JSON schema
         self.validate: fastjsonschema.validate = None
@@ -132,7 +135,7 @@ class Schema:
         '''
 
         try:
-            self.service_signature = ServiceSignature.from_dict(
+            self._service_signature = ServiceSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.SERVICE.value
                 ),
@@ -148,7 +151,7 @@ class Schema:
                 raise
 
         try:
-            self.network_signature = NetworkSignature.from_dict(
+            self._network_signature = NetworkSignature.from_dict(
                 self.json_schema['signatures'].get(
                     SignatureType.NETWORK.value
                 ),
@@ -293,6 +296,9 @@ class Schema:
             service_id=self.service_id,
             classes=classes, type_map=TYPE_MAP
         )
+
+        # TODO: not elegant when not running in container or Visual Code
+        os.makedirs(CODEGEN_DIRECTORY, exist_ok=True)
 
         with open(code_filename, 'w') as file_desc:
             file_desc.write(code)
@@ -499,10 +505,11 @@ class Schema:
         if not network_signature:
             raise ValueError('No network signature avaiable')
 
-        return network_signature.get['signature']
-
     @network_signature.setter
     def network_signature(self, value: MessageSignature):
+        '''
+        Updates the Network signature in the json_schema dict
+        '''
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 'Support email must be an MessageSignature, '
@@ -511,6 +518,8 @@ class Schema:
 
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
+
+        self._network_signature = value
 
         network_signature = self.json_schema['signatures'].get('network')
         if not network_signature:
@@ -527,10 +536,14 @@ class Schema:
         if not service_signature:
             raise ValueError('No service signature avaiable')
 
-        return service_signature.get['signature']
+        return self._service_signature
 
     @service_signature.setter
-    def service_signature(self, value: MessageSignature):
+    def service_signature(self, value: MessageSignature) -> MessageSignature:
+        '''
+        Updates the Service signature in the json_schema dict
+        '''
+
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 f'service_signature must be an MessageSignature, '
@@ -540,11 +553,15 @@ class Schema:
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
+        self._service_signature = value
+
         service_signature = self.json_schema['signatures'].get('service')
         if not service_signature:
             self.json_schema['signatures']['service'] = {}
 
         self.json_schema['signatures']['service'] = value.as_dict()
+
+        return self._service_signature
 
     @property
     def signatures(self):

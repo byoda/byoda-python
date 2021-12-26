@@ -57,12 +57,13 @@ class MessageSignature:
         else:
             common_name = 'unknown'
 
-        return {
+        data = {
             'signature': self.base64_signature,
             'hash_algorithm': self.hash_algorithm,
             'timestamp': self.timestamp.isoformat(timespec='seconds'),
             'certificate': common_name
         }
+        return data
 
     @staticmethod
     def from_dict(data: Dict[str, str], data_secret=None):

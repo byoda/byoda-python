@@ -1,0 +1,91 @@
+{
+    "description": "the private service for which no data will be shared with services or their members",
+    "jsonschema": {
+        "$id": "https://uuid.services.byoda.net/service/private",
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "description": "This is the default service of each network, storing only private data",
+        "properties": {
+            "member": {
+                "#accesscontrol": [
+                    "read"
+                ],
+                "properties": {
+                    "joined": {
+                        "description": "Date & time when the pod became a member of the service",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "Membership UUID",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "person": {
+                "#accesscontrol": [
+                    {
+                        "member": [
+                            "read",
+                            "update",
+                            "delete"
+                        ]
+                    }
+                ],
+                "properties": {
+                    "additionalNames": {
+                        "access": "private",
+                        "description": "Any middle names",
+                        "type": "string"
+                    },
+                    "avatarUrl": {
+                        "access": "private",
+                        "type": "string"
+                    },
+                    "email": {
+                        "access": "private",
+                        "format": "idn-email",
+                        "type": "string"
+                    },
+                    "familyName": {
+                        "access": "private",
+                        "description": "Your surname",
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "access": "private",
+                        "description": "Your first given name",
+                        "type": "string"
+                    },
+                    "homepageUrl": {
+                        "access": "private",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "title": "private service storing information about you",
+        "type": "object"
+    },
+    "name": "private",
+    "owner": "Steven Hessing",
+    "service_id": 0,
+    "signatures": {
+        "network": {
+            "certificate": "network.network-data.byoda.net",
+            "hash_algorithm": "SHA256",
+            "signature": "h/TaaiigL1LsKhHNwjav6QYlxmiqGqD2cPbWyNxsZpbDC4Vnf9R2YEYnKD4UqMELo5T8FTHTBNOm2n4DlHuhtlQmROgXPpDi0ZLy0rJ3+s72k26fHvmAkM9S7cHY6RLhBRXhzzNJUGIPUmRzZP1+W0QhQBjiG4c19YXESAqK50/XoqtzVY3uoqNzld6mf8hqQ4WdO0suuFNDxsb/xrwitlYoESygeplTV1w2sqNQYtnaV6edicY2uag+UMAumeKaUZ1dUL41ZZEpCxc1FL1kJ+c86HPogny5rtW4Xlss5bClkiYchlddxN//OhreHjir9x9VelQvLtKMBnv9pvMHUoQpbcR5luGokVJhL7T9SlIAhkyF97ff1D69UWRCZ0T/jp2Y+ljAWzS2sceKCAPxDu91kDcrv9kGWhS4dNdsrH7lk28TvlL8Y6CIYLFsFgQUpx9it+63WmOiJ9Q5Wc5ArNoijzGXnQaiSv00L9Y4Y4bmPY9PU+sBSBFUp3Ojt8eE",
+            "timestamp": "2021-11-18T03:41:54"
+        },
+        "service": {
+            "certificate": "data.service-data-0.byoda.net",
+            "hash_algorithm": "SHA256",
+            "signature": "bQn8JT4SQ4ufHw5x8ADoWSc8MBrPHFa991MiKUGl+34KTaSHKMVK5FGObPwTVzcFAAWjbUm+xGinWFQq1/udgZ4SvStaWu2JvgNGQbwe88QIPGfXfXA/yd0i3+yun09yNWSNbVr74JPZu3DhoetbPVn/QvW9P8T9qN1+AGO1hJT/xL4Ttia5eH67tGyU963fkXBJFi9LnxPWbcE/fY0E2hmgrBxQTxJvBv8T1BJ07Pwx4zIFDE14OqJkpKIZ7O651a3+3bDdqs5/W5RQ36nAFZ5pxYQnvsHvooPRxqrN8FrKtYmBzX/bh9xJrX1W/JKrz8Nbbk/LB7xOqwMsCzxCBQkyUiZ66ZWKp9LYQCRIjBtaBLmLrd5yWC6FpyLKHk74+KzbORh4ZXfRC2S5aFp/4U0Nk47N8badmH6rDvSTGYG+Zq55yNyUODbi2BDV/dL4/iplFgj3M6K/ApTKxWe0V5FfzVnO5Z6budO0lqggD6zl71KHjtaIEuTUQVWcNB+0",
+            "timestamp": "2021-11-18T03:41:54"
+        }
+    },
+    "supportemail": "steven@byoda.org",
+    "version": 1,
+    "website": "https://www.byoda.org/"
+}
