@@ -286,6 +286,6 @@ class Account:
 
         member = Member.create(service, schema_version, self, members_ca)
 
-        self.memberships[member.member_id] = member
+        self.memberships[member.service_id] = member
 
         return member
