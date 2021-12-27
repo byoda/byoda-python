@@ -46,6 +46,7 @@ _LOGGER = logging.getLogger(__name__)
 Account = TypeVar('Account')
 Network = TypeVar('Network')
 
+
 class Member:
     '''
     Class for modelling an Membership.

@@ -10,13 +10,11 @@ import logging
 from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
-from uuid import uuid4
 
 import requests
 
 from byoda.datatypes import CsrSource
 from byoda.datastore import DocumentStore
-from byoda.datamodel import Schema
 from byoda.datamodel import MemberData
 
 from byoda.secrets import Secret

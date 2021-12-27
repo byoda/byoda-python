@@ -29,7 +29,7 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import ContainerClient, BlobClient
 from azure.core.exceptions import ResourceNotFoundError
 
-from byoda.datatypes import StorageType
+from byoda.datatypes import StorageType, CloudType
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
@@ -53,7 +53,7 @@ class AzureFileStorage(FileStorage):
 
         self.credential: DefaultAzureCredential = DefaultAzureCredential()
 
-        super().__init__(cache_path)
+        super().__init__(cache_path, cloud_type=CloudType.Azure)
 
         domain = 'blob.core.windows.net'
         self.buckets: Dict[str:str] = {

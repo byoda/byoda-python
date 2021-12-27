@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Request
 
 # from byoda.datatypes import IdType
 
-from byoda.models import DataRequest, DataResponseModel
+from byoda.models import MemberRequestModel, MemberResponseModel
 
 from ..dependencies.podrequest_auth import PodRequestAuth
 
@@ -26,8 +26,8 @@ router = APIRouter(
 )
 
 
-@router.get('/data', response_model=DataResponseModel)
-def get_data(request: Request, data_request: DataRequest,
+@router.get('/data', response_model=MemberResponseModel)
+def get_data(request: Request, data_request: MemberRequestModel,
              auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
     Get data of the member of a service.
@@ -35,7 +35,7 @@ def get_data(request: Request, data_request: DataRequest,
     using the identify specified in the client cert.
     '''
 
-    response = DataResponseModel(
+    response = MemberResponseModel(
         member_id=uuid4(),
         service_id=1,
         data={},

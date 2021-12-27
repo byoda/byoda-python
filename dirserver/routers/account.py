@@ -26,10 +26,7 @@ from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix='/api/v1/network',
-    dependencies=[]
-)
+router = APIRouter(prefix='/api/v1/network', dependencies=[])
 
 
 @router.post(

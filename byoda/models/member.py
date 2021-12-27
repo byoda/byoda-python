@@ -14,7 +14,7 @@ from pydantic import BaseModel
 _LOGGER = logging.getLogger(__name__)
 
 
-class DataRequest():
+class MemberRequestModel():
     def __init__(self, member_id, service_id, request_spec):
         self.member_id = member_id
         self.service_id = service_id
@@ -22,7 +22,7 @@ class DataRequest():
 
     def __repr__(self):
         return (
-            f'<Data(member_id={self.member_id},service_id={self.service_id},'
+            f'<Service(member_id={self.member_id},service_id={self.service_id},'
             f'request_spec={self.request_spec})>'
         )
 
@@ -34,7 +34,7 @@ class DataRequest():
         }
 
 
-class DataResponseModel(BaseModel):
+class MemberResponseModel(BaseModel):
     member_id: UUID
     service_id: int
     data: dict

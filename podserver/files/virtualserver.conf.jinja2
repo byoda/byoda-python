@@ -31,6 +31,10 @@ server {
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
+
+        auth_basic  "Log Area";
+        # Location of auth file defined in byoda-python:/podserver/bootstrap/nginxconfig.py
+        auth_basic_user_file /etc/nginx/htaccess.db;
     }
 
     location /logs/ {
@@ -42,6 +46,7 @@ server {
             text/plain    log;
         }
     }
+
 {% endif -%}
 
     location /api/ {

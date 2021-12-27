@@ -36,17 +36,16 @@ class FileStorage:
     keeping a local copy for fast reads.
     '''
 
-    def __init__(self, local_path: str, bucket: str = None):
+    def __init__(self, local_path: str,
+                 cloud_type: CloudType = CloudType.LOCAL):
 
         # These properties are only applicable if this instance
         # is derived from one of the cloud-storage classes
         self.cache_enabled = None
         self.cache_path = None
+        self.cloud_type: CloudType = cloud_type
 
-        # Hack: in factory we can't import derived classes so we
-        # compare on the string representation of those classes
-        derived_class = self.__module__.split('.')[-1]
-        if derived_class in ('aws', 'azure', 'gcp'):
+        if cloud_type != CloudType.LOCAL:
             if local_path:
                 self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'

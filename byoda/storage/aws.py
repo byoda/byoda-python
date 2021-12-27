@@ -14,7 +14,7 @@ from typing import Set
 
 import boto3
 
-from byoda.datatypes import StorageType
+from byoda.datatypes import StorageType, CloudType
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
@@ -38,7 +38,7 @@ class AwsFileStorage(FileStorage):
 
         self.driver = boto3.client('s3')
 
-        super().__init__(cache_path)
+        super().__init__(cache_path, cloud_type=CloudType.AWS)
 
         self.buckets = {
             StorageType.PRIVATE.value: f'{bucket_prefix}-private',

@@ -16,5 +16,7 @@ from .cert import SignedMemberCertResponseModel
 from .ipaddress import IpAddressResponseModel
 from .service import ServiceSummariesModel
 from .schema import SchemaModel, SchemaResponseModel
+from .member import MemberRequestModel, MemberResponseModel
+from .account import AccountResponseModel
 
 # from .letsencrypt import LetsEncryptSecretModel
