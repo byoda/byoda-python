@@ -1,5 +1,5 @@
 '''
-Schema for server to server APIs
+API models for IP Addresses
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
@@ -10,32 +10,56 @@ import logging
 from uuid import UUID
 
 from pydantic import BaseModel
+from typing import Optional, List
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class MemberRequestModel():
-    def __init__(self, member_id, service_id, request_spec):
-        self.member_id = member_id
-        self.service_id = service_id
-        self.request_spec = request_spec
+class MemberResponseModel(BaseModel):
+    account_id: UUID
+    network: str
+    member_id: UUID
+    service_id: int
+    version: int
+    name: str
+    owner: str
+    website: str
+    supportemail: str
+    description: str
+    certificate: str
+    private_key: str
 
     def __repr__(self):
-        return (
-            f'<Service(member_id={self.member_id},service_id={self.service_id},'
-            f'request_spec={self.request_spec})>'
+        return('<MemberResponseModel={service_id: int, version: int}>')
+
+    def as_dict(self):
+        return {
+            'account_id': self.account_id,
+            'network': self.network,
+            'member_id': self.member_id,
+            'service_id': self.service_id,
+            'version': self.version,
+            'name': self.name,
+            'owner': self.owner,
+            'website': self.website,
+            'description': self.description,
+            'supportemail': self.supportemail,
+            'certificate': self.certificate,
+            'private_key': self.private_key,
+        }
+
+
+class MemberRequestModel(BaseModel):
+    service_id: int
+    version: int
+
+    def __repr__(self):
+        return(
+            '<MemberRequestModel={service_id: int, version: int}>'
         )
 
     def as_dict(self):
         return {
-            'member_id': self.member_id,
             'service_id': self.service_id,
-            'request_spec': self.request_spec,
+            'verion:': self.version
         }
-
-
-class MemberResponseModel(BaseModel):
-    member_id: UUID
-    service_id: int
-    data: dict
-    stats: dict

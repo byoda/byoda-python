@@ -135,6 +135,32 @@ class Member:
         self.tls_secret = None
         self.data_secret = None
 
+    def as_dict(self) -> Dict:
+        '''
+        Returns the metdata for the membership, complying with the
+        MemberResponseModel
+        '''
+
+        if not self.schema:
+            raise ValueError('Schema not available')
+
+        data = {
+            'account_id': self.account.account_id,
+            'network': self.network.name,
+            'member_id': self.member_id,
+            'service_id': self.service_id,
+            'version': self.schema.version,
+            'name': self.schema.name,
+            'owner': self.schema.owner,
+            'website': self.schema.website,
+            'supportemail': self.schema.supportemail,
+            'description': self.schema.description,
+            'certificate': self.tls_secret.cert_as_pem(),
+            'private_key': self.tls_secret.private_key_as_pem(),
+        }
+
+        return data
+
     def create_nginx_config(self):
         '''
         Generates the Nginx virtual server configuration for

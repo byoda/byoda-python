@@ -11,13 +11,13 @@ the headers that would normally be set by the reverse proxy
 :license
 '''
 
-import sys
 import os
+import sys
 import unittest
 import requests
 import shutil
 import time
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from multiprocessing import Process
 import uvicorn
@@ -40,7 +40,9 @@ from byoda.util import setup_api
 from byoda import config
 
 from podserver.util import get_environment_vars
+
 from podserver.routers import account
+from podserver.routers import member
 
 # Settings must match config.yml used by directory server
 NETWORK = 'byoda.net'
@@ -107,14 +109,14 @@ class TestDirectoryApis(unittest.TestCase):
         server.join_service(BYODA_PRIVATE_SERVICE, network_data)
 
         app = setup_api(
-            'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', None, [account]
+            'Byoda test pod', 'server for testing pod APIs',
+            'v0.0.1', None, [account, member]
         )
         cls.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
-                'host': '127.0.0.1',
+                'host': '0.0.0.0',
                 'port': server.HTTP_PORT,
                 'log_level': 'debug'
             },
@@ -127,18 +129,19 @@ class TestDirectoryApis(unittest.TestCase):
     def tearDownClass(cls):
         cls.PROCESS.terminate()
 
-    def test_network_account_put(self):
-        API = BASE_URL + '/v1/pod/account'
-
+    def test_pod_rest_api(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network
+
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN={account_id}.accounts.{network.name}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
+
+        API = BASE_URL + '/v1/pod/account'
         response = requests.get(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -153,6 +156,29 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 1)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(API + '?service_id=0', headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['account_id'], account_id)
+        self.assertEqual(data['network'], 'byoda.net')
+        self.assertTrue(isinstance(data['member_id'], str))
+        member_id = UUID(data['member_id'])     # noqa
+        self.assertEqual(data['service_id'], 0)
+        self.assertEqual(data['version'], 1)
+        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['owner'], 'Steven Hessing')
+        self.assertEqual(data['website'], 'https://www.byoda.org/')
+        self.assertEqual(data['supportemail'], 'steven@byoda.org')
+        self.assertEqual(
+            data['description'], (
+                'the private service for which no data will be shared with '
+                'services or their members'
+            )
+        )
+        self.assertGreater(len(data['certificate']), 80)
+        self.assertGreater(len(data['private_key']), 80)
 
 
 if __name__ == '__main__':

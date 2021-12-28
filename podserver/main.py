@@ -40,8 +40,8 @@ from byoda.util import setup_api
 
 from .util import get_environment_vars
 
-# from .routers import member
 from .routers import account
+from .routers import member
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -113,7 +113,7 @@ nginx_config.reload()
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', config.app_config, [account]
+    'v0.0.1', config.app_config, [account, member]
 )
 
 for account_member in pod_account.memberships.values():
@@ -122,8 +122,6 @@ for account_member in pod_account.memberships.values():
         graphql_app,
         prefix=f'/api/v1/data/service-{account_member.service_id}',
     )
-
-# app.include_router(member)
 
 
 @app.get('/api/v1/status')
