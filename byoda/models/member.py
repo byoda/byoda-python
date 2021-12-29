@@ -10,7 +10,6 @@ import logging
 from uuid import UUID
 
 from pydantic import BaseModel
-from typing import Optional, List
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -124,7 +124,7 @@ def run_bootstrap_tasks(data: Dict):
         _LOGGER.info('Created account secret during bootstrap')
 
     if BYODA_PRIVATE_SERVICE not in account.memberships:
-        server.join_service(BYODA_PRIVATE_SERVICE, data)
+        account.join(BYODA_PRIVATE_SERVICE, 1)
         _LOGGER.info('Joined the BYODA private service')
 
 

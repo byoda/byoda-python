@@ -29,24 +29,24 @@ from .routers import member
 _LOGGER = None
 
 with open('config.yml') as file_desc:
-    config.app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+    app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
-debug = config.app_config['application']['debug']
+debug = app_config['application']['debug']
 verbose = not debug
 _LOGGER = Logger.getLogger(
     sys.argv[0], debug=debug, verbose=verbose,
-    logfile=config.app_config['dirserver'].get('logfile')
+    logfile=app_config['dirserver'].get('logfile')
 )
 
 server = DirectoryServer()
 config.server = server
 
 server.network = Network(
-    config.app_config['dirserver'], config.app_config['application']
+    app_config['dirserver'], app_config['application']
 )
 
 server.network.dnsdb = DnsDb.setup(
-    config.app_config['dirserver']['dnsdb'], server.network.name
+    app_config['dirserver']['dnsdb'], server.network.name
 )
 
 server.get_registered_services()
@@ -57,7 +57,7 @@ if not os.environ.get('SERVER_NAME') and config.server.network.name:
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', config.app_config, [account, service, member]
+    'v0.0.1', app_config, [account, service, member]
 )
 
 

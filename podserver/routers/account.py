@@ -58,7 +58,7 @@ def get_account(request: Request,
     root_directory = account.paths.root_directory()
 
     services = []
-    for service in network.service_summaries:
+    for service in network.service_summaries.values():
         service_id = service['service_id']
         if service_id in account.memberships:
             member = account.memberships[service_id]

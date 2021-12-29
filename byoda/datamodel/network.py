@@ -176,7 +176,7 @@ class Network:
         self.tls_secret: Secret = None
 
         self.services: Dict[int: Service] = dict()
-        self.service_summaries: List = []
+        self.service_summaries: Dict[int:Dict] = dict()
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None

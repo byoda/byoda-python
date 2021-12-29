@@ -29,7 +29,7 @@ class ServiceSummaryResponseModel(BaseModel):
         return {
             'service_id': self.service_id,
             'version': self.version,
-            'namme': self.name,
+            'name': self.name,
             'title': self.title,
             'description': self.description,
             'supportemail': self.supportemail,

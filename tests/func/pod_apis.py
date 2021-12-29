@@ -106,12 +106,17 @@ class TestDirectoryApis(unittest.TestCase):
         pod_account.register()
 
         server.get_registered_services()
-        server.join_service(BYODA_PRIVATE_SERVICE, network_data)
+        pod_account.join(BYODA_PRIVATE_SERVICE, 1)
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', None, [account, member]
         )
+
+        for account_member in pod_account.memberships.values():
+            account_member.enable_graphql_api(app)
+
+
         cls.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),

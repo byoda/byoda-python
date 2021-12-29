@@ -30,26 +30,26 @@ _LOGGER = None
 # We support the
 config_file = os.environ.get('CONFIG_FILE', 'config.yml')
 with open(config_file) as file_desc:
-    config.app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+    app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
-debug = config.app_config['application']['debug']
+debug = app_config['application']['debug']
 verbose = not debug
 _LOGGER = Logger.getLogger(
     sys.argv[0], debug=debug, verbose=verbose,
-    logfile=config.app_config['svcserver'].get('logfile')
+    logfile=app_config['svcserver'].get('logfile')
 )
 _LOGGER.debug(f'Read configuration file: {config_file}')
 
 server = ServiceServer()
 
 server.network = Network(
-    config.app_config['svcserver'], config.app_config['application']
+    app_config['svcserver'], app_config['application']
 )
 server.service = Service(
-    server.network, None, config.app_config['svcserver']['service_id']
+    server.network, None, app_config['svcserver']['service_id']
 )
 server.load_secrets(
-    password=config.app_config['svcserver']['private_key_password']
+    password=app_config['svcserver']['private_key_password']
 )
 server.service.tls_secret.save_tmp_private_key()
 
@@ -67,7 +67,7 @@ server.service.register_service()
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
-    'v0.0.1', config.app_config, [service, member]
+    'v0.0.1', app_config, [service, member]
 )
 
 

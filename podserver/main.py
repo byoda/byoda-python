@@ -21,8 +21,6 @@ import sys
 
 import uvicorn
 
-from strawberry.fastapi import GraphQLRouter
-
 from byoda import config
 from byoda.util import Logger
 
@@ -113,15 +111,11 @@ nginx_config.reload()
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', config.app_config, [account, member]
+    'v0.0.1', None, [account, member]
 )
 
 for account_member in pod_account.memberships.values():
-    graphql_app = GraphQLRouter(account_member.schema.gql_schema)
-    app.include_router(
-        graphql_app,
-        prefix=f'/api/v1/data/service-{account_member.service_id}',
-    )
+    account_member.enable_graphql_api(app)
 
 
 @app.get('/api/v1/status')

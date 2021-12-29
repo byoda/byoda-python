@@ -21,10 +21,11 @@ from cryptography.hazmat.primitives import serialization
 
 from byoda.datastore.dnsdb import DnsRecordType
 
+from byoda.storage import FileStorage
+
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.schema import Schema
-from byoda.servers.server import ServerType
 from byoda.servers.service_server import ServiceServer
 from byoda.servers.directory_server import DirectoryServer
 
@@ -73,7 +74,7 @@ class Service:
     '''
 
     def __init__(self, network: Network = None, filepath: str = None,
-                 service_id: int = None, account: str = None):
+                 service_id: int = None, storage_driver: FileStorage = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -86,15 +87,10 @@ class Service:
         optional parameter is specified, the signatures of the schema/contract
         will not be verified.
         :param service_id: the service_id for the service
-        :param account: the label of the account that has a membership of
-        this service
         '''
 
         self.name: str = None
         self.service_id: int = service_id
-
-        # Label for the account, used when service is loaded for a membership
-        self.account: str = account
 
         self.registration_status: RegistrationStatus = \
             RegistrationStatus.Unknown
@@ -131,13 +127,10 @@ class Service:
         self.paths: Paths = copy(network.paths)
         self.paths.service_id = service_id
 
-        self.storage_driver = self.paths.storage_driver
-
-        # If we have enough info, let's make sure the directory exists
-        if self.network and self.service_id:
-            self.storage_driver.create_directory(
-                self.paths.get(Paths.SERVICE_DIR)
-            )
+        if storage_driver:
+            self.storage_driver = storage_driver
+        else:
+            self.storage_driver = self.paths.storage_driver
 
         if filepath:
             raw_data = self.storage_driver.read(filepath)
@@ -147,8 +140,7 @@ class Service:
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
-                    with_private_key: bool = False, password: str = None,
-                    account: str = None):
+                    with_private_key: bool = False, password: str = None):
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures
@@ -158,7 +150,7 @@ class Service:
 
         '''
 
-        service = Service(network=network, filepath=filepath, account=account)
+        service = Service(network=network, filepath=filepath)
 
         service.load_data_secret(with_private_key, password)
 
@@ -209,6 +201,16 @@ class Service:
         if verify_contract_signatures:
             self.verify_schema_signatures()
             self.registration_status = RegistrationStatus.SchemaSigned
+
+    def save_schema(self, data: str, filepath: str = None):
+        '''
+        Saves the raw data of the service contract to the Service directory
+        '''
+
+        if not filepath:
+            filepath = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
+
+        self.storage_driver.write(filepath, data)
 
     def verify_schema_signatures(self):
         '''
@@ -609,24 +611,17 @@ class Service:
 
         if save:
             # Resolve any variables in the value for the filepath variable
-            # and make sure the destination directory exists
             if not filepath:
-                filepath = self.paths.get(Paths.SERVICE_FILE)
-                self.storage_driver.create_directory(
-                    self.paths.get(Paths.SERVICE_DIR)
-                )
+                filepath = self.paths.get(Paths.SERVICE_FILE, self.service_id)
             else:
                 filepath = self.paths.get(filepath)
-                self.storage_driver.create_directory(
-                    self.paths.get(Paths.MEMBER_DIR)
-                )
 
         resp = ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
         if resp.status_code == 200:
             if save:
-                self.storage_driver.write(filepath, resp.text)
+                self.save_schema(resp.text, filepath=filepath)
 
             return resp.text
 
