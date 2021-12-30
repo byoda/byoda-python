@@ -106,8 +106,9 @@ class Member:
                 )
 
                 self.service.download_data_secret(save=True, failhard=False)
-
-            self.network.services[self.service_id] = self.service
+                self.network.services[self.service_id] = self.service
+        else:
+            self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
@@ -203,16 +204,19 @@ class Member:
         member = Member(service.service_id, account)
         member.member_id = uuid4()
 
-        member.create_secrets()
+        member.create_secrets(members_ca=members_ca)
 
         if not member.paths._exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE
                                         )
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
-        member.service.download_schema(
-            save=True, filepath=member.paths.MEMBER_SERVICE_FILE
-        )
+        if not members_ca:
+            # If members_ca has a value then we were called by a test
+            # case and should not attempt to download the schema
+            member.service.download_schema(
+                save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
+            )
 
         member.schema = member.load_schema()
 
@@ -296,6 +300,8 @@ class Member:
 
         :param secret_cls: callable for one of the classes derived from
         byoda.util.secrets.Secret
+        :param issuing_ca: ca to sign the cert locally, instead of requiring
+        the service to sign the cert request
         :raises: ValueError, NotImplementedError
         '''
 

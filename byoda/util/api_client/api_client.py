@@ -91,7 +91,7 @@ class ApiClient:
                 )
             else:
                 filepath = (
-                    server.paths._root_directory + '/' +
+                    server.network.paths._root_directory + '/' +
                     server.network.root_ca.cert_file
                 )
                 self.session.verify = filepath
@@ -126,8 +126,12 @@ class ApiClient:
             f'Calling {method} {api} with query parameters {params} '
             f'with root CA file: {client.session.verify} and data: {data} '
         )
-        response = client.session.request(
-            method, api, params=params, json=data
-        )
+        try:
+            response = client.session.request(
+                method, api, params=params, json=data
+            )
+        except (requests.exceptions.ConnectTimeout,
+                requests.exceptions.ConnectionError) as exc:
+            raise RuntimeError(exc)
 
         return response

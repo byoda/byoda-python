@@ -618,7 +618,7 @@ class Service:
             if not filepath:
                 filepath = self.paths.get(Paths.SERVICE_FILE, self.service_id)
             else:
-                filepath = self.paths.get(filepath)
+                filepath = self.paths.get(filepath, service_id=self.service_id)
 
         resp = ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
@@ -731,9 +731,16 @@ class Service:
         :returns: the cert in PEM format
         '''
 
-        resp = ApiClient.call(
-            Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
-        )
+        try:
+            resp = ApiClient.call(
+                Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
+            )
+        except RuntimeError:
+            if failhard:
+                raise
+            else:
+                return None
+            
         if resp.status_code == 200:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
