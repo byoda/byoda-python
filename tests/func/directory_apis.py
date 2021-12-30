@@ -248,7 +248,7 @@ class TestDirectoryApis(unittest.TestCase):
         data_certchain = service_data_secret.certchain_as_pem()
 
         response = requests.put(
-            API + '/' + str(service_id), headers=headers,
+            API + '/service_id/' + str(service_id), headers=headers,
             json={'certchain': data_certchain}
         )
         self.assertEqual(response.status_code, 200)
@@ -272,7 +272,8 @@ class TestDirectoryApis(unittest.TestCase):
         }
 
         response = requests.patch(
-            API + f'/{service_id}', headers=headers, json=schema.json_schema
+            API + f'/service_id/{service_id}', headers=headers,
+            json=schema.json_schema
         )
 
         self.assertEqual(response.status_code, 200)
@@ -281,9 +282,9 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(len(data['errors']), 0)
 
         # Get the fully-signed data contract for the service
-        API = BASE_URL + f'/v1/network/service/{service_id}'
+        API = BASE_URL + '/v1/network/service'
 
-        response = requests.get(API)
+        response = requests.get(API + f'/service_id/{service_id}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 9)

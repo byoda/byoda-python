@@ -13,7 +13,6 @@ from copy import copy
 from typing import Dict, TypeVar, Callable
 
 from fastapi import FastAPI
-import graphql
 
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
@@ -37,6 +36,7 @@ from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
 from byoda.util import Paths
+
 from byoda.util import NginxConfig
 from byoda.util import NGINX_SITE_CONFIG_DIR
 
@@ -258,8 +258,6 @@ class Member:
                 'Member instance does not have a service associated'
             )
 
-
-
     def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
@@ -371,6 +369,34 @@ class Member:
         )
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
+        )
+
+    def register(self):
+        '''
+        Registers the membership and its schema version with both the network
+        and the service
+        '''
+
+        # Call the member API of the service
+        RestApiClient.call(
+            Paths.SERVICEMEMBER_API +
+            f'/service_id/{self.service_id}/version/{self.schema.version}',
+            secret=self.tls_secret,
+            service_id=self.service_id
+        )
+        _LOGGER.debug(
+            f'Member {self.member_id} registered with service '
+            f'{self.service_id}'
+        )
+
+        RestApiClient.call(
+            self.paths.get(Paths.NETWORKMEMBER_API), secret=self.tls_secret,
+            service_id=self.service_id
+        )
+
+        _LOGGER.debug(
+            f'Member {self.member_id} registered service {self.service_id} '
+            f' with network {self.network.name}'
         )
 
     def load_schema(self) -> Schema:

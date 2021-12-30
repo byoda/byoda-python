@@ -61,6 +61,10 @@ server.service.load_schema(
 if not os.environ.get('SERVER_NAME') and server.network.name:
     os.environ['SERVER_NAME'] = server.network.name
 
+# This is a database (file-based) to track all clients, their IP
+# addresses, their schema versions and their data secrets.
+server.member_db.load(server.service.paths.get(Paths.SERVICE_MEMBER_DB_FILE))
+
 config.server = server
 
 server.service.register_service()

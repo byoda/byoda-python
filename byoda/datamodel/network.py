@@ -8,7 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
-from typing import Dict, Set, List
+from typing import Dict, Set
 from typing import Callable
 
 import passgen

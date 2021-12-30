@@ -115,7 +115,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         for account_member in pod_account.memberships.values():
             account_member.enable_graphql_api(app)
-
+            account_member.register()
 
         cls.PROCESS = Process(
             target=uvicorn.run,

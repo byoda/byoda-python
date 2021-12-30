@@ -34,8 +34,6 @@ class TestFileStorage(unittest.TestCase):
         shutil.rmtree(ROOT_DIR, ignore_errors=True)
         os.makedirs(ROOT_DIR, exist_ok=True)
 
-        shutil.copy('/etc/profile', ROOT_DIR + '/profile')
-
     def test_gcp_storage(self):
         storage = FileStorage.get_storage(
             CloudType.GCP, 'byoda', root_dir=ROOT_DIR
@@ -60,6 +58,11 @@ class TestFileStorage(unittest.TestCase):
 
 
 def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
+
+    # Prep the test by putting the file in the directory used by the
+    # FileStorage instance
+    shutil.copy('/etc/profile', ROOT_DIR + '/profile')
+
     storage.copy(
         '/profile', 'test/profile',
         storage_type=StorageType.PRIVATE

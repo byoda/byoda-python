@@ -56,6 +56,7 @@ class Paths:
     SERVICE_APPS_CA_KEY_FILE     = 'private/network-{network}-service-{service_id}-apps-ca.key'                           # noqa
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
+    SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
@@ -75,9 +76,9 @@ class Paths:
 
     # APIs
     NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                          # noqa
-    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'             # noqa
+    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'  # noqa
     NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                         # noqa
-
+    NETWORKMEMBER_API     = 'https://dir.{network}/api/v1/network/member/service_id/{service_id}'   # noqa
     SERVICEMEMBER_API     = 'https://service.service-{service_id}.{network}/api/v1/service/member'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,

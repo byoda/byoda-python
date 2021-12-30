@@ -57,7 +57,7 @@ class FileStorage:
 
             for files in os.listdir(self.cache_path):
                 filepath = os.path.join(self.cache_path, files)
-                shutil.rmtree(filepath)
+                shutil.rmtree(os.path.dirname(filepath))
 
         else:
             if not local_path:
@@ -285,8 +285,8 @@ class FileStorage:
         src_dirpath, src_filename = self.get_full_path(src)
         dest_dirpath, dest_filename = self.get_full_path(dest)
 
-        result = shutil.copy(
-            src_dirpath + src_filename, dest_dirpath + dest_filename
+        result = shutil.copyfile(
+            src_dirpath + src_filename, dest_dirpath + '/' + dest_filename
         )
 
         _LOGGER.debug(
@@ -304,6 +304,7 @@ class FileStorage:
 
         for directory in os.listdir(dir_path):
             if not prefix or directory.startswith(prefix):
-                folders.append(directory)
+                if os.path.isdir(os.path.join(dir_path, directory)):
+                    folders.append(directory)
 
         return folders

@@ -161,6 +161,10 @@ class Service:
 
         return service
 
+    @property
+    def fqdn(self):
+        return self.tls_secret.common_name
+
     def load_schema(self, filepath: str = None,
                     verify_contract_signatures: bool = True) -> bool:
         '''

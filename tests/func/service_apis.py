@@ -75,7 +75,6 @@ class TestDirectoryApis(unittest.TestCase):
 
         os.makedirs(test_dir)
 
-
         service_dir = (
             f'{test_dir}/network-'
             f'{cls.APP_CONFIG["application"]["network"]}'
@@ -95,7 +94,8 @@ class TestDirectoryApis(unittest.TestCase):
         service_file = config.server.network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
-        shutil.copy(DUMMY_SCHEMA, service_file)
+
+        shutil.copy(DUMMY_SCHEMA, test_dir + '/' + service_file)
 
         config.server.service = Service(
             network, service_file, cls.APP_CONFIG['svcserver']['service_id']
@@ -110,6 +110,10 @@ class TestDirectoryApis(unittest.TestCase):
         )
         config.server.service.load_schema(
             service_file, verify_contract_signatures=False
+        )
+
+        config.server.member_db.load(
+            config.server.service.paths.get(Paths.SERVICE_MEMBER_DB_FILE)
         )
 
         app = setup_api(
@@ -204,7 +208,7 @@ class TestDirectoryApis(unittest.TestCase):
                 f'CN={memberscasecret_commonname}'
         }
         response = requests.put(
-            f'{API}/{SERVICE_ID}', headers=headers,
+            f'{API}/service_id/{SERVICE_ID}/version/1', headers=headers,
             json={'certchain': member_data_certchain}
         )
         self.assertEqual(response.status_code, 200)

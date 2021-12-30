@@ -73,9 +73,9 @@ def post_member(request: Request, service_id: int, version: int,
     return member.as_dict()
 
 
-@router.patch('/member', response_model=MemberResponseModel)
-def patch_member(request: Request, service_id: int, version: int,
-                 auth: PodRequestAuth = Depends(PodRequestAuth)):
+@router.put('/member', response_model=MemberResponseModel)
+def put_member(request: Request, service_id: int, version: int,
+               auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service

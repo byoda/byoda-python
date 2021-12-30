@@ -11,6 +11,8 @@ from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
 
+from fastapi import FastAPI
+
 import requests
 
 from byoda.datatypes import CsrSource
@@ -233,9 +235,9 @@ class Account:
         )
 
         for folder in folders:
-            # The fo
+            # The folder name starts with 'service-'
             service_id = int(folder[8:])
-            self.load_membership(service_id=service_id)
+            self.load_membership(service_id)
 
     def load_membership(self, service_id: int) -> Member:
         '''
@@ -258,8 +260,6 @@ class Account:
         member.data.load_protected_shared_key()
         member.load_data()
 
-        self.enable(member)
-
         self.memberships[service_id] = member
 
     def join(self, service_id: int, schema_version: int,
@@ -273,6 +273,7 @@ class Account:
 
         member = Member.create(service, schema_version, self, members_ca)
 
+        member.register()
         self.memberships[member.service_id] = member
 
         return member

@@ -53,7 +53,7 @@ class AzureFileStorage(FileStorage):
 
         self.credential: DefaultAzureCredential = DefaultAzureCredential()
 
-        super().__init__(cache_path, cloud_type=CloudType.Azure)
+        super().__init__(cache_path, cloud_type=CloudType.AZURE)
 
         domain = 'blob.core.windows.net'
         self.buckets: Dict[str:str] = {

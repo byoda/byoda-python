@@ -98,7 +98,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
     return result
 
 
-@router.get('/service/{service_id}', response_model=SchemaModel)
+@router.get('/service/service_id/{service_id}', response_model=SchemaModel)
 def get_service(request: Request, service_id: int):
     '''
     Get either the data contract of the specified service or a list of
@@ -221,7 +221,8 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     }
 
 
-@router.put('/service/{service_id}', response_model=IpAddressResponseModel)
+@router.put('/service/service_id/{service_id}',
+            response_model=IpAddressResponseModel)
 def put_service(request: Request, service_id: int,
                 certchain: CertChainRequestModel,
                 auth: ServiceRequestAuthFast = Depends(
@@ -278,7 +279,8 @@ def put_service(request: Request, service_id: int,
     }
 
 
-@router.patch('/service/{service_id}', response_model=SchemaResponseModel)
+@router.patch('/service/service_id/{service_id}',
+              response_model=SchemaResponseModel)
 def patch_service(request: Request, schema: SchemaModel, service_id: int,
                   auth: ServiceRequestAuthFast = Depends(
                      ServiceRequestAuthFast)):
