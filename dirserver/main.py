@@ -11,7 +11,7 @@ import sys
 import yaml
 import uvicorn
 
-from .api import setup_api
+from byoda.util.fastapi import setup_api
 
 from byoda.util.logger import Logger
 from byoda import config

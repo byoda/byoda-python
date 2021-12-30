@@ -48,7 +48,7 @@ from byoda import config
 from byoda.datastore import DnsDb
 from byoda.secrets.membersca_secret import MembersCaSecret
 
-from dirserver.api import setup_api
+from byoda.util.fastapi import setup_api
 
 from dirserver.routers import account
 from dirserver.routers import service

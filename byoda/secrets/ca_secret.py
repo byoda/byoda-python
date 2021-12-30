@@ -14,7 +14,6 @@ from typing import List
 from copy import deepcopy
 
 from cryptography import x509
-from cryptography.x509.oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datatypes import CsrSource, EntityId

@@ -1,5 +1,6 @@
 '''
-Set up the Fastapi API
+Helper function to set up the Fastapi API, shared by directory, services
+and pod servers and the functional test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
@@ -18,11 +19,11 @@ from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.exporter import jaeger
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchExportSpanProcessor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from prometheus_fastapi_instrumentator import \
-    Instrumentator as PrometheusInstrumentator
+# from prometheus_fastapi_instrumentator import \
+#    Instrumentator as PrometheusInstrumentator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ def setup_api(title, description, version, app_config, routers: List):
             agent_port=6831,
         )
         trace.get_tracer_provider().add_span_processor(
-            BatchExportSpanProcessor(jaeger_exporter)
+            BatchSpanProcessor(jaeger_exporter)
         )
 
     app = FastAPI(
@@ -56,8 +57,8 @@ def setup_api(title, description, version, app_config, routers: List):
         middleware=middleware
     )
 
-    FastAPIInstrumentor.instrument_app(app)
-    PrometheusInstrumentator().instrument(app).expose(app)
+    # FastAPIInstrumentor.instrument_app(app)
+    # PrometheusInstrumentator().instrument(app).expose(app)
 
     for router in routers:
         app.include_router(router.router)

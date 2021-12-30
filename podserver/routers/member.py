@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
-@router.get('/member', response_model=MemberResponseModel)
+@router.get('/member/service_id/{service_id}', response_model=MemberResponseModel)
 def get_member(request: Request, service_id: int,
                auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
@@ -47,7 +47,8 @@ def get_member(request: Request, service_id: int,
     return member.as_dict()
 
 
-@router.post('/member', response_model=MemberResponseModel)
+@router.post('/member/service_id/{service_id}/version/{version}',
+             response_model=MemberResponseModel)
 def post_member(request: Request, service_id: int, version: int,
                 auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
@@ -73,7 +74,8 @@ def post_member(request: Request, service_id: int, version: int,
     return member.as_dict()
 
 
-@router.put('/member', response_model=MemberResponseModel)
+@router.put('/member/service_id/{service_id}/version/{version}',
+            response_model=MemberResponseModel)
 def put_member(request: Request, service_id: int, version: int,
                auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''

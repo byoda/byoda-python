@@ -44,7 +44,7 @@ class DirectoryServer(Server):
         service_dir = network.paths.get(Paths.SERVICES_DIR)
 
         services_dirs = [
-            svcdir for svcdir in next(os.walk(service_dir))[1]
+            svcdir for svcdir in os.listdir(service_dir)
             if svcdir.startswith('service-')
         ]
 

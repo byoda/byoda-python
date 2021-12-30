@@ -39,7 +39,7 @@ from byoda.util import Paths
 
 from byoda import config
 
-from svcserver.api import setup_api
+from byoda.util.fastapi import setup_api
 
 from svcserver.routers import service
 from svcserver.routers import member

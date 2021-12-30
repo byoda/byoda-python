@@ -160,10 +160,12 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 1)
+        self.assertEqual(len(data['services']), 0)
 
         API = BASE_URL + '/v1/pod/member'
-        response = requests.get(API + '?service_id=0', headers=headers)
+        response = requests.get(
+            API + '/service_id/0', headers=headers
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
