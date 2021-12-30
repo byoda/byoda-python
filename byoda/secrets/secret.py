@@ -187,6 +187,11 @@ class Secret:
         ).not_valid_after(
             datetime.datetime.utcnow() + datetime.timedelta(expire)
         ).add_extension(
+            x509.SubjectAlternativeName(
+                [x509.DNSName(self.common_name)]
+            ),
+            critical=False
+        ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=None
             ), critical=True,
@@ -230,6 +235,11 @@ class Secret:
             x509.BasicConstraints(
                 ca=ca, path_length=self.max_path_length
             ), critical=True,
+        ).add_extension(
+            x509.SubjectAlternativeName(
+                [x509.DNSName(self.common_name)]
+            ),
+            critical=False
         ).sign(self.private_key, hashes.SHA256())
 
         return csr

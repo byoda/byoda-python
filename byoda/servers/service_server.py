@@ -11,6 +11,8 @@ import logging
 import json
 from uuid import UUID
 from typing import TypeVar, Dict
+from datetime import datetime
+
 from byoda.storage.filestorage import FileMode
 
 from .server import Server
@@ -98,7 +100,8 @@ class MemberDb():
             'member_id': str(member_id),
             'remote_addr': remote_addr,
             'schema_version': schema_version,
-            'data_secret': data_secret
+            'data_secret': data_secret,
+            'last_seen': datetime.utcnow().isoformat(),
         }
 
         self.save()

@@ -14,6 +14,7 @@ from typing import List
 from copy import deepcopy
 
 from cryptography import x509
+from cryptography.x509.oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datatypes import CsrSource, EntityId
@@ -123,7 +124,33 @@ class CaSecret(Secret):
 
         common_name = self.review_distinguishedname(distinguished_name)
 
+        subject_name = self.review_subjectalternative_name(csr)
+
+        if common_name != subject_name:
+            raise ValueError(
+                f'Common name {common_name} does not match '
+                f'subject alternative name {subject_name}'
+            )
+
         return common_name
+
+    def review_subjectalternative_name(self, csr) -> str:
+        '''
+        Extracts the subject alternative name extension of the CSR
+        '''
+
+        extention = csr.extensions.get_extension_for_class(
+            x509.SubjectAlternativeName
+        )
+        dnsnames = extention.value.get_values_for_type(x509.DNSName)
+
+        if len(dnsnames) != 1:
+            raise ValueError(
+                f'Only 1 DNS name allow for SubjectAlternativeName, '
+                f'found: {", ".join(dnsnames)}'
+            )
+
+        return dnsnames[0]
 
     def review_distinguishedname(self, name: str) -> str:
         '''
@@ -232,6 +259,8 @@ class CaSecret(Secret):
         except x509.ExtensionNotFound:
             is_ca = False
 
+        dnsname = self.review_subjectalternative_name(csr)
+
         _LOGGER.debug('Signing cert with cert %s', self.common_name)
         cert = x509.CertificateBuilder().subject_name(
             csr.subject
@@ -245,6 +274,11 @@ class CaSecret(Secret):
             datetime.datetime.utcnow()
         ).not_valid_after(
             datetime.datetime.utcnow() + datetime.timedelta(days=expire)
+        ).add_extension(
+            x509.SubjectAlternativeName(
+                [x509.DNSName(dnsname)]
+            ),
+            critical=False
         ).add_extension(
             x509.BasicConstraints(
                 ca=is_ca, path_length=None

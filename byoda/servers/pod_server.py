@@ -8,7 +8,7 @@ a server that hosts a BYODA Service
 '''
 
 import logging
-from typing import TypeVar, Dict, List
+from typing import TypeVar, Dict
 
 from byoda.util.api_client import RestApiClient
 from byoda.util import Paths
