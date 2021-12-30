@@ -10,13 +10,13 @@ import logging
 from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
-from uuid import uuid4
+
+from fastapi import FastAPI
 
 import requests
 
 from byoda.datatypes import CsrSource
 from byoda.datastore import DocumentStore
-from byoda.datamodel import Schema
 from byoda.datamodel import MemberData
 
 from byoda.secrets import Secret
@@ -68,8 +68,6 @@ class Account:
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
-        self.memberships: Dict[int, Member] = dict()
-
         self.network: Network = network
 
         self.private_key_password: str = network.private_key_password
@@ -87,7 +85,8 @@ class Account:
         self.paths.account_id = self.account_id
         self.paths.create_account_directory()
 
-        self.load_memberships(bootstrap=bootstrap)
+        self.memberships: Dict[int, Member] = dict()
+        self.load_memberships()
 
     def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
@@ -210,45 +209,6 @@ class Account:
         )
         self.data_secret.load(password=self.private_key_password)
 
-    def load_memberships(self, bootstrap: bool = False):
-        '''
-        Loads the memberships of an account by iterating through
-        a directory structure in the document store of the server.
-        '''
-
-        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = self.document_store.get_folders(
-            memberships_dir, prefix='service-'
-        )
-
-        for folder in folders:
-            # The fo
-            service_id = int(folder[8:])
-            self.load_membership(service_id=service_id, bootstrap=bootstrap)
-
-    def load_membership(self, service_id: int,
-                        bootstrap: bool = False) -> Member:
-        '''
-        Load the data for a membership of a service
-        '''
-
-        if service_id in self.memberships:
-            raise ValueError(
-                f'Already a member of service {service_id}'
-            )
-
-        member = Member(service_id, self)
-        member.load_secrets()
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
-        member.data.load_protected_shared_key()
-        member.create_nginx_config()
-
-        member.load_data()
-
-        self.memberships[service_id] = member
-
     def register(self):
         '''
         Register the pod with the directory server of the network
@@ -263,31 +223,62 @@ class Account:
             f'Registered account with directory server: {resp.status_code}'
         )
 
-    def join(self, service: Service = None, service_id: int = None,
-             schema_version: int = None, members_ca: MembersCaSecret = None
-             ) -> Member:
+    def load_memberships(self):
+        '''
+        Loads the memberships of an account by iterating through
+        a directory structure in the document store of the server.
+        '''
+
+        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
+        folders = self.document_store.get_folders(
+            memberships_dir, prefix='service-'
+        )
+
+        for folder in folders:
+            # The folder name starts with 'service-'
+            service_id = int(folder[8:])
+            self.load_membership(service_id)
+
+    def load_membership(self, service_id: int) -> Member:
+        '''
+        Load the data for a membership of a service
+        '''
+
+        if service_id in self.memberships:
+            raise ValueError(
+                f'Already a member of service {service_id}'
+            )
+
+        member = Member(service_id, self)
+        member.load_secrets()
+        member.data = MemberData(
+            member, member.paths, member.document_store
+        )
+
+        member.create_nginx_config()
+
+        member.data.load_protected_shared_key()
+        member.load_data()
+
+        self.memberships[service_id] = member
+
+    def join(self, service_id: int, schema_version: int,
+             members_ca: MembersCaSecret = None) -> Member:
         '''
         Join a service for the first time
         '''
 
-        if ((service_id is None and not service)
-                or (service_id and service)):
-            raise ValueError('Either service_id or service must be speicfied')
-
-        if service and not isinstance(service, Service):
-            raise ValueError(
-                f'service must be of instance Service and not {type(Service)}'
-            )
-
-        if service_id is not None:
-            service_id = int(service_id)
-            service = Service(service_id=service_id, network=self.network)
-
-        if not self.paths.member_directory_exists(service.service_id):
-            self.paths.create_member_directory(service.service_id)
+        service_id = int(service_id)
+        service = Service(service_id=service_id, network=self.network)
 
         member = Member.create(service, schema_version, self, members_ca)
 
-        self.memberships[member.member_id] = member
+        if not members_ca:
+            # if a members_ca was provided, we were called by a test case
+            # so should not try to register with the directory server and
+            # the service server
+            member.register()
+
+        self.memberships[member.service_id] = member
 
         return member

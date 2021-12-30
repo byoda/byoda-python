@@ -8,7 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
-from typing import Dict, Set, List
+from typing import Dict, Set
 from typing import Callable
 
 import passgen
@@ -176,7 +176,7 @@ class Network:
         self.tls_secret: Secret = None
 
         self.services: Dict[int: Service] = dict()
-        self.service_summaries: List = []
+        self.service_summaries: Dict[int:Dict] = dict()
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None

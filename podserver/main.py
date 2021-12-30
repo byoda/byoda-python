@@ -21,8 +21,6 @@ import sys
 
 import uvicorn
 
-from strawberry.fastapi import GraphQLRouter
-
 from byoda import config
 from byoda.util import Logger
 
@@ -36,10 +34,12 @@ from byoda.datastore import DocumentStoreType
 
 from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
 
+from byoda.util import setup_api
+
 from .util import get_environment_vars
 
-# from .routers import member
-from .api import setup_api
+from .routers import account
+from .routers import member
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -81,12 +81,12 @@ server.get_registered_services()
 
 # TODO: if we have a pod secret, should we compare its commonname with the
 # account_id environment variable?
-account = Account(network_data['account_id'], network, bootstrap=False)
-account.tls_secret.load(password=account.private_key_password)
-account.data_secret.load(password=account.private_key_password)
-account.register()
+pod_account = Account(network_data['account_id'], network, bootstrap=False)
+pod_account.tls_secret.load(password=pod_account.private_key_password)
+pod_account.data_secret.load(password=pod_account.private_key_password)
+pod_account.register()
 
-server.account = account
+server.account = pod_account
 
 nginx_config = NginxConfig(
     directory=NGINX_SITE_CONFIG_DIR,
@@ -94,9 +94,9 @@ nginx_config = NginxConfig(
     identifier=network_data['account_id'],
     subdomain=IdType.ACCOUNT.value,
     cert_filepath=(
-        server.paths.root_directory() + '/' + account.tls_secret.cert_file
+        server.paths.root_directory() + '/' + pod_account.tls_secret.cert_file
     ),
-    key_filepath=account.tls_secret.unencrypted_private_key_file,
+    key_filepath=pod_account.tls_secret.unencrypted_private_key_file,
     alias=network.paths.account,
     network=network.name,
     public_cloud_endpoint=network.paths.storage_driver.get_url(
@@ -111,15 +111,11 @@ nginx_config.reload()
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', config.app_config
+    'v0.0.1', None, [account, member]
 )
 
-for member in account.memberships.values():
-    graphql_app = GraphQLRouter(member.schema.gql_schema)
-    app.include_router(
-        graphql_app,
-        prefix=f'/api/v1/data/service-{member.service_id}',
-    )
+for account_member in pod_account.memberships:
+    account_member.enable_graphql_api(app)
 
 
 @app.get('/api/v1/status')

@@ -19,22 +19,6 @@ DEFAULT_NETWORK = 'byoda.net'
 # config.extra_log_data['remote_addr'] = client_ip
 extra_log_data = {}
 
-# This stores the contents of the config.yml file
-app_config = None
-
-# The networks known by this server, as defined in the
-# server config.yml file. The keys for the networks
-# are the 'network identifiers' (so an integer number),
-# the values are the name of those networks
-networks = {}
-
-# The services of a network. The source of this information
-# will be the directory server of the network
-services = {}
-
-# The service memberships of an account
-memberships = {}
-
 # The configuration of the server, its peers and the networks
 # it is supporting
 server = None

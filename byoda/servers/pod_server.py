@@ -8,7 +8,7 @@ a server that hosts a BYODA Service
 '''
 
 import logging
-from typing import TypeVar, Dict, List
+from typing import TypeVar, Dict
 
 from byoda.util.api_client import RestApiClient
 from byoda.util import Paths
@@ -33,7 +33,7 @@ class PodServer(Server):
         super().__init__()
 
         self.server_type = ServerType.Pod
-        self.service_summaries: List = None
+        self.service_summaries: Dict[int:Dict] = None
         self.account_unencrypted_private_key_file: str = None
 
     def load_secrets(self, password: str = None):
@@ -62,9 +62,9 @@ class PodServer(Server):
 
         if response.status_code == 200:
             summaries = response.json()
-            self.network.service_summaries = summaries.get(
-                'service_summaries', []
-            )
+            self.network.service_summaries = dict()
+            for summary in summaries.get('service_summaries', []):
+                self.network.service_summaries[summary['service_id']] = summary
             _LOGGER.debug(
                 f'Read summaries for {len(self.network.service_summaries)} '
                 'services'
@@ -74,41 +74,3 @@ class PodServer(Server):
                 'Failed to retrieve list of services from the network: '
                 f'HTTP {response.status_code}'
             )
-
-    def join_service(self, service_id: int, network_data: Dict) -> None:
-        '''
-        Join a service
-        '''
-
-        if service_id in self.account.memberships:
-            raise ValueError(f'Already a member of service {service_id}')
-
-        self.account.join(service_id=service_id)
-
-    def load_joined_services(self, network) -> None:
-        '''
-        Load the services that the account for the pod has joined
-        '''
-
-        self.network = network
-
-        folders = network.paths.storage_driver.get_folders(
-            network.paths.get(Paths.SERVICES_DIR)
-        )
-        for folder in [f for f in folders if f.startswith('service-')]:
-            service_id = folder.split('-')[-1]
-
-            service = network.add_service(
-                service_id, RegistrationStatus.SchemaSigned
-            )
-
-            service_file = self.network.paths.get(
-                Paths.SERVICE_FILE, service_id=service_id
-            )
-
-            try:
-                service.load_schema(service_file)
-            except (ValueError, RuntimeError, OSError) as exc:
-                _LOGGER.exception(
-                    f'Failed to load service from {service_file}: {exc}'
-                )

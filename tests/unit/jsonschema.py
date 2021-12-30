@@ -24,7 +24,7 @@ from byoda.storage import FileStorage
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_SCHEMA = 'services/default.json'
+DEFAULT_SCHEMA = 'services/private.json'
 
 data = {
     'given_name': 'Steven',

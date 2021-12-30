@@ -36,17 +36,16 @@ class FileStorage:
     keeping a local copy for fast reads.
     '''
 
-    def __init__(self, local_path: str, bucket: str = None):
+    def __init__(self, local_path: str,
+                 cloud_type: CloudType = CloudType.LOCAL):
 
         # These properties are only applicable if this instance
         # is derived from one of the cloud-storage classes
         self.cache_enabled = None
         self.cache_path = None
+        self.cloud_type: CloudType = cloud_type
 
-        # Hack: in factory we can't import derived classes so we
-        # compare on the string representation of those classes
-        derived_class = self.__module__.split('.')[-1]
-        if derived_class in ('aws', 'azure', 'gcp'):
+        if cloud_type != CloudType.LOCAL:
             if local_path:
                 self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
@@ -58,7 +57,7 @@ class FileStorage:
 
             for files in os.listdir(self.cache_path):
                 filepath = os.path.join(self.cache_path, files)
-                shutil.rmtree(filepath)
+                shutil.rmtree(os.path.dirname(filepath))
 
         else:
             if not local_path:
@@ -286,8 +285,8 @@ class FileStorage:
         src_dirpath, src_filename = self.get_full_path(src)
         dest_dirpath, dest_filename = self.get_full_path(dest)
 
-        result = shutil.copy(
-            src_dirpath + src_filename, dest_dirpath + dest_filename
+        result = shutil.copyfile(
+            src_dirpath + src_filename, dest_dirpath + '/' + dest_filename
         )
 
         _LOGGER.debug(
@@ -305,6 +304,7 @@ class FileStorage:
 
         for directory in os.listdir(dir_path):
             if not prefix or directory.startswith(prefix):
-                folders.append(directory)
+                if os.path.isdir(os.path.join(dir_path, directory)):
+                    folders.append(directory)
 
         return folders

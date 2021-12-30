@@ -38,7 +38,7 @@ class PodRequestAuth(RequestAuth):
 
         :param request: Starlette request instance
         :returns: (n/a)
-        :raises: HTTPException
+        :raises: HTTPExceptions 400, 401, 403
         '''
 
         if (x_client_ssl_verify is None or x_client_ssl_subject is None
@@ -57,6 +57,25 @@ class PodRequestAuth(RequestAuth):
             raise HTTPException(
                 status_code=400, detail='No authentication provided'
             )
+
+        # Account cert can only be used for Pod REST APIs and, vice versa,
+        # Pod REST APIs can only be called with the account cert
+        if request.url.path.startswith('/api/v1/pod'):
+            if self.id_type != IdType.ACCOUNT:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        'Pod REST APIs can only be called with an account cert'
+                    )
+                )
+        else:
+            if self.id_type == IdType.ACCOUNT:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        'Only Pod REST APIs can be called with an account cert'
+                    )
+                )
 
         # This API can be called by ourselves, someone in our network for
         # the service, the services or an approved application of the service

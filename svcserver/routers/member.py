@@ -110,8 +110,9 @@ def post_member(request: Request, csr: CertSigningRequestModel):
     }
 
 
-@router.put('/member/{service_id}', response_model=IpAddressResponseModel)
-def put_member(request: Request, service_id: int,
+@router.put('/member/service_id/{service_id}/version/{schema_version}',
+            response_model=IpAddressResponseModel)
+def put_member(request: Request, service_id: int, schema_version: int,
                certchain: CertChainRequestModel,
                auth: MemberRequestAuthFast = Depends(
                    MemberRequestAuthFast)):
@@ -157,8 +158,13 @@ def put_member(request: Request, service_id: int,
     member_data_secret.from_string(certchain.certchain)
     member_data_secret.save(overwrite=True)
 
+    config.server.member_db.add(
+        auth.member_id, auth.remote_addr, schema_version, certchain.certchain
+    )
+
     _LOGGER.debug(
         f'Updating registration for member_id {auth.member_id} with '
+        f'schema version {schema_version} and '
         f'remote address {auth.remote_addr}'
     )
     return {

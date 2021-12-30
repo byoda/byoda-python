@@ -25,10 +25,8 @@ class Paths:
 
     # Templates for location of directories and files
     # all paths not starting with '/' will have the root directory prepended
-    CONFIG_FILE          = 'config.yml'                     # noqa
     SECRETS_DIR          = 'private/'                       # noqa
     NETWORK_DIR          = 'network-{network}'              # noqa
-    NETWORK_FILE         = 'network-{network}.json'         # noqa
     SERVICES_DIR         = 'network-{network}/services/'    # noqa
 
     NETWORK_ROOT_CA_CERT_FILE     = 'network-{network}/network-{network}-root-ca-cert.pem'                       # noqa
@@ -41,7 +39,6 @@ class Paths:
     NETWORK_SERVICES_CA_KEY_FILE  = 'private/network-{network}-services-ca.key'                                  # noqa
 
     ACCOUNT_DIR            = 'network-{network}/account-{account}/'                                              # noqa
-    ACCOUNT_FILE           = 'network-{network}/account-{account}/account-{account}.json'                        # noqa
     ACCOUNT_CERT_FILE      = 'network-{network}/account-{account}/{account}-cert.pem'                            # noqa
     ACCOUNT_KEY_FILE       = 'private/network-{network}-account-{account}.key'                                   # noqa
     ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
@@ -59,6 +56,7 @@ class Paths:
     SERVICE_APPS_CA_KEY_FILE     = 'private/network-{network}-service-{service_id}-apps-ca.key'                           # noqa
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
+    SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
@@ -78,9 +76,9 @@ class Paths:
 
     # APIs
     NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                          # noqa
-    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/{service_id}'             # noqa
+    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'  # noqa
     NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                         # noqa
-
+    NETWORKMEMBER_API     = 'https://dir.{network}/api/v1/network/member/service_id/{service_id}'   # noqa
     SERVICEMEMBER_API     = 'https://service.service-{service_id}.{network}/api/v1/service/member'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
@@ -106,8 +104,6 @@ class Paths:
         self._account = account
         self._network = network
         self.service_id = service_id
-        self.services = set()
-        self.memberships = set()
         if storage_driver:
             self.storage_driver = storage_driver
         else:
@@ -314,38 +310,10 @@ class Paths:
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
-    def create_member_service_file(self, service_id):
+    def create_member_service_directory(self, service_id):
         return self._create_directory(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
-
-    # Config file
-    def config_file(self):
-        return self.get(self.CONFIG_FILE)
-
-    def config_file_exists(self):
-        return self._exists(self.CONFIG_FILE)
-
-    # Services file with list of services
-    def services_file(self):
-        return self.get(self.SERVICES_FILE)
-
-    def services_file_exists(self):
-        return self._exists(self.SERVICES_FILE)
-
-    # Network files
-    def network_file(self):
-        return self.get(self.NETWORK_FILE)
-
-    def network_file_exists(self):
-        return self._exists(self.NETWORK_FILE)
-
-    # Account files
-    def account_file(self):
-        return self.get(self.ACCOUNT_FILE)
-
-    def account_file_exists(self):
-        return self._exists(self.ACCOUNT_FILE)
 
     # Service files
     def service_file(self, service_id):

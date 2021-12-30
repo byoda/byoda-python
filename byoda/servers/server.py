@@ -10,7 +10,7 @@ POD server, directory server, service server
 import logging
 from enum import Enum
 from typing import TypeVar
-
+from datetime import datetime
 
 from byoda.util import Paths
 
@@ -42,6 +42,7 @@ class Server:
         self.document_store: DocumentStore = None
         self.cloud = None
         self.paths: Paths = None
+        self.started: datetime = datetime.utcnow()
 
     def load_secrets(self, password: str = None):
         '''

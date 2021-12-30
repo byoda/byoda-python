@@ -23,7 +23,7 @@ from google.cloud import storage
 from google.cloud.storage.bucket import Bucket
 from google.cloud.storage.blob import Blob
 
-from byoda.datatypes import StorageType
+from byoda.datatypes import StorageType, CloudType
 
 from .filestorage import FileStorage
 from .filestorage import FileMode
@@ -54,7 +54,7 @@ class GcpFileStorage(FileStorage):
                 'credentials'
             )
 
-        super().__init__(cache_path)
+        super().__init__(cache_path, cloud_type=CloudType.GCP)
 
         self._client = storage.Client()
 

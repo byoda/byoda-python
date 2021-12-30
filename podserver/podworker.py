@@ -103,7 +103,7 @@ def run_bootstrap_tasks(data: Dict):
         common_name = account.tls_secret.common_name
         if not common_name.startswith(str(account.account_id)):
             error_msg = (
-                f'Common name of existing account secret {common_name}'
+                f'Common name of existing account secret {common_name} '
                 'does not match ACCOUNT_ID environment variable '
                 f'{data["account_id"]}'
             )
@@ -124,7 +124,7 @@ def run_bootstrap_tasks(data: Dict):
         _LOGGER.info('Created account secret during bootstrap')
 
     if BYODA_PRIVATE_SERVICE not in account.memberships:
-        server.join_service(BYODA_PRIVATE_SERVICE, data)
+        account.join(BYODA_PRIVATE_SERVICE, 1)
         _LOGGER.info('Joined the BYODA private service')
 
 
