@@ -10,8 +10,7 @@ Byoda is a mew and radically different social media platform:
 This repo hosts the reference implementation (in Python) of the Byoda directory server and the data pod. For more information about Byoda, please read the [wiki](https://github.com/StevenHessing/byoda/wiki)
 
 ## Status
-The directory server is supporting the registration API for pods using CA signed certs and DNS hosting. It does not yet support the APIs for services.
-The pod is currently bootstrapping and running in a container in a public cloud and hosting GraphQL API for accessing data for the 'Default' (0) service. The pod currently supports AWS S3 object storage.
+The directory server and 'service 0' server are up and running. The data pod runs in a container, has management APIs and supports object storage from AWS, Azure and GCP.
 
 ## Redesigning social media services
 A [number of blog posts on Medium](https://stevenhessing.medium.com/) describe the ideas about how social media should be refactored. BYODA is a reference implementation of those ideas
