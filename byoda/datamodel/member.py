@@ -106,9 +106,8 @@ class Member:
                 )
 
                 self.service.download_data_secret(save=True, failhard=False)
-                self.network.services[self.service_id] = self.service
-        else:
-            self.service = self.network.services[self.service_id]
+
+            self.network.services[self.service_id] = self.service
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
