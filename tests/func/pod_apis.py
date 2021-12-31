@@ -22,6 +22,8 @@ from uuid import uuid4, UUID
 from multiprocessing import Process
 import uvicorn
 
+from python_graphql_client import GraphqlClient
+
 # from byoda.datamodel import Account
 from byoda.datamodel import Network
 from byoda.datamodel import Account
@@ -45,7 +47,7 @@ from podserver.routers import account
 from podserver.routers import member
 
 # Settings must match config.yml used by directory server
-NETWORK = 'byoda.net'
+NETWORK = config.DEFAULT_NETWORK
 
 TEST_DIR = '/tmp/byoda-tests/pod_apis'
 BASE_URL = 'http://localhost:{PORT}/api'
@@ -139,7 +141,9 @@ class TestDirectoryApis(unittest.TestCase):
         account_id = account.account_id
         network = account.network
 
-        headers = {
+        service_id = 0
+
+        account_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN={account_id}.accounts.{network.name}',
@@ -147,7 +151,7 @@ class TestDirectoryApis(unittest.TestCase):
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=headers)
+        response = requests.get(API, headers=account_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['account_id'], str(account_id))
@@ -164,15 +168,15 @@ class TestDirectoryApis(unittest.TestCase):
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
-            API + '/service_id/0', headers=headers
+            API + f'/service_id/{service_id}', headers=account_headers
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        member_id = UUID(data['member_id'])     # noqa
-        self.assertEqual(data['service_id'], 0)
+        member_id = UUID(data['member_id'])
+        self.assertEqual(data['service_id'], service_id)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'private')
         self.assertEqual(data['owner'], 'Steven Hessing')
@@ -187,6 +191,90 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
+        member_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={member_id}.members-0.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
+        }
+
+        url = BASE_URL + f'/v1/data/service-{service_id}'
+        client = GraphqlClient(endpoint=url)
+
+        query = '''
+                mutation {
+                    mutatePerson(
+                        givenName: "Peter",
+                        additionalNames: "",
+                        familyName: "Hessing",
+                        email: "steven@byoda.org",
+                        homepageUrl: "https://some.place/",
+                        avatarUrl: "https://some.place/avatar"
+                    ) {
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
+                    }
+                }
+            '''
+        result = client.execute(query=query, headers=member_headers)
+        self.assertEqual(
+            result['data']['mutatePerson']['givenName'], 'Peter'
+        )
+        query = '''
+                query {
+                    person {
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
+                    }
+                }
+            '''
+        result = client.execute(query=query, headers=member_headers)
+
+        query = '''
+                mutation {
+                    mutatePerson(
+                        givenName: "Steven",
+                        additionalNames: "",
+                        familyName: "Hessing",
+                        email: "steven@byoda.org",
+                        homepageUrl: "https://some.place/",
+                        avatarUrl: "https://some.place/avatar"
+                    ) {
+                        givenName
+                        additionalNames
+                        familyName
+                        email
+                        homepageUrl
+                        avatarUrl
+                    }
+                }
+            '''
+
+        result = client.execute(query=query, headers=member_headers)
+        self.assertEqual(
+            result['data']['mutatePerson']['givenName'], 'Steven'
+        )
+        query = '''
+                mutation {
+                    mutateMember(
+                        memberId: "0",
+                        joined: "2021-09-19T09:04:00+07:00"
+                    ) {
+                        memberId
+                    }
+                }
+        '''
+        result = client.execute(query, headers=member_headers)
+        self.assertEqual(
+            result['data']['mutateMember']['memberId'], '0'
+        )
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
