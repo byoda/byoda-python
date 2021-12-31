@@ -55,9 +55,10 @@ class FileStorage:
                 self.cache_enabled: bool = False
                 self.local_path: str = '/tmp/'
 
-            for files in os.listdir(self.cache_path):
-                filepath = os.path.join(self.cache_path, files)
-                shutil.rmtree(os.path.dirname(filepath))
+            for filename in os.listdir(self.cache_path):
+                filepath = os.path.join(self.cache_path, filename)
+                if filepath != local_path:
+                    shutil.rmtree(os.path.dirname(filepath))
 
         else:
             if not local_path:

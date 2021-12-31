@@ -114,7 +114,7 @@ app = setup_api(
     'v0.0.1', None, [account, member]
 )
 
-for account_member in pod_account.memberships:
+for account_member in pod_account.memberships.values():
     account_member.enable_graphql_api(app)
 
 
