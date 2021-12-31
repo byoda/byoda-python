@@ -41,7 +41,9 @@ class DirectoryServer(Server):
 
         network = self.network
 
-        service_dir = network.paths.get(Paths.SERVICES_DIR)
+        service_dir = network.paths.get(
+            network.paths.root_directory() + '/' + Paths.SERVICES_DIR
+        )
 
         services_dirs = [
             svcdir for svcdir in os.listdir(service_dir)

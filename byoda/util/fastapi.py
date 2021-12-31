@@ -16,15 +16,6 @@ from starlette_context.middleware import RawContextMiddleware
 
 from fastapi import FastAPI
 
-from opentelemetry import trace
-from opentelemetry.exporter import jaeger
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-# from prometheus_fastapi_instrumentator import \
-#    Instrumentator as PrometheusInstrumentator
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -38,19 +29,6 @@ def setup_api(title, description, version, app_config, routers: List):
             )
         )
     ]
-
-    trace.set_tracer_provider(TracerProvider())
-    if app_config:
-        jaeger_exporter = jaeger.JaegerSpanExporter(
-            service_name='svcserver',
-            agent_host_name=app_config['application'].get(
-                'jaeger_host', '127.0.0.1'
-            ),
-            agent_port=6831,
-        )
-        trace.get_tracer_provider().add_span_processor(
-            BatchSpanProcessor(jaeger_exporter)
-        )
 
     app = FastAPI(
         title=title, description=description, version=version,
