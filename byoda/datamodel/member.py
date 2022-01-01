@@ -411,7 +411,9 @@ class Member:
         # Call the member API of the service to update the registration
         RestApiClient.call(
             f'{Paths.SERVICEMEMBER_API}/version/{self.schema.version}',
-            method=HttpMethod.PUT, secret=self.tls_secret, service_id=self.service_id
+            method=HttpMethod.PUT, secret=self.tls_secret,
+            data={'certchain': self.data_secret.certchain_as_pem()},
+            service_id=self.service_id
         )
         _LOGGER.debug(
             f'Member {self.member_id} registered for service '
