@@ -208,7 +208,7 @@ class TestDirectoryApis(unittest.TestCase):
                 f'CN={memberscasecret_commonname}'
         }
         response = requests.put(
-            f'{API}/service_id/{SERVICE_ID}/version/1', headers=headers,
+            f'{API}/version/1', headers=headers,
             json={'certchain': member_data_certchain}
         )
         self.assertEqual(response.status_code, 200)

@@ -117,7 +117,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         for account_member in pod_account.memberships.values():
             account_member.enable_graphql_api(app)
-            account_member.register()
+            account_member.update_registration()
 
         cls.PROCESS = Process(
             target=uvicorn.run,
@@ -275,6 +275,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(
             result['data']['mutateMember']['memberId'], '0'
         )
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

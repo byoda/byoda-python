@@ -66,7 +66,7 @@ class ApiClient:
 
         if pool not in config.client_pools:
             self.session = requests.Session()
-            self.session.timout = 3
+            self.session.timeout = 3
             if secret:
                 key_path = secret.save_tmp_private_key()
                 cert_filepath = (
