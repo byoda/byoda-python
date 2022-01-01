@@ -78,7 +78,7 @@ class Paths:
     NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                          # noqa
     NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'  # noqa
     NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                         # noqa
-    NETWORKMEMBER_API     = 'https://dir.{network}/api/v1/network/member/service_id/{service_id}'   # noqa
+    NETWORKMEMBER_API     = 'https://dir.{network}/api/v1/network/member'                           # noqa
     SERVICEMEMBER_API     = 'https://service.service-{service_id}.{network}/api/v1/service/member'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
@@ -120,12 +120,7 @@ class Paths:
         and the service parameter is not specified
         '''
 
-        _LOGGER.debug(
-            f'Got template {path_template}, service_id {service_id} and '
-            f'member_id {member_id}'
-        )
         if service_id is None:
-            _LOGGER.debug(f'Setting service_id to {self.service_id}')
             service_id = self.service_id
 
         if '{network}' in path_template and not self._network:
@@ -135,17 +130,11 @@ class Paths:
         if '{account}' in path_template and not self._account:
             raise ValueError('No account specified')
 
-        _LOGGER.debug(
-            f'Formatting template with network {self._network}, '
-            f'account: {self._account} and service_id {service_id}'
-        )
         path = path_template.format(
             network=self._network,
             account=self._account,
             service_id=service_id,
         )
-
-        _LOGGER.debug(f'Template resolved to {path}')
 
         return path
 

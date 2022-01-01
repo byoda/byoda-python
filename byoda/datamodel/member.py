@@ -246,8 +246,6 @@ class Member:
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
 
-        member.register()
-
         return member
 
     def update_schema(self, version: int):
@@ -334,6 +332,8 @@ class Member:
                     f'{type(secret_cls)}'
                 )
             else:
+                # Get the CSR signed, the resulting cert saved to disk
+                # and used to register with both the network and the service
                 self.register(secret)
 
         else:
@@ -341,8 +341,7 @@ class Member:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-
-        secret.save(password=self.private_key_password)
+            secret.save(password=self.private_key_password)
 
         return secret
 
@@ -377,7 +376,8 @@ class Member:
 
         payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
         resp = RestApiClient.call(
-            Paths.SERVICEMEMBER_API, HttpMethod.POST, data=payload,
+            self.paths.get(Paths.SERVICEMEMBER_API),
+            HttpMethod.POST, data=payload
         )
         if resp.status_code != 201:
             raise RuntimeError('Certificate signing request failed')
@@ -387,18 +387,20 @@ class Member:
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
         )
+        secret.save(password=self.private_key_password)
 
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
-        RestApiClient.call(
-            self.paths.get(Paths.NETWORKMEMBER_API), secret=self.tls_secret,
-            service_id=self.service_id
-        )
+        if isinstance(secret, MemberSecret):
+            RestApiClient.call(
+                self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.POST,
+                secret=secret, service_id=self.service_id
+            )
 
-        _LOGGER.debug(
-            f'Member {self.member_id} registered service {self.service_id} '
-            f' with network {self.network.name}'
-        )
+            _LOGGER.debug(
+                f'Member {self.member_id} registered service {self.service_id} '
+                f' with network {self.network.name}'
+            )
 
     def update_registration(self) -> None:
         '''
@@ -409,7 +411,7 @@ class Member:
         # Call the member API of the service to update the registration
         RestApiClient.call(
             f'{Paths.SERVICEMEMBER_API}/version/{self.schema.version}',
-            secret=self.tls_secret,
+            method=HttpMethod.PUT, secret=self.tls_secret, service_id=self.service_id
         )
         _LOGGER.debug(
             f'Member {self.member_id} registered for service '

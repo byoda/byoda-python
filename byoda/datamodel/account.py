@@ -273,12 +273,6 @@ class Account:
 
         member = Member.create(service, schema_version, self, members_ca)
 
-        if not members_ca:
-            # if a members_ca was provided, we were called by a test case
-            # so should not try to register with the directory server and
-            # the service server
-            member.register()
-
         self.memberships[member.service_id] = member
 
         return member
