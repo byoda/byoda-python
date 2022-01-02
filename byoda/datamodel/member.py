@@ -393,13 +393,14 @@ class Member:
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
             RestApiClient.call(
-                self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.POST,
+                self.paths.get(Paths.NETWORKMEMBER_API),
+                method=HttpMethod.PUT,
                 secret=secret, service_id=self.service_id
             )
 
             _LOGGER.debug(
-                f'Member {self.member_id} registered service {self.service_id} '
-                f' with network {self.network.name}'
+                f'Member {self.member_id} registered service '
+                f'{self.service_id} with network {self.network.name}'
             )
 
     def update_registration(self) -> None:
@@ -421,8 +422,8 @@ class Member:
         )
 
         RestApiClient.call(
-            self.paths.get(Paths.NETWORKMEMBER_API), secret=self.tls_secret,
-            service_id=self.service_id
+            self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.PUT,
+            secret=self.tls_secret, service_id=self.service_id
         )
 
         _LOGGER.debug(

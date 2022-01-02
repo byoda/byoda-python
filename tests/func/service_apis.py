@@ -154,8 +154,6 @@ class TestDirectoryApis(unittest.TestCase):
     def test_member_putpost(self):
         API = BASE_URL + '/v1/service/member'
 
-        # network = config.server.network
-        # account = Account(uuid4(), network)
         service = config.server.service
 
         member_id = uuid4()

@@ -137,4 +137,8 @@ class ApiClient:
                 requests.exceptions.ConnectionError) as exc:
             raise RuntimeError(exc)
 
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f'Failure to call API {api}: {response.status_code}'
+            )
         return response

@@ -11,8 +11,6 @@ from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
 
-from fastapi import FastAPI
-
 import requests
 
 from byoda.datatypes import CsrSource
