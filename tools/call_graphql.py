@@ -18,7 +18,6 @@ import re
 import argparse
 import subprocess
 
-import requests
 from python_graphql_client import GraphqlClient
 
 _ROOT_DIR = os.environ['HOME'] + '/.byoda'
@@ -68,7 +67,7 @@ def main(argv):
     parser.add_argument('--password', '-p', type=str, default='byoda')
     parser.add_argument('--tempdir', '-t', type=str, default='/tmp')
     parser.add_argument('--data', '-d', type=str, default='')
-    parser.add_argument('--host', '-h', type=str, default=None)
+    parser.add_argument('--host', '-o', type=str, default=None)
     args = parser.parse_args()
 
     root_dir = args.root_directory
