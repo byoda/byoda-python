@@ -11,8 +11,6 @@ from uuid import UUID
 from typing import TypeVar, Callable, Dict
 from copy import copy
 
-from fastapi import FastAPI
-
 import requests
 
 from byoda.datatypes import CsrSource
@@ -272,12 +270,6 @@ class Account:
         service = Service(service_id=service_id, network=self.network)
 
         member = Member.create(service, schema_version, self, members_ca)
-
-        if not members_ca:
-            # if a members_ca was provided, we were called by a test case
-            # so should not try to register with the directory server and
-            # the service server
-            member.register()
 
         self.memberships[member.service_id] = member
 

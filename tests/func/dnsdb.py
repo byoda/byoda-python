@@ -34,7 +34,9 @@ NETWORK = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
 
 TEST_SERVICE_ID = 4294967295
-TEST_UUID = 'd5c35a25-f171-4f0b-8d2f-d0808f40d0fd'
+TEST_MEMBER_UUID = 'aaaaaaaa-fe4a-1f0b-2d2f-30808f40d0fd'
+TEST_SERVICE_UUID = 'aaaaaaaa-f171-4f0b-8d2f-d0808f40d0fd'
+TEST_ACCOUNT_UUID = 'aaaaaaaa-a246-ea54-8d2f-c3658f40d0fd'
 TEST_FIRST_IP = '10.255.255.254'
 TEST_SECOND_IP = '10.255.255.253'
 TEST_NETWORK = None
@@ -53,7 +55,7 @@ class TestDnsDb(unittest.TestCase):
         )
 
         # SERVICE
-        uuid = TEST_UUID
+        uuid = TEST_SERVICE_UUID
         service_id = TEST_SERVICE_ID
         first_ip = ip_address(TEST_FIRST_IP)
         second_ip = ip_address(TEST_SECOND_IP)
@@ -70,13 +72,38 @@ class TestDnsDb(unittest.TestCase):
                 None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
             )
 
-        dnsdb.create_update(
-            None, IdType.SERVICE, first_ip, service_id=service_id
+        self.assertFalse(
+            dnsdb.create_update(
+                None, IdType.SERVICE, first_ip, service_id=service_id
+            )
         )
         self.assertEqual(
             dnsdb.lookup(
                 None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
             ), first_ip
+        )
+
+        self.assertFalse(
+            dnsdb.create_update(
+                None, IdType.SERVICE, first_ip, service_id=service_id
+            )
+        )
+        self.assertEqual(
+            dnsdb.lookup(
+                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            ), first_ip
+        )
+
+        self.assertTrue(
+            dnsdb.create_update(
+                None, IdType.SERVICE, second_ip, service_id=service_id
+            )
+        )
+
+        self.assertEqual(
+            dnsdb.lookup(
+                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            ), second_ip
         )
 
         dnsdb.remove(
@@ -89,7 +116,7 @@ class TestDnsDb(unittest.TestCase):
             )
 
         # MEMBER
-        uuid = uuid4()
+        uuid = TEST_MEMBER_UUID
         member = dnsdb.compose_fqdn(uuid, IdType.MEMBER, service_id=service_id)
         self.assertEqual(
             member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
@@ -100,8 +127,10 @@ class TestDnsDb(unittest.TestCase):
                 uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
             )
 
-        dnsdb.create_update(
-            uuid, IdType.MEMBER, first_ip, service_id=service_id
+        self.assertFalse(
+            dnsdb.create_update(
+                uuid, IdType.MEMBER, first_ip, service_id=service_id
+            )
         )
 
         self.assertEqual(
@@ -111,6 +140,31 @@ class TestDnsDb(unittest.TestCase):
             first_ip
         )
 
+        self.assertFalse(
+            dnsdb.create_update(
+                uuid, IdType.MEMBER, first_ip, service_id=service_id
+            )
+        )
+
+        self.assertEqual(
+            dnsdb.lookup(
+                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            ),
+            first_ip
+        )
+
+        self.assertTrue(
+            dnsdb.create_update(
+                uuid, IdType.MEMBER, second_ip, service_id=service_id
+            )
+        )
+
+        self.assertEqual(
+            dnsdb.lookup(
+                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            ),
+            second_ip
+        )
         dnsdb.remove(
             uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
         )
@@ -120,8 +174,8 @@ class TestDnsDb(unittest.TestCase):
                 uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
             )
 
-        # ACCOUNT: we test these last as
-        uuid = uuid4()
+        # ACCOUNT
+        uuid = TEST_ACCOUNT_UUID
         account = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
         self.assertEqual(account, f'{str(uuid)}.accounts.{TEST_NETWORK}')
 
@@ -130,7 +184,7 @@ class TestDnsDb(unittest.TestCase):
 
         fqdn = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
 
-        dnsdb.create_update(uuid, IdType.ACCOUNT, first_ip)
+        self.assertFalse(dnsdb.create_update(uuid, IdType.ACCOUNT, first_ip))
         self.assertEqual(
             first_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
         )
@@ -139,7 +193,8 @@ class TestDnsDb(unittest.TestCase):
         self.assertEqual(dns_ip, first_ip)
 
         second_ip = ip_address(TEST_SECOND_IP)
-        dnsdb.create_update(uuid, IdType.ACCOUNT, second_ip)
+        self.assertTrue(dnsdb.create_update(uuid, IdType.ACCOUNT, second_ip))
+        dns_ip = do_dns_lookup(fqdn)
         self.assertEqual(
             second_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
         )
@@ -185,7 +240,7 @@ def delete_test_data():
                 dnsdb._records_table.c.content == TEST_FIRST_IP,
                 dnsdb._records_table.c.content == TEST_SECOND_IP,
                 dnsdb._records_table.c.name ==
-                f'{TEST_UUID}.accounts.{TEST_NETWORK}',
+                f'{TEST_SERVICE_UUID}.accounts.{TEST_NETWORK}',
                 dnsdb._records_table.c.name ==
                 f'{TEST_SERVICE_ID}.services.{TEST_NETWORK}'
             )

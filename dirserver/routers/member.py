@@ -46,7 +46,7 @@ def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
     '''
 
     _LOGGER.debug(
-        f'POST Member API called from {request.client.host} and '
+        f'PUT Member API called from {request.client.host} and '
         f'UUID {auth.member_id}'
     )
 

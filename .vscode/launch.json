@@ -114,6 +114,16 @@
             }
         },
         {
+            "program": "tools/call_graphql.py",
+            "name": "call graphql",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+            ]
+        },
+        {
             "name": "create_service_secrets",
             "type": "python",
             "request": "launch",

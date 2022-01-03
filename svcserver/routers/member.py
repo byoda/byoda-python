@@ -110,9 +110,9 @@ def post_member(request: Request, csr: CertSigningRequestModel):
     }
 
 
-@router.put('/member/service_id/{service_id}/version/{schema_version}',
+@router.put('/member/version/{schema_version}',
             response_model=IpAddressResponseModel)
-def put_member(request: Request, service_id: int, schema_version: int,
+def put_member(request: Request, schema_version: int,
                certchain: CertChainRequestModel,
                auth: MemberRequestAuthFast = Depends(
                    MemberRequestAuthFast)):
@@ -125,12 +125,7 @@ def put_member(request: Request, service_id: int, schema_version: int,
     network = config.server.network
     service = config.server.service
 
-    if service_id != auth.service_id:
-        _LOGGER.debug(
-            f'Service ID {service_id} query parameter does not match'
-            f'Service ID {auth.service_id} in the M-TLS client secret'
-        )
-
+    # BUG: need to support some older versions as well
     if service.service_id != auth.service_id:
         _LOGGER.debug(
             f'Service ID {service.service_id} of PUT call does not match '

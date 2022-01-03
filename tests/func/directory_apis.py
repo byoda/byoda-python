@@ -31,6 +31,7 @@ import uvicorn
 # from byoda.datamodel import Account
 from byoda.datamodel import Network
 from byoda.datamodel import Schema
+
 from byoda.servers import DirectoryServer
 
 from byoda.util.message_signature import SignatureType
@@ -305,27 +306,15 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(service_summary['version'], 1)
         self.assertEqual(service_summary['name'], 'dummyservice')
 
-        # Now test membership
+        # Now test membership registration against the directory server
         API = BASE_URL + '/v1/network/member'
-
-        # account = Account(uuid4(), network)
-        # member_secret = MemberSecret(service_id, account)
-        # csr = member_secret.create_csr()
-        # csr.sign(serviceca_secret)
-
-        membersca_secret = MembersCaSecret(
-            None, service_id, config.server.network
-        )
-        membersca_csr = membersca_secret.create_csr()
-        certchain = serviceca_secret.sign_csr(membersca_csr)
-        membersca_secret.from_signed_cert(certchain)
-        membersca_secret.save()
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={uuid4()}.members-12345678.byodafunctest.net',
-            'X-Client-SSL-Issuing-CA': f'CN={membersca_secret.common_name}'
+                f'CN={uuid4()}.members-{service_id}.{network.name}',
+            'X-Client-SSL-Issuing-CA':
+            f'CN=members-ca.members-ca-{service_id}.{network.name}'
         }
 
         response = requests.put(API, headers=headers)

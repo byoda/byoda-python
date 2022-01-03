@@ -49,6 +49,9 @@ class ApiClient:
 
         server = config.server
 
+        # We maintain a cache of sessions based on the authentication
+        # requirements of the remote host and whether to use for verifying
+        # the TLS server cert the root CA of the network or the regular CAs.
         self.session = None
         if not secret:
             pool = 'noauth'
@@ -66,7 +69,7 @@ class ApiClient:
 
         if pool not in config.client_pools:
             self.session = requests.Session()
-            self.session.timout = 3
+            self.session.timeout = 3
             if secret:
                 key_path = secret.save_tmp_private_key()
                 cert_filepath = (
@@ -134,4 +137,8 @@ class ApiClient:
                 requests.exceptions.ConnectionError) as exc:
             raise RuntimeError(exc)
 
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f'Failure to call API {api}: {response.status_code}'
+            )
         return response

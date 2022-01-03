@@ -56,7 +56,7 @@ class MemberData(Dict):
             )
         except FileNotFoundError:
             _LOGGER.error(
-                'Unable to read data file for service'
+                'Unable to read data file for service '
                 f'{self.member.service_id} from {filepath}'
             )
             return

@@ -332,31 +332,20 @@ class Member:
                     f'{type(secret_cls)}'
                 )
             else:
-                csr = secret.create_csr()
-                payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+                # Get the CSR signed, the resulting cert saved to disk
+                # and used to register with both the network and the service
+                self.register(secret)
 
-                resp = RestApiClient.call(
-                    Paths.SERVICEMEMBER_API, HttpMethod.POST,
-                    data=payload, service_id=self.service_id
-                )
-                if resp.status_code != 201:
-                    raise RuntimeError('Certificate signing request failed')
-
-                cert_data = resp.json()
-                secret.from_string(
-                    cert_data['signed_cert'], certchain=cert_data['cert_chain']
-                )
         else:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-
-        secret.save(password=self.private_key_password)
+            secret.save(password=self.private_key_password)
 
         return secret
 
-    def load_secrets(self):
+    def load_secrets(self) -> None:
         '''
         Loads the membership secrets
         '''
@@ -376,27 +365,65 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def register(self):
+    def register(self, secret) -> None:
+        '''
+        Registers the membership and its schema version with both the network
+        and the service. The pod will requests the service to sign its TLS CSR
+        '''
+
+        # Register with the service to get our CSR signed
+        csr = secret.create_csr()
+
+        payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+        resp = RestApiClient.call(
+            self.paths.get(Paths.SERVICEMEMBER_API),
+            HttpMethod.POST, data=payload
+        )
+        if resp.status_code != 201:
+            raise RuntimeError('Certificate signing request failed')
+
+        cert_data = resp.json()
+
+        secret.from_string(
+            cert_data['signed_cert'], certchain=cert_data['cert_chain']
+        )
+        secret.save(password=self.private_key_password)
+
+        # Register with the Directory server so a DNS record gets
+        # created for our membership of the service
+        if isinstance(secret, MemberSecret):
+            RestApiClient.call(
+                self.paths.get(Paths.NETWORKMEMBER_API),
+                method=HttpMethod.PUT,
+                secret=secret, service_id=self.service_id
+            )
+
+            _LOGGER.debug(
+                f'Member {self.member_id} registered service '
+                f'{self.service_id} with network {self.network.name}'
+            )
+
+    def update_registration(self) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service
         '''
 
-        # Call the member API of the service
+        # Call the member API of the service to update the registration
         RestApiClient.call(
-            Paths.SERVICEMEMBER_API +
-            f'/service_id/{self.service_id}/version/{self.schema.version}',
-            secret=self.tls_secret,
+            f'{Paths.SERVICEMEMBER_API}/version/{self.schema.version}',
+            method=HttpMethod.PUT, secret=self.tls_secret,
+            data={'certchain': self.data_secret.certchain_as_pem()},
             service_id=self.service_id
         )
         _LOGGER.debug(
-            f'Member {self.member_id} registered with service '
+            f'Member {self.member_id} registered for service '
             f'{self.service_id}'
         )
 
         RestApiClient.call(
-            self.paths.get(Paths.NETWORKMEMBER_API), secret=self.tls_secret,
-            service_id=self.service_id
+            self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.PUT,
+            secret=self.tls_secret, service_id=self.service_id
         )
 
         _LOGGER.debug(
@@ -428,7 +455,7 @@ class Member:
 
         return schema
 
-    def enable_graphql_api(self, app: FastAPI):
+    def enable_graphql_api(self, app: FastAPI) -> None:
         '''
         Loads the GraphQL API in the FastApi app.
         '''
@@ -439,7 +466,7 @@ class Member:
         graphql_app = GraphQLRouter(self.schema.gql_schema)
         app.include_router(graphql_app, prefix=path)
 
-    def upgrade_graphql_api(self, app: FastAPI):
+    def upgrade_graphql_api(self, app: FastAPI) -> None:
         '''
         Updates the GraphQL interface for a membership
 

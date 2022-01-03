@@ -57,8 +57,8 @@ class FileStorage:
 
             for filename in os.listdir(self.cache_path):
                 filepath = os.path.join(self.cache_path, filename)
-                if filepath != local_path:
-                    shutil.rmtree(os.path.dirname(filepath))
+                if os.path.isdir(filepath):
+                    shutil.rmtree(filepath)
 
         else:
             if not local_path:

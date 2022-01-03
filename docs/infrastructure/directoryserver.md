@@ -114,7 +114,8 @@ ALTER TABLE RECORDS ADD db_expire integer;
 Using  http://${DIRSERVER}:9191/login, create DNS zone for byoda.net with NS records for subdomains {accounts,services,members}.byoda.net
 
 ```
-docker run -d --restart unless-stopped\
+docker run -d --restart unless-stopped \
+    -e SECRET_KEY=${API_KEY} \
     -v pda-data:/data \
     -p 9191:80 \
     --name pdns-admin \

@@ -154,8 +154,6 @@ class TestDirectoryApis(unittest.TestCase):
     def test_member_putpost(self):
         API = BASE_URL + '/v1/service/member'
 
-        # network = config.server.network
-        # account = Account(uuid4(), network)
         service = config.server.service
 
         member_id = uuid4()
@@ -208,7 +206,7 @@ class TestDirectoryApis(unittest.TestCase):
                 f'CN={memberscasecret_commonname}'
         }
         response = requests.put(
-            f'{API}/service_id/{SERVICE_ID}/version/1', headers=headers,
+            f'{API}/version/1', headers=headers,
             json={'certchain': member_data_certchain}
         )
         self.assertEqual(response.status_code, 200)
