@@ -212,7 +212,7 @@ class DnsDb:
                 existing_value = self.lookup(
                     uuid, id_type, dns_record_type, service_id=service_id
                 )
-                if existing_value and value == existing_value:
+                if existing_value and value == str(existing_value):
                     # Nothing to change
                     _LOGGER.debug(
                         f'No DNS changed needed for FQDN {fqdn} with IP '
@@ -269,6 +269,7 @@ class DnsDb:
 
         value = None
         with self._engine.connect() as conn:
+            _LOGGER.debug(f'Performing lookup for {fqdn}')
             stmt = select(
                 self._records_table.c.id, self._records_table.c.content
             ).where(
@@ -277,9 +278,9 @@ class DnsDb:
                     self._records_table.c.type == dns_record_type.value
                 )
             )
-            _LOGGER.debug(f'Executing SQL command: {stmt}')
 
             try:
+                _LOGGER.debug(f'Executing SQL command: {stmt}')
                 domains = conn.execute(stmt)
             except Exception as exc:
                 _LOGGER.error('Failed to execute SQL statement', exc_info=exc)
@@ -350,7 +351,8 @@ class DnsDb:
                     conn.execute(stmt)
 
                 _LOGGER.debug(
-                    f'Removed {len(domains)} DNS record(s) for UUID {uuid}'
+                    f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
+                    f'and service_id {service_id}'
                 )
 
         return len(domains) > 0
@@ -485,6 +487,7 @@ class DnsDb:
             ).on_conflict_do_nothing(
                 index_elements=['name']
             )
+            _LOGGER.debug(f'Upserting domain {subdomain}')
             conn.execute(stmt)
 
             domain_id = self._get_domain_id(conn, subdomain)
@@ -527,7 +530,7 @@ class DnsDb:
             _LOGGER.debug(
                 f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
             )
-            
+
             return domain_id
 
 
