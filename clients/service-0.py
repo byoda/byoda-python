@@ -17,6 +17,7 @@ import sys
 import re
 import argparse
 import subprocess
+import requests
 
 from python_graphql_client import GraphqlClient
 
@@ -84,7 +85,7 @@ def main(argv):
 
     unprotected_key = decrypt_private_key(args)
 
-    cert = (account_cert_file, unprotected_key)
+    cert = (member_cert_file, unprotected_key)
 
     if args.host:
         fqdn = args.host
@@ -101,6 +102,11 @@ def main(argv):
         result = client.execute(
             query=MEMBER_QUERIES[args.service_id]['READ']
         )
+    else:
+        result = client.execute(
+            query=MEMBER_QUERIES[args.service_id]['WRITE']
+        )
+
     print(result)
 
 
@@ -146,7 +152,7 @@ def decrypt_private_key(args: argparse.ArgumentParser) -> str:
     if result.returncode != 0:
         raise ValueError(f'Unable to decrypt private key: {account_key_file}')
 
-    return account_key_file
+    return dest_filepath
 
 
 if __name__ == '__main__':

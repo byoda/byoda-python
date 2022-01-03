@@ -120,6 +120,8 @@
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "args": [
+            ]
         },
         {
             "name": "create_service_secrets",
