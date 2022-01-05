@@ -15,7 +15,7 @@ container_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob
 blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

@@ -2,7 +2,7 @@
 Classes for data modeling for the server
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -15,3 +15,4 @@ from .memberdata import MemberData
 from .service import Service
 from .account import Account
 from .member import Member
+from .memberdb import MemberDb

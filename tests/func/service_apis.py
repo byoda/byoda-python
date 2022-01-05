@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -88,7 +88,7 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer()
+        config.server = ServiceServer(cls.APP_CONFIG['svcserver']['cache'])
         config.server.network = network
 
         service_file = config.server.network.paths.get(

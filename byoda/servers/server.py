@@ -3,7 +3,7 @@ Class for modeling the different server types, ie.:
 POD server, directory server, service server
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -25,12 +25,6 @@ Network = TypeVar('Network')
 Account = TypeVar('Account')
 Service = TypeVar('Service')
 RegistrationStatus = TypeVar('RegistrationStatus')
-
-
-class ServerType(Enum):
-    Pod         = 'pod'             # noqa: E221
-    Directory   = 'directory'       # noqa: E221
-    Service     = 'service'         # noqa: E221
 
 
 class Server:

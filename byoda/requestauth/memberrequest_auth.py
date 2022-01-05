@@ -4,7 +4,7 @@ request_auth
 provides helper functions to authenticate the client making the request
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

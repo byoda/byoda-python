@@ -12,7 +12,7 @@ LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

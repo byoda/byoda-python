@@ -2,7 +2,7 @@
 /network/member API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 
 It takes 3 steps for a pod to become a member of service:

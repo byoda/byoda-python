@@ -112,3 +112,18 @@ openssl s_client -connect service.service-0.byoda.net:443 -CAfile root-ca.pem
 curl  https://service.service-0.byoda.net/network-byoda.net-service-0-data-cert.pem -o network-byoda.net-service-0-data-cert.pem --cacert root-ca.pem
 ```
 
+# Using Redis as non-persistent cache for a service
+Services typically need to store data about their members. With Byoda, services are not allowed to persist data about their members but are allowed to cache that data. Redis can be used as a technology to temporarily store information as Redis can automatically remove expired data.
+
+To install Redis:
+```
+sudo docker run -d --restart unless-stopped \
+    -p 6379:6379 \
+    -v /home/redis/data:/data \
+    -v /home/redis/config:/usr/local/etc/redis \
+    --name redis redis:latest
+```
+
+One pattern for services to follow is to store the member UUID whenever a member updates its
+registration with the service. A worker process can request data from the member pod and store
+any information, that is specified as cachable in the service contract, in the Redis data store with an expiration that complies with the cache duration specified in the service contract. The worker can then periodically refresh the data about the member in its cache.

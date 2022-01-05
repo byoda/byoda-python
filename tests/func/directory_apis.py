@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -47,7 +47,6 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byoda.datastore import DnsDb
-from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.util.fastapi import setup_api
 

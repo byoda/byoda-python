@@ -2,7 +2,7 @@
 Class for modeling a service on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -26,8 +26,7 @@ from byoda.storage import FileStorage
 from byoda.datatypes import CsrSource
 
 from byoda.datamodel.schema import Schema
-from byoda.servers.service_server import ServiceServer
-from byoda.servers.directory_server import DirectoryServer
+from byoda.datatypes import ServerType
 
 from byoda.util.api_client import ApiClient
 
@@ -263,7 +262,7 @@ class Service:
 
         server = config.server
 
-        if type(server) not in (DirectoryServer, ServiceServer):
+        if server.server_type in (ServerType.Service):
             raise ValueError(
                 'This function should only be called from Directory- and '
                 f'Service-servers, not from a {type(server)}'
@@ -585,7 +584,7 @@ class Service:
         '''
 
         server = config.server
-        if server and not isinstance(server, ServiceServer):
+        if server and not server.server_type == ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:
@@ -740,7 +739,7 @@ class Service:
                 raise
             else:
                 return None
-            
+
         if resp.status_code == 200:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
