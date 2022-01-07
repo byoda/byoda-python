@@ -46,8 +46,6 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
-from byoda.datastore import DnsDb
-
 from byoda.util.fastapi import setup_api
 
 from dirserver.routers import account

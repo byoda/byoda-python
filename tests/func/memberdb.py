@@ -14,7 +14,6 @@ import yaml
 import shutil
 import unittest
 from uuid import UUID
-from datetime import datetime
 
 from byoda.datatypes import MemberStatus
 
@@ -104,6 +103,18 @@ class TestKVCache(unittest.TestCase):
 
         for key in data.keys():
             self.assertTrue(data[key], value[key])
+
+        data = {
+            'member_id': str(TEST_MEMBER_UUID),
+            'remote_addr': '10.10.10.10',
+            'schema_version': 5,
+            'data_secret': 'blahblah',
+            'status': MemberStatus.SIGNED.value,
+        }
+
+        member_db.set_data(TEST_MEMBER_UUID, data)
+
+        self.assertEqual(member_db.get_data(TEST_MEMBER_UUID), data)
 
 
 if __name__ == '__main__':

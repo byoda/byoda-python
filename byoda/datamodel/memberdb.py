@@ -7,16 +7,14 @@ about registered clients
 :license    : GPLv3
 '''
 
-from ipaddress import ip_address
 import logging
-
 from uuid import UUID
-from typing import Dict, TypeVar
 from datetime import datetime
+from typing import TypeVar, Dict
+from ipaddress import ip_address
 
-from byoda.datatypes import MemberStatus
 from byoda.datamodel import Schema
-
+from byoda.datatypes import MemberStatus
 
 from byoda.datacache import KVCache
 
@@ -26,6 +24,7 @@ Member = TypeVar('Member')
 
 MEMBERS_LIST = 'members'
 MEMBER_ID_META_FORMAT = '{member_id}-meta'
+MEMBER_ID_DATA_FORMAT = '{member_id}-data'
 
 
 class MemberDb():
@@ -115,8 +114,27 @@ class MemberDb():
 
         return ret != 0
 
-    def add_data(self, member: Member):
-        pass
+    def set_data(self, member_id: UUID, data: Dict) -> bool:
+        '''
+        Saves the data for a member
+        '''
+        mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
+
+        ret = self.driver.set(mid, data)
+
+        return ret
+
+    def get_data(self, member_id: UUID) -> dict:
+        '''
+        Get the data for a member
+
+        :raises: KeyError if the member is not in the database
+        '''
+
+        mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
+        data = self.driver.get(mid)
+
+        return data
 
     def delete(self, member_id: UUID) -> bool:
         '''

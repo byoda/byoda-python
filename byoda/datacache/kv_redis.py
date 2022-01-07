@@ -1,6 +1,6 @@
 '''
-The KV Redis data cache provides ephemeral data storage, such as services storing
-data about their members
+The KV Redis data cache provides ephemeral data storage, such as services
+storing data about their members
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -162,4 +162,3 @@ class KVRedis(KVCache):
         val = self.driver.rpop(key)
 
         return val
-
