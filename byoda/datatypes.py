@@ -25,9 +25,9 @@ class ServerRole(Enum):
 
 
 class ServerType(Enum):
-    Pod         = 'pod'
-    Directory   = 'directory'
-    Service     = 'service'
+    POD         = 'pod'
+    DIRECTORY   = 'directory'
+    SERVICE     = 'service'
 
 
 class IdType(Enum):

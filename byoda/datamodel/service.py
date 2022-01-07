@@ -262,7 +262,7 @@ class Service:
 
         server = config.server
 
-        if server.server_type not in (ServerType.Service, ServerType.Directory):
+        if server.server_type not in (ServerType.SERVICE, ServerType.DIRECTORY):
             raise ValueError(
                 'This function should only be called from Directory- and '
                 f'Service-servers, not from a {type(server)}'
@@ -504,7 +504,7 @@ class Service:
         if registration_status == RegistrationStatus.Unknown:
             raise ValueError('Can not check on unknown registration status')
 
-        if server.server_type not in (ServerType.Directory, ServerType.Service):
+        if server.server_type not in (ServerType.DIRECTORY, ServerType.SERVICE):
             if registration_status != RegistrationStatus.SchemaSigned:
                 raise ValueError(
                 f'Can not check registration status {registration_status.value} '
@@ -539,7 +539,7 @@ class Service:
         if self.schema and self.schema.signatures.get('network'):
             return RegistrationStatus.SchemaSigned
 
-        if server.server_type == ServerType.Directory:
+        if server.server_type == ServerType.DIRECTORY:
             try:
                 self.network.dnsdb.lookup(
                     None, IdType.SERVICE, DnsRecordType.A,
@@ -580,11 +580,11 @@ class Service:
         Registers the service with the network using the Service TLS secret
 
         :raises: ValueError if the function is not called by a
-        ServerType.Service
+        ServerType.SERVICE
         '''
 
         server = config.server
-        if server and not server.server_type == ServerType.Service:
+        if server and not server.server_type == ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:

@@ -31,13 +31,13 @@ class DirectoryServer(Server):
 
         network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
 
-        self.server_type = ServerType.Directory
+        self.server_type = ServerType.DIRECTORY
 
     def load_secrets(self, connection: str = None):
         '''
         Loads the secrets used by the directory server
         '''
-        
+
         self.network.load_secrets()
 
     def get_registered_services(self):

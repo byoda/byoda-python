@@ -32,7 +32,7 @@ class PodServer(Server):
     def __init__(self, network: Network = None):
         super().__init__(network)
 
-        self.server_type = ServerType.Pod
+        self.server_type = ServerType.POD
         self.service_summaries: Dict[int:Dict] = None
         self.account_unencrypted_private_key_file: str = None
 

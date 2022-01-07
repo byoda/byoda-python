@@ -27,7 +27,7 @@ class ServiceServer(Server):
     def __init__(self, network: Network, connection_string: str):
         super().__init__(network)
 
-        self.server_type = ServerType.Service
+        self.server_type = ServerType.SERVICE
 
         self.member_db: MemberDb = MemberDb(connection_string)
 

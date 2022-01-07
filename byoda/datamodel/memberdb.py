@@ -11,15 +11,18 @@ from ipaddress import ip_address
 import logging
 
 from uuid import UUID
-from typing import Dict
+from typing import Dict, TypeVar
 from datetime import datetime
 
 from byoda.datatypes import MemberStatus
 from byoda.datamodel import Schema
 
+
 from byoda.datacache import KVCache
 
 _LOGGER = logging.getLogger(__name__)
+
+Member = TypeVar('Member')
 
 MEMBERS_LIST = 'members'
 MEMBER_ID_META_FORMAT = '{member_id}-meta'
@@ -111,6 +114,9 @@ class MemberDb():
         ret = self.driver.delete(mid)
 
         return ret != 0
+
+    def add_data(self, member: Member):
+        pass
 
     def delete(self, member_id: UUID) -> bool:
         '''
