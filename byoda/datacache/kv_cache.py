@@ -29,9 +29,9 @@ class KVCache(ABC):
         Constructur for the KVCache base class
         '''
 
-        server = config.server
-
-        self.namespace = f'{server.network.name}:{type(server)}:'
+        # We can't set namespace here as the config.server object may not
+        # have been set yet at this stage of the initialization of the server
+        self.namespace = None
 
     @staticmethod
     def create(connection_string: str,
@@ -44,8 +44,8 @@ class KVCache(ABC):
             raise ValueError('No connection string provided')
 
         if cache_tech == CacheTech.REDIS:
-            from .kv_redis import KvRedis
-            kvr = KvRedis(connection_string)
+            from .kv_redis import KVRedis
+            kvr = KVRedis(connection_string)
             return kvr
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
@@ -70,6 +70,9 @@ class KVCache(ABC):
     def shift_push_list(self, key: str, wait: bool = True):
         raise NotImplementedError
 
+    def get_list(self, key):
+        raise NotImplementedError
+
     @abstractmethod
     def delete(self, key: str) -> bool:
         raise NotImplementedError
@@ -80,4 +83,7 @@ class KVCache(ABC):
         key will always be a string.
         '''
 
-        return self.namespace + str(key)
+        if not self.namespace:
+            self.namespace = config.server.network.name
+
+        return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'

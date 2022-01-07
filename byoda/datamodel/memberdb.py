@@ -7,59 +7,118 @@ about registered clients
 :license    : GPLv3
 '''
 
+from ipaddress import ip_address
 import logging
-import json
+
 from uuid import UUID
 from typing import Dict
 from datetime import datetime
 
 from byoda.datatypes import MemberStatus
+from byoda.datamodel import Schema
 
 from byoda.datacache import KVCache
 
 _LOGGER = logging.getLogger(__name__)
 
 MEMBERS_LIST = 'members'
+MEMBER_ID_META_FORMAT = '{member_id}-meta'
 
 
 class MemberDb():
     '''
     Store for registered members
+
+    The metadata of a member is stored in the MEMBER_ID_META_FORMAT
+    ('{member_id}-meta) while the actual data is stored using the member_id
+    string as key
     '''
 
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str, schema: Schema = None):
         '''
-        Initializes the DB
+        Initializes the DB. The DB consists of both a list of member_ids,
+        a hash of the metadata for each member_id and a hash of the actual
+        data for the member
         '''
 
         self.driver = KVCache.create(connection_string)
+        self.schema = schema
 
-    def add(self, member_id: UUID, remote_addr: str, schema_version,
-            data_secret: str, status: MemberStatus):
+    def exists(self, member_id: UUID) -> bool:
+        '''
+        Checks if a member is already in the member-meta hash. This function
+        does not check whether the member_id is in the list
+        '''
+
+        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        exists = self.driver.exists(mid)
+
+        return exists
+
+    def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
+                 data_secret: str, status: MemberStatus):
         '''
         Adds (or overwrites) an entry
         '''
 
-        if not self.driver.exists(member_id):
+        if not self.exists(member_id):
             self.driver.push(MEMBERS_LIST, str(member_id))
 
-        self.set(member_id, {
+        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        self.driver.set(mid, {
                 'member_id': str(member_id),
                 'remote_addr': remote_addr,
                 'schema_version': schema_version,
                 'data_secret': data_secret,
                 'last_seen': datetime.utcnow().isoformat(),
-                'status': status.value
+                'status': status.value,
             }
         )
 
-    def delete(self, member_id: UUID) -> bool:
+    def get_meta(self, member_id: UUID) -> dict:
         '''
-        Remove a member from the DB, if it is in it
+        Get the metadata for a member
+
+        :raises: KeyError if the member is not in the database
+        '''
+
+        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        data = self.driver.get(mid)
+
+        if not data:
+            raise KeyError(f'Member {str(member_id)} not found')
+
+        value = {
+            'member_id': UUID(data['member_id']),
+            'remote_addr': ip_address(data['remote_addr']),
+            'schema_version': int(data['schema_version']),
+            'data_secret': data['data_secret'],
+            'last_seen': datetime.fromisoformat(data['last_seen']),
+            'status': MemberStatus[data['status']],
+        }
+
+        return value
+
+    def delete_meta(self, member_id: UUID) -> bool:
+        '''
+        Remove the metadata of a member from the DB
 
         :returns: whether the key existed or not
         '''
 
-        ret = self.driver.delete(member_id)
+        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+
+        ret = self.driver.delete(mid)
+
+        return ret != 0
+
+    def delete(self, member_id: UUID) -> bool:
+        '''
+        Remove the metadata of a member from the DB
+
+        :returns: whether the key existed or not
+        '''
+
+        ret = self.driver.delete(str(member_id))
 
         return ret != 0

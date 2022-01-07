@@ -118,15 +118,15 @@ class CertStatus(Enum):
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):
     # We don't know what is going on
-    UNKNOWN         = 'unknown'
+    UNKNOWN         = 'UNKNOWN'
     # Client called POST service/member API
-    SIGNED          = 'signed'
+    SIGNED          = 'SIGNED'
     # Client has called PUT service/member or network/member API
-    REGISTERED      = 'registered'
+    REGISTERED      = 'REGISTERED'
     # Client has called DELETE service/member or network/member API
-    DELETED         = 'deleted'
+    DELETED         = 'DELETED'
     # Service (worker) was unable to query the client
-    DEAD            = 'dead'
+    DEAD            = 'DEAD'
 
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'

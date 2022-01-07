@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException
 
 from byoda.datatypes import IdType
+from byoda.datatypes import MemberStatus
 
 from byoda.datamodel import Network
 from byoda.datamodel import Service
@@ -103,6 +104,11 @@ def post_member(request: Request, csr: CertSigningRequestModel):
 
     _LOGGER.info(f'Signed certificate with commonname {commonname}')
 
+    config.server.member_db.add_meta(
+        entity_id.id, request.client.host, None, cert_chain,
+        MemberStatus.SIGNED
+    )
+
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
@@ -153,8 +159,9 @@ def put_member(request: Request, schema_version: int,
     member_data_secret.from_string(certchain.certchain)
     member_data_secret.save(overwrite=True)
 
-    config.server.member_db.add(
-        auth.member_id, auth.remote_addr, schema_version, certchain.certchain
+    config.server.member_db.add_meta(
+        auth.member_id, auth.remote_addr, schema_version, certchain.certchain,
+        MemberStatus.REGISTERED
     )
 
     _LOGGER.debug(

@@ -40,11 +40,11 @@ _LOGGER = Logger.getLogger(
 )
 _LOGGER.debug(f'Read configuration file: {config_file}')
 
-server = ServiceServer(app_config['svcserver']['cache'])
-
-server.network = Network(
+network = Network(
     app_config['svcserver'], app_config['application']
 )
+server = ServiceServer(network, app_config['svcserver']['cache'])
+
 server.service = Service(
     server.network, None, app_config['svcserver']['service_id']
 )

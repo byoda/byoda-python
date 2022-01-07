@@ -81,7 +81,9 @@ class TestDirectoryApis(unittest.TestCase):
         # Remaining environment variables used:
         network_data = get_environment_vars()
 
-        config.server = PodServer()
+        network = Network(network_data, network_data)
+
+        config.server = PodServer(network)
         server = config.server
 
         global BASE_URL
@@ -94,8 +96,6 @@ class TestDirectoryApis(unittest.TestCase):
             root_dir=network_data['root_dir']
         )
 
-        network = Network(network_data, network_data)
-        server.network = network
         server.paths = network.paths
 
         pod_account = Account(

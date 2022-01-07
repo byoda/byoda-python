@@ -69,8 +69,7 @@ def main(argv):
     network = load_network(args, network_data)
     service = load_service(args, network)
 
-    config.server = ServiceServer()
-    config.server.network = network
+    config.server = ServiceServer(network)
     config.server.service = service
 
     if not args.local:

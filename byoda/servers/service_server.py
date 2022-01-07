@@ -12,8 +12,10 @@ from typing import TypeVar
 
 from byoda.datamodel.memberdb import MemberDb
 
+from byoda.datatypes import ServerType
+
 from .server import Server
-from .server import ServerType
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,8 +24,8 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class ServiceServer(Server):
-    def __init__(self, connection_string: str):
-        super().__init__()
+    def __init__(self, network: Network, connection_string: str):
+        super().__init__(network)
 
         self.server_type = ServerType.Service
 

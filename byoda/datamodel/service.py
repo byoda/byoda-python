@@ -24,9 +24,9 @@ from byoda.datastore.dnsdb import DnsRecordType
 from byoda.storage import FileStorage
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import ServerType
 
 from byoda.datamodel.schema import Schema
-from byoda.datatypes import ServerType
 
 from byoda.util.api_client import ApiClient
 
@@ -262,7 +262,7 @@ class Service:
 
         server = config.server
 
-        if server.server_type in (ServerType.Service):
+        if server.server_type not in (ServerType.Service, ServerType.Directory):
             raise ValueError(
                 'This function should only be called from Directory- and '
                 f'Service-servers, not from a {type(server)}'
@@ -504,7 +504,7 @@ class Service:
         if registration_status == RegistrationStatus.Unknown:
             raise ValueError('Can not check on unknown registration status')
 
-        if type(server) not in (DirectoryServer, ServiceServer):
+        if server.server_type not in (ServerType.Directory, ServerType.Service):
             if registration_status != RegistrationStatus.SchemaSigned:
                 raise ValueError(
                 f'Can not check registration status {registration_status.value} '
@@ -539,7 +539,7 @@ class Service:
         if self.schema and self.schema.signatures.get('network'):
             return RegistrationStatus.SchemaSigned
 
-        if isinstance(server, DirectoryServer):
+        if server.server_type == ServerType.Directory:
             try:
                 self.network.dnsdb.lookup(
                     None, IdType.SERVICE, DnsRecordType.A,
@@ -584,7 +584,7 @@ class Service:
         '''
 
         server = config.server
-        if server and not server.server_type == ServerType.SERVICE:
+        if server and not server.server_type == ServerType.Service:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:

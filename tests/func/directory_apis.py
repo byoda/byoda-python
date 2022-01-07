@@ -95,11 +95,10 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['dirserver']['root_dir'],
             cls.APP_CONFIG['dirserver']['private_key_password'],
         )
-        network.dnsdb = DnsDb.setup(
-           cls.APP_CONFIG['dirserver']['dnsdb'], network.name
+
+        config.server = DirectoryServer(
+            network, cls.APP_CONFIG['dirserver']['dnsdb']
         )
-        config.server = DirectoryServer()
-        config.server.network = network
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',

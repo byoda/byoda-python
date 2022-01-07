@@ -88,8 +88,9 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(cls.APP_CONFIG['svcserver']['cache'])
-        config.server.network = network
+        config.server = ServiceServer(
+            network, cls.APP_CONFIG['svcserver']['cache']
+        )
 
         service_file = config.server.network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
@@ -110,10 +111,6 @@ class TestDirectoryApis(unittest.TestCase):
         )
         config.server.service.load_schema(
             service_file, verify_contract_signatures=False
-        )
-
-        config.server.member_db.load(
-            config.server.service.paths.get(Paths.SERVICE_MEMBER_DB_FILE)
         )
 
         app = setup_api(

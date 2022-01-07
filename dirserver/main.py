@@ -20,8 +20,6 @@ from byoda.servers import DirectoryServer
 
 from byoda.datamodel import Network
 
-from byoda.datastore import DnsDb
-
 from .routers import account
 from .routers import service
 from .routers import member
@@ -38,16 +36,12 @@ _LOGGER = Logger.getLogger(
     logfile=app_config['dirserver'].get('logfile')
 )
 
-server = DirectoryServer()
-config.server = server
-
-server.network = Network(
+network = Network(
     app_config['dirserver'], app_config['application']
 )
 
-server.network.dnsdb = DnsDb.setup(
-    app_config['dirserver']['dnsdb'], server.network.name
-)
+server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
+config.server = server
 
 server.get_registered_services()
 server.load_secrets()

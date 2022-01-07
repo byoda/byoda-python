@@ -7,7 +7,9 @@ data about their members
 :license    : GPLv3
 '''
 
+from json.decoder import JSONDecodeError
 import logging
+import json
 
 from redis import Redis
 
@@ -63,24 +65,40 @@ class KVRedis(KVCache):
 
     def get(self, key: str) -> object:
         '''
-        Gets the value for the specified key from the cache
+        Gets the value for the specified key from the cache. If the value
+        retrieved on the cache is a string that starts with '{' and ends with
+        '}' then an attempt is made to parse the string as JSON. If the parsing
+        succeeds, the resulting object is returned.
         '''
 
         key = self.get_annotated_key(key)
 
         value = self.driver.get(key)
 
+        if isinstance(value, bytes):
+            data = value.decode('utf-8')
+            if len(data) > 1 and data[0] == '{' and data[-1] == '}':
+                try:
+                    data = json.loads(value)
+                    value = data
+                except JSONDecodeError:
+                    pass
+
         return value
 
     def set(self, key: str, value: object,
-            expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+            expiration=DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
-        Sets a key to the specified value
+        Sets a key to the specified value. If the value is a dict
+        then it gets converted to a JSON string
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = self.driver.set(key, value, expiration)
+        if isinstance(value, dict):
+            value = json.dumps(value)
+
+        ret = self.driver.set(key, value, ex=expiration)
 
         return ret
 
@@ -95,7 +113,7 @@ class KVRedis(KVCache):
 
         return ret
 
-    def shift_push_list(self, key: str, wait: bool = True):
+    def shift_push_list(self, key: str, wait: bool = True, timeout: int = 0):
         '''
         atomically shifts a value from the start of a list 'key' and appends
         it to the end of the list.
@@ -104,15 +122,24 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         if not wait:
-            value = self.driver.lmove(
-                key, self.namespace + key, src='LEFT', dest='RIGHT'
-            )
+            value = self.driver.lmove(key, key, src='LEFT', dest='RIGHT')
         else:
             value = self.driver.blmove(
-                key, self.namespace + key, src='LEFT', dest='RIGHT'
+                key, key, src='LEFT', dest='RIGHT', timeout=timeout
             )
 
         return value
+
+    def get_list(self, key):
+        '''
+        Gets the list value of a key
+        '''
+
+        key = self.get_annotated_key(key)
+
+        ret = self.driver.lrange(key, 0, -1)
+
+        return ret
 
     def push(self, key: str, value: object) -> int:
         '''
@@ -135,3 +162,4 @@ class KVRedis(KVCache):
         val = self.driver.rpop(key)
 
         return val
+

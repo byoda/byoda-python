@@ -11,8 +11,13 @@ import os
 import logging
 from typing import TypeVar
 
-from .server import Server, ServerType
+from byoda.datastore import DnsDb
+
+from byoda.datatypes import ServerType
+
 from byoda.util import Paths
+
+from .server import Server
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +26,10 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class DirectoryServer(Server):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, network: Network, dnsdb_connection_string: str):
+        super().__init__(network)
+
+        network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
 
         self.server_type = ServerType.Directory
 
@@ -30,6 +37,7 @@ class DirectoryServer(Server):
         '''
         Loads the secrets used by the directory server
         '''
+        
         self.network.load_secrets()
 
     def get_registered_services(self):

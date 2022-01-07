@@ -8,12 +8,13 @@ POD server, directory server, service server
 '''
 
 import logging
-from enum import Enum
+
 from typing import TypeVar
 from datetime import datetime
 
 from byoda.util import Paths
 
+from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
 from byoda.datastore import DocumentStoreType, DocumentStore
@@ -28,9 +29,9 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, network: Network):
         self.server_type: ServerType = None
-        self.network: Network = None
+        self.network: Network = network
         self.account: Account = None
         self.service: Service = None
         self.document_store: DocumentStore = None
