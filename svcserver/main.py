@@ -27,7 +27,6 @@ from .routers import member
 
 _LOGGER = None
 
-# We support the
 config_file = os.environ.get('CONFIG_FILE', 'config.yml')
 with open(config_file) as file_desc:
     app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)

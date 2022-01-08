@@ -10,7 +10,7 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from byoda.datamodel.memberdb import MemberDb
+from byoda.datastore import MemberDb
 
 from byoda.datatypes import ServerType
 

@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import TypeVar, Dict
 from ipaddress import ip_address
 
-from byoda.datamodel import Schema
+from byoda.datamodel.schema import Schema
 from byoda.datatypes import MemberStatus
 
 from byoda.datacache import KVCache
@@ -57,6 +57,13 @@ class MemberDb():
 
         return exists
 
+    def get_next(self):
+        '''
+        Get the next member in the queue
+        '''
+
+        self.driver.shift_push_list()
+        
     def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
                  data_secret: str, status: MemberStatus):
         '''

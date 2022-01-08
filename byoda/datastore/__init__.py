@@ -13,3 +13,4 @@ from .dnsdb import DnsDb
 from .certstore import CertStore
 from .document_store import DocumentStore
 from .document_store import DocumentStoreType
+from .memberdb import MemberDb

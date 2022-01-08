@@ -15,4 +15,3 @@ from .memberdata import MemberData
 from .service import Service
 from .account import Account
 from .member import Member
-from .memberdb import MemberDb

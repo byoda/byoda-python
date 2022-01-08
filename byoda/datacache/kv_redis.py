@@ -141,6 +141,16 @@ class KVRedis(KVCache):
 
         return ret
 
+    def shift(self, key: str) -> object:
+        '''
+        Removes the first item from the list and
+        returns it
+        '''
+
+        key = self.get_annotated_key(key)
+
+        val = self.driver.
+
     def push(self, key: str, value: object) -> int:
         '''
         Pushes a value to the list specified by 'key'
