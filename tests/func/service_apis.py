@@ -27,7 +27,7 @@ from cryptography.hazmat.primitives import serialization
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
-from byoda.servers import ServiceServer
+from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import Service
 
 from byoda.secrets import Secret

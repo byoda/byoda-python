@@ -21,9 +21,7 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.memberdata import MemberData, Schema
 
-from byoda.servers import PodServer
-
-from byoda.storage import FileStorage
+from byoda.servers.pod_server import PodServer
 
 
 _LOGGER = logging.getLogger(__name__)

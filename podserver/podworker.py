@@ -33,7 +33,7 @@ from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
 from byoda.util.logger import Logger

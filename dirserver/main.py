@@ -16,7 +16,7 @@ from byoda.util.fastapi import setup_api
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.servers import DirectoryServer
+from byoda.servers.directory_server import DirectoryServer
 
 from byoda.datamodel.network import Network
 

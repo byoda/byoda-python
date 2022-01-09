@@ -6,7 +6,3 @@ collect about their members.
 :copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
-
-# flake8: noqa=E221
-from .kv_cache import KVCache
-

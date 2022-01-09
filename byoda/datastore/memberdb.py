@@ -16,7 +16,7 @@ from ipaddress import ip_address
 from byoda.datamodel.schema import Schema
 from byoda.datatypes import MemberStatus
 
-from byoda.datacache import KVCache
+from byoda.datacache.kv_cache import KVCache
 
 _LOGGER = logging.getLogger(__name__)
 

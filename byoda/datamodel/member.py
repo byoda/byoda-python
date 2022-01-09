@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType

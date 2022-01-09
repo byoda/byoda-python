@@ -16,7 +16,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
 
-from byoda.servers import DirectoryServer
+from byoda.servers.directory_server import DirectoryServer
 
 from byoda.datastore.document_store import DocumentStoreType
 

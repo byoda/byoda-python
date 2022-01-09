@@ -13,7 +13,7 @@ import argparse
 import sys
 
 from byoda.datamodel.network import Network, Service
-from byoda.servers import ServiceServer
+from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
