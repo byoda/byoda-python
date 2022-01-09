@@ -15,9 +15,9 @@ import logging
 
 import fastjsonschema
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import MemberData, Schema
+from byoda.datamodel.memberdata import MemberData, Schema
 
 from byoda.storage import FileStorage
 

@@ -11,7 +11,7 @@ import logging
 from typing import TypeVar, Dict
 
 from byoda.util.api_client import RestApiClient
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
 from byoda import config

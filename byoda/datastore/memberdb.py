@@ -43,8 +43,17 @@ class MemberDb():
         data for the member
         '''
 
-        self.driver = KVCache.create(connection_string)
+        self.kvcache = KVCache.create(connection_string)
         self.schema = schema
+        self._service_id = None
+
+    @property
+    def service_id(self):
+        return self.kvcache.identifier
+
+    @service_id.setter
+    def service_id(self, service_id: int):
+        self.kvcache.identifier = f'service-{str(service_id)}'
 
     def exists(self, member_id: UUID) -> bool:
         '''
@@ -53,17 +62,17 @@ class MemberDb():
         '''
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
-        exists = self.driver.exists(mid)
+        exists = self.kvcache.exists(mid)
 
         return exists
 
-    def get_next(self):
+    def get_next(self, timeout: int = 0) -> object:
         '''
-        Get the next member in the queue
+        Remove the first item in the queue and return it
         '''
 
-        self.driver.shift_push_list()
-        
+        self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+
     def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
                  data_secret: str, status: MemberStatus):
         '''
@@ -71,10 +80,10 @@ class MemberDb():
         '''
 
         if not self.exists(member_id):
-            self.driver.push(MEMBERS_LIST, str(member_id))
+            self.kvcache.push(MEMBERS_LIST, str(member_id))
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
-        self.driver.set(mid, {
+        self.kvcache.set(mid, {
                 'member_id': str(member_id),
                 'remote_addr': remote_addr,
                 'schema_version': schema_version,
@@ -92,7 +101,7 @@ class MemberDb():
         '''
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
-        data = self.driver.get(mid)
+        data = self.kvcache.get(mid)
 
         if not data:
             raise KeyError(f'Member {str(member_id)} not found')
@@ -117,7 +126,7 @@ class MemberDb():
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
 
-        ret = self.driver.delete(mid)
+        ret = self.kvcache.delete(mid)
 
         return ret != 0
 
@@ -127,7 +136,7 @@ class MemberDb():
         '''
         mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
 
-        ret = self.driver.set(mid, data)
+        ret = self.kvcache.set(mid, data)
 
         return ret
 
@@ -139,7 +148,7 @@ class MemberDb():
         '''
 
         mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
-        data = self.driver.get(mid)
+        data = self.kvcache.get(mid)
 
         return data
 
@@ -150,6 +159,6 @@ class MemberDb():
         :returns: whether the key existed or not
         '''
 
-        ret = self.driver.delete(str(member_id))
+        ret = self.kvcache.delete(str(member_id))
 
         return ret != 0

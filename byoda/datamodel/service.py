@@ -30,8 +30,8 @@ from byoda.datamodel.schema import Schema
 
 from byoda.util.api_client import ApiClient
 
-from byoda.util import SignatureType
-from byoda.util import Paths
+from byoda.util.message_signature import SignatureType
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient

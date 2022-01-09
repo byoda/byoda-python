@@ -20,7 +20,7 @@ from starlette.authentication import (
 )
 from starlette.requests import Request as StarletteRequest
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 from byoda.datatypes import IdType, HttpRequestMethod
 
 from byoda.secrets import (

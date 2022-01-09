@@ -13,7 +13,7 @@ from typing import Callable
 
 import passgen
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 from byoda import config
 
 from byoda.datatypes import ServerRole

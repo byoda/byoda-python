@@ -18,7 +18,7 @@ from byoda import config
 
 from byoda.servers import DirectoryServer
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 
 from .routers import account
 from .routers import service

@@ -9,7 +9,7 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 import logging
 from copy import copy
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 

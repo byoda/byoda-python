@@ -25,17 +25,17 @@ import uvicorn
 
 from cryptography.hazmat.primitives import serialization
 
-from byoda.datamodel import Network
-from byoda.datamodel import Schema
+from byoda.datamodel.network import Network
+from byoda.datamodel.schema import Schema
 from byoda.servers import ServiceServer
-from byoda.datamodel import Service
+from byoda.datamodel.service import Service
 
 from byoda.secrets import Secret
 from byoda.secrets import MemberSecret
 from byoda.secrets import MemberDataSecret
 
-from byoda.util import Logger
-from byoda.util import Paths
+from byoda.util.logger import Logger
+from byoda.util.paths import Paths
 
 from byoda import config
 

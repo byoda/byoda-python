@@ -19,7 +19,7 @@ from byoda.datatypes import MemberStatus
 
 from byoda.util.logger import Logger
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
 
@@ -58,7 +58,9 @@ class TestKVCache(unittest.TestCase):
             network, cls.APP_CONFIG['svcserver']['cache']
         )
 
-        config.server.member_db.delete_meta(TEST_MEMBER_UUID)
+        member_db = config.server.member_db
+        member_db.service_id = cls.APP_CONFIG['svcserver']['service_id']
+        member_db.delete_meta(TEST_MEMBER_UUID)
 
     @classmethod
     def tearDownClass(cls):
@@ -66,6 +68,10 @@ class TestKVCache(unittest.TestCase):
 
     def test_memberdb_ops(self):
         member_db = config.server.member_db
+
+        with self.assertRaises(ValueError):
+            member_db.service_id = 'Fails as cache keys have already been used'
+
         self.assertFalse(member_db.exists(TEST_MEMBER_UUID))
 
         data = {

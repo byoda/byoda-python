@@ -27,11 +27,11 @@ from byoda.datamodel.service import RegistrationStatus
 
 from byoda.datatypes import IdType, ReviewStatusType
 
-from byoda.datamodel import Service
-from byoda.datamodel import Schema
-from byoda.datastore import CertStore
+from byoda.datamodel.service import Service
+from byoda.datamodel.schema import Schema
+from byoda.datastore.certstore import CertStore
 from byoda.servers import Server
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 
 from byoda.models import ServiceSummariesModel
 from byoda.models import CertChainRequestModel
@@ -44,8 +44,8 @@ from byoda.secrets import Secret
 from byoda.secrets import ServiceCaSecret
 from byoda.secrets import ServiceDataSecret
 
-from byoda.util import Paths
-from byoda.util import SignatureType
+from byoda.util.paths import Paths
+from byoda.util.message_signature import SignatureType
 
 from byoda import config
 

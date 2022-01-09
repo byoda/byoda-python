@@ -30,6 +30,7 @@ htpasswd = "*"
 uvicorn = {version = "*", extras = [ "standard",]}
 strawberry-graphql = {extras = [ "fastapi",], version = "*"}
 redis = "*"
+hiredis = "*"
 
 [dev-packages]
 flake8 = "*"

@@ -10,11 +10,11 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from byoda.datastore import MemberDb
+from byoda.datastore.memberdb import MemberDb
 
 from byoda.datatypes import ServerType
 
-from .server import Server
+from byoda.servers.server import Server
 
 
 _LOGGER = logging.getLogger(__name__)

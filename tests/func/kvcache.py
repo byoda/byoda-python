@@ -16,7 +16,7 @@ import unittest
 
 from byoda.util.logger import Logger
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
 

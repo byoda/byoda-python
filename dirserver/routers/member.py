@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType
 
-from byoda.datamodel import Service
+from byoda.datamodel.service import Service
 
 from byoda.models.ipaddress import IpAddressResponseModel
 

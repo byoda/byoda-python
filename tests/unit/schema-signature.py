@@ -17,9 +17,9 @@ import logging
 
 from byoda import config
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import MemberData, Schema
+from byoda.datamodel.memberdata import MemberData, Schema
 
 from byoda.servers import PodServer
 

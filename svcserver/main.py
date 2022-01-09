@@ -17,10 +17,10 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byoda.servers import ServiceServer
-from byoda.datamodel import Service
-from byoda.datamodel import Network
+from byoda.datamodel.service import Service
+from byoda.datamodel.network import Network
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from .routers import service
 from .routers import member

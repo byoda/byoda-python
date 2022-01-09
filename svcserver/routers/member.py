@@ -22,9 +22,9 @@ from fastapi import HTTPException
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
 
-from byoda.datamodel import Network
-from byoda.datamodel import Service
-from byoda.datastore import CertStore
+from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
+from byoda.datastore.certstore import CertStore
 
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
@@ -34,7 +34,7 @@ from byoda.models.ipaddress import IpAddressResponseModel
 from byoda.secrets import Secret
 from byoda.secrets import MemberSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda import config
 

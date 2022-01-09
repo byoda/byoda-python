@@ -12,12 +12,12 @@ import logging
 from typing import TypeVar
 from datetime import datetime
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
-from byoda.datastore import DocumentStoreType, DocumentStore
+from byoda.datastore.document_store import DocumentStoreType, DocumentStore
 
 
 _LOGGER = logging.getLogger(__name__)

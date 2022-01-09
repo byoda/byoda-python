@@ -16,9 +16,9 @@ import os
 import argparse
 import shutil
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 
 _LOGGER = None
 

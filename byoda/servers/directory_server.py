@@ -11,11 +11,11 @@ import os
 import logging
 from typing import TypeVar
 
-from byoda.datastore import DnsDb
+from byoda.datastore.dnsdb import DnsDb
 
 from byoda.datatypes import ServerType
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from .server import Server
 
@@ -29,7 +29,9 @@ class DirectoryServer(Server):
     def __init__(self, network: Network, dnsdb_connection_string: str):
         super().__init__(network)
 
-        network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
+        if dnsdb_connection_string:
+            # Test cases may set dnsdb_connection_string ad None
+            network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
 
         self.server_type = ServerType.DIRECTORY
 

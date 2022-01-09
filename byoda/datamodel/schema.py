@@ -23,10 +23,10 @@ from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 
-from byoda.util import MessageSignature
-from byoda.util import ServiceSignature
-from byoda.util import NetworkSignature
-from byoda.util import SignatureType
+from byoda.util.message_signature import MessageSignature
+from byoda.util.message_signature import ServiceSignature
+from byoda.util.message_signature import NetworkSignature
+from byoda.util.message_signature import SignatureType
 
 from byoda.secrets import Secret, DataSecret
 

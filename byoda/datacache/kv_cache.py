@@ -24,14 +24,21 @@ DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
 
 
 class KVCache(ABC):
-    def __init__(self):
+    def __init__(self, identifier: str = None):
         '''
         Constructur for the KVCache base class
+
+        :param identifier: string to include in the key annotation
         '''
 
         # We can't set namespace here as the config.server object may not
         # have been set yet at this stage of the initialization of the server
         self.namespace = None
+
+        if identifier:
+            self.identifier = identifier
+        else:
+            self.identifier = ''
 
     @staticmethod
     def create(connection_string: str,
@@ -51,11 +58,16 @@ class KVCache(ABC):
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 
     @abstractmethod
-    def get(self, key: str):
+    def get(self, key: str) -> object:
         raise NotImplementedError
 
     @abstractmethod
-    def set(self, key: str, value, cache: int = DEFAULT_CACHE_EXPIRATION):
+    def get_next(self, key: str, timeout: int = 0) -> object:
+        raise NotImplementedError
+
+    @abstractmethod
+    def set(self, key: str, value, cache: int = DEFAULT_CACHE_EXPIRATION
+            ) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -77,6 +89,19 @@ class KVCache(ABC):
     def delete(self, key: str) -> bool:
         raise NotImplementedError
 
+    @property
+    def identifier(self):
+        return self._identifier
+
+    @identifier.setter
+    def identifier(self, value: str):
+        if self.namespace:
+            raise ValueError(
+                'Can not set identifier after first access to the cache'
+            )
+
+        self._identifier = '-' + str(value)
+
     def get_annotated_key(self, key: str) -> str:
         '''
         Annotate the key so that it is unique to the server. The resulting
@@ -84,6 +109,6 @@ class KVCache(ABC):
         '''
 
         if not self.namespace:
-            self.namespace = config.server.network.name
+            self.namespace = config.server.network.name + self._identifier
 
         return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'

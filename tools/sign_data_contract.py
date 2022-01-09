@@ -12,15 +12,15 @@ import os
 import argparse
 import sys
 
-from byoda.datamodel import Network, Service
+from byoda.datamodel.network import Network, Service
 from byoda.servers import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util import SignatureType
-from byoda.util import Logger
-from byoda.util import Paths
+from byoda.util.message_signature import SignatureType
+from byoda.util.logger import Logger
+from byoda.util.paths import Paths
 
 from byoda.util.api_client import HttpMethod, RestApiClient
 from byoda.secrets import ServiceSecret

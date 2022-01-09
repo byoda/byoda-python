@@ -22,19 +22,19 @@ import sys
 import uvicorn
 
 from byoda import config
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import Network
-from byoda.datamodel import Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
 
 from byoda.servers import PodServer
 
 from byoda.datatypes import CloudType, IdType, StorageType
-from byoda.datastore import DocumentStoreType
+from byoda.datastore.document_store import DocumentStoreType
 
-from byoda.util import NginxConfig, NGINX_SITE_CONFIG_DIR
+from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
 
-from byoda.util import setup_api
+from byoda.util.fastapi import setup_api
 
 from .util import get_environment_vars
 

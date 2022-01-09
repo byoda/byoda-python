@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType
 
-from byoda.datastore import CertStore
+from byoda.datastore.certstore import CertStore
 
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedAccountCertResponseModel

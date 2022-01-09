@@ -35,10 +35,10 @@ from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
-from byoda.util import NginxConfig
-from byoda.util import NGINX_SITE_CONFIG_DIR
+from byoda.util.nginxconfig import NginxConfig
+from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
 
 from byoda import config
 

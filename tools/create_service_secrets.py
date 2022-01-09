@@ -15,10 +15,10 @@ import shutil
 
 import requests
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import Network
-from byoda.datamodel import Service
+from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
 from byoda.servers import Server
 
 from byoda.secrets import NetworkRootCaSecret

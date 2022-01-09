@@ -18,7 +18,7 @@ from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
 from byoda.secrets import ServiceSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)

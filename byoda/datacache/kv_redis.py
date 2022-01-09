@@ -19,11 +19,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class KVRedis(KVCache):
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str, identifier: str = None):
         '''
         Constructor
 
         :param connection_string: format 'host:port:password'
+        :param identifier: string to include when formatting the key,
+        typically this would be the service_id
         '''
 
         params = connection_string.split(':', 2)
@@ -46,7 +48,7 @@ class KVRedis(KVCache):
                 'A Redis host must be specified in the connection_string'
             )
 
-        super().__init__()
+        super().__init__(identifier=identifier)
 
         self.driver = Redis(
             host=self.host, port=self.port, password=self.password
@@ -83,6 +85,15 @@ class KVRedis(KVCache):
                     value = data
                 except JSONDecodeError:
                     pass
+
+        return value
+
+    def get_next(self, key, timeout: int = 0) -> object:
+        '''
+        Gets the first item of a list value for the key
+        '''
+
+        value = self.driver.blpop(key, timeout=timeout)
 
         return value
 
@@ -149,7 +160,9 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        val = self.driver.
+        val = self.driver.blpop(key, timeout=0)
+
+        return val
 
     def push(self, key: str, value: object) -> int:
         '''

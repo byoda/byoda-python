@@ -13,7 +13,7 @@ from typing import TypeVar
 
 from cryptography.x509 import CertificateSigningRequest
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 
