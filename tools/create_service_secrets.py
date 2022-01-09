@@ -19,7 +19,7 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
-from byoda.servers import Server
+from byoda.servers.server import Server
 
 from byoda.secrets import NetworkRootCaSecret
 
