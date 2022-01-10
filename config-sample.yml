@@ -12,8 +12,7 @@ dirserver:
   logfile: '/tmp/byoda-dir.log'
   # Connection string for the Postgresql server for PowerDNS
   dnsdb: "postgresql://<username>:<password>@<ip>/byodadns"
-  cache: '<hostname>:<port>:<password>'
-  root_dir: '/opt/byoda/dirserver'
+    root_dir: '/opt/byoda/dirserver'
   roles:
     - directory
   private_key_password: '<changeme>'
