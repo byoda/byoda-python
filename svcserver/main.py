@@ -40,6 +40,11 @@ if not os.environ.get('SERVER_NAME') and config.server.network.name:
 
 config.server = ServiceServer(app_config)
 
+config.server.load_secrets(
+    app_config['svcserver']['private_key_password']
+)
+config.server.load_schema()
+
 config.server.service.register_service()
 
 app = setup_api(

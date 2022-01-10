@@ -27,8 +27,7 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class ServiceServer(Server):
-    def __init__(self, app_config: dict,
-                 verify_contract_signatures: bool = True):
+    def __init__(self, app_config: dict):
         '''
         Initiates a service server
 
@@ -49,13 +48,15 @@ class ServiceServer(Server):
         self.member_db: MemberDb = MemberDb(app_config['svcserver']['cache'])
         self.member_db.service_id = self.service.service_id
 
+    def load_secrets(self, password: str):
         self.service.load_secrets(
             with_private_key=True,
-            password=app_config['svcserver']['private_key_password']
+            password=password
         )
 
         self.service.tls_secret.save_tmp_private_key()
 
+    def load_schema(self, verify_contract_signatures: bool = True):
         schema_file = self.service.paths.get(Paths.SERVICE_FILE)
         self.service.load_schema(
             filepath=schema_file,

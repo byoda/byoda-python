@@ -104,9 +104,12 @@ class TestDirectoryApis(unittest.TestCase):
             password=cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(
-            cls.APP_CONFIG, verify_contract_signatures=False
+        config.server = ServiceServer(cls.APP_CONFIG)
+        
+        config.server.load_secrets(
+            cls.APP_CONFIG['svcserver']['private_key_password']
         )
+        config.server.load_schema(verify_contract_signatures=False)
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',

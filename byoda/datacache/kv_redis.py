@@ -93,6 +93,8 @@ class KVRedis(KVCache):
         Gets the first item of a list value for the key
         '''
 
+        key = self.get_annotated_key(key)
+
         value = self.driver.blpop(key, timeout=timeout)
 
         return value

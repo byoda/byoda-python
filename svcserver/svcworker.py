@@ -13,8 +13,10 @@ import yaml
 
 import time
 
-from byoda.datastore.memberdb import MemberDb
 from byoda.datastore.memberdb import MEMBERS_LIST
+from byoda.servers.service_server import ServiceServer
+
+from byoda import config
 
 from byoda.util.logger import Logger
 
@@ -34,24 +36,31 @@ def main(args):
         loglevel=app_config['application'].get('loglevel', 'INFO'),
         logfile=app_config['svcserver'].get('logfile')
     )
-    _LOGGER.debug('Starting podworker')
+    _LOGGER.debug(
+        'Starting service worker for service ID: '
+        f'{app_config["svcserver"]["service_id"]}'
+    )
 
     if debug:
         global MAX_WAIT
         MAX_WAIT = 10
 
-    memberdb = MemberDb(app_config['svcserver']['cache'])
-    memberdb.
+    server = ServiceServer(app_config)
+    config.server = server
+
+    if not server.service.paths.service_file_exists(server.service.service_id):
+        server.service.download_schema(save=True)
+    server.load_schema(verify_contract_signatures=False)
 
     while True:
-        member_id = memberdb.get_next(timeout=MAX_WAIT)
+        member_id = server.member_db.get_next(timeout=MAX_WAIT)
         if not member_id:
             _LOGGER.debug('No member available in list of members')
             continue
 
-        memberdb.driver.push(MEMBERS_LIST, member_id)
+        server.member_db.driver.push(MEMBERS_LIST, member_id)
         _LOGGER.debug(f'Processing member_id {member_id}')
-        data = memberdb.get_data(member_id)
+        data = server.member_db.get_data(member_id)
 
         # kvcache
         waittime = next_member_wait(data)
