@@ -58,6 +58,7 @@ server.service.load_schema(
 )
 
 server.member_db.schema = server.service.schema
+server.member_db.service_id = server.service.service_id
 
 config.server = server
 
