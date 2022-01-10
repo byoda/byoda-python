@@ -27,7 +27,7 @@ from byoda.util.logger import Logger
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import CloudType, IdType, StorageType
 from byoda.datastore.document_store import DocumentStoreType
