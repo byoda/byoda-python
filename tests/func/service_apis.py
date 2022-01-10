@@ -67,6 +67,8 @@ class TestDirectoryApis(unittest.TestCase):
         with open(CONFIG_FILE) as file_desc:
             cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
+        cls.APP_CONFIG['svcserver']['service_id'] = SERVICE_ID
+
         test_dir = cls.APP_CONFIG['svcserver']['root_dir']
         try:
             shutil.rmtree(test_dir)
@@ -88,29 +90,22 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(
-            network, cls.APP_CONFIG['svcserver']['cache']
-        )
-
-        service_file = config.server.network.paths.get(
+        service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
 
         shutil.copy(DUMMY_SCHEMA, test_dir + '/' + service_file)
 
-        config.server.service = Service(
+        svc = Service(
             network, service_file, cls.APP_CONFIG['svcserver']['service_id']
         )
-
-        config.server.service.create_secrets(
+        svc.create_secrets(
             network.services_ca, local=True,
             password=cls.APP_CONFIG['svcserver']['private_key_password']
         )
-        service_file = config.server.service.paths.get(
-            Paths.SERVICE_FILE, service_id=config.server.service.service_id
-        )
-        config.server.service.load_schema(
-            service_file, verify_contract_signatures=False
+
+        config.server = ServiceServer(
+            cls.APP_CONFIG, verify_contract_signatures=False
         )
 
         app = setup_api(

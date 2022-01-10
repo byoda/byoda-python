@@ -41,6 +41,7 @@ def main(args):
         MAX_WAIT = 10
 
     memberdb = MemberDb(app_config['svcserver']['cache'])
+    memberdb.
 
     while True:
         member_id = memberdb.get_next(timeout=MAX_WAIT)

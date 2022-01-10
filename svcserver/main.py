@@ -17,10 +17,6 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byoda.servers.service_server import ServiceServer
-from byoda.datamodel.service import Service
-from byoda.datamodel.network import Network
-
-from byoda.util.paths import Paths
 
 from .routers import service
 from .routers import member
@@ -39,33 +35,12 @@ _LOGGER = Logger.getLogger(
 )
 _LOGGER.debug(f'Read configuration file: {config_file}')
 
-network = Network(
-    app_config['svcserver'], app_config['application']
-)
-server = ServiceServer(network, app_config['svcserver']['cache'])
+if not os.environ.get('SERVER_NAME') and config.server.network.name:
+    os.environ['SERVER_NAME'] = config.server.network.name
 
-server.service = Service(
-    server.network, None, app_config['svcserver']['service_id']
-)
-server.load_secrets(
-    password=app_config['svcserver']['private_key_password']
-)
-server.service.tls_secret.save_tmp_private_key()
+config.server = ServiceServer(app_config)
 
-schema_file = server.service.paths.get(Paths.SERVICE_FILE)
-server.service.load_schema(
-    filepath=schema_file, verify_contract_signatures=True
-)
-
-server.member_db.schema = server.service.schema
-server.member_db.service_id = server.service.service_id
-
-config.server = server
-
-if not os.environ.get('SERVER_NAME') and server.network.name:
-    os.environ['SERVER_NAME'] = server.network.name
-
-server.service.register_service()
+config.server.service.register_service()
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
