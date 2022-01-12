@@ -93,6 +93,26 @@ class KVRedis(KVCache):
 
         return value
 
+    def pos(self, key: str, value: str) -> int:
+        '''
+        Finds the first occurrence of value in the list for the key
+        '''
+
+        key = self.get_annotated_key(key)
+
+        pos = self.driver.lpos(key, value)
+
+        if pos is not None:
+            _LOGGER.debug(
+                f'Found {value} in position {pos} of list for key {key}'
+            )
+        else:
+            _LOGGER.debug(
+                'Did not find value {value} in the list for key {key}'
+            )
+
+        return pos
+
     def get_next(self, key, timeout: int = 0) -> object:
         '''
         Gets the first item of a list value for the key
@@ -101,6 +121,9 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         value = self.driver.blpop(key, timeout=timeout)
+
+        if isinstance(value, list):
+            value = value[-1]
 
         _LOGGER.debug(f'Popped {value} from start of list for key {key}')
 

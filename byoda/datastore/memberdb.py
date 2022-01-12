@@ -66,12 +66,19 @@ class MemberDb():
 
         return exists
 
+    def pos(self, key, value):
+        '''
+        Finds the first occurrence of value in the list for the key
+        '''
+
+        return self.kvcache.pos(key, value)
+
     def get_next(self, timeout: int = 0) -> object:
         '''
         Remove the first item in the queue and return it
         '''
 
-        self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+        return self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
 
     def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
                  data_secret: str, status: MemberStatus):
@@ -79,7 +86,7 @@ class MemberDb():
         Adds (or overwrites) an entry
         '''
 
-        if not self.exists(member_id):
+        if not self.pos(MEMBERS_LIST, member_id):
             _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
             self.kvcache.push(MEMBERS_LIST, str(member_id))
 

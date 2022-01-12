@@ -62,6 +62,10 @@ class KVCache(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def pos(self, key: str, value: str) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_next(self, key: str, timeout: int = 0) -> object:
         raise NotImplementedError
 
