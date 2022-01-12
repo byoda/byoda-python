@@ -120,7 +120,7 @@ class KVRedis(KVCache):
 
         ret = self.driver.set(key, value, ex=expiration)
 
-        _LOGGER.debug('Set key {key} to value {value}')
+        _LOGGER.debug(f'Set key {key} to value {value}')
 
         return ret
 
