@@ -62,36 +62,39 @@ class MemberDb():
         '''
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+
         exists = self.kvcache.exists(mid)
 
         return exists
 
-    def pos(self, key, member_id: UUID):
+    def pos(self, member_id: UUID):
         '''
         Finds the first occurrence of value in the list for the key
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
-        
-        return self.kvcache.pos(key, mid)
+        return self.kvcache.pos(MEMBERS_LIST, str(member_id))
 
-    def get_next(self, timeout: int = 0) -> object:
+    def get_next(self, timeout: int = 0) -> UUID:
         '''
-        Remove the first item in the queue and return it
+        Remove the first item in the MEMBER_LIST and return it
         '''
 
-        return self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+        value = self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+
+        if isinstance(value, bytes):
+            value = UUID(value.decode('utf-8'))
+
+        return value
 
     def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
-                 data_secret: str, status: MemberStatus):
+                 data_secret: str, status: MemberStatus) -> None:
         '''
         Adds (or overwrites) an entry
         '''
 
         # TODO: lookup in list is not scalable.
-        if not self.pos(MEMBERS_LIST, member_id):
-            _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
-            self.kvcache.push(MEMBERS_LIST, str(member_id))
+        if self.pos(member_id) is None:
+            self.add_member(member_id)
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         self.kvcache.set(mid, {
@@ -139,7 +142,40 @@ class MemberDb():
 
         ret = self.kvcache.delete(mid)
 
-        return ret != 0
+        exists = ret != 0
+
+        if exists:
+            _LOGGER.debug(f'Deleted the metadata for member {str(member_id)}')
+        else:
+            _LOGGER.debug(f'Member {str(member_id)} not found')
+
+        return exists
+
+    def add_member(self, member_id: UUID) -> None:
+        '''
+        Adds a member to the end of the list of members
+        '''
+
+        _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
+        self.kvcache.push(MEMBERS_LIST, str(member_id))
+
+    def delete_members_list(self):
+        '''
+        Delete the list of members.
+
+        :returns: whether the key existed or not
+        '''
+
+        ret = self.kvcache.delete(MEMBERS_LIST)
+
+        exists = ret != 0
+
+        if exists:
+            _LOGGER.debug('Deleted the list of members')
+        else:
+            _LOGGER.debug('List of members not found')
+
+        return exists
 
     def set_data(self, member_id: UUID, data: Dict) -> bool:
         '''

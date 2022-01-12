@@ -49,18 +49,20 @@ class TestKVCache(unittest.TestCase):
 
         os.makedirs(test_dir)
 
-        network = Network.create(
+        # Create the network so that the constructor of ServiceServer
+        # can load it.
+        Network.create(
             cls.APP_CONFIG['application']['network'],
             cls.APP_CONFIG['svcserver']['root_dir'],
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
-        config.server = ServiceServer(
-            network, cls.APP_CONFIG['svcserver']['cache']
-        )
+
+        config.server = ServiceServer(cls.APP_CONFIG)
 
         member_db = config.server.member_db
         member_db.service_id = cls.APP_CONFIG['svcserver']['service_id']
         member_db.delete_meta(TEST_MEMBER_UUID)
+        member_db.delete_members_list()
 
     @classmethod
     def tearDownClass(cls):
@@ -121,6 +123,13 @@ class TestKVCache(unittest.TestCase):
         member_db.set_data(TEST_MEMBER_UUID, data)
 
         self.assertEqual(member_db.get_data(TEST_MEMBER_UUID), data)
+
+        self.assertEqual(member_db.pos(TEST_MEMBER_UUID), 0)
+
+        self.assertEqual(member_db.get_next(), TEST_MEMBER_UUID)
+
+        self.assertEqual(member_db.get_next(timeout=1), None)
+
 
 
 if __name__ == '__main__':

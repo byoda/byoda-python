@@ -108,7 +108,7 @@ class KVRedis(KVCache):
             )
         else:
             _LOGGER.debug(
-                'Did not find value {value} in the list for key {key}'
+                f'Did not find value {value} in the list for key {key}'
             )
 
         return pos
@@ -122,7 +122,7 @@ class KVRedis(KVCache):
 
         value = self.driver.blpop(key, timeout=timeout)
 
-        if isinstance(value, list):
+        if isinstance(value, tuple):
             value = value[-1]
 
         _LOGGER.debug(f'Popped {value} from start of list for key {key}')

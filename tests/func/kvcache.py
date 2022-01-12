@@ -53,7 +53,7 @@ class TestKVCache(unittest.TestCase):
         )
         config.server = ServiceServer(cls.APP_CONFIG)
 
-        config.server.member_db.kvcache.driver.delete(TEST_KEY)
+        config.server.member_db.kvcache.delete(TEST_KEY)
 
     @classmethod
     def tearDownClass(cls):
@@ -94,6 +94,10 @@ class TestKVCache(unittest.TestCase):
         self.assertTrue(driver.push(key, 1))
 
         self.assertTrue(driver.push(key, 2))
+
+        self.assertEqual(driver.pos(key, 2), 1)
+
+        self.assertIsNone(driver.pos(key, 3))
 
         self.assertEqual(driver.pop(key), b'2')
 
