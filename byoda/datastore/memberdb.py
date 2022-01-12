@@ -66,12 +66,14 @@ class MemberDb():
 
         return exists
 
-    def pos(self, key, value):
+    def pos(self, key, member_id: UUID):
         '''
         Finds the first occurrence of value in the list for the key
         '''
 
-        return self.kvcache.pos(key, value)
+        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        
+        return self.kvcache.pos(key, mid)
 
     def get_next(self, timeout: int = 0) -> object:
         '''
@@ -86,6 +88,7 @@ class MemberDb():
         Adds (or overwrites) an entry
         '''
 
+        # TODO: lookup in list is not scalable.
         if not self.pos(MEMBERS_LIST, member_id):
             _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
             self.kvcache.push(MEMBERS_LIST, str(member_id))
