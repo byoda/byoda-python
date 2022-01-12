@@ -46,23 +46,21 @@ class TestKVCache(unittest.TestCase):
 
         os.makedirs(test_dir)
 
-        network = Network.create(
+        Network.create(
             cls.APP_CONFIG['application']['network'],
             cls.APP_CONFIG['svcserver']['root_dir'],
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
-        config.server = ServiceServer(
-            network, cls.APP_CONFIG['svcserver']['cache']
-        )
+        config.server = ServiceServer(cls.APP_CONFIG)
 
-        config.server.member_db.driver.delete(TEST_KEY)
+        config.server.member_db.kvcache.driver.delete(TEST_KEY)
 
     @classmethod
     def tearDownClass(cls):
         pass
 
     def test_cache_ops(self):
-        driver = config.server.member_db.driver
+        driver = config.server.member_db.kvcache
 
         key = TEST_KEY
         self.assertFalse(driver.exists(key))

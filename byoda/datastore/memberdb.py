@@ -80,6 +80,7 @@ class MemberDb():
         '''
 
         if not self.exists(member_id):
+            _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
             self.kvcache.push(MEMBERS_LIST, str(member_id))
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))

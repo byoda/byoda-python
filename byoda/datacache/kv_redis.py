@@ -63,7 +63,11 @@ class KVRedis(KVCache):
 
         ret = self.driver.exists(key)
 
-        return ret != 0
+        exists = ret != 0
+
+        _LOGGER.debug(f'Does key {key} exist: {exists}')
+
+        return exists
 
     def get(self, key: str) -> object:
         '''
@@ -77,6 +81,7 @@ class KVRedis(KVCache):
 
         value = self.driver.get(key)
 
+        _LOGGER.debug(f'Got value {value} for key {key}')
         if isinstance(value, bytes):
             data = value.decode('utf-8')
             if len(data) > 1 and data[0] == '{' and data[-1] == '}':
@@ -97,6 +102,8 @@ class KVRedis(KVCache):
 
         value = self.driver.blpop(key, timeout=timeout)
 
+        _LOGGER.debug(f'Popped {value} from start of list for key {key}')
+
         return value
 
     def set(self, key: str, value: object,
@@ -113,6 +120,8 @@ class KVRedis(KVCache):
 
         ret = self.driver.set(key, value, ex=expiration)
 
+        _LOGGER.debug('Set key {key} to value {value}')
+
         return ret
 
     def delete(self, key: str) -> bool:
@@ -123,6 +132,8 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         ret = self.driver.delete(key)
+
+        _LOGGER.debug(f'Deleted key {key}')
 
         return ret
 
@@ -141,6 +152,10 @@ class KVRedis(KVCache):
                 key, key, src='LEFT', dest='RIGHT', timeout=timeout
             )
 
+        _LOGGER.debug(
+            f'Got moved value {value} from begin to end of key {key}'
+        )
+
         return value
 
     def get_list(self, key):
@@ -151,6 +166,8 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         ret = self.driver.lrange(key, 0, -1)
+
+        _LOGGER.debug(f'Got list for key {key} with length {len(ret)}')
 
         return ret
 
@@ -164,6 +181,8 @@ class KVRedis(KVCache):
 
         val = self.driver.blpop(key, timeout=0)
 
+        _LOGGER.debug(f'Shifted value {val} from key {key}')
+
         return val
 
     def push(self, key: str, value: object) -> int:
@@ -175,6 +194,8 @@ class KVRedis(KVCache):
 
         ret = self.driver.rpush(key, value)
 
+        _LOGGER.debug(f'Pushed value {value} to end of list for key {key}')
+
         return ret
 
     def pop(self, key: str) -> object:
@@ -185,5 +206,7 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         val = self.driver.rpop(key)
+
+        _LOGGER.debug(f'Popped value {val} from end of list for key {key}')
 
         return val
