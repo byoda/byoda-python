@@ -12,8 +12,8 @@ import sys
 import yaml
 
 import time
+from datetime import datetime, timedelta
 
-from byoda.datastore.memberdb import MEMBERS_LIST
 from byoda.servers.service_server import ServiceServer
 
 from byoda import config
@@ -21,6 +21,7 @@ from byoda import config
 from byoda.util.logger import Logger
 
 MAX_WAIT = 15 * 60
+MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
 
 
 def main(args):
@@ -58,17 +59,42 @@ def main(args):
             _LOGGER.debug('No member available in list of members')
             continue
 
-        server.member_db.driver.push(MEMBERS_LIST, member_id)
+        server.member_db.add_member(member_id)
         _LOGGER.debug(f'Processing member_id {member_id}')
-        data = server.member_db.get_data(member_id)
+        data = server.member_db.get_meta(member_id)
 
-        # kvcache
-        waittime = next_member_wait(data)
+        waittime = next_member_wait(data['last_seen'])
+        server.member_db.add_meta(
+            data['member_id'], data['remote_addr'], data['schema_version'],
+            data['data_secret'], data['status']
+        )
+
+        #
+        # Here is where we can do stuff
+        #
+        
         time.sleep(waittime)
 
 
-def next_member_wait(data: object) -> int:
-    return 10
+def next_member_wait(last_seen: datetime) -> int:
+    '''
+    Calculate how long to wait before processing the next member
+    in the list. We calculate using the last_seen time of the
+    current member, knowing that it is always less than the wait
+    time of the next member. So we're okay with processing the
+    next member to early.
+    '''
+
+    now = datetime.utcnow()
+
+    waittime = last_seen + timedelta(seconds=MEMBER_PROCESS_INTERVAL) - now
+
+    if waittime.seconds < 0:
+        waittime.seconds = 0
+
+    wait = min(waittime.seconds, MAX_WAIT)
+
+    return wait
 
 
 if __name__ == '__main__':

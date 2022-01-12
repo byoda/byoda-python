@@ -11,7 +11,7 @@ import logging
 from uuid import UUID
 from datetime import datetime
 from typing import TypeVar, Dict
-from ipaddress import ip_address
+from ipaddress import IPv4Address, ip_address
 
 from byoda.datamodel.schema import Schema
 from byoda.datatypes import MemberStatus
@@ -86,7 +86,7 @@ class MemberDb():
 
         return value
 
-    def add_meta(self, member_id: UUID, remote_addr: str, schema_version,
+    def add_meta(self, member_id: UUID, remote_addr: IPv4Address, schema_version,
                  data_secret: str, status: MemberStatus) -> None:
         '''
         Adds (or overwrites) an entry
@@ -99,7 +99,7 @@ class MemberDb():
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         self.kvcache.set(mid, {
                 'member_id': str(member_id),
-                'remote_addr': remote_addr,
+                'remote_addr': str(remote_addr),
                 'schema_version': schema_version,
                 'data_secret': data_secret,
                 'last_seen': datetime.utcnow().isoformat(),
