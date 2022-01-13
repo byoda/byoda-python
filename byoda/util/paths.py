@@ -75,11 +75,12 @@ class Paths:
     SERVICE_CONTRACT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/service-contract.json'                                   # noqa
 
     # APIs
-    NETWORKACCOUNT_API    = 'https://dir.{network}/api/v1/network/account'                          # noqa
-    NETWORKSERVICE_API    = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'  # noqa
-    NETWORKSERVICES_API   = 'https://dir.{network}/api/v1/network/services'                         # noqa
-    NETWORKMEMBER_API     = 'https://dir.{network}/api/v1/network/member'                           # noqa
-    SERVICEMEMBER_API     = 'https://service.service-{service_id}.{network}/api/v1/service/member'  # noqa
+    NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                          # noqa
+    NETWORKSERVICE_API      = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'  # noqa
+    NETWORKSERVICE_POST_API = 'https://dir.{network}/api/v1/network/service'                          # noqa
+    NETWORKSERVICES_API     = 'https://dir.{network}/api/v1/network/services'                         # noqa
+    NETWORKMEMBER_API       = 'https://dir.{network}/api/v1/network/member'                           # noqa
+    SERVICEMEMBER_API       = 'https://service.service-{service_id}.{network}/api/v1/service/member'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

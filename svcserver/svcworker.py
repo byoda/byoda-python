@@ -72,7 +72,7 @@ def main(args):
         #
         # Here is where we can do stuff
         #
-        
+
         time.sleep(waittime)
 
 

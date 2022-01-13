@@ -152,11 +152,11 @@ tools/create_network.py --debug --network ${BYODA_DOMAIN} --root-dir=${ROOT_DIR}
 
 # copy all files except the private key for the root ca from the tempoarily
 # not air-gapped server to the directory server
-ssh ${DIRSERVER} "sudo mkdir /var/lib/byoda/{private,network-${BYODA_DOMAIN}}
-ssh ${DIRSERVER} "sudo chown -R $USER /var/lib/byoda"
+ssh ${DIRSERVER} "sudo mkdir ${BYODA_HOME}/{private,network-${BYODA_DOMAIN}}
+ssh ${DIRSERVER} "sudo chown -R $USER ${BYODA_HOME}"
 scp ~/.byoda/private/network-${BYODA_DOMAIN}-{accounts-ca,services-ca,data}.key \
-     ${DIRSERVER}:/var/lib/byoda/private/
-scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:/var/lib/byoda/network-${BYODA_DOMAIN}
+     ${DIRSERVER}:${BYODA_HOME}/private/
+scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_DOMAIN}
 
 - Set up the directory server
 

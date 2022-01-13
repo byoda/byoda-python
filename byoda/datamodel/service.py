@@ -461,7 +461,7 @@ class Service:
             )
         }
 
-        url = self.paths.get(Paths.NETWORKSERVICE_API)
+        url = self.paths.get(Paths.NETWORKSERVICE_POST_API)
         response = RestApiClient.call(
             url, HttpMethod.POST, data=data
         )
