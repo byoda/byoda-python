@@ -8,7 +8,7 @@ storage technologies as PowerDNS only supports SQL databases, for
 which we have coverage through SQLAlchemy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -35,12 +35,13 @@ from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
-from byoda.util import NginxConfig
-from byoda.util import NGINX_SITE_CONFIG_DIR
+from byoda.util.nginxconfig import NginxConfig
+from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
 
 from byoda import config
+
 from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 

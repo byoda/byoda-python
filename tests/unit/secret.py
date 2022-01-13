@@ -10,13 +10,15 @@ import shutil
 import unittest
 from uuid import uuid4
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import Network, Service, Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
+from byoda.datamodel.account import Account
 
-from byoda.servers import DirectoryServer
+from byoda.servers.directory_server import DirectoryServer
 
-from byoda.datastore import DocumentStoreType
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType, ServerRole
 
@@ -42,7 +44,15 @@ class TestAccountManager(unittest.TestCase):
         #
         # Test creation of the CA hierarchy
         network = Network.create(NETWORK, TEST_DIR, 'byoda')
+
+        config.server = DirectoryServer(network, None)
         config.server.network = network
+        config.server.set_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
+        )
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)
@@ -126,11 +136,4 @@ if __name__ == '__main__':
     shutil.rmtree(TEST_DIR, ignore_errors=True)
     os.mkdir(TEST_DIR)
 
-    config.server = DirectoryServer()
-    config.server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType('LOCAL'),
-        bucket_prefix='byoda',
-        root_dir=TEST_DIR
-    )
     unittest.main()

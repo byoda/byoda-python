@@ -2,7 +2,7 @@
 Class for modeling a service on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -24,15 +24,14 @@ from byoda.datastore.dnsdb import DnsRecordType
 from byoda.storage import FileStorage
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import ServerType
 
 from byoda.datamodel.schema import Schema
-from byoda.servers.service_server import ServiceServer
-from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.api_client import ApiClient
 
-from byoda.util import SignatureType
-from byoda.util import Paths
+from byoda.util.message_signature import SignatureType
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
@@ -263,7 +262,7 @@ class Service:
 
         server = config.server
 
-        if type(server) not in (DirectoryServer, ServiceServer):
+        if server.server_type not in (ServerType.SERVICE, ServerType.DIRECTORY):
             raise ValueError(
                 'This function should only be called from Directory- and '
                 f'Service-servers, not from a {type(server)}'
@@ -505,7 +504,7 @@ class Service:
         if registration_status == RegistrationStatus.Unknown:
             raise ValueError('Can not check on unknown registration status')
 
-        if type(server) not in (DirectoryServer, ServiceServer):
+        if server.server_type not in (ServerType.DIRECTORY, ServerType.SERVICE):
             if registration_status != RegistrationStatus.SchemaSigned:
                 raise ValueError(
                 f'Can not check registration status {registration_status.value} '
@@ -540,7 +539,7 @@ class Service:
         if self.schema and self.schema.signatures.get('network'):
             return RegistrationStatus.SchemaSigned
 
-        if isinstance(server, DirectoryServer):
+        if server.server_type == ServerType.DIRECTORY:
             try:
                 self.network.dnsdb.lookup(
                     None, IdType.SERVICE, DnsRecordType.A,
@@ -581,11 +580,11 @@ class Service:
         Registers the service with the network using the Service TLS secret
 
         :raises: ValueError if the function is not called by a
-        ServerType.Service
+        ServerType.SERVICE
         '''
 
         server = config.server
-        if server and not isinstance(server, ServiceServer):
+        if server and not server.server_type == ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:
@@ -740,7 +739,7 @@ class Service:
                 raise
             else:
                 return None
-            
+
         if resp.status_code == 200:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)

@@ -15,7 +15,7 @@ LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -25,18 +25,18 @@ from typing import Dict
 
 import daemon
 
-from byoda.datamodel import Network
-from byoda.datamodel import Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
 from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 from byoda.datatypes import CloudType
 
-from byoda.datastore import DocumentStoreType
+from byoda.datastore.document_store import DocumentStoreType
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
 from podserver.util import get_environment_vars
 

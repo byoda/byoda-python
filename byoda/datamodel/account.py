@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -14,8 +14,8 @@ from copy import copy
 import requests
 
 from byoda.datatypes import CsrSource
-from byoda.datastore import DocumentStore
-from byoda.datamodel import MemberData
+from byoda.datastore.document_store import DocumentStore
+from byoda.datamodel.memberdata import MemberData
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -24,7 +24,7 @@ from byoda.secrets import AccountDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 

@@ -2,7 +2,7 @@
 /network/account API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType
 
-from byoda.datastore import CertStore
+from byoda.datastore.certstore import CertStore
 
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedAccountCertResponseModel

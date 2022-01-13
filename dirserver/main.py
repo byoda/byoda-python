@@ -2,7 +2,7 @@
 API server for Bring Your Own Data and Algorithms
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -16,11 +16,9 @@ from byoda.util.fastapi import setup_api
 from byoda.util.logger import Logger
 from byoda import config
 
-from byoda.servers import DirectoryServer
+from byoda.servers.directory_server import DirectoryServer
 
-from byoda.datamodel import Network
-
-from byoda.datastore import DnsDb
+from byoda.datamodel.network import Network
 
 from .routers import account
 from .routers import service
@@ -38,16 +36,12 @@ _LOGGER = Logger.getLogger(
     logfile=app_config['dirserver'].get('logfile')
 )
 
-server = DirectoryServer()
-config.server = server
-
-server.network = Network(
+network = Network(
     app_config['dirserver'], app_config['application']
 )
 
-server.network.dnsdb = DnsDb.setup(
-    app_config['dirserver']['dnsdb'], server.network.name
-)
+server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
+config.server = server
 
 server.get_registered_services()
 server.load_secrets()

@@ -2,7 +2,7 @@
 Non-specific data types
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -22,6 +22,13 @@ class ServerRole(Enum):
     Pod                  = 'pod'
     Client               = 'client'
     Test                 = 'test'
+
+
+class ServerType(Enum):
+    POD         = 'pod'
+    DIRECTORY   = 'directory'
+    SERVICE     = 'service'
+
 
 class IdType(Enum):
     SERVICE_DATA         = 'service-data-'
@@ -68,6 +75,8 @@ class CloudType(Enum):
     AZURE                = 'Azure'
     LOCAL                = 'LOCAL'
 
+class CacheTech(Enum):
+    REDIS       = 1
 
 class StorageType(Enum):
     PRIVATE = 'private'
@@ -105,6 +114,19 @@ class CertStatus(Enum):
     RENEW           = 'renew'
     EXPIRED         = 'expired'
 
+
+# MemberStatus is used for the MemberDB.status attribute
+class MemberStatus(Enum):
+    # We don't know what is going on
+    UNKNOWN         = 'UNKNOWN'
+    # Client called POST service/member API
+    SIGNED          = 'SIGNED'
+    # Client has called PUT service/member or network/member API
+    REGISTERED      = 'REGISTERED'
+    # Client has called DELETE service/member or network/member API
+    DELETED         = 'DELETED'
+    # Service (worker) was unable to query the client
+    DEAD            = 'DEAD'
 
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'

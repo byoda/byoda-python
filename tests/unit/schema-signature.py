@@ -4,7 +4,7 @@
 Test cases for signatures for a service contract
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -17,13 +17,11 @@ import logging
 
 from byoda import config
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 
-from byoda.datamodel import MemberData, Schema
+from byoda.datamodel.memberdata import MemberData, Schema
 
-from byoda.servers import PodServer
-
-from byoda.storage import FileStorage
+from byoda.servers.pod_server import PodServer
 
 
 _LOGGER = logging.getLogger(__name__)

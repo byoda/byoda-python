@@ -8,7 +8,7 @@ on the 'byoda-python' repository to be available on the local
 file system
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

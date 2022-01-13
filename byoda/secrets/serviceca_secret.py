@@ -2,7 +2,7 @@
 Cert manipulation for service secrets: Service CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -10,7 +10,7 @@ import logging
 from typing import TypeVar
 from cryptography.x509 import CertificateSigningRequest
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 

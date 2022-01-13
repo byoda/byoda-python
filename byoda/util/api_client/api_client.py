@@ -1,7 +1,7 @@
 '''
 ApiClient, base class for RestApiClient, and GqlApiClient
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -18,7 +18,7 @@ from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
 from byoda.secrets import ServiceSecret
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)

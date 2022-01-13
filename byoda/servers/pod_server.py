@@ -1,9 +1,9 @@
 '''
-Class ServiceServer derived from Server class for modelling
+Class PodServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -11,12 +11,12 @@ import logging
 from typing import TypeVar, Dict
 
 from byoda.util.api_client import RestApiClient
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
+from byoda.datatypes import ServerType
 from byoda import config
 
 from .server import Server
-from .server import ServerType
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,10 +29,10 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 class PodServer(Server):
     HTTP_PORT = 8000
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, network: Network = None):
+        super().__init__(network)
 
-        self.server_type = ServerType.Pod
+        self.server_type = ServerType.POD
         self.service_summaries: Dict[int:Dict] = None
         self.account_unencrypted_private_key_file: str = None
 

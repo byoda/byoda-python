@@ -2,7 +2,7 @@
 Automatically generated code for GraphQL support for a Byoda servce
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -13,11 +13,11 @@ from __future__ import annotations
 import strawberry
 from strawberry.types import Info
 
-from byoda.datamodel import Member as MemberClassByoda
+from byoda.datamodel.member import Member as MemberClassByoda
 
 import logging as loggingByoda
 
-# from byoda.datamodel import Member as MemberClassByoda
+# from byoda.datamodel.member import Member as MemberClassByoda
 
 from byoda.requestauth import RequestAuth as RequestAuthByoda
 from byoda.requestauth import authorize_graphql_request as authorize_graphql_request_Byoda

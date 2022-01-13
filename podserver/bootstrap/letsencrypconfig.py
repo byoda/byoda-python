@@ -6,7 +6,7 @@ to use certbot with byoda-dns extension script or sub-git certbot code
 base and hook in to logic there.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

@@ -4,7 +4,7 @@
 Test the DnsDB class against Postgres server for byoda.net
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -19,7 +19,7 @@ import dns.resolver
 
 from sqlalchemy import delete, or_
 
-from byoda.util import Logger
+from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
 
 from byoda.datatypes import IdType

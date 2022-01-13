@@ -2,7 +2,7 @@
 Helper functions for API request processing
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -20,7 +20,7 @@ from starlette.authentication import (
 )
 from starlette.requests import Request as StarletteRequest
 
-from byoda.datamodel import Network
+from byoda.datamodel.network import Network
 from byoda.datatypes import IdType, HttpRequestMethod
 
 from byoda.secrets import (

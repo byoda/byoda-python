@@ -2,7 +2,7 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -12,7 +12,7 @@ from copy import copy
 
 from cryptography.x509 import CertificateSigningRequest
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from .data_secret import DataSecret

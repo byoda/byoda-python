@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -25,17 +25,17 @@ import uvicorn
 
 from cryptography.hazmat.primitives import serialization
 
-from byoda.datamodel import Network
-from byoda.datamodel import Schema
-from byoda.servers import ServiceServer
-from byoda.datamodel import Service
+from byoda.datamodel.network import Network
+from byoda.datamodel.schema import Schema
+from byoda.servers.service_server import ServiceServer
+from byoda.datamodel.service import Service
 
 from byoda.secrets import Secret
 from byoda.secrets import MemberSecret
 from byoda.secrets import MemberDataSecret
 
-from byoda.util import Logger
-from byoda.util import Paths
+from byoda.util.logger import Logger
+from byoda.util.paths import Paths
 
 from byoda import config
 
@@ -67,6 +67,8 @@ class TestDirectoryApis(unittest.TestCase):
         with open(CONFIG_FILE) as file_desc:
             cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
+        cls.APP_CONFIG['svcserver']['service_id'] = SERVICE_ID
+
         test_dir = cls.APP_CONFIG['svcserver']['root_dir']
         try:
             shutil.rmtree(test_dir)
@@ -88,33 +90,26 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer()
-        config.server.network = network
-
-        service_file = config.server.network.paths.get(
+        service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
 
         shutil.copy(DUMMY_SCHEMA, test_dir + '/' + service_file)
 
-        config.server.service = Service(
+        svc = Service(
             network, service_file, cls.APP_CONFIG['svcserver']['service_id']
         )
-
-        config.server.service.create_secrets(
+        svc.create_secrets(
             network.services_ca, local=True,
             password=cls.APP_CONFIG['svcserver']['private_key_password']
         )
-        service_file = config.server.service.paths.get(
-            Paths.SERVICE_FILE, service_id=config.server.service.service_id
-        )
-        config.server.service.load_schema(
-            service_file, verify_contract_signatures=False
-        )
 
-        config.server.member_db.load(
-            config.server.service.paths.get(Paths.SERVICE_MEMBER_DB_FILE)
+        config.server = ServiceServer(cls.APP_CONFIG)
+        
+        config.server.load_secrets(
+            cls.APP_CONFIG['svcserver']['private_key_password']
         )
+        config.server.load_schema(verify_contract_signatures=False)
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',

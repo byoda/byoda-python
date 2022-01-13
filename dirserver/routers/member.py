@@ -2,7 +2,7 @@
 /network/member API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 
 The /network/member API is called by pods:
@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import IdType
 
-from byoda.datamodel import Service
+from byoda.datamodel.service import Service
 
 from byoda.models.ipaddress import IpAddressResponseModel
 

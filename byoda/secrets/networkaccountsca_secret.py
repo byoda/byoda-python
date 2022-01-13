@@ -2,14 +2,14 @@
 Cert manipulation of network secrets: root CA, accounts CA and services CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
 import logging
 from copy import copy
 
-from byoda.util import Paths
+from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId, CsrSource
 

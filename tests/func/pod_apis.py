@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -24,20 +24,20 @@ import uvicorn
 
 from python_graphql_client import GraphqlClient
 
-# from byoda.datamodel import Account
-from byoda.datamodel import Network
-from byoda.datamodel import Account
+# from byoda.datamodel.account import Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
 
 from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 
-from byoda.servers import PodServer
+from byoda.servers.pod_server import PodServer
 
-from byoda.datastore import DocumentStoreType
+from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
 
 from byoda.util.logger import Logger
-from byoda.util import setup_api
+from byoda.util.fastapi import setup_api
 
 from byoda import config
 
@@ -81,7 +81,9 @@ class TestDirectoryApis(unittest.TestCase):
         # Remaining environment variables used:
         network_data = get_environment_vars()
 
-        config.server = PodServer()
+        network = Network(network_data, network_data)
+
+        config.server = PodServer(network)
         server = config.server
 
         global BASE_URL
@@ -94,8 +96,6 @@ class TestDirectoryApis(unittest.TestCase):
             root_dir=network_data['root_dir']
         )
 
-        network = Network(network_data, network_data)
-        server.network = network
         server.paths = network.paths
 
         pod_account = Account(

@@ -7,7 +7,7 @@ currently only supports local file systems and AWS S3. In the future it
 can be extended by for NoSQL storage to improve scalability.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 

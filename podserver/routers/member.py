@@ -2,7 +2,7 @@
 /data API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -12,7 +12,7 @@ import json
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 
-from byoda.datamodel import Service
+from byoda.datamodel.service import Service
 
 from byoda.models import MemberResponseModel
 

@@ -4,7 +4,7 @@
 Manages the signing of a data contract of a service.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
 
@@ -12,15 +12,15 @@ import os
 import argparse
 import sys
 
-from byoda.datamodel import Network, Service
-from byoda.servers import ServiceServer
+from byoda.datamodel.network import Network, Service
+from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util import SignatureType
-from byoda.util import Logger
-from byoda.util import Paths
+from byoda.util.message_signature import SignatureType
+from byoda.util.logger import Logger
+from byoda.util.paths import Paths
 
 from byoda.util.api_client import HttpMethod, RestApiClient
 from byoda.secrets import ServiceSecret
@@ -69,8 +69,7 @@ def main(argv):
     network = load_network(args, network_data)
     service = load_service(args, network)
 
-    config.server = ServiceServer()
-    config.server.network = network
+    config.server = ServiceServer(network)
     config.server.service = service
 
     if not args.local:

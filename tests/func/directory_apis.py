@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2021, 2022
 :license
 '''
 
@@ -28,11 +28,11 @@ from cryptography.hazmat.primitives import serialization
 from multiprocessing import Process
 import uvicorn
 
-# from byoda.datamodel import Account
-from byoda.datamodel import Network
-from byoda.datamodel import Schema
+# from byoda.datamodel.account import Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.schema import Schema
 
-from byoda.servers import DirectoryServer
+from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.message_signature import SignatureType
 
@@ -45,9 +45,6 @@ from byoda.secrets import ServiceDataSecret
 from byoda.util.logger import Logger
 
 from byoda import config
-
-from byoda.datastore import DnsDb
-from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.util.fastapi import setup_api
 
@@ -96,11 +93,10 @@ class TestDirectoryApis(unittest.TestCase):
             cls.APP_CONFIG['dirserver']['root_dir'],
             cls.APP_CONFIG['dirserver']['private_key_password'],
         )
-        network.dnsdb = DnsDb.setup(
-           cls.APP_CONFIG['dirserver']['dnsdb'], network.name
+
+        config.server = DirectoryServer(
+            network, cls.APP_CONFIG['dirserver']['dnsdb']
         )
-        config.server = DirectoryServer()
-        config.server.network = network
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
