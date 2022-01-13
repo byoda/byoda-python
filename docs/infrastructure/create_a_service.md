@@ -94,9 +94,9 @@ As you just created the ServiceData secret in step #2, you can generate the serv
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
-export SERVICE_CONTRACT=<path-to-your-service-file>
+export SERVICE_CONTRACT=private.json
 
-export SERVICE_ID=$(jq -r .service_id ${SERVICE_CONTRACT})
+export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
 cd ${BYODA_HOME}/byoda-python
