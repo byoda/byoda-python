@@ -203,8 +203,6 @@ def post_service(request: Request, csr: CertSigningRequestModel):
     service.service_ca.cert = certchain.signed_cert
     service.service_ca.cert_chain = certchain.cert_chain
 
-    os.makedirs(os.path.dirname(service.service_ca.cert_file), exist_ok=True)
-
     # If someone else already registered a Service then saving the cert will
     # raise an exception
     try:

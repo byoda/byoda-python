@@ -51,12 +51,13 @@ export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
 
-export SERVICE_CONTRACT=<path-to-your-service-file>
+export SERVICE_CONTRACT=<service contract file>
+cp $SERVICE_CONTRACT $BYODA_HOME/
 
 # Here we update the 'service_id' in the service schema to match a newly generated random service ID
 export SERVICE_ID=$( python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
 sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
- jq --arg service_id "$SERVICE_ID" '.service_id = $service_id' ${SERVICE_CONTRACT} | sponge ${SERVICE_CONTRACT}
+ jq --arg service_id "$SERVICE_ID" '.service_id = $service_id' ${BYODA_HOME}/${SERVICE_CONTRACT} | sponge ${BYODA_HOME}/${SERVICE_CONTRACT}
 
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 sudo mkdir -p ${SERVICE_DIR}
