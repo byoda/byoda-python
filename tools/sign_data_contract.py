@@ -66,10 +66,9 @@ def main(argv):
         json_out=False
     )
 
-    network = load_network(args, network_data)
-    service = load_service(args, network)
-
     config.server = ServiceServer(network_data)
+    service = load_service(args, config.server.network)
+
 
     if not args.local:
         service.registration_status = service.get_registration_status()
@@ -119,25 +118,6 @@ def main(argv):
     service.schema.save(
         filepath, storage_driver=storage_driver
     )
-
-
-def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
-                 ) -> Network:
-    '''
-    Load existing network secrets
-
-    :raises: ValueError, NotImplementedError
-    '''
-
-    network = Network(network_data, network_data)
-
-    if not network.paths.network_directory_exists():
-        raise ValueError(f'Network {args.network} not found')
-
-    if args.signing_party == 'network':
-        network.load_secrets()
-
-    return network
 
 
 def load_service(args, network):
