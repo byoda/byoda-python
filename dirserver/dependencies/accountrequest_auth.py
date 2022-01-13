@@ -38,6 +38,7 @@ class AccountRequestAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
+        _LOGGER.debug('verifying authentication with an account cert')
         server = config.server
 
         try:
@@ -50,6 +51,12 @@ class AccountRequestAuthFast(RequestAuth):
                 status_code=403, detail='No authentication provided'
             )
 
-        self.check_account_cert(server.network)
+        try:
+            _LOGGER.debug('Checking the account cert')
+            self.check_account_cert(server.network)
+        except ValueError as exc:
+            raise HTTPException(status_code=401, detail=exc.message)
+        except PermissionError:
+            raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True

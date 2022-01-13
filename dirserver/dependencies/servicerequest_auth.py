@@ -39,6 +39,7 @@ class ServiceRequestAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
+        _LOGGER.debug('verifying authentication with a service cert')
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
@@ -58,6 +59,12 @@ class ServiceRequestAuthFast(RequestAuth):
         # applicable CA and then review if that CA would have signed
         # the commonname found in the certchain presented by the
         # client.
-        self.check_service_cert(config.server.network)
+        try:
+            _LOGGER.debug('Checking service cert')
+            self.check_service_cert(config.server.network)
+        except ValueError as exc:
+            raise HTTPException(status_code=401, detail=exc.message)
+        except PermissionError:
+            raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True

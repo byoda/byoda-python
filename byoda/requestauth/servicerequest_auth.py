@@ -14,7 +14,7 @@ from ipaddress import ip_address as IpAddress
 
 from byoda.config import server
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException
 
 from byoda.datatypes import HttpRequestMethod
 

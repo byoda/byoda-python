@@ -37,6 +37,7 @@ class MemberRequestAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
+        _LOGGER.debug('verifying authentication with a member cert')
         server = config.server
 
         try:
@@ -55,9 +56,11 @@ class MemberRequestAuthFast(RequestAuth):
             )
 
         try:
+            _LOGGER.debug('Checking the member cert')
             self.check_member_cert(self.service_id, server.network)
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
-        except PermissionError as exc:
+        except PermissionError:
             raise HTTPException(status_code=403, detail='Permission denied')
+
         self.is_authenticated = True
