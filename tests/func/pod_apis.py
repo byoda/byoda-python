@@ -31,7 +31,7 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 
-from byoda.serverspod_server import PodServer
+from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
