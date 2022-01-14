@@ -11,8 +11,9 @@ Manages the signing of a data contract of a service.
 import os
 import argparse
 import sys
+import yaml
 
-from byoda.datamodel.network import Network, Service
+from byoda.datamodel.network import Service
 from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
@@ -60,23 +61,23 @@ def main(argv):
         'root_dir': args.root_directory,
     }
 
+    with open('config.yml') as file_desc:
+        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
     global _LOGGER
     _LOGGER = Logger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )
 
-    network = load_network(args, network_data)
-    service = load_service(args, network)
-
-    config.server = ServiceServer(network)
-    config.server.service = service
+    config.server = ServiceServer(app_config)
+    service = load_service(args, config.server.network)
 
     if not args.local:
         service.registration_status = service.get_registration_status()
         if service.registration_status == RegistrationStatus.Unknown:
             raise ValueError(
-                'Please use "create_tls_secrets.py" script first'
+                'Please use "create_service_secrets.py" script first'
             )
 
     schema = service.schema.json_schema
@@ -122,25 +123,6 @@ def main(argv):
     )
 
 
-def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
-                 ) -> Network:
-    '''
-    Load existing network secrets
-
-    :raises: ValueError, NotImplementedError
-    '''
-
-    network = Network(network_data, network_data)
-
-    if not network.paths.network_directory_exists():
-        raise ValueError(f'Network {args.network} not found')
-
-    if args.signing_party == 'network':
-        network.load_secrets()
-
-    return network
-
-
 def load_service(args, network):
     '''
     Load service and its secrets
@@ -148,7 +130,7 @@ def load_service(args, network):
     service = Service(
         network=network, filepath=args.contract,
     )
-
+    service.load_schema(args.contract, verify_contract_signatures=False)
     if not args.signing_party or args.signing_party == 'service':
         service.load_secrets(with_private_key=True, password=args.password)
     else:

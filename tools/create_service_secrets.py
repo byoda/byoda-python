@@ -94,8 +94,7 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
 
     network = Network(network_data, network_data)
 
-    config.server = Server()
-    config.server.network = network
+    config.server = Server(network)
 
     if not network.paths.network_directory_exists():
         raise ValueError(f'Network {args.network} not found')
