@@ -2,7 +2,29 @@
 
 There are 4 phases/steps to set up a service
 
-## 1: create the service contract
+## 1: Install required software
+Install nginx as reverse proxy as per the [instructions of F5/Nginx](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/)
+
+Then install the nginx.conf file
+```
+sudo cp docs/files/nginx-service.conf /etc/nginx/nginx.conf
+sudo nginx -s reload
+```
+
+Services typically need to store data about their members. With Byoda, services are not allowed to persist data about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
+
+To install Redis, first install docker as per the [Docker instructions](https://docs.docker.com/engine/install/ubuntu/) and then launch the redis container.
+```
+sudo mkdir -p /opt/redis/config
+sudo docker run -d --restart unless-stopped \
+    -p 6379:6379 \
+    -v /opt/redis/config:/usr/local/etc/redis \
+    --name redis redis:latest
+```
+
+You can review the configuration in /opt/redis/config/redis.conf for any changes that may be needed
+
+## 2: create the service contract
 
 The service contract is a hybrid JSON / JSON-Schema file. At the top level, there is a JSON object that must have the following keys with simple (ie. not objects or lists) values (see [byoda-python/byoda/models/schema.py](https://github.com/StevenHessing/byoda-python/blob/users/stevenh/add_membership/byoda/models/schema.py)):
 
@@ -35,7 +57,7 @@ Note that this API uses pagination so you may have to use the 'skip=<n>' query p
 
 The value for the 'jsonschema' key must be a valid [JSON-Schema](https://json-schema.org) document. Use the existing byoda-python/services/{private,directory}.json files as starting points. The support and extensions for various constructs in the JSON schema and how to translate those constructs to GraphQL queries and processing those queries is the main area of development for BYODA so expect ongoing changes on what is supported in the JSON Schema.
 
-## 2: Create the secrets for a service
+## 3: Create the secrets for a service
 
 Each service has the following secrets:
 - ServiceCA: signed by the Network Services CA, which s operated by the network
@@ -84,7 +106,7 @@ scp -r * ${SERVER_IP}:${BYODA_HOME}
 ssh ${SERVER_IP} "rm ${SERVICE_DIR}/private/network-${BYODA_NETWORK}-service-${SERVICE_ID}-service-ca.key
 ```
 
-## 3: Signing your schema
+## 4: Signing your schema
 
 There are two signatures for a schema: the ServiceData secret provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
 
@@ -102,9 +124,15 @@ export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password=${PASSWORD}
+
+## 5: Get the service up and running
+
+NGINX_USER=www-data
+sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-*
 ```
 
-Install nginx as reverse proxy using the template in docs/files/nginx-service.conf
+The service daemon will create an Nginx configuration file under /etc/nginx/conf.d
+and make nginx load that new configuration.
 
 To test the service certificate signed by the root CA of the network, you can use openssl and/or curl:
 ```
@@ -113,18 +141,5 @@ openssl s_client -connect service.service-0.byoda.net:443 -CAfile root-ca.pem
 curl  https://service.service-0.byoda.net/network-byoda.net-service-0-data-cert.pem -o network-byoda.net-service-0-data-cert.pem --cacert root-ca.pem
 ```
 
-# Using Redis as non-persistent cache for a service
-Services typically need to store data about their members. With Byoda, services are not allowed to persist data about their members but are allowed to cache that data. Redis can be used as a technology to temporarily store information as Redis can automatically remove expired data.
-
-To install Redis:
-```
-sudo docker run -d --restart unless-stopped \
-    -p 6379:6379 \
-    -v /home/redis/data:/data \
-    -v /home/redis/config:/usr/local/etc/redis \
-    --name redis redis:latest
-```
-
-One pattern for services to follow is to store the member UUID whenever a member updates its
-registration with the service. A worker process can request data from the member pod and store
-any information, that is specified as cachable in the service contract, in the Redis data store with an expiration that complies with the cache duration specified in the service contract. The worker can then periodically refresh the data about the member in its cache.
+### Developing the service
+The reference svcserver and the svcworker implement a pattern where the svcserver writes a member UUID to a Redis key whenever a pod registers the membership with the svcserver. The Redis key has a list as its value. The svcworker periodically takes a member UUID from the head of the list and pushes it to the back of the list. The svcworker can then query data from the pod of that member and store any data listed as cachable in the service contract in Redis
