@@ -339,9 +339,8 @@ class Schema:
 
     def get_graphene_classes(self) -> List[Dict[str, Dict]]:
         '''
-        Finds all objects in the JSON schema for which we will
-        need to generated classes that are derived from Graphene.ObjectType
-        class
+        Finds all objects in the JSON sch ema for which we will
+        need to generate @strawberry.type classes
         '''
 
         properties = self.json_schema['jsonschema']['properties']
@@ -374,13 +373,21 @@ class Schema:
 
     @property
     def service_id(self):
+        '''
+        Gets the service_id for the service contract
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['service_id']
 
     @service_id.setter
-    def service_id(self, value):
+    def service_id(self, value: int):
+        '''
+        Sets the service_id for the service contract
+        '''
+
         if not isinstance(value, int):
             try:
                 value = int(value)
@@ -395,14 +402,22 @@ class Schema:
         self.json_schema['service_id'] = value
 
     @property
-    def version(self):
+    def version(self) -> int:
+        '''
+        Gets the version of the service contract
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['version']
 
     @version.setter
-    def version(self, value):
+    def version(self, value: int):
+        '''
+        Sets the version of the service contract
+        '''
+
         if not isinstance(value, int):
             try:
                 value = int(value)
@@ -417,14 +432,22 @@ class Schema:
         self.json_schema['version'] = value
 
     @property
-    def name(self):
+    def name(self) -> str:
+        '''
+        Gets the name of the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['name']
 
     @name.setter
-    def name(self, value):
+    def name(self, value: str):
+        '''
+        Sets the name of the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Version must be an str, not of type {type(value)}'
@@ -436,14 +459,22 @@ class Schema:
         self.json_schema['name'] = value
 
     @property
-    def description(self):
+    def description(self) -> str:
+        '''
+        Gets the description for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['description']
 
     @description.setter
-    def description(self, value):
+    def description(self, value: str):
+        '''
+        Sets the description for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Description must be an str, not of type {type(value)}'
@@ -455,14 +486,23 @@ class Schema:
         self.json_schema['description'] = value
 
     @property
-    def owner(self):
+    def owner(self) -> str:
+        '''
+        Gets the name of the owner of the service, ie. a person,
+        an organization or a company
+        '''
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['owner']
 
     @owner.setter
-    def owner(self, value):
+    def owner(self, value: str):
+        '''
+        Sets the name of the owner of the service, ie. a person,
+        an organization or a company
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Name must be an str, not of type {type(value)}'
@@ -474,14 +514,22 @@ class Schema:
         self.json_schema['owner'] = value
 
     @property
-    def website(self):
+    def website(self) -> str:
+        '''
+        Gets the URL for the website for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['website']
 
     @website.setter
-    def website(self, value):
+    def website(self, value: str):
+        '''
+        Sets the URL for the website for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Name must be an str, not of type {type(value)}'
@@ -493,14 +541,22 @@ class Schema:
         self.json_schema['website'] = value
 
     @property
-    def supportemail(self):
+    def supportemail(self: str):
+        '''
+        Gets the email address for getting support for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['supportemail']
 
     @supportemail.setter
-    def supportemail(self, value):
+    def supportemail(self, value: str):
+        '''
+        Sets the email address for getting support for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Support email must be an str, not of type {type(value)}'
@@ -513,6 +569,10 @@ class Schema:
 
     @property
     def network_signature(self) -> MessageSignature:
+        '''
+        Gets the network signature for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -523,8 +583,9 @@ class Schema:
     @network_signature.setter
     def network_signature(self, value: MessageSignature):
         '''
-        Updates the Network signature in the json_schema dict
+        Sets the Network signature in the json_schema dict
         '''
+
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 'Support email must be an MessageSignature, '
@@ -544,6 +605,10 @@ class Schema:
 
     @property
     def service_signature(self) -> MessageSignature:
+        '''
+        Gets the Service signature in the json_schema dict
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -556,7 +621,7 @@ class Schema:
     @service_signature.setter
     def service_signature(self, value: MessageSignature) -> MessageSignature:
         '''
-        Updates the Service signature in the json_schema dict
+        Sets the Service signature in the json_schema dict
         '''
 
         if value and not isinstance(value, MessageSignature):
@@ -579,7 +644,11 @@ class Schema:
         return self._service_signature
 
     @property
-    def signatures(self):
+    def signatures(self) -> Dict:
+        '''
+        Gets the network and service signatures for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 

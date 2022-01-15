@@ -1,9 +1,9 @@
 {
-    "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+    "description": "the private service for which no data will be shared with services or their members",
     "jsonschema": {
-        "$id": "https://uuid.services.byoda.net/service/addressbook",
+        "$id": "https://uuid.services.byoda.net/service/private",
         "$schema": "https://json-schema.org/draft-07/schema#",
-        "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+        "description": "This is the default service of each network, storing only private data",
         "properties": {
             "member": {
                 "#accesscontrol": [
@@ -26,19 +26,23 @@
                 "#accesscontrol": [
                     {
                         "member": [
-                            "read",
-                            "update",
-                            "delete"
+                            "read", "update", "delete"
                         ]
                     },
                     {
+                        "service": [
+                            "read"
+                        ],
                         "network": [
                             "read"
                         ]
                     }
-
                 ],
                 "properties": {
+                    "additionalNames": {
+                        "description": "Any middle names",
+                        "type": "string"
+                    },
                     "avatarUrl": {
                         "type": "string"
                     },
@@ -47,7 +51,9 @@
                         "type": "string",
                         "#accesscontrol": [
                             {
-                                "network": "search:exact"
+                                "service": [
+                                    "search:exact-caseinsensitive"
+                                ]
                             }
                         ]
                     },
@@ -64,41 +70,15 @@
                     }
                 },
                 "type": "object"
-            },
-            "links": {
-                "#accesscontrol": [
-                    {
-                        "member": [
-                            "read",
-                            "update",
-                            "delete"
-                        ]
-                    }
-                ],
-                "properties": {
-                    "type": {
-                        "type": "string"
-                    },
-                    "target": {
-                        "type": "string"
-                    },
-                    "bidirectional": {
-                        "type": "boolean"
-                    },
-                    "state": {
-                        "type": "string"
-                    }
-                }
             }
         },
-        "title": "Address book to find your contacts to establish links with",
+        "title": "private service storing information about you",
         "type": "object"
     },
-    "name": "addressbook",
+    "name": "private",
     "owner": "Steven Hessing",
-    "service_id": 1,
-    "signatures": {
-    },
+    "service_id": 0,
+    "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
     "website": "https://www.byoda.org/"
