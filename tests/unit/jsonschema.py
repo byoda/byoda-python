@@ -183,6 +183,17 @@ class TestJsonSchema(unittest.TestCase):
         client = GraphqlClient(endpoint=BASE_URL)
 
         query = '''
+            query {
+                member {
+                    joined
+                    memberId
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=member_headers)
+        self.assertEqual(result['data']['member']['memberId'], str(MEMBER_ID))
+
+        query = '''
             mutation {
                 mutatePerson(
                     givenName: "Peter",

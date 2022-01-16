@@ -7,7 +7,9 @@
         "properties": {
             "member": {
                 "#accesscontrol": [
-                    "read"
+                    {
+                        "member": ["read"]
+                    }
                 ],
                 "properties": {
                     "joined": {
@@ -21,6 +23,41 @@
                     }
                 },
                 "type": "object"
+            },
+            "memberlogs": {
+                "#accesscontrol": [
+                    {
+                        "member": ["read", "delete", "append"]
+                    }
+
+                ],
+                "type": "array",
+                "items": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "timestamp": {
+                                "description": "time the log entry was created",
+                                "format": "data-time",
+                                "type": "string"
+                            },
+                            "remote_addr": {
+                                "description": "The remote IP address performing the request",
+                                "format": "ipaddress",
+                                "type": "string"
+
+                            },
+                            "action": {
+                                "description": "What action was requested by the client",
+                                "type": "string"
+                            },
+                            "message": {
+                                "description": "Additional information about the request",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ]
             },
             "person": {
                 "#accesscontrol": [
