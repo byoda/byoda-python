@@ -8,6 +8,7 @@ Class for modeling an element of data of a member
 import logging
 import json
 
+from datetime import datetime, timezone
 from typing import Dict, TypeVar
 
 from byoda.storage import FileMode
@@ -22,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 65536
 
-Member = TypeVar('Member', bound='Member')
+Member = TypeVar('Member')
 
 
 class MemberData(Dict):
@@ -39,6 +40,21 @@ class MemberData(Dict):
         self.paths: Paths = paths
 
         self.document_store: DocumentStore = doc_store
+
+    def initalize(self):
+        '''
+        Initializes the data for a new membership. Every service
+        contract must include
+        '''
+
+        if 'member' in self:
+            if self['member'].get('member_id'):
+                raise ValueError('Member structure already exists')
+        else:
+            self['member'] = {}
+
+        self['member']['member_id'] = str(self.member.member_id)
+        self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
     def load(self):
         '''

@@ -18,6 +18,8 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
+
+# Importing this exception so others can import it from here
 from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
 
 from byoda.secrets.network_data_secret import NetworkDataSecret
@@ -118,7 +120,7 @@ class Schema:
         return data
 
     @staticmethod
-    def get_schema(filepath: str, storage_driver: str,
+    def get_schema(filepath: str, storage_driver: FileStorage,
                    service_data_secret: ServiceDataSecret,
                    network_data_secret: NetworkDataSecret,
                    verify_contract_signatures: bool = True):
@@ -278,7 +280,7 @@ class Schema:
 
         self.verified_signatures.add(signature_type)
 
-    def generate_graphql_schema(self):
+    def generate_graphql_schema(self, require_schema_signatures: bool = True):
         '''
         Generates code to enable GraphQL schema to be generated using Graphene.
         The logic is:
@@ -286,10 +288,15 @@ class Schema:
         - we call a Jinja template to generate source code in a python
         - we execute the generated source code and extract the resulting
           instance
+
+        :param require_schema_signatures: keep the default unless you are
+        writing test cases
+        :raises ValueError
         '''
 
-        if not (SignatureType.NETWORK in self.verified_signatures
-                and SignatureType.SERVICE in self.verified_signatures):
+        if (require_schema_signatures
+                and not (SignatureType.NETWORK in self.verified_signatures and
+                         SignatureType.SERVICE in self.verified_signatures)):
             raise ValueError('Schema signatures have not been verified')
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)

@@ -24,7 +24,6 @@ import uvicorn
 
 from python_graphql_client import GraphqlClient
 
-# from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
@@ -201,61 +200,61 @@ class TestDirectoryApis(unittest.TestCase):
         client = GraphqlClient(endpoint=url)
 
         query = '''
-                mutation {
-                    mutatePerson(
-                        givenName: "Peter",
-                        additionalNames: "",
-                        familyName: "Hessing",
-                        email: "steven@byoda.org",
-                        homepageUrl: "https://some.place/",
-                        avatarUrl: "https://some.place/avatar"
-                    ) {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            mutation {
+                mutatePerson(
+                    givenName: "Peter",
+                    additionalNames: "",
+                    familyName: "Hessing",
+                    email: "steven@byoda.org",
+                    homepageUrl: "https://some.place/",
+                    avatarUrl: "https://some.place/avatar"
+                ) {
+                    givenName
+                    additionalNames
+                    familyName
+                    email
+                    homepageUrl
+                    avatarUrl
                 }
-            '''
+            }
+        '''
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
             result['data']['mutatePerson']['givenName'], 'Peter'
         )
         query = '''
-                query {
-                    person {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            query {
+                person {
+                    givenName
+                    additionalNames
+                    familyName
+                    email
+                    homepageUrl
+                    avatarUrl
                 }
-            '''
+            }
+        '''
         result = client.execute(query=query, headers=member_headers)
 
         query = '''
-                mutation {
-                    mutatePerson(
-                        givenName: "Steven",
-                        additionalNames: "",
-                        familyName: "Hessing",
-                        email: "steven@byoda.org",
-                        homepageUrl: "https://some.place/",
-                        avatarUrl: "https://some.place/avatar"
-                    ) {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            mutation {
+                mutatePerson(
+                    givenName: "Steven",
+                    additionalNames: "",
+                    familyName: "Hessing",
+                    email: "steven@byoda.org",
+                    homepageUrl: "https://some.place/",
+                    avatarUrl: "https://some.place/avatar"
+                ) {
+                    givenName
+                    additionalNames
+                    familyName
+                    email
+                    homepageUrl
+                    avatarUrl
                 }
-            '''
+            }
+        '''
 
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(

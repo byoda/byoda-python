@@ -130,7 +130,7 @@ class Member:
         if self.service_data_secret.cert_file_exists():
             self.service_data_secret.load(with_private_key=False)
         else:
-            self.download_data_secret(save=True)
+            self.service.download_data_secret(save=True)
             self.service_data_secret.load(with_private_key=False)
 
         self.tls_secret = None
@@ -162,38 +162,6 @@ class Member:
 
         return data
 
-    def create_nginx_config(self):
-        '''
-        Generates the Nginx virtual server configuration for
-        the membership
-        '''
-
-        if not self.member_id:
-            self.load_secrets()
-
-        self.tls_secret.save_tmp_private_key()
-
-        nginx_config = NginxConfig(
-            directory=NGINX_SITE_CONFIG_DIR,
-            filename='virtualserver.conf',
-            identifier=self.member_id,
-            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
-            cert_filepath=(
-                self.paths.root_directory() + '/' + self.tls_secret.cert_file
-            ),
-            key_filepath=self.tls_secret.unencrypted_private_key_file,
-            alias=self.network.paths.account,
-            network=self.network.name,
-            public_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PUBLIC
-            ),
-            port=PodServer.HTTP_PORT,
-            root_dir=config.server.network.paths.root_directory()
-        )
-
-        nginx_config.create()
-        nginx_config.reload()
-
     @staticmethod
     def create(service: Service, schema_version: int,
                account: Account, members_ca: MembersCaSecret = None):
@@ -204,11 +172,11 @@ class Member:
         member = Member(service.service_id, account)
         member.member_id = uuid4()
 
-        member.create_secrets(members_ca=members_ca)
+        # member.create_secrets(members_ca=members_ca)
 
         if not member.paths._exists(member.paths.SERVICE_FILE):
-            filepath = member.paths.get(member.paths.SERVICE_FILE
-                                        )
+            filepath = member.paths.get(member.paths.SERVICE_FILE)
+
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
         if not members_ca:
@@ -241,13 +209,47 @@ class Member:
         member.data = MemberData(
             member, member.paths, member.document_store
         )
+        member.data.initalize()
 
         member.data.save_protected_shared_key()
+        member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
 
         return member
+
+    def create_nginx_config(self):
+        '''
+        Generates the Nginx virtual server configuration for
+        the membership
+        '''
+
+        if not self.member_id:
+            self.load_secrets()
+
+        self.tls_secret.save_tmp_private_key()
+
+        nginx_config = NginxConfig(
+            directory=NGINX_SITE_CONFIG_DIR,
+            filename='virtualserver.conf',
+            identifier=self.member_id,
+            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
+            cert_filepath=(
+                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+            ),
+            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            alias=self.network.paths.account,
+            network=self.network.name,
+            public_cloud_endpoint=self.paths.storage_driver.get_url(
+                StorageType.PUBLIC
+            ),
+            port=PodServer.HTTP_PORT,
+            root_dir=config.server.network.paths.root_directory()
+        )
+
+        nginx_config.create()
+        nginx_config.reload()
 
     def update_schema(self, version: int):
         '''
@@ -432,17 +434,21 @@ class Member:
             f' with network {self.network.name}'
         )
 
-    def load_schema(self) -> Schema:
+    def load_schema(self, filepath: str = None, verify_signatures: bool = True
+                    ) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
-        filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
+
+        if not filepath:
+            filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
         if self.storage_driver.exists(filepath):
             schema = Schema.get_schema(
                 filepath, self.storage_driver,
                 service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
+                verify_contract_signatures=verify_signatures
             )
         else:
             _LOGGER.exception(
@@ -451,8 +457,12 @@ class Member:
             )
             raise FileNotFoundError(filepath)
 
-        self.verify_schema_signatures(schema)
-        schema.generate_graphql_schema()
+        if verify_signatures:
+            self.verify_schema_signatures(schema)
+
+        schema.generate_graphql_schema(
+            require_schema_signatures=verify_signatures
+        )
 
         return schema
 

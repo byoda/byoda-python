@@ -31,6 +31,8 @@ uvicorn = {version = "*", extras = [ "standard",]}
 strawberry-graphql = {extras = [ "fastapi",], version = "*"}
 redis = "*"
 hiredis = "*"
+rfc3339-validator = "*"
+jsonschema = {extras = ["format"], version = "*"}
 
 [dev-packages]
 flake8 = "*"
