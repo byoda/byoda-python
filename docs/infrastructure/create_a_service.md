@@ -106,7 +106,94 @@ scp -r * ${SERVER_IP}:${BYODA_HOME}
 ssh ${SERVER_IP} "rm ${SERVICE_DIR}/private/network-${BYODA_NETWORK}-service-${SERVICE_ID}-service-ca.key
 ```
 
-## 4: Signing your schema
+## 4: Developing the schema
+
+### The JSON file
+The schema is a JSON file with a JSON Schema embedded. We have not yet published a JSON Schema for this JSON file.
+
+The JSON file at the top-level must have the following keys:
+|--------------|--------|----------|
+| description  | string | A description of your service |
+| name         | string | The name of your service |
+| owner        | string | Your name of the name of the company you create the service for |
+| supportemail | string | Email address where a person can request support for a service |
+| website      | string | The URL to your website |
+| service_id   | integer| the service ID for your service. See below for The three ranges for service_ids |
+| version      | integer| the version of the schema. See below on versioning|
+| signatures   | object | a JSON object, see section 5 on the signing of the JSON file
+| jsonschema   | jsonschema | the JSON Schema for the data for the service|
+|--------------|--------|----------|
+
+### Service IDs
+The defined ranges for service_id:
+  - 0 - 16383: These service_ids are reserved.
+  - 16384 - 4294967295: These service_ids are for production services. Any signing request for a service with a service_id in this range will be reviewed automatically and by a person (note, manual review is not yet implemented).
+  - 4294967295 - : service_ids from this range are used for test purposes. Clients must explicitly acknowledge that they want to become member of a service with a service_id in this range before the membership is established. Any assigned service_ids from this range are ephemeral. Periodically, all allocations from this range are reset. The directory server will wipe any DNS records and certs for services using this range. You will need to resubmit the JSON file and there is no guarantee you can re-use the same service_id.
+We use the python [fastjsonschema](https://horejsek.github.io/python-fastjsonschema/) module for validating data against the JSON Schema, which states support for JSON Schema draft 4, 5, and 7.
+We do not support the full specification of JSON Schema for the translation to the GraphQL API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
+of the following support:
+- At the root level of the schema, we support the following keys:
+  - $id: must be a string with value: "https://<service-UUID>.services.byoda.net/service/<name of your service>. The name of your service must match the "name" field at the top level of the schema. The service-UUID must match the UUID assigned to your service.
+  - $schema: Must be set to "https://json-schema.org/draft-07/schema#"
+  - $defs: one or more definitions of a data object, see below
+  - title: must match the "name" field at the top level of the schema
+  - description: must match the "description" field at the top level of the schema
+  - type: must be "object"
+  - properties: see below
+
+### Versioning
+The integer value for the version key the JSON file must be 1 or higher. When you submit the JSON file to the directory server, the version must be increased by 1 from the previously successfully submitted JSON file. Submitting a JSON file to get the network signature for the schema with the version unchanged from a previous successful request will fail.
+
+### Data objects
+The keys of properties directly under the JSON Schema (so not under $defs) must be the name of classes and the keys for each class must be:
+  - description: What the data stored in this class is used for
+  - type: must be "object" or "array"
+  - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
+
+If the type is "object" then it must have a key "properties with as value an object with the keys:
+  - description: What the data stored in this property is used for
+  - #accesscontrol: see below for more information
+  - type: must be a scalar, (ie. "string" or "number")
+  - format: any value for this key is used for data validation but is not translated into the GraphQL API
+
+IF the type is "array" then the following keys are required:
+  - description: What the data stored in this property is used for
+  - #accesscontrol: see below for more information
+  - items: must be an object with a key with one of these two values:
+    - type: must be "string" or "integer"
+    - $ref: a string that must match one of the classes defined under $defs (see below)
+
+A data structure under $defs must have the following keys:
+- $id: string with "/schemas/<class-name>"
+- $schema: Must be set to "https://json-schema.org/draft-07/schema#"
+- description: What the data stored in this class is used for
+- type: must be "object"
+- properties: must be a dict with keys the different properties of the class. Each property must have keys:
+  - description: What the data stored in this property is used for
+  - type: must be a scalar, ie. "string" or "number"
+  - format: any value for this key is used for data validation but is not translated into the GraphQL API
+
+A class directly under the root of the JSON Schema or in the $defs object can not have any of the following names:
+- member
+- network
+- memberlogs
+
+### Data Access control
+The GraphQL API will be secured using credentials. Credentials have a type of one of:
+  - member: You, as owner of the pod that created the membership
+  - service: the service that you joined
+  - network: soneone that you have a relation with in your network for the service. This field can have a specifier in the form of "network:<relation>". In that case, only people in your network with that type of relation will have to described access to the data.
+
+  Access permissions are hierarchical. By default, you as member have READ access to all data defined in the JSON Schema. For objects lower in the hierarchy, permissions can be defined as well and those permissions (and only those permissions) will be enforced for that data element and all data elements under it. The data hierarchy will be traversed and the final access specification for a data element defines if access to that data element is granted or not.
+
+  The permissions are:
+  - READ. The read permission can have a caching specifier like "READ:8h" or "READ:1d" that specifies how long the data may be cached by a service or other pod after reading the information. When data is cached by a service or pod, it may not persist the data to permanent storage but must key the data in ephemeral memory with automatic expiration and cache ejection after the specified time.
+  - UPDATE
+  - APPEND
+  - DELETE
+  - SEARCH. The SEARCH permission can have a specifier like "SEARCH:excact-casesensitive" that specifies what type of search is permitted.
+
+## 5: Signing your schema
 
 There are two signatures for a schema: the ServiceData secret provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
 

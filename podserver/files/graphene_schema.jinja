@@ -10,6 +10,8 @@ Automatically generated code for GraphQL support for a Byoda servce
 
 from __future__ import annotations
 
+import typing
+
 import strawberry
 from strawberry.types import Info
 
@@ -50,62 +52,106 @@ def authenticate(root, info):
     except Exception as exc:
         raise ValueError(f'Authorization failed: {exc}')
 
-{% for class_name, properties in classes.items() %}
+{% for class_name, schema in classes.items() %}
+{%   if schema['type'] != 'array' %}
 @strawberry.type
 class {{ class_name|title }}:
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
+{%     for field, field_properties in schema['properties'].items() %}
+{%       if 'type' in field_properties %}
+{%         if field_properties['type'] not in ('object', 'array') %}
     @strawberry.field
     def {{ field }}(self, info: Info) -> {{ type_map[field_properties['type']] }}:
         return info.context['data']['{{ field }}']
 
-{%       elif field_properties['type'] == 'object' %}
+{%         elif field_properties['type'] == 'object' %}
     {{ field }} = Field({{ field|title }})
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
+{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%       endif %}{# if 'type' in field_properties #}
+{%     endfor %}{# for field, field_properties in properties.items() #}
+{%   endif %}{# if schema['type'] != 'array' #}
 {% endfor %}{# for field, field_properties in properties.items() #}
 
 @strawberry.type
 class Query:
-{% for class_name, class_properties in classes.items() %}
+{% for class_name, schema in classes.items() %}
+{%   if '$id' not in schema %}
     @strawberry.field
+{%     set ns = namespace(name=None) %}
+{%     if schema['type'] != 'array' %}
     def {{ class_name }}(self, info: Info) -> {{ class_name|title }}:
+{%     else %}
+{%       set ref = ','.join(schema['items'].values()) %}{# TODO: why does 'schema['items'].values()[0]' not work here? #}
+{%       for cn in classes.keys() if ref.split('/')[-1] == cn %}
+{%         set ns.name = cn %}
+    def {{ class_name }}(self, info: Info) -> typing.List[{{ cn|title }}]:
+{%       endfor %}{# for cn, cs in classes.items() #}
+{%     endif %}{# if schema['type'] != 'array' #}
         _LOGGER.debug('Resolving {{ class_name }}')
         authenticate(self, info)
+{%     if schema['type'] != 'array' %}
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
         {{ class_name }} = {{ class_name|title }}()
         return {{ class_name }}
+{%     else %}
+        data = MemberClassByoda.get_data({{ service_id }}, info)
+        ret_data = []
+        for obj in data:
+            info.context['data'] = obj
+            ret_data.append({{ ns.name|title }}())
 
-{% endfor %}{# if for class_name, class_properties in classes.items() #}
+        return ret_data
+{%     endif %}{# if schema['type'] != 'array' #}
+
+{%   endif %}{# if '$id' not in schema #}
+{% endfor %}{# if for class_name, schema in classes.items() #}
 @strawberry.type
 class Mutation:
-{% for class_name, properties in classes.items()|reverse %}
+{% for class_name, schema in classes.items()|reverse %}
+{%   if '$id' not in schema %}
     @strawberry.field
     def mutate{{ class_name|title }}(self, info,
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
+{%     for field, field_properties in schema['properties'].items() %}
+{%       if 'type' in field_properties %}
+{%         if field_properties['type'] not in ('object', 'array') %}
                 {{ field }}: {{ type_map[field_properties['type']] }},
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
+{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%       endif %}{# if 'type' in field_properties #}
+{%     endfor %}{# for field, field_properties in properties.items() #}
+{%     set ns = namespace(name=None) %}
+{%     if schema['type'] != 'array' %}
             ) -> {{ class_name|title }}:
+{%     else %}
+{%       set ref = ','.join(schema['items'].values()) %}{# TODO: why does 'schema['items'].values()[0]' not work here? #}
+{%       for cn in classes.keys() if ref.split('/')[-1] == cn %}
+{%         set ns.name = cn %}
+            ) -> typing.List[{{ cn|title }}]:
+{%       endfor %}{# for cn, cs in classes.items() #}
+{%     endif %}{# if schema['type'] != 'array' #}
+
         _LOGGER.debug('Root query for mutate{{ class_name|title }}')
         authenticate(self, info)
         info.context['data'] = {
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
+{%     for field, field_properties in schema['properties'].items() %}
+{%       if 'type' in field_properties %}
+{%         if field_properties['type'] not in ('object', 'array') %}
                 '{{ field }}': {{ field }},
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
+{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
+{%       endif %}{# if 'type' in field_properties #}
+{%     endfor %}{# for field, field_properties in properties.items() #}
         }
         MemberClassByoda.set_data({{ service_id }}, info)
+{%     if schema['type'] != 'array' %}
         return {{ class_name|title }}()
+{%     else %}
+        data = MemberClassByoda.get_data({{ service_id }}, info)
+        ret_data = []
+        for obj in data:
+            info.context['data'] = obj
+            ret_data.append({{ ns.name|title }}())
 
+        return ret_data
+{%     endif %}{# if schema['type'] != 'array' #}
+{%   endif %}{# if '$id' not in schema #}
 {% endfor %}{# for class_name, properties in classes.items()|reverse #}
 
 def get_schema():

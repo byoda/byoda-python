@@ -1,9 +1,9 @@
 {
-    "description": "the private service for which no data will be shared with services or their members",
+    "description": "A simple network to maintain contacts",
     "jsonschema": {
-        "$id": "https://uuid.services.byoda.net/service/private",
+        "$id": "https://uuid.services.byoda.net/service/addressbook",
         "$schema": "https://json-schema.org/draft-07/schema#",
-        "description": "This is the default service of each network, storing only private data",
+        "description": "A simple network to maintain contacts",
         "properties": {
             "member": {
                 "#accesscontrol": [
@@ -23,41 +23,6 @@
                     }
                 },
                 "type": "object"
-            },
-            "memberlogs": {
-                "#accesscontrol": [
-                    {
-                        "member": ["read", "delete", "append"]
-                    }
-
-                ],
-                "type": "array",
-                "items": [
-                    {
-                        "type": "object",
-                        "properties": {
-                            "timestamp": {
-                                "description": "time the log entry was created",
-                                "format": "data-time",
-                                "type": "string"
-                            },
-                            "remote_addr": {
-                                "description": "The remote IP address performing the request",
-                                "format": "ipaddress",
-                                "type": "string"
-
-                            },
-                            "action": {
-                                "description": "What action was requested by the client",
-                                "type": "string"
-                            },
-                            "message": {
-                                "description": "Additional information about the request",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ]
             },
             "person": {
                 "#accesscontrol": [
@@ -107,12 +72,51 @@
                     }
                 },
                 "type": "object"
+            },
+            "memberlogs": {
+                "#accesscontrol": [
+                    {
+                        "member": ["read", "delete", "append"]
+                    }
+                ],
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/memberlog"
+                }
             }
         },
-        "title": "private service storing information about you",
-        "type": "object"
+        "title": "addressbook",
+        "type": "object",
+        "$defs": {
+            "memberlog": {
+                "$id": "/schemas/memberlog",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "log entries for the membership of the service",
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "description": "time the log entry was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "remote_addr": {
+                        "description": "The remote IP address performing the request",
+                        "format": "ipv4",
+                        "type": "string"
+                    },
+                    "action": {
+                        "description": "What action was requested by the client",
+                        "type": "string"
+                    },
+                    "message": {
+                        "description": "Additional information about the request",
+                        "type": "string"
+                    }
+                }
+            }
+        }
     },
-    "name": "private",
+    "name": "addressbook",
     "owner": "Steven Hessing",
     "service_id": 12345678,
     "signatures": {},

@@ -355,16 +355,59 @@ class Schema:
         classes = OrderedDict()
         self._get_graphene_classes(classes, properties)
 
+        defs = self.json_schema['jsonschema'].get("$defs")
+        if defs:
+            self._get_graphene_classes(classes, defs)
+
         return classes
 
     def _get_graphene_classes(self, classes: List[Dict[str, object]],
-                              properties: Dict):
+                              properties: Dict, recurse_level: int = 0):
         for field, field_properties in properties.items():
             if field_properties.get('type') == 'object':
-                classes.update({field: field_properties['properties']})
+                if recurse_level:
+                    raise ValueError(
+                        f'Nested objects are not supported for field {field}'
+                    )
+                classes.update({field: field_properties})
                 self._get_graphene_classes(
-                    classes, field_properties['properties']
+                    classes, field_properties['properties'],
+                    recurse_level=recurse_level+1
                 )
+            elif field_properties.get('type') == 'array':
+                # We only check whether the array definition is
+                # supported by us. We don't actually add it to the
+                # classes
+                items = field_properties['items']
+                if len(items) > 1:
+                    raise ValueError(
+                        'Array items for field {field} must be a scalar or a '
+                        '$ref'
+                    )
+
+                # We add some data to the structure to satisfy the jinja2 template
+                # for the schema
+                field_properties['properties'] = {
+                    'type': 'array',
+                }
+
+                item_type = items.get('type')
+                if item_type == 'object':
+                    raise ValueError(
+                        f'Array of objects is not supported for field: {field}'
+                    )
+                elif item_type == 'array':
+                    raise ValueError('Nested arrays not yet supported')
+                elif items.get('$ref'):
+                    field_properties['$ref'] = items['$ref']
+                elif item_type:
+                    field_properties['type'] = item_type
+                else:
+                    raise ValueError(
+                        f'Array items for field {field} must be a scalar or a $ref'
+                    )
+
+                classes.update({field: field_properties})
 
     # Getter/Setters for
     # - service_id
