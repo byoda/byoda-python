@@ -17,6 +17,7 @@ from strawberry.types import Info
 
 from byoda.datamodel.member import Member as MemberClassByoda
 
+
 import logging as loggingByoda
 
 # from byoda.datamodel.member import Member as MemberClassByoda
@@ -52,107 +53,117 @@ def authenticate(root, info):
     except Exception as exc:
         raise ValueError(f'Authorization failed: {exc}')
 
-{% for class_name, schema in classes.items() %}
-{%   if schema['type'] != 'array' %}
+{% for root_class in classes.values() %}
+{%   if root_class.type != DataType.ARRAY %}
 @strawberry.type
-class {{ class_name|title }}:
-{%     for field, field_properties in schema['properties'].items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
+class {{ root_class.name|title }}:
+{%     for field in root_class.fields %}
     @strawberry.field
-    def {{ field }}(self, info: Info) -> {{ type_map[field_properties['type']] }}:
-        return info.context['data']['{{ field }}']
+    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
+        return info.context['data']['{{ field.name }}']
 
-{%         elif field_properties['type'] == 'object' %}
-    {{ field }} = Field({{ field|title }})
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
-{%   endif %}{# if schema['type'] != 'array' #}
-{% endfor %}{# for field, field_properties in properties.items() #}
+{%     endfor %}
+
+@strawberry.input
+class {{ root_class.name|title }}Input:
+{%     for field in root_class.fields %}
+    @strawberry.field
+    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
+        return info.context['data']['{{ field.name }}']
+
+{%     endfor %}
+{%   endif %}
+{% endfor %}
+
 
 @strawberry.type
 class Query:
-{% for class_name, schema in classes.items() %}
-{%   if '$id' not in schema %}
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
     @strawberry.field
-{%     set ns = namespace(name=None) %}
-{%     if schema['type'] != 'array' %}
-    def {{ class_name }}(self, info: Info) -> {{ class_name|title }}:
+{%     if root_class.type != DataType.ARRAY %}
+    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name|title }}:
 {%     else %}
-{%       set ref = ','.join(schema['items'].values()) %}{# TODO: why does 'schema['items'].values()[0]' not work here? #}
-{%       for cn in classes.keys() if ref.split('/')[-1] == cn %}
-{%         set ns.name = cn %}
-    def {{ class_name }}(self, info: Info) -> typing.List[{{ cn|title }}]:
-{%       endfor %}{# for cn, cs in classes.items() #}
-{%     endif %}{# if schema['type'] != 'array' #}
-        _LOGGER.debug('Resolving {{ class_name }}')
+    def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name|title }}]:
+{%     endif %}
+        _LOGGER.debug('Resolving {{ root_class.name }}')
         authenticate(self, info)
-{%     if schema['type'] != 'array' %}
+
+{%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        {{ class_name }} = {{ class_name|title }}()
-        return {{ class_name }}
+        {{ root_class.name }} = {{ root_class.name|title }}()
+        return {{ root_class.name }}
+
 {%     else %}
         data = MemberClassByoda.get_data({{ service_id }}, info)
         ret_data = []
-        for obj in data:
+        for obj in data or []:
             info.context['data'] = obj
-            ret_data.append({{ ns.name|title }}())
+            {{ root_class.referenced_class.name }} = {{ root_class.referenced_class.name|title }}()
+            ret_data.append({{ root_class.referenced_class.name }})
 
         return ret_data
-{%     endif %}{# if schema['type'] != 'array' #}
 
-{%   endif %}{# if '$id' not in schema #}
-{% endfor %}{# if for class_name, schema in classes.items() #}
+{%     endif %}
+{%   endif %}
+{% endfor %}
 @strawberry.type
 class Mutation:
-{% for class_name, schema in classes.items()|reverse %}
-{%   if '$id' not in schema %}
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
+{%     if root_class.type == DataType.OBJECT %}
     @strawberry.field
-    def mutate{{ class_name|title }}(self, info,
-{%     for field, field_properties in schema['properties'].items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
-                {{ field }}: {{ type_map[field_properties['type']] }},
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
-{%     set ns = namespace(name=None) %}
-{%     if schema['type'] != 'array' %}
-            ) -> {{ class_name|title }}:
-{%     else %}
-{%       set ref = ','.join(schema['items'].values()) %}{# TODO: why does 'schema['items'].values()[0]' not work here? #}
-{%       for cn in classes.keys() if ref.split('/')[-1] == cn %}
-{%         set ns.name = cn %}
-            ) -> typing.List[{{ cn|title }}]:
-{%       endfor %}{# for cn, cs in classes.items() #}
-{%     endif %}{# if schema['type'] != 'array' #}
-
-        _LOGGER.debug('Root query for mutate{{ class_name|title }}')
+    def mutate{{ root_class.name|title }}(self, info: Info,
+{%       for field in root_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}
+            ) -> {{ root_class.name|title }}:
+        _LOGGER.debug('Root query for mutate{{ root_class.name|title }}')
         authenticate(self, info)
         info.context['data'] = {
-{%     for field, field_properties in schema['properties'].items() %}
-{%       if 'type' in field_properties %}
-{%         if field_properties['type'] not in ('object', 'array') %}
-                '{{ field }}': {{ field }},
-{%         endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%       endif %}{# if 'type' in field_properties #}
-{%     endfor %}{# for field, field_properties in properties.items() #}
+{%       for field in root_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
         }
         MemberClassByoda.set_data({{ service_id }}, info)
-{%     if schema['type'] != 'array' %}
-        return {{ class_name|title }}()
-{%     else %}
-        data = MemberClassByoda.get_data({{ service_id }}, info)
-        ret_data = []
-        for obj in data:
-            info.context['data'] = obj
-            ret_data.append({{ ns.name|title }}())
+        return {{ root_class.name|title }}()
 
-        return ret_data
-{%     endif %}{# if schema['type'] != 'array' #}
-{%   endif %}{# if '$id' not in schema #}
-{% endfor %}{# for class_name, properties in classes.items()|reverse #}
+{%     elif root_class.type == DataType.ARRAY %}
+{# APIs for array processing #}
+    @strawberry.field
+    def mutate{{ root_class.name|title }}(self, info: Info,
+{%       for field in root_class.referenced_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}
+            ) -> {{ root_class.referenced_class.name|title }}:
+        _LOGGER.debug('Root query for mutate{{ root_class.name|title }}')
+        authenticate(self, info)
+        info.context['data'] = {
+{%       for field in root_class.referenced_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
+        }
+        MemberClassByoda.set_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name|title }}()
+
+    @strawberry.field
+    def append{{ root_class.name|title }}(self, info: Info,
+{%       for field in root_class.referenced_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}
+        ) -> {{ root_class.referenced_class.name|title }}:
+        _LOGGER.debug('Root query for append{{ root_class.name|title }}')
+        authenticate(self, info)
+        info.context['data'] = {
+{%       for field in root_class.referenced_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
+        }
+        MemberClassByoda.set_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name|title }}()
+{%     endif %}
+{%   endif %}
+{% endfor %}
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema

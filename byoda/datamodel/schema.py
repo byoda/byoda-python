@@ -22,6 +22,11 @@ import fastjsonschema
 # Importing this exception so others can import it from here
 from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
 
+from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.dataclass import DataType
+from byoda.datamodel.dataclass import DataOperationType
+from byoda.datamodel.dataclass import GraphQlAPI
+
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 
@@ -42,14 +47,6 @@ MAX_SCHEMA_SIZE = 1000000
 SCHEMA_TEMPLATE = 'podserver/files'
 CODEGEN_DIRECTORY = 'podserver/codegen'
 
-# Translation from jsondata data type to Python data type in the Jinja template
-TYPE_MAP = {
-    'string': 'str',
-    'integer': 'int',
-    'number': 'float',
-    'boolean': 'bool',
-}
-
 
 class Schema:
     def __init__(self, schema: dict):
@@ -66,6 +63,8 @@ class Schema:
 
         # This is the schema as read and deserialized from a file to a dict
         self.json_schema: Dict = schema
+
+        self.data_classes: Dict[str:SchemaDataItem] = {}
 
         # Note that we have getters/setters for the top-level properties
         if self.service_id is None:
@@ -314,9 +313,13 @@ class Schema:
 
         classes = self.get_graphene_classes()
 
+        # We pass Class types so that we can use them in Jinja2 conditional
+        # expressions
         code = template.render(
-            service_id=self.service_id,
-            classes=classes, type_map=TYPE_MAP
+            service_id=self.service_id, classes=classes,
+            DataType=DataType,
+            DataOperationType=DataOperationType,
+            GraphQlAPI=GraphQlAPI
         )
 
         # TODO: not elegant when not running in container or Visual Code
@@ -350,64 +353,28 @@ class Schema:
         need to generate @strawberry.type classes
         '''
 
+        schema_id = self.json_schema['jsonschema'].get('$id')
+        if not schema_id:
+            raise ValueError('JSON Schema must have an "$id" field')
+
+        # TODO: SECURITY check that urlparse.netloc matches the entity_id for
+        # the service
+
+        defs = self.json_schema['jsonschema'].get("$defs", {})
+        for class_name, class_properties in defs.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id
+            )
+            self.data_classes[class_name] = dataclass
+
         properties = self.json_schema['jsonschema']['properties']
+        for class_name, class_properties in properties.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id, self.data_classes
+            )
+            self.data_classes[class_name] = dataclass
 
-        classes = OrderedDict()
-        self._get_graphene_classes(classes, properties)
-
-        defs = self.json_schema['jsonschema'].get("$defs")
-        if defs:
-            self._get_graphene_classes(classes, defs)
-
-        return classes
-
-    def _get_graphene_classes(self, classes: List[Dict[str, object]],
-                              properties: Dict, recurse_level: int = 0):
-        for field, field_properties in properties.items():
-            if field_properties.get('type') == 'object':
-                if recurse_level:
-                    raise ValueError(
-                        f'Nested objects are not supported for field {field}'
-                    )
-                classes.update({field: field_properties})
-                self._get_graphene_classes(
-                    classes, field_properties['properties'],
-                    recurse_level=recurse_level+1
-                )
-            elif field_properties.get('type') == 'array':
-                # We only check whether the array definition is
-                # supported by us. We don't actually add it to the
-                # classes
-                items = field_properties['items']
-                if len(items) > 1:
-                    raise ValueError(
-                        'Array items for field {field} must be a scalar or a '
-                        '$ref'
-                    )
-
-                # We add some data to the structure to satisfy the jinja2 template
-                # for the schema
-                field_properties['properties'] = {
-                    'type': 'array',
-                }
-
-                item_type = items.get('type')
-                if item_type == 'object':
-                    raise ValueError(
-                        f'Array of objects is not supported for field: {field}'
-                    )
-                elif item_type == 'array':
-                    raise ValueError('Nested arrays not yet supported')
-                elif items.get('$ref'):
-                    field_properties['$ref'] = items['$ref']
-                elif item_type:
-                    field_properties['type'] = item_type
-                else:
-                    raise ValueError(
-                        f'Array items for field {field} must be a scalar or a $ref'
-                    )
-
-                classes.update({field: field_properties})
+        return self.data_classes
 
     # Getter/Setters for
     # - service_id

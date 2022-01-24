@@ -6,11 +6,9 @@
         "description": "A simple network to maintain contacts",
         "properties": {
             "member": {
-                "#accesscontrol": [
-                    {
-                        "member": ["read"]
-                    }
-                ],
+                "#accesscontrol": {
+                    "member": ["read"]
+                },
                 "properties": {
                     "joined": {
                         "description": "Date & time when the pod became a member of the service",
@@ -25,21 +23,11 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": [
-                    {
-                        "member": [
-                            "read", "update", "delete"
-                        ]
-                    },
-                    {
-                        "service": [
-                            "read"
-                        ],
-                        "network": [
-                            "read"
-                        ]
-                    }
-                ],
+                "#accesscontrol": {
+                    "member": ["read", "update", "delete"],
+                    "service": ["read"],
+                    "network": ["read"]
+                },
                 "properties": {
                     "additionalNames": {
                         "description": "Any middle names",
@@ -51,13 +39,11 @@
                     "email": {
                         "format": "idn-email",
                         "type": "string",
-                        "#accesscontrol": [
-                            {
-                                "service": [
-                                    "search:exact-caseinsensitive"
-                                ]
-                            }
-                        ]
+                        "#accesscontrol": {
+                            "service": [
+                                "search:exact-caseinsensitive"
+                            ]
+                        }
                     },
                     "familyName": {
                         "description": "Your surname",
@@ -74,11 +60,9 @@
                 "type": "object"
             },
             "memberlogs": {
-                "#accesscontrol": [
-                    {
-                        "member": ["read", "delete", "append"]
-                    }
-                ],
+                "#accesscontrol": {
+                    "member": ["read", "delete", "append"]
+                },
                 "type": "array",
                 "items": {
                     "$ref": "/schemas/memberlog"

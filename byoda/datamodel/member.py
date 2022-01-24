@@ -585,9 +585,7 @@ class Member:
         Sets the provided data
 
         :param service_id: Service ID for which the GraphQL API was called
-        :param path: the GraphQL path variable that shows the path taken
-        through the GraphQL data model
-        :param mutation: the instance of the Mutation<Object> class
+        :param info: the Strawberry 'info' variable
         '''
 
         if not info.path:
@@ -596,11 +594,11 @@ class Member:
         if info.path.typename != 'Mutation':
             raise ValueError(
                 f'Got graphql invocation for "{info.path.typename}"" '
-                f'instead of "Query"'
+                f'instead of "Mutation"'
             )
 
         _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
+            f'Got graphql mutation invocation for {info.path.typename} '
             f'for object {info.path.key}'
         )
 
@@ -619,6 +617,90 @@ class Member:
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
         class_object = info.path.key[len('mutate'):].lower()
+
+        # Gets the data included in the mutation
+        mutate_data: Dict = info.selected_fields[0].arguments
+
+        # Get the properties of the JSON Schema, we don't support
+        # nested objects just yet
+        schema = member.schema
+        schema_properties = schema.json_schema['jsonschema']['properties']
+
+        # The query may be for an object for which we do not yet have
+        # any data
+        if class_object not in member.data:
+            member.data[class_object] = dict()
+
+        properties = schema_properties[class_object].get('properties', {})
+
+        for key in properties.keys():
+            if properties[key]['type'] == 'object':
+                raise ValueError(
+                    'We do not support nested objects yet: %s', key
+                )
+            if properties[key]['type'] == 'array':
+                raise ValueError(
+                    'We do not support arrays yet'
+                )
+            if key.startswith('#'):
+                _LOGGER.debug(
+                    'Skipping meta-property %s in schema for service %s',
+                    key, member.service_id
+                )
+                continue
+
+            member.data[class_object][key] = mutate_data[key]
+
+        member.save_data(data)
+
+        return member.data
+
+    def append_data(service_id, info: Info) -> None:
+        '''
+        Appends the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param path: the GraphQL path variable that shows the path taken
+        through the GraphQL data model
+        :param mutation: the instance of the Mutation<Object> class
+        '''
+
+        '''
+        Sets the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param info: the Strawberry 'info' variable
+        '''
+
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Mutation':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}"" '
+                f'instead of "Mutation"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql mutation invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
+
+        server = config.server
+        member = server.account.memberships[service_id]
+
+        # Any data we may have in memory may be stale when we run
+        # multiple processes so we always need to load the data
+        member.load_data()
+
+        # We do not modify existing data as it will need to be validated
+        # by JSON Schema before it can be accepted.
+        data = copy(member.data)
+
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'mutate' so we to find out
+        # what mutation was invoked, we want what comes after it.
+        class_object = info.path.key[len('append'):].lower()
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments

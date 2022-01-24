@@ -229,6 +229,38 @@ class TestJsonSchema(unittest.TestCase):
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(result['data']['person']['givenName'], 'Peter')
 
+        query = '''
+            query {
+                memberlogs {
+                    timestamp
+                    remoteAddr
+                    action
+                    message
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=member_headers)
+        self.assertEqual(result['data']['memberlogs'], [])
+
+        query = '''
+            mutation {
+                appendMemberlogs (
+                    timestamp: "2022-01-21T04:01:36.798843+00:00",
+                    remoteAddr: "10.0.0.1",
+                    action: "join",
+                    message: "blah"
+                ) {
+                    timestamp
+                    remoteAddr
+                    action
+                    message
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=member_headers)
+        # self.assertEqual(result['data']['memberlogs'], None)
+        # self.assertEqual(result['data'], None)
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
