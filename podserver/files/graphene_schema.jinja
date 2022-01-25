@@ -13,6 +13,7 @@ from __future__ import annotations
 import typing
 
 import strawberry
+from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
 from byoda.datamodel.member import Member as MemberClassByoda
@@ -56,7 +57,7 @@ def authenticate(root, info):
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
 @strawberry.type
-class {{ root_class.name|title }}:
+class {{ root_class.name }}:
 {%     for field in root_class.fields %}
     @strawberry.field
     def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
@@ -65,7 +66,7 @@ class {{ root_class.name|title }}:
 {%     endfor %}
 
 @strawberry.input
-class {{ root_class.name|title }}Input:
+class {{ root_class.name }}Input:
 {%     for field in root_class.fields %}
     @strawberry.field
     def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
@@ -82,25 +83,25 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name|title }}:
+    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
 {%     else %}
-    def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name|title }}]:
+    def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}
         _LOGGER.debug('Resolving {{ root_class.name }}')
         authenticate(self, info)
 
 {%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        {{ root_class.name }} = {{ root_class.name|title }}()
-        return {{ root_class.name }}
+        {{ root_class.name }}_data = {{ root_class.name }}()
+        return {{ root_class.name }}_data
 
 {%     else %}
         data = MemberClassByoda.get_data({{ service_id }}, info)
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
-            {{ root_class.referenced_class.name }} = {{ root_class.referenced_class.name|title }}()
-            ret_data.append({{ root_class.referenced_class.name }})
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}()
+            ret_data.append({{ root_class.referenced_class.name }}_data)
 
         return ret_data
 
@@ -113,12 +114,12 @@ class Mutation:
 {%   if not root_class.item_id %}
 {%     if root_class.type == DataType.OBJECT %}
     @strawberry.field
-    def mutate{{ root_class.name|title }}(self, info: Info,
+    def mutate_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.fields %}
         {{ field.name }}: {{ field.python_type }},
 {%       endfor %}
-            ) -> {{ root_class.name|title }}:
-        _LOGGER.debug('Root query for mutate{{ root_class.name|title }}')
+            ) -> {{ root_class.name }}:
+        _LOGGER.debug('Root query for mutate{{ root_class.name }}')
         authenticate(self, info)
         info.context['data'] = {
 {%       for field in root_class.fields %}
@@ -126,17 +127,17 @@ class Mutation:
 {%       endfor %}
         }
         MemberClassByoda.set_data({{ service_id }}, info)
-        return {{ root_class.name|title }}()
+        return {{ root_class.name }}()
 
 {%     elif root_class.type == DataType.ARRAY %}
 {# APIs for array processing #}
     @strawberry.field
-    def mutate{{ root_class.name|title }}(self, info: Info,
+    def mutate_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.referenced_class.fields %}
         {{ field.name }}: {{ field.python_type }},
 {%       endfor %}
-            ) -> {{ root_class.referenced_class.name|title }}:
-        _LOGGER.debug('Root query for mutate{{ root_class.name|title }}')
+            ) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug('Root query for mutate{{ root_class.name }}')
         authenticate(self, info)
         info.context['data'] = {
 {%       for field in root_class.referenced_class.fields %}
@@ -144,28 +145,31 @@ class Mutation:
 {%       endfor %}
         }
         MemberClassByoda.set_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name|title }}()
+        return {{ root_class.referenced_class.name }}()
 
     @strawberry.field
-    def append{{ root_class.name|title }}(self, info: Info,
+    def append_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.referenced_class.fields %}
         {{ field.name }}: {{ field.python_type }},
 {%       endfor %}
-        ) -> {{ root_class.referenced_class.name|title }}:
-        _LOGGER.debug('Root query for append{{ root_class.name|title }}')
-        authenticate(self, info)
+        ) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug('Root query for append{{ root_class.name }}')
+        # authenticate(self, info)
         info.context['data'] = {
 {%       for field in root_class.referenced_class.fields %}
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
-        MemberClassByoda.set_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name|title }}()
+        MemberClassByoda.append_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name }}()
 {%     endif %}
 {%   endif %}
 {% endfor %}
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
-    return strawberry.Schema(query=Query, mutation=Mutation)
+    return strawberry.Schema(
+        query=Query, mutation=Mutation,
+        config=StrawberryConfig(auto_camel_case=False)
+    )
 

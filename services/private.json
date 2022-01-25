@@ -15,7 +15,7 @@
                         "format": "date-time",
                         "type": "string"
                     },
-                    "memberId": {
+                    "member_id": {
                         "description": "Membership UUID",
                         "type": "string"
                     }
@@ -33,12 +33,12 @@
                     }
                 ],
                 "properties": {
-                    "additionalNames": {
+                    "additional_names": {
                         "access": "private",
                         "description": "Any middle names",
                         "type": "string"
                     },
-                    "avatarUrl": {
+                    "avatar_url": {
                         "access": "private",
                         "type": "string"
                     },
@@ -47,17 +47,17 @@
                         "format": "idn-email",
                         "type": "string"
                     },
-                    "familyName": {
+                    "family_name": {
                         "access": "private",
                         "description": "Your surname",
                         "type": "string"
                     },
-                    "givenName": {
+                    "given_name": {
                         "access": "private",
                         "description": "Your first given name",
                         "type": "string"
                     },
-                    "homepageUrl": {
+                    "homepage_url": {
                         "access": "private",
                         "type": "string"
                     }

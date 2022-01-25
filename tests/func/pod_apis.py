@@ -202,35 +202,35 @@ class TestDirectoryApis(unittest.TestCase):
         query = '''
             mutation {
                 mutatePerson(
-                    givenName: "Peter",
-                    additionalNames: "",
-                    familyName: "Hessing",
+                    given_name: "Peter",
+                    additional_names: "",
+                    family_name: "Hessing",
                     email: "steven@byoda.org",
-                    homepageUrl: "https://some.place/",
-                    avatarUrl: "https://some.place/avatar"
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
                 ) {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         '''
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['givenName'], 'Peter'
+            result['data']['mutatePerson']['given_name'], 'Peter'
         )
         query = '''
             query {
                 person {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         '''
@@ -239,40 +239,40 @@ class TestDirectoryApis(unittest.TestCase):
         query = '''
             mutation {
                 mutatePerson(
-                    givenName: "Steven",
-                    additionalNames: "",
-                    familyName: "Hessing",
+                    given_name: "Steven",
+                    additional_names: "",
+                    family_name: "Hessing",
                     email: "steven@byoda.org",
-                    homepageUrl: "https://some.place/",
-                    avatarUrl: "https://some.place/avatar"
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
                 ) {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         '''
 
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['givenName'], 'Steven'
+            result['data']['mutatePerson']['given_name'], 'Steven'
         )
         query = '''
                 mutation {
                     mutateMember(
-                        memberId: "0",
+                        member_id: "0",
                         joined: "2021-09-19T09:04:00+07:00"
                     ) {
-                        memberId
+                        member_id
                     }
                 }
         '''
         result = client.execute(query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutateMember']['memberId'], '0'
+            result['data']['mutateMember']['member_id'], '0'
         )
 
 

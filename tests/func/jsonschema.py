@@ -186,29 +186,29 @@ class TestJsonSchema(unittest.TestCase):
             query {
                 member {
                     joined
-                    memberId
+                    member_id
                 }
             }
         '''
         result = client.execute(query=query, headers=member_headers)
-        self.assertEqual(result['data']['member']['memberId'], str(MEMBER_ID))
+        self.assertEqual(result['data']['member']['member_id'], str(MEMBER_ID))
 
         query = '''
             mutation {
-                mutatePerson(
-                    givenName: "Peter",
-                    additionalNames: "",
-                    familyName: "Hessing",
+                mutate_person(
+                    given_name: "Peter",
+                    additional_names: "",
+                    family_name: "Hessing",
                     email: "steven@byoda.org",
-                    homepageUrl: "https://some.place/",
-                    avatarUrl: "https://some.place/avatar"
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
                 ) {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         '''
@@ -217,23 +217,23 @@ class TestJsonSchema(unittest.TestCase):
         query = '''
             query {
                 person {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         '''
         result = client.execute(query=query, headers=member_headers)
-        self.assertEqual(result['data']['person']['givenName'], 'Peter')
+        self.assertEqual(result['data']['person']['given_name'], 'Peter')
 
         query = '''
             query {
                 memberlogs {
                     timestamp
-                    remoteAddr
+                    remote_addr
                     action
                     message
                 }
@@ -244,14 +244,14 @@ class TestJsonSchema(unittest.TestCase):
 
         query = '''
             mutation {
-                appendMemberlogs (
+                append_memberlogs (
                     timestamp: "2022-01-21T04:01:36.798843+00:00",
-                    remoteAddr: "10.0.0.1",
+                    remote_addr: "10.0.0.1",
                     action: "join",
                     message: "blah"
                 ) {
                     timestamp
-                    remoteAddr
+                    remote_addr
                     action
                     message
                 }
@@ -259,7 +259,9 @@ class TestJsonSchema(unittest.TestCase):
         '''
         result = client.execute(query=query, headers=member_headers)
         # self.assertEqual(result['data']['memberlogs'], None)
-        # self.assertEqual(result['data'], None)
+        self.assertEqual(
+            result['data']['append_memberlogs']['remote_addr'], '10.0.0.1'
+        )
 
 
 if __name__ == '__main__':

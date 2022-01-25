@@ -9,7 +9,7 @@ Class for modeling an account on a network
 import logging
 
 from uuid import uuid4, UUID
-from copy import copy
+from copy import copy, deepcopy
 from typing import Dict, TypeVar, Callable
 
 from fastapi import FastAPI
@@ -26,6 +26,9 @@ from byoda.datatypes import StorageType
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.dataclass import SchemaDataObject
+from byoda.datamodel.dataclass import SchemaDataScalar
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -616,7 +619,7 @@ class Member:
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('mutate'):].lower()
+        class_object = info.path.key[len('mutate_'):].lower()
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
@@ -700,7 +703,7 @@ class Member:
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('append'):].lower()
+        class_object = info.path.key[len('append_'):].lower()
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
@@ -708,32 +711,13 @@ class Member:
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
         schema = member.schema
-        schema_properties = schema.json_schema['jsonschema']['properties']
 
         # The query may be for an object for which we do not yet have
         # any data
         if class_object not in member.data:
-            member.data[class_object] = dict()
+            member.data[class_object] = []
 
-        properties = schema_properties[class_object].get('properties', {})
-
-        for key in properties.keys():
-            if properties[key]['type'] == 'object':
-                raise ValueError(
-                    'We do not support nested objects yet: %s', key
-                )
-            if properties[key]['type'] == 'array':
-                raise ValueError(
-                    'We do not support arrays yet'
-                )
-            if key.startswith('#'):
-                _LOGGER.debug(
-                    'Skipping meta-property %s in schema for service %s',
-                    key, member.service_id
-                )
-                continue
-
-            member.data[class_object][key] = mutate_data[key]
+        member.data[class_object].append(mutate_data)
 
         member.save_data(data)
 

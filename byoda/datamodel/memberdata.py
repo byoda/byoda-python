@@ -48,12 +48,12 @@ class MemberData(Dict):
         '''
 
         if 'member' in self:
-            if self['member'].get('memberId'):
+            if self['member'].get('member_id'):
                 raise ValueError('Member structure already exists')
         else:
             self['member'] = {}
 
-        self['member']['memberId'] = str(self.member.member_id)
+        self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
     def load(self):
