@@ -77,6 +77,8 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 
     services = list(network.services.values())
 
+    _LOGGER.debug(f'We now have {len(network.services)} in memory')
+
     if count == 0:
         count = max(len(services), MAX_SERVICE_LIST)
 
