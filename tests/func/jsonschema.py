@@ -103,6 +103,72 @@ network_links_query = '''
     }
 '''
 
+person_mutation = '''
+    mutation (
+            $given_name: String!,
+            $additional_names: String!,
+            $family_name: String!,
+            $email: String!,
+            $homepage_url: String!,
+            $avatar_url: String!
+    ) {
+        mutate_person(
+            given_name: $given_name,
+            additional_names: $additional_names,
+            family_name: $family_name,
+            email: $email,
+            homepage_url: $homepage_url,
+            avatar_url: $avatar_url
+        ) {
+            given_name
+            additional_names
+            family_name
+            email
+            homepage_url
+            avatar_url
+        }
+    }
+'''
+
+memberlogs_mutation = '''
+    mutation (
+            $timestamp: String!,
+            $remote_addr: String!,
+            $action: String!,
+            $message: String!
+    ) {
+        append_memberlogs (
+            timestamp: $timestamp,
+            remote_addr: $remote_addr,
+            action: $action,
+            message: $message
+        ) {
+            timestamp
+            remote_addr
+            action
+            message
+        }
+    }
+'''
+
+network_links_mutation = '''
+    mutation (
+            $timestamp: String!,
+            $member_id: String!,
+            $relation: String!
+    ) {
+        append_network_links (
+            timestamp: $timestamp,
+            member_id: $member_id,
+            relation: $relation
+        ) {
+            timestamp
+            member_id
+            relation
+        }
+    }
+'''
+
 
 class TestJsonSchema(unittest.TestCase):
     PROCESS = None
@@ -228,78 +294,63 @@ class TestJsonSchema(unittest.TestCase):
         result = client.execute(query=member_query, headers=member_headers)
         self.assertEqual(result['data']['member']['member_id'], str(MEMBER_ID))
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Peter",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        person_variables = {
+            'given_name': 'Peter',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'steven@byoda.org',
+            'homepage_url': 'https://some.place/',
+            'avatar_url': 'https://some.place/avatar'
+        }
+        result = client.execute(
+            query=person_mutation, headers=member_headers,
+            variables=person_variables
+        )
 
         result = client.execute(query=person_query, headers=member_headers)
-        self.assertEqual(result['data']['person']['given_name'], 'Peter')
+        self.assertEqual(
+            result['data']['person']['given_name'],
+            person_variables['given_name']
+        )
 
         result = client.execute(query=memberlogs_query, headers=member_headers)
         self.assertEqual(result['data']['memberlogs'], [])
 
-        query = '''
-            mutation {
-                append_memberlogs (
-                    timestamp: "2022-01-21T04:01:36.798843+00:00",
-                    remote_addr: "10.0.0.1",
-                    action: "join",
-                    message: "blah"
-                ) {
-                    timestamp
-                    remote_addr
-                    action
-                    message
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        memberlog_variables = {
+            'timestamp': '2022-01-21T04:01:36.798843+00:00',
+            'remote_addr': '10.0.0.1',
+            'action': 'join',
+            'message': 'blah'
+        }
+        result = client.execute(
+            query=memberlogs_mutation, headers=member_headers,
+            variables=memberlog_variables
+        )
         self.assertEqual(
-            result['data']['append_memberlogs']['remote_addr'], '10.0.0.1'
+            result['data']['append_memberlogs']['remote_addr'],
+            memberlog_variables['remote_addr']
         )
 
         result = client.execute(query=memberlogs_query, headers=member_headers)
         self.assertEqual(len(result['data']['memberlogs']), 1)
         self.assertEqual(
-            result['data']['memberlogs'][0]['remote_addr'], '10.0.0.1'
+            result['data']['memberlogs'][0]['remote_addr'],
+            memberlog_variables['remote_addr']
         )
 
-        query = '''
-            mutation {
-                append_memberlogs (
-                    timestamp: "2022-01-24T04:01:36.798843+00:00",
-                    remote_addr: "10.0.0.2",
-                    action: "leave",
-                    message: "bye bye"
-                ) {
-                    timestamp
-                    remote_addr
-                    action
-                    message
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
-        # self.assertEqual(result['data']['memberlogs'], None)
+        memberlog_variables = {
+            'timestamp': '2022-01-24T04:01:36.798843+00:00',
+            'remote_addr': '10.0.0.2',
+            'action': 'leave',
+            'message': 'bye bye'
+        }
+        result = client.execute(
+            query=memberlogs_mutation, headers=member_headers,
+            variables=memberlog_variables
+        )
         self.assertEqual(
-            result['data']['append_memberlogs']['remote_addr'], '10.0.0.2'
+            result['data']['append_memberlogs']['remote_addr'],
+            memberlog_variables['remote_addr']
         )
 
         result = client.execute(query=memberlogs_query, headers=member_headers)
@@ -310,22 +361,19 @@ class TestJsonSchema(unittest.TestCase):
         )
         self.assertEqual(result['data']['network_links'], [])
 
-        query = '''
-            mutation {
-                append_network_links (
-                    timestamp: "2022-01-21T04:01:36.798843+00:00",
-                    member_id: "af0b7314-7df7-11ec-ab86-00155d0d2987",
-                    relation: "friend"
-                ) {
-                    timestamp
-                    member_id
-                    relation
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        network_links_variables = {
+            'timestamp': '2022-01-21T04:01:36.798843+00:00',
+            'member_id': 'af0b7314-7df7-11ec-ab86-00155d0d2987',
+            'relation': 'friend'
+        }
+
+        result = client.execute(
+            query=network_links_mutation, headers=member_headers,
+            variables=network_links_variables
+        )
         self.assertEqual(
-            result['data']['append_network_links']['relation'], 'friend'
+            result['data']['append_network_links']['relation'],
+            network_links_variables['relation']
         )
 
 
