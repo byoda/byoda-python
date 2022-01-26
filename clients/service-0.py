@@ -28,31 +28,31 @@ MEMBER_QUERIES = {
         'READ': '''
             query {
                 person {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         ''',
         'WRITE': '''
             mutation {
                 mutatePerson(
-                    givenName: "Steven",
-                    additionalNames: "",
-                    familyName: "Hessing",
+                    given_name: "Steven",
+                    additional_names: "",
+                    family_name: "Hessing",
                     email: "steven@byoda.org",
-                    homepageUrl: "https://byoda.org/",
-                    avatarUrl: "https://some.place/avatar"
+                    homepage_url: "https://byoda.org/",
+                    avatar_url: "https://some.place/avatar"
                 ) {
-                    givenName
-                    additionalNames
-                    familyName
+                    given_name
+                    additional_names
+                    family_name
                     email
-                    homepageUrl
-                    avatarUrl
+                    homepage_url
+                    avatar_url
                 }
             }
         ''',

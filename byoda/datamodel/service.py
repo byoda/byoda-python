@@ -52,9 +52,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # The well-known service IDs
 BYODA_PRIVATE_SERVICE = 0
-BYODA_ADDRESSBOOK_SERVICE = 1
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
+ServiceServer = TypeVar('ServiceServer')
 
 
 class RegistrationStatus(Enum):

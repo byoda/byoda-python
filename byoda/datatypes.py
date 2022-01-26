@@ -54,6 +54,11 @@ class IdType(Enum):
 # the service the uuid is a member of
 EntityId = namedtuple('EntityId', ['id_type', 'id', 'service_id'])
 
+class RightsEntityType(Enum):
+    MEMBER               = 'member'
+    SERVICE              = 'service'
+    NETWORK              = 'network'
+
 
 class HttpRequestMethod(Enum):
     GET         = 'GET'

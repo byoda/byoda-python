@@ -9,7 +9,7 @@ about registered clients
 
 import logging
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TypeVar, Dict
 from ipaddress import IPv4Address, ip_address
 
@@ -86,8 +86,9 @@ class MemberDb():
 
         return value
 
-    def add_meta(self, member_id: UUID, remote_addr: IPv4Address, schema_version,
-                 data_secret: str, status: MemberStatus) -> None:
+    def add_meta(self, member_id: UUID, remote_addr: IPv4Address,
+                 schema_version: int, data_secret: str,
+                 status: MemberStatus) -> None:
         '''
         Adds (or overwrites) an entry
         '''
@@ -102,7 +103,7 @@ class MemberDb():
                 'remote_addr': str(remote_addr),
                 'schema_version': schema_version,
                 'data_secret': data_secret,
-                'last_seen': datetime.utcnow().isoformat(),
+                'last_seen': datetime.now(timezone.utc).isoformat(),
                 'status': status.value,
             }
         )

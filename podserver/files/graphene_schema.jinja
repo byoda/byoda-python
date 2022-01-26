@@ -10,10 +10,14 @@ Automatically generated code for GraphQL support for a Byoda servce
 
 from __future__ import annotations
 
+import typing
+
 import strawberry
+from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
 from byoda.datamodel.member import Member as MemberClassByoda
+
 
 import logging as loggingByoda
 
@@ -25,117 +29,132 @@ from byoda.requestauth import authorize_graphql_request as authorize_graphql_req
 
 _LOGGER = loggingByoda.getLogger(__name__)
 
-{% for class_name, properties in classes.items() %}
-@strawberry.type
-class {{ class_name|title }}:
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
-    @strawberry.field
-    def {{ field }}(self, info: Info) -> {{ type_map[field_properties['type']] }}:
-        return info.context['data']['{{ field }}']
+def authenticate(root, info):
+    '''
+    This is middleware called by the code generated from the Jinja
+    templates implementing GraphQL support
+    '''
 
-{%       elif field_properties['type'] == 'object' %}
-    {{ field }} = Field({{ field|title }})
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
-{% endfor %}{# for field, field_properties in properties.items() #}
+    if not info.context or not info.context['request']:
+        raise ValueError('No info to authenticate client')
+
+    try:
+        # Checks that a client cert was provided and that the cert and
+        # certchain is correct
+        auth = RequestAuthByoda.authenticate_request(info.context['request'])
+        if not auth.is_authenticated:
+            raise ValueError('Client is not authentication')
+    except Exception as exc:
+        raise ValueError(f'Authentication failed: {exc}')
+
+    try:
+        # Check whether the authenticated client is authorized to request
+        # the data
+        authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
+    except Exception as exc:
+        raise ValueError(f'Authorization failed: {exc}')
+
+{% for root_class in classes.values() %}
+{%   if root_class.type != DataType.ARRAY %}
+@strawberry.type
+class {{ root_class.name }}:
+{%     for field in root_class.fields %}
+    @strawberry.field
+    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
+        return info.context['data']['{{ field.name }}']
+
+{%     endfor %}
+
+@strawberry.input
+class {{ root_class.name }}Input:
+{%     for field in root_class.fields %}
+    @strawberry.field
+    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
+        return info.context['data']['{{ field.name }}']
+
+{%     endfor %}
+{%   endif %}
+{% endfor %}
+
 
 @strawberry.type
 class Query:
-    @staticmethod
-    def authenticate(root, info):
-        '''
-        This is middleware called by the code generated from the Jinja
-        templates implementing GraphQL support
-        '''
-
-        if not info.context or not info.context['request']:
-            raise ValueError('No info to authenticate client')
-
-        try:
-            # Checks that a client cert was provided and that the cert and
-            # certchain is correct
-            auth = RequestAuthByoda.authenticate_request(info.context['request'])
-            if not auth.is_authenticated:
-                raise ValueError('Client is not authentication')
-        except Exception as exc:
-            raise ValueError(f'Authentication failed: {exc}')
-
-        try:
-            # Check whether the authenticated client is authorized to request
-            # the data
-            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
-        except Exception as exc:
-            raise ValueError(f'Authorization failed: {exc}')
-
-{% for class_name, class_properties in classes.items() %}
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
     @strawberry.field
-    def {{ class_name }}(self, info: Info) -> {{ class_name|title }}:
-        _LOGGER.debug('Resolving {{ class_name }}')
-        Query.authenticate(self, info)
-        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        {{ class_name }} = {{ class_name|title }}()
-        return {{ class_name }}
+{%     if root_class.type != DataType.ARRAY %}
+    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
+{%     else %}
+    def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name }}]:
+{%     endif %}
+        _LOGGER.debug('Resolving {{ root_class.name }}')
+        authenticate(self, info)
 
-{% endfor %}{# if for class_name, class_properties in classes.items() #}
+{%     if root_class.type != DataType.ARRAY %}
+        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
+        {{ root_class.name }}_data = {{ root_class.name }}()
+        return {{ root_class.name }}_data
+
+{%     else %}
+        data = MemberClassByoda.get_data({{ service_id }}, info)
+        ret_data = []
+        for obj in data or []:
+            info.context['data'] = obj
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}()
+            ret_data.append({{ root_class.referenced_class.name }}_data)
+
+        return ret_data
+
+{%     endif %}
+{%   endif %}
+{% endfor %}
 @strawberry.type
 class Mutation:
-    @staticmethod
-    def authenticate(root, info):
-        '''
-        This is middleware called by the code generated from the Jinja
-        templates implementing GraphQL support
-        '''
-
-        if not info.context or not info.context['request']:
-            raise ValueError('No info to authenticate client')
-
-        try:
-            # Checks that a client cert was provided and that the cert and
-            # certchain is correct
-            auth = RequestAuthByoda.authenticate_request(info.context['request'])
-            if not auth.is_authenticated:
-                raise ValueError('Client is not authentication')
-        except Exception as exc:
-            raise ValueError(f'Authentication failed: {exc}')
-
-        try:
-            # Check whether the authenticated client is authorized to request
-            # the data
-            authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
-        except Exception as exc:
-            raise ValueError(f'Authorization failed: {exc}')
-
-{% for class_name, properties in classes.items()|reverse %}
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
+{%     if root_class.type == DataType.OBJECT %}
     @strawberry.field
-    def mutate{{ class_name|title }}(self, info,
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
-                {{ field }}: {{ type_map[field_properties['type']] }},
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
-            ) -> {{ class_name|title }}:
-        _LOGGER.debug('Root query for mutate{{ class_name|title }}')
-        Mutation.authenticate(self, info)
+    def mutate_{{ root_class.name }}(self, info: Info,
+{%       for field in root_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}
+            ) -> {{ root_class.name }}:
+        _LOGGER.debug('Root query for mutate{{ root_class.name }}')
+        authenticate(self, info)
         info.context['data'] = {
-{%   for field, field_properties in properties.items() %}
-{%     if 'type' in field_properties %}
-{%       if field_properties['type'] not in ('object', 'array') %}
-                '{{ field }}': {{ field }},
-{%       endif %}{# if field_properties['type'] not in ('object', 'array') #}
-{%     endif %}{# if 'type' in field_properties #}
-{%   endfor %}{# for field, field_properties in properties.items() #}
+{%       for field in root_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
         }
-        MemberClassByoda.set_data({{ service_id }}, info)
-        return {{ class_name|title }}()
+        MemberClassByoda.mutate_data({{ service_id }}, info)
+        return {{ root_class.name }}()
 
-{% endfor %}{# for class_name, properties in classes.items()|reverse #}
+{%     elif root_class.type == DataType.ARRAY %}
+{# APIs for array processing #}
+    @strawberry.field
+    def append_{{ root_class.name }}(self, info: Info,
+{%       for field in root_class.referenced_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}
+        ) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug('Root query for append{{ root_class.name }}')
+        # authenticate(self, info)
+        info.context['data'] = {
+{%       for field in root_class.referenced_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
+        }
+        MemberClassByoda.append_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name }}()
+{%     endif %}
+{%   endif %}
+
+{% endfor %}
 
 def get_schema():
     # This is a graphene.Schema, not byoda.Schema
-    return strawberry.Schema(query=Query, mutation=Mutation)
+    return strawberry.Schema(
+        query=Query, mutation=Mutation,
+        config=StrawberryConfig(auto_camel_case=False)
+    )
 

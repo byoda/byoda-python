@@ -1,21 +1,21 @@
 {
-    "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+    "description": "A simple network to maintain contacts",
     "jsonschema": {
         "$id": "https://uuid.services.byoda.net/service/addressbook",
         "$schema": "https://json-schema.org/draft-07/schema#",
-        "description": "The address book service can be used to find friends/family/colleagues and establish links with them",
+        "description": "A simple network to maintain contacts",
         "properties": {
             "member": {
-                "#accesscontrol": [
-                    "read"
-                ],
+                "#accesscontrol": {
+                    "member": ["read"]
+                },
                 "properties": {
                     "joined": {
                         "description": "Date & time when the pod became a member of the service",
                         "format": "date-time",
                         "type": "string"
                     },
-                    "memberId": {
+                    "member_id": {
                         "description": "Membership UUID",
                         "type": "string"
                     }
@@ -23,82 +23,117 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": [
-                    {
-                        "member": [
-                            "read",
-                            "update",
-                            "delete"
-                        ]
-                    },
-                    {
-                        "network": [
-                            "read"
-                        ]
-                    }
-
-                ],
+                "#accesscontrol": {
+                    "member": ["read", "update", "delete"],
+                    "service": ["read"],
+                    "network": ["read"]
+                },
                 "properties": {
-                    "avatarUrl": {
+                    "additional_names": {
+                        "description": "Any middle names",
+                        "type": "string"
+                    },
+                    "avatar_url": {
                         "type": "string"
                     },
                     "email": {
                         "format": "idn-email",
                         "type": "string",
-                        "#accesscontrol": [
-                            {
-                                "network": "search:exact"
-                            }
-                        ]
+                        "#accesscontrol": {
+                            "service": [
+                                "search:exact-caseinsensitive"
+                            ]
+                        }
                     },
-                    "familyName": {
+                    "family_name": {
                         "description": "Your surname",
                         "type": "string"
                     },
-                    "givenName": {
+                    "given_name": {
                         "description": "Your first given name",
                         "type": "string"
                     },
-                    "homepageUrl": {
+                    "homepage_url": {
                         "type": "string"
                     }
                 },
                 "type": "object"
             },
-            "links": {
-                "#accesscontrol": [
-                    {
-                        "member": [
-                            "read",
-                            "update",
-                            "delete"
-                        ]
-                    }
-                ],
+            "network_links": {
+                "#accesscontrol": {
+                    "member": ["read", "update", "delete", "append"]
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/network_link"
+                }
+            },
+            "memberlogs": {
+                "#accesscontrol": {
+                    "member": ["read", "delete", "append"]
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/memberlog"
+                }
+            }
+        },
+        "title": "addressbook",
+        "type": "object",
+        "$defs": {
+            "network_link": {
+                "$id": "/schemas/network_link",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "links to other members who you have a social connection with, such as friend, colleague, family, etc.",
+                "type": "object",
                 "properties": {
-                    "type": {
+                    "timestamp": {
+                        "description": "time the network link was created",
+                        "format": "date-time",
                         "type": "string"
                     },
-                    "target": {
+                    "member_id": {
+                        "description": "The ID of the other member",
                         "type": "string"
                     },
-                    "bidirectional": {
-                        "type": "boolean"
+                    "relation": {
+                        "description": "What relation you have with the other member",
+                        "type": "string"
+                    }
+                }
+            },
+            "memberlog": {
+                "$id": "/schemas/memberlog",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "log entries for the membership of the service",
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "description": "time the log entry was created",
+                        "format": "date-time",
+                        "type": "string"
                     },
-                    "state": {
+                    "remote_addr": {
+                        "description": "The remote IP address performing the request",
+                        "format": "ipv4",
+                        "type": "string"
+                    },
+                    "action": {
+                        "description": "What action was requested by the client",
+                        "type": "string"
+                    },
+                    "message": {
+                        "description": "Additional information about the request",
                         "type": "string"
                     }
                 }
             }
-        },
-        "title": "Address book to find your contacts to establish links with",
-        "type": "object"
+        }
     },
     "name": "addressbook",
     "owner": "Steven Hessing",
-    "service_id": 1,
-    "signatures": {
-    },
+    "service_id": 12345678,
+    "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
     "website": "https://www.byoda.org/"

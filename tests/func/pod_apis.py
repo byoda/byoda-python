@@ -24,7 +24,6 @@ import uvicorn
 
 from python_graphql_client import GraphqlClient
 
-# from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
@@ -201,79 +200,79 @@ class TestDirectoryApis(unittest.TestCase):
         client = GraphqlClient(endpoint=url)
 
         query = '''
-                mutation {
-                    mutatePerson(
-                        givenName: "Peter",
-                        additionalNames: "",
-                        familyName: "Hessing",
-                        email: "steven@byoda.org",
-                        homepageUrl: "https://some.place/",
-                        avatarUrl: "https://some.place/avatar"
-                    ) {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            mutation {
+                mutate_person(
+                    given_name: "Peter",
+                    additional_names: "",
+                    family_name: "Hessing",
+                    email: "steven@byoda.org",
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
+                ) {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
                 }
-            '''
+            }
+        '''
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['givenName'], 'Peter'
+            result['data']['mutate_person']['given_name'], 'Peter'
         )
         query = '''
-                query {
-                    person {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            query {
+                person {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
                 }
-            '''
+            }
+        '''
         result = client.execute(query=query, headers=member_headers)
 
         query = '''
-                mutation {
-                    mutatePerson(
-                        givenName: "Steven",
-                        additionalNames: "",
-                        familyName: "Hessing",
-                        email: "steven@byoda.org",
-                        homepageUrl: "https://some.place/",
-                        avatarUrl: "https://some.place/avatar"
-                    ) {
-                        givenName
-                        additionalNames
-                        familyName
-                        email
-                        homepageUrl
-                        avatarUrl
-                    }
+            mutation {
+                mutate_person(
+                    given_name: "Steven",
+                    additional_names: "",
+                    family_name: "Hessing",
+                    email: "steven@byoda.org",
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
+                ) {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
                 }
-            '''
+            }
+        '''
 
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['givenName'], 'Steven'
+            result['data']['mutate_person']['given_name'], 'Steven'
         )
         query = '''
                 mutation {
-                    mutateMember(
-                        memberId: "0",
+                    mutate_member(
+                        member_id: "0",
                         joined: "2021-09-19T09:04:00+07:00"
                     ) {
-                        memberId
+                        member_id
                     }
                 }
         '''
         result = client.execute(query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutateMember']['memberId'], '0'
+            result['data']['mutate_member']['member_id'], '0'
         )
 
 

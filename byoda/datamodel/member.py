@@ -9,7 +9,7 @@ Class for modeling an account on a network
 import logging
 
 from uuid import uuid4, UUID
-from copy import copy
+from copy import copy, deepcopy
 from typing import Dict, TypeVar, Callable
 
 from fastapi import FastAPI
@@ -26,6 +26,9 @@ from byoda.datatypes import StorageType
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.dataclass import SchemaDataObject
+from byoda.datamodel.dataclass import SchemaDataScalar
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -130,7 +133,7 @@ class Member:
         if self.service_data_secret.cert_file_exists():
             self.service_data_secret.load(with_private_key=False)
         else:
-            self.download_data_secret(save=True)
+            self.service.download_data_secret(save=True)
             self.service_data_secret.load(with_private_key=False)
 
         self.tls_secret = None
@@ -162,38 +165,6 @@ class Member:
 
         return data
 
-    def create_nginx_config(self):
-        '''
-        Generates the Nginx virtual server configuration for
-        the membership
-        '''
-
-        if not self.member_id:
-            self.load_secrets()
-
-        self.tls_secret.save_tmp_private_key()
-
-        nginx_config = NginxConfig(
-            directory=NGINX_SITE_CONFIG_DIR,
-            filename='virtualserver.conf',
-            identifier=self.member_id,
-            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
-            cert_filepath=(
-                self.paths.root_directory() + '/' + self.tls_secret.cert_file
-            ),
-            key_filepath=self.tls_secret.unencrypted_private_key_file,
-            alias=self.network.paths.account,
-            network=self.network.name,
-            public_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PUBLIC
-            ),
-            port=PodServer.HTTP_PORT,
-            root_dir=config.server.network.paths.root_directory()
-        )
-
-        nginx_config.create()
-        nginx_config.reload()
-
     @staticmethod
     def create(service: Service, schema_version: int,
                account: Account, members_ca: MembersCaSecret = None):
@@ -204,11 +175,11 @@ class Member:
         member = Member(service.service_id, account)
         member.member_id = uuid4()
 
-        member.create_secrets(members_ca=members_ca)
+        # member.create_secrets(members_ca=members_ca)
 
         if not member.paths._exists(member.paths.SERVICE_FILE):
-            filepath = member.paths.get(member.paths.SERVICE_FILE
-                                        )
+            filepath = member.paths.get(member.paths.SERVICE_FILE)
+
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
         if not members_ca:
@@ -241,13 +212,47 @@ class Member:
         member.data = MemberData(
             member, member.paths, member.document_store
         )
+        member.data.initalize()
 
         member.data.save_protected_shared_key()
+        member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
 
         return member
+
+    def create_nginx_config(self):
+        '''
+        Generates the Nginx virtual server configuration for
+        the membership
+        '''
+
+        if not self.member_id:
+            self.load_secrets()
+
+        self.tls_secret.save_tmp_private_key()
+
+        nginx_config = NginxConfig(
+            directory=NGINX_SITE_CONFIG_DIR,
+            filename='virtualserver.conf',
+            identifier=self.member_id,
+            subdomain=f'{IdType.MEMBER.value}{self.service_id}',
+            cert_filepath=(
+                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+            ),
+            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            alias=self.network.paths.account,
+            network=self.network.name,
+            public_cloud_endpoint=self.paths.storage_driver.get_url(
+                StorageType.PUBLIC
+            ),
+            port=PodServer.HTTP_PORT,
+            root_dir=config.server.network.paths.root_directory()
+        )
+
+        nginx_config.create()
+        nginx_config.reload()
 
     def update_schema(self, version: int):
         '''
@@ -432,17 +437,21 @@ class Member:
             f' with network {self.network.name}'
         )
 
-    def load_schema(self) -> Schema:
+    def load_schema(self, filepath: str = None, verify_signatures: bool = True
+                    ) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
-        filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
+
+        if not filepath:
+            filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
         if self.storage_driver.exists(filepath):
             schema = Schema.get_schema(
                 filepath, self.storage_driver,
                 service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
+                verify_contract_signatures=verify_signatures
             )
         else:
             _LOGGER.exception(
@@ -451,8 +460,12 @@ class Member:
             )
             raise FileNotFoundError(filepath)
 
-        self.verify_schema_signatures(schema)
-        schema.generate_graphql_schema()
+        if verify_signatures:
+            self.verify_schema_signatures(schema)
+
+        schema.generate_graphql_schema(
+            require_schema_signatures=verify_signatures
+        )
 
         return schema
 
@@ -570,14 +583,12 @@ class Member:
         return member.data.get(info.path.key)
 
     @staticmethod
-    def set_data(service_id, info: Info) -> None:
+    def mutate_data(service_id, info: Info) -> None:
         '''
-        Sets the provided data
+        Mutates the provided data
 
         :param service_id: Service ID for which the GraphQL API was called
-        :param path: the GraphQL path variable that shows the path taken
-        through the GraphQL data model
-        :param mutation: the instance of the Mutation<Object> class
+        :param info: the Strawberry 'info' variable
         '''
 
         if not info.path:
@@ -586,11 +597,11 @@ class Member:
         if info.path.typename != 'Mutation':
             raise ValueError(
                 f'Got graphql invocation for "{info.path.typename}"" '
-                f'instead of "Query"'
+                f'instead of "Mutation"'
             )
 
         _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
+            f'Got graphql mutation invocation for {info.path.typename} '
             f'for object {info.path.key}'
         )
 
@@ -608,7 +619,7 @@ class Member:
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('mutate'):].lower()
+        class_object = info.path.key[len('mutate_'):].lower()
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
@@ -642,6 +653,68 @@ class Member:
                 continue
 
             member.data[class_object][key] = mutate_data[key]
+
+        member.save_data(data)
+
+        return member.data
+
+    def append_data(service_id, info: Info) -> None:
+        '''
+        Appends the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param path: the GraphQL path variable that shows the path taken
+        through the GraphQL data model
+        :param mutation: the instance of the Mutation<Object> class
+        '''
+
+        '''
+        Sets the provided data
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param info: the Strawberry 'info' variable
+        '''
+
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Mutation':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}"" '
+                f'instead of "Mutation"'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql mutation invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
+
+        server = config.server
+        member = server.account.memberships[service_id]
+
+        # Any data we may have in memory may be stale when we run
+        # multiple processes so we always need to load the data
+        member.load_data()
+
+        # We do not modify existing data as it will need to be validated
+        # by JSON Schema before it can be accepted.
+        data = copy(member.data)
+
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'mutate' so we to find out
+        # what mutation was invoked, we want what comes after it.
+        class_object = info.path.key[len('append_'):].lower()
+
+        # Gets the data included in the mutation
+        mutate_data: Dict = info.selected_fields[0].arguments
+
+        # The query may be for an array for which we do not yet have
+        # any data
+        if class_object not in member.data:
+            member.data[class_object] = []
+
+        # Strawberry passes us data that we can just copy as-is
+        member.data[class_object].append(mutate_data)
 
         member.save_data(data)
 

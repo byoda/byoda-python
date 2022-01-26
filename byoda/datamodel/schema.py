@@ -18,7 +18,14 @@ from collections import OrderedDict
 import jinja2
 
 import fastjsonschema
+
+# Importing this exception so others can import it from here
 from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
+
+from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.dataclass import DataType
+from byoda.datamodel.dataclass import DataOperationType
+from byoda.datamodel.dataclass import GraphQlAPI
 
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
@@ -40,14 +47,6 @@ MAX_SCHEMA_SIZE = 1000000
 SCHEMA_TEMPLATE = 'podserver/files'
 CODEGEN_DIRECTORY = 'podserver/codegen'
 
-# Translation from jsondata data type to Python data type in the Jinja template
-TYPE_MAP = {
-    'string': 'str',
-    'integer': 'int',
-    'number': 'float',
-    'boolean': 'bool',
-}
-
 
 class Schema:
     def __init__(self, schema: dict):
@@ -64,6 +63,8 @@ class Schema:
 
         # This is the schema as read and deserialized from a file to a dict
         self.json_schema: Dict = schema
+
+        self.data_classes: Dict[str:SchemaDataItem] = {}
 
         # Note that we have getters/setters for the top-level properties
         if self.service_id is None:
@@ -118,7 +119,7 @@ class Schema:
         return data
 
     @staticmethod
-    def get_schema(filepath: str, storage_driver: str,
+    def get_schema(filepath: str, storage_driver: FileStorage,
                    service_data_secret: ServiceDataSecret,
                    network_data_secret: NetworkDataSecret,
                    verify_contract_signatures: bool = True):
@@ -278,7 +279,7 @@ class Schema:
 
         self.verified_signatures.add(signature_type)
 
-    def generate_graphql_schema(self):
+    def generate_graphql_schema(self, require_schema_signatures: bool = True):
         '''
         Generates code to enable GraphQL schema to be generated using Graphene.
         The logic is:
@@ -286,10 +287,15 @@ class Schema:
         - we call a Jinja template to generate source code in a python
         - we execute the generated source code and extract the resulting
           instance
+
+        :param require_schema_signatures: keep the default unless you are
+        writing test cases
+        :raises ValueError
         '''
 
-        if not (SignatureType.NETWORK in self.verified_signatures
-                and SignatureType.SERVICE in self.verified_signatures):
+        if (require_schema_signatures
+                and not (SignatureType.NETWORK in self.verified_signatures and
+                         SignatureType.SERVICE in self.verified_signatures)):
             raise ValueError('Schema signatures have not been verified')
 
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
@@ -307,9 +313,13 @@ class Schema:
 
         classes = self.get_graphene_classes()
 
+        # We pass Class types so that we can use them in Jinja2 conditional
+        # expressions
         code = template.render(
-            service_id=self.service_id,
-            classes=classes, type_map=TYPE_MAP
+            service_id=self.service_id, classes=classes,
+            DataType=DataType,
+            DataOperationType=DataOperationType,
+            GraphQlAPI=GraphQlAPI
         )
 
         # TODO: not elegant when not running in container or Visual Code
@@ -339,26 +349,32 @@ class Schema:
 
     def get_graphene_classes(self) -> List[Dict[str, Dict]]:
         '''
-        Finds all objects in the JSON schema for which we will
-        need to generated classes that are derived from Graphene.ObjectType
-        class
+        Finds all objects in the JSON sch ema for which we will
+        need to generate @strawberry.type classes
         '''
 
+        schema_id = self.json_schema['jsonschema'].get('$id')
+        if not schema_id:
+            raise ValueError('JSON Schema must have an "$id" field')
+
+        # TODO: SECURITY check that urlparse.netloc matches the entity_id for
+        # the service
+
+        defs = self.json_schema['jsonschema'].get("$defs", {})
+        for class_name, class_properties in defs.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id
+            )
+            self.data_classes[class_name] = dataclass
+
         properties = self.json_schema['jsonschema']['properties']
+        for class_name, class_properties in properties.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id, self.data_classes
+            )
+            self.data_classes[class_name] = dataclass
 
-        classes = OrderedDict()
-        self._get_graphene_classes(classes, properties)
-
-        return classes
-
-    def _get_graphene_classes(self, classes: List[Dict[str, object]],
-                              properties: Dict):
-        for field, field_properties in properties.items():
-            if field_properties.get('type') == 'object':
-                classes.update({field: field_properties['properties']})
-                self._get_graphene_classes(
-                    classes, field_properties['properties']
-                )
+        return self.data_classes
 
     # Getter/Setters for
     # - service_id
@@ -374,13 +390,21 @@ class Schema:
 
     @property
     def service_id(self):
+        '''
+        Gets the service_id for the service contract
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['service_id']
 
     @service_id.setter
-    def service_id(self, value):
+    def service_id(self, value: int):
+        '''
+        Sets the service_id for the service contract
+        '''
+
         if not isinstance(value, int):
             try:
                 value = int(value)
@@ -395,14 +419,22 @@ class Schema:
         self.json_schema['service_id'] = value
 
     @property
-    def version(self):
+    def version(self) -> int:
+        '''
+        Gets the version of the service contract
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['version']
 
     @version.setter
-    def version(self, value):
+    def version(self, value: int):
+        '''
+        Sets the version of the service contract
+        '''
+
         if not isinstance(value, int):
             try:
                 value = int(value)
@@ -417,14 +449,22 @@ class Schema:
         self.json_schema['version'] = value
 
     @property
-    def name(self):
+    def name(self) -> str:
+        '''
+        Gets the name of the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['name']
 
     @name.setter
-    def name(self, value):
+    def name(self, value: str):
+        '''
+        Sets the name of the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Version must be an str, not of type {type(value)}'
@@ -436,14 +476,22 @@ class Schema:
         self.json_schema['name'] = value
 
     @property
-    def description(self):
+    def description(self) -> str:
+        '''
+        Gets the description for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['description']
 
     @description.setter
-    def description(self, value):
+    def description(self, value: str):
+        '''
+        Sets the description for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Description must be an str, not of type {type(value)}'
@@ -455,14 +503,23 @@ class Schema:
         self.json_schema['description'] = value
 
     @property
-    def owner(self):
+    def owner(self) -> str:
+        '''
+        Gets the name of the owner of the service, ie. a person,
+        an organization or a company
+        '''
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['owner']
 
     @owner.setter
-    def owner(self, value):
+    def owner(self, value: str):
+        '''
+        Sets the name of the owner of the service, ie. a person,
+        an organization or a company
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Name must be an str, not of type {type(value)}'
@@ -474,14 +531,22 @@ class Schema:
         self.json_schema['owner'] = value
 
     @property
-    def website(self):
+    def website(self) -> str:
+        '''
+        Gets the URL for the website for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['website']
 
     @website.setter
-    def website(self, value):
+    def website(self, value: str):
+        '''
+        Sets the URL for the website for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Name must be an str, not of type {type(value)}'
@@ -493,14 +558,22 @@ class Schema:
         self.json_schema['website'] = value
 
     @property
-    def supportemail(self):
+    def supportemail(self: str):
+        '''
+        Gets the email address for getting support for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
         return self.json_schema['supportemail']
 
     @supportemail.setter
-    def supportemail(self, value):
+    def supportemail(self, value: str):
+        '''
+        Sets the email address for getting support for the service
+        '''
+
         if value and not isinstance(value, str):
             raise ValueError(
                 f'Support email must be an str, not of type {type(value)}'
@@ -513,6 +586,10 @@ class Schema:
 
     @property
     def network_signature(self) -> MessageSignature:
+        '''
+        Gets the network signature for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -523,8 +600,9 @@ class Schema:
     @network_signature.setter
     def network_signature(self, value: MessageSignature):
         '''
-        Updates the Network signature in the json_schema dict
+        Sets the Network signature in the json_schema dict
         '''
+
         if value and not isinstance(value, MessageSignature):
             raise ValueError(
                 'Support email must be an MessageSignature, '
@@ -544,6 +622,10 @@ class Schema:
 
     @property
     def service_signature(self) -> MessageSignature:
+        '''
+        Gets the Service signature in the json_schema dict
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 
@@ -556,7 +638,7 @@ class Schema:
     @service_signature.setter
     def service_signature(self, value: MessageSignature) -> MessageSignature:
         '''
-        Updates the Service signature in the json_schema dict
+        Sets the Service signature in the json_schema dict
         '''
 
         if value and not isinstance(value, MessageSignature):
@@ -579,7 +661,11 @@ class Schema:
         return self._service_signature
 
     @property
-    def signatures(self):
+    def signatures(self) -> Dict:
+        '''
+        Gets the network and service signatures for the service
+        '''
+
         if not self.json_schema:
             raise ValueError('No JSON Schema defined')
 

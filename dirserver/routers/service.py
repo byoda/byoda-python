@@ -16,9 +16,8 @@ The registration of a service in the network takes four steps:
    service using the GET /api/v1/network/service request.
 '''
 
-import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
@@ -382,5 +381,5 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
     return {
         'status': status,
         'errors': errors,
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
     }
