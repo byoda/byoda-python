@@ -201,7 +201,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         query = '''
             mutation {
-                mutatePerson(
+                mutate_person(
                     given_name: "Peter",
                     additional_names: "",
                     family_name: "Hessing",
@@ -220,7 +220,7 @@ class TestDirectoryApis(unittest.TestCase):
         '''
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['given_name'], 'Peter'
+            result['data']['mutate_person']['given_name'], 'Peter'
         )
         query = '''
             query {
@@ -238,7 +238,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         query = '''
             mutation {
-                mutatePerson(
+                mutate_person(
                     given_name: "Steven",
                     additional_names: "",
                     family_name: "Hessing",
@@ -258,11 +258,11 @@ class TestDirectoryApis(unittest.TestCase):
 
         result = client.execute(query=query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutatePerson']['given_name'], 'Steven'
+            result['data']['mutate_person']['given_name'], 'Steven'
         )
         query = '''
                 mutation {
-                    mutateMember(
+                    mutate_member(
                         member_id: "0",
                         joined: "2021-09-19T09:04:00+07:00"
                     ) {
@@ -272,7 +272,7 @@ class TestDirectoryApis(unittest.TestCase):
         '''
         result = client.execute(query, headers=member_headers)
         self.assertEqual(
-            result['data']['mutateMember']['member_id'], '0'
+            result['data']['mutate_member']['member_id'], '0'
         )
 
 

@@ -60,6 +60,49 @@ data = {
     'family_name': 'Hessing',
 }
 
+member_query = '''
+    query {
+        member {
+            joined
+            member_id
+        }
+    }
+'''
+
+person_query = '''
+    query {
+        person {
+            given_name
+            additional_names
+            family_name
+            email
+            homepage_url
+            avatar_url
+        }
+    }
+'''
+
+memberlogs_query = '''
+    query {
+        memberlogs {
+            timestamp
+            remote_addr
+            action
+            message
+        }
+    }
+'''
+
+network_links_query = '''
+    query {
+        network_links {
+            timestamp
+            member_id
+            relation
+        }
+    }
+'''
+
 
 class TestJsonSchema(unittest.TestCase):
     PROCESS = None
@@ -182,15 +225,7 @@ class TestJsonSchema(unittest.TestCase):
 
         client = GraphqlClient(endpoint=BASE_URL)
 
-        query = '''
-            query {
-                member {
-                    joined
-                    member_id
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(query=member_query, headers=member_headers)
         self.assertEqual(result['data']['member']['member_id'], str(MEMBER_ID))
 
         query = '''
@@ -214,32 +249,10 @@ class TestJsonSchema(unittest.TestCase):
         '''
         result = client.execute(query=query, headers=member_headers)
 
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(query=person_query, headers=member_headers)
         self.assertEqual(result['data']['person']['given_name'], 'Peter')
 
-        query = '''
-            query {
-                memberlogs {
-                    timestamp
-                    remote_addr
-                    action
-                    message
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(query=memberlogs_query, headers=member_headers)
         self.assertEqual(result['data']['memberlogs'], [])
 
         query = '''
@@ -258,9 +271,61 @@ class TestJsonSchema(unittest.TestCase):
             }
         '''
         result = client.execute(query=query, headers=member_headers)
-        # self.assertEqual(result['data']['memberlogs'], None)
         self.assertEqual(
             result['data']['append_memberlogs']['remote_addr'], '10.0.0.1'
+        )
+
+        result = client.execute(query=memberlogs_query, headers=member_headers)
+        self.assertEqual(len(result['data']['memberlogs']), 1)
+        self.assertEqual(
+            result['data']['memberlogs'][0]['remote_addr'], '10.0.0.1'
+        )
+
+        query = '''
+            mutation {
+                append_memberlogs (
+                    timestamp: "2022-01-24T04:01:36.798843+00:00",
+                    remote_addr: "10.0.0.2",
+                    action: "leave",
+                    message: "bye bye"
+                ) {
+                    timestamp
+                    remote_addr
+                    action
+                    message
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=member_headers)
+        # self.assertEqual(result['data']['memberlogs'], None)
+        self.assertEqual(
+            result['data']['append_memberlogs']['remote_addr'], '10.0.0.2'
+        )
+
+        result = client.execute(query=memberlogs_query, headers=member_headers)
+        self.assertEqual(len(result['data']['memberlogs']), 2)
+
+        result = client.execute(
+            query=network_links_query, headers=member_headers
+        )
+        self.assertEqual(result['data']['network_links'], [])
+
+        query = '''
+            mutation {
+                append_network_links (
+                    timestamp: "2022-01-21T04:01:36.798843+00:00",
+                    member_id: "af0b7314-7df7-11ec-ab86-00155d0d2987",
+                    relation: "friend"
+                ) {
+                    timestamp
+                    member_id
+                    relation
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=member_headers)
+        self.assertEqual(
+            result['data']['append_network_links']['relation'], 'friend'
         )
 
 

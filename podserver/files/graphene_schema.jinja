@@ -126,27 +126,11 @@ class Mutation:
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
-        MemberClassByoda.set_data({{ service_id }}, info)
+        MemberClassByoda.mutate_data({{ service_id }}, info)
         return {{ root_class.name }}()
 
 {%     elif root_class.type == DataType.ARRAY %}
 {# APIs for array processing #}
-    @strawberry.field
-    def mutate_{{ root_class.name }}(self, info: Info,
-{%       for field in root_class.referenced_class.fields %}
-        {{ field.name }}: {{ field.python_type }},
-{%       endfor %}
-            ) -> {{ root_class.referenced_class.name }}:
-        _LOGGER.debug('Root query for mutate{{ root_class.name }}')
-        authenticate(self, info)
-        info.context['data'] = {
-{%       for field in root_class.referenced_class.fields %}
-            '{{ field.name }}': {{ field.name }},
-{%       endfor %}
-        }
-        MemberClassByoda.set_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name }}()
-
     @strawberry.field
     def append_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.referenced_class.fields %}
@@ -164,6 +148,7 @@ class Mutation:
         return {{ root_class.referenced_class.name }}()
 {%     endif %}
 {%   endif %}
+
 {% endfor %}
 
 def get_schema():

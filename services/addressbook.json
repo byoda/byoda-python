@@ -59,6 +59,15 @@
                 },
                 "type": "object"
             },
+            "network_links": {
+                "#accesscontrol": {
+                    "member": ["read", "update", "delete", "append"]
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/network_link"
+                }
+            },
             "memberlogs": {
                 "#accesscontrol": {
                     "member": ["read", "delete", "append"]
@@ -72,6 +81,27 @@
         "title": "addressbook",
         "type": "object",
         "$defs": {
+            "network_link": {
+                "$id": "/schemas/network_link",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "links to other members who you have a social connection with, such as friend, colleague, family, etc.",
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "description": "time the network link was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "member_id": {
+                        "description": "The ID of the other member",
+                        "type": "string"
+                    },
+                    "relation": {
+                        "description": "What relation you have with the other member",
+                        "type": "string"
+                    }
+                }
+            },
             "memberlog": {
                 "$id": "/schemas/memberlog",
                 "$schema": "https://json-schema.org/draft-07/schema#",

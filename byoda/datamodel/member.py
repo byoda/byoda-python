@@ -583,9 +583,9 @@ class Member:
         return member.data.get(info.path.key)
 
     @staticmethod
-    def set_data(service_id, info: Info) -> None:
+    def mutate_data(service_id, info: Info) -> None:
         '''
-        Sets the provided data
+        Mutates the provided data
 
         :param service_id: Service ID for which the GraphQL API was called
         :param info: the Strawberry 'info' variable
@@ -708,15 +708,12 @@ class Member:
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
 
-        # Get the properties of the JSON Schema, we don't support
-        # nested objects just yet
-        schema = member.schema
-
-        # The query may be for an object for which we do not yet have
+        # The query may be for an array for which we do not yet have
         # any data
         if class_object not in member.data:
             member.data[class_object] = []
 
+        # Strawberry passes us data that we can just copy as-is
         member.data[class_object].append(mutate_data)
 
         member.save_data(data)
