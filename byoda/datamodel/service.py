@@ -54,7 +54,7 @@ _LOGGER = logging.getLogger(__name__)
 BYODA_PRIVATE_SERVICE = 0
 
 Network = TypeVar('Network')
-ServiceServer = TypeVar('ServiceServer')
+
 
 
 class RegistrationStatus(Enum):
@@ -561,7 +561,8 @@ class Service:
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
             if self.service_ca.cert_file_exists():
-                if isinstance(server, ServiceServer):
+                if self.service_ca.private_key_file_exists():
+                    # We must be running on a ServiceServer
                     self.service_ca.load(
                         with_private_key=True, password=self.private_key_password
                     )
