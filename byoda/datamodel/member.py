@@ -175,7 +175,7 @@ class Member:
 
         # member.create_secrets(members_ca=members_ca)
 
-        if not member.paths._exists(member.paths.SERVICE_FILE):
+        if not member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
         # TODO: make this more user-friendly by attempting to download

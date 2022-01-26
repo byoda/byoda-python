@@ -60,18 +60,23 @@ class DirectoryServer(Server):
             if svcdir.startswith('service-')
         ]
 
+        _LOGGER.debug(
+            f'Found services {", ".join(services_dirs)} in {service_dir}'
+        )
+
         for svcdir in services_dirs:
-            service_id = svcdir.split('-')[-1]
+            service_id = int(svcdir.split('-')[-1])
             if network.services.get(service_id):
                 # We already have the service in memory
+                _LOGGER.debug(f'Skipping loading of service {service_id}')
                 continue
 
             service = network.add_service(service_id)
 
-            service_file = self.network.paths.get(
-                Paths.SERVICE_FILE, service_id=service_id
-            )
-            if os.path.exists(service_file):
+            service_file = service.paths.get(Paths.SERVICE_FILE)
+            if service.paths.exists(service_file):
                 service.load_schema(service_file)
             else:
                 service.registration_status = service.get_registration_status()
+
+            _LOGGER.debug(f'Loaded service {service_id}')
