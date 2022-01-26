@@ -15,7 +15,7 @@ informs the service about the availability of the pod.
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 
 from byoda.datatypes import IdType
 
@@ -53,8 +53,8 @@ def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
     network = config.server.network
 
     if not Service.is_registered(auth.service_id):
-        raise ValueError(
-            f'Registration for unknown service: {auth.service_id}'
+        raise HTTPException(
+            404, f'Registration for unknown service: {auth.service_id}'
         )
 
     network.dnsdb.create_update(

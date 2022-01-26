@@ -9,7 +9,7 @@ Class for modeling an account on a network
 import logging
 
 from uuid import uuid4, UUID
-from copy import copy, deepcopy
+from copy import copy
 from typing import Dict, TypeVar, Callable
 
 from fastapi import FastAPI
@@ -26,9 +26,7 @@ from byoda.datatypes import StorageType
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
-from byoda.datamodel.dataclass import SchemaDataArray
-from byoda.datamodel.dataclass import SchemaDataObject
-from byoda.datamodel.dataclass import SchemaDataScalar
+
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -634,6 +632,7 @@ class Member:
         if class_object not in member.data:
             member.data[class_object] = dict()
 
+        # TODO: refactor to use dataclasses
         properties = schema_properties[class_object].get('properties', {})
 
         for key in properties.keys():

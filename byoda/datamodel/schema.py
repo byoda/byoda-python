@@ -13,7 +13,6 @@ import logging
 from copy import deepcopy
 from typing import List, Dict, Set, TypeVar
 from types import ModuleType
-from collections import OrderedDict
 
 import jinja2
 

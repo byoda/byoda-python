@@ -120,7 +120,7 @@ The GraphQL API will be secured using credentials. Credentials have a type of on
   - UPDATE
   - APPEND
   - DELETE
-  - SEARCH. The SEARCH permission can have a specifier like "SEARCH:excact-casesensitive" that specifies what type of search is permitted.
+  - SEARCH: The SEARCH permission can have a specifier like "SEARCH:excact-casesensitive" that specifies what type of search is permitted.
 
 ## 4: Create the secrets for a service
 
@@ -137,17 +137,20 @@ We create the service secrets using the 'tools/create_service_secrets.py' script
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
-export SERVICE_CONTRACT=<service contract file>
-cp $SERVICE_CONTRACT $BYODA_HOME/
-sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
- jq --arg service_id "$SERVICE_ID" '.service_id = $service_id' ${BYODA_HOME}/${SERVICE_CONTRACT} | sponge ${BYODA_HOME}/${SERVICE_CONTRACT}
+export SERVICE_CONTRACT=<service contract file>   # should be only the filename, no path included
+
+export SERVICE_ID=$( python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
 
 # Here we update the 'service_id' in the service schema to match a newly generated random service ID
-export SERVICE_ID=$( python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
+sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
+jq -r --arg service_id "$SERVICE_ID" '.service_id = $service_id' ${BYODA_HOME}/${SERVICE_CONTRACT} | sponge ${BYODA_HOME}/${SERVICE_CONTRACT}
+# TODO: change jq command to make the service_id value numeric instead of string, needs to be done manually now
 
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 sudo mkdir -p ${SERVICE_DIR}
 sudo chown -R ${USER}:${USER} ${BYODA_HOME}
+mv ${BYODA_HOME}/$SERVICE_CONTRACT ${SERVICE_DIR}
+
 cd ${BYODA_HOME}
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
@@ -180,10 +183,14 @@ As you just created the ServiceData secret in step #2, you can generate the serv
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
-export 3=private.json
+export SERVICE_CONTRACT=private.json
+
 
 export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
+
+mkdir -p ${SERVICE_DIR}
+cp ${BYODA_HOME}/byoda-python/services/${SERVICE_CONTRACT} ${SERVICE_DIR}
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)

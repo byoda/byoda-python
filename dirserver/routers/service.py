@@ -176,13 +176,13 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     service_id = entity_id.service_id
     if service_id is None:
-        raise ValueError(
-            f'No service id found in common name {commonname}'
+        raise HTTPException(
+            409, f'No service id found in common name {commonname}'
         )
 
     if service_id in network.services:
-        raise ValueError(
-            f'A CA certificate for service ID {service_id} has already '
+        raise HTTPException(
+            400, f'A CA certificate for service ID {service_id} has already '
             'been signed'
         )
 
