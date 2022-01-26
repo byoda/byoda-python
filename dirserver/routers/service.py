@@ -68,7 +68,10 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
     public information
     '''
 
-    _LOGGER.debug(f'GET Services API called from {request.client.host}')
+    _LOGGER.debug(
+        f'GET Services API called from {request.client.host} with pagination '
+        f'skip {skip} and count {count}'
+    )
 
     server: Server = config.server
     network: Network = config.server.network
@@ -77,7 +80,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 
     services = list(network.services.values())
 
-    _LOGGER.debug(f'We now have {len(network.services)} in memory')
+    _LOGGER.debug(f'We now have {len(services)} services in memory')
 
     if count == 0:
         count = max(len(services), MAX_SERVICE_LIST)
@@ -96,6 +99,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
             if service.schema and service.schema.version
         ]
     }
+
     return result
 
 

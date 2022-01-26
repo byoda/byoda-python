@@ -124,7 +124,7 @@ class Service:
         # set up for the Network object, we can copy it here for the Service
         self.network: Network = network
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id = service_id
+        self.paths.service_id = self.service_id
 
         if storage_driver:
             self.storage_driver = storage_driver
@@ -134,7 +134,7 @@ class Service:
         if filepath:
             raw_data = self.storage_driver.read(filepath)
             data = json.loads(raw_data)
-            self.service_id = data['service_id']
+            self.service_id = int(data['service_id'])
             self.name = data['name']
 
     @classmethod
@@ -194,7 +194,7 @@ class Service:
         )
 
         self.name = self.schema.name
-        self.service_id = self.schema.service_id
+        self.service_id = int(self.schema.service_id)
         self.paths.service_id = self.service_id
 
         _LOGGER.debug(

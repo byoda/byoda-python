@@ -171,8 +171,8 @@ class Paths:
 
         return path
 
-    def _exists(self, path_template: str, service_id: int = None,
-                member_alias: str = None):
+    def exists(self, path_template: str, service_id: int = None,
+               member_alias: str = None):
         '''
         Checks if a path exists
 
@@ -214,7 +214,7 @@ class Paths:
         return self.get(self.SECRETS_DIR)
 
     def secrets_directory_exists(self):
-        return self._exists(self.SECRETS_DIR)
+        return self.exists(self.SECRETS_DIR)
 
     def create_secrets_directory(self):
         return self._create_directory(self.SECRETS_DIR)
@@ -232,7 +232,7 @@ class Paths:
         return self.get(self.NETWORK_DIR)
 
     def network_directory_exists(self):
-        return self._exists(self.NETWORK_DIR)
+        return self.exists(self.NETWORK_DIR)
 
     def create_network_directory(self):
         return self._create_directory(self.NETWORK_DIR)
@@ -250,7 +250,7 @@ class Paths:
         return self.get(self.ACCOUNT_DIR)
 
     def account_directory_exists(self):
-        return self._exists(self.ACCOUNT_DIR)
+        return self.exists(self.ACCOUNT_DIR)
 
     def create_account_directory(self):
         if not self.account_directory_exists():
@@ -264,7 +264,7 @@ class Paths:
         return self.get(self.SERVICE_DIR, service_id=service_id)
 
     def service_directory_exists(self, service_id):
-        return self._exists(self.SERVICE_DIR, service_id=service_id)
+        return self.exists(self.SERVICE_DIR, service_id=service_id)
 
     def create_service_directory(self, service_id):
         return self._create_directory(
@@ -278,7 +278,7 @@ class Paths:
         )
 
     def member_directory_exists(self, service_id):
-        return self._exists(
+        return self.exists(
             self.MEMBER_DIR, service_id=service_id
         )
 
@@ -296,7 +296,7 @@ class Paths:
         )
 
     def member_service_file_exists(self, service_id):
-        return self._exists(
+        return self.exists(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
@@ -310,4 +310,4 @@ class Paths:
         return self.get(self.SERVICE_FILE, service_id=service_id)
 
     def service_file_exists(self, service_id):
-        return self._exists(self.SERVICE_FILE, service_id=service_id)
+        return self.exists(self.SERVICE_FILE, service_id=service_id)
