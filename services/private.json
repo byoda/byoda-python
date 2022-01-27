@@ -6,9 +6,9 @@
         "description": "This is the default service of each network, storing only private data",
         "properties": {
             "member": {
-                "#accesscontrol": [
-                    "read"
-                ],
+                "#accesscontrol": {
+                    "member": ["read"]
+                },
                 "properties": {
                     "joined": {
                         "description": "Date & time when the pod became a member of the service",
@@ -23,15 +23,9 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": [
-                    {
-                        "member": [
-                            "read",
-                            "update",
-                            "delete"
-                        ]
-                    }
-                ],
+                "#accesscontrol": {
+                    "member": ["read","update","delete","append"]
+                },
                 "properties": {
                     "additional_names": {
                         "access": "private",

@@ -131,7 +131,7 @@ Each service has the following secrets:
 - MembersCA: signed by the Service CA, signs Certificate Signing Requests (CSRs) from pods that want to join the service using the POST /api/v1/service/member API
 - ServiceData: Signed by the Service CA. This is the secret used to sign documents, such as the service schema/data contract so that others can verify its authenticity
 
-We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _*Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA*_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and need to be re-generated!
+We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _*Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA*_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and they need to be re-generated!
 
 ```
 export BYODA_HOME=/opt/byoda
@@ -177,7 +177,7 @@ ssh ${SERVER_IP} "rm ${SERVICE_DIR}/private/network-${BYODA_NETWORK}-service-${S
 
 There are two signatures for a schema: the ServiceData secret provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
 
-As you just created the ServiceData secret in step #2, you can generate the service signature but you'll have to ask the directory server of the network to provide the network signature by calling the PATCH /api/v1/network/service API. Both steps are implemented by the '[tools/sign_data_contract.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/sign_data_contract.py)' script.
+As you just created the ServiceData secret in step #2, you can generate the service signature but you'll have to ask the directory server of the network to provide the network signature by calling the PATCH /api/v1/network/service API. Both steps are implemented by the '[tools/sign_data_contract.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/sign_data_contract.py)' script. Before you can run the tool, you have to create a config.yml, that later will also be used when you start the server. Copy the config-sample.yml file in the byoda-python directory to config.yml, remove the 'dirserver' block and edit the configuration as appropriate.
 
 ```
 export BYODA_HOME=/opt/byoda
@@ -189,17 +189,27 @@ export SERVICE_CONTRACT=private.json
 export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
+if [ ! -f config.yml ]; then
+    cat config-sample.yml | \
+        sed "s|SERVICE_ID|${SERVICE_ID}|" | \
+        sed "s|BYODA_DOMAIN|${BYODA_DOMAIN}|" | \
+        sed "s|PASSWORD|${PASSWORD}|" | \
+        sed "s|BYODA_HOME|${BYODA_HOME}|" > config.yml
+fi
+
 mkdir -p ${SERVICE_DIR}
 cp ${BYODA_HOME}/byoda-python/services/${SERVICE_CONTRACT} ${SERVICE_DIR}
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
-tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password=${PASSWORD}
+tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
 ## 5: Get the service up and running
-
+```
 NGINX_USER=www-data
-sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-*
+mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
+sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
+rm -f /tmp/service-${SERVICE_ID}.key
 ```
 
 The service daemon will create an Nginx configuration file under /etc/nginx/conf.d

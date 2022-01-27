@@ -13,7 +13,9 @@ import argparse
 import sys
 import yaml
 
-from byoda.datamodel.network import Service
+from byoda.datamodel.service import Service
+from byoda.datamodel.network import Network
+
 from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
@@ -43,26 +45,17 @@ def main(argv):
         choices=[i.value for i in SignatureType]
     )
     parser.add_argument('--contract', '-c', type=str)
-    parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
-    parser.add_argument('--network', type=str, default='byoda.net')
-    parser.add_argument('--password', '-p', type=str, default='byoda')
-    parser.add_argument(
-        '--local', default=False, action='store_true'
-    )
+    parser.add_argument('--config', '-o', type=str, default='config.yml')
+    parser.add_argument('--local', default=False, action='store_true')
     args = parser.parse_args()
 
     # Network constructor expects parameters to be in a dict
-    network_data = {
-        'private_key_password': args.password,
-        'cloud': 'LOCAL',
-        'bucket_prefix': None,
-        'roles': [],
-        'network': args.network,
-        'root_dir': args.root_directory,
-    }
 
-    with open('config.yml') as file_desc:
+    with open(args.config) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+    root_dir = app_config['svcserver']['root_dir']
+    password = app_config['svcserver']['password']
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -71,7 +64,7 @@ def main(argv):
     )
 
     config.server = ServiceServer(app_config)
-    service = load_service(args, config.server.network)
+    service = load_service(args, config.server.network, password)
 
     if not args.local:
         service.registration_status = service.get_registration_status()
@@ -111,19 +104,17 @@ def main(argv):
         _LOGGER.error('Failed to get the network signature')
         sys.exit(1)
 
-    if not args.root_directory.startswith('/'):
+    if not root_dir.startswith('/'):
         # Hack to make relative paths work with the FileStorage class
-        args.root_directory = os.getcwd()
+        root_dir = os.getcwd()
 
-    storage_driver = FileStorage(args.root_directory)
+    storage_driver = FileStorage(root_dir)
     filepath = service.paths.get(Paths.SERVICE_FILE)
     _LOGGER.debug(f'Saving signed schema to {filepath}')
-    service.schema.save(
-        filepath, storage_driver=storage_driver
-    )
+    service.schema.save(filepath, storage_driver=storage_driver)
 
 
-def load_service(args, network):
+def load_service(args, network: Network, password: str):
     '''
     Load service and its secrets
     '''
@@ -132,7 +123,7 @@ def load_service(args, network):
     )
     service.load_schema(args.contract, verify_contract_signatures=False)
     if not args.signing_party or args.signing_party == 'service':
-        service.load_secrets(with_private_key=True, password=args.password)
+        service.load_secrets(with_private_key=True, password=password)
     else:
         service.load_secrets(with_private_key=False)
 

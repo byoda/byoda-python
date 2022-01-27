@@ -4,25 +4,14 @@ application:
   # Changing the network if you want to set up your own network and
   # directory server. This setting overrides any configured NETWORK
   # environment variable
-  network: 'byoda.net'
-  jaeger_host: 127.0.0.1
-
-dirserver:
-  name: 'directoryserver'
-  logfile: '/tmp/byoda-dir.log'
-  # Connection string for the Postgresql server for PowerDNS
-  dnsdb: "postgresql://<username>:<password>@<ip>/byodadns"
-    root_dir: '/opt/byoda/dirserver'
-  roles:
-    - directory
-  private_key_password: '<changeme>'
+  network: 'BYODA_DOMAIN'
 
 svcserver:
   name: 'serviceserver'
-  logfile: '/tmp/byoda-service1.log'
-  root_dir: '/opt/byoda/service-1'
+  logfile: '/tmp/byoda-service-SERVICE_ID.log'
+  root_dir: 'BYODA_HOME'
   cache: '<hostname>:<port>:<password>'
     roles:
     - service
-  service_id: 1
-  private_key_password: '<changeme>'
+  service_id: SERVICE_ID
+  private_key_password: 'PASSWORD'
