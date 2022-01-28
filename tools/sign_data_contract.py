@@ -55,7 +55,7 @@ def main(argv):
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
     root_dir = app_config['svcserver']['root_dir']
-    password = app_config['svcserver']['password']
+    password = app_config['svcserver']['private_key_password']
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -98,7 +98,7 @@ def main(argv):
     if (result is not False and (
             not args.signing_party
             or args.signing_party == SignatureType.NETWORK.value)):
-        result = create_network_signature(service, args)
+        result = create_network_signature(service, args, password)
 
     if not result:
         _LOGGER.error('Failed to get the network signature')
@@ -146,7 +146,7 @@ def create_service_signature(service):
     _LOGGER.debug(f'Added service signature {schema["signatures"]["service"]}')
 
 
-def create_network_signature(service, args) -> bool:
+def create_network_signature(service, args, password) -> bool:
     '''
     Add network signature to the service schema/data contract,
     either locally or by a directory server over the network
@@ -177,13 +177,13 @@ def create_network_signature(service, args) -> bool:
         # with the network signature
         _LOGGER.debug('Locally creating network signature')
         network.data_secret = NetworkDataSecret(network.paths)
-        network.data_secret.load(with_private_key=True, password=args.password)
+        network.data_secret.load(with_private_key=True, password=password)
         service.schema.create_signature(
             network.data_secret, SignatureType.NETWORK
         )
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
-        service_secret.load(with_private_key=True, password=args.password)
+        service_secret.load(with_private_key=True, password=password)
         _LOGGER.debug('Requesting network signature from the directory server')
         response = RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),

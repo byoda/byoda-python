@@ -20,6 +20,7 @@ echo "NETWORK: $NETWORK"
 echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
+echo "BOOTSTRAP: $BOOTSTRAP"
 
 cd /podserver/byoda-python
 pipenv run podserver/podworker.py

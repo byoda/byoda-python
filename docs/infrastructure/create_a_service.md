@@ -198,7 +198,6 @@ if [ ! -f config.yml ]; then
 fi
 
 mkdir -p ${SERVICE_DIR}
-cp ${BYODA_HOME}/byoda-python/services/${SERVICE_CONTRACT} ${SERVICE_DIR}
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
@@ -209,7 +208,9 @@ tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 NGINX_USER=www-data
 mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
 sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
-rm -f /tmp/service-${SERVICE_ID}.key
+if [ -f /tmp/service-${SERVICE_ID}.key ]; then
+    sudo chown ${NGINX_USER}:${NGINX_USER} /tmp/service-${SERVICE_ID}.key
+fi
 ```
 
 The service daemon will create an Nginx configuration file under /etc/nginx/conf.d

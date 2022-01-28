@@ -54,7 +54,7 @@ def main(args):
         sys.argv[0], json_out=False, debug=data['debug'],
         loglevel=data['loglevel'], logfile=LOG_FILE
     )
-    _LOGGER.debug('Starting podworker')
+    _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
     if data['bootstrap']:
         run_bootstrap_tasks(data)
@@ -93,9 +93,10 @@ def run_bootstrap_tasks(data: Dict):
     server.network = network
     server.paths = network.paths
 
-    account = Account(data['account_id'], network, bootstrap=True)
+    account = Account(data['account_id'], network)
     server.account = account
 
+    _LOGGER.debug('Running bootstrap tasks')
     try:
         account.tls_secret.load(
             password=account.private_key_password

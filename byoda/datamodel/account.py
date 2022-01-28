@@ -47,11 +47,12 @@ class Account:
     '''
 
     def __init__(self,  account_id: str, network: Network,
-                 account: str = 'pod', bootstrap: bool = False):
+                 account: str = 'pod'):
         '''
         Constructor
         '''
 
+        _LOGGER.debug(f'Constructing account {account_id}')
         self.account: str = account
 
         if isinstance(account_id, UUID):
@@ -108,7 +109,9 @@ class Account:
             )
 
         if not self.tls_secret.cert_file_exists():
-            _LOGGER.info('Creating account secret')
+            _LOGGER.info(
+                f'Creating account secret {self.tls_secret.cert_file}'
+            )
             self.tls_secret = self._create_secret(
                 AccountSecret, accounts_ca
             )
@@ -125,7 +128,9 @@ class Account:
 
         if (not self.data_secret.cert_file_exists()
                 or not self.data_secret.cert):
-            _LOGGER.info('Creating account data secret')
+            _LOGGER.info(
+                f'Creating account data secret {self.data_secret.cert_file}'
+            )
             self.data_secret = self._create_secret(
                 AccountDataSecret, accounts_ca
             )
@@ -175,6 +180,7 @@ class Account:
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 # TODO: Refactor to use RestClientApi
+                _LOGGER.debug(f'Getting CSR signed from {url}')
                 resp = requests.post(url, json=payload)
                 if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
@@ -227,6 +233,7 @@ class Account:
         a directory structure in the document store of the server.
         '''
 
+        _LOGGER.debug('Loading memberships')
         memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
         folders = self.document_store.get_folders(
             memberships_dir, prefix='service-'
@@ -242,6 +249,7 @@ class Account:
         Load the data for a membership of a service
         '''
 
+        _LOGGER.debug(f'Loading membership for service_id: {service_id}')
         if service_id in self.memberships:
             raise ValueError(
                 f'Already a member of service {service_id}'
