@@ -92,9 +92,13 @@ class AwsFileStorage(FileStorage):
         file_desc = super().open(
             filepath, OpenMode.WRITE, file_mode=FileMode.BINARY
         )
-        self.driver.download_fileobj(
-            self.buckets[storage_type.value], key, file_desc
-        )
+        try:
+            self.driver.download_fileobj(
+                self.buckets[storage_type.value], key, file_desc
+            )
+        except boto3.exceptions.botocore.exceptions.ClientError:
+            raise FileNotFoundError(f'AWS file not found: {key}')
+
         super().close(file_desc)
 
         _LOGGER.debug(
