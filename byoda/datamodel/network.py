@@ -62,7 +62,7 @@ class Network:
     MIN_TEST_SERVICE_ID = 4293918720
 
     def __init__(self, server: dict, application: dict,
-                 root_ca: NetworkRootCaSecret = None, bootstrap: bool = True):
+                 root_ca: NetworkRootCaSecret = None):
         '''
         Set up the network
 
@@ -233,7 +233,7 @@ class Network:
             'network': network_name, 'root_dir': root_dir,
             'private_key_password': password, 'roles': ['test']
         }
-        network = Network(network_data, network_data, root_ca, bootstrap=True)
+        network = Network(network_data, network_data, root_ca)
 
         # Root CA, signs Accounts CA, Services CA and
         # Network Data Secret. We don't need a 'Network.ServiceSecret'

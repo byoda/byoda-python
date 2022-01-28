@@ -97,9 +97,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         server.paths = network.paths
 
-        pod_account = Account(
-            network_data['account_id'], network, bootstrap=True
-        )
+        pod_account = Account(network_data['account_id'], network)
         server.account = pod_account
 
         pod_account.create_account_secret()
@@ -163,7 +161,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 0)
+        self.assertEqual(len(data['services']), 2)
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
