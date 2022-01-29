@@ -143,6 +143,9 @@ class Network:
                 try:
                     self.root_ca.load(with_private_key=False)
                 except FileNotFoundError:
+                    _LOGGER.debug(
+                        'Did not find cert for network root CA, downloading it'
+                    )
                     resp = ApiClient.call(
                         Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
                     )
@@ -151,6 +154,7 @@ class Network:
                             'No network cert available locally or from the '
                             'network'
                         )
+                    _LOGGER.debug('Downloaded cert for Network root CA')
                     data = resp.text
                     self.root_ca.from_string(data)
                     self.root_ca.save()
