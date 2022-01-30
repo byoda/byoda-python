@@ -102,10 +102,11 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "CLOUD": "LOCAL",
+                "CLOUD": "AWS",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ROOT_DIR": "/tmp/byoda-tests/podworker",
+                "ACCOUNT_ID": "aaaaaa14-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda",

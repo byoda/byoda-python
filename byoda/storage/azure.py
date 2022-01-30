@@ -21,7 +21,7 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 
 import logging
 from typing import Set, Dict
-
+from tempfile import NamedTemporaryFile
 
 from azure.identity import DefaultAzureCredential
 
@@ -157,11 +157,10 @@ class AzureFileStorage(FileStorage):
                 f'storage {self.buckets[storage_type.value]}: {exc}'
             )
 
-        file_desc = super().open(
-            filepath, OpenMode.WRITE, file_mode=file_mode
-        )
-        file_desc.write(data)
-        super().close(file_desc)
+        openmode = OpenMode.WRITE.value + file_mode.value
+        with NamedTemporaryFile(openmode) as file_desc:
+            file_desc.write(data)
+            super().move(file_desc.name, filepath)
 
         _LOGGER.debug(
             f'Read blob "byoda/{filepath}" for bucket '

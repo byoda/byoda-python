@@ -225,6 +225,16 @@ class FileStorage:
             )
         return exists
 
+    def move(self, src_filepath: str, dest_filepath: str):
+        '''
+        Moves the file to the destination file
+        :param src_filepath: full path + file name of the source file
+        :param dest_filepath: full path + file name of the destination file
+        :raises: FileNotFoundError, PermissionError
+        '''
+
+        shutil.move(src_filepath, dest_filepath)
+
     def delete(self, filepath: str) -> bool:
         '''
         Delete the file from the local file system
@@ -236,7 +246,7 @@ class FileStorage:
         try:
             if filename:
                 try:
-                    os.remove(dirpath + filename)
+                    os.remove(dirpath + '/' + filename)
                 except IsADirectoryError:
                     shutil.rmtree(dirpath, ignore_errors=True)
             else:

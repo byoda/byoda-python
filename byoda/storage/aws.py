@@ -11,6 +11,7 @@ The profile server uses noSQL storage for profile data
 
 import logging
 from typing import Set
+from tempfile import NamedTemporaryFile
 
 import boto3
 
@@ -75,6 +76,7 @@ class AwsFileStorage(FileStorage):
         :param file_mode: is the data in the file text or binary
         :param storage_type: use bucket for private or public storage
         :returns: array as str or bytes with the data read from the file
+        :raises: FileNotFoundError, PermissionError, OSError
         '''
 
         try:
@@ -89,17 +91,15 @@ class AwsFileStorage(FileStorage):
 
         key = self._get_key(filepath)
 
-        file_desc = super().open(
-            filepath, OpenMode.WRITE, file_mode=FileMode.BINARY
-        )
-        try:
-            self.driver.download_fileobj(
-                self.buckets[storage_type.value], key, file_desc
-            )
-        except boto3.exceptions.botocore.exceptions.ClientError:
-            raise FileNotFoundError(f'AWS file not found: {key}')
-
-        super().close(file_desc)
+        openmode = OpenMode.WRITE.value + file_mode.value
+        with NamedTemporaryFile(openmode) as file_desc:
+            try:
+                self.driver.download_fileobj(
+                    self.buckets[storage_type.value], key, file_desc
+                )
+                super().move(file_desc.name, filepath)
+            except boto3.exceptions.botocore.exceptions.ClientError:
+                raise FileNotFoundError(f'AWS file not found: {key}')
 
         _LOGGER.debug(
             f'Read {key} from AWS S3 and saved it to {filepath}'
