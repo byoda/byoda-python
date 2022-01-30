@@ -228,12 +228,15 @@ class FileStorage:
     def move(self, src_filepath: str, dest_filepath: str):
         '''
         Moves the file to the destination file
-        :param src_filepath: full path + file name of the source file
-        :param dest_filepath: full path + file name of the destination file
+        :param src_filepath: absolute full path + file name of the source file
+        :param dest_filepath: full path + file name of the destination file relative
+        to the root directory
         :raises: FileNotFoundError, PermissionError
         '''
 
-        shutil.move(src_filepath, dest_filepath)
+        dirpath, filename = self.get_full_path(dest_filepath, create_dir=False)
+
+        shutil.move(src_filepath, dirpath + filename)
 
     def delete(self, filepath: str) -> bool:
         '''
