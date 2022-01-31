@@ -155,8 +155,7 @@ class Network:
                             'network'
                         )
                     _LOGGER.debug('Downloaded cert for Network root CA')
-                    data = resp.text
-                    self.root_ca.from_string(data)
+                    self.root_ca.from_string(resp.text)
                     self.root_ca.save()
 
             if not self.data_secret.cert:

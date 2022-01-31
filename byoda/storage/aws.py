@@ -98,12 +98,11 @@ class AwsFileStorage(FileStorage):
                     self.buckets[storage_type.value], key, file_desc
                 )
                 super().move(file_desc.name, filepath)
+                _LOGGER.debug(
+                    f'Read {key} from AWS S3 and saved it to {filepath}'
+                )
             except boto3.exceptions.botocore.exceptions.ClientError:
                 raise FileNotFoundError(f'AWS file not found: {key}')
-
-        _LOGGER.debug(
-            f'Read {key} from AWS S3 and saved it to {filepath}'
-        )
 
         data = super().read(filepath, file_mode)
 
