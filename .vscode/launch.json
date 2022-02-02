@@ -70,7 +70,7 @@
             }
         },
         {
-            "name": "podserver LOCAL",
+            "name": "podserver AWS",
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
@@ -84,19 +84,20 @@
             "jinja": true,
             "justMyCode": true,
             "env": {
-                "CLOUD": "LOCAL",
+                "CLOUD": "AWS",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
                 "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
+                "ROOT_DIR": "/tmp/byoda-tests/podworker",
                 "PRIVATE_KEY_SECRET": "byoda",
                 "BOOTSTRAP": "BOOTSTRAP"
             }
         },
         {
             "program": "podserver/podworker.py",
-            "name": "podworker",
+            "name": "podworker AWS",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",

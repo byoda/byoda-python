@@ -236,7 +236,7 @@ class FileStorage:
 
         dirpath, filename = self.get_full_path(dest_filepath, create_dir=False)
 
-        shutil.move(src_filepath, dirpath + filename)
+        shutil.move(src_filepath, dirpath + '/' + filename)
 
     def delete(self, filepath: str) -> bool:
         '''
@@ -300,12 +300,13 @@ class FileStorage:
         dest_dirpath, dest_filename = self.get_full_path(dest)
 
         result = shutil.copyfile(
-            src_dirpath + src_filename, dest_dirpath + '/' + dest_filename
+            src_dirpath + '/' + src_filename,
+            dest_dirpath + '/' + dest_filename
         )
 
         _LOGGER.debug(
-            f'Copied {src_dirpath}{src_filename} to '
-            f'{dest_dirpath}{dest_filename} on the local file system: {result}'
+            f'Copied {src_dirpath}/{src_filename} to '
+            f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
         )
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:

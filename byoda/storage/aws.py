@@ -9,6 +9,7 @@ The profile server uses noSQL storage for profile data
 :license    : GPLv3
 '''
 
+import os
 import logging
 from typing import Set
 from tempfile import NamedTemporaryFile
@@ -92,8 +93,9 @@ class AwsFileStorage(FileStorage):
         key = self._get_key(filepath)
 
         openmode = OpenMode.WRITE.value + file_mode.value
-        with NamedTemporaryFile(openmode) as file_desc:
-            try:
+
+        try:
+            with NamedTemporaryFile(openmode, dir=self.cache_path) as file_desc:
                 self.driver.download_fileobj(
                     self.buckets[storage_type.value], key, file_desc
                 )
@@ -101,8 +103,11 @@ class AwsFileStorage(FileStorage):
                 _LOGGER.debug(
                     f'Read {key} from AWS S3 and saved it to {filepath}'
                 )
-            except boto3.exceptions.botocore.exceptions.ClientError:
-                raise FileNotFoundError(f'AWS file not found: {key}')
+        except boto3.exceptions.botocore.exceptions.ClientError:
+            raise FileNotFoundError(f'AWS file not found: {key}')
+        except FileNotFoundError:
+            # Caused by file deletion by NamedTemporaryFile
+            pass
 
         data = super().read(filepath, file_mode)
 
@@ -242,8 +247,12 @@ class AwsFileStorage(FileStorage):
         )
         folders = set()
         for folder in result.get('CommonPrefixes', []):
-            final_path = folder['Prefix'].rstrip('/').split('/')[-1]
+            path = folder['Prefix'].rstrip('/')
+            if folder_path:
+                path = path[len(folder_path):]
+
+            final_path = path.split('/')[-1]
             if not prefix or final_path.startswith(prefix):
-                folders.add(folder['Prefix'])
+                folders.add(final_path)
 
         return folders
