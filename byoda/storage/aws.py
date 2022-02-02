@@ -9,7 +9,6 @@ The profile server uses noSQL storage for profile data
 :license    : GPLv3
 '''
 
-import os
 import logging
 from typing import Set
 from tempfile import NamedTemporaryFile
@@ -95,7 +94,8 @@ class AwsFileStorage(FileStorage):
         openmode = OpenMode.WRITE.value + file_mode.value
 
         try:
-            with NamedTemporaryFile(openmode, dir=self.cache_path) as file_desc:
+            with NamedTemporaryFile(openmode, dir=self.cache_path
+                                    ) as file_desc:
                 self.driver.download_fileobj(
                     self.buckets[storage_type.value], key, file_desc
                 )

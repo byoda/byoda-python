@@ -61,7 +61,7 @@ class Account:
             try:
                 self.account_id: UUID = UUID(account_id)
             except ValueError:
-                raise (f'AccountID {account_id} is not a valid UUID')
+                raise ValueError(f'AccountID {account_id} is not a valid UUID')
 
         self.document_store: DocumentStore = None
         if hasattr(config.server, 'document_store'):

@@ -15,11 +15,12 @@ Azure rights to assign:
 :license    : GPLv3
 '''
 
-import os
 import logging
 from typing import Set, Dict
 
 from google.cloud import storage
+from google.api_core import exceptions as gcp_exceptions
+
 from google.cloud.storage.bucket import Bucket
 from google.cloud.storage.blob import Blob
 
@@ -46,13 +47,6 @@ class GcpFileStorage(FileStorage):
         cache_path is specified, a local cache will not be used. This is the
         configuration to use when running multiple pods in parallel
         '''
-
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            raise ValueError(
-                'GCP requires environment variable '
-                '"GOOGLE_APPLICATION_CREDENTIALS" to point file with '
-                'credentials'
-            )
 
         super().__init__(cache_path, cloud_type=CloudType.GCP)
 
@@ -107,7 +101,6 @@ class GcpFileStorage(FileStorage):
         :returns: array as str or bytes with the data read from the file
         '''
 
-        blob = self._get_blob_client(filepath, storage_type)
 
         try:
             if storage_type == StorageType.PRIVATE and self.cache_enabled:
@@ -117,7 +110,15 @@ class GcpFileStorage(FileStorage):
         except FileNotFoundError:
             pass
 
-        data = blob.download_as_bytes()
+        blob = self._get_blob_client(filepath, storage_type)
+
+        try:
+            data = blob.download_as_bytes()
+        except gcp_exceptions.NotFound as exc:
+            raise FileNotFoundError(
+                f'GCP bucket client could not find {filepath}: {exc}'
+            )
+
 
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
             super().write(filepath, data, file_mode)
@@ -142,6 +143,9 @@ class GcpFileStorage(FileStorage):
         '''
 
         blob = self._get_blob_client(filepath, storage_type)
+
+        if isinstance(data, str):
+            data = data.encode('utf-8')
 
         with blob.open(f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
