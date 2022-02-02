@@ -157,15 +157,11 @@ class AzureFileStorage(FileStorage):
                 f'storage {self.buckets[storage_type.value]}: {exc}'
             )
 
-        openmode = OpenMode.WRITE.value + file_mode.value
-        with NamedTemporaryFile(openmode) as file_desc:
-            file_desc.write(data)
-            super().move(file_desc.name, filepath)
-
-        _LOGGER.debug(
-            f'Read blob "byoda/{filepath}" for bucket '
-            f'{self.buckets[storage_type.value]}'
+        file_desc = super().open(
+            filepath, OpenMode.WRITE, file_mode=file_mode
         )
+        file_desc.write(data)
+        super().close(file_desc)
 
         return data
 
