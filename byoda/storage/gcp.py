@@ -278,7 +278,8 @@ class GcpFileStorage(FileStorage):
             if '/' in path:
                 folder = path[:path.index('/') + 1]
                 if not prefix or folder.startswith(prefix):
-                    folders.add(folder)
+                    # GCP appends '/' to folders
+                    folders.add(folder.rstrip('/'))
 
         if prefix:
             _LOGGER.debug(
