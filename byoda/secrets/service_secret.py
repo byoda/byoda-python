@@ -93,7 +93,9 @@ class ServiceSecret(Secret):
 
         service_id = int(service_id)
         if not isinstance(network, str):
-            raise ('Network parameter must be a string')
+            raise TypeError(
+                f'Network parameter must be a string, not a {type(network)}'
+            )
 
         common_name = f'service.{IdType.SERVICE.value}{service_id}.{network}'
 

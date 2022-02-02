@@ -105,7 +105,7 @@ class TestDirectoryApis(unittest.TestCase):
         )
 
         config.server = ServiceServer(cls.APP_CONFIG)
-        
+
         config.server.load_secrets(
             cls.APP_CONFIG['svcserver']['private_key_password']
         )

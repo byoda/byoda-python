@@ -87,7 +87,9 @@ class AccountSecret(Secret):
             account_id = UUID(account_id)
 
         if not isinstance(network, str):
-            raise ('Network parameter must be a string')
+            raise TypeError(
+                f'Network parameter must be a string, not a {type(network)}'
+            )
 
         fqdn = f'{account_id}.{IdType.ACCOUNT.value}.{network}'
 
