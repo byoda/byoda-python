@@ -58,7 +58,7 @@ class FileStorage:
             for filename in os.listdir(self.cache_path):
                 filepath = os.path.join(self.cache_path, filename)
                 if os.path.isdir(filepath):
-                    shutil.rmtree(filepath)
+                    shutil.rmtree(filepath, ignore_errors=True)
 
         else:
             if not local_path:
@@ -225,6 +225,19 @@ class FileStorage:
             )
         return exists
 
+    def move(self, src_filepath: str, dest_filepath: str):
+        '''
+        Moves the file to the destination file
+        :param src_filepath: absolute full path + file name of the source file
+        :param dest_filepath: full path + file name of the destination file relative
+        to the root directory
+        :raises: FileNotFoundError, PermissionError
+        '''
+
+        dirpath, filename = self.get_full_path(dest_filepath, create_dir=False)
+
+        shutil.move(src_filepath, dirpath + '/' + filename)
+
     def delete(self, filepath: str) -> bool:
         '''
         Delete the file from the local file system
@@ -236,7 +249,7 @@ class FileStorage:
         try:
             if filename:
                 try:
-                    os.remove(dirpath + filename)
+                    os.remove(dirpath + '/' + filename)
                 except IsADirectoryError:
                     shutil.rmtree(dirpath, ignore_errors=True)
             else:
@@ -287,12 +300,13 @@ class FileStorage:
         dest_dirpath, dest_filename = self.get_full_path(dest)
 
         result = shutil.copyfile(
-            src_dirpath + src_filename, dest_dirpath + '/' + dest_filename
+            src_dirpath + '/' + src_filename,
+            dest_dirpath + '/' + dest_filename
         )
 
         _LOGGER.debug(
-            f'Copied {src_dirpath}{src_filename} to '
-            f'{dest_dirpath}{dest_filename} on the local file system: {result}'
+            f'Copied {src_dirpath}/{src_filename} to '
+            f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
         )
 
     def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:

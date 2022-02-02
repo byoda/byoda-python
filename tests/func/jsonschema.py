@@ -204,9 +204,7 @@ class TestJsonSchema(unittest.TestCase):
         server.paths = network.paths
 
         account_id = uuid4()
-        pod_account = Account(
-            account_id, network, bootstrap=True
-        )
+        pod_account = Account(account_id, network)
         server.account = pod_account
 
         # We can't join the service as it doesn't exist in the network

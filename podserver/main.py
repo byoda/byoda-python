@@ -81,7 +81,7 @@ server.get_registered_services()
 
 # TODO: if we have a pod secret, should we compare its commonname with the
 # account_id environment variable?
-pod_account = Account(network_data['account_id'], network, bootstrap=False)
+pod_account = Account(network_data['account_id'], network)
 pod_account.tls_secret.load(password=pod_account.private_key_password)
 pod_account.data_secret.load(password=pod_account.private_key_password)
 pod_account.register()

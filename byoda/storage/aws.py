@@ -9,8 +9,10 @@ The profile server uses noSQL storage for profile data
 :license    : GPLv3
 '''
 
+import os
 import logging
 from typing import Set
+from tempfile import NamedTemporaryFile
 
 import boto3
 
@@ -75,6 +77,7 @@ class AwsFileStorage(FileStorage):
         :param file_mode: is the data in the file text or binary
         :param storage_type: use bucket for private or public storage
         :returns: array as str or bytes with the data read from the file
+        :raises: FileNotFoundError, PermissionError, OSError
         '''
 
         try:
@@ -89,17 +92,22 @@ class AwsFileStorage(FileStorage):
 
         key = self._get_key(filepath)
 
-        file_desc = super().open(
-            filepath, OpenMode.WRITE, file_mode=FileMode.BINARY
-        )
-        self.driver.download_fileobj(
-            self.buckets[storage_type.value], key, file_desc
-        )
-        super().close(file_desc)
+        openmode = OpenMode.WRITE.value + file_mode.value
 
-        _LOGGER.debug(
-            f'Read {key} from AWS S3 and saved it to {filepath}'
-        )
+        try:
+            with NamedTemporaryFile(openmode, dir=self.cache_path) as file_desc:
+                self.driver.download_fileobj(
+                    self.buckets[storage_type.value], key, file_desc
+                )
+                super().move(file_desc.name, filepath)
+                _LOGGER.debug(
+                    f'Read {key} from AWS S3 and saved it to {filepath}'
+                )
+        except boto3.exceptions.botocore.exceptions.ClientError:
+            raise FileNotFoundError(f'AWS file not found: {key}')
+        except FileNotFoundError:
+            # Caused by file deletion by NamedTemporaryFile
+            pass
 
         data = super().read(filepath, file_mode)
 
@@ -239,8 +247,12 @@ class AwsFileStorage(FileStorage):
         )
         folders = set()
         for folder in result.get('CommonPrefixes', []):
-            final_path = folder['Prefix'].rstrip('/').split('/')[-1]
+            path = folder['Prefix'].rstrip('/')
+            if folder_path:
+                path = path[len(folder_path):]
+
+            final_path = path.split('/')[-1]
             if not prefix or final_path.startswith(prefix):
-                folders.add(folder['Prefix'])
+                folders.add(final_path)
 
         return folders
