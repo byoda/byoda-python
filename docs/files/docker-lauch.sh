@@ -31,7 +31,9 @@ fi
 
 SYSTEM_MFCT=$(sudo dmidecode -t system | grep Manufacturer)
 SYSTEM_VERSION=$(sudo dmidecode -t system | grep Version)
-echo "System manufacturer: ${SYSTEM_MFCT}, version: ${SYSTEM_VERSION}"
+echo "System info:"
+echo "    ${SYSTEM_MFCT}"
+echo "    ${SYSTEM_VERSION}"
 
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure

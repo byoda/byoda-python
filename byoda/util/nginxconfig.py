@@ -96,7 +96,7 @@ class NginxConfig(TargetConfig):
 
         return os.path.exists(self.config_filepath)
 
-    def create(self, password: str = 'byoda'):
+    def create(self, htaccess_password: str = 'byoda'):
         '''
         Creates the nginx virtual server configuration file. Also
         creates a 'htaccess' file that restricts access to the
@@ -131,11 +131,13 @@ class NginxConfig(TargetConfig):
         if self.subdomain == IdType.ACCOUNT.value:
             # We also create a htpasswd file
             if not os.path.exists(HTACCESS_FILE):
+                # Create an empty HTACCESS file
                 open(HTACCESS_FILE, 'w')
 
             with htpasswd.Basic(HTACCESS_FILE, mode='md5') as userdb:
                 try:
-                    userdb.add(self.identifier.split('-')[0], password)
+                    username = self.identifier.split('-')[0]
+                    userdb.add(username, htaccess_password)
                 except UserExists:
                     pass
             _LOGGER.debug('Created htaccess.db file')

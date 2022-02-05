@@ -106,7 +106,7 @@ nginx_config = NginxConfig(
     root_dir=server.network.paths.root_directory()
 )
 
-nginx_config.create()
+nginx_config.create(htaccess_password=network_data.get('account_secret'))
 nginx_config.reload()
 
 app = setup_api(

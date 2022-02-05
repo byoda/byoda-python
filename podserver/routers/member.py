@@ -40,8 +40,11 @@ def get_member(request: Request, service_id: int,
 
     account = config.server.account
 
+    # Make sure we have the latest updates of memberships
     account.load_memberships()
+
     member = account.memberships.get(service_id)
+
     if not member:
         raise HTTPException(
             status_code=404,
@@ -64,7 +67,11 @@ def post_member(request: Request, service_id: int, version: int,
 
     account = config.server.account
 
+    # Make sure we have the latest updates of memberships
+    account.load_memberships()
+
     member = account.memberships.get(service_id)
+
     if member:
         raise HTTPException(
             status_code=409,
