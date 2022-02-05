@@ -25,7 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
-@router.get('/member/service_id/{service_id}', response_model=MemberResponseModel)
+@router.get(
+    '/member/service_id/{service_id}',
+    response_model=MemberResponseModel
+)
 def get_member(request: Request, service_id: int,
                auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
@@ -37,6 +40,7 @@ def get_member(request: Request, service_id: int,
 
     account = config.server.account
 
+    account.load_memberships()
     member = account.memberships.get(service_id)
     if not member:
         raise HTTPException(

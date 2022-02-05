@@ -165,13 +165,22 @@ class Member:
 
     @staticmethod
     def create(service: Service, schema_version: int,
-               account: Account, members_ca: MembersCaSecret = None):
+               account: Account, member_id: UUID = None,
+               members_ca: MembersCaSecret = None):
         '''
         Factory for a new membership
         '''
 
         member = Member(service.service_id, account)
-        member.member_id = uuid4()
+        if member_id:
+            if isinstance(member_id, str):
+                member.member_id = UUID(member_id)
+            elif isinstance(member_id, UUID):
+                member.member_id = member_id
+            else:
+                raise ValueError(f'member_id {member_id} must have type UUID')
+        else:
+            member.member_id = uuid4()
 
         # member.create_secrets(members_ca=members_ca)
 

@@ -60,9 +60,9 @@ class PodServer(Server):
         url = network.paths.get(Paths.NETWORKSERVICES_API)
         response = RestApiClient.call(url)
 
+        self.network.service_summaries = dict()
         if response.status_code == 200:
             summaries = response.json()
-            self.network.service_summaries = dict()
             for summary in summaries.get('service_summaries', []):
                 self.network.service_summaries[summary['service_id']] = summary
             _LOGGER.debug(

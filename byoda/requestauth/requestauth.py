@@ -34,6 +34,8 @@ from byoda.secrets import (
 
 from byoda.exceptions import MissingAuthInfo
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -317,6 +319,18 @@ class RequestAuth():
                     f'{network.name}'
                 )
             ) from exc
+
+        # Check that the account cert is for our account
+        account = config.server.account
+
+        if account.account_id != self.account_id:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    'Received request with cert with incorrect account_id in '
+                    f'CN: {self.account_id}. Expected: {account.account_id}'
+                )
+            )
 
     def check_member_cert(self, service_id: int, network: Network) -> None:
         '''

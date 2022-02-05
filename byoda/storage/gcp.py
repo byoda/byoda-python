@@ -101,7 +101,6 @@ class GcpFileStorage(FileStorage):
         :returns: array as str or bytes with the data read from the file
         '''
 
-
         try:
             if storage_type == StorageType.PRIVATE and self.cache_enabled:
                 data = super().read(filepath, file_mode)
@@ -118,7 +117,6 @@ class GcpFileStorage(FileStorage):
             raise FileNotFoundError(
                 f'GCP bucket client could not find {filepath}: {exc}'
             )
-
 
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
             super().write(filepath, data, file_mode)
@@ -290,6 +288,6 @@ class GcpFileStorage(FileStorage):
             _LOGGER.debug(
                 f'Found {len(folders)} blobs under {folder_path} in '
                 f'GCP bucket {bucket.name}'
-        )
+            )
 
         return folders

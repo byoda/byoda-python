@@ -78,16 +78,16 @@ class PodRequestAuth(RequestAuth):
                 )
 
         # This API can be called by ourselves, someone in our network for
-        # the service, the services or an approved application of the service
+        # the service, the service or an approved application of the service
         if self.id_type == IdType.ACCOUNT:
-            if service_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        'Service ID specified for request authenticated '
-                        'with an account secret'
-                    )
-                )
+            # if service_id:
+            #    raise HTTPException(
+            #        status_code=400,
+            #        detail=(
+            #            'Service ID specified for request authenticated '
+            #            'with an account secret'
+            #        )
+            #    )
             self.check_account_cert(config.server.network)
         elif self.id_type == IdType.MEMBER:
             self.check_member_cert(service_id, config.server.network)
