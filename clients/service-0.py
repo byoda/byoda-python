@@ -77,7 +77,7 @@ def main(argv):
     member_dir = f'{account_dir}/service-{args.service_id}'
 
     root_ca_cert = f'{network_dir}/network-{args.network}-root-ca-cert.pem'
-    account_cert_file = f'{account_dir}/pod-cert.pem'
+    # account_cert_file = f'{account_dir}/pod-cert.pem'
     member_cert_file = (
         f'{member_dir}/network-{args.network}-'
         f'member-{args.service_id}-cert.pem'

@@ -206,6 +206,7 @@ class Paths:
 
         return directory
 
+    @property
     def root_directory(self):
         return self.get(self._root_directory)
 

@@ -116,6 +116,18 @@
             }
         },
         {
+            "program": "svcserver/svcworker.py",
+            "name": "svcworker: addressbook",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CONFIG_FILE": "config-addressbook.yml",
+                "PYTHONPATH": "/home/steven/src/byoda-python"
+            }
+        },
+        {
             "program": "tools/call_graphql.py",
             "name": "call graphql",
             "type": "python",
