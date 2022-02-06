@@ -67,7 +67,7 @@ def search(request: Request, email: str,
 
     member_db: MemberDb = config.server.member_db
 
-    member_id = member_db.kv_cache.get(email)
+    member_id = member_db.kvcache.get(email)
     data = member_db.get_data(UUID(member_id))
 
     return data
