@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 '''
 Worker that performs queries against registered members of
 the service
