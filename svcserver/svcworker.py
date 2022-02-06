@@ -121,9 +121,18 @@ def main():
             endpoint=url, cert=certkey, verify=root_ca_certfile
         )
         result = client.execute(query=CLIENT_QUERY)
+        if result.get('data'):
+            person_data = result['data']['person']
+            server.member_db.set_data(member_id, person_data)
 
+            server.member_db.kvcache.set(person_data['email'], str(member_id))
+        else:
+            _LOGGER.debug(
+                f'GraphQL person query failed against member {member_id}'
+            )
         #
         # and now we wait for the time to process the next client
+        #
         time.sleep(waittime)
 
 
