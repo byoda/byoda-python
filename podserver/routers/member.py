@@ -80,6 +80,7 @@ def post_member(request: Request, service_id: int, version: int,
             )
         )
 
+    # BUG: any additional workers also need to join the service
     member = account.join(service_id, version)
 
     return member.as_dict()
@@ -176,4 +177,5 @@ def put_member(request: Request, service_id: int, version: int,
         new_service = Service.get_service(network)
         network.services[service_id] = new_service
 
+        # BUG: any additional workers also need to join the service
         member.upgrade()
