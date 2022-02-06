@@ -70,7 +70,15 @@ def main():
     )
     config.server = server
     service = server.service
-    unprotected_key_file = service.tls_secret.save_tmp_private_key()
+    try:
+        unprotected_key_file = service.tls_secret.save_tmp_private_key()
+    except PermissionError:
+        _LOGGER.info(
+            'Could not write unprotected key, probably because it '
+            'already exists'
+        )
+        unprotected_key_file = f'/tmp/service-{service.service_id}.key'
+
     certkey = (
         service.paths.root_directory + '/' + service.tls_secret.cert_file,
         unprotected_key_file
