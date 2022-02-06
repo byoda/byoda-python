@@ -52,6 +52,8 @@ _LOGGER = logging.getLogger(__name__)
 Account = TypeVar('Account')
 Network = TypeVar('Network')
 
+GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-'
+
 
 class Member:
     '''
@@ -483,7 +485,10 @@ class Member:
 
         self.app = app
 
-        path = f'/api/v1/data/service-{self.service_id}'
+        # podserver.dependencies.podrequest_auth.PodRequestAuth
+        # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
+        # requests
+        path = GRAPHQL_API_URL_PREFIX + str(self.service_id)
         graphql_app = GraphQLRouter(self.schema.gql_schema)
         app.include_router(graphql_app, prefix=path)
 

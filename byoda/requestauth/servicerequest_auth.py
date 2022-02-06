@@ -59,7 +59,7 @@ class ServiceRequestAuth(RequestAuth):
         # applicable CA and then review if that CA would have signed
         # the commonname found in the certchain presented by the
         # client.
-        self.check_service_cert(service_id, server.network)
+        self.check_service_cert(server.network)
 
         self.is_authenticated = True
 
