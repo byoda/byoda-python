@@ -17,7 +17,6 @@ import sys
 import re
 import argparse
 import subprocess
-import requests
 
 from python_graphql_client import GraphqlClient
 

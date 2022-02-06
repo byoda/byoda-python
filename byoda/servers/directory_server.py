@@ -52,7 +52,7 @@ class DirectoryServer(Server):
         network = self.network
 
         service_dir = network.paths.get(
-            network.paths.root_directory() + '/' + Paths.SERVICES_DIR
+            network.paths.root_directory + '/' + Paths.SERVICES_DIR
         )
 
         services_dirs = [

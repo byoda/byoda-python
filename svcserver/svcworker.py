@@ -75,7 +75,9 @@ def main():
         service.paths.root_directory + '/' + service.tls_secret.cert_file,
         unprotected_key_file
     )
-    root_ca_certfile = f'{service.paths.root_directory}/{service.network.root_ca.cert_file}'
+    root_ca_certfile = (
+        f'{service.paths.root_directory}/{service.network.root_ca.cert_file}'
+    )
 
     if not service.paths.service_file_exists(service.service_id):
         service.download_schema(save=True)

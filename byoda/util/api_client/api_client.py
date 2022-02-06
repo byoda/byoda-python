@@ -73,7 +73,7 @@ class ApiClient:
             if secret:
                 key_path = secret.save_tmp_private_key()
                 cert_filepath = (
-                    server.network.paths.root_directory() + '/' + secret.cert_file
+                    server.network.paths.root_directory + '/' + secret.cert_file
                 )
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_path}'

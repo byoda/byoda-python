@@ -246,7 +246,7 @@ class Member:
             identifier=self.member_id,
             subdomain=f'{IdType.MEMBER.value}{self.service_id}',
             cert_filepath=(
-                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+                self.paths.root_directory + '/' + self.tls_secret.cert_file
             ),
             key_filepath=self.tls_secret.unencrypted_private_key_file,
             alias=self.network.paths.account,
@@ -255,7 +255,7 @@ class Member:
                 StorageType.PUBLIC
             ),
             port=PodServer.HTTP_PORT,
-            root_dir=config.server.network.paths.root_directory()
+            root_dir=config.server.network.paths.root_directory
         )
 
         nginx_config.create()

@@ -9,12 +9,9 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from typing import Optional
 from ipaddress import ip_address as IpAddress
 
-from byoda.config import server
-
-from fastapi import Header, HTTPException
+from fastapi import HTTPException
 
 from byoda.datatypes import HttpRequestMethod
 
