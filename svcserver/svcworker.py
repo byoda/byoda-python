@@ -17,6 +17,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from python_graphql_client import GraphqlClient
+from requests.exceptions import ConnectionError as RequestConnectionError
 
 from byoda.servers.service_server import ServiceServer
 
@@ -128,16 +129,19 @@ def main():
         client = GraphqlClient(
             endpoint=url, cert=certkey, verify=root_ca_certfile
         )
-        result = client.execute(query=CLIENT_QUERY)
-        if result.get('data'):
-            person_data = result['data']['person']
-            server.member_db.set_data(member_id, person_data)
+        try:
+            result = client.execute(query=CLIENT_QUERY)
+            if result.get('data'):
+                person_data = result['data']['person']
+                server.member_db.set_data(member_id, person_data)
 
-            server.member_db.kvcache.set(person_data['email'], str(member_id))
-        else:
-            _LOGGER.debug(
-                f'GraphQL person query failed against member {member_id}'
-            )
+                server.member_db.kvcache.set(person_data['email'], str(member_id))
+            else:
+                _LOGGER.debug(
+                    f'GraphQL person query failed against member {member_id}'
+                )
+        except RequestConnectionError:
+            _LOGGER.debug(f'Failed to connect to {url}')
         #
         # and now we wait for the time to process the next client
         #

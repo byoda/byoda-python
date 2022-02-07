@@ -1,6 +1,6 @@
 Supported clouds: AWS, Azure and GCP
 
-AWS:
+AWS: https://aws.amazon.com/free
 - 12 months free:
   - t2/t3.micro (1core, 1GB)
 - always free:
