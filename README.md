@@ -115,4 +115,4 @@ The main areas of development are:
     - whitelisting CORS Origins for each service
 - Implementing the 'network:+n' construct for the access permissions in the JSON Schema to allow people in your network to query your GraphQL APIs.
 - Improve the support for complex data structures in the data contract.
-- Add API to publish content to the public object storage
+- Add API to upload content to the public object storage
