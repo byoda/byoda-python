@@ -1,6 +1,13 @@
 #!/bin/bash
 
-# set -x
+export BUCKET_PREFIX="changeme"
+export ACCOUNT_SECRET="changeme"
+export PRIVATE_KEY_SECRET="changeme"
+
+if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
+    echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
+    exit 1
+fi
 
 DOCKER=$(which docker)
 
@@ -53,6 +60,9 @@ export ROOT_DIR=/byoda
 export LOGLEVEL=DEBUG
 export BOOTSTRAP=BOOTSTRAP
 
+export LOGDIR=/var/www/wwwroot/logs
+sudo mkdir -p ${LOGDIR}
+
 sudo docker stop byoda
 sudo docker rm byoda
 # sudo docker rmi byoda/byoda-pod:latest
@@ -64,14 +74,14 @@ sudo docker run -d \
     --name byoda \
     -p 443:443 -p 2222:22 -p ${PORT}:${PORT} \
     -e "CLOUD=${CLOUD}" \
-    -e "BUCKET_PREFIX=byoda" \
+    -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
-    -e "ACCOUNT_SECRET=supersecret" \
+    -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
     -e "LOGLEVEL=${LOGLEVEL}" \
-    -e "PRIVATE_KEY_SECRET=byoda" \
-    -e "PYTHONPATH=/home/steven/src/byoda-python" \
+    -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=${ROOT_DIR}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
+    -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
