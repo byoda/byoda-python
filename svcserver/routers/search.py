@@ -73,5 +73,5 @@ def search(request: Request, email: str,
     data = member_db.get_data(UUID(member_id))
 
     data['member_id'] = member_id
-    
+
     return data
