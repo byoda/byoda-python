@@ -1,7 +1,7 @@
 # Bring your own data & algorithms
 
 ## Intro
-Byoda is a mew and radically different social media platform:
+Byoda is a new and radically different social media platform:
 - Your data is stored in your own data pod.
 - Access to your data is controlled by a data contract and is enforced by your pod.
 - You can select the algorithm(s) that generate your content feed for you.
@@ -48,8 +48,61 @@ chmod 755 docker-launch.sh
 
 **Congratulations, you now have a running pod that is member of the byoda.net network!** <br>
 The logs of the pod are stored in /var/www/wwwroot/logs. This directory is volume-mounted in the pod. The certs and data files are stored under /byoda, which is also volume-mounted in the pod.<br>
-The 'directory server' for byoda.net creates a DNS record for each pod based on the ACCOUNT_ID of the pod, which is stored in the ~/.byoda-account_id file on your VM/server. The FQDN is '<ACCOUNT_ID>.accounts.byoda.net'. You can log to the web-interface of the pod in using basic auth to the pod using the account FQDN. You can use it to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script.<br>
+The 'directory server' for byoda.net creates a DNS record for each pod based on the ACCOUNT_ID of the pod. The ACCOUNT_ID is stored in the ~/.byoda-account_id file on your VM/server. The FQDN is '<ACCOUNT_ID>.accounts.byoda.net'. You can log into the web-interface of the pod using basic auth via the account FQDN. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod. <br>
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. We can use _curl_ to our pod to join the service:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. We can use _curl_ to our pod to join the address book service. Copy the [setenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/docker-lauch.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+```
+source setenv.sh
+```
+Now we can use curl to get the list of services the pod has discovered in the network:
+```
+curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+    https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+```
+
+We can make our pod join the address book service:
+```
+curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+    https://$MEMBER_PRIV_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
+```
+
+We can confirm that our pod has joined the service with:
+```
+curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+    https://$MEMBER_ADDR_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
+```
+
+And we can enter our data for the address book service after we fill in our data for the various fields to replace the placeholders between '<>':
+```
+curl -s -X POST -H 'content-type: application/json' \
+    --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+    https://$MEMBER_PRIV_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    --data '{"query": "mutation { mutate_person( given_name: \"<your given name>\", additional_names: \"\", family_name: \"<your family name>\", email: \"<your email address>\", homepage_url: \"<your homepage>\", avatar_url: \"\") { given_name additional_names family_name email homepage_url avatar_url } }" }'
+```
+To confirm that the pod now really has the data for your membership of the address book service:
+```
+curl -s -X POST -H 'content-type: application/json' \
+    --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+    https://$MEMBER_PRIV_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    --data '{"query": "query {person {given_name additional_names family_name email homepage_url avatar_url}}"}'
+```
+It will take a while for the address book service to retrieve your data from your pod and make it available from its search API. The address book service queries a pod every 10 seconds so the exact time depends on how many people have joined the service. In the mean time, you can call the search API to find the member_id of my email address: steven@byoda.org
+```
+curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/steven@byoda.org  | jq .
+```
+Let's note the member_id from the output of the previous command and tell your pod to add me as your friend:
+```
+curl -s -X POST -H 'content-type: application/json' \
+    --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    --data '{"query": "mutation { append_network_links( member_id: \"2eb0c68c-bb35-4595-930d-0c46e19a9e95\", relation: \"friend\", timestamp: \"2022-02-07T03:30:27.180230+00:00\") {  member_id relation timestamp } }" }' | jq .
+```
+Now let's see who your friends are in the membership for the address book service in your pod:
+```
+curl -s -X POST -H 'content-type: application/json' \
+    --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    --data '{"query": "query {network_links {member_id relation timestamp}}" }' | jq .
 ```
