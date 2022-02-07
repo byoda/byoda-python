@@ -320,10 +320,11 @@ class RequestAuth():
                 )
             ) from exc
 
-        # Check that the account cert is for our account
+        # Check that the account cert is for our account. On the directory server
+        # the Account instance will be None
         account = config.server.account
 
-        if account.account_id != self.account_id:
+        if account and account.account_id != self.account_id:
             raise HTTPException(
                 status_code=403,
                 detail=(
