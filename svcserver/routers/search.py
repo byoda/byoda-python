@@ -64,7 +64,7 @@ def search(request: Request, email: str,
 
     member_db: MemberDb = config.server.member_db
 
-    member_id = member_db.kvcache.get(email)
+    member_id = str(member_db.kvcache.get(email))
     _LOGGER.debug(
         f'GET Search API called from {request.client.host} for email {email}, '
         f'found {member_id}'
