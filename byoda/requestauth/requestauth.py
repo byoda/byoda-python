@@ -320,8 +320,8 @@ class RequestAuth():
                 )
             ) from exc
 
-        # Check that the account cert is for our account. On the directory server
-        # the Account instance will be None
+        # Check that the account cert is for our account. On the directory
+        # server the Account instance will be None
         account = config.server.account
 
         if account and account.account_id != self.account_id:
@@ -372,7 +372,8 @@ class RequestAuth():
                 )
             ) from exc
 
-    def check_service_cert(self, network: Network, service_id: int = None) -> None:
+    def check_service_cert(self, network: Network, service_id: int = None
+                           ) -> None:
         '''
         Checks if the MTLS client certificate was signed the cert chain
         for members of the service
