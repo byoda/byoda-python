@@ -55,7 +55,7 @@ def get_account(request: Request,
     else:
         bootstrap = False
 
-    root_directory = account.paths.root_directory()
+    root_directory = account.paths.root_directory
 
     services = []
     for service in network.service_summaries.values():

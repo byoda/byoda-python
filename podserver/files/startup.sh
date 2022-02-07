@@ -26,7 +26,9 @@ cd /podserver/byoda-python
 pipenv run podserver/podworker.py
 
 if [ "${WORKERS}" = "" ]; then
-    WORKERS=2
+    # BUG: multiple workers will not pick up on new memberships
+    # so we set workers to 1
+    WORKERS=1
 fi
 
 pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app

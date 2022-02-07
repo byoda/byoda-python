@@ -131,7 +131,6 @@ def put_member(request: Request, schema_version: int,
     network = config.server.network
     service = config.server.service
 
-    # BUG: need to support some older versions as well
     if service.service_id != auth.service_id:
         _LOGGER.debug(
             f'Service ID {service.service_id} of PUT call does not match '

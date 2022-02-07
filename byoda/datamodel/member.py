@@ -52,6 +52,8 @@ _LOGGER = logging.getLogger(__name__)
 Account = TypeVar('Account')
 Network = TypeVar('Network')
 
+GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-'
+
 
 class Member:
     '''
@@ -165,13 +167,22 @@ class Member:
 
     @staticmethod
     def create(service: Service, schema_version: int,
-               account: Account, members_ca: MembersCaSecret = None):
+               account: Account, member_id: UUID = None,
+               members_ca: MembersCaSecret = None):
         '''
         Factory for a new membership
         '''
 
         member = Member(service.service_id, account)
-        member.member_id = uuid4()
+        if member_id:
+            if isinstance(member_id, str):
+                member.member_id = UUID(member_id)
+            elif isinstance(member_id, UUID):
+                member.member_id = member_id
+            else:
+                raise ValueError(f'member_id {member_id} must have type UUID')
+        else:
+            member.member_id = uuid4()
 
         # member.create_secrets(members_ca=members_ca)
 
@@ -237,7 +248,7 @@ class Member:
             identifier=self.member_id,
             subdomain=f'{IdType.MEMBER.value}{self.service_id}',
             cert_filepath=(
-                self.paths.root_directory() + '/' + self.tls_secret.cert_file
+                self.paths.root_directory + '/' + self.tls_secret.cert_file
             ),
             key_filepath=self.tls_secret.unencrypted_private_key_file,
             alias=self.network.paths.account,
@@ -246,7 +257,7 @@ class Member:
                 StorageType.PUBLIC
             ),
             port=PodServer.HTTP_PORT,
-            root_dir=config.server.network.paths.root_directory()
+            root_dir=config.server.network.paths.root_directory
         )
 
         nginx_config.create()
@@ -474,7 +485,10 @@ class Member:
 
         self.app = app
 
-        path = f'/api/v1/data/service-{self.service_id}'
+        # podserver.dependencies.podrequest_auth.PodRequestAuth
+        # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
+        # requests
+        path = GRAPHQL_API_URL_PREFIX + str(self.service_id)
         graphql_app = GraphQLRouter(self.schema.gql_schema)
         app.include_router(graphql_app, prefix=path)
 

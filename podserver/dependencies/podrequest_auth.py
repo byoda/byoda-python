@@ -13,12 +13,14 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, Request
 
-from byoda import config
-
+from byoda.datamodel.member import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import MissingAuthInfo
+
+from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,21 +80,38 @@ class PodRequestAuth(RequestAuth):
                 )
 
         # This API can be called by ourselves, someone in our network for
-        # the service, the services or an approved application of the service
+        # the service, the service or an approved application of the service
         if self.id_type == IdType.ACCOUNT:
-            if service_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        'Service ID specified for request authenticated '
-                        'with an account secret'
-                    )
-                )
+            # if service_id:
+            #    raise HTTPException(
+            #        status_code=400,
+            #        detail=(
+            #            'Service ID specified for request authenticated '
+            #            'with an account secret'
+            #        )
+            #    )
             self.check_account_cert(config.server.network)
         elif self.id_type == IdType.MEMBER:
             self.check_member_cert(service_id, config.server.network)
         elif self.id_type == IdType.SERVICE:
-            self.check_service_cert(service_id, config.server.network)
+            url_path = request.url.path
+            if not url_path.startswith(GRAPHQL_API_URL_PREFIX):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        'Service credentials can not be used for API '
+                        f'{url_path}'
+                    )
+                )
+
+            try:
+                service_id = int(url_path[len(GRAPHQL_API_URL_PREFIX):])
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f'Invalid GraphQL API path: {url_path}'
+                )
+            self.check_service_cert(config.server.network, service_id)
         else:
             raise HTTPException(
                 status_code=400, detail=f'Unknown IdType: {self.id_type}'

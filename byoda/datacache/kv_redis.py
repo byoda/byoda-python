@@ -84,8 +84,10 @@ class KVRedis(KVCache):
         _LOGGER.debug(f'Got value {value} for key {key}')
         if isinstance(value, bytes):
             data = value.decode('utf-8')
+            _LOGGER.debug(f'Converted data to string: {data}')
             if len(data) > 1 and data[0] == '{' and data[-1] == '}':
                 try:
+                    _LOGGER.debug('Attempting to deserialize JSON data')
                     data = json.loads(value)
                     value = data
                 except JSONDecodeError:

@@ -54,6 +54,13 @@ BASE_URL = 'http://localhost:{PORT}/api'
 _LOGGER = None
 
 
+def get_test_uuid():
+    id = str(uuid4())
+    id = 'aaaaaaaa' + id[8:]
+    id = UUID(id)
+    return id
+
+
 class TestDirectoryApis(unittest.TestCase):
     PROCESS = None
     APP_CONFIG = None
@@ -105,7 +112,9 @@ class TestDirectoryApis(unittest.TestCase):
         pod_account.register()
 
         server.get_registered_services()
-        pod_account.join(BYODA_PRIVATE_SERVICE, 1)
+
+        member_id = get_test_uuid()
+        pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
@@ -138,8 +147,6 @@ class TestDirectoryApis(unittest.TestCase):
         account_id = account.account_id
         network = account.network
 
-        service_id = 0
-
         account_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
@@ -163,17 +170,27 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 2)
 
+        # Get the service ID for the addressbook service
+        service_id = None
+        self.version = None
+        for service in data['services']:
+            if service['name'] == 'addressbook':
+                service_id = service['service_id']
+                version = service['latest_contract_version']
+
+        if service_id is None or version is None:
+            raise ValueError(
+                'Did not find the addressbook service in the list of services'
+            )
+
         API = BASE_URL + '/v1/pod/member'
-        response = requests.get(
-            API + f'/service_id/{service_id}', headers=account_headers
-        )
+        response = requests.get(f'{API}/service_id/0', headers=account_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        member_id = UUID(data['member_id'])
-        self.assertEqual(data['service_id'], service_id)
+        self.assertEqual(data['service_id'], 0)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'private')
         self.assertEqual(data['owner'], 'Steven Hessing')
@@ -187,6 +204,35 @@ class TestDirectoryApis(unittest.TestCase):
         )
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.post(
+            API + f'/service_id/{service_id}/version/1',
+            headers=account_headers
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_graphql_service0(self):
+        account = config.server.account
+        account_id = account.account_id
+        network = account.network
+
+        service_id = 0
+
+        account_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN={account_id}.accounts.{network.name}',
+            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
+        }
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(
+            API + f'/service_id/{service_id}', headers=account_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        member_id = UUID(data['member_id'])
 
         member_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',

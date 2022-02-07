@@ -47,9 +47,14 @@ config.server.load_schema()
 
 config.server.service.register_service()
 
+api_list = [service, member]
+if config.server.service.schema.name == 'addressbook':
+    from .routers import search
+    api_list.append(search)
+
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
-    'v0.0.1', app_config, [service, member]
+    'v0.0.1', app_config, api_list
 )
 
 

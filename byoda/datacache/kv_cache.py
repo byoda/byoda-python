@@ -57,6 +57,17 @@ class KVCache(ABC):
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 
+    def get_annotated_key(self, key: str) -> str:
+        '''
+        Annotate the key so that it is unique to the server. The resulting
+        key will always be a string.
+        '''
+
+        if not self.namespace:
+            self.namespace = config.server.network.name + self._identifier
+
+        return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'
+
     @abstractmethod
     def get(self, key: str) -> object:
         raise NotImplementedError
@@ -105,14 +116,3 @@ class KVCache(ABC):
             )
 
         self._identifier = '-' + str(value)
-
-    def get_annotated_key(self, key: str) -> str:
-        '''
-        Annotate the key so that it is unique to the server. The resulting
-        key will always be a string.
-        '''
-
-        if not self.namespace:
-            self.namespace = config.server.network.name + self._identifier
-
-        return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'

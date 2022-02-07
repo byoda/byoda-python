@@ -94,7 +94,7 @@ nginx_config = NginxConfig(
     identifier=network_data['account_id'],
     subdomain=IdType.ACCOUNT.value,
     cert_filepath=(
-        server.paths.root_directory() + '/' + pod_account.tls_secret.cert_file
+        server.paths.root_directory + '/' + pod_account.tls_secret.cert_file
     ),
     key_filepath=pod_account.tls_secret.unencrypted_private_key_file,
     alias=network.paths.account,
@@ -103,10 +103,10 @@ nginx_config = NginxConfig(
         StorageType.PUBLIC
     ),
     port=PodServer.HTTP_PORT,
-    root_dir=server.network.paths.root_directory()
+    root_dir=server.network.paths.root_directory
 )
 
-nginx_config.create()
+nginx_config.create(htaccess_password=network_data.get('account_secret'))
 nginx_config.reload()
 
 app = setup_api(

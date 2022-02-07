@@ -56,7 +56,6 @@ BYODA_PRIVATE_SERVICE = 0
 Network = TypeVar('Network')
 
 
-
 class RegistrationStatus(Enum):
     # flake8: noqa=E221
     Unknown         = 0

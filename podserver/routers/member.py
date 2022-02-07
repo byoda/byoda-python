@@ -25,7 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
-@router.get('/member/service_id/{service_id}', response_model=MemberResponseModel)
+@router.get(
+    '/member/service_id/{service_id}',
+    response_model=MemberResponseModel
+)
 def get_member(request: Request, service_id: int,
                auth: PodRequestAuth = Depends(PodRequestAuth)):
     '''
@@ -37,7 +40,11 @@ def get_member(request: Request, service_id: int,
 
     account = config.server.account
 
+    # Make sure we have the latest updates of memberships
+    account.load_memberships()
+
     member = account.memberships.get(service_id)
+
     if not member:
         raise HTTPException(
             status_code=404,
@@ -60,7 +67,11 @@ def post_member(request: Request, service_id: int, version: int,
 
     account = config.server.account
 
+    # Make sure we have the latest updates of memberships
+    account.load_memberships()
+
     member = account.memberships.get(service_id)
+
     if member:
         raise HTTPException(
             status_code=409,
@@ -69,6 +80,7 @@ def post_member(request: Request, service_id: int, version: int,
             )
         )
 
+    # BUG: any additional workers also need to join the service
     member = account.join(service_id, version)
 
     return member.as_dict()
@@ -165,4 +177,5 @@ def put_member(request: Request, service_id: int, version: int,
         new_service = Service.get_service(network)
         network.services[service_id] = new_service
 
+        # BUG: any additional workers also need to join the service
         member.upgrade()

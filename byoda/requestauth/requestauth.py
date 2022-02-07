@@ -34,6 +34,8 @@ from byoda.secrets import (
 
 from byoda.exceptions import MissingAuthInfo
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -318,6 +320,19 @@ class RequestAuth():
                 )
             ) from exc
 
+        # Check that the account cert is for our account. On the directory
+        # server the Account instance will be None
+        account = config.server.account
+
+        if account and account.account_id != self.account_id:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    'Received request with cert with incorrect account_id in '
+                    f'CN: {self.account_id}. Expected: {account.account_id}'
+                )
+            )
+
     def check_member_cert(self, service_id: int, network: Network) -> None:
         '''
         Checks if the M-TLS client certificate was signed the cert chain
@@ -357,10 +372,16 @@ class RequestAuth():
                 )
             ) from exc
 
-    def check_service_cert(self, network: Network) -> None:
+    def check_service_cert(self, network: Network, service_id: int = None
+                           ) -> None:
         '''
         Checks if the MTLS client certificate was signed the cert chain
         for members of the service
+
+        :param network: the network that we are in
+        :param service_id: the service_id parsed from the incoming request,
+        if applicable
+        :raises: HTTPException
         '''
 
         if not self.client_cn or not self.issuing_ca_cn:
@@ -371,12 +392,11 @@ class RequestAuth():
         # Check that the client common name is well-formed and
         # extract the service_id
         entity_id = ServiceSecret.parse_commonname(self.client_cn, network)
-        service_id = entity_id.service_id
 
         try:
             # Service secret gets signed by Service CA
             service_ca_secret = ServiceCaSecret(
-                None, service_id, network=network
+                None, entity_id.service_id, network=network
             )
             entity_id = service_ca_secret.review_commonname(self.client_cn)
             self.service_id = entity_id.service_id
@@ -389,10 +409,19 @@ class RequestAuth():
                 status_code=403,
                 detail=(
                     f'Incorrect c_cn {self.client_cn} issued by '
-                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'{self.issuing_ca_cn} for service {self.service_id} on '
                     f'network {network.name}'
                 )
             ) from exc
+
+        if service_id is not None and self.service_id != service_id:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Service ID {service_id} from incoming request does not '
+                    f'match service ID {self.service_id} from client cert'
+                )
+            )
 
     @staticmethod
     def get_commonname(dname: str) -> str:

@@ -8,7 +8,7 @@ Class for modeling an account on a network
 
 import logging
 from uuid import UUID
-from typing import TypeVar, Callable, Dict
+from typing import TypeVar, Callable, Dict, Set
 from copy import copy
 
 import requests
@@ -227,6 +227,25 @@ class Account:
             f'Registered account with directory server: {resp.status_code}'
         )
 
+    def get_memberships(self) -> Set:
+        '''
+        Get a list of the service_ids that the pod has joined by looking
+        at storage.
+        '''
+
+        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
+        folders = self.document_store.get_folders(
+            memberships_dir, prefix='service-'
+        )
+
+        service_ids = set()
+        for folder in folders:
+            # The folder name starts with 'service-'
+            service_id = int(folder[8:])
+            service_ids.add(service_id)
+
+        return service_ids
+
     def load_memberships(self):
         '''
         Loads the memberships of an account by iterating through
@@ -234,15 +253,12 @@ class Account:
         '''
 
         _LOGGER.debug('Loading memberships')
-        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = self.document_store.get_folders(
-            memberships_dir, prefix='service-'
-        )
 
-        for folder in folders:
-            # The folder name starts with 'service-'
-            service_id = int(folder[8:])
-            self.load_membership(service_id)
+        service_ids = self.get_memberships()
+
+        for service_id in service_ids or []:
+            if service_id not in self.memberships:
+                self.load_membership(service_id)
 
     def load_membership(self, service_id: int) -> Member:
         '''
@@ -261,7 +277,8 @@ class Account:
             member, member.paths, member.document_store
         )
 
-        member.create_nginx_config()
+        if member.member_id not in self.memberships:
+            member.create_nginx_config()
 
         member.data.load_protected_shared_key()
         member.load_data()
@@ -269,15 +286,25 @@ class Account:
         self.memberships[service_id] = member
 
     def join(self, service_id: int, schema_version: int,
-             members_ca: MembersCaSecret = None) -> Member:
+             members_ca: MembersCaSecret = None, member_id: UUID = None
+             ) -> Member:
         '''
         Join a service for the first time
+
+        :param service_id: The ID of the service to join
+        :param schema_version: the version of the schema that has been accepted
+        :param members_ca: The CA to sign the member secret. This parameter is
+        only used for test cases and should be None in all other code
+        :param member_id: The UUID to use for the member_id
         '''
 
         service_id = int(service_id)
         service = Service(service_id=service_id, network=self.network)
 
-        member = Member.create(service, schema_version, self, members_ca)
+        member = Member.create(
+            service, schema_version, self, member_id=member_id,
+            members_ca=members_ca
+        )
 
         self.memberships[member.service_id] = member
 

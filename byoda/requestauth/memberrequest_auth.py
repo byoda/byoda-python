@@ -24,6 +24,7 @@ from byoda.exceptions import MissingAuthInfo
 _LOGGER = logging.getLogger(__name__)
 
 
+# TODO: remove, obsolete code?
 class MemberRequestAuth_Fast(RequestAuth):
     '''
     Wrapper for FastApi dependency
