@@ -107,6 +107,14 @@ curl -s -X POST -H 'content-type: application/json' \
     --data '{"query": "query {network_links {member_id relation timestamp}}" }' | jq .
 ```
 
+## Hosting a service in the byoda.net network
+
+Next to running your own pod, everyone can develop their own service in the network. What you'll need to do is:
+- Create a Service Contract in the form of a JSON Schema that models the data you want to store for the service in the data pod and who can access that data. The BYODA pod currently has limited support for complex data structures in the JSON-Schema so take the [service/addressbook.json](https://github.com/StevenHessing/byoda-python/blob/master/services/addressbook.json) as starting point. File an issue in Github as a feature request if you need support for a specific construct that is not currently supported.
+- Get the Service Contract signed by the network
+- On a host accessible from the Internet, make your modifications as needed for your service to the code under byoda-python/svcserver and run it as a service. The service server will automatically register with the network when it starts up and the directory server will create an FQDN 'service.service-<SERVICE_ID>.byoda.net with the public IP address of your host.
+For more detailed instructions, please review the ['Creating a service' document](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/create_a_service.md)
+
 ## TODO:
 The main areas of development are:
 - Enable web-browsers to call the APIs on the pod:
@@ -116,3 +124,4 @@ The main areas of development are:
 - Implementing the 'network:+n' construct for the access permissions in the JSON Schema to allow people in your network to query your GraphQL APIs.
 - Improve the support for complex data structures in the data contract.
 - Add API to upload content to the public object storage
+
