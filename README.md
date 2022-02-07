@@ -11,7 +11,7 @@ Byoda is a new and radically different social media platform:
 This repo hosts the reference implementation (in Python) of the Byoda directory server, a generic 'service' server and the data pod. For more information about Byoda, please go to the [web site](https://www.byoda.org/)
 
 ## Status
-This is alpha-quality software. The only user interface available is curl. The byoda.net network is running, the Address Book proof-of-concept service is running and you can install the data pod on a VM in AWS, Azure or GCP or on a server in your home. Work is yet to be done to enable web-browsers to call the APIs on the pod and to improve the support for complex data structures in the data contract.
+This is alpha-quality software. The only user interface available is curl. The byoda.net network is running, a proof-of-concept service 'Address Book' is up and running and you can install the data pod on a VM in AWS, Azure or GCP or on a server in your home.
 
 ## Getting started with the data pod
 There are two ways to install the pod:
@@ -106,3 +106,13 @@ curl -s -X POST -H 'content-type: application/json' \
     https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {network_links {member_id relation timestamp}}" }' | jq .
 ```
+
+## TODO:
+The main areas of development are:
+- Enable web-browsers to call the APIs on the pod:
+    - use TLS certs from Let's Encrypt
+    - add an API for getting a JWT signed with the private key for the membership.
+    - whitelisting CORS Origins for each service
+- Implementing the 'network:+n' construct for the access permissions in the JSON Schema to allow people in your network to query your GraphQL APIs.
+- Improve the support for complex data structures in the data contract.
+- Add API to publish content to the public object storage
