@@ -62,12 +62,14 @@ def search(request: Request, email: str,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(
-        f'GET Search API called from {request.client.host} for email {email}')
-
     member_db: MemberDb = config.server.member_db
 
     member_id = member_db.kvcache.get(email)
+    _LOGGER.debug(
+        f'GET Search API called from {request.client.host} for email {email}, '
+        f'found {member_id}'
+    )
+
     data = member_db.get_data(UUID(member_id))
 
     return data
