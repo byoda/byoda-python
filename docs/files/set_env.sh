@@ -22,6 +22,14 @@ export ACCOUNT_ID=$( \
 )
 export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
 
+echo "Setting:"
+echo "ROOT CA cert                 : $ROOT_CA"
+echo "Passphrase                   : $PASSPHRASE"
+echo "Account ID                   : $ACCOUNT_ID"
+echo "Account FQDN                 : $ACCOUNT_FQDN"
+echo "Account cert                 : $ACCOUNT_CERT"
+echo "Account key                  : $ACCOUNT_KEY"
+
 # The address book service
 export SERVICE_ADDR_ID=4294929430
 export MEMBER_ADDR_CERT=/byoda/network-byoda.net/account-pod/service-${SERVICE_ADDR_ID}/network-byoda.net-member-${SERVICE_ADDR_ID}-cert.pem
@@ -37,4 +45,11 @@ if [ -f  $MEMBER_ADDR_CERT ]; then
     )
     export MEMBER_ADDR_FQDN=${MEMBER_ADDR_ID}.members-${SERVICE_ADDR_ID}.byoda.net
 fi
+
+echo ""
+echo "Address book service ID      : $SERVICE_ADDR_ID"
+echo "Member ID                    : $MEMBER_ADDR_ID"
+echo "Member FQDN                  : $MEMBER_ADDR_FQDN"
+echo "Member cert                  : $MEMBER_ADDR_CERT"
+echo "Member key                   : $MEMBER_ADDR_KEY"
 
