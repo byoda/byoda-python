@@ -52,7 +52,7 @@ server {
         satisfy any;
         auth_basic "byoda";
         auth_basic_user_file /etc/nginx/htaccess.db;
-        proxy_pass http://127.0.0.1:{{ HTTPS_PORT }};
+        proxy_pass http://127.0.0.1:{{ port }};
     }
 
     location /redoc {
@@ -60,7 +60,7 @@ server {
         satisfy any;
         auth_basic "byoda";
         auth_basic_user_file /etc/nginx/htaccess.db;
-        proxy_pass http://127.0.0.1:{{ HTTPS_PORT }};
+        proxy_pass http://127.0.0.1:{{ port }};
     }
 
     location /openapi.json {
@@ -68,7 +68,7 @@ server {
         satisfy any;
         auth_basic "byoda";
         auth_basic_user_file /etc/nginx/htaccess.db;
-        proxy_pass http://127.0.0.1:{{ HTTPS_PORT }};
+        proxy_pass http://127.0.0.1:{{ port }};
     }
 
 {% endif -%}
