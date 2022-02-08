@@ -63,16 +63,18 @@ export BOOTSTRAP=BOOTSTRAP
 export LOGDIR=/var/www/wwwroot/logs
 sudo mkdir -p ${LOGDIR}
 
-sudo docker stop byoda
-sudo docker rm byoda
+sudo docker stop byoda 2>/dev/null
+sudo docker rm byoda  2>/dev/null
 # sudo docker rmi byoda/byoda-pod:latest
-sudo rm -rf ${ROOT_DIR}
+
+sudo rm -rf ${ROOT_DIR} 2>/dev/null
 sudo mkdir -p ${ROOT_DIR}
+
 echo "Creating container for account_id ${ACCOUNT_ID}"
 docker pull byoda/byoda-pod:latest
 sudo docker run -d \
     --name byoda \
-    -p 443:443 -p 2222:22 -p ${PORT}:${PORT} \
+    -p 443:443 -p ${PORT}:${PORT} \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "NETWORK=byoda.net" \
