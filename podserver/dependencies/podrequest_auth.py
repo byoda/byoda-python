@@ -31,29 +31,31 @@ class PodRequestAuth(RequestAuth):
                  service_id: Optional[int] = Header(None),
                  x_client_ssl_verify: Optional[TlsStatus] = Header(None),
                  x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None)):
+                 x_client_ssl_issuing_ca: Optional[str] = Header(None),
+                 authorization: Optional[str] = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
-        The reverse proxy has already validated that the client calling the
-        API is the owner of the private key for the certificate it presented
-        so we trust the HTTP headers set by the reverse proxy
+        The request can be either authenticated using a TLS Client cert
+        or an JWT in the Authentication header.
+
+        With the TLS client cert, the reverse proxy has already validated that
+        the client calling the API is the owner of the private key for the
+        certificate it presented so we trust the HTTP headers set by the
+        reverse proxy
+
+        For now, we only support JWTs signed by ourself. TODO: allow
+        JWT to be signed by other members of the service. We will not support
+        JWTs signed by a service as servicse should use their TLS client certs
 
         :param request: Starlette request instance
         :returns: (n/a)
         :raises: HTTPExceptions 400, 401, 403
         '''
 
-        if (x_client_ssl_verify is None or x_client_ssl_subject is None
-                or x_client_ssl_issuing_ca is None):
-            raise HTTPException(
-                status_code=401,
-                detail='No MTLS client cert provided'
-            )
-
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, request.client.host
+                x_client_ssl_issuing_ca, authorization, request.client.host
             )
         except MissingAuthInfo:
             raise HTTPException(
@@ -62,6 +64,7 @@ class PodRequestAuth(RequestAuth):
 
         # Account cert can only be used for Pod REST APIs and, vice versa,
         # Pod REST APIs can only be called with the account cert
+        # TODO: SECURITY. Hardcoding URLs outside their code base is baaad
         if request.url.path.startswith('/api/v1/pod'):
             if self.id_type != IdType.ACCOUNT:
                 raise HTTPException(

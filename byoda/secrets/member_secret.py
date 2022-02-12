@@ -11,6 +11,7 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
@@ -21,11 +22,13 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
-Account = TypeVar('Account', bound='Account')
+Account = TypeVar('Account')
+Network = TypeVar('Network')
 
 
 class MemberSecret(Secret):
-    def __init__(self, member_id: UUID, service_id: int, account: Account):
+    def __init__(self, member_id: UUID, service_id: int, account: Account,
+                 network: Network = None):
         '''
         Class for the member secret of an account for a service
 
@@ -39,11 +42,19 @@ class MemberSecret(Secret):
 
         self.service_id = int(service_id)
 
-        self.paths = copy(account.paths)
+        if not (account or network):
+            raise ValueError(
+                'Either an account or a network must be specified'
+            )
+
+        if account and not network:
+            network = account.network
+
+        self.paths = copy(network.paths)
         self.paths.service_id = self.service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network = account.network.name
+        self.network = network.name
 
         super().__init__(
             cert_file=self.paths.get(

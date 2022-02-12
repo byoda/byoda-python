@@ -43,7 +43,7 @@ class MemberRequestAuthFast(RequestAuth):
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, request.client.host
+                x_client_ssl_issuing_ca, None, request.client.host
             )
         except MissingAuthInfo:
             raise HTTPException(
@@ -52,7 +52,7 @@ class MemberRequestAuthFast(RequestAuth):
 
         if self.client_cn is None and self.issuing_ca_cn is None:
             raise HTTPException(
-                status_code=401, detail='Authentication failed'
+                status_code=401, detail='Authentication missing'
             )
 
         try:

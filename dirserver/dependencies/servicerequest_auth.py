@@ -29,6 +29,10 @@ class ServiceRequestAuthFast(RequestAuth):
                  x_client_ssl_issuing_ca: Optional[str] = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
+
+        Authentication to the directory server must use the TLS certificate,
+        authentication based on JWT is not permitted.
+        
         The reverse proxy has already validated that the client calling the
         API is the owner of the private key for the certificate it presented
         so we trust the HTTP headers set by the reverse proxy
@@ -43,7 +47,7 @@ class ServiceRequestAuthFast(RequestAuth):
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, request.client.host
+                x_client_ssl_issuing_ca, None, request.client.host
             )
         except MissingAuthInfo:
             raise HTTPException(

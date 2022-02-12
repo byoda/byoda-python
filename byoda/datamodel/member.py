@@ -27,7 +27,6 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
-
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
@@ -35,6 +34,8 @@ from byoda.storage import FileStorage
 from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
+
+from byoda.requestauth import RequestAuth
 
 from byoda.util.paths import Paths
 
@@ -379,6 +380,21 @@ class Member:
         self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
+
+    def create_jwt(self, expiration_days: int = 365):
+        '''
+        Creates a JWT for a member of a service. This JWT can be
+        used to authenticate against the:
+        - membership of the pod
+        - membership of the service of other pods
+        - service
+        '''
+        issuer = f'urn:member_id-{self.member_id}'
+        jwt = RequestAuth.create_auth_token(
+            issuer, self.tls_secret, self.network.name,
+            service_id=self.service_id, expiration_days=expiration_days
+        )
+        return jwt
 
     def register(self, secret) -> None:
         '''

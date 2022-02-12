@@ -54,7 +54,7 @@ BASE_URL = 'http://localhost:{PORT}/api'
 _LOGGER = None
 
 
-def get_test_uuid():
+def get_test_uuid() -> UUID:
     id = str(uuid4())
     id = 'aaaaaaaa' + id[8:]
     id = UUID(id)
@@ -78,7 +78,7 @@ class TestDirectoryApis(unittest.TestCase):
         os.environ['BUCKET_PREFIX'] = 'byoda'
         os.environ['CLOUD'] = 'LOCAL'
         os.environ['NETWORK'] = 'byoda.net'
-        os.environ['ACCOUNT_ID'] = str(uuid4())
+        os.environ['ACCOUNT_ID'] = str(get_test_uuid())
         os.environ['ACCOUNT_SECRET'] = 'test'
         os.environ['LOGLEVEL'] = 'DEBUG'
         os.environ['PRIVATE_KEY_SECRET'] = 'byoda'

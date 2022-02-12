@@ -43,7 +43,8 @@ class MemberRequestAuth_Fast(RequestAuth):
 class MemberRequestAuth(RequestAuth):
     def __init__(self, tls_status: TlsStatus,
                  client_dn: str, issuing_ca_dn: str,
-                 remote_addr: IpAddress, method: HttpRequestMethod):
+                 authorization: str, remote_addr: IpAddress,
+                 method: HttpRequestMethod):
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
@@ -57,10 +58,13 @@ class MemberRequestAuth(RequestAuth):
 
         server = config.server
 
-        service_id = MemberRequestAuth.get_service_id(client_dn)
+        service_id = MemberRequestAuth.get_service_id(client_dn, authorization)
 
         try:
-            super().__init__(tls_status, client_dn, issuing_ca_dn, remote_addr)
+            super().__init__(
+                tls_status, client_dn, issuing_ca_dn, authorization,
+                remote_addr
+            )
         except MissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
@@ -76,7 +80,7 @@ class MemberRequestAuth(RequestAuth):
         self.is_authenticated = True
 
     @staticmethod
-    def get_service_id(commonname: str) -> str:
+    def get_service_id(commonname: str, authorization: str) -> str:
         '''
         Extracts the service_id from the IdType from a common name
         in a x.509 certificate for Memberships
@@ -86,20 +90,26 @@ class MemberRequestAuth(RequestAuth):
         :raises: ValueError if the service_id could not be extracted
         '''
 
-        commonname_bits = commonname.split('.')
-        if len(commonname_bits) < 4:
+        if commonname:
+            commonname_bits = commonname.split('.')
+            if len(commonname_bits) < 4:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f'Invalid common name {commonname}'
+                )
+
+            subdomain = commonname_bits[1]
+            if '-' in subdomain:
+                # For members, subdomain has format 'members-<service-id>'
+                service_id = int(subdomain[subdomain.find('-')+1:])
+                return service_id
+
             raise HTTPException(
-                status_code=400,
-                detail=f'Invalid common name {commonname}'
+                status_code=403,
+                detail=f'Invalid format for common name: {commonname}'
             )
-
-        subdomain = commonname_bits[1]
-        if '-' in subdomain:
-            # For members, subdomain has format 'members-<service-id>'
-            service_id = int(subdomain[subdomain.find('-')+1:])
-            return service_id
-
-        raise HTTPException(
-            status_code=403,
-            detail=f'Invalid format for common name: {commonname}'
-        )
+        elif authorization:
+            # TODO: get service_id from token
+            raise NotImplementedError
+        else:
+            raise MissingAuthInfo

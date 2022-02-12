@@ -11,6 +11,8 @@ Non-specific data types
 from enum import Enum
 from collections import namedtuple
 from os import stat
+from pickle import NONE
+from ssl import CERT_NONE
 
 
 class ServerRole(Enum):
@@ -88,6 +90,20 @@ class StorageType(Enum):
     PUBLIC = 'public'
 
 
+class TlsStatus(str, Enum):
+    '''
+    TLS status as reported by nginx variable 'ssl_client_verify':
+    http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
+    Nginx ssl_verify_client is configured for 'optional' or 'on'. M-TLS client
+    certs must always be signed as we do not configure 'optional_no_ca' so
+    'FAILED' requests should never make it to the application service
+    '''
+
+    NONE        = 'NONE'        # noqa: E221
+    SUCCESS     = 'SUCCESS'     # noqa: E221
+    FAILED      = 'FAILED'      # noqa: E221
+
+
 class CsrSource(Enum):
     WEBAPI         = 1
     LOCAL          = 2
@@ -118,6 +134,12 @@ class CertStatus(Enum):
     OK              = 'ok'
     RENEW           = 'renew'
     EXPIRED         = 'expired'
+
+
+class AuthSource(Enum):
+    NONE            = 'none'
+    CERT            = 'cert'
+    TOKEN           = 'token'
 
 
 # MemberStatus is used for the MemberDB.status attribute
