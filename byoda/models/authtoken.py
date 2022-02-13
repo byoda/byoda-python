@@ -20,4 +20,4 @@ class AuthTokenResponseModel(BaseModel):
         return ('<AuthToken=(auth_token: str)>')
 
     def as_dict(self):
-        return {'Authorization': self.auth_token}
+        return {'auth_token': self.auth_token}

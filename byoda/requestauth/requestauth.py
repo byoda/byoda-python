@@ -165,6 +165,8 @@ class RequestAuth():
 
         error = 401
         detail = 'Missing authentication info'
+        if tls_status is None:
+            tls_status = TlsStatus.NONE
         if isinstance(tls_status, str):
             tls_status = TlsStatus(tls_status)
 
@@ -172,33 +174,22 @@ class RequestAuth():
             raise HTTPException(
                 status_code=403, detail=f'Client TLS status is {tls_status}'
             )
-        elif not tls_status:
-            raise MissingAuthInfo('Missing TLS status')
 
         if tls_status == TlsStatus.NONE and not authorization:
-            raise HTTPException(
-                status_code=401,
-                detail=(
-                    'Either TLS client cert or Authorization '
-                    'token must be provided'
-                )
-            )
+            raise MissingAuthInfo
 
-        if (client_dn and issuing_ca_dn):
+        if client_dn:
             try:
                 self.authenticate_client_cert(client_dn, issuing_ca_dn)
-                self.is_authenticated = True
-                if self.is_authenticated:
-                    self.auth_source = AuthSource.CERT
-                    return
+                self.auth_source = AuthSource.CERT
+                return
             except HTTPException as exc:
                 error = exc.status_code
                 detail = exc.detail
 
         if authorization:
             self.authenticate_authorization_header(authorization)
-            if self.is_authenticated:
-                self.auth_source = AuthSource.TOKEN
+            self.auth_source = AuthSource.TOKEN
             return
 
         raise HTTPException(status_code=error, detail=detail)
@@ -250,7 +241,8 @@ class RequestAuth():
     @staticmethod
     def authenticate_request(request: starlette.requests.Request):
         '''
-        Wrapper for static RequestAuth.authenticate method
+        Wrapper for static RequestAuth.authenticate method. This method
+        is invoked by the GraphQL APIs
 
         :returns: An instance of RequestAuth
         '''
@@ -267,7 +259,7 @@ class RequestAuth():
                      client_dn: str, issuing_ca_dn: str, authorization: str,
                      remote_addr: IpAddress, method: HttpRequestMethod):
         '''
-        Authenticate a request based on incoming TLS headers
+        Authenticate a request based on incoming TLS headers or JWT
 
         Function is invoked for GraphQL APIs
 

@@ -501,7 +501,7 @@ class Member:
 
         self.app = app
 
-        # podserver.dependencies.podrequest_auth.PodRequestAuth
+        # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
         path = GRAPHQL_API_URL_PREFIX + str(self.service_id)

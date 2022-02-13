@@ -15,6 +15,8 @@ import os
 import sys
 import unittest
 import requests
+from requests.auth import HTTPBasicAuth
+
 import shutil
 import time
 from uuid import uuid4, UUID
@@ -44,6 +46,7 @@ from podserver.util import get_environment_vars
 
 from podserver.routers import account
 from podserver.routers import member
+from podserver.routers import authtoken
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -106,6 +109,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         pod_account = Account(network_data['account_id'], network)
         server.account = pod_account
+        pod_account.password = os.environ['ACCOUNT_SECRET']
 
         pod_account.create_account_secret()
         pod_account.create_data_secret()
@@ -118,7 +122,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', None, [account, member]
+            'v0.0.1', None, [account, member, authtoken]
         )
 
         for account_member in pod_account.memberships.values():
@@ -142,7 +146,7 @@ class TestDirectoryApis(unittest.TestCase):
     def tearDownClass(cls):
         cls.PROCESS.terminate()
 
-    def test_pod_rest_api(self):
+    def test_pod_rest_api_tls_client_cert(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network
@@ -210,7 +214,170 @@ class TestDirectoryApis(unittest.TestCase):
             API + f'/service_id/{service_id}/version/1',
             headers=account_headers
         )
+        self.assertEqual(response.status_code, 409)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.put(
+            API + f'/service_id/{service_id}/version/1',
+            headers=account_headers
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_pod_rest_api_jwt(self):
+        account = config.server.account
+        account_id = account.account_id
+
+        #
+        # This test fails because a member-JWT can't be used for REST APIs,
+        # only for GraphQL APIs
+        #
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
+            )
+        )
+        data = response.json()
+        auth_header = {
+            'Authorization': f'bearer {data["auth_token"]}'
+        }
+
+        API = BASE_URL + '/v1/pod/account'
+        response = requests.get(API, headers=auth_header)
+        self.assertEqual(response.status_code, 403)
+
+        #
+        # Now we get an account-JWT
+        #
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken',
+            auth=HTTPBasicAuth(
+                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
+            )
+        )
+        data = response.json()
+        auth_header = {
+            'Authorization': f'bearer {data["auth_token"]}'
+        }
+
+        API = BASE_URL + '/v1/pod/account'
+        response = requests.get(API, headers=auth_header)
         self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(data['account_id'], str(account_id))
+        self.assertEqual(data['network'], NETWORK)
+        self.assertTrue(data['started'].startswith('202'))
+        self.assertEqual(data['cloud'], 'LOCAL')
+        self.assertEqual(data['private_bucket'], 'LOCAL')
+        self.assertEqual(data['public_bucket'], '/var/www/wwwroot/public')
+        self.assertEqual(data['root_directory'], '/tmp/byoda-tests/pod_apis')
+        self.assertEqual(data['loglevel'], 'DEBUG')
+        self.assertEqual(data['private_key_secret'], 'byoda')
+        self.assertEqual(data['bootstrap'], True)
+        self.assertEqual(len(data['services']), 2)
+
+        # Get the service ID for the addressbook service
+        service_id = None
+        self.version = None
+        for service in data['services']:
+            if service['name'] == 'addressbook':
+                service_id = service['service_id']
+                version = service['latest_contract_version']
+
+        if service_id is None or version is None:
+            raise ValueError(
+                'Did not find the addressbook service in the list of services'
+            )
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(f'{API}/service_id/0', headers=auth_header)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['account_id'], account_id)
+        self.assertEqual(data['network'], 'byoda.net')
+        self.assertTrue(isinstance(data['member_id'], str))
+        self.assertEqual(data['service_id'], 0)
+        self.assertEqual(data['version'], 1)
+        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['owner'], 'Steven Hessing')
+        self.assertEqual(data['website'], 'https://www.byoda.org/')
+        self.assertEqual(data['supportemail'], 'steven@byoda.org')
+        self.assertEqual(
+            data['description'], (
+                'the private service for which no data will be shared with '
+                'services or their members'
+            )
+        )
+        self.assertGreater(len(data['certificate']), 80)
+        self.assertGreater(len(data['private_key']), 80)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.post(
+            API + f'/service_id/{service_id}/version/1',
+            headers=auth_header
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_auth_token_request(self):
+        account = config.server.account
+        account_id = account.account_id
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
+            )
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(data.get('auth_token'), str))
+
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0'
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                'wrong', os.environ['ACCOUNT_SECRET']
+            )
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                str(account_id)[:8], 'wrong'
+            )
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                'wrong', 'wrong'
+            )
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                '', ''
+            )
+        )
+        data = response.json()
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('auth_token' not in data)
 
     def test_graphql_service0(self):
         account = config.server.account

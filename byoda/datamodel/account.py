@@ -57,6 +57,9 @@ class Account:
         _LOGGER.debug(f'Constructing account {account_id}')
         self.account: str = account
 
+        # This is the password to use for HTTP Basic Auth
+        self.password: str = None
+
         if isinstance(account_id, UUID):
             self.account_id: UUID = account_id
         else:

@@ -18,7 +18,7 @@ from byoda.models import MemberResponseModel
 
 from byoda import config
 
-from ..dependencies.podrequest_auth import PodRequestAuth
+from ..dependencies.pod_api_request_auth import PodApiRequestAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
     response_model=MemberResponseModel
 )
 def get_member(request: Request, service_id: int,
-               auth: PodRequestAuth = Depends(PodRequestAuth)):
+               auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Get metadata for the membership of a service.
 
@@ -57,7 +57,7 @@ def get_member(request: Request, service_id: int,
 @router.post('/member/service_id/{service_id}/version/{version}',
              response_model=MemberResponseModel)
 def post_member(request: Request, service_id: int, version: int,
-                auth: PodRequestAuth = Depends(PodRequestAuth)):
+                auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Become a member of a service.
     :param service_id: service_id of the service
@@ -89,7 +89,7 @@ def post_member(request: Request, service_id: int, version: int,
 @router.put('/member/service_id/{service_id}/version/{version}',
             response_model=MemberResponseModel)
 def put_member(request: Request, service_id: int, version: int,
-               auth: PodRequestAuth = Depends(PodRequestAuth)):
+               auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service
