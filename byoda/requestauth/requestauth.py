@@ -239,7 +239,7 @@ class RequestAuth():
             )
 
     @staticmethod
-    def authenticate_request(request: starlette.requests.Request):
+    def authenticate_graphql_request(request: starlette.requests.Request):
         '''
         Wrapper for static RequestAuth.authenticate method. This method
         is invoked by the GraphQL APIs
@@ -264,10 +264,28 @@ class RequestAuth():
         Function is invoked for GraphQL APIs
 
         :returns: An instance of RequestAuth
+        :raises: HTTPException 400, 401 or 403
         '''
 
-        client_cn = RequestAuth.get_commonname(client_dn)
-        id_type = RequestAuth.get_cert_idtype(client_cn)
+        client_cn = None
+        id_type = None
+
+        # Client cert, if available, sets the IdType for the authentication
+        if client_dn and issuing_ca_dn:
+            client_cn = RequestAuth.get_commonname(client_dn)
+            id_type = RequestAuth.get_cert_idtype(client_cn)
+
+        if authorization:
+            # Watch out, the JWT signature does not get verified here.
+            jwt_id_type = RequestAuth._parse_jwt(authorization)
+            if jwt_id_type != id_type:
+                raise HTTPException(
+                    status_code=401,
+                    detail=(
+                        f'Mismatch in IdType for cert ({id_type.value}) and '
+                        f'JWT ({jwt_id_type.value})'
+                    )
+                )
 
         if id_type == IdType.ACCOUNT:
             from .accountrequest_auth import AccountRequestAuth
@@ -470,7 +488,7 @@ class RequestAuth():
         certificate
 
         :param commonname: x509 common name
-        :returns: commonname
+        :returns: one of the IdType values
         :raises: ValueError if the commonname could not be extracted
         '''
 
@@ -489,7 +507,6 @@ class RequestAuth():
             idtype = IdType(commonname_bits[1])
 
         return idtype
-
 
     @staticmethod
     def create_auth_token(issuer: str, secret: Secret, network_name: str,

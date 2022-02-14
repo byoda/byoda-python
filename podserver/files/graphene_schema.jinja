@@ -41,7 +41,9 @@ def authenticate(root, info):
     try:
         # Checks that a client cert was provided and that the cert and
         # certchain is correct
-        auth = RequestAuthByoda.authenticate_request(info.context['request'])
+        auth = RequestAuthByoda.authenticate_graphql_request(
+            info.context['request']
+        )
         if not auth.is_authenticated:
             raise ValueError('Client is not authentication')
     except Exception as exc:

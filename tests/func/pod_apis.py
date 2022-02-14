@@ -379,7 +379,67 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-    def test_graphql_service0(self):
+    def test_graphql_service0_jwt(self):
+        account = config.server.account
+        account_id = account.account_id
+
+        #
+        # This test fails because a member-JWT can't be used for REST APIs,
+        # only for GraphQL APIs
+        #
+        response = requests.get(
+            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            auth=HTTPBasicAuth(
+                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
+            )
+        )
+        data = response.json()
+        auth_header = {
+            'Authorization': f'bearer {data["auth_token"]}'
+        }
+
+        service_id = 0
+        url = BASE_URL + f'/v1/data/service-{service_id}'
+        client = GraphqlClient(endpoint=url)
+
+        query = '''
+            mutation {
+                mutate_person(
+                    given_name: "Peter",
+                    additional_names: "",
+                    family_name: "Hessing",
+                    email: "steven@byoda.org",
+                    homepage_url: "https://some.place/",
+                    avatar_url: "https://some.place/avatar"
+                ) {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=auth_header)
+        self.assertEqual(
+            result['data']['mutate_person']['given_name'], 'Peter'
+        )
+        query = '''
+            query {
+                person {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
+                }
+            }
+        '''
+        result = client.execute(query=query, headers=auth_header)
+
+    def test_graphql_service0_tls_cert(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network
