@@ -42,10 +42,13 @@ class ServiceRequestAuth(RequestAuth):
 
         server = config.server
 
-        try:
-            service_id = ServiceRequestAuth.get_service_id(
-                client_dn, authorization
+        if authorization:
+            raise HTTPException(
+                status_code=401,
+                detail='Service must not call GraphQL APIs using JWTs'
             )
+
+        try:
             super().__init__(
                 tls_status, client_dn, issuing_ca_dn, authorization,
                 remote_addr
@@ -65,8 +68,6 @@ class ServiceRequestAuth(RequestAuth):
         # the commonname found in the certchain presented by the
         # client.
         self.check_service_cert(server.network)
-
-        self.is_authenticated = True
 
     @staticmethod
     def get_service_id(commonname: str, authorization: str) -> str:

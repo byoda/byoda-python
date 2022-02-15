@@ -22,8 +22,6 @@ from byoda.secrets import MemberSecret
 
 from byoda.datatypes import IdType
 
-from byoda.secrets import Secret
-
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,7 +123,8 @@ class JWT:
             # Decode without verification of the signature
             data = py_jwt.decode(
                 authorization, leeway=10, audience=audience,
-                algorithms=JWT_ALGO_ACCEPTED, options={'verify_signature': False}
+                algorithms=JWT_ALGO_ACCEPTED,
+                options={'verify_signature': False}
             )
 
         jwt = JWT(data['aud'])
@@ -187,7 +186,8 @@ class JWT:
                 self.issuer_id, self.service_id, None,
                 config.server.service.network
             )
-        elif isinstance(config.server, PodServer) and self.service_id is not None:
+        elif (isinstance(config.server, PodServer)
+                and self.service_id is not None):
             # We have a JWT signed by a member of a service and we are
             # running on a pod, let's get the secret for the membership
             config.server.account.load_memberships()

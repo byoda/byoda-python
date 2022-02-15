@@ -27,8 +27,7 @@ Network = TypeVar('Network')
 
 
 class MemberSecret(Secret):
-    def __init__(self, member_id: UUID, service_id: int, account: Account,
-                 network: Network = None):
+    def __init__(self, member_id: UUID, service_id: int, account: Account):
         '''
         Class for the member secret of an account for a service
 
@@ -42,28 +41,22 @@ class MemberSecret(Secret):
 
         self.service_id = int(service_id)
 
-        if not (account or network):
-            raise ValueError(
-                'Either an account or a network must be specified'
-            )
-
-        if account and not network:
-            network = account.network
-
-        self.paths = copy(network.paths)
+        self.paths = copy(account.network.paths)
         self.paths.service_id = self.service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network = network.name
+        self.network = account.network.name
 
         super().__init__(
             cert_file=self.paths.get(
                 Paths.MEMBER_CERT_FILE,
                 service_id=service_id, member_id=self.member_id,
+                account_id=account.account_id
             ),
             key_file=self.paths.get(
                 Paths.MEMBER_KEY_FILE,
                 service_id=service_id, member_id=self.member_id,
+                account_id=account.account_id
             ),
             storage_driver=self.paths.storage_driver
         )

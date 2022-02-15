@@ -142,7 +142,8 @@ class TestAccountManager(unittest.TestCase):
         request_auth: RequestAuth = RequestAuth(
             TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
         )
-        self.assertTrue(request_auth.is_authenticated)
+        # We do not test for 'auth.is_authenticated' here as RequestAuth
+        # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
         self.assertTrue(
             member.tls_secret.common_name.startswith(
@@ -156,7 +157,8 @@ class TestAccountManager(unittest.TestCase):
         request_auth: RequestAuth = RequestAuth(
             TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
         )
-        self.assertTrue(request_auth.is_authenticated)
+        # We do not test for 'auth.is_authenticated' here as RequestAuth
+        # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
         self.assertTrue(
             secret.common_name.startswith(str(request_auth.account_id))
@@ -170,7 +172,8 @@ class TestAccountManager(unittest.TestCase):
         request_auth: RequestAuth = RequestAuth(
             TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
         )
-        self.assertTrue(request_auth.is_authenticated)
+        # We do not test for 'auth.is_authenticated' here as RequestAuth
+        # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
         id = client_dn[3:].split('.')[0]
         self.assertEqual(id, request_auth.account_id)

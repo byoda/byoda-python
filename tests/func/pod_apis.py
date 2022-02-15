@@ -382,7 +382,6 @@ class TestDirectoryApis(unittest.TestCase):
     def test_graphql_service0_jwt(self):
         account = config.server.account
         account_id = account.account_id
-        return
         service_id = 0
         response = requests.get(
             BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',

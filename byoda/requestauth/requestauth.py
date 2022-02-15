@@ -229,23 +229,31 @@ class RequestAuth:
                 detail=f'Unsupported ID type in  cert: {self.id_type.value}'
             )
 
-        self.is_authenticated = True
-
     @staticmethod
-    def authenticate_graphql_request(request: starlette.requests.Request):
+    def authenticate_graphql_request(request: starlette.requests.Request,
+                                     service_id: int):
         '''
         Wrapper for static RequestAuth.authenticate method. This method
         is invoked by the GraphQL APIs
 
         :returns: An instance of RequestAuth
         '''
-        return RequestAuth.authenticate(
+
+        auth = RequestAuth.authenticate(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
             request.headers.get('Authorization'),
             request.client.host, HttpRequestMethod(request.method)
         )
+
+        if auth.service_id != service_id:
+            raise HTTPException(
+                status_code=401,
+                detail=f'credential is not for service {service_id}'
+            )
+
+        return auth
 
     @staticmethod
     def authenticate(tls_status: TlsStatus,
@@ -284,26 +292,24 @@ class RequestAuth:
             id_type = jwt.issuer_type
 
         if id_type == IdType.ACCOUNT:
-            from .accountrequest_auth import AccountRequestAuth
-            auth = AccountRequestAuth(
-                tls_status, client_dn, issuing_ca_dn, authorization,
-                remote_addr, method
+            raise HTTPException(
+                status_code=401,
+                detail='GraphQL queries must never use account credentials'
             )
-            _LOGGER.debug('Authentication for account %s', auth.id)
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(
                 tls_status, client_dn, issuing_ca_dn, authorization,
                 remote_addr, method
             )
-            _LOGGER.debug('Authentication for member %s', auth.id)
+            _LOGGER.debug('Authentication for member %s', auth.member_id)
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(
                 tls_status, client_dn, issuing_ca_dn, authorization,
                 remote_addr, method
             )
-            _LOGGER.debug('Authentication for service %s', auth.id)
+            _LOGGER.debug('Authentication for service %s', auth.service_id)
         else:
             raise ValueError(
                 f'Invalid authentication type in common name {client_dn}'
@@ -404,8 +410,7 @@ class RequestAuth:
                 )
             ) from exc
 
-    def check_service_cert(self, network: Network, service_id: int = None
-                           ) -> None:
+    def check_service_cert(self, network: Network) -> None:
         '''
         Checks if the MTLS client certificate was signed the cert chain
         for members of the service
@@ -445,15 +450,6 @@ class RequestAuth:
                     f'network {network.name}'
                 )
             ) from exc
-
-        if service_id is not None and self.service_id != service_id:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f'Service ID {service_id} from incoming request does not '
-                    f'match service ID {self.service_id} from client cert'
-                )
-            )
 
     @staticmethod
     def get_commonname(dname: str) -> str:
@@ -581,7 +577,6 @@ class RequestAuth:
             else:
                 self.account_id = jwt.issuer_id
 
-            self.is_authenticated = True
             self.auth_source = AuthSource.TOKEN
         except InvalidAudienceError:
             raise HTTPException(
