@@ -35,7 +35,7 @@ from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
-from byoda.requestauth import RequestAuth
+from byoda.requestauth.jwt import JWT
 
 from byoda.util.paths import Paths
 
@@ -381,7 +381,7 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def create_jwt(self, expiration_days: int = 365):
+    def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''
         Creates a JWT for a member of a service. This JWT can be
         used to authenticate against the:
@@ -389,11 +389,12 @@ class Member:
         - membership of the service of other pods
         - service
         '''
-        issuer = f'urn:member_id-{self.member_id}'
-        jwt = RequestAuth.create_auth_token(
-            issuer, self.tls_secret, self.network.name,
+
+        jwt = JWT.create(
+            self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
             service_id=self.service_id, expiration_days=expiration_days
         )
+
         return jwt
 
     def register(self, secret) -> None:

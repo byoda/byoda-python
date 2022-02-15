@@ -14,6 +14,7 @@ from copy import copy
 import requests
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
 from byoda.datastore.document_store import DocumentStore
 from byoda.datamodel.memberdata import MemberData
 
@@ -28,7 +29,7 @@ from byoda.util.paths import Paths
 from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
-from byoda.requestauth import RequestAuth
+from byoda.requestauth.jwt import JWT
 
 from .member import Member
 from .service import Service
@@ -218,16 +219,15 @@ class Account:
         )
         self.data_secret.load(password=self.private_key_password)
 
-    def create_jwt(self, expiration_days: int = 365):
+    def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''
         Creates a JWT for the account owning the POD. This JWT can be
         used to authenticate only against the pod.
         '''
 
-        issuer = f'urn:account_id-{self.account_id}'
-        jwt = RequestAuth.create_auth_token(
-            issuer, self.tls_secret, self.network.name,
-            expiration_days=expiration_days
+        jwt = JWT.create(
+            self.account_id, IdType.ACCOUNT, self.tls_secret,
+            self.network.name, expiration_days=expiration_days
         )
         return jwt
 

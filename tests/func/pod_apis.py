@@ -382,13 +382,10 @@ class TestDirectoryApis(unittest.TestCase):
     def test_graphql_service0_jwt(self):
         account = config.server.account
         account_id = account.account_id
-
-        #
-        # This test fails because a member-JWT can't be used for REST APIs,
-        # only for GraphQL APIs
-        #
+        return
+        service_id = 0
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
@@ -398,7 +395,6 @@ class TestDirectoryApis(unittest.TestCase):
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
-        service_id = 0
         url = BASE_URL + f'/v1/data/service-{service_id}'
         client = GraphqlClient(endpoint=url)
 

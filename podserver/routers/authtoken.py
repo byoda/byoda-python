@@ -77,7 +77,7 @@ def get_member_authtoken(request: Request, service_id: int,
         )
 
     jwt = member.create_jwt()
-    return {'auth_token': jwt}
+    return {'auth_token': jwt.encoded}
 
 
 @router.get(
@@ -111,4 +111,4 @@ def get_account_authtoken(request: Request,
         )
 
     jwt = account.create_jwt()
-    return {'auth_token': jwt}
+    return {'auth_token': jwt.encoded}

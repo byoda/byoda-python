@@ -21,6 +21,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
 from byoda.requestauth import RequestAuth
+from byoda.requestauth.jwt import JWT
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -139,7 +140,7 @@ class TestAccountManager(unittest.TestCase):
         member: Member = account.memberships[BYODA_PRIVATE_SERVICE]
         jwt = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt, '127.0.0.1'
+            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
         )
         self.assertTrue(request_auth.is_authenticated)
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -151,8 +152,9 @@ class TestAccountManager(unittest.TestCase):
         self.assertEqual(request_auth.id_type, IdType.MEMBER)
 
         jwt = account.create_jwt()
+
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt, '127.0.0.1'
+            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
         )
         self.assertTrue(request_auth.is_authenticated)
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -181,7 +183,7 @@ class TestAccountManager(unittest.TestCase):
             TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
         )
 
-    
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

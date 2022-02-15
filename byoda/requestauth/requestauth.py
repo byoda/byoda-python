@@ -7,33 +7,27 @@ Helper functions for API request processing
 '''
 
 import logging
-from enum import Enum
-from os import stat
 from uuid import UUID
-from typing import Union
 
 from ipaddress import ip_address as IpAddress
-
-import jwt as py_jwt
-
-from datetime import datetime, timezone, timedelta
-
 
 from fastapi import HTTPException
 import starlette
 
+from jwt.exceptions import ExpiredSignatureError
+from jwt.exceptions import InvalidAudienceError
+from jwt.exceptions import InvalidSignatureError
+from jwt.exceptions import PyJWTError
+
 from byoda.datamodel.network import Network
 
-from byoda.servers.directory_server import DirectoryServer
-from byoda.servers.pod_server import PodServer
 from byoda.servers.service_server import ServiceServer
+from byoda.servers.pod_server import PodServer
 
-from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import IdType
 from byoda.datatypes import HttpRequestMethod
 from byoda.datatypes import AuthSource
 
-from byoda.secrets import Secret
-from byoda.secrets import MemberSecret
 from byoda.secrets import ServiceSecret
 from byoda.secrets import MembersCaSecret
 from byoda.secrets import ServiceCaSecret
@@ -47,15 +41,12 @@ from byoda.exceptions import MissingAuthInfo
 
 from byoda import config
 
+from .jwt import JWT
+
 _LOGGER = logging.getLogger(__name__)
 
 
-JWT_EXPIRATION_DAYS = 365
-JWT_ALGO_PREFFERED = 'RS256'
-JWT_ALGO_ACCEPTED = ['RS256']
-
-
-class RequestAuth():
+class RequestAuth:
     '''
     Three classes derive from this class:
       - AccountRequestAuthFast
@@ -238,6 +229,8 @@ class RequestAuth():
                 detail=f'Unsupported ID type in  cert: {self.id_type.value}'
             )
 
+        self.is_authenticated = True
+
     @staticmethod
     def authenticate_graphql_request(request: starlette.requests.Request):
         '''
@@ -270,6 +263,8 @@ class RequestAuth():
         client_cn = None
         id_type = None
 
+        network: Network = config.server.account.network
+
         # Client cert, if available, sets the IdType for the authentication
         if client_dn and issuing_ca_dn:
             client_cn = RequestAuth.get_commonname(client_dn)
@@ -277,15 +272,16 @@ class RequestAuth():
 
         if authorization:
             # Watch out, the JWT signature does not get verified here.
-            jwt_id_type = RequestAuth._parse_jwt(authorization)
-            if jwt_id_type != id_type:
+            jwt = JWT.decode(authorization, None, network.name)
+            if id_type and id_type != jwt.issuer_type:
                 raise HTTPException(
                     status_code=401,
                     detail=(
                         f'Mismatch in IdType for cert ({id_type.value}) and '
-                        f'JWT ({jwt_id_type.value})'
+                        f'JWT ({jwt.issuer_type.value})'
                     )
                 )
+            id_type = jwt.issuer_type
 
         if id_type == IdType.ACCOUNT:
             from .accountrequest_auth import AccountRequestAuth
@@ -508,33 +504,6 @@ class RequestAuth():
 
         return idtype
 
-    @staticmethod
-    def create_auth_token(issuer: str, secret: Secret, network_name: str,
-                          service_id: int = None,
-                          expiration_days: int = JWT_EXPIRATION_DAYS
-                          ) -> bytes:
-        '''
-        Creates an authorization token
-        '''
-
-        expiration = (
-            datetime.now(tz=timezone.utc) + timedelta(days=expiration_days)
-        )
-
-        data = {
-            'exp': expiration,
-            'iss': issuer,
-            'aud': [f'urn:network-{network_name}'],
-        }
-        if service_id is not None:
-            data['service_id'] = service_id
-
-        jwt = py_jwt.encode(
-            data, secret.private_key, algorithm=JWT_ALGO_PREFFERED
-        )
-
-        return jwt
-
     def authenticate_authorization_header(self, authorization: str):
         '''
         Check the JWT in the value for the Authorization header.
@@ -542,9 +511,14 @@ class RequestAuth():
         :raises: HTTPException
         '''
 
-        if isinstance(config.server, DirectoryServer):
+        if isinstance(config.server, PodServer):
+            network: Network = config.server.account.network
+        elif isinstance(config.server, ServiceServer):
+            network: Network = config.server.service.network
+        else:
             raise HTTPException(
-                status_code=400, detail='Directory servers do not accept JWTs'
+                status_code=400,
+                detail='Only Pods and service servers accept JWTs'
             )
 
         if not authorization or not isinstance(authorization, str):
@@ -561,20 +535,12 @@ class RequestAuth():
         # First we use the unverified JTW to find out
         # in which context we need to authenticate the client
         try:
-            network = config.server.network.name
-            audience = [f'urn:network-{network}']
-            unverified = py_jwt.decode(
-                authorization, options={'verify_signature': False},
-                audience=audience, leeway=10,
-                algorithms=JWT_ALGO_ACCEPTED
-            )
+            unverified = JWT.decode(authorization, None, network.name)
 
-            unverified_id = RequestAuth._parse_jwt(unverified)
-
-            secret = RequestAuth._get_jwt_issuer_secret(unverified_id)
+            secret = unverified._get_issuer_secret()
             if not secret.cert:
                 secret.load(with_private_key=False)
-        except py_jwt.ExpiredSignatureError:
+        except ExpiredSignatureError:
             raise HTTPException(
                 status_code=401, detail='JWT has expired'
             )
@@ -582,7 +548,7 @@ class RequestAuth():
             _LOGGER.exception(f'Invalid JWT: {exc}')
             raise HTTPException(status_code=401, detail='Invalid JWT')
 
-        if (unverified_id.id_type == IdType.ACCOUNT
+        if (unverified.issuer_type == IdType.ACCOUNT
                 and not isinstance(config.server, PodServer)):
             raise HTTPException(
                 status_code=401,
@@ -594,130 +560,36 @@ class RequestAuth():
 
         if (isinstance(config.server, ServiceServer)
                 and config.server.service.service_id !=
-                unverified_id.service_id):
+                unverified.service_id):
             # We are running on a service server
             raise HTTPException(
                 status_code=401,
-                detail=f'Invalid service_id in JWT: {unverified_id.service_id}'
+                detail=f'Invalid service_id in JWT: {unverified.service_id}'
             )
 
         # Now we have the secret for verifying the signature of the JWT
         try:
-            decode_secret = secret.cert.public_key()
-            py_jwt.decode(
-                authorization, decode_secret, leeway=10,
-                audience=audience, algorithms=JWT_ALGO_ACCEPTED
-            )
-            # We now know we can trust the data we earlier parsed from the JWT
-            entity_id = unverified_id
+            JWT.decode(authorization, secret, network.name)
 
-            self.service_id = entity_id.service_id
-            self.id_type = entity_id.id_type
+            # We now know we can trust the data we earlier parsed from the JWT
+            jwt = unverified
+
+            self.service_id = jwt.service_id
+            self.id_type = jwt.issuer_type
             if self.service_id is not None:
-                self.member_id = entity_id.id
+                self.member_id = jwt.issuer_id
             else:
-                self.account_id = entity_id.id
+                self.account_id = jwt.issuer_id
 
             self.is_authenticated = True
             self.auth_source = AuthSource.TOKEN
-        except py_jwt.exceptions.InvalidAudienceError:
+        except InvalidAudienceError:
             raise HTTPException(
                 status_code=401, detail='JWT has incorrect audience'
             )
-
-    @staticmethod
-    def _parse_jwt(token: str) -> IdType:
-        '''
-        Parses the issuer, which in the form of either:
-        - 'urn:member_id-<UUID>'
-        - 'urn:account_id-<UUID>'
-        '''
-
-        issuer = token.get('iss')
-        if not issuer:
-            raise ValueError('No issuer specified in the JWT token')
-
-        if issuer.startswith('urn'):
-            issuer = issuer[4:]
-
-        if issuer.startswith('member_id-'):
-            entity_type = IdType.MEMBER
-            identity = issuer[len('member_id-'):]
-        elif issuer.startswith('account_id-'):
-            entity_type = IdType.ACCOUNT
-            identity = issuer[len('account_id-'):]
-        else:
-            raise ValueError(f'Invalid issuer in JWT: {issuer}')
-
-        service_id = token.get('service_id')
-        if service_id is not None:
-            service_id = int(service_id)
-
-        entity_id = EntityId(IdType(entity_type), UUID(identity), service_id)
-
-        return entity_id
-
-    @staticmethod
-    def _get_jwt_issuer_secret(entity_id: EntityId) -> Secret:
-        '''
-        Gets the secret for the account or member that issued the JWT so
-        that the public key for the secret can be used to verify the
-        signature of the JWT.
-
-        :param entity_id: entity parsed from the unverified JWT
-        :raises: ValueError
-        '''
-
-        # This function is called before the signature of the JWT has
-        # been verified so must not change any data! Nor do we want
-        # to provide information to hackers submitting bogus JWTs
-
-        if config.server.service:
-            # We are running on a service server. Let's see if we have the
-            # public cert of the issuer of the JWT
-
-            if entity_id.service_id is None:
-                raise ValueError('No service ID specified in the JWT')
-
-            if entity_id.id_type == IdType.ACCOUNT:
-                raise ValueError(
-                    'Service API can not be called with a JWT for an account'
-                )
-
-            secret: MemberSecret = MemberSecret(
-                entity_id.id, entity_id.service_id, None,
-                config.server.service.network
+        except InvalidSignatureError:
+            raise HTTPException(
+                status_code=401, detail='JWT signature invalid'
             )
-        elif config.server.account and entity_id.service_id is not None:
-            # We have a JWT signed by a member of a service and we are
-            # running on a pod, let's get the secret for the membership
-            config.server.account.load_memberships()
-            member = config.server.account.memberships.get(
-                entity_id.service_id
-            )
-            if member:
-                if member.member_id != entity_id.id:
-                    raise NotImplementedError(
-                        'We do not yet support JTWs signed by other members'
-                    )
-
-                secret = member.tls_secret
-            else:
-                # We don't want to give details in the error message as it
-                # could allow people to discover which services a pod has
-                # joined
-                _LOGGER.exception(
-                    f'Unknown service ID: {entity_id.service_id}'
-                )
-                raise ValueError
-        elif config.server.account and entity_id.service_id is None:
-            # We are running on the pod and the JWT is signed by the account
-            secret = config.server.account.tls_secret
-        else:
-            _LOGGER.exception(
-                'Could not get the secret for '
-                f'{entity_id.id_type.value}{entity_id.id}'
-            )
-            raise ValueError
-
-        return secret
+        except PyJWTError as exc:
+            raise HTTPException(status_code=401, detail=f'JWT error: {exc}')
