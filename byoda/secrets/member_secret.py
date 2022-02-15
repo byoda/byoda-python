@@ -11,7 +11,6 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 
-
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
@@ -41,7 +40,7 @@ class MemberSecret(Secret):
 
         self.service_id = int(service_id)
 
-        self.paths = copy(account.network.paths)
+        self.paths = copy(account.paths)
         self.paths.service_id = self.service_id
 
         # secret.review_commonname requires self.network to be string
@@ -51,12 +50,10 @@ class MemberSecret(Secret):
             cert_file=self.paths.get(
                 Paths.MEMBER_CERT_FILE,
                 service_id=service_id, member_id=self.member_id,
-                account_id=account.account_id
             ),
             key_file=self.paths.get(
                 Paths.MEMBER_KEY_FILE,
                 service_id=service_id, member_id=self.member_id,
-                account_id=account.account_id
             ),
             storage_driver=self.paths.storage_driver
         )

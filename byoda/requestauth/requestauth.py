@@ -221,7 +221,7 @@ class RequestAuth:
             self.account_id = self.id
         elif self.id_type == IdType.MEMBER:
             self.member_id = self.id
-        elif self.is_type == IdType.SERVICE:
+        elif self.id_type == IdType.SERVICE:
             pass
         else:
             raise HTTPException(
