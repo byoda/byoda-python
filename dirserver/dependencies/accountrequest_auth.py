@@ -44,7 +44,7 @@ class AccountRequestAuthFast(RequestAuth):
         try:
             super().__init__(
                 x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, request.client.host
+                x_client_ssl_issuing_ca, None, request.client.host
             )
         except MissingAuthInfo:
             raise HTTPException(

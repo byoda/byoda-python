@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
 '''
-Test the Secret class
+Test cases for secrets
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022
+:license    : GPLv3
 '''
 
 import sys

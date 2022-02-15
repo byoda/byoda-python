@@ -43,7 +43,8 @@ class MemberRequestAuth_Fast(RequestAuth):
 class MemberRequestAuth(RequestAuth):
     def __init__(self, tls_status: TlsStatus,
                  client_dn: str, issuing_ca_dn: str,
-                 remote_addr: IpAddress, method: HttpRequestMethod):
+                 authorization: str, remote_addr: IpAddress,
+                 method: HttpRequestMethod):
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
@@ -57,21 +58,23 @@ class MemberRequestAuth(RequestAuth):
 
         server = config.server
 
-        service_id = MemberRequestAuth.get_service_id(client_dn)
-
         try:
-            super().__init__(tls_status, client_dn, issuing_ca_dn, remote_addr)
+            super().__init__(
+                tls_status, client_dn, issuing_ca_dn, authorization,
+                remote_addr
+            )
         except MissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )
 
-        if self.client_cn is None and self.issuing_ca_cn is None:
+        if (self.client_cn is None and authorization is None):
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )
 
-        self.check_member_cert(service_id, server.network)
+        if client_dn:
+            self.check_member_cert(self.service_id, server.network)
 
         self.is_authenticated = True
 
@@ -100,6 +103,6 @@ class MemberRequestAuth(RequestAuth):
             return service_id
 
         raise HTTPException(
-            status_code=403,
+            status_code=400,
             detail=f'Invalid format for common name: {commonname}'
         )

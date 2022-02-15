@@ -33,6 +33,7 @@ redis = "*"
 hiredis = "*"
 rfc3339-validator = "*"
 jsonschema = {extras = ["format"], version = "*"}
+pyjwt = "*"
 
 [dev-packages]
 flake8 = "*"

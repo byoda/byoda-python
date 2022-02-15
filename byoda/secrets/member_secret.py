@@ -21,7 +21,8 @@ from . import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
-Account = TypeVar('Account', bound='Account')
+Account = TypeVar('Account')
+Network = TypeVar('Network')
 
 
 class MemberSecret(Secret):

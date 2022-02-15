@@ -27,7 +27,6 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
-
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
@@ -35,6 +34,8 @@ from byoda.storage import FileStorage
 from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.util.paths import Paths
 
@@ -380,6 +381,22 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
+    def create_jwt(self, expiration_days: int = 365) -> JWT:
+        '''
+        Creates a JWT for a member of a service. This JWT can be
+        used to authenticate against the:
+        - membership of the pod
+        - membership of the service of other pods
+        - service
+        '''
+
+        jwt = JWT.create(
+            self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
+            service_id=self.service_id, expiration_days=expiration_days
+        )
+
+        return jwt
+
     def register(self, secret) -> None:
         '''
         Registers the membership and its schema version with both the network
@@ -485,7 +502,7 @@ class Member:
 
         self.app = app
 
-        # podserver.dependencies.podrequest_auth.PodRequestAuth
+        # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
         path = GRAPHQL_API_URL_PREFIX + str(self.service_id)

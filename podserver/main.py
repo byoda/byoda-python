@@ -40,6 +40,7 @@ from .util import get_environment_vars
 
 from .routers import account
 from .routers import member
+from .routers import authtoken
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -82,6 +83,7 @@ server.get_registered_services()
 # TODO: if we have a pod secret, should we compare its commonname with the
 # account_id environment variable?
 pod_account = Account(network_data['account_id'], network)
+pod_account.password = network_data.get('account_secret')
 pod_account.tls_secret.load(password=pod_account.private_key_password)
 pod_account.data_secret.load(password=pod_account.private_key_password)
 pod_account.register()
@@ -106,12 +108,12 @@ nginx_config = NginxConfig(
     root_dir=server.network.paths.root_directory
 )
 
-nginx_config.create(htaccess_password=network_data.get('account_secret'))
+nginx_config.create(htaccess_password=pod_account.password)
 nginx_config.reload()
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', None, [account, member]
+    'v0.0.1', None, [account, member, authtoken]
 )
 
 for account_member in pod_account.memberships.values():

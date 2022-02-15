@@ -14,6 +14,7 @@ from copy import copy
 import requests
 
 from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
 from byoda.datastore.document_store import DocumentStore
 from byoda.datamodel.memberdata import MemberData
 
@@ -27,6 +28,8 @@ from byoda.secrets import MembersCaSecret
 from byoda.util.paths import Paths
 from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
+
+from byoda.requestauth.jwt import JWT
 
 from .member import Member
 from .service import Service
@@ -54,6 +57,9 @@ class Account:
 
         _LOGGER.debug(f'Constructing account {account_id}')
         self.account: str = account
+
+        # This is the password to use for HTTP Basic Auth
+        self.password: str = None
 
         if isinstance(account_id, UUID):
             self.account_id: UUID = account_id
@@ -212,6 +218,18 @@ class Account:
             self.account, self.account_id, self.network
         )
         self.data_secret.load(password=self.private_key_password)
+
+    def create_jwt(self, expiration_days: int = 365) -> JWT:
+        '''
+        Creates a JWT for the account owning the POD. This JWT can be
+        used to authenticate only against the pod.
+        '''
+
+        jwt = JWT.create(
+            self.account_id, IdType.ACCOUNT, self.tls_secret,
+            self.network.name, expiration_days=expiration_days
+        )
+        return jwt
 
     def register(self):
         '''
