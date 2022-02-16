@@ -11,7 +11,7 @@ import logging
 from uuid import UUID
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 
 from byoda.datastore.memberdb import MemberDb
 
@@ -62,9 +62,17 @@ def search(request: Request, email: str,
     limited by the reverse proxy (TODO: security)
     '''
 
+    _LOGGER.debug(f'Search API called for {email} from {request.client.host}')
+
     member_db: MemberDb = config.server.member_db
 
-    member_id = member_db.kvcache.get(email).decode('utf-8')
+    member_id = member_db.kvcache.get(email)
+    if not member_id:
+        raise HTTPException(
+            status_code=404, detail=f'No member found for {email}'
+        )
+
+    member_id = member_id.decode('utf-8')
     _LOGGER.debug(
         f'GET Search API called from {request.client.host} for email {email}, '
         f'found {member_id}'
