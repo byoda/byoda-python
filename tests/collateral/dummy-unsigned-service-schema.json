@@ -73,6 +73,7 @@
         "type": "object"
     },
     "service_id": 12345678,
+    "cors_origins": ["dummy.url"],
     "signatures": {},
     "version": 1
 }

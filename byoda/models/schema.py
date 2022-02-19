@@ -24,6 +24,7 @@ class SchemaModel(BaseModel):
     owner: str
     website: str
     supportemail: str
+    cors_origins: list[str]
     signatures: Dict
     # Can't use 'schema' as property as it conflicts with a property
     # of the pydantic.BaseModel class
@@ -41,6 +42,7 @@ class SchemaModel(BaseModel):
             'owner': self.owner,
             'website': self.website,
             'supportemail': self.supportemail,
+            'cors_origins': self.cors_origins,
             'signatures': self.signatures,
             'jsonschema': self.jsonschema,
         }

@@ -59,6 +59,11 @@ The 'Address Book' service is a proof of concept on how a service in the BYODA n
 ```
 source setenv.sh
 ```
+Let's first see what services are available on the byoda.net network:
+```
+curl -s https://dir.byoda.net/api/v1/network/services | jq .
+```
+
 Now we can use curl to get the list of services the pod has discovered in the network:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \

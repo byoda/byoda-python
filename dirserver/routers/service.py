@@ -294,8 +294,9 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
 
     '''
 
-    _LOGGER.debug(f'POST Service API called from {request.client.host}')
+    _LOGGER.debug(f'PATCH Service API called from {request.client.host}')
 
+    # Authorize the request
     if service_id != auth.service_id:
         raise HTTPException(
             403, 'Service ID query parameter does not match the client cert'
@@ -306,6 +307,8 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
             403, f'Service_ID query parameter {service_id} does not match '
             f'the ServiceID parameter in the schema {schema.service_id}'
         )
+    # End of authorization
+    
     network = config.server.network
 
     # TODO: create a whole bunch of schema validation tests

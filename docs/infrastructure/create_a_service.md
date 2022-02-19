@@ -185,7 +185,6 @@ export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=private.json
 
-
 export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
@@ -198,6 +197,7 @@ if [ ! -f config.yml ]; then
 fi
 
 mkdir -p ${SERVICE_DIR}
+cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)
