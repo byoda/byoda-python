@@ -82,16 +82,16 @@ And we can enter our data for the address book service after we fill in our data
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
     https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
-    --data '{"query": "mutation { mutate_person( given_name: \"<your given name>\", additional_names: \"\", family_name: \"<your family name>\", email: \"<your email address>\", homepage_url: \"<your homepage>\", avatar_url: \"\") { given_name additional_names family_name email homepage_url avatar_url } }" }'
+    --data '{"query": "mutation { mutate_person( given_name: \"<your given name>\", additional_names: \"\", family_name: \"<your family name>\", email: \"<your email address>\", homepage_url: \"<your homepage>\", avatar_url: \"\") { given_name additional_names family_name email homepage_url avatar_url } }" }' | jq .
 ```
 To confirm that the pod now really has the data for your membership of the address book service:
 ```
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
     https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
-    --data '{"query": "query {person {given_name additional_names family_name email homepage_url avatar_url}}"}'
+    --data '{"query": "query {person {given_name additional_names family_name email homepage_url avatar_url}}"}' | jq .
 ```
-It will take a while for the address book service to retrieve your data from your pod and make it available from its search API. The address book service queries a pod every 10 seconds so the exact time depends on how many people have joined the service. In the meantime, you can call the search API to find the member_id of my email address: steven@byoda.org
+It will take a while for the address book service to retrieve your data from your pod and make it available from its search API. The address book service queries a pod every 10 seconds so, the exact time depends on how many people have joined the service. In the mean time, you can call the search API to find the member_id of my email address: steven@byoda.org
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/steven@byoda.org  | jq .

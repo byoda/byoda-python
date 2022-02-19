@@ -13,6 +13,7 @@ from copy import copy
 from typing import Dict, TypeVar, Callable
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
@@ -502,11 +503,20 @@ class Member:
 
         self.app = app
 
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=self.service.schema.cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
         path = GRAPHQL_API_URL_PREFIX + str(self.service_id)
         graphql_app = GraphQLRouter(self.schema.gql_schema)
+
         app.include_router(graphql_app, prefix=path)
 
     def upgrade_graphql_api(self, app: FastAPI) -> None:
