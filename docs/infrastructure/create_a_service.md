@@ -198,6 +198,8 @@ fi
 
 mkdir -p ${SERVICE_DIR}
 cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
+# Delete any existing unencrypted private key for the service
+rm -f /tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:$(pwd)

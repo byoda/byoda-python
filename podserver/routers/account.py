@@ -10,7 +10,7 @@
 import os
 import logging
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request
 
 from byoda.datatypes import StorageType, CloudType
 
