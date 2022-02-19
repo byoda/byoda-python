@@ -138,7 +138,7 @@ class TestDirectoryApis(unittest.TestCase):
         response = requests.get(API)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 9)
+        self.assertEqual(len(data), 10)
         self.assertEqual(data['service_id'], SERVICE_ID)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'dummyservice')
