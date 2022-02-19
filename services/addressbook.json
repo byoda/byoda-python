@@ -138,6 +138,7 @@
     "version": 1,
     "website": "https://www.byoda.org/",
     "cors_origins": [
-        "addressbook.byoda.org"
+        "www.byoda.net",
+        "addressbook.byoda.net"
     ]
 }
