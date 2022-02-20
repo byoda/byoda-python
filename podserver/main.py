@@ -113,7 +113,8 @@ nginx_config.reload()
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', None, [account, member, authtoken]
+    'v0.0.1', None, [pod_account.tls_secret.common_name],
+    [account, member, authtoken]
 )
 
 for account_member in pod_account.memberships.values():

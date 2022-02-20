@@ -68,5 +68,8 @@
     "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
-    "website": "https://www.byoda.org/"
+    "website": "https://www.byoda.org/",
+    "cors_origins": [
+        "https://wwww.byoda.net"
+    ]
 }

@@ -51,9 +51,8 @@ if not os.environ.get('SERVER_NAME') and config.server.network.name:
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', app_config, [account, service, member]
+    'v0.0.1', app_config, [], [account, service, member]
 )
-
 
 @app.get('/api/v1/status')
 async def status():

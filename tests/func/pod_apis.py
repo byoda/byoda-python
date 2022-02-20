@@ -122,7 +122,8 @@ class TestDirectoryApis(unittest.TestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', None, [account, member, authtoken]
+            'v0.0.1', None, [pod_account.tls_secret.common_name],
+            [account, member, authtoken]
         )
 
         for account_member in pod_account.memberships.values():
