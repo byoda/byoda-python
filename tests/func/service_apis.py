@@ -113,7 +113,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
-            'v0.0.1', None, [service, member]
+            'v0.0.1', None, [], [service, member]
         )
         cls.PROCESS = Process(
             target=uvicorn.run,

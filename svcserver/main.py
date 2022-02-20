@@ -54,7 +54,7 @@ if config.server.service.schema.name == 'addressbook':
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA network',
-    'v0.0.1', app_config, api_list
+    'v0.0.1', app_config, config.server.service.schema.cors_origins, api_list
 )
 
 

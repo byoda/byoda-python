@@ -15,11 +15,13 @@ from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def setup_api(title, description, version, app_config, routers: List):
+def setup_api(title, description, version, app_config,
+              cors_origins: List[str], routers: List):
     middleware = [
         Middleware(
             RawContextMiddleware,
@@ -34,6 +36,19 @@ def setup_api(title, description, version, app_config, routers: List):
         title=title, description=description, version=version,
         middleware=middleware
     )
+
+    if cors_origins:
+        _LOGGER.debug(
+            f'Adding CORS middleware for origins {", ".join(cors_origins)}'
+        )
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # FastAPIInstrumentor.instrument_app(app)
     # PrometheusInstrumentator().instrument(app).expose(app)
