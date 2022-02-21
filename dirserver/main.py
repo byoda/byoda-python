@@ -54,6 +54,7 @@ app = setup_api(
     'v0.0.1', app_config, [], [account, service, member]
 )
 
+
 @app.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
