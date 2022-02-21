@@ -47,9 +47,7 @@ class AccountRequestAuthFast(RequestAuth):
                 x_client_ssl_issuing_ca, None, request.client.host
             )
         except MissingAuthInfo:
-            raise HTTPException(
-                status_code=403, detail='No authentication provided'
-            )
+            return
 
         try:
             _LOGGER.debug('Checking the account cert')

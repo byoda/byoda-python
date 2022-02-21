@@ -7,10 +7,9 @@
 '''
 
 
-from http.client import HTTPException
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 
 from cryptography import x509
 
@@ -56,7 +55,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     network: Network = config.server.network
 
     # Authorization
-    csr_x509: x509 = Secret.x509_csr.csr_from_string(csr)
+    csr_x509: x509 = Secret.csr_from_string(csr.csr)
     common_name = Secret.extract_commonname(csr_x509)
     try:
         entity_id = NetworkAccountsCaSecret.review_commonname_by_parameters(
@@ -74,8 +73,17 @@ def post_account(request: Request, csr: CertSigningRequestModel,
             )
         )
 
+    # Attacks through badly formatted common names in the secret are not possible
+    # because entity_id.id is guaranteed to be an UUID and entity_id.id_type is
+    # a value of the IdType enum
+    file_path = (
+        f'{network.paths.account_directory(entity_id.id)}'
+        f'{entity_id.id_type.value}{entity_id.id}'
+    )
+
     if auth.is_authenticated:
-        if entity_id.type != IdType.ACCOUNT or entity_id.id != auth.account_id:
+        if (entity_id.id_type != IdType.ACCOUNT
+                or entity_id.id != auth.account_id):
             raise HTTPException(
                 status_code=401, detail=(
                     f'Common name {common_name} in CSR does not match the '
@@ -84,11 +92,8 @@ def post_account(request: Request, csr: CertSigningRequestModel,
             )
         _LOGGER.debug(f'Signing csr for existing account {entity_id.id}')
     else:
-        path = (
-            f'{network.paths.account_directory()}{entity_id.id_type.value}'
-            f'{entity_id.id}'
-        )
-        if network.paths.storage_driver.exists(path):
+
+        if network.paths.storage_driver.exists(file_path):
             _LOGGER.debug('Attempt to submit CSR for existing account ')
             raise HTTPException(
                 status_code=401, detail=(
@@ -112,7 +117,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     _LOGGER.debug(
         f'Persisting signing of account CSR for {entity_id.id}'
     )
-    network.paths.storage_driver.write(path, common_name.encode('utf-8'))
+    network.paths.storage_driver.write(file_path, common_name)
 
     return {
         'signed_cert': signed_cert,

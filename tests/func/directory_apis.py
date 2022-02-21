@@ -173,6 +173,28 @@ class TestDirectoryApis(unittest.TestCase):
             data['network_data_cert_chain'].encode()
         )
 
+        # Retry same CSR, with same TLS client cert:
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}, headers=headers
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
+            data['cert_chain'].encode()
+        )
+        account_cert = x509.load_pem_x509_certificate(          # noqa:F841
+            data['signed_cert'].encode()
+        )
+        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
+            data['network_data_cert_chain'].encode()
+        )
+
+        # Retry same CSR, without client cert:
+        response = requests.post(
+            API, json={'csr': str(csr, 'utf-8')}, headers=None
+        )
+        self.assertEqual(response.status_code, 401)
+
     def test_network_service_creation(self):
         API = BASE_URL + '/v1/network/service'
 
@@ -284,7 +306,7 @@ class TestDirectoryApis(unittest.TestCase):
         response = requests.get(API + f'/service_id/{service_id}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 9)
+        self.assertEqual(len(data), 10)
         self.assertEqual(data['service_id'], SERVICE_ID)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'dummyservice')
