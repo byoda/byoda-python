@@ -173,8 +173,7 @@ class DnsDb:
         return uuid, id_type, service_id
 
     def create_update(self, uuid: UUID, id_type: IdType,
-                      ip_addr: ip_address, service_id: int = None,
-                      secret: str = None) -> bool:
+                      ip_addr: ip_address, service_id: int = None) -> bool:
         '''
         Create DNS A and optionally a TXT record, replacing any existing DNS
         record.
@@ -183,15 +182,12 @@ class DnsDb:
         :param id_type: instance of byoda.datatypes.IdType
         :param ip_addr: client ip
         :param service_id: service identifier
-        :param secret: The DNS secret provided by Let's Encrypt. May only be
-        specified for IdType.ACCOUNT
         :returns: whether existing DNS records were updated
         :raises:
         '''
 
         self._validate_parameters(
-            uuid, id_type, ip_addr=ip_addr, service_id=service_id,
-            secret=secret
+            uuid, id_type, ip_addr=ip_addr, service_id=service_id
         )
 
         db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
@@ -200,7 +196,9 @@ class DnsDb:
         record_replaced = False
 
         for dns_record_type, value in [
-                (DnsRecordType.A, str(ip_addr)), (DnsRecordType.TXT, secret)]:
+                (DnsRecordType.A, str(ip_addr)), (DnsRecordType.TXT, None)]:
+            # TODO: refactor now that we have ruled out Let's Encrypt certs
+            # and TXT records
             if not value:
                 # No value provided for the DNS record type, ie. no value for
                 # secret specified because the IP address is always provided
@@ -249,7 +247,7 @@ class DnsDb:
 
     def lookup(self, uuid: UUID, id_type: IdType,
                dns_record_type: DnsRecordType,
-               service_id: int = None, secret: str = None) -> ip_address:
+               service_id: int = None) -> ip_address:
         '''
         Look up in DnsDB the DNS record for the UUID, which is either an
         account_id, a member_id or a service_id
@@ -258,7 +256,6 @@ class DnsDb:
         :param id_type: instance of byoda.datatypes.IdType
         :param dns_record_type: type of DNS record to look up
         :param service_id: the identifier for the service
-        :param secret: the Let's Encrypt secret for DNS Authorization
         :returns: IP address found for the lookup in DnsDB
         :raises: KeyError if DNS record for the uuid could not be found
         '''
@@ -266,6 +263,17 @@ class DnsDb:
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
+
+        return self.lookup_fqdn(fqdn, dns_record_type)
+
+    def lookup_fqdn(self, fqdn: str, dns_record_type) -> ip_address:
+        '''
+        Looks up FQDN in the DnsDB
+
+        :param fqdn: FQDN to look up
+        :returns: IP address found for the lookup in DnsDB
+        :raises: KeyError if DNS record for the uuid could not be found
+        '''
 
         value = None
         with self._engine.connect() as conn:
@@ -359,8 +367,7 @@ class DnsDb:
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
                              ip_addr: ip_address = None,
-                             service_id: Optional[int] = None,
-                             secret: Optional[str] = None):
+                             service_id: Optional[int] = None):
         '''
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate
@@ -413,15 +420,6 @@ class DnsDb:
                 'uuid and service_id must both be specified for IdType.MEMBER'
             )
 
-        if secret and not isinstance(secret, str):
-            raise ValueError(
-                f'Secret must be a string and not a {type(secret)}'
-            )
-
-        if secret and (id_type != IdType.ACCOUNT or service_id):
-            raise ValueError(
-                'We only provision Lets Encrypt DNS secrets for accounts'
-            )
         return
 
     def _get_domain_id(self, conn: Engine, subdomain: str,

@@ -11,7 +11,6 @@ Test the DnsDB class against Postgres server for byoda.net
 import sys
 import yaml
 import time
-from uuid import uuid4
 from ipaddress import ip_address
 import unittest
 

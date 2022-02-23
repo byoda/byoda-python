@@ -20,6 +20,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkServicesCaSecret(CaSecret):
+    ACCEPTED_CSRS = [IdType.SERVICE_CA]
+
     def __init__(self, paths=None):
         '''
         Class for the network services issuing CA secret
@@ -78,6 +80,24 @@ class NetworkServicesCaSecret(CaSecret):
         # Checks on commonname type and the network postfix
         entity_id = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
+        )
+
+        return entity_id
+
+    @staticmethod
+    def review_commonname_by_parameters(commonname: str, network: str
+                                        ) -> EntityId:
+        '''
+        Review the commonname for the specified network. Allows CNs to be
+        reviewed without instantiating a class instance.
+
+        :param commonname: the CN to check
+        :raises: ValueError if the commonname is not valid for certs signed
+        by instances of this class        '''
+
+        entity_id = CaSecret.review_commonname_by_parameters(
+            commonname, network, NetworkServicesCaSecret.ACCEPTED_CSRS,
+            uuid_identifier=False, check_service_id=False
         )
 
         return entity_id

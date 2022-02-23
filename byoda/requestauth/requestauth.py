@@ -48,6 +48,8 @@ _LOGGER = logging.getLogger(__name__)
 
 class RequestAuth:
     '''
+    Class to authenticate REST API and GraphQL API calls
+
     Three classes derive from this class:
       - AccountRequestAuthFast
       - MemberRequestAuth
@@ -91,8 +93,8 @@ class RequestAuth:
 
     With nginx this can be achieved by:
         listen 443 ssl;
-        ssl_certificate_key /path/to/letsencrypt/private.key;
-        ssl_certificate  /path/to/letsencrypt/fullchain.pem;
+        ssl_certificate_key /path/to/unencrypted/private.key;
+        ssl_certificate  /path/to/fullchain.pem;
 
         ssl_verify_client optional;
         ssl_client_certificate /path/to/network-rootca-cert.pem;
