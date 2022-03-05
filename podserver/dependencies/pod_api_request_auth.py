@@ -68,8 +68,8 @@ class PodApiRequestAuth(RequestAuth):
                 status_code=401, detail='No authentication provided'
             )
 
-        # Account cert can only be used for Pod REST APIs and, vice versa,
-        # Pod REST APIs can only be called with the account cert.
+        # Account cert / JWT can only be used for Pod REST APIs and, vice
+        # versa, Pod REST APIs can only be called with the account cert.
         # GraphQL APIs do not call PodApRequestAuth()
         if self.id_type != IdType.ACCOUNT:
             raise HTTPException(

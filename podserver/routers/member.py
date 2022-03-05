@@ -40,9 +40,12 @@ def get_member(request: Request, service_id: int,
 
     account = config.server.account
 
+    # Authorization: handled by PodApiRequestsAuth, which checks the
+    # cert / JWT was for an account and its account ID matches that
+    # of the pod
+
     # Make sure we have the latest updates of memberships
     account.load_memberships()
-
     member = account.memberships.get(service_id)
 
     if not member:
@@ -67,9 +70,12 @@ def post_member(request: Request, service_id: int, version: int,
 
     account = config.server.account
 
+    # Authorization: handled by PodApiRequestsAuth, which checks the
+    # cert / JWT was for an account and its account ID matches that
+    # of the pod
+
     # Make sure we have the latest updates of memberships
     account.load_memberships()
-
     member = account.memberships.get(service_id)
 
     if member:
@@ -100,7 +106,13 @@ def put_member(request: Request, service_id: int, version: int,
     server = config.server
     account = server.account
 
+    # Authorization: handled by PodApiRequestsAuth, which checks the
+    # cert / JWT was for an account and its account ID matches that
+    # of the pod
+
+    account.load_memberships()
     member = account.memberships.get(service_id)
+
     if not member:
         raise HTTPException(
             status_code=404,

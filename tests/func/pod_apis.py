@@ -542,6 +542,33 @@ class TestDirectoryApis(unittest.TestCase):
             result['data']['mutate_member']['member_id'], '0'
         )
 
+        # Test with cert of another member
+        alt_member_id = get_test_uuid()
+
+        alt_member_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={alt_member_id}.members-0.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
+        }
+
+        query = '''
+            query {
+                person {
+                    given_name
+                    additional_names
+                    family_name
+                    email
+                    homepage_url
+                    avatar_url
+                }
+            }
+        '''
+
+        result = client.execute(query, headers=alt_member_headers)
+        self.assertEqual(
+            result['data']['mutate_member']['member_id'], '0'
+        )
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
