@@ -68,8 +68,9 @@ def authorize_graphql_request(service_id, info, root):
 def authorize_graphql_query(service_id, info, root):
     '''
     Checks the authorization of a graphql request for a service.
-    It is called by the code generated from the Jinja
-    templates implementing GraphQL support
+
+    It is called by the code generated from the Jinja templates implementing
+    GraphQL support
     '''
 
     # Authorization is declined unless we find it is allowed
@@ -80,22 +81,31 @@ def authorize_graphql_query(service_id, info, root):
     member = config.server.account.memberships[service_id]
 
     # This is the start of the data definition of the JsonSchema
-    json_schema = member.schema.json_schema['jsonschema']['properties']
+    json_sub_schema = member.schema.json_schema['jsonschema']['properties']
 
-    json_key = info.path[1]
-
-    # This provides the type of operation requested: Query, Mutate, Subscribe
-    operation = info.operation.operation
-
-    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
-        for accesscontrol in json_schema[json_key][_ACCESS_MARKER]:
-            for entity, access in accesscontrol.items():
-                if not authorize_operation(operation, access):
+    # We walk the path through the data model. If we don't find explicit
+    # permission at some level than we reject the request by default.
+    for obj in reversed(info.path):
+        if obj in json_sub_schema and _ACCESS_MARKER in json_sub_schema[obj]:
+            access_control = json_sub_schema[obj][_ACCESS_MARKER]
+            for entity, permissions in access_control.items():
+                # Check if the GraphQL operation is allowed per the permissions
+                if 'read' not in permissions:
                     continue
 
-                if entity == 'member':
-                    if authorize_member(service_id, auth):
-                        return True
+                # Now check whether the requestor matches the entity of the
+                # access control
+                auth: RequestAuth = info.context['auth']
+                if entity == 'member' and auth.id_type == IdType.MEMBER:
+                    if authorize_member(service_id, info.context['auth']):
+                        access_allowed = True
+
+        # Check the access at the next-deeper level of the data model in
+        # the next iteration
+        if 'properties' in json_sub_schema[obj]:
+            json_sub_schema = json_sub_schema[obj]['properties']
+        else:
+            return access_allowed
 
     return access_allowed
 
@@ -107,6 +117,7 @@ def authorize_graphql_mutation(service_id, auth, root, info):
     templates implementing GraphQL support
     '''
 
+    raise NotImplementedError
     # Authorization is declined unless we find it is allowed
     access_allowed = False
 
@@ -122,15 +133,24 @@ def authorize_graphql_mutation(service_id, auth, root, info):
     # This provides the type of operation requested: Query, Mutate, Subscribe
     operation = info.operation.operation
 
-    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
-        for accesscontrol in json_schema[json_key][_ACCESS_MARKER]:
-            for entity, access in accesscontrol.items():
-                if not authorize_operation(operation, access):
-                    continue
+    json_key = info.path[1]
+    if operation.value == 'mutation':
+        # strip of the 'mutate_' prefix
+        json_key = json_key[len('mutate_'):]
 
-                if entity == 'member':
-                    if authorize_member(service_id, auth):
-                        return True
+    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
+        access_control = json_schema[json_key][_ACCESS_MARKER]
+        for entity, permissions in access_control.items():
+            # Check if the GraphQL operation is allowed per the permissions
+            if not authorize_operation(operation, permissions):
+                continue
+
+            # Now check whether the requestor matches the entity of the
+            # access control
+            auth: RequestAuth = info.context['auth']
+            if entity == 'member' and auth.id_type == IdType.MEMBER:
+                if authorize_member(service_id, info.context['auth']):
+                    return True
 
     return access_allowed
 
@@ -142,6 +162,7 @@ def authorize_graphql_append(service_id, auth, root, info):
     templates implementing GraphQL support
     '''
 
+    raise NotImplementedError
     # Authorization is declined unless we find it is allowed
     access_allowed = False
 
@@ -157,15 +178,24 @@ def authorize_graphql_append(service_id, auth, root, info):
     # This provides the type of operation requested: Query, Mutate, Subscribe
     operation = info.operation.operation
 
-    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
-        for accesscontrol in json_schema[json_key][_ACCESS_MARKER]:
-            for entity, access in accesscontrol.items():
-                if not authorize_operation(operation, access):
-                    continue
+    json_key = info.path[1]
+    if operation.value == 'mutation':
+        # strip of the 'mutate_' prefix
+        json_key = json_key[len('mutate_'):]
 
-                if entity == 'member':
-                    if authorize_member(service_id, auth):
-                        return True
+    if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
+        access_control = json_schema[json_key][_ACCESS_MARKER]
+        for entity, permissions in access_control.items():
+            # Check if the GraphQL operation is allowed per the permissions
+            if not authorize_operation(operation, permissions):
+                continue
+
+            # Now check whether the requestor matches the entity of the
+            # access control
+            auth: RequestAuth = info.context['auth']
+            if entity == 'member' and auth.id_type == IdType.MEMBER:
+                if authorize_member(service_id, info.context['auth']):
+                    return True
 
     return access_allowed
 

@@ -64,7 +64,7 @@ def authenticate(root, info):
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        authorize_graphql_request_Byoda({{ service_id}}, info, root)
+        return authorize_graphql_request_Byoda({{ service_id}}, info, root)
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
@@ -103,7 +103,9 @@ class Query:
     def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}
         _LOGGER.debug('Resolving {{ root_class.name }}')
-        if not authenticate(self, info):
+
+        result = authenticate(self, info)
+        if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
 {%     if root_class.type != DataType.ARRAY %}
@@ -136,7 +138,9 @@ class Mutation:
 {%       endfor %}
             ) -> {{ root_class.name }}:
         _LOGGER.debug('Root query for mutate{{ root_class.name }}')
-        if not authenticate(self, info):
+
+        result = authenticate(self, info)
+        if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
         info.context['data'] = {
 {%       for field in root_class.fields %}
@@ -155,7 +159,9 @@ class Mutation:
 {%       endfor %}
         ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append{{ root_class.name }}')
-        if not authenticate(self, info):
+
+        result = authenticate(self, info)
+        if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         authorize_graphql_append_Byoda(self, info)

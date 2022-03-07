@@ -418,6 +418,7 @@ class TestDirectoryApis(unittest.TestCase):
             }
         '''
         result = client.execute(query=query, headers=auth_header)
+        self.assertTrue('data' in result)
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
@@ -527,6 +528,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Steven'
         )
+
         query = '''
                 mutation {
                     mutate_member(
@@ -537,10 +539,10 @@ class TestDirectoryApis(unittest.TestCase):
                     }
                 }
         '''
+        # Mutation fails because 'member' can only read this data
         result = client.execute(query, headers=member_headers)
-        self.assertEqual(
-            result['data']['mutate_member']['member_id'], '0'
-        )
+        self.assertIsNone(result['data'])
+        self.assertIsNotNone(result['errors'])
 
         # Test with cert of another member
         alt_member_id = get_test_uuid()
@@ -564,10 +566,10 @@ class TestDirectoryApis(unittest.TestCase):
             }
         '''
 
+        # Query fails because other members do not have access
         result = client.execute(query, headers=alt_member_headers)
-        self.assertEqual(
-            result['data']['mutate_member']['member_id'], '0'
-        )
+        self.assertIsNone(result['data'])
+        self.assertIsNotNone(result['errors'])
 
 
 if __name__ == '__main__':

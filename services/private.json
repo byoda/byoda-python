@@ -28,31 +28,25 @@
                 },
                 "properties": {
                     "additional_names": {
-                        "access": "private",
                         "description": "Any middle names",
                         "type": "string"
                     },
                     "avatar_url": {
-                        "access": "private",
                         "type": "string"
                     },
                     "email": {
-                        "access": "private",
                         "format": "idn-email",
                         "type": "string"
                     },
                     "family_name": {
-                        "access": "private",
                         "description": "Your surname",
                         "type": "string"
                     },
                     "given_name": {
-                        "access": "private",
                         "description": "Your first given name",
                         "type": "string"
                     },
                     "homepage_url": {
-                        "access": "private",
                         "type": "string"
                     }
                 },
