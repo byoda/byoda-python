@@ -12,4 +12,3 @@ request
 # flake8: noqa=F401
 
 from .requestauth import RequestAuth
-from .graphql_auth import authorize_graphql_request
