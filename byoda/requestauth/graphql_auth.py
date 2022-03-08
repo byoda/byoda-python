@@ -9,6 +9,9 @@ Authentication function for GraphQL requests
 '''
 
 import logging
+from enum import Enum
+
+from fastapi import HTTPException
 
 from byoda.datatypes import IdType
 
@@ -23,7 +26,18 @@ _LOGGER = logging.getLogger(__name__)
 _ACCESS_MARKER = '#accesscontrol'
 
 
-def authorize_graphql_request(service_id, info, root):
+class DataOperationType(Enum):
+    # flake8: noqa=E221
+    CREATE      = 'create'
+    READ        = 'read'
+    UPDATE      = 'update'
+    APPEND      = 'append'
+    SEARCH      = 'search'
+    # Mutate can be either create, update, append or delete
+    MUTATE      = 'mutate'
+
+
+def authorize_graphql_request(service_id: int, info, root):
     '''
     Checks the authorization of a graphql request for a service.
     It is called by the code generated from the Jinja
@@ -35,7 +49,9 @@ def authorize_graphql_request(service_id, info, root):
 
     # We need to review whether the requestor is authorized to access
     # the data in the request
-    member: Member = config.server.account.memberships[service_id]
+    member: Member = config.server.account.memberships.get(service_id)
+    if not member:
+        raise HTTPException(status_code=400, detail='Authentication failure')
 
     # This is the start of the data definition of the JsonSchema
     json_schema = member.schema.json_schema['jsonschema']['properties']
@@ -44,25 +60,45 @@ def authorize_graphql_request(service_id, info, root):
     operation = info.operation.operation
 
     json_key = info.path[1]
+    data_operation = DataOperationType.READ
     if operation.value == 'mutation':
         # strip of the 'mutate_' prefix
         json_key = json_key[len('mutate_'):]
+        data_operation = DataOperationType.UPDATE
 
     if json_key in json_schema and _ACCESS_MARKER in json_schema[json_key]:
-        access_control = json_schema[json_key][_ACCESS_MARKER]
-        for entity, permissions in access_control.items():
-            # Check if the GraphQL operation is allowed per the permissions
-            if not authorize_operation(operation, permissions):
-                continue
-
-            # Now check whether the requestor matches the entity of the
-            # access control
-            auth: RequestAuth = info.context['auth']
-            if entity == 'member' and auth.id_type == IdType.MEMBER:
-                if authorize_member(service_id, info.context['auth']):
-                    return True
+        access_controls = json_schema[json_key][_ACCESS_MARKER]
+        result = authorize_request(data_operation, access_controls, info.context['auth'], service_id)
+        if result is True:
+            return result
 
     return access_allowed
+
+
+def authorize_request(operation: DataOperationType,
+                      access_controls: dict,
+                      auth: RequestAuth,
+                      service_id: int) -> bool:
+    '''
+    Check whether the client is allowed to perform the operation by the
+    access controls
+
+    :param operation: the request operation
+    :param access_controls: the dict with '#accesscontrol from the service
+    contract
+    :param auth: the identify of the client
+    '''
+
+    for entity, permissions in access_controls.items():
+        # Check if the GraphQL operation is allowed per the permissions
+        if operation.value not in permissions:
+            return
+
+        # Now check whether the requestor matches the entity of the
+        # access control
+        if entity == 'member' and auth.id_type == IdType.MEMBER:
+            if authorize_member(service_id, auth):
+                return True
 
 
 def authorize_graphql_query(service_id, info, root):
