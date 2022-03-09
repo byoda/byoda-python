@@ -29,9 +29,6 @@ from python_graphql_client import GraphqlClient
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
-
-
 from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -55,6 +52,9 @@ TEST_DIR = '/tmp/byoda-tests/pod_apis'
 BASE_URL = 'http://localhost:{PORT}/api'
 
 _LOGGER = None
+
+ADDRESSBOOK_SERVICE_ID = None
+ADDRESSBOOK_VERSION = 1
 
 
 def get_test_uuid() -> UUID:
@@ -117,8 +117,20 @@ class TestDirectoryApis(unittest.TestCase):
 
         server.get_registered_services()
 
+        service = [
+            service
+            for service in server.network.service_summaries.values()
+            if service['name'] == 'addressbook'
+        ][0]
+        global ADDRESSBOOK_SERVICE_ID
+        ADDRESSBOOK_SERVICE_ID = service['service_id']
+        global ADDRESSBOOK_VERSION
+        ADDRESSBOOK_VERSION = service['version']
+
         member_id = get_test_uuid()
-        pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
+        pod_account.join(
+            ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id
+        )
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
@@ -177,49 +189,51 @@ class TestDirectoryApis(unittest.TestCase):
 
         # Get the service ID for the addressbook service
         service_id = None
-        self.version = None
+        version = None
         for service in data['services']:
             if service['name'] == 'addressbook':
                 service_id = service['service_id']
                 version = service['latest_contract_version']
 
-        if service_id is None or version is None:
-            raise ValueError(
-                'Did not find the addressbook service in the list of services'
-            )
+        self.assertEqual(service_id, ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(version, ADDRESSBOOK_VERSION)
 
-        API = BASE_URL + '/v1/pod/member'
-        response = requests.get(f'{API}/service_id/0', headers=account_headers)
+        response = requests.get(
+            f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}',
+            headers=account_headers
+        )
         self.assertEqual(response.status_code, 200)
+
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        self.assertEqual(data['service_id'], 0)
-        self.assertEqual(data['version'], 1)
-        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
         self.assertEqual(data['website'], 'https://www.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
-            data['description'], (
-                'the private service for which no data will be shared with '
-                'services or their members'
-            )
+            data['description'], ('A simple network to maintain contacts')
         )
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.post(
-            API + f'/service_id/{service_id}/version/1',
+            (
+                f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
+                f'/version/{version}'
+            ),
             headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.put(
-            API + f'/service_id/{service_id}/version/1',
+            (
+                f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
+                f'/version/{version}'
+            ),
             headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
@@ -233,7 +247,7 @@ class TestDirectoryApis(unittest.TestCase):
         # only for GraphQL APIs
         #
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
@@ -278,53 +292,39 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 2)
 
-        # Get the service ID for the addressbook service
-        service_id = None
-        self.version = None
-        for service in data['services']:
-            if service['name'] == 'addressbook':
-                service_id = service['service_id']
-                version = service['latest_contract_version']
-
-        if service_id is None or version is None:
-            raise ValueError(
-                'Did not find the addressbook service in the list of services'
-            )
-
         API = BASE_URL + '/v1/pod/member'
-        response = requests.get(f'{API}/service_id/0', headers=auth_header)
+        response = requests.get(
+            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}', headers=auth_header
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        self.assertEqual(data['service_id'], 0)
-        self.assertEqual(data['version'], 1)
-        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
         self.assertEqual(data['website'], 'https://www.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
-            data['description'], (
-                'the private service for which no data will be shared with '
-                'services or their members'
-            )
+            data['description'], 'A simple network to maintain contacts'
         )
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.post(
-            API + f'/service_id/{service_id}/version/1',
+            f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
+            f'version/{ADDRESSBOOK_VERSION}',
             headers=auth_header
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 409)
 
     def test_auth_token_request(self):
         account = config.server.account
         account_id = account.account_id
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
@@ -334,14 +334,14 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue(isinstance(data.get('auth_token'), str))
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0'
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}'
         )
         data = response.json()
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 'wrong', os.environ['ACCOUNT_SECRET']
             )
@@ -351,7 +351,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], 'wrong'
             )
@@ -361,7 +361,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 'wrong', 'wrong'
             )
@@ -371,7 +371,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 '', ''
             )
@@ -383,7 +383,7 @@ class TestDirectoryApis(unittest.TestCase):
     def test_graphql_service0_jwt(self):
         account = config.server.account
         account_id = account.account_id
-        service_id = 0
+        service_id = ADDRESSBOOK_SERVICE_ID
         response = requests.get(
             BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
             auth=HTTPBasicAuth(
@@ -441,7 +441,7 @@ class TestDirectoryApis(unittest.TestCase):
         account_id = account.account_id
         network = account.network
 
-        service_id = 0
+        service_id = ADDRESSBOOK_SERVICE_ID
 
         account_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -460,11 +460,12 @@ class TestDirectoryApis(unittest.TestCase):
 
         member_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={member_id}.members-0.{NETWORK}',
+            'X-Client-SSL-Subject':
+                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{NETWORK}',
             'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
         }
 
-        url = BASE_URL + f'/v1/data/service-{service_id}'
+        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
         client = GraphqlClient(endpoint=url)
 
         query = '''

@@ -26,14 +26,12 @@ import logging as loggingByoda
 # from byoda.datamodel.member import Member as MemberClassByoda
 
 from byoda.requestauth import RequestAuth as RequestAuthByoda
-from byoda.requestauth.graphql_auth import authorize_graphql_request as authorize_graphql_request_Byoda
-from byoda.requestauth.graphql_auth import authorize_graphql_query as authorize_graphql_query_Byoda
-from byoda.requestauth.graphql_auth import authorize_graphql_mutation as authorize_graphql_mutation_Byoda
-from byoda.requestauth.graphql_auth import authorize_graphql_append as authorize_graphql_append_Byoda
+from byoda.requestauth.graphql_authorization import DataOperationType as DataOperationType_Byoda
+from byoda.requestauth.graphql_authorization import authorize_graphql_request as authorize_graphql_request_Byoda
 
 _LOGGER = loggingByoda.getLogger(__name__)
 
-def authenticate(root, info):
+def authenticate(root, info, data_operation: DataOperationType_Byoda):
     '''
     This is middleware called by the code generated from the Jinja
     templates implementing GraphQL support
@@ -64,7 +62,9 @@ def authenticate(root, info):
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        return authorize_graphql_request_Byoda({{ service_id}}, info, root)
+        return authorize_graphql_request_Byoda(
+            data_operation, {{ service_id}}, info
+        )
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
@@ -75,7 +75,9 @@ class {{ root_class.name }}:
 {%     for field in root_class.fields %}
     @strawberry.field
     def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        authorize_graphql_query_Byoda({{ service_id }}, info, None)
+        authorize_graphql_request_Byoda(
+            DataOperationType_Byoda.READ, {{ service_id }}, info
+        )
         return info.context['data']['{{ field.name }}']
 
 {%     endfor %}
@@ -104,7 +106,7 @@ class Query:
 {%     endif %}
         _LOGGER.debug('Resolving {{ root_class.name }}')
 
-        result = authenticate(self, info)
+        result = authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
@@ -139,9 +141,11 @@ class Mutation:
             ) -> {{ root_class.name }}:
         _LOGGER.debug('Root query for mutate{{ root_class.name }}')
 
-        result = authenticate(self, info)
+        # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
+        result = authenticate(self, info,  DataOperationType_Byoda.UPDATE)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
+
         info.context['data'] = {
 {%       for field in root_class.fields %}
             '{{ field.name }}': {{ field.name }},
@@ -160,11 +164,10 @@ class Mutation:
         ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append{{ root_class.name }}')
 
-        result = authenticate(self, info)
+        result = authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        authorize_graphql_append_Byoda(self, info)
         info.context['data'] = {
 {%       for field in root_class.referenced_class.fields %}
             '{{ field.name }}': {{ field.name }},
