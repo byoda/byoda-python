@@ -97,15 +97,20 @@ A data structure under $defs must have the following keys:
 - $schema: Must be set to "https://json-schema.org/draft-07/schema#"
 - description: What the data stored in this class is used for
 - type: must be "object"
-- properties: must be a dict with keys the different properties of the class. Each property must have keys:
+- properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
   - type: must be a scalar, ie. "string" or "number"
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
-A class directly under the root of the JSON Schema or in the $defs object can not have any of the following names:
-- member
-- network
-- memberlogs
+Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
+from the addressbook.json service contract to your contract.
+- member, with definitions:
+    - "#access control": {"member": ["read"]}
+    - "properties" dict k/vs:
+      - "joined": { "format": "date-time", "type": "string"}
+      - "member_id": {"type": "string"}
+- network_links of type array using the /schemas/network_link as reference
+- memberlogs of type array using the /schemas/memberlog as reference
 
 ### Data Access control
 The GraphQL API will be secured using credentials. Credentials have a type of one of:

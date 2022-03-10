@@ -122,10 +122,11 @@ def authorize_request(operation: DataOperationType, access_controls: dict,
         None if the access controls are not applicable to the client
     '''
 
-    for entity, permissions in access_controls.items():
+    for entity, access_control in access_controls.items():
         # Check if the GraphQL operation is allowed per the permissions
         # before matching the entity for the controls with the caller
-        if operation.value not in permissions:
+        permitted_actions = access_control['permissions']
+        if operation.value not in permitted_actions:
             return
 
         # Now check whether the requestor matches the entity of the
@@ -133,29 +134,28 @@ def authorize_request(operation: DataOperationType, access_controls: dict,
 
         # Anyone is allowed to
         if entity == AccessEntityType.ANONYMOUS.value:
-            if operation.value in permissions:
+            if operation.value in permitted_actions:
                 return True
 
         # Are we performing the GraphQL API ourselves?
         if entity == AccessEntityType.MEMBER.value:
             if auth.id_type == IdType.MEMBER:
                 if authorize_member(service_id, auth):
-                    if operation.value in permissions:
+                    if operation.value in permitted_actions:
                         return True
 
         # Did the service server call our GraphQL API?
         if entity == AccessEntityType.SERVICE.value:
             if auth.id_type == IdType.SERVICE:
                 if authorize_service(service_id, auth):
-                    if operation.value in permissions:
+                    if operation.value in permitted_actions:
                         return True
 
-        if entity.startswith(AccessEntityType.NETWORK.value):
-            distance = 1
-            if entity.startswith(f'{AccessEntityType.NETWORK.value}+'):
-                distance = int(entity[len(AccessEntityType.NETWORK.value)+1:])
-                if distance <= 0:
-                    raise ValueError('Network distance must be larger than 0')
+        if entity == AccessEntityType.NETWORK.value:
+            distance = access_control.get('distance', 1)
+            if distance < 1:
+                raise ValueError('Network distance must be larger than 0')
+            raise NotImplementedError
 
 
 def authorize_member(service_id: int, auth: RequestAuth) -> bool:

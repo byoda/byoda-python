@@ -7,7 +7,9 @@
         "properties": {
             "member": {
                 "#accesscontrol": {
-                    "member": ["read"]
+                    "member": {
+                        "permissions": ["read"]
+                    }
                 },
                 "properties": {
                     "joined": {
@@ -24,7 +26,9 @@
             },
             "person": {
                 "#accesscontrol": {
-                    "member": ["read","update","delete","append"]
+                    "member": {
+                        "permissions": ["read","update","delete","append"]
+                    }
                 },
                 "properties": {
                     "additional_names": {
