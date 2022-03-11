@@ -121,7 +121,12 @@ def get_service(request: Request, service_id: int):
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
 
+    server: Server = config.server
     network = config.server.network
+
+    server.get_registered_services()
+
+    _LOGGER.debug(f'We now have {len(network.services)} services in memory')
 
     if service_id not in network.services:
         # So this worker process does not know about the service. Let's

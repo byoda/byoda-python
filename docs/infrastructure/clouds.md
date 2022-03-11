@@ -1,3 +1,5 @@
+### Info on running pods on public clouds
+
 Supported clouds: AWS, Azure and GCP.
 Please review the features and requirements for the free services of the three clouds carefully to avoid unexpected costs.
 
@@ -19,3 +21,8 @@ GCP: https://cloud.google.com/free/
 - always free (only in us-east1, us-west1, us-central1):
   - 1 x e2.micro VM (2 CPU cores, 1GB)
   - 5GB storage, 1GB data out (except China & Australia)
+
+
+### Wipe the data of your pod
+To wipe all the data of your pod from the pod VM:
+- Azure: az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login

@@ -66,10 +66,15 @@ def post_account(request: Request, csr: CertSigningRequestModel,
             common_name, network.name
         )
     except PermissionError:
+        _LOGGER.debug(f'Invalid common name {common_name} in CSR')
         raise HTTPException(
             status_code=401, detail=f'Invalid common name {common_name} in CSR'
         )
-    except (ValueError, KeyError):
+    except (ValueError, KeyError) as exc:
+        _LOGGER.debug(
+                f'error when reviewing the common name {common_name} in your '
+                f'CSR: {exc}'
+        )
         raise HTTPException(
             status_code=400, detail=(
                 f'error when reviewing the common name {common_name} in your '
@@ -85,6 +90,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
     if auth.is_authenticated:
         if auth.auth_source != AuthSource.CERT:
+            _LOGGER.debug('This API does not accept JWTs')
             raise HTTPException(
                 status_code=401,
                 detail=(
@@ -100,6 +106,10 @@ def post_account(request: Request, csr: CertSigningRequestModel,
             )
 
         if entity_id.id != auth.account_id:
+            _LOGGER.debug(
+                f'Common name {common_name} in CSR does not match the '
+                'Account ID in the TLS client cert'
+            )
             raise HTTPException(
                 status_code=401, detail=(
                     f'Common name {common_name} in CSR does not match the '
@@ -156,6 +166,7 @@ def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
 
     # Authorization for the request
     if not auth.is_authenticated:
+        _LOGGER.debug('API called without authentication')
         raise HTTPException(
             status_code=401, detail='This API requires authentication'
         )

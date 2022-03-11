@@ -11,7 +11,7 @@ sudo cp docs/files/nginx-service.conf /etc/nginx/nginx.conf
 sudo nginx -s reload
 ```
 
-Services typically need to store data about their members. With Byoda, services are not allowed to persist data about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
+Services typically need to store data about their members. With Byoda, services are not allowed to persist data (with just a very few exceptions) about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
 
 To install Redis, first install docker as per the [Docker instructions](https://docs.docker.com/engine/install/ubuntu/) and then launch the redis container.
 ```
@@ -113,20 +113,52 @@ from the addressbook.json service contract to your contract.
 - memberlogs of type array using the /schemas/memberlog as reference
 
 ### Data Access control
-The GraphQL API will be secured using credentials. Credentials have a type of one of:
-  - member: You, as owner of the pod that created the membership
-  - service: the service that you joined
-  - network: soneone that you have a relation with in your network for the service. This field can have a specifier in the form of "network:<relation>". In that case, only people in your network with that type of relation will have to described access to the data.
+The Pod controls access to the data for the services stored in the Pod based on access controls that
+are defined in the service contract for each of the services. After evaluating the data requested by a client
+against these access controls, the Pod may return no data or some or all of the requested data.
 
-  Access permissions are hierarchical. By default, you as member have READ access to all data defined in the JSON Schema. For objects lower in the hierarchy, permissions can be defined as well and those permissions (and only those permissions) will be enforced for that data element and all data elements under it. The data hierarchy will be traversed and the final access specification for a data element defines if access to that data element is granted or not.
+The access controls consist of one or more defined entities, with for each entity a list of actions that are
+permitted. Each of the actions may support some specifiers that provide additional info on data may be used. The supported entities are:
+- member: The membership in the Pod of the service, or, with other words, you; the owner of the pod
+- service: The person or organization hosting the service
+- network: someone that you have a network relation with. This entity supports two specifiers:
+  - distance (integer, n>=1, default=1): some other member who you have a network path in your social graph with, with a maximum distance of 'n'
+  - relation (string with regular expression, defaults to None): the relation with the members in your social graph must match this regular expression. If not specified, all relations are permitted access
+- any_member: Any person who has joined the service
+- anonymous: Anyone, regardless whether or not they provided credentials to authenticate their data request
 
-  The permissions are:
-  - READ. The read permission can have a caching specifier like "READ:8h" or "READ:1d" that specifies how long the data may be cached by a service or other pod after reading the information. When data is cached by a service or pod, it may not persist the data to permanent storage but must key the data in ephemeral memory with automatic expiration and cache ejection after the specified time.
-  - UPDATE
-  - APPEND
-  - DELETE
-  - SEARCH: The SEARCH permission can have a specifier like "SEARCH:excact-casesensitive" that specifies what type of search is permitted.
+The following actions are supported:
+- read with specifier:
+  - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 14400 seconds): how long may the requesting entity cache the data
+- update, no specifiers
+- delete: delete the value of the key
+- append: add an entry to an array
 
+The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
+- (not yet supported in the pod) search: (only applies to simple values, not to objects or arrays): Search an array for object with a key containing the specified value. Specifiers:
+  - type: (string). The values depend on the type of field the search action is specified:
+    - for string values:
+      - "full case-sensitive"
+      - "full case-insensitive"
+      - "partial case-sensitive"
+      - "partial case-insensitive"
+      - "regex"
+    - for number values:
+      - "="
+      - ">"
+      - ">="
+      - "<"
+      - "<="
+      - "range"
+    - for strings with dates:
+      - "="
+      - ">"
+      - ">="
+      - "<"
+      - "<="
+      - "between"
+    - for booleans:
+      - "is"
 ## 4: Create the secrets for a service
 
 Each service has the following secrets:
@@ -144,12 +176,11 @@ export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=<service contract file>   # should be only the filename, no path included
 
-export SERVICE_ID=$( python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
+export SERVICE_ID=$(python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
 
 # Here we update the 'service_id' in the service schema to match a newly generated random service ID
 sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
-jq -r --arg service_id "$SERVICE_ID" '.service_id = $service_id' ${BYODA_HOME}/${SERVICE_CONTRACT} | sponge ${BYODA_HOME}/${SERVICE_CONTRACT}
-# TODO: change jq command to make the service_id value numeric instead of string, needs to be done manually now
+jq -r --argjson service_id "$SERVICE_ID" '.service_id = $service_id' ${BYODA_HOME}/${SERVICE_CONTRACT} | sponge ${BYODA_HOME}/${SERVICE_CONTRACT}
 
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 sudo mkdir -p ${SERVICE_DIR}
@@ -159,7 +190,7 @@ mv ${BYODA_HOME}/$SERVICE_CONTRACT ${SERVICE_DIR}
 cd ${BYODA_HOME}
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
-export PYTHONPATH=${PYTHONPATH}:$(pwd)
+export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
@@ -207,7 +238,7 @@ cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 rm -f /tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
-export PYTHONPATH=${PYTHONPATH}:$(pwd)
+export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
 ## 5: Get the service up and running

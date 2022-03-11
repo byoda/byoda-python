@@ -51,8 +51,8 @@ def main(args):
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=False, debug=data['debug'],
-        loglevel=data['loglevel'], logfile=LOG_FILE
+        sys.argv[0], json_out=False, debug=True,
+        loglevel='DEBUG'
     )
     _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
