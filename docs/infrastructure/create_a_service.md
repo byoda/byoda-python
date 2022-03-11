@@ -235,13 +235,15 @@ fi
 mkdir -p ${SERVICE_DIR}
 cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 # Delete any existing unencrypted private key for the service
-rm -f /tmp/service-${SERVICE_ID}.key
+sudo rm -f /tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
 ## 5: Get the service up and running
+These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu
+
 ```
 NGINX_USER=www-data
 mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
@@ -249,6 +251,18 @@ sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}
 if [ -f /tmp/service-${SERVICE_ID}.key ]; then
     sudo chown ${NGINX_USER}:${NGINX_USER} /tmp/service-${SERVICE_ID}.key
 fi
+
+sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
+sed -i "s|SERVICE_ID|$SERVICE_ID}" /etc/default/svcserver-${SERVICE_ID}
+
+sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
+sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service
+
+sudo systemctl daemon-reload
+sudo systemctl start svcserver-${SERVICE_ID}
+sleep 5
+sudo systemctl status svcserver-${SERVICE_ID}
+sudo systemctl enable svcserver-${SERVICE_ID}
 ```
 
 The service daemon will create an Nginx configuration file under /etc/nginx/conf.d
