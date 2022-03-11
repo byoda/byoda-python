@@ -2,12 +2,8 @@
 
 export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python
 
+# Start nginx first
 nginx
-
-if [ -f /usr/sbin/sshd ]; then
-    /usr/sbin/sshd -E /tmp/sshd.log &
-fi
-
 
 if [ "${WORKERS}" = "" ]; then
     # BUG: multiple workers will not pick up on new memberships
@@ -26,6 +22,7 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 echo "BOOTSTRAP: $BOOTSTRAP"
+echo "FastAPI workers: ${WORKERS}"
 
 cd /podserver/byoda-python
 pipenv run podserver/podworker.py

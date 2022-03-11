@@ -71,13 +71,6 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
     # This is the start of the data definition of the JsonSchema
     json_sub_schema = member.schema.json_schema['jsonschema']['properties']
 
-    # This provides the type of operation requested: Query, Mutate, Subscribe
-    operation = info.operation.operation
-
-    data_operation = DataOperationType.READ
-    if operation.value == 'mutation':
-        data_operation = DataOperationType.UPDATE
-
     # We walk the path through the data model. If we don't find explicit
     # permission at some level than we reject the request by default.
     for obj in reversed(info.path):
@@ -91,7 +84,7 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
         if key in json_sub_schema and _ACCESS_MARKER in json_sub_schema[key]:
             access_controls = json_sub_schema[key][_ACCESS_MARKER]
             result = authorize_request(
-                data_operation, access_controls, info.context['auth'],
+                operation, access_controls, info.context['auth'],
                 service_id
             )
             if result is True:
