@@ -84,6 +84,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
     try:
         network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
+        
         dns_exists = True
     except KeyError:
         dns_exists = False

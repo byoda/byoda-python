@@ -26,7 +26,7 @@ else
         echo "Failed to run 'uuid', please install it"
         exit 1
     fi
-    echo $ACCOUNT_ID >~/.byoda-account_id
+    echo $ACCOUNT_ID >${ACCOUNT_FILE}
     echo "Writing account_id to ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
 fi
 

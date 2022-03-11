@@ -128,6 +128,8 @@ def run_bootstrap_tasks(data: Dict):
         account.join(BYODA_PRIVATE_SERVICE, 1)
         _LOGGER.info('Joined the BYODA private service')
 
+    _LOGGER.debug('Podworker exiting normally')
+
 
 def schedule_periodic_tasks():
     pass
