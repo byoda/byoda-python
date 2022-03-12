@@ -24,5 +24,21 @@ GCP: https://cloud.google.com/free/
 
 
 ### Wipe the data of your pod
-To wipe all the data of your pod from the pod VM:
-- Azure: az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
+Wiping all the data of your pod from the pod VM is easy. We use service-based principals, so we don't have to specify credentials when we run the CLIs from the VM we run the pod on:
+- Azure:
+```
+    az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
+```
+- AWS:
+```
+    aws s3 rm s3://byoda-private/private --recursive
+    aws s3 rm s3://byoda-private/network-byoda.net --recursive
+```
+- GCP:
+```
+    gcloud alpha storage rm --recursive gs://byoda-private/*
+```
+When you wipe all the data of your pod, make sure you also delete the file on the VM that tracks your account ID. By deleting the file, the docker-launch.sh script will generate a new one.
+```
+rm ~/.byoda-account_id
+```

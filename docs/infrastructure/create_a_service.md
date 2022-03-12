@@ -133,9 +133,8 @@ The following actions are supported:
 - update, no specifiers
 - delete: delete the value of the key
 - append: add an entry to an array
-
-The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
-- (not yet supported in the pod) search: (only applies to simple values, not to objects or arrays): Search an array for object with a key containing the specified value. Specifiers:
+- persist: allow the client to persist this data. This action is only supported for the 'service' entity. This action must only be used for data that the service needs to reach out to members when there is a problem with the service or with someones membership of the service, ie. the email address and the member_id of the membership.
+- search (not yet supported in the pod): only applies to simple values, not to objects or arrays): Search an array for object with a key containing the specified value. Specifiers:
   - type: (string). The values depend on the type of field the search action is specified:
     - for string values:
       - "full case-sensitive"
@@ -159,6 +158,9 @@ The access controls can only be defined for the 'properties' defined for the 'js
       - "between"
     - for booleans:
       - "is"
+
+The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
+
 ## 4: Create the secrets for a service
 
 Each service has the following secrets:

@@ -17,6 +17,7 @@ from strawberry.types import Info
 from fastapi import HTTPException
 
 from byoda.datatypes import IdType
+from byoda.datatypes import DataOperationType
 
 from byoda.datamodel.member import Member
 
@@ -27,17 +28,6 @@ from byoda import config
 _LOGGER = logging.getLogger(__name__)
 
 _ACCESS_MARKER = '#accesscontrol'
-
-
-class DataOperationType(Enum):
-    # flake8: noqa=E221
-    CREATE      = 'create'
-    READ        = 'read'
-    UPDATE      = 'update'
-    APPEND      = 'append'
-    SEARCH      = 'search'
-    # Mutate can be either create, update, append or delete
-    MUTATE      = 'mutate'
 
 
 class AccessEntityType(Enum):

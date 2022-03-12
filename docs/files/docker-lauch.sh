@@ -18,7 +18,7 @@ fi
 
 ACCOUNT_FILE=~/.byoda-account_id
 if [ -f "${ACCOUNT_FILE}" ]; then
-    ACCOUNT_ID=$(cat ~/.byoda-account_id)
+    ACCOUNT_ID=$(cat ${ACCOUNT_FILE})
     echo "Reading account_id from ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
 else
     ACCOUNT_ID=$(uuid -v 4)

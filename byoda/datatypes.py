@@ -10,9 +10,6 @@ Non-specific data types
 
 from enum import Enum
 from collections import namedtuple
-from os import stat
-from pickle import NONE
-from ssl import CERT_NONE
 
 
 class ServerRole(Enum):
@@ -60,6 +57,8 @@ class RightsEntityType(Enum):
     MEMBER               = 'member'
     SERVICE              = 'service'
     NETWORK              = 'network'
+    ANY_MEMBER           = 'any_member'
+    ANONYMOUS            = 'anonymous'
 
 
 class HttpRequestMethod(Enum):
@@ -88,6 +87,19 @@ class CacheTech(Enum):
 class StorageType(Enum):
     PRIVATE = 'private'
     PUBLIC = 'public'
+
+
+class DataOperationType(Enum):
+    # flake8: noqa=E221
+    CREATE      = 'create'
+    READ        = 'read'
+    UPDATE      = 'update'
+    DELETE      = 'delete'
+    APPEND      = 'append'
+    SEARCH      = 'search'
+    PERSIST     = 'persist'
+    # Mutate can be either create, update, append or delete
+    MUTATE      = 'mutate'
 
 
 class TlsStatus(str, Enum):

@@ -9,13 +9,15 @@ templates
 :license    : GPLv3
 '''
 
+from gzip import READ
 import logging
 from enum import Enum
 from os import stat
-from typing import Dict, List, Union
+from typing import Dict, List
 from urllib.parse import urlparse
 
 from byoda.datatypes import RightsEntityType
+from byoda.datatypes import DataOperationType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
+
 # Translation from jsondata data type to Python data type in the Jinja template
 SCALAR_TYPE_MAP = {
     DataType.STRING: 'str',
@@ -44,16 +47,6 @@ SCALAR_TYPE_MAP = {
     DataType.NUMBER: 'float',
     DataType.BOOLEAN: 'bool',
 }
-
-
-class DataOperationType(Enum):
-    # flake8: noqa=E221
-    CREATE    = 'create'
-    READ      = 'read'
-    UPDATE    = 'update'
-    APPEND    = 'append'
-    DELETE    = 'delete'
-    SEARCH    = 'search'
 
 
 class SchemaDataItem:
