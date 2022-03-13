@@ -69,26 +69,23 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     PRIVATE_BUCKET=${BUCKET_PREFIX}private
     PUBLIC_BUCKET=${BUCKET_PREFIX}public
     if [[ "${WIPE_ALL}" == "1" ]]; then
-        echo "Wiping all data of the pod and creating a new account ID"
+        echo "Wiping all data of the pod"
         az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
-        rm ${ACCOUNT_FILE}
     fi
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
     if [[ "${WIPE_ALL}" == "1" ]]; then
-        echo "Wiping all data of the pod and creating a new account ID"
+        echo "Wiping all data of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
-        rm ${ACCOUNT_FILE}
     fi
 elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     export CLOUD=AWS
     echo "Running in cloud: ${CLOUD}"
     if [[ "${WIPE_ALL}" == "1" ]]; then
-        echo "Wiping all data of the pod and creating a new account ID"
+        echo "Wiping all data of the pod"
         aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
         aws s3 rm s3://${BUCKET_PREFIX}-private/network-byoda.net --recursive
-        rm ${ACCOUNT_FILE}
     fi
 else
     export CLOUD=LOCAL
@@ -99,6 +96,12 @@ else
         sudo mkdir -p ${ROOT_DIR}
         rm ${ACCOUNT_FILE}
     fi
+fi
+
+if [[ "${WIPE_ALL}" == "1" ]]; then
+    echo "Forcing creation of new account ID and deleting logs of the pod"
+    rm ${ACCOUNT_FILE}
+    sudo rm /var/www/wwwroot/logs/*
 fi
 
 if [ -f "${ACCOUNT_FILE}" ]; then
