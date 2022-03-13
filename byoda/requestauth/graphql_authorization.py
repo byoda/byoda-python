@@ -64,7 +64,7 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
     # We walk the path through the data model. If we don't find explicit
     # permission at some level than we reject the request by default.
     for obj in reversed(info.path):
-        if obj is None or obj.lower() == 'mutation':
+        if obj is None or obj.lower() in ('query', 'mutation'):
             continue
         elif obj.startswith('mutate_'):
             key = obj[len('mutate_'):]

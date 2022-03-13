@@ -34,10 +34,11 @@ while [ $# -ge 1 ]; do
     shift
 done
 
-
-export BUCKET_PREFIX="changeme"             # Set to "IGNORE" when not using cloud storage
-export ACCOUNT_SECRET="changeme"            # Set to a long random string
-export PRIVATE_KEY_SECRET="changeme"        # set to long random string
+# Set to "IGNORE" when not using cloud storage
+export BUCKET_PREFIX="changeme"
+# Set the following two variables to long random strings
+export ACCOUNT_SECRET="changeme"
+export PRIVATE_KEY_SECRET="changeme"
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
