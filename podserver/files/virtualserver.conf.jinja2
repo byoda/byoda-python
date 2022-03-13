@@ -49,37 +49,6 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
-
-        if ($http_origin ~* ^https:\/\/{{ identifier }}.{{ subdomain }}.{{ network }}(:443)?$) {
-            set $cors "1";
-        }
-        # OPTIONS indicates a CORS pre-flight request
-        if ($request_method = 'OPTIONS') {
-            set $cors "${cors}o";
-        }
-
-        # OPTIONS (pre-flight) request from allowed
-        # CORS domain. return response directly
-        if ($cors = "1o") {
-            add_header 'Access-Control-Allow-Origin' $http_origin always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
-            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Expose-Headers' 'Date' always;
-            add_header 'Access-Control-Max-Age' '86400' always;
-            add_header Content-Length 0 always;
-            add_header Content-Type text/plain always;
-            return 200;
-        }
-
-        if ($cors = "1") {
-            add_header 'Access-Control-Allow-Origin' $http_origin always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
-            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Expose-Headers' 'Date' always;
-            add_header 'Access-Control-Max-Age' '86400' always;
-        }
     }
 
     location /logs/ {
@@ -122,37 +91,6 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
-
-        if ($http_origin ~* ^https:\/\/{{ identifier }}.{{ subdomain }}.{{ network }}(:443)?$) {
-            set $cors "1";
-        }
-        # OPTIONS indicates a CORS pre-flight request
-        if ($request_method = 'OPTIONS') {
-            set $cors "${cors}o";
-        }
-
-        # OPTIONS (pre-flight) request from allowed
-        # CORS domain. return response directly
-        if ($cors = "1o") {
-            add_header 'Access-Control-Allow-Origin' $http_origin always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
-            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Expose-Headers' 'Date' always;
-            add_header 'Access-Control-Max-Age' '86400' always;
-            add_header Content-Length 0 always;
-            add_header Content-Type text/plain always;
-            return 200;
-        }
-
-        if ($cors = "1") {
-            add_header 'Access-Control-Allow-Origin' $http_origin always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
-            add_header 'Access-Control-Allow-Headers' 'Origin,Content-Type,Accept,Authorization' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Expose-Headers' 'Date' always;
-            add_header 'Access-Control-Max-Age' '86400' always;
-        }
     }
 
     location /public/ {
@@ -168,3 +106,44 @@ server {
         root   /usr/share/nginx/html;
     }
 }
+
+{% if subdomain != 'accounts' %}
+###
+### Virtual server for access by apps to the member
+###
+server {
+    listen       444 ssl;
+
+    server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
+
+    # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
+    ssl_certificate_key {{ key_filepath }};
+    ssl_certificate {{ cert_filepath }};
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
+    ssl_verify_client off;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:{{ port }};
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
+        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
+        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+    }
+
+    error_page  404              /404.html;
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+{% endif %}
