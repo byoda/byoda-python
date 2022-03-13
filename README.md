@@ -66,13 +66,14 @@ curl -s https://dir.byoda.net/api/v1/network/services | jq .
 
 Now we can use curl to get the list of services the pod has discovered in the network:
 ```
-curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
+    --pass $PASSPHRASE https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
 ```
 
 We can make our pod join the address book service:
 ```
-curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
+     --pass $PASSPHRASE \
     https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
 

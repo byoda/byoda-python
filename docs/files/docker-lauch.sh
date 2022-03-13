@@ -59,9 +59,15 @@ echo "System info:"
 echo "    ${SYSTEM_MFCT}"
 echo "    ${SYSTEM_VERSION}"
 
+PRIVATE_BUCKET="${BUCKET_PREFIX}-private"
+PUBLIC_BUCKET="${BUCKET_PREFIX}-public"
+
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
     echo "Running in cloud: ${CLOUD}"
+    # In Azure we don't have the '-' between prefix and private/public
+    PRIVATE_BUCKET=${BUCKET_PREFIX}private
+    PUBLIC_BUCKET=${BUCKET_PREFIX}public
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
         az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
@@ -128,9 +134,11 @@ echo "Creating container for account_id ${ACCOUNT_ID}"
 docker pull byoda/byoda-pod:latest
 sudo docker run -d \
     --name byoda \
-    -p 443:443 -p ${PORT}:${PORT} \
+    -p 443:443 -p 444:444 -p 80:80 \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
+    -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
+    -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
     -e "NETWORK=byoda.net" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \

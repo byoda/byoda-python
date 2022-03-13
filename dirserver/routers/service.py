@@ -33,7 +33,7 @@ from byoda.datatypes import AuthSource
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
 from byoda.datastore.certstore import CertStore
-from byoda.servers.server import Server
+from byoda.servers.directory_server import DirectoryServer
 from byoda.datamodel.network import Network
 
 from byoda.models import ServiceSummariesModel
@@ -81,7 +81,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
         f'skip {skip} and count {count}'
     )
 
-    server: Server = config.server
+    server: DirectoryServer = config.server
     network: Network = config.server.network
 
     server.get_registered_services()
