@@ -41,6 +41,8 @@ def get_member_authtoken(request: Request, service_id: int,
     :raises: HTTPException 404
     '''
 
+    _LOGGER.debug(f'GET authtoken API called from {request.client.host}')
+
     account: Account = config.server.account
 
     if not account.password:
@@ -77,6 +79,8 @@ def get_member_authtoken(request: Request, service_id: int,
         )
 
     jwt = member.create_jwt()
+    _LOGGER.debug('Returning JWT')
+    
     return {'auth_token': jwt.encoded}
 
 

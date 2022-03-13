@@ -13,10 +13,14 @@ import json
 from fastapi import APIRouter, Depends, Request, HTTPException
 
 from byoda.datamodel.service import Service
+from byoda.datamodel.account import Account
+from byoda.datamodel.network import Network
+from byoda.datamodel.member import Member
 
 from byoda.models import MemberResponseModel
 
 from byoda import config
+from byoda.servers.pod_server import PodServer
 
 from ..dependencies.pod_api_request_auth import PodApiRequestAuth
 
@@ -38,7 +42,9 @@ def get_member(request: Request, service_id: int,
     :raises: HTTPException 404
     '''
 
-    account = config.server.account
+    _LOGGER.debug(f'GET Member API called from {request.client.host}')
+
+    account: Account = config.server.account
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
@@ -46,7 +52,7 @@ def get_member(request: Request, service_id: int,
 
     # Make sure we have the latest updates of memberships
     account.load_memberships()
-    member = account.memberships.get(service_id)
+    member: Member = account.memberships.get(service_id)
 
     if not member:
         raise HTTPException(
@@ -68,7 +74,9 @@ def post_member(request: Request, service_id: int, version: int,
     :raises: HTTPException 409
     '''
 
-    account = config.server.account
+    _LOGGER.debug(f'Post Member API called from {request.client.host}')
+
+    account: Account = config.server.account
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
@@ -76,7 +84,7 @@ def post_member(request: Request, service_id: int, version: int,
 
     # Make sure we have the latest updates of memberships
     account.load_memberships()
-    member = account.memberships.get(service_id)
+    member: Member = account.memberships.get(service_id)
 
     if member:
         raise HTTPException(
@@ -86,9 +94,11 @@ def post_member(request: Request, service_id: int, version: int,
             )
         )
 
+    _LOGGER.debug(f'Joining service {service_id}')
     # BUG: any additional workers also need to join the service
     member = account.join(service_id, version)
 
+    _LOGGER.debug(f'Returning info about joined service {service_id}')
     return member.as_dict()
 
 
@@ -103,15 +113,17 @@ def put_member(request: Request, service_id: int, version: int,
     :raises: HTTPException 409
     '''
 
-    server = config.server
-    account = server.account
+    _LOGGER.debug(f'Put Member API called from {request.client.host}')
+
+    server: PodServer = config.server
+    account: Account = server.account
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
     account.load_memberships()
-    member = account.memberships.get(service_id)
+    member: Member = account.memberships.get(service_id)
 
     if not member:
         raise HTTPException(
@@ -139,7 +151,7 @@ def put_member(request: Request, service_id: int, version: int,
 
     # Get the latest list of services from the directory server
     server.get_registered_services()
-    network = account.network
+    network: Network = account.network
     service_summary = network.service_summaries.get(service_id)
     if not service_summary:
         raise HTTPException(
@@ -159,7 +171,7 @@ def put_member(request: Request, service_id: int, version: int,
             )
         )
 
-    service = network.services.get(service_id)
+    service: Service = network.services.get(service_id)
     if not service:
         raise ValueError(f'Service {service_id} not found in the membership')
 
