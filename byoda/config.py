@@ -26,3 +26,7 @@ server = None
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()
+
+# Test cases set the value to True. Code may evaluate whether
+# it is running as part of a test case to accept function parameters
+test_case: bool = False

@@ -304,7 +304,8 @@ class Account:
         self.memberships[service_id] = member
 
     def join(self, service_id: int, schema_version: int,
-             members_ca: MembersCaSecret = None, member_id: UUID = None
+             members_ca: MembersCaSecret = None, member_id: UUID = None,
+             local_service_contract: str = None
              ) -> Member:
         '''
         Join a service for the first time
@@ -312,16 +313,28 @@ class Account:
         :param service_id: The ID of the service to join
         :param schema_version: the version of the schema that has been accepted
         :param members_ca: The CA to sign the member secret. This parameter is
-        only used for test cases and should be None in all other code
+        only used for test cases
         :param member_id: The UUID to use for the member_id
+        :param local_service_contract: service contract to side-load. This
+        parameter must only be specified by test cases
         '''
 
+        if (local_service_contract or members_ca) and not config.test_case:
+            raise ValueError(
+                'storage_driver, filepath, and members_ca parameters can '
+                'only be specified by test cases'
+            )
+
         service_id = int(service_id)
-        service = Service(service_id=service_id, network=self.network)
+        service = Service(
+            service_id=service_id, network=self.network,
+            filepath=local_service_contract
+        )
 
         member = Member.create(
             service, schema_version, self, member_id=member_id,
-            members_ca=members_ca
+            members_ca=members_ca,
+            local_service_contract=local_service_contract
         )
 
         self.memberships[member.service_id] = member

@@ -1,7 +1,7 @@
 {
     "description": "A simple network to maintain contacts",
     "jsonschema": {
-        "$id": "https://uuid.services.byoda.net/service/addressbook",
+        "$id": "https://service-4294929430.byoda.net/service/addressbook",
         "$schema": "https://json-schema.org/draft-07/schema#",
         "description": "A simple network to maintain contacts",
         "properties": {
@@ -90,7 +90,51 @@
                 "items": {
                     "$ref": "/schemas/memberlog"
                 }
+            },
+            "public_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/asset"
+                }
+            },
+            "service_members_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/asset"
+                }
+            },
+            "network_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    },
+                    "network": {
+                        "permissions": ["read"],
+                        "distance": 1
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/asset"
+                }
             }
+
         },
         "title": "addressbook",
         "type": "object",
@@ -141,12 +185,40 @@
                         "type": "string"
                     }
                 }
+            },
+            "asset": {
+                "$id": "/schemas/asset",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "an asset like a tweet, a message, a video, etc.",
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "description": "time the asset was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "manifest_url": {
+                        "description": "URL for the manifest of the asset",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "asset_type": {
+                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "type": "string"
+                    },
+                    "keywords": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
             }
         }
     },
     "name": "addressbook",
     "owner": "Steven Hessing",
-    "service_id": 12345678,
+    "service_id": 4294929430,
     "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,

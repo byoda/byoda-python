@@ -282,7 +282,7 @@ class Schema:
 
         self.verified_signatures.add(signature_type)
 
-    def generate_graphql_schema(self, require_schema_signatures: bool = True):
+    def generate_graphql_schema(self, verify_schema_signatures: bool = True):
         '''
         Generates code to enable GraphQL schema to be generated using Graphene.
         The logic is:
@@ -291,12 +291,12 @@ class Schema:
         - we execute the generated source code and extract the resulting
           instance
 
-        :param require_schema_signatures: keep the default unless you are
+        :param verify_schema_signatures: keep the default unless you are
         writing test cases
         :raises ValueError
         '''
 
-        if (require_schema_signatures
+        if (verify_schema_signatures
                 and not (SignatureType.NETWORK in self.verified_signatures and
                          SignatureType.SERVICE in self.verified_signatures)):
             raise ValueError('Schema signatures have not been verified')

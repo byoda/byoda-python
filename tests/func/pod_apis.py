@@ -76,6 +76,7 @@ class TestDirectoryApis(unittest.TestCase):
             pass
 
         os.makedirs(TEST_DIR)
+        shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
 
         os.environ['ROOT_DIR'] = TEST_DIR
         os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -91,6 +92,8 @@ class TestDirectoryApis(unittest.TestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+
+        config.test_case = True
 
         config.server = PodServer(network)
         server = config.server
@@ -129,7 +132,8 @@ class TestDirectoryApis(unittest.TestCase):
 
         member_id = get_test_uuid()
         pod_account.join(
-            ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id
+            ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
+            local_service_contract='addressbook.json'
         )
 
         app = setup_api(
@@ -380,7 +384,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-    def test_graphql_service0_jwt(self):
+    def test_graphql_addressbook_jwt(self):
         account = config.server.account
         account_id = account.account_id
         service_id = ADDRESSBOOK_SERVICE_ID
@@ -436,7 +440,7 @@ class TestDirectoryApis(unittest.TestCase):
         '''
         result = client.execute(query=query, headers=auth_header)
 
-    def test_graphql_service0_tls_cert(self):
+    def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network

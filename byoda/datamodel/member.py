@@ -64,11 +64,21 @@ class Member:
     This class is expected to only be used in the podserver
     '''
 
-    def __init__(self, service_id: int, account: Account) -> None:
+    def __init__(self, service_id: int, account: Account,
+                 local_service_contract: str = None) -> None:
         '''
         Constructor
+
+        :param service_id: ID of the service
+        :param account: account to create the membership for
+        :param filepath: this parameter can only be specified by test cases
         '''
 
+        if local_service_contract and not config.test_case:
+            raise ValueError(
+                'storage_driver and filepath parameters can only be used by '
+                'test cases'
+            )
         self.member_id: UUID = None
         self.service_id: int = int(service_id)
 
@@ -94,12 +104,25 @@ class Member:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
             # previously accepted
-            filepath = self.paths.service_file(self.service_id)
+            if local_service_contract:
+                if not config.test_case:
+                    raise ValueError(
+                        'Sideloading service contract only supported for '
+                        'test cases'
+                    )
+                filepath = local_service_contract
+                verify_signatures = False
+            else:
+                filepath = self.paths.service_file(self.service_id)
+                verify_signatures = True
+
             try:
                 self.service = Service.get_service(
-                    self.network, filepath=filepath
+                    self.network, filepath=filepath,
+                    verify_signatures=verify_signatures
                 )
-                self.service.verify_schema_signatures()
+                if not local_service_contract:
+                    self.service.verify_schema_signatures()
             except FileNotFoundError:
                 # if the service contract is not yet available for
                 # this membership then it should be downloaded at
@@ -134,9 +157,14 @@ class Member:
         )
         if self.service_data_secret.cert_file_exists():
             self.service_data_secret.load(with_private_key=False)
-        else:
+        elif not local_service_contract:
             self.service.download_data_secret(save=True)
             self.service_data_secret.load(with_private_key=False)
+        else:
+            _LOGGER.debug(
+                'Not loading service data secret as we are sideloading the '
+                'service contract'
+            )
 
         self.tls_secret = None
         self.data_secret = None
@@ -170,12 +198,29 @@ class Member:
     @staticmethod
     def create(service: Service, schema_version: int,
                account: Account, member_id: UUID = None,
-               members_ca: MembersCaSecret = None):
+               members_ca: MembersCaSecret = None,
+               local_service_contract: str = None):
         '''
         Factory for a new membership
+
+        :param service: the service to become a member from
+        :param schema_version: the version of the service contract to use
+        :param account: the account becoming a member
+        :param member_id: the memebr ID
+        :param local_service_contract: The service contract to sideload from
+        the local file system. This parameter must only be used by test cases
         '''
 
-        member = Member(service.service_id, account)
+        if local_service_contract and not config.test_case:
+            raise ValueError(
+                'storage_driver and filepath parameters can only be used by '
+                'test cases'
+            )
+
+        member = Member(
+            service.service_id, account,
+            local_service_contract=local_service_contract
+        )
         if member_id:
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
@@ -193,14 +238,15 @@ class Member:
 
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
-        if not members_ca:
-            # If members_ca has a value then we were called by a test
-            # case and should not attempt to download the schema
+        if not local_service_contract:
             member.service.download_schema(
                 save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
             )
 
-        member.schema = member.load_schema()
+        member.schema = member.load_schema(
+            filepath=local_service_contract,
+            verify_signatures=not bool(local_service_contract)
+        )
 
         if (member.schema.version != schema_version):
             raise ValueError(
@@ -491,7 +537,7 @@ class Member:
             self.verify_schema_signatures(schema)
 
         schema.generate_graphql_schema(
-            require_schema_signatures=verify_signatures
+            verify_schema_signatures=verify_signatures
         )
 
         return schema
