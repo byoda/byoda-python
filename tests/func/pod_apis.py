@@ -13,13 +13,13 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import time
+import shutil
 import unittest
 import requests
 from requests.auth import HTTPBasicAuth
-
-import shutil
-import time
-from uuid import uuid4, UUID
+from datetime import datetime, timezone
+from uuid import UUID
 
 from multiprocessing import Process
 import uvicorn
@@ -45,6 +45,8 @@ from podserver.routers import account
 from podserver.routers import member
 from podserver.routers import authtoken
 
+from tests.lib import get_test_uuid
+
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 
@@ -56,12 +58,60 @@ _LOGGER = None
 ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
 
+PERSON_QUERY = '''
+query {
+    person {
+        given_name
+        additional_names
+        family_name
+        email
+        homepage_url
+        avatar_url
+    }
+}
+'''
 
-def get_test_uuid() -> UUID:
-    id = str(uuid4())
-    id = 'aaaaaaaa' + id[8:]
-    id = UUID(id)
-    return id
+MUTATE_PERSON = '''
+mutation {{
+    mutate_person(
+        given_name: "{given_name}",
+        additional_names: "",
+        family_name: "{family_name}",
+        email: "{email}",
+        homepage_url: "https://some.place/",
+        avatar_url: "https://some.place/avatar"
+    ) {{
+        given_name
+        additional_names
+        family_name
+        email
+        homepage_url
+        avatar_url
+    }}
+}}
+'''
+
+QUERY_NETWORK = '''
+query {
+    network_links {
+        relation
+        member_id
+        timestamp
+    }
+}
+'''
+
+MUTATE_NETWORK = '''
+mutation {{
+    append_network_links (
+        member_id: "{uuid}",
+        relation: "{relation}",
+        timestamp: "{now}"
+    ) {{
+        member_id relation timestamp
+    }}
+}}
+'''
 
 
 class TestDirectoryApis(unittest.TestCase):
@@ -402,43 +452,19 @@ class TestDirectoryApis(unittest.TestCase):
         url = BASE_URL + f'/v1/data/service-{service_id}'
         client = GraphqlClient(endpoint=url)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Peter",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=auth_header)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Peter',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=auth_header
+        )
         self.assertTrue('data' in result)
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=auth_header)
+        result = client.execute(query=PERSON_QUERY, headers=auth_header)
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -472,64 +498,27 @@ class TestDirectoryApis(unittest.TestCase):
         url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
         client = GraphqlClient(endpoint=url)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Peter",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Carl',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=member_headers)
         self.assertEqual(
-            result['data']['mutate_person']['given_name'], 'Peter'
+            result['data']['mutate_person']['given_name'], 'Carl'
         )
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Steven",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
+        result = client.execute(query=PERSON_QUERY, headers=member_headers)
 
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Steven',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=member_headers
+        )
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Steven'
         )
@@ -558,23 +547,49 @@ class TestDirectoryApis(unittest.TestCase):
             'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
         }
 
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-
         # Query fails because other members do not have access
-        result = client.execute(query, headers=alt_member_headers)
+        result = client.execute(PERSON_QUERY, headers=alt_member_headers)
         self.assertIsNone(result['data'])
         self.assertIsNotNone(result['errors'])
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='follow',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='follow',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='friend',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            QUERY_NETWORK,
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
 
 
 if __name__ == '__main__':

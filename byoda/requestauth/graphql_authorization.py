@@ -8,6 +8,7 @@ Authentication function for GraphQL requests
 :license
 '''
 
+import re
 import logging
 from enum import Enum
 from typing import Optional
@@ -47,6 +48,12 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
     templates implementing GraphQL support
     '''
 
+    _LOGGER.debug(
+        f'Authorizing GraphQL request for operation {operation.value} for '
+        f'service {service_id} with action {info.path.typename} for key '
+        f'{info.path.key}'
+    )
+
     # Authorization is declined unless we find it is allowed
     access_allowed = False
 
@@ -68,11 +75,21 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
             continue
         elif obj.startswith('mutate_'):
             key = obj[len('mutate_'):]
+        elif obj.startswith('append_'):
+            key = obj[len('append_'):]
         else:
             key = obj
 
+        # BUG: Strawberry applies camel casing eventhough we tell it not to when setting
+        # up the graphql API in graphene_schema.jinja
+        key = re.sub('([A-Z]{1})', r'_\1', key).lower()
+
+        _LOGGER.debug(f'Authorizing request with key {key}')
+
         if key in json_sub_schema and _ACCESS_MARKER in json_sub_schema[key]:
             access_controls = json_sub_schema[key][_ACCESS_MARKER]
+            _LOGGER.debug(f'Data element {key} has access controls defined')
+
             result = authorize_request(
                 operation, access_controls, info.context['auth'],
                 service_id
@@ -82,7 +99,11 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
 
         # Check the access at the next-deeper level of the data model in
         # the next iteration
-        if 'properties' in json_sub_schema[key]:
+        if key in json_sub_schema and 'properties' in json_sub_schema[key]:
+            _LOGGER.debug(
+                f'Object {key} did not have access permissions defined, '
+                'checking child elements of the obect'
+            )
             json_sub_schema = json_sub_schema[key]['properties']
         else:
             return access_allowed
