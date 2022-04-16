@@ -73,12 +73,16 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields %}
-    @strawberry.field
-    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        authorize_graphql_request_Byoda(
-            DataOperationType_Byoda.READ, {{ service_id }}, info
-        )
-        return info.context['data']['{{ field.name }}']
+    {{ field.name }}: {{ field.python_type }}
+{%     endfor %}
+
+{%     for field in root_class.fields %}
+    # @strawberry.field
+    # def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
+    #    authorize_graphql_request_Byoda(
+    #        DataOperationType_Byoda.READ, {{ service_id }}, info
+    #    )
+    #    return info.context['data']['{{ field.name }}']
 
 {%     endfor %}
 
@@ -87,7 +91,8 @@ class {{ root_class.name }}Input:
 {%     for field in root_class.fields %}
     @strawberry.field
     def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        return info.context['data']['{{ field.name }}']
+        # return info.context['data']['{{ field.name }}']
+        return self.{{ field.name }}
 
 {%     endfor %}
 {%   endif %}
@@ -120,7 +125,12 @@ class Query:
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
-            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}()
+            # BUG: class instantiation does not return a usable value
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
+{%     for field in root_class.referenced_class.fields %}
+                {{ field.name }}=obj['{{ field.name }}'],
+{%     endfor %}
+            )
             ret_data.append({{ root_class.referenced_class.name }}_data)
 
         return ret_data
