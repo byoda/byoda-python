@@ -43,7 +43,7 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
         info.context['auth'] = auth
     except Exception as exc:
         raise HTTPException(
-            status_code=400, detail ='Authentication failed'
+            status_code=400, detail='Authentication failed'
         )
 
     if not auth.is_authenticated:
