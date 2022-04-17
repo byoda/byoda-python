@@ -62,7 +62,7 @@ def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
         service_id=auth.service_id
     )
 
-    _LOGGER.debug('Updated DNS record for member {auth.member_id')
+    _LOGGER.debug(f'Updated DNS record for member {auth.member_id}')
     return {
         'ipv4_address': auth.remote_addr
     }

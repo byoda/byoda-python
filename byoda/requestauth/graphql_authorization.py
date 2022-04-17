@@ -123,7 +123,7 @@ def authorize_request(operation: DataOperationType, access_controls: dict,
     :returns:
         True if the access_controls permit the client to execute the operation
         False if the access_controls deny the client to execute the operation
-        None if the access controls are not applicable to the client
+        None if the access controls are not applicable to the client ID or type
     '''
 
     for entity, access_control in access_controls.items():

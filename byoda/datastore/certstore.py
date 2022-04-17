@@ -60,7 +60,6 @@ class CertStore:
 
         cert_auth = self.ca_secret
 
-        x509_csr = Secret()
         csr = Secret.csr_from_string(csr)
 
         extension = csr.extensions.get_extension_for_class(
@@ -82,7 +81,7 @@ class CertStore:
 
         id_type = entity_id.id_type.value.strip('-')
         _LOGGER.info(
-            f'Signed the CSR for {entity_id.id} for {id_type} '
+            f'Signed the CSR for {entity_id.id} for IdType {id_type} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

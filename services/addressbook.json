@@ -207,10 +207,8 @@
                         "type": "string"
                     },
                     "keywords": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
+                        "description": "comma-separated list of keywords",
+                        "type": "string"
                     }
                 }
             }

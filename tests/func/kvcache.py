@@ -109,7 +109,7 @@ class TestKVCache(unittest.TestCase):
         self.assertTrue(driver.push(key, 'b2'))
         self.assertTrue(driver.push(key, 'c3'))
 
-        self.assertEqual(driver.shift_push_list(key), True)
+        self.assertEqual(driver.shift_push_list(key), b'a1')
 
         self.assertEqual(driver.get_list(key), [b'b2', b'c3', b'a1'])
 

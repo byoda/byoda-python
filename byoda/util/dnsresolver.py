@@ -71,7 +71,7 @@ class DnsResolver:
                     ips.append(ip)
                 except ValueError:
                     pass
-        except dns.resolver.NXDOMAIN:
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
             pass
 
         _LOGGER.debug(

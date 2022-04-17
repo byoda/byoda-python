@@ -291,7 +291,7 @@ class DnsDb:
                 _LOGGER.debug(f'Executing SQL command: {stmt}')
                 domains = conn.execute(stmt)
             except Exception as exc:
-                _LOGGER.error('Failed to execute SQL statement', exc_info=exc)
+                _LOGGER.error(f'Failed to execute SQL statement: {exc}')
                 return
 
             values = [domain.content for domain in domains]
