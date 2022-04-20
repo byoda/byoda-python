@@ -73,27 +73,18 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields %}
-    @strawberry.field
-    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        authorize_graphql_request_Byoda(
-            DataOperationType_Byoda.READ, {{ service_id }}, info
-        )
-        return info.context['data']['{{ field.name }}']
-
+    {{field.name }}: {{ field.python_type }}
 {%     endfor %}
+
 
 @strawberry.input
 class {{ root_class.name }}Input:
 {%     for field in root_class.fields %}
-    @strawberry.field
-    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        return info.context['data']['{{ field.name }}']
-        # return self.{{ field.name }}
-
+    {{field.name }}: {{ field.python_type }}
 {%     endfor %}
+
 {%   endif %}
 {% endfor %}
-
 
 @strawberry.type
 class Query:
@@ -113,7 +104,11 @@ class Query:
 
 {%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        {{ root_class.name }}_data = {{ root_class.name }}()
+        {{ root_class.name }}_data = {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            info.context['data']['{{ field.name }}'],
+{%       endfor %}
+        )
         return {{ root_class.name }}_data
 
 {%     else %}
@@ -121,8 +116,11 @@ class Query:
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
-            # BUG: class instantiation does not return a usable value
-            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}()
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            info.context['data']['{{ field.name }}'],
+{%       endfor %}
+            )
             ret_data.append({{ root_class.referenced_class.name }}_data)
 
         return ret_data
@@ -130,6 +128,7 @@ class Query:
 {%     endif %}
 {%   endif %}
 {% endfor %}
+
 @strawberry.type
 class Mutation:
 {% for root_class in classes.values() %}
@@ -154,7 +153,11 @@ class Mutation:
 {%       endfor %}
         }
         MemberClassByoda.mutate_data({{ service_id }}, info)
-        return {{ root_class.name }}()
+        return {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            {{ field.name }},
+{%       endfor %}
+        )
 
 {%     elif root_class.type == DataType.ARRAY %}
 {# APIs for array processing #}
@@ -176,7 +179,11 @@ class Mutation:
 {%       endfor %}
         }
         MemberClassByoda.append_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name }}()
+        return {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            {{ field.name }},
+{%       endfor %}
+        )
 {%     endif %}
 {%   endif %}
 
