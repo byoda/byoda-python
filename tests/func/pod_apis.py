@@ -590,6 +590,14 @@ class TestDirectoryApis(unittest.TestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
+        self.assertNotEqual(
+            result['data']['network_links'][0],
+            result['data']['network_links'][1]
+        )
+        self.assertNotEqual(
+            result['data']['network_links'][1],
+            result['data']['network_links'][2]
+        )
 
 
 if __name__ == '__main__':

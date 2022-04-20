@@ -8,6 +8,11 @@ import strawberry
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
+import uvicorn
+
+from fastapi import FastAPI
+from strawberry.asgi import GraphQL
+
 
 def network_link_timestamp(root: network_link, info: Info) -> str:
     return info.context['data']['timestamp']
@@ -23,10 +28,6 @@ def network_link_relation(root: network_link, info: Info) -> str:
 
 @strawberry.type
 class network_link:
-    timestamp_value: str
-    member_id_value: str
-    relation_value: str
-
     timestamp: str = strawberry.field(resolver=network_link_timestamp)
     member_id: str = strawberry.field(resolver=network_link_member_id)
     relation: str = strawberry.field(resolver=network_link_relation)
@@ -43,11 +44,7 @@ def network_links(info) -> typing.List[network_link]:
     ret_data = []
     for obj in links_dict:
         info.context['data'] = obj
-        network_link_data = network_link(
-            obj['timestamp'],
-            obj['member_id'],
-            obj['relation']
-        )
+        network_link_data = network_link()
         ret_data.append(network_link_data)
     return ret_data
 
@@ -63,3 +60,12 @@ schema = strawberry.Schema(
     query=Query,
     config=StrawberryConfig(auto_camel_case=False)
 )
+
+graphql_app = GraphQL(schema)
+
+app = FastAPI()
+app.add_route("/graphql", graphql_app)
+app.add_websocket_route("/graphql", graphql_app)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
