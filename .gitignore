@@ -1,4 +1,5 @@
 config.yml
+config-dnsdb-test.yml
 config-addressbook.yml
 uwsgi.yml
 
