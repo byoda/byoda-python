@@ -11,7 +11,7 @@ Authentication function for GraphQL requests
 import re
 import logging
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Tuple, Dict
 
 from strawberry.types import Info
 
@@ -54,64 +54,135 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
         f'{info.path.key}'
     )
 
-    # Authorization is declined unless we find it is allowed
-    access_allowed = False
-
     # We need to review whether the requestor is authorized to access
     # the data in the request
     member: Member = config.server.account.memberships.get(service_id)
+
     if not member:
+        # We do not want to expose whether the account is a member of
+        # a service. Such requests should not happen as requests must
+        # be sent to the membership-FQDN but this is an additional safeguard
         raise HTTPException(
-            status_code=404, detail=f'Service {service_id} not found'
+            status_code=401, detail=f'Access denied'
         )
 
     # This is the start of the data definition of the JsonSchema
-    json_sub_schema = member.schema.json_schema['jsonschema']['properties']
+    data_schema = member.schema.json_schema['jsonschema']['properties']
 
-    # We walk the path through the data model. If we don't find explicit
-    # permission at some level than we reject the request by default.
-    for obj in reversed(info.path):
+    key = _get_query_key(info.path)
+
+    if key not in data_schema:
+        raise ValueError(
+            f'Request for data element {key} that is not included at the root level of '
+            'the service contract'
+        )
+
+    _LOGGER.debug(f'Authorizing request for data element {key}')
+
+    auth: RequestAuth = info.context['auth']
+    access_allowed = _check_data_access(
+        key, data_schema[key], operation, auth, service_id
+    )
+
+    if access_allowed is None:
+        # If no access controls were defined at all in the schema (which should never
+        # be the case) then only the pod membership has access
+        if (auth.id_type == IdType.MEMBER and auth.member_id == member.member_id and
+            operation == DataOperationType.READ):
+            access_allowed = True
+        else:
+            access_allowed = False
+
+    return access_allowed
+
+def _check_data_access(data_element: str, subschema: Dict,
+                       operation: DataOperationType, auth: RequestAuth,
+                       service_id: int) -> Optional[bool]:
+    '''
+    Recursive function to validate whether the access to the data
+    requested in the GraphQL query is permitted according to the
+    service contract
+
+    :param key: the name of the data element for which the subschema is provided
+    :param js
+    '''
+
+    access_controls = subschema.get(_ACCESS_MARKER)
+    if access_controls:
+        _LOGGER.debug(
+            f'Data element {data_element} has access controls defined'
+        )
+
+        access_allowed = authorize_operation(
+            operation, access_controls, auth, service_id
+        )
+        _LOGGER.debug(
+            f'Is Access granted for data element {data_element}: '
+            f'{access_allowed}'
+        )
+
+        # If permission is denied, we do not need to check access to
+        # child elements as if access permissions are defined but do not
+        # cover the request then access to child elements is not permitted
+        # either
+        if access_allowed is False:
+            return access_allowed
+
+        # Check the access at the next-deeper level of the data model in
+        # the next level of recursion
+        child_subschema = subschema.get('properties')
+        if child_subschema:
+            _LOGGER.debug(
+                f'Data element {data_element} has {len(child_subschema.keys())}'
+                'child elements'
+            )
+            for child_data_element, child_element_schema in child_subschema.items():
+                child_access_allowed = _check_data_access(
+                    child_data_element, child_element_schema, operation, auth,
+                    service_id
+                )
+                # child_result could be True or None but that does not impact
+                # whether the request is allowable at the higher-level data
+                # element
+                if child_access_allowed is False:
+                    return False
+
+        return access_allowed
+
+def _get_query_key(path: List[str]) -> str:
+    '''
+    Gets the name of the data element from the service contract that is
+    requested in the GraphQL query.
+    '''
+    # The GraphQL Jinja2 template prefixes
+    # data elements with 'mutate_' for dicts and 'append_' for arrays for
+    # GraphQL Mutate queries
+    key = None
+    for obj in reversed(path):
         if obj is None or obj.lower() in ('query', 'mutation'):
             continue
         elif obj.startswith('mutate_'):
             key = obj[len('mutate_'):]
+            break
         elif obj.startswith('append_'):
             key = obj[len('append_'):]
+            break
         else:
             key = obj
+            break
 
-        # BUG: Strawberry applies camel casing eventhough we tell it not to when setting
-        # up the graphql API in graphene_schema.jinja
-        key = re.sub('([A-Z]{1})', r'_\1', key).lower()
+    if not key:
+        raise ValueError(
+            'No valid key to the data element was provided in GraphQL query'
+        )
 
-        _LOGGER.debug(f'Authorizing request with key {key}')
+    # BUG: Strawberry applies camel casing eventhough we tell it not to when setting
+    # up the graphql API in graphene_schema.jinja
+    key = re.sub('([A-Z]{1})', r'_\1', key).lower()
 
-        if key in json_sub_schema and _ACCESS_MARKER in json_sub_schema[key]:
-            access_controls = json_sub_schema[key][_ACCESS_MARKER]
-            _LOGGER.debug(f'Data element {key} has access controls defined')
+    return key
 
-            result = authorize_request(
-                operation, access_controls, info.context['auth'],
-                service_id
-            )
-            if result is True:
-                return result
-
-        # Check the access at the next-deeper level of the data model in
-        # the next iteration
-        if key in json_sub_schema and 'properties' in json_sub_schema[key]:
-            _LOGGER.debug(
-                f'Object {key} did not have access permissions defined, '
-                'checking child elements of the obect'
-            )
-            json_sub_schema = json_sub_schema[key]['properties']
-        else:
-            return access_allowed
-
-    return access_allowed
-
-
-def authorize_request(operation: DataOperationType, access_controls: dict,
+def authorize_operation(operation: DataOperationType, access_controls: dict,
                       auth: RequestAuth, service_id: int) -> Optional[bool]:
     '''
     Check whether the client is allowed to perform the operation by the
@@ -131,7 +202,7 @@ def authorize_request(operation: DataOperationType, access_controls: dict,
         # before matching the entity for the controls with the caller
         permitted_actions = access_control['permissions']
         if operation.value not in permitted_actions:
-            return
+            continue
 
         # Now check whether the requestor matches the entity of the
         # access control

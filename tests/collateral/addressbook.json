@@ -50,9 +50,9 @@
                         "format": "idn-email",
                         "type": "string",
                         "#accesscontrol": {
-                            "service": [
-                                "search:exact-caseinsensitive"
-                            ]
+                            "service": {
+                                "permissions": ["search:exact-caseinsensitive"]
+                            }
                         }
                     },
                     "family_name": {
