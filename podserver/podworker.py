@@ -51,8 +51,8 @@ def main(args):
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=False, debug=data['debug'],
-        loglevel=data['loglevel'], logfile=LOG_FILE
+        sys.argv[0], json_out=False, debug=True,
+        loglevel='DEBUG'
     )
     _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
@@ -127,6 +127,8 @@ def run_bootstrap_tasks(data: Dict):
     if BYODA_PRIVATE_SERVICE not in account.memberships:
         account.join(BYODA_PRIVATE_SERVICE, 1)
         _LOGGER.info('Joined the BYODA private service')
+
+    _LOGGER.debug('Podworker exiting normally')
 
 
 def schedule_periodic_tasks():

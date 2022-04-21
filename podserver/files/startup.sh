@@ -2,12 +2,13 @@
 
 export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python
 
-cd /podserver/byoda-python
-
+# Start nginx first
 nginx
 
-if [ -f /usr/sbin/sshd ]; then
-    /usr/sbin/sshd -E /tmp/sshd.log &
+if [ "${WORKERS}" = "" ]; then
+    # BUG: multiple workers will not pick up on new memberships
+    # so we set workers to 1
+    WORKERS=1
 fi
 
 # Starting BYODA POD using environment variables
@@ -21,20 +22,26 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 echo "BOOTSTRAP: $BOOTSTRAP"
+echo "FastAPI workers: ${WORKERS}"
 
 cd /podserver/byoda-python
 pipenv run podserver/podworker.py
 
-if [ "${WORKERS}" = "" ]; then
-    # BUG: multiple workers will not pick up on new memberships
-    # so we set workers to 1
-    WORKERS=1
+PODWORKER_FAILURE=$?
+if [[ "$?" == "0" ]]; then
+  echo "Podworker exited successfully"
+  pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app
+else
+  echo "Podworker failed"
+  SLEEP=1
 fi
-
-pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app
 
 # Wait for 15 minutes if we crash so the owner of the pod can check the logs
 if [[ "$?" != "0" ]]; then
+    SLEEP=1
+fi
+
+if [[ "${SLEEP}" != "0" ]]; then
     echo "Sleeping 900 seconds"
     sleep 900
 fi

@@ -16,6 +16,8 @@ import strawberry
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
+from fastapi import HTTPException
+
 from byoda.datamodel.member import Member as MemberClassByoda
 
 
@@ -24,19 +26,21 @@ import logging as loggingByoda
 # from byoda.datamodel.member import Member as MemberClassByoda
 
 from byoda.requestauth import RequestAuth as RequestAuthByoda
-from byoda.requestauth import authorize_graphql_request as authorize_graphql_request_Byoda
-
+from byoda.requestauth.graphql_authorization import DataOperationType as DataOperationType_Byoda
+from byoda.requestauth.graphql_authorization import authorize_graphql_request as authorize_graphql_request_Byoda
 
 _LOGGER = loggingByoda.getLogger(__name__)
 
-def authenticate(root, info):
+def authenticate(root, info, data_operation: DataOperationType_Byoda):
     '''
     This is middleware called by the code generated from the Jinja
     templates implementing GraphQL support
     '''
 
     if not info.context or not info.context['request']:
-        raise ValueError('No info to authenticate client')
+        raise HTTPException(
+            status_code=403, detail='No authentication provided'
+        )
 
     try:
         # Checks that a client cert was provided and that the cert and
@@ -44,40 +48,43 @@ def authenticate(root, info):
         auth = RequestAuthByoda.authenticate_graphql_request(
             info.context['request'], {{ service_id }}
         )
-        if not auth.is_authenticated:
-            raise ValueError('Client is not authentication')
+        info.context['auth'] = auth
     except Exception as exc:
-        raise ValueError(f'Authentication failed: {exc}')
+        raise HTTPException(
+            status_code=400, detail='Authentication failed'
+        )
+
+    if not auth.is_authenticated:
+        raise HTTPException(
+            status_code=403, detail='No authentication provided'
+        )
 
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        authorize_graphql_request_Byoda({{ service_id}}, auth, root, info)
+        return authorize_graphql_request_Byoda(
+            data_operation, {{ service_id}}, info
+        )
     except Exception as exc:
-        raise ValueError(f'Authorization failed: {exc}')
+        raise HTTPException(status_code=401, detail='Not authorized')
 
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields %}
-    @strawberry.field
-    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        return info.context['data']['{{ field.name }}']
-
+    {{field.name }}: {{ field.python_type }}
 {%     endfor %}
+
 
 @strawberry.input
 class {{ root_class.name }}Input:
 {%     for field in root_class.fields %}
-    @strawberry.field
-    def {{ field.name }}(self, info: Info) -> {{ field.python_type }}:
-        return info.context['data']['{{ field.name }}']
-
+    {{field.name }}: {{ field.python_type }}
 {%     endfor %}
+
 {%   endif %}
 {% endfor %}
-
 
 @strawberry.type
 class Query:
@@ -90,11 +97,18 @@ class Query:
     def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}
         _LOGGER.debug('Resolving {{ root_class.name }}')
-        authenticate(self, info)
+
+        result = authenticate(self, info, DataOperationType_Byoda.READ)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
 
 {%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
-        {{ root_class.name }}_data = {{ root_class.name }}()
+        {{ root_class.name }}_data = {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            info.context['data']['{{ field.name }}'],
+{%       endfor %}
+        )
         return {{ root_class.name }}_data
 
 {%     else %}
@@ -102,7 +116,11 @@ class Query:
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
-            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}()
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            info.context['data']['{{ field.name }}'],
+{%       endfor %}
+            )
             ret_data.append({{ root_class.referenced_class.name }}_data)
 
         return ret_data
@@ -110,6 +128,7 @@ class Query:
 {%     endif %}
 {%   endif %}
 {% endfor %}
+
 @strawberry.type
 class Mutation:
 {% for root_class in classes.values() %}
@@ -122,14 +141,23 @@ class Mutation:
 {%       endfor %}
             ) -> {{ root_class.name }}:
         _LOGGER.debug('Root query for mutate{{ root_class.name }}')
-        authenticate(self, info)
+
+        # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
+        result = authenticate(self, info,  DataOperationType_Byoda.UPDATE)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
         info.context['data'] = {
 {%       for field in root_class.fields %}
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
         MemberClassByoda.mutate_data({{ service_id }}, info)
-        return {{ root_class.name }}()
+        return {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            {{ field.name }},
+{%       endfor %}
+        )
 
 {%     elif root_class.type == DataType.ARRAY %}
 {# APIs for array processing #}
@@ -140,14 +168,22 @@ class Mutation:
 {%       endfor %}
         ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append{{ root_class.name }}')
-        # authenticate(self, info)
+
+        result = authenticate(self, info, DataOperationType_Byoda.APPEND)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
         info.context['data'] = {
 {%       for field in root_class.referenced_class.fields %}
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
         MemberClassByoda.append_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name }}()
+        return {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            {{ field.name }},
+{%       endfor %}
+        )
 {%     endif %}
 {%   endif %}
 

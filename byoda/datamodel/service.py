@@ -138,6 +138,7 @@ class Service:
 
     @classmethod
     def get_service(cls, network: Network, filepath: str = None,
+                    verify_signatures: bool = True,
                     with_private_key: bool = False, password: str = None):
         '''
         Factory for Service class, loads the service metadata from a local
@@ -145,15 +146,26 @@ class Service:
 
         :param network: the network to which service belongs
         :param filepath: path to the file containing the data contract
-
+        :param verify_signatures: should the data secret be loaded so it can be
+        used to validate the service signature of the service contract? This
+        parameter must only be set to False by test cases
         '''
+
+        if not verify_signatures and not config.test_case:
+            raise ValueError(
+                'verify_signatures should only be False for test cases'
+            )
 
         service = Service(network=network, filepath=filepath)
 
-        service.load_data_secret(with_private_key, password)
+        if verify_signatures:
+            service.load_data_secret(with_private_key, password)
 
-        service.load_schema(filepath)
-        service.schema.generate_graphql_schema()
+        service.load_schema(
+            filepath=filepath, verify_contract_signatures=verify_signatures
+        )
+
+        service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
 
         _LOGGER.debug(f'Read service from {filepath}')
 

@@ -45,23 +45,24 @@ def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
     Request DNS record to be hosted for the Common Name of the MemberCert
     '''
 
-    _LOGGER.debug(
-        f'PUT Member API called from {request.client.host} and '
-        f'UUID {auth.member_id}'
-    )
+    _LOGGER.debug(f'PUT Member API called from {request.client.host}')
 
-    network = config.server.network
+    # Authorization
+    # End of authorization
 
     if not Service.is_registered(auth.service_id):
         raise HTTPException(
             404, f'Registration for unknown service: {auth.service_id}'
         )
 
+    network = config.server.network
+
     network.dnsdb.create_update(
         auth.member_id, IdType.MEMBER, auth.remote_addr,
         service_id=auth.service_id
     )
 
+    _LOGGER.debug(f'Updated DNS record for member {auth.member_id}')
     return {
         'ipv4_address': auth.remote_addr
     }

@@ -19,26 +19,31 @@ from copy import copy
 from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException
 
+from cryptography import x509
+
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
+from byoda.datatypes import AuthSource
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datastore.certstore import CertStore
 
+from byoda.secrets import Secret
+from byoda.secrets import MembersCaSecret
+
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
 from byoda.models import SignedMemberCertResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
-
-from byoda.secrets import Secret
-from byoda.secrets import MemberSecret
+from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
 
 from byoda import config
 
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
+from ..dependencies.memberrequest_auth import MemberRequestAuthOptionalFast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +55,10 @@ router = APIRouter(
 
 @router.post('/member', response_model=SignedMemberCertResponseModel,
              status_code=201)
-def post_member(request: Request, csr: CertSigningRequestModel):
+def post_member(request: Request, csr: CertSigningRequestModel,
+                auth: MemberRequestAuthOptionalFast =
+                Depends(MemberRequestAuthOptionalFast)
+                ):
     '''
     Submit a Certificate Signing Request for the Member certificate
     and get the cert signed by the Service Members CA
@@ -61,40 +69,81 @@ def post_member(request: Request, csr: CertSigningRequestModel):
 
     _LOGGER.debug(f'POST Member API called from {request.client.host}')
 
-    service: Service = config.server.service
-    network: Network = config.server.network
+    server: ServiceServer = config.server
+    service: Service = server.service
+    network: Network = server.network
+
+    # Authorization
+    csr_x509: x509 = Secret.csr_from_string(csr.csr)
+    common_name = Secret.extract_commonname(csr_x509)
+
+    try:
+        entity_id = MembersCaSecret.review_commonname_by_parameters(
+            common_name, network.name, service.service_id
+        )
+    except PermissionError:
+        raise HTTPException(
+            status_code=401, detail=f'Invalid common name {common_name} in CSR'
+        )
+    except (ValueError, KeyError):
+        raise HTTPException(
+            status_code=400, detail=(
+                f'error when reviewing the common name {common_name} in your '
+                'CSR'
+            )
+        )
+
+    if auth.is_authenticated:
+        if auth.auth_source != AuthSource.CERT:
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    'When used with credentials, this API requires '
+                    'authentication with a TLS client cert'
+                )
+            )
+
+        if entity_id.id_type != IdType.MEMBER:
+            raise HTTPException(
+                status_code=403,
+                detail='A TLS cert of a member must be used with this API'
+            )
+
+        _LOGGER.debug(f'Signing csr for existing member {entity_id.id}')
+    else:
+        # TODO: security: consider tracking member UUIDs to avoid
+        # race condition between CSR signature and member registration
+        # with the Directory server
+        ips = server.dns_resolver.resolve(common_name)
+        if ips:
+            _LOGGER.debug(
+                'Attempt to submit CSR for existing member without '
+                'authentication'
+            )
+            raise HTTPException(
+                status_code=401, detail=(
+                    'Must use TLS client cert when renewing a member cert'
+                )
+            )
+        _LOGGER.debug(f'Signing csr for new member {entity_id.id}')
+    # End of Authorization
+
+    if entity_id.service_id is None:
+        raise ValueError(
+            f'No service id found in common name {common_name}'
+        )
+
+    if entity_id.service_id != service.service_id:
+        raise HTTPException(
+            404, f'Incorrect service_id in common name {common_name}'
+        )
 
     # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(service.members_ca)
 
-    # We sign the cert first, then extract the service ID from the
-    # signed cert and check if the service with the service ID already
-    # exists.
-    # TODO: extract common name from the CSR so that this code will
-    # have a more logical flow where we check first before we sign
     certchain = certstore.sign(
         csr.csr, IdType.MEMBER, request.client.host
     )
-
-    # We make sure the key for the services in the network exists, even if
-    # the schema for the service has not yet been provided through the PATCH
-    # API
-    commonname = MemberSecret.extract_commonname(certchain.signed_cert)
-    entity_id = Secret.review_commonname_by_parameters(
-        commonname, network.name, uuid_identifier=False,
-        check_service_id=False
-    )
-
-    service_id = entity_id.service_id
-    if service_id is None:
-        raise ValueError(
-            f'No service id found in common name {commonname}'
-        )
-
-    if service_id != service.service_id:
-        raise HTTPException(
-            404, f'Incorrect service_id in common name {commonname}'
-        )
 
     # Get the certs as strings so we can return them
     signed_cert = certchain.cert_as_string()
@@ -102,7 +151,7 @@ def post_member(request: Request, csr: CertSigningRequestModel):
 
     service_data_cert_chain = service.data_secret.cert_as_pem()
 
-    _LOGGER.info(f'Signed certificate with commonname {commonname}')
+    _LOGGER.info(f'Signed certificate with commonname {common_name}')
 
     config.server.member_db.add_meta(
         entity_id.id, request.client.host, None, cert_chain,

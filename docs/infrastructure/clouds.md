@@ -1,3 +1,5 @@
+### Info on running pods on public clouds
+
 Supported clouds: AWS, Azure and GCP.
 Please review the features and requirements for the free services of the three clouds carefully to avoid unexpected costs.
 

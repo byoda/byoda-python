@@ -36,6 +36,9 @@ def get_account(request: Request,
 
     _LOGGER.debug(f'GET Account API called from {request.client.host}')
 
+    # Authorization: handled by PodApiRequestAuth, which checks account
+    # cert / JWT was used and it matches the account ID of the pod
+
     server = config.server
     account = server.account
     network = account.network
@@ -56,6 +59,8 @@ def get_account(request: Request,
         bootstrap = False
 
     root_directory = account.paths.root_directory
+
+    account.load_memberships()
 
     services = []
     for service in network.service_summaries.values():

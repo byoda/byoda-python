@@ -29,7 +29,7 @@ class CertStore:
         Constructor
 
         :param ca_secret: the CA cert/key to sign CSRs with
-        :param connectionstring: the location to store processed CSRs
+        :param connectionstring: the location to store-processed CSRs
         :returns: (none)
         :raises: NotImplementedError if connectionstring has a value other
         than None
@@ -60,8 +60,7 @@ class CertStore:
 
         cert_auth = self.ca_secret
 
-        x509_csr = Secret()
-        csr = x509_csr.csr_from_string(csr)
+        csr = Secret.csr_from_string(csr)
 
         extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints
@@ -82,7 +81,7 @@ class CertStore:
 
         id_type = entity_id.id_type.value.strip('-')
         _LOGGER.info(
-            f'Signed the CSR for {entity_id.id} for {id_type} '
+            f'Signed the CSR for {entity_id.id} for IdType {id_type} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

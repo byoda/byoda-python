@@ -1,5 +1,8 @@
 '''
-/service/search API for the addressbook service
+Sample API implementation, for a search API.
+Services can chose to either provide REST APIs or GraphQL APIs or both.
+
+This is the REST /service/search API for the addressbook service
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -55,14 +58,15 @@ router = APIRouter(
 def search(request: Request, email: str,
            auth: MemberRequestAuthFast = Depends(MemberRequestAuthFast)):
     '''
-    Submit a Certificate Signing Request for the Member certificate
-    and get the cert signed by the Service Members CA
-    This API is called by pods
+    Search a member of the service based on the exact match of the
+    email address
     This API does not require authentication, it needs to be rate
     limited by the reverse proxy (TODO: security)
     '''
 
     _LOGGER.debug(f'Search API called for {email} from {request.client.host}')
+
+    # Authorization: not required as called is a member
 
     member_db: MemberDb = config.server.member_db
 

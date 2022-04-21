@@ -22,14 +22,18 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 
+from cryptography import x509
+
 from byoda.datamodel.service import RegistrationStatus
+from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.datatypes import IdType, ReviewStatusType
+from byoda.datatypes import AuthSource
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
 from byoda.datastore.certstore import CertStore
-from byoda.servers.server import Server
+from byoda.servers.directory_server import DirectoryServer
 from byoda.datamodel.network import Network
 
 from byoda.models import ServiceSummariesModel
@@ -42,6 +46,7 @@ from byoda.models.ipaddress import IpAddressResponseModel
 from byoda.secrets import Secret
 from byoda.secrets import ServiceCaSecret
 from byoda.secrets import ServiceDataSecret
+from byoda.secrets import NetworkServicesCaSecret
 
 from byoda.util.paths import Paths
 from byoda.util.message_signature import SignatureType
@@ -49,6 +54,7 @@ from byoda.util.message_signature import SignatureType
 from byoda import config
 
 from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
+from ..dependencies.servicerequest_auth import ServiceRequestOptionalAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,8 +70,10 @@ router = APIRouter(
 def get_services(request: Request, skip: int = 0, count: int = 0):
     '''
     Get a list of summaries of the available services. This API is called by
-    pods. This API does not require authentication as service schemas are
-    public information
+    pods.
+
+    This API does not require authentication as service schemas are public
+    information
     '''
 
     _LOGGER.debug(
@@ -73,18 +81,17 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
         f'skip {skip} and count {count}'
     )
 
-    server: Server = config.server
+    server: DirectoryServer = config.server
     network: Network = config.server.network
 
     server.get_registered_services()
 
-    services = list(network.services.values())
-
-    _LOGGER.debug(f'We now have {len(services)} services in memory')
+    _LOGGER.debug(f'We now have {len(network.services)} services in memory')
 
     if count == 0:
-        count = max(len(services), MAX_SERVICE_LIST)
+        count = min(len(network.services), MAX_SERVICE_LIST)
 
+    services = list(network.services.values())
     result = {
         'service_summaries': [
             {
@@ -95,7 +102,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
                 'owner': service.schema.owner,
                 'website': service.schema.website,
                 'supportemail': service.schema.supportemail,
-            } for service in services[skip: count]
+            } for service in services[skip: skip + count]
             if service.schema and service.schema.version
         ]
     }
@@ -106,15 +113,20 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 @router.get('/service/service_id/{service_id}', response_model=SchemaModel)
 def get_service(request: Request, service_id: int):
     '''
-    Get either the data contract of the specified service or a list of
-    summaries of the available services. This API is called by pods
+    Get the data contract of the specified service.
+
     This API does not require authentication as service schemas are
     public information
     '''
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
 
+    server: Server = config.server
     network = config.server.network
+
+    server.get_registered_services()
+
+    _LOGGER.debug(f'We now have {len(network.services)} services in memory')
 
     if service_id not in network.services:
         # So this worker process does not know about the service. Let's
@@ -146,7 +158,9 @@ def get_service(request: Request, service_id: int):
 @router.post(
     '/service', response_model=SignedServiceCertResponseModel, status_code=201
 )
-def post_service(request: Request, csr: CertSigningRequestModel):
+def post_service(request: Request, csr: CertSigningRequestModel,
+                 auth: ServiceRequestOptionalAuthFast =
+                 Depends(ServiceRequestOptionalAuthFast)):
     '''
     Submit a Certificate Signing Request for the ServiceCA certificate
     and get the cert signed by the network services CA
@@ -159,41 +173,76 @@ def post_service(request: Request, csr: CertSigningRequestModel):
 
     network = config.server.network
 
+    # Authorization
+    csr_x509: x509 = Secret.csr_from_string(csr.csr)
+    common_name = Secret.extract_commonname(csr_x509)
+
+    try:
+        entity_id = NetworkServicesCaSecret.review_commonname_by_parameters(
+            common_name, network.name
+        )
+    except PermissionError:
+        raise HTTPException(
+            status_code=401, detail=f'Invalid common name {common_name} in CSR'
+        )
+    except (ValueError, KeyError):
+        raise HTTPException(
+            status_code=400, detail=(
+                f'error when reviewing the common name {common_name} in your '
+                'CSR'
+            )
+        )
+
+    dnsdb = config.server.network.dnsdb
+    try:
+        dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
+        dns_exists = True
+    except KeyError:
+        dns_exists = False
+
+    if auth.is_authenticated:
+        if auth.auth_source != AuthSource.CERT:
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    'When used with credentials, this API requires '
+                    'authentication with TLS client cert'
+                )
+            )
+
+        if auth.id_type != IdType.SERVICE:
+            raise HTTPException(
+                status_code=401,
+                detail='A TLS cert of a service is required for this API'
+            )
+        if auth.service_id != entity_id.service_id:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Client auth for service id {auth.service_id} does not '
+                    f'match CSR for service_id {entity_id.service_id}'
+                )
+            )
+    else:
+        if dns_exists:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    'CSR is for existing service, must use TLS Client cert '
+                    'for authentication'
+                )
+            )
+    # End of Authorization
+
     # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(network.services_ca)
 
-    # We sign the cert first, then extract the service ID from the
-    # signed cert and check if the service with the service ID already
-    # exists.
-    # TODO: extract common name from the CSR so that this code will
-    # have a more logical flow where we check first before we sign
     certchain = certstore.sign(
         csr.csr, IdType.SERVICE_CA, request.client.host
     )
 
-    # We make sure the key for the services in the network exists, even if
-    # the schema for the service has not yet been provided through the PATCH
-    # API
-    commonname = Secret.extract_commonname(certchain.signed_cert)
-    entity_id = Secret.review_commonname_by_parameters(
-        commonname, network.name, uuid_identifier=False,
-        check_service_id=False
-    )
-
-    service_id = entity_id.service_id
-    if service_id is None:
-        raise HTTPException(
-            409, f'No service id found in common name {commonname}'
-        )
-
-    if service_id in network.services:
-        raise HTTPException(
-            400, f'A CA certificate for service ID {service_id} has already '
-            'been signed'
-        )
-
     # Create the service and add it to the network
-    service = Service(network=network, service_id=service_id)
+    service = Service(network=network, service_id=entity_id.service_id)
     network.services[entity_id.service_id] = service
 
     # Get the certs as strings so we can return them
@@ -214,6 +263,15 @@ def post_service(request: Request, csr: CertSigningRequestModel):
         service.service_ca.save(overwrite=False)
     except PermissionError:
         raise HTTPException(409, 'Service CA certificate already exists')
+
+    # We create the DNS entry if it not exists yet to make sure there is no
+    # race condition between submitting the CSR through the POST API and
+    # registering the service server through the PUT API
+    if not dns_exists:
+        dnsdb.create_update(
+            None, IdType.SERVICE, auth.remote_addr,
+            service_id=entity_id.service_id
+        )
 
     data_cert = network.data_secret.cert_as_pem()
 
@@ -236,7 +294,7 @@ def put_service(request: Request, service_id: int,
 
     _LOGGER.debug(f'PUT Service API called from {request.client.host}')
 
-    network = config.server.network
+    network: Network = config.server.network
 
     if service_id != auth.service_id:
         raise ValueError(
@@ -299,7 +357,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
     # Authorize the request
     if service_id != auth.service_id:
         raise HTTPException(
-            403, 'Service ID query parameter does not match the client cert'
+            401, 'Service ID query parameter does not match the client cert'
         )
 
     if service_id != schema.service_id:
@@ -308,7 +366,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
             f'the ServiceID parameter in the schema {schema.service_id}'
         )
     # End of authorization
-    
+
     network = config.server.network
 
     # TODO: create a whole bunch of schema validation tests

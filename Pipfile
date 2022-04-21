@@ -28,7 +28,7 @@ websockets = "*"
 cryptography = "*"
 htpasswd = "*"
 uvicorn = {version = "*", extras = [ "standard",]}
-strawberry-graphql = {extras = [ "fastapi",], version = "*"}
+strawberry-graphql = {version = "==0.106.3", extras = ["fastapi"]}
 redis = "*"
 hiredis = "*"
 rfc3339-validator = "*"

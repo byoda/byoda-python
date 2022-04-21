@@ -26,7 +26,9 @@ mkdir -p ~/.secrets
 chmod 700 ~/.secrets
 
 sudo pip3 install passgen
-passgen -n 1 >~/.secrets/postgres.password
+if [ ! -f ~/.secrets/postgres.password ]; then
+  passgen -n 1 >~/.secrets/postgres.password
+fi
 
 export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
 
@@ -51,7 +53,10 @@ chmod 600 ~/.pgpass
 
 export DIRSERVER=$(curl http://ifconfig.co)
 
-passgen -n 1 >~/.secrets/sql_powerdns.password
+if [ ! -f ~/.secrets/sql_powerdns.password ]; then
+  passgen -n 1 >~/.secrets/sql_powerdns.password
+fi
+
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
 
 cat >/tmp/byodadns.sql <<EOF
@@ -79,8 +84,10 @@ sudo apt-get install pdns-backend-pgsql
 sudo systemctl disable --now systemd-resolved
 sudo systemctl stop pdns
 
-passgen -n 1 >~/.secrets/powerdns-api.key
-APIKEY=$(cat ~/.secrets/powerdns-api.key)
+if [ ! -f ~/.secrets/powerdns-api.key ]; then
+  passgen -n 1 >~/.secrets/powerdns-api.key
+fi
+API_KEY=$(cat ~/.secrets/powerdns-api.key)
 
 sudo -i
 

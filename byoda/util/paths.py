@@ -111,7 +111,7 @@ class Paths:
             self.storage_driver = FileStorage(self._root_directory)
 
     def get(self, path_template: str, service_id: int = None,
-            member_id: UUID = None):
+            member_id: UUID = None, account_id: UUID = None):
         '''
         Gets the file/path for the specified path_type
 
@@ -124,11 +124,14 @@ class Paths:
         if service_id is None:
             service_id = self.service_id
 
+        if account_id is None:
+            account_id = self._account
+
         if '{network}' in path_template and not self._network:
             raise ValueError('No network specified')
         if '{service_id}' in path_template and service_id is None:
             raise ValueError('No service specified')
-        if '{account}' in path_template and not self._account:
+        if '{account}' in path_template and not account_id:
             raise ValueError('No account specified')
 
         path = path_template.format(
@@ -247,8 +250,8 @@ class Paths:
     def account(self, value):
         self._account = value
 
-    def account_directory(self):
-        return self.get(self.ACCOUNT_DIR)
+    def account_directory(self, account_id: UUID = None):
+        return self.get(self.ACCOUNT_DIR, account_id=account_id)
 
     def account_directory_exists(self):
         return self.exists(self.ACCOUNT_DIR)

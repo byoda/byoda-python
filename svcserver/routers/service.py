@@ -48,11 +48,13 @@ def get_service(request: Request, service_id: int):
         f'called from {request.client.host}'
     )
 
+    # Authorization: not required, public API
     if service_id != config.server.service.service_id:
         _LOGGER.info(
             f'Service schema requested for incorrect service: {service_id}'
         )
         return HTTPException(404)
+    # End of authorization
 
     schema = config.server.service.schema
 

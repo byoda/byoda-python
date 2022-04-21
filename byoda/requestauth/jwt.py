@@ -57,6 +57,7 @@ class JWT:
         :raises: ValueError
         '''
 
+        _LOGGER.debug('Creating a JWT')
         jwt = JWT(network_name)
 
         if id_type == IdType.ACCOUNT:

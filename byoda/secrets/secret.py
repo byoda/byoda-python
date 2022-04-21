@@ -594,7 +594,8 @@ class Secret:
                 for cert_data in certs[1:]
             ]
 
-    def csr_from_string(self, csr: str) -> x509.CertificateSigningRequest:
+    @staticmethod
+    def csr_from_string(csr: str) -> x509.CertificateSigningRequest:
         '''
         Converts a string to a X.509 CSR
 

@@ -15,7 +15,7 @@ import time
 import unittest
 import logging
 import shutil
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 import fastjsonschema
 
@@ -50,10 +50,10 @@ _LOGGER = logging.getLogger(__name__)
 NETWORK = 'byodatest.net'
 MEMBER_ID = 'aaaaaaaa-a9ac-4ea3-913c-d94981329d8f'
 CONFIG_FILE = 'tests/collateral/config.yml'
-DEFAULT_SCHEMA = 'services/addressbook.json'
+DEFAULT_SCHEMA = 'tests/collateral/addressbook.json'
 TEST_DIR = '/tmp/byoda-tests/jsonschema'
 BASE_URL = 'http://localhost:8000/graphql'
-SERVICE_ID = 12345678
+SERVICE_ID = 4294929430
 
 data = {
     'given_name': 'Steven',
@@ -218,7 +218,7 @@ class TestJsonSchema(unittest.TestCase):
         service.create_secrets(network.services_ca)
 
         member = Member(SERVICE_ID, pod_account)
-        member.member_id = MEMBER_ID
+        member.member_id = UUID(MEMBER_ID)
         pod_account.memberships[SERVICE_ID] = member
 
         member.tls_secret = MemberSecret(
@@ -274,11 +274,6 @@ class TestJsonSchema(unittest.TestCase):
 
         test = validate(data)
         self.assertEqual(data, test)
-
-        # obj = MemberData(
-        #    schema, storage_driver
-        # )
-        # obj._load_from_file('tests/collateral/memberdata.json')
 
         member_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',

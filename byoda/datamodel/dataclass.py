@@ -9,6 +9,7 @@ templates
 :license    : GPLv3
 '''
 
+from gzip import READ
 import logging
 from enum import Enum
 from os import stat
@@ -16,6 +17,7 @@ from typing import Dict, List
 from urllib.parse import urlparse
 
 from byoda.datatypes import RightsEntityType
+from byoda.datatypes import DataOperationType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
+
 # Translation from jsondata data type to Python data type in the Jinja template
 SCALAR_TYPE_MAP = {
     DataType.STRING: 'str',
@@ -44,16 +47,6 @@ SCALAR_TYPE_MAP = {
     DataType.NUMBER: 'float',
     DataType.BOOLEAN: 'bool',
 }
-
-
-class DataOperationType(Enum):
-    # flake8: noqa=E221
-    CREATE    = 'create'
-    READ      = 'read'
-    UPDATE    = 'update'
-    APPEND    = 'append'
-    DELETE    = 'delete'
-    SEARCH    = 'search'
 
 
 class SchemaDataItem:
@@ -135,22 +128,19 @@ class SchemaDataItem:
                 f'Access controls must be an object for class {self.name}'
             )
 
-        for entity_type, accessrights in rights.items():
-            if isinstance(accessrights, str):
-                accessrights = [accessrights]
+        for entity_type, accessright in rights.items():
+            right = DataAccessPermission(entity_type, accessright)
 
-            for accessright in accessrights:
-                right = DataAccessPermission(entity_type, accessright)
-
-                if right.right in (
+            for action in right.permitted_actions:
+                if action in (
                         DataOperationType.CREATE,
                         DataOperationType.UPDATE):
                     self.enabled_apis.add(GraphQlAPI.MUTATE)
-                if right.right == DataOperationType.APPEND:
+                if action == DataOperationType.APPEND:
                     self.enabled_apis.add(GraphQlAPI.APPEND)
-                if right.right == DataOperationType.DELETE:
+                if action == DataOperationType.DELETE:
                     self.enabled_apis.add(GraphQlAPI.DELETE)
-                if right.right == DataOperationType.SEARCH:
+                if action == DataOperationType.SEARCH:
                     self.enabled_apis.add(GraphQlAPI.SEARCH)
 
                 if not self.access_permissions[right.entity_type]:
@@ -257,23 +247,12 @@ class SchemaDataArray(SchemaDataItem):
 
 
 class DataAccessPermission:
-    def __init__(self, entity_type: str, right: str = None) -> None:
-
-        if entity_type.count(':') > 1:
-            raise ValueError(
-                f'entity_type {entity_type} must not have two ":"s '
-            )
-
-        if ':' in entity_type:
-            if entity_type.count(':') > 1:
-                raise ValueError(f'Only one specifier allowed: {entity_type}')
-
-            self.specifier = entity_type.split(':')[1]
-            entity_type = entity_type.split(':')[0]
-
+    def __init__(self, entity_type: str, right: Dict) -> None:
         self.entity_type = RightsEntityType(entity_type)
-
-        self.right = DataOperationType(right.split(':')[0])
-        self.right_specifiers = []
-        if ':' in right:
-            self.right_specifiers: List[str] = right.split(':')[1:]
+        self.permitted_actions = set()
+        for action in self.permitted_actions:
+            self.permitted_actions.add(DataOperationType(action))
+        # actions = right['permissions']
+        # self.permitted_actions = [
+        #    DataOperationType(value) for value in actions
+        #]

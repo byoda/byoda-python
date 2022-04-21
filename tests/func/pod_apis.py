@@ -13,13 +13,13 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import time
+import shutil
 import unittest
 import requests
 from requests.auth import HTTPBasicAuth
-
-import shutil
-import time
-from uuid import uuid4, UUID
+from datetime import datetime, timezone
+from uuid import UUID
 
 from multiprocessing import Process
 import uvicorn
@@ -28,9 +28,6 @@ from python_graphql_client import GraphqlClient
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
-
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
-
 
 from byoda.servers.pod_server import PodServer
 
@@ -48,6 +45,8 @@ from podserver.routers import account
 from podserver.routers import member
 from podserver.routers import authtoken
 
+from tests.lib import get_test_uuid
+
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 
@@ -56,12 +55,63 @@ BASE_URL = 'http://localhost:{PORT}/api'
 
 _LOGGER = None
 
+ADDRESSBOOK_SERVICE_ID = None
+ADDRESSBOOK_VERSION = 1
 
-def get_test_uuid() -> UUID:
-    id = str(uuid4())
-    id = 'aaaaaaaa' + id[8:]
-    id = UUID(id)
-    return id
+PERSON_QUERY = '''
+query {
+    person {
+        given_name
+        additional_names
+        family_name
+        email
+        homepage_url
+        avatar_url
+    }
+}
+'''
+
+MUTATE_PERSON = '''
+mutation {{
+    mutate_person(
+        given_name: "{given_name}",
+        additional_names: "",
+        family_name: "{family_name}",
+        email: "{email}",
+        homepage_url: "https://some.place/",
+        avatar_url: "https://some.place/avatar"
+    ) {{
+        given_name
+        additional_names
+        family_name
+        email
+        homepage_url
+        avatar_url
+    }}
+}}
+'''
+
+QUERY_NETWORK = '''
+query {
+    network_links {
+        relation
+        member_id
+        timestamp
+    }
+}
+'''
+
+MUTATE_NETWORK = '''
+mutation {{
+    append_network_links (
+        member_id: "{uuid}",
+        relation: "{relation}",
+        timestamp: "{now}"
+    ) {{
+        member_id relation timestamp
+    }}
+}}
+'''
 
 
 class TestDirectoryApis(unittest.TestCase):
@@ -76,6 +126,7 @@ class TestDirectoryApis(unittest.TestCase):
             pass
 
         os.makedirs(TEST_DIR)
+        shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
 
         os.environ['ROOT_DIR'] = TEST_DIR
         os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -91,6 +142,8 @@ class TestDirectoryApis(unittest.TestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+
+        config.test_case = True
 
         config.server = PodServer(network)
         server = config.server
@@ -117,8 +170,21 @@ class TestDirectoryApis(unittest.TestCase):
 
         server.get_registered_services()
 
+        service = [
+            service
+            for service in server.network.service_summaries.values()
+            if service['name'] == 'addressbook'
+        ][0]
+        global ADDRESSBOOK_SERVICE_ID
+        ADDRESSBOOK_SERVICE_ID = service['service_id']
+        global ADDRESSBOOK_VERSION
+        ADDRESSBOOK_VERSION = service['version']
+
         member_id = get_test_uuid()
-        pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
+        pod_account.join(
+            ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
+            local_service_contract='addressbook.json'
+        )
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
@@ -177,49 +243,51 @@ class TestDirectoryApis(unittest.TestCase):
 
         # Get the service ID for the addressbook service
         service_id = None
-        self.version = None
+        version = None
         for service in data['services']:
             if service['name'] == 'addressbook':
                 service_id = service['service_id']
                 version = service['latest_contract_version']
 
-        if service_id is None or version is None:
-            raise ValueError(
-                'Did not find the addressbook service in the list of services'
-            )
+        self.assertEqual(service_id, ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(version, ADDRESSBOOK_VERSION)
 
-        API = BASE_URL + '/v1/pod/member'
-        response = requests.get(f'{API}/service_id/0', headers=account_headers)
+        response = requests.get(
+            f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}',
+            headers=account_headers
+        )
         self.assertEqual(response.status_code, 200)
+
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        self.assertEqual(data['service_id'], 0)
-        self.assertEqual(data['version'], 1)
-        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
         self.assertEqual(data['website'], 'https://www.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
-            data['description'], (
-                'the private service for which no data will be shared with '
-                'services or their members'
-            )
+            data['description'], ('A simple network to maintain contacts')
         )
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.post(
-            API + f'/service_id/{service_id}/version/1',
+            (
+                f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
+                f'/version/{version}'
+            ),
             headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.put(
-            API + f'/service_id/{service_id}/version/1',
+            (
+                f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
+                f'/version/{version}'
+            ),
             headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
@@ -233,7 +301,7 @@ class TestDirectoryApis(unittest.TestCase):
         # only for GraphQL APIs
         #
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
@@ -278,53 +346,39 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 2)
 
-        # Get the service ID for the addressbook service
-        service_id = None
-        self.version = None
-        for service in data['services']:
-            if service['name'] == 'addressbook':
-                service_id = service['service_id']
-                version = service['latest_contract_version']
-
-        if service_id is None or version is None:
-            raise ValueError(
-                'Did not find the addressbook service in the list of services'
-            )
-
         API = BASE_URL + '/v1/pod/member'
-        response = requests.get(f'{API}/service_id/0', headers=auth_header)
+        response = requests.get(
+            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}', headers=auth_header
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
-        self.assertEqual(data['service_id'], 0)
-        self.assertEqual(data['version'], 1)
-        self.assertEqual(data['name'], 'private')
+        self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
+        self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
         self.assertEqual(data['website'], 'https://www.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
-            data['description'], (
-                'the private service for which no data will be shared with '
-                'services or their members'
-            )
+            data['description'], 'A simple network to maintain contacts'
         )
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        API = BASE_URL + '/v1/pod/member'
         response = requests.post(
-            API + f'/service_id/{service_id}/version/1',
+            f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
+            f'version/{ADDRESSBOOK_VERSION}',
             headers=auth_header
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 409)
 
     def test_auth_token_request(self):
         account = config.server.account
         account_id = account.account_id
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
@@ -334,14 +388,14 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue(isinstance(data.get('auth_token'), str))
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0'
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}'
         )
         data = response.json()
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 'wrong', os.environ['ACCOUNT_SECRET']
             )
@@ -351,7 +405,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 str(account_id)[:8], 'wrong'
             )
@@ -361,7 +415,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 'wrong', 'wrong'
             )
@@ -371,7 +425,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertTrue('auth_token' not in data)
 
         response = requests.get(
-            BASE_URL + '/v1/pod/authtoken/service_id/0',
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
                 '', ''
             )
@@ -380,10 +434,10 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-    def test_graphql_service0_jwt(self):
+    def test_graphql_addressbook_jwt(self):
         account = config.server.account
         account_id = account.account_id
-        service_id = 0
+        service_id = ADDRESSBOOK_SERVICE_ID
         response = requests.get(
             BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
             auth=HTTPBasicAuth(
@@ -398,49 +452,26 @@ class TestDirectoryApis(unittest.TestCase):
         url = BASE_URL + f'/v1/data/service-{service_id}'
         client = GraphqlClient(endpoint=url)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Peter",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=auth_header)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Peter',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=auth_header
+        )
+        self.assertTrue('data' in result)
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=auth_header)
+        result = client.execute(query=PERSON_QUERY, headers=auth_header)
 
-    def test_graphql_service0_tls_cert(self):
+    def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network
 
-        service_id = 0
+        service_id = ADDRESSBOOK_SERVICE_ID
 
         account_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -459,74 +490,39 @@ class TestDirectoryApis(unittest.TestCase):
 
         member_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject': f'CN={member_id}.members-0.{NETWORK}',
+            'X-Client-SSL-Subject':
+                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{NETWORK}',
             'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
         }
 
-        url = BASE_URL + f'/v1/data/service-{service_id}'
+        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
         client = GraphqlClient(endpoint=url)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Peter",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Carl',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=member_headers)
         self.assertEqual(
-            result['data']['mutate_person']['given_name'], 'Peter'
+            result['data']['mutate_person']['given_name'], 'Carl'
         )
-        query = '''
-            query {
-                person {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
-        result = client.execute(query=query, headers=member_headers)
 
-        query = '''
-            mutation {
-                mutate_person(
-                    given_name: "Steven",
-                    additional_names: "",
-                    family_name: "Hessing",
-                    email: "steven@byoda.org",
-                    homepage_url: "https://some.place/",
-                    avatar_url: "https://some.place/avatar"
-                ) {
-                    given_name
-                    additional_names
-                    family_name
-                    email
-                    homepage_url
-                    avatar_url
-                }
-            }
-        '''
+        result = client.execute(query=PERSON_QUERY, headers=member_headers)
 
-        result = client.execute(query=query, headers=member_headers)
+        result = client.execute(
+            query=MUTATE_PERSON.format(
+                given_name='Steven',
+                family_name='Hessing',
+                email='steven@byoda.org'
+            ),
+            headers=member_headers
+        )
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Steven'
         )
+
         query = '''
                 mutation {
                     mutate_member(
@@ -537,9 +533,70 @@ class TestDirectoryApis(unittest.TestCase):
                     }
                 }
         '''
+        # Mutation fails because 'member' can only read this data
         result = client.execute(query, headers=member_headers)
-        self.assertEqual(
-            result['data']['mutate_member']['member_id'], '0'
+        self.assertIsNone(result['data'])
+        self.assertIsNotNone(result['errors'])
+
+        # Test with cert of another member
+        alt_member_id = get_test_uuid()
+
+        alt_member_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject': f'CN={alt_member_id}.members-0.{NETWORK}',
+            'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
+        }
+
+        # Query fails because other members do not have access
+        result = client.execute(PERSON_QUERY, headers=alt_member_headers)
+        self.assertIsNone(result['data'])
+        self.assertIsNotNone(result['errors'])
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='follow',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='follow',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            MUTATE_NETWORK.format(
+                uuid=get_test_uuid(),
+                relation='friend',
+                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            QUERY_NETWORK,
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertNotEqual(
+            result['data']['network_links'][0],
+            result['data']['network_links'][1]
+        )
+        self.assertNotEqual(
+            result['data']['network_links'][1],
+            result['data']['network_links'][2]
         )
 
 

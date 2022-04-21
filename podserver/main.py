@@ -65,14 +65,6 @@ server.set_document_store(
     root_dir=network_data['root_dir']
 )
 
-# TODO: Desired configuration for the LetsEncrypt TLS cert for the BYODA
-# web interface
-# tls_secret = TlsSecret(paths=paths, fqdn=account_secret.common_name)
-# letsencrypt = LetsEncryptConfig(tls_secret)
-# cert_status = letsencrypt.exists()
-# if cert_status != CertStatus.OK:
-#     letsencrypt.create()
-
 network = Network(network_data, network_data)
 
 server.network = network

@@ -19,6 +19,8 @@ from byoda.datatypes import ServerType
 
 from byoda.servers.server import Server
 
+from byoda.util.dnsresolver import DnsResolver
+
 from byoda.util.paths import Paths
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +49,8 @@ class ServiceServer(Server):
 
         self.member_db: MemberDb = MemberDb(app_config['svcserver']['cache'])
         self.member_db.service_id = self.service.service_id
+
+        self.dns_resolver = DnsResolver(network.name)
 
     def load_secrets(self, password: str):
         self.service.load_secrets(
