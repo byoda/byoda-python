@@ -177,7 +177,7 @@ def _get_query_key(path: List[str]) -> str:
         )
 
     # BUG: Strawberry applies camel casing eventhough we tell it not to when setting
-    # up the graphql API in graphene_schema.jinja
+    # up the graphql API in graphql_schema.jinja
     key = re.sub('([A-Z]{1})', r'_\1', key).lower()
 
     return key

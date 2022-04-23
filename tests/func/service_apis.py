@@ -45,6 +45,7 @@ from svcserver.routers import service
 from svcserver.routers import member
 
 # Settings must match config.yml used by directory server
+TEST_DIR = '/tmp/byoda-test/svc-apis'
 NETWORK = 'test.net'
 DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
@@ -69,16 +70,17 @@ class TestDirectoryApis(unittest.TestCase):
 
         cls.APP_CONFIG['svcserver']['service_id'] = SERVICE_ID
 
-        test_dir = cls.APP_CONFIG['svcserver']['root_dir']
+        cls.APP_CONFIG['svcserver']['root_dir'] = TEST_DIR
+
         try:
-            shutil.rmtree(test_dir)
+            shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
             pass
 
-        os.makedirs(test_dir)
+        os.makedirs(TEST_DIR)
 
         service_dir = (
-            f'{test_dir}/network-'
+            f'{TEST_DIR}/network-'
             f'{cls.APP_CONFIG["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
@@ -86,7 +88,7 @@ class TestDirectoryApis(unittest.TestCase):
 
         network = Network.create(
             cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['svcserver']['root_dir'],
+            TEST_DIR,
             cls.APP_CONFIG['svcserver']['private_key_password']
         )
 
@@ -94,7 +96,7 @@ class TestDirectoryApis(unittest.TestCase):
             Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
 
-        shutil.copy(DUMMY_SCHEMA, test_dir + '/' + service_file)
+        shutil.copy(DUMMY_SCHEMA, TEST_DIR + '/' + service_file)
 
         svc = Service(
             network, service_file, cls.APP_CONFIG['svcserver']['service_id']

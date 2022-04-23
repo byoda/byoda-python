@@ -73,7 +73,8 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields %}
-    {{field.name }}: {{ field.python_type }}
+    {{ field.name }}: {% if field.name in root_class.required_fields %}{{ field.python_type }}{% else %}typing.Optional[{{field.python_type}}]{% endif %}
+
 {%     endfor %}
 
 
@@ -190,7 +191,7 @@ class Mutation:
 {% endfor %}
 
 def get_schema():
-    # This is a graphene.Schema, not byoda.Schema
+    # This is a Strawberry Schema, not byoda.Schema
     return strawberry.Schema(
         query=Query, mutation=Mutation,
         config=StrawberryConfig(auto_camel_case=False)

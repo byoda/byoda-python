@@ -22,7 +22,8 @@
                         "type": "string"
                     }
                 },
-                "type": "object"
+                "type": "object",
+                "required": ["joined", "member_id"]
             },
             "person": {
                 "#accesscontrol": {
@@ -67,7 +68,8 @@
                         "type": "string"
                     }
                 },
-                "type": "object"
+                "type": "object",
+                "required": ["given_name", "family_name", "email"]
             },
             "network_links": {
                 "#accesscontrol": {
@@ -158,7 +160,8 @@
                         "description": "What relation you have with the other member",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "member_id", "relation"]
             },
             "memberlog": {
                 "$id": "/schemas/memberlog",
@@ -184,7 +187,8 @@
                         "description": "Additional information about the request",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "remote_addr", "action", "action"]
             },
             "asset": {
                 "$id": "/schemas/asset",
@@ -210,7 +214,8 @@
                         "description": "comma-separated list of keywords",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "manifest_url", "asset_type"]
             }
         }
     },
