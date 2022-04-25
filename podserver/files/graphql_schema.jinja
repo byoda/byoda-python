@@ -11,6 +11,8 @@ Automatically generated code for GraphQL support for a Byoda servce
 from __future__ import annotations
 
 import typing
+from uuid import UUID
+from datetime import datetime, date, time
 
 import strawberry
 from strawberry.schema.config import StrawberryConfig
@@ -138,7 +140,7 @@ class Mutation:
     @strawberry.field
     def mutate_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.fields %}
-        {{ field.name }}: {{ field.python_type }},
+                {{ field.name }}: {{ field.python_type }},
 {%       endfor %}
             ) -> {{ root_class.name }}:
         _LOGGER.debug('Root query for mutate{{ root_class.name }}')

@@ -464,7 +464,17 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
-        result = client.execute(query=PERSON_QUERY, headers=auth_header)
+
+        with self.assertRaises(KeyError) as context:
+            result = client.execute(
+                query=MUTATE_PERSON.format(
+                    family_name='Hessing',
+                    homepage_url='https://byoda.net'
+                ),
+                headers=auth_header
+            )
+
+        self.assertTrue('given_name' in context.exception.args)
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

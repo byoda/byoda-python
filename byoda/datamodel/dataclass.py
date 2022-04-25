@@ -61,17 +61,32 @@ class SchemaDataItem:
 
         self.name: str = class_name
         self.schema: Dict = schema
-        self.type: DataType = DataType(schema['type'])
-        self.python_type: str = None
-        if self.type not in (DataType.OBJECT, DataType.ARRAY):
-            self.python_type: str = SCALAR_TYPE_MAP[self.type]
-
         self.description: str = schema.get('description')
         self.item_id: str = schema.get('$id')
         self.schema_id: str = schema_id
         self.schema_url = urlparse(schema_id)
-
         self.enabled_apis: Set = set()
+
+        self.type: DataType = DataType(schema['type'])
+        self.python_type: str = None
+        if self.type not in (DataType.OBJECT, DataType.ARRAY):
+            self.python_type: str = SCALAR_TYPE_MAP[self.type]
+            if self.type == DataType.STRING:
+                data_format = self.schema.get('format')
+                if data_format == 'date-time':
+                    self.python_type = 'datetime'
+                elif data_format == 'date':
+                    self.python_type = 'date'
+                elif data_format == 'time':
+                    self.python_type = 'time'
+                elif (data_format == 'uuid' or self.schema.get('regex') ==
+                        (
+                            '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}'
+                            '-[0-9a-f]{12}$'
+                        )):
+                    # Note that fastjsonschema does not yet support this format
+                    # Switch to https://github.com/marksparkza/jschon ?
+                    self.python_type = 'UUID'
 
         self.parse_access_permissions()
 
