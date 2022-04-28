@@ -70,6 +70,7 @@ class MemberData(Dict):
             self.unvalidated_data = self.document_store.read(
                 filepath, self.member.data_secret
             )
+            # TODO: deserialize data in to UUID, datetime, etc
         except FileNotFoundError:
             _LOGGER.error(
                 'Unable to read data file for service '
@@ -95,6 +96,7 @@ class MemberData(Dict):
             # Let's double check the data is valid
             self.member.schema.validate(self)
 
+            # TODO: properly serialize data
             self.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_PROTECTED_FILE,

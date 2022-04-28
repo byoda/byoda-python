@@ -154,8 +154,9 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "description": "The ID of the other member",
-                        "type": "string"
+                        "description": "The UUID of the other member",
+                        "type": "string",
+                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     },
                     "relation": {
                         "description": "What relation you have with the other member",

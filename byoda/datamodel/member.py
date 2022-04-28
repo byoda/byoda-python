@@ -11,6 +11,7 @@ import logging
 from uuid import uuid4, UUID
 from copy import copy
 from typing import Dict, TypeVar, Callable
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -793,6 +794,14 @@ class Member:
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
+
+        # BUG/HACK: strawberry does not provide a datetime when schema
+        # specifies a field as a datetime. For 'timestamp' fields we
+        # adjust here. Other fields should not specify JSON-Schema format
+        # 'date-time' for now
+        # for key, value in mutate_data:
+        #     if key == 'timestmap' and isinstance(value, str):
+        #         mutate_data[key] = datetime.fromisoformat(value)
 
         # The query may be for an array for which we do not yet have
         # any data

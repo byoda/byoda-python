@@ -74,12 +74,12 @@ class SchemaDataItem:
             if self.type == DataType.STRING:
                 data_format = self.schema.get('format')
                 if data_format == 'date-time':
-                    self.python_type = 'datetime'
-                elif data_format == 'date':
-                    self.python_type = 'date'
-                elif data_format == 'time':
-                    self.python_type = 'time'
-                elif (data_format == 'uuid' or self.schema.get('regex') ==
+                   self.python_type = 'datetime'
+                # elif data_format == 'date':
+                #     self.python_type = 'date'
+                # elif data_format == 'time':
+                #     self.python_type = 'time'
+                if (data_format == 'uuid' or self.schema.get('regex') ==
                         (
                             '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}'
                             '-[0-9a-f]{12}$'
