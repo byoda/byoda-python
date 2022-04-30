@@ -91,8 +91,41 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
+@strawberry.input
+class string_query_operator_input:
+    value_eq: typing.Optional[str]
+    value_ne: typing.Optional[str]
+    value_in: typing.Optional[typing.List[str]]
+    value_nin: typing.Optional[typing.List[str]]
+    value_regex: typing.Optional[str]
+    value_glob: typing.Optional[str]
+
+@strawberry.input
+class datetime_query_operator_input:
+   value_at: typing.Optional[str]
+   value_nat: typing.Optional[str]
+   value_after: typing.Optional[str]
+   value_before: typing.Optional[str]
+   value_atafter: typing.Optional[str]
+   value_atbefore: typing.Optional[str]
+
+@strawberry.input
+class number_query_operator_input:
+    value_eq: typing.Optional[str]
+    value_ne: typing.Optional[str]
+    value_lt: typing.Optional[str]
+    value_gt: typing.Optional[str]
+    value_elt: typing.Optional[str]
+    value_egt: typing.Optional[str]
+
+@strawberry.input
+class uuid_query_operator_input:
+    value_eq: typing.Optional[str]
+    value_ne: typing.OPtional[str]
+
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
+
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields %}
@@ -100,12 +133,26 @@ class {{ root_class.name }}:
 
 {%     endfor %}{# for field in root_class.fields #}
 
-
 @strawberry.input
-class {{ root_class.name }}Input:
+class {{ root_class.name }}_input:
 {%     for field in root_class.fields %}
     {{field.name }}: {{ field.python_type }}
 {%     endfor %}{# for field in root_class.fields #}
+{%   else %}{# if root_class.type != DataType.ARRAY #}
+
+@strawberry.input
+class {{ root_class.referenced_class.name }}:
+{%     for field in root_class.referenced_class.fields %}
+{%       if field.python_type == 'str' %}
+    {{ field.name }}: typing.Optional[string_query_operator_input]
+{%       elif field.python_type in ('datetime', 'date', 'time') %}
+    {{ field.name }}: typing.Optional[datetime_query_operator_input]
+{%       elif field.python_type in ('int', 'float') %}
+    {{ field.name }}: typing.Optional[number_query_operator_input]
+{%       elif field.python_type == 'UUID' %}
+    {{ field.name }}: typing.Optional[uuid_query_operator_input]
+{%       endif %}{# if field.python_type == "str" #}
+{%     endfor %}{# for field in root_class.referenced_class.fields #}
 
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# root_class in classes.values() #}
