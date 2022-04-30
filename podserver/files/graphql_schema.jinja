@@ -93,35 +93,35 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
 
 @strawberry.input
 class string_query_operator_input:
-    value_eq: typing.Optional[str]
-    value_ne: typing.Optional[str]
-    value_in: typing.Optional[typing.List[str]]
-    value_nin: typing.Optional[typing.List[str]]
-    value_regex: typing.Optional[str]
-    value_glob: typing.Optional[str]
+    eq: typing.Optional[str] = None
+    ne: typing.Optional[str] = None
+    vin: typing.Optional[typing.List[str]] = None
+    nin: typing.Optional[typing.List[str]] = None
+    regex: typing.Optional[str] = None
+    glob: typing.Optional[str] = None
 
 @strawberry.input
 class datetime_query_operator_input:
-   value_at: typing.Optional[str]
-   value_nat: typing.Optional[str]
-   value_after: typing.Optional[str]
-   value_before: typing.Optional[str]
-   value_atafter: typing.Optional[str]
-   value_atbefore: typing.Optional[str]
+   at: typing.Optional[str] = None
+   nat: typing.Optional[str] = None
+   after: typing.Optional[str] = None
+   before: typing.Optional[str] = None
+   atafter: typing.Optional[str] = None
+   atbefore: typing.Optional[str] = None
 
 @strawberry.input
 class number_query_operator_input:
-    value_eq: typing.Optional[str]
-    value_ne: typing.Optional[str]
-    value_lt: typing.Optional[str]
-    value_gt: typing.Optional[str]
-    value_elt: typing.Optional[str]
-    value_egt: typing.Optional[str]
+    eq: typing.Optional[str] = None
+    ne: typing.Optional[str] = None
+    lt: typing.Optional[str] = None
+    gt: typing.Optional[str] = None
+    elt: typing.Optional[str] = None
+    egt: typing.Optional[str] = None
 
 @strawberry.input
 class uuid_query_operator_input:
-    value_eq: typing.Optional[str]
-    value_ne: typing.OPtional[str]
+    eq: typing.Optional[str] = None
+    ne: typing.Optional[str] = None
 
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
@@ -141,16 +141,16 @@ class {{ root_class.name }}_input:
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 
 @strawberry.input
-class {{ root_class.referenced_class.name }}:
+class {{ root_class.referenced_class.name }}_input_filter:
 {%     for field in root_class.referenced_class.fields %}
 {%       if field.python_type == 'str' %}
-    {{ field.name }}: typing.Optional[string_query_operator_input]
+    {{ field.name }}: typing.Optional[string_query_operator_input] = None
 {%       elif field.python_type in ('datetime', 'date', 'time') %}
-    {{ field.name }}: typing.Optional[datetime_query_operator_input]
+    {{ field.name }}: typing.Optional[datetime_query_operator_input] = None
 {%       elif field.python_type in ('int', 'float') %}
-    {{ field.name }}: typing.Optional[number_query_operator_input]
+    {{ field.name }}: typing.Optional[number_query_operator_input] = None
 {%       elif field.python_type == 'UUID' %}
-    {{ field.name }}: typing.Optional[uuid_query_operator_input]
+    {{ field.name }}: typing.Optional[uuid_query_operator_input] = None
 {%       endif %}{# if field.python_type == "str" #}
 {%     endfor %}{# for field in root_class.referenced_class.fields #}
 
@@ -165,7 +165,7 @@ class Query:
 {%     if root_class.type != DataType.ARRAY %}
     def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    def {{ root_class.name }}(self, info: Info) -> typing.List[{{ root_class.referenced_class.name }}]:
+    def {{ root_class.name }}(self, info: Info, filter: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
         _LOGGER.debug('Resolving {{ root_class.name }}')
 
@@ -183,7 +183,7 @@ class Query:
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-        data = MemberClassByoda.get_data({{ service_id }}, info)
+        data = MemberClassByoda.get_data({{ service_id }}, info, filter)
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj

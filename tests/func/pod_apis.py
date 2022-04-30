@@ -101,6 +101,16 @@ query {
 }
 '''
 
+QUERY_NETWORK_WITH_RELATION_FILTER = '''
+query {
+    network_links(filter: {relation: {eq: "friend"}}) {
+        relation
+        member_id
+        timestamp
+    }
+}
+'''
+
 MUTATE_NETWORK = '''
 mutation {{
     append_network_links (
@@ -607,6 +617,16 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertNotEqual(
             result['data']['network_links'][1],
             result['data']['network_links'][2]
+        )
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_RELATION_FILTER,
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertNotEqual(
+            result['data']['network_links'][0],
+            result['data']['network_links'][1]
         )
 
 

@@ -640,7 +640,7 @@ class Member:
         self.data.save()
 
     @staticmethod
-    def get_data(service_id, info: Info) -> Dict:
+    def get_data(service_id, info: Info, filter=None) -> Dict:
         '''
         Extracts the requested data field.
 
@@ -665,8 +665,23 @@ class Member:
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
+        data = Member.filter_data(member.data.get(info.path.key), filter)
+        return data
 
-        return member.data.get(info.path.key)
+    @staticmethod
+    def filter_data(data, filter):
+        if not filter or not isinstance(data, list):
+            return data
+
+        result = []
+        for item in data:
+            if Member.check_filter(item, filter):
+                result.append(item)
+        return data
+
+    @staticmethod
+    def check_filter(item, filter):
+        return True
 
     @staticmethod
     def mutate_data(service_id, info: Info) -> None:
