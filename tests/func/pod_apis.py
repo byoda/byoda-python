@@ -101,14 +101,14 @@ query {
 }
 '''
 
-QUERY_NETWORK_WITH_RELATION_FILTER = '''
-query {
-    network_links(filter: {relation: {eq: "friend"}}) {
+QUERY_NETWORK_WITH_FILTER = '''
+query {{
+    network_links(filter: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
         relation
         member_id
         timestamp
-    }
-}
+    }}
+}}
 '''
 
 MUTATE_NETWORK = '''
@@ -116,7 +116,7 @@ mutation {{
     append_network_links (
         member_id: "{uuid}",
         relation: "{relation}",
-        timestamp: "{now}"
+        timestamp: "{timestamp}"
     ) {{
         member_id relation timestamp
     }}
@@ -576,7 +576,7 @@ class TestDirectoryApis(unittest.TestCase):
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
             ),
             headers=member_headers
         )
@@ -587,18 +587,19 @@ class TestDirectoryApis(unittest.TestCase):
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
             ),
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
         self.assertIsNone(result.get('errors'))
 
+        friend_timestamp = str(datetime.now(tz=timezone.utc).isoformat())
         result = client.execute(
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='friend',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=friend_timestamp
             ),
             headers=member_headers
         )
@@ -620,13 +621,36 @@ class TestDirectoryApis(unittest.TestCase):
         )
 
         result = client.execute(
-            QUERY_NETWORK_WITH_RELATION_FILTER,
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='relation', cmp='eq', value='friend'
+            ),
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['network_links']), 1)
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='relation', cmp='eq', value='follow'
+            ),
+            headers=member_headers
+        )
+
         self.assertNotEqual(
             result['data']['network_links'][0],
             result['data']['network_links'][1]
+        )
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='timestamp', cmp='at', value=friend_timestamp
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['network_links']), 1)
+        self.assertEqual(
+            result['data']['network_links'][0]['relation'], 'friend'
         )
 
 

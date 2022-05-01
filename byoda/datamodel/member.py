@@ -10,8 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, TypeVar, Callable
-from datetime import datetime
+from typing import Dict, List, TypeVar, Callable
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +27,7 @@ from byoda.datatypes import StorageType
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -640,7 +640,7 @@ class Member:
         self.data.save()
 
     @staticmethod
-    def get_data(service_id, info: Info, filter=None) -> Dict:
+    def get_data(service_id, info: Info, filters=None) -> Dict:
         '''
         Extracts the requested data field.
 
@@ -665,23 +665,18 @@ class Member:
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
-        data = Member.filter_data(member.data.get(info.path.key), filter)
+
+        data = member.data.get(info.path.key)
+        if filters:
+            if not isinstance(data, list):
+                _LOGGER.warning(
+                    'Received query with filters for data that is not a list: '
+                    f'{member.data}'
+                )
+            else:
+                data: List = DataFilterSet.filter(filters, data)
+
         return data
-
-    @staticmethod
-    def filter_data(data, filter):
-        if not filter or not isinstance(data, list):
-            return data
-
-        result = []
-        for item in data:
-            if Member.check_filter(item, filter):
-                result.append(item)
-        return data
-
-    @staticmethod
-    def check_filter(item, filter):
-        return True
 
     @staticmethod
     def mutate_data(service_id, info: Info) -> None:
@@ -809,14 +804,6 @@ class Member:
 
         # Gets the data included in the mutation
         mutate_data: Dict = info.selected_fields[0].arguments
-
-        # BUG/HACK: strawberry does not provide a datetime when schema
-        # specifies a field as a datetime. For 'timestamp' fields we
-        # adjust here. Other fields should not specify JSON-Schema format
-        # 'date-time' for now
-        # for key, value in mutate_data:
-        #     if key == 'timestmap' and isinstance(value, str):
-        #         mutate_data[key] = datetime.fromisoformat(value)
 
         # The query may be for an array for which we do not yet have
         # any data

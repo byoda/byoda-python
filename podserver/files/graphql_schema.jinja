@@ -102,26 +102,26 @@ class string_query_operator_input:
 
 @strawberry.input
 class datetime_query_operator_input:
-   at: typing.Optional[str] = None
-   nat: typing.Optional[str] = None
-   after: typing.Optional[str] = None
-   before: typing.Optional[str] = None
-   atafter: typing.Optional[str] = None
-   atbefore: typing.Optional[str] = None
+   at: typing.Optional[datetime] = None
+   nat: typing.Optional[datetime] = None
+   after: typing.Optional[datetime] = None
+   before: typing.Optional[datetime] = None
+   atafter: typing.Optional[datetime] = None
+   atbefore: typing.Optional[datetime] = None
 
 @strawberry.input
 class number_query_operator_input:
-    eq: typing.Optional[str] = None
-    ne: typing.Optional[str] = None
-    lt: typing.Optional[str] = None
-    gt: typing.Optional[str] = None
-    elt: typing.Optional[str] = None
-    egt: typing.Optional[str] = None
+    eq: typing.Optional[float] = None
+    ne: typing.Optional[float] = None
+    lt: typing.Optional[float] = None
+    gt: typing.Optional[float] = None
+    elt: typing.Optional[float] = None
+    egt: typing.Optional[float] = None
 
 @strawberry.input
 class uuid_query_operator_input:
-    eq: typing.Optional[str] = None
-    ne: typing.Optional[str] = None
+    eq: typing.Optional[UUID] = None
+    ne: typing.Optional[UUID] = None
 
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
