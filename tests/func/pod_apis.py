@@ -103,7 +103,7 @@ query {
 
 QUERY_NETWORK_WITH_FILTER = '''
 query {{
-    network_links(filter: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+    network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
         relation
         member_id
         timestamp

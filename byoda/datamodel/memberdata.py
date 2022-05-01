@@ -80,7 +80,7 @@ class MemberData(Dict):
 
         self.validate()
 
-    def save(self):
+    def save(self, data=None):
         '''
         Save the data to the data store
         '''
@@ -93,6 +93,10 @@ class MemberData(Dict):
             )
 
         try:
+            if data:
+                self.unvalidated_data = data
+                self.validate()
+
             # Let's double check the data is valid
             self.member.schema.validate(self)
 
@@ -127,10 +131,8 @@ class MemberData(Dict):
         '''
 
         try:
-            if self.unvalidated_data is not None:
-                self.update(
-                    self.member.schema.validate(self.unvalidated_data)
-                )
+            if self.unvalidated_data:
+                self = self.member.schema.validate(self.unvalidated_data)
         except JsonSchemaValueException as exc:
             _LOGGER.warning(
                 'Failed to validate data for service_id '

@@ -165,7 +165,7 @@ class Query:
 {%     if root_class.type != DataType.ARRAY %}
     def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    def {{ root_class.name }}(self, info: Info, filter: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
+    def {{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
         _LOGGER.debug('Resolving {{ root_class.name }}')
 
@@ -183,7 +183,7 @@ class Query:
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-        data = MemberClassByoda.get_data({{ service_id }}, info, filter)
+        data = MemberClassByoda.get_data({{ service_id }}, info, filters)
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
@@ -256,6 +256,21 @@ class Mutation:
 {%       endfor %}{# for field in root_class.referenced_class.fields #}
         }
         MemberClassByoda.append_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            {{ field.name }},
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+        )
+
+    @strawberry.field
+    def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
+
+        result = authenticate(self, info, DataOperationType_Byoda.DELETE)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        data = MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
         return {{ root_class.referenced_class.name }}(
 {%       for field in root_class.referenced_class.fields %}
             {{ field.name }},

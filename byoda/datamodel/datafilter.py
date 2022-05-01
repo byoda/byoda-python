@@ -1,5 +1,6 @@
 '''
-Class for data filters defined in the GraphQL schema for a service contract
+Classes for data filters for filtering results a GraphQL query based
+on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -134,10 +135,14 @@ class StringDataFilter(DataFilter):
         work on files in a directory
         '''
 
+        # TODO: glob text filter
         raise NotImplementedError('Glob matching is not yet supported')
 
 
 class NumberDataFilter(DataFilter):
+    '''
+    Class for filters for numbers as ints or floats
+    '''
     def __init__(self, operator: str, value: Union[int, float]):
         super().__init__(operator)
 
@@ -165,7 +170,7 @@ class NumberDataFilter(DataFilter):
 
     def gt(self, data: Union[int, float]):
         '''
-        equal operator
+        greater-than operator
         '''
 
         if not type(data) in (int, float):
@@ -175,7 +180,7 @@ class NumberDataFilter(DataFilter):
 
     def lt(self, data: Union[int, float]):
         '''
-        equal operator
+        less-than operator
         '''
 
         if not type(data) in (int, float):
@@ -185,7 +190,7 @@ class NumberDataFilter(DataFilter):
 
     def egt(self, data: Union[int, float]):
         '''
-        equal operator
+        equal-or-greater operator
         '''
 
         if not type(data) in (int, float):
@@ -195,7 +200,7 @@ class NumberDataFilter(DataFilter):
 
     def elt(self, data: Union[int, float]):
         '''
-        equal operator
+        equal or lesser operator
         '''
 
         if not type(data) in (int, float):
@@ -431,7 +436,8 @@ class DataFilterSet:
     @staticmethod
     def filter(filters: List, data: List) -> List:
         '''
-        Filters the data against the list of filters
+        Filters the data against the list of filters to include the matching
+        data
         '''
 
         filter_set = DataFilterSet(filters)
@@ -445,6 +451,28 @@ class DataFilterSet:
                         break
 
             if include:
+                results.append(item)
+
+        return results
+
+    @staticmethod
+    def filter_exclude(filters: List, data: List) -> List:
+        '''
+        Filters the data against the list of filters to exclude the matching
+        data
+        '''
+
+        filter_set = DataFilterSet(filters)
+        results = []
+        for item in data:
+            exclude = True
+            for field, filters in filter_set.filters.items():
+                for filter in filters:
+                    if not filter.compare(item[field]):
+                        exclude = False
+                        break
+
+            if exclude:
                 results.append(item)
 
         return results
