@@ -263,14 +263,14 @@ class Mutation:
         )
 
     @strawberry.field
-    def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> {{ root_class.referenced_class.name }}:
+    def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter]) -> typing.List[typing.Optional[{{ root_class.referenced_class.name }}]]:
         _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
 
-        result = authenticate(self, info, DataOperationType_Byoda.DELETE)
-        if not result:
+        if not authenticate(self, info, DataOperationType_Byoda.DELETE):
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
+        for item
         return {{ root_class.referenced_class.name }}(
 {%       for field in root_class.referenced_class.fields %}
             {{ field.name }},

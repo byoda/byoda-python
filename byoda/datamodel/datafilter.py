@@ -12,7 +12,7 @@ import re
 from uuid import UUID
 from datetime import datetime, date, time
 
-from typing import List, Dict, Callable, Union
+from typing import List, Dict, Callable, Union, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -456,23 +456,28 @@ class DataFilterSet:
         return results
 
     @staticmethod
-    def filter_exclude(filters: List, data: List) -> List:
+    def filter_exclude(filters: List, data: List) -> Tuple[List, List]:
         '''
         Filters the data against the list of filters to exclude the matching
         data
+
+        returns: list of items not excluded and list of items excluded
         '''
 
         filter_set = DataFilterSet(filters)
-        results = []
+        remaining = []
+        removed = []
         for item in data:
-            exclude = True
+            include = True
             for field, filters in filter_set.filters.items():
                 for filter in filters:
                     if not filter.compare(item[field]):
-                        exclude = False
+                        include = False
                         break
 
-            if exclude:
-                results.append(item)
+            if include:
+                remaining.append(item)
+            else:
+                removed.append(item)
 
-        return results
+        return (remaining, removed)

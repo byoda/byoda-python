@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, List, TypeVar, Callable
+from typing import Dict, List, TypeVar, Callable, Tuple
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -837,11 +837,19 @@ class Member:
             f'for object {info.path.key}'
         )
 
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'delete_from' so we to find out
+        # what mutation was invoked, we want what comes after it.
+        class_object = info.path.key[len('delete_from_'):].lower()
+
         server = config.server
         member = server.account.memberships[service_id]
         member.load_data()
 
-        data = member.data.get(info.path.key)
+        data = copy.copy(member.data.get(class_object))
+
+        if not data:
+            return {}
 
         if not isinstance(data, list):
             _LOGGER.warning(
@@ -849,8 +857,12 @@ class Member:
                 f'{member.data}'
             )
 
-        data: List = DataFilterSet.filter_exclude(filters, data)
+        (data, removed) = DataFilterSet.filter_exclude(
+            filters, data
+        )
 
-        member.save_data(data)
+        member.data[class_object] = data
 
-        return data
+        member.save_data()
+
+        return removed

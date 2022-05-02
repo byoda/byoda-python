@@ -123,6 +123,16 @@ mutation {{
 }}
 '''
 
+DELETE_FROM_NETWORK_WITH_FILTER = '''
+mutation {{
+    delete_from_network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+        relation
+        member_id
+        timestamp
+    }}
+}}
+'''
+
 
 class TestDirectoryApis(unittest.TestCase):
     PROCESS = None
@@ -643,6 +653,18 @@ class TestDirectoryApis(unittest.TestCase):
 
         result = client.execute(
             QUERY_NETWORK_WITH_FILTER.format(
+                field='timestamp', cmp='at', value=friend_timestamp
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['network_links']), 1)
+        self.assertEqual(
+            result['data']['network_links'][0]['relation'], 'friend'
+        )
+
+        result = client.execute(
+            DELETE_FROM_NETWORK_WITH_FILTER.format(
                 field='timestamp', cmp='at', value=friend_timestamp
             ),
             headers=member_headers
