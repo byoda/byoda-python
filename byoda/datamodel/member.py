@@ -820,10 +820,10 @@ class Member:
         if not info.path:
             raise ValueError('Did not get value for path parameter')
 
-        if info.path.typename != 'Mutate':
+        if info.path.typename != 'Mutation':
             raise ValueError(
                 f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Mutate"'
+                f'instead of "Mutation"'
             )
 
         if not filters:
@@ -846,7 +846,7 @@ class Member:
         member = server.account.memberships[service_id]
         member.load_data()
 
-        data = copy.copy(member.data.get(class_object))
+        data = copy(member.data.get(class_object))
 
         if not data:
             return {}
@@ -863,6 +863,6 @@ class Member:
 
         member.data[class_object] = data
 
-        member.save_data()
+        member.save_data(member.data)
 
         return removed

@@ -471,7 +471,7 @@ class DataFilterSet:
             include = True
             for field, filters in filter_set.filters.items():
                 for filter in filters:
-                    if not filter.compare(item[field]):
+                    if filter.compare(item[field]):
                         include = False
                         break
 

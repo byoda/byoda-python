@@ -670,9 +670,10 @@ class TestDirectoryApis(unittest.TestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
-        self.assertEqual(len(result['data']['network_links']), 1)
+        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
         self.assertEqual(
-            result['data']['network_links'][0]['relation'], 'friend'
+            result['data']['delete_from_network_links'][0]['relation'],
+            'friend'
         )
 
 
