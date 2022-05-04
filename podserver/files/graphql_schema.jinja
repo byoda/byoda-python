@@ -1,0 +1,301 @@
+'''
+Automatically generated code for GraphQL support for a Byoda servce
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022
+:license    : GPLv3
+'''
+
+# flake8: noqa=E501
+
+from __future__ import annotations
+
+import typing
+from uuid import UUID
+from datetime import datetime, date, time
+
+import strawberry
+from strawberry.schema.config import StrawberryConfig
+from strawberry.types import Info
+
+from fastapi import HTTPException
+
+from byoda.datamodel.member import Member as MemberClassByoda
+
+
+import logging as loggingByoda
+
+# from byoda.datamodel.member import Member as MemberClassByoda
+
+from byoda.requestauth import RequestAuth as RequestAuthByoda
+from byoda.requestauth.graphql_authorization import DataOperationType as DataOperationType_Byoda
+from byoda.requestauth.graphql_authorization import authorize_graphql_request as authorize_graphql_request_Byoda
+
+_LOGGER = loggingByoda.getLogger(__name__)
+
+GenericType = typing.TypeVar("GenericType")
+
+@strawberry.type
+class PageInfo:
+    '''
+    Pagination context to navigate objects with cursor-based pagination. Here
+    we have a cursor of the last object and we fetch items starting from that
+    one
+
+    Read more at:
+        - https://graphql.org/learn/pagination/#pagination-and-edges
+        - https://relay.dev/graphql/connections.htm
+    '''
+
+    has_next_page: bool
+    has_previous_page: bool
+    start_cursor: typing.Optional[str]
+    end_cursor: typing.Optional[str]
+
+Cursor = str
+
+def authenticate(root, info, data_operation: DataOperationType_Byoda):
+    '''
+    This is middleware called by the code generated from the Jinja
+    templates implementing GraphQL support
+    '''
+
+    if not info.context or not info.context['request']:
+        raise HTTPException(
+            status_code=403, detail='No authentication provided'
+        )
+
+    try:
+        # Checks that a client cert was provided and that the cert and
+        # certchain is correct
+        auth = RequestAuthByoda.authenticate_graphql_request(
+            info.context['request'], {{ service_id }}
+        )
+        info.context['auth'] = auth
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail='Authentication failed'
+        )
+
+    if not auth.is_authenticated:
+        raise HTTPException(
+            status_code=403, detail='No authentication provided'
+        )
+
+    try:
+        # Check whether the authenticated client is authorized to request
+        # the data
+        return authorize_graphql_request_Byoda(
+            data_operation, {{ service_id}}, info
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail='Not authorized')
+
+@strawberry.input
+class string_query_operator_input:
+    eq: typing.Optional[str] = None
+    ne: typing.Optional[str] = None
+    vin: typing.Optional[typing.List[str]] = None
+    nin: typing.Optional[typing.List[str]] = None
+    regex: typing.Optional[str] = None
+    glob: typing.Optional[str] = None
+
+@strawberry.input
+class datetime_query_operator_input:
+   at: typing.Optional[datetime] = None
+   nat: typing.Optional[datetime] = None
+   after: typing.Optional[datetime] = None
+   before: typing.Optional[datetime] = None
+   atafter: typing.Optional[datetime] = None
+   atbefore: typing.Optional[datetime] = None
+
+@strawberry.input
+class number_query_operator_input:
+    eq: typing.Optional[float] = None
+    ne: typing.Optional[float] = None
+    lt: typing.Optional[float] = None
+    gt: typing.Optional[float] = None
+    elt: typing.Optional[float] = None
+    egt: typing.Optional[float] = None
+
+@strawberry.input
+class uuid_query_operator_input:
+    eq: typing.Optional[UUID] = None
+    ne: typing.Optional[UUID] = None
+
+{% for root_class in classes.values() %}
+{%   if root_class.type != DataType.ARRAY %}
+
+@strawberry.type
+class {{ root_class.name }}:
+{%     for field in root_class.fields %}
+    {{ field.name }}: {% if field.name in root_class.required_fields %}{{ field.python_type }}{% else %}typing.Optional[{{field.python_type}}]{% endif %}
+
+{%     endfor %}{# for field in root_class.fields #}
+
+@strawberry.input
+class {{ root_class.name }}_input:
+{%     for field in root_class.fields %}
+    {{field.name }}: {{ field.python_type }}
+{%     endfor %}{# for field in root_class.fields #}
+{%   else %}{# if root_class.type != DataType.ARRAY #}
+
+@strawberry.input
+class {{ root_class.referenced_class.name }}_input_filter:
+{%     for field in root_class.referenced_class.fields %}
+{%       if field.python_type == 'str' %}
+    {{ field.name }}: typing.Optional[string_query_operator_input] = None
+{%       elif field.python_type in ('datetime', 'date', 'time') %}
+    {{ field.name }}: typing.Optional[datetime_query_operator_input] = None
+{%       elif field.python_type in ('int', 'float') %}
+    {{ field.name }}: typing.Optional[number_query_operator_input] = None
+{%       elif field.python_type == 'UUID' %}
+    {{ field.name }}: typing.Optional[uuid_query_operator_input] = None
+{%       endif %}{# if field.python_type == "str" #}
+{%     endfor %}{# for field in root_class.referenced_class.fields #}
+
+{%   endif %}{# if root_class.type != DataType.ARRAY #}
+{% endfor %}{# root_class in classes.values() #}
+
+@strawberry.type
+class Query:
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
+    @strawberry.field
+{%     if root_class.type != DataType.ARRAY %}
+    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
+{%     else %}{# if root_class.type != DataType.ARRAY #}
+    def {{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
+{%     endif %}{# if root_class.type != DataType.ARRAY #}
+        _LOGGER.debug('Resolving {{ root_class.name }}')
+
+        result = authenticate(self, info, DataOperationType_Byoda.READ)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+{%     if root_class.type != DataType.ARRAY %}
+        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
+        {{ root_class.name }}_data = {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            info.context['data']['{{ field.name }}'],
+{%       endfor %}{# for field in root_class.fields #}
+        )
+        return {{ root_class.name }}_data
+
+{%     else %}{# if root_class.type != DataType.ARRAY #}
+        data = MemberClassByoda.get_data({{ service_id }}, info, filters)
+        ret_data = []
+        for obj in data or []:
+            info.context['data'] = obj
+            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+{%         if field.python_type == 'datetime' %}
+            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
+{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
+            UUID(info.context['data']['{{ field.name }}']),
+{%         else %}{# if field.python_type == 'datetime' #}
+            info.context['data']['{{ field.name }}'],
+{%         endif %}{# if field.python_type == 'datetime' #}
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+            )
+            ret_data.append({{ root_class.referenced_class.name }}_data)
+
+        return ret_data
+
+{%     endif %}{# if root_class.type != DataType.ARRAY #}
+{%   endif %}{#  if not root_class.item_id #}
+{% endfor %}{# for root_class in classes.values() #}
+
+@strawberry.type
+class Mutation:
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
+{%     if root_class.type == DataType.OBJECT %}
+    @strawberry.field
+    def mutate_{{ root_class.name }}(self, info: Info,
+{%       for field in root_class.fields %}
+                {{ field.name }}: {{ field.python_type }},
+{%       endfor %}{# for field in root_class.fields #}
+            ) -> {{ root_class.name }}:
+        _LOGGER.debug('Root query for mutate_{{ root_class.name }}')
+
+        # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
+        result = authenticate(self, info,  DataOperationType_Byoda.UPDATE)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        info.context['data'] = {
+{%       for field in root_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}
+        }
+        MemberClassByoda.mutate_data({{ service_id }}, info)
+        return {{ root_class.name }}(
+{%       for field in root_class.fields %}
+            {{ field.name }},
+{%       endfor %}
+        )
+
+{%     elif root_class.type == DataType.ARRAY %}{# if root_class.type == DataType.OBJECT #}
+{# APIs for array processing #}
+    @strawberry.field
+    def append_{{ root_class.name }}(self, info: Info,
+{%       for field in root_class.referenced_class.fields %}
+        {{ field.name }}: {{ field.python_type }},
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+        ) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug('Root query for append_{{ root_class.name }}')
+
+        result = authenticate(self, info, DataOperationType_Byoda.APPEND)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        info.context['data'] = {
+{%       for field in root_class.referenced_class.fields %}
+            '{{ field.name }}': {{ field.name }},
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+        }
+        MemberClassByoda.append_data({{ service_id }}, info)
+        return {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+            {{ field.name }},
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+        )
+
+    @strawberry.field
+    def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter]) -> typing.List[typing.Optional[{{ root_class.referenced_class.name }}]]:
+        _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
+
+        if not authenticate(self, info, DataOperationType_Byoda.DELETE):
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        data = MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
+        result = []
+        for item in data:
+            result.append(
+                {{ root_class.referenced_class.name }}(
+{%       for field in root_class.referenced_class.fields %}
+{%         if field.python_type == 'datetime' %}
+            datetime.fromisoformat(item['{{ field.name }}']),
+{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
+            UUID(item['{{ field.name }}']),
+{%         else %}{# if field.python_type == 'datetime' #}
+            item['{{ field.name }}'],
+{%         endif %}{# if field.python_type == 'datetime' #}
+{%       endfor %}{# for field in root_class.referenced_class.fields #}
+                )
+            )
+
+        return result
+{%     endif %}{# if root_class.type == DataType.OBJECT #}
+{%   endif %}
+
+{% endfor %}{# for root_class in classes.values() #}
+
+def get_schema():
+    # This is a Strawberry Schema, not byoda.Schema
+    return strawberry.Schema(
+        query=Query, mutation=Mutation,
+        config=StrawberryConfig(auto_camel_case=False)
+    )
+

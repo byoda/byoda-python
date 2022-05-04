@@ -284,7 +284,7 @@ class Schema:
 
     def generate_graphql_schema(self, verify_schema_signatures: bool = True):
         '''
-        Generates code to enable GraphQL schema to be generated using Graphene.
+        Generates code to enable GraphQL schema to be generated using graphql.
         The logic is:
         - we start with the json parsed (not the jsonschema) by Schema.load()
         - we call a Jinja template to generate source code in a python
@@ -308,13 +308,13 @@ class Schema:
             trim_blocks=True,
             autoescape=True
         )
-        template = environment.get_template('graphene_schema.jinja')
+        template = environment.get_template('graphql_schema.jinja')
 
         code_filename = (
             f'{CODEGEN_DIRECTORY}/service_{self.service_id}_graphql.py'
         )
 
-        classes = self.get_graphene_classes()
+        classes = self.get_graphql_classes()
 
         # We pass Class types so that we can use them in Jinja2 conditional
         # expressions
@@ -350,7 +350,7 @@ class Schema:
         # Here we can the function of the module to extract the schema
         self.gql_schema = module.get_schema()
 
-    def get_graphene_classes(self) -> List[Dict[str, Dict]]:
+    def get_graphql_classes(self) -> List[Dict[str, Dict]]:
         '''
         Finds all objects in the JSON sch ema for which we will
         need to generate @strawberry.type classes

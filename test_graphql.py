@@ -49,6 +49,10 @@ def network_links(info) -> typing.List[network_link]:
     return ret_data
 
 
+class uuid_query_operator_input:
+    value_eq: typing.Optional[str]
+    value_ne: typing.OPtional[str]
+
 @strawberry.type
 class Query:
     network_links: typing.List[network_link] = strawberry.field(

@@ -77,6 +77,7 @@ class TestDirectoryApis(unittest.TestCase):
         with open(CONFIG_FILE) as file_desc:
             cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
+        cls.APP_CONFIG['dirserver']['root_dir'] = TEST_DIR
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:

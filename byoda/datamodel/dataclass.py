@@ -9,11 +9,10 @@ templates
 :license    : GPLv3
 '''
 
-from gzip import READ
 import logging
 from enum import Enum
 from os import stat
-from typing import Dict, List
+from typing import Dict, List, Set
 from urllib.parse import urlparse
 
 from byoda.datatypes import RightsEntityType
@@ -61,18 +60,33 @@ class SchemaDataItem:
     def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
 
         self.name: str = class_name
-        self.schema = schema
+        self.schema: Dict = schema
+        self.description: str = schema.get('description')
+        self.item_id: str = schema.get('$id')
+        self.schema_id: str = schema_id
+        self.schema_url = urlparse(schema_id)
+        self.enabled_apis: Set = set()
+
         self.type: DataType = DataType(schema['type'])
         self.python_type: str = None
         if self.type not in (DataType.OBJECT, DataType.ARRAY):
             self.python_type: str = SCALAR_TYPE_MAP[self.type]
-
-        self.description = schema.get('description')
-        self.item_id = schema.get('$id')
-        self.schema_id = schema_id
-        self.schema_url = urlparse(schema_id)
-
-        self.enabled_apis = set()
+            if self.type == DataType.STRING:
+                data_format = self.schema.get('format')
+                if data_format == 'date-time':
+                   self.python_type = 'datetime'
+                # elif data_format == 'date':
+                #     self.python_type = 'date'
+                # elif data_format == 'time':
+                #     self.python_type = 'time'
+                if (data_format == 'uuid' or self.schema.get('regex') ==
+                        (
+                            '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}'
+                            '-[0-9a-f]{12}$'
+                        )):
+                    # Note that fastjsonschema does not yet support this format
+                    # Switch to https://github.com/marksparkza/jschon ?
+                    self.python_type = 'UUID'
 
         self.parse_access_permissions()
 
@@ -179,14 +193,14 @@ class SchemaDataObject(SchemaDataItem):
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
-        self.defined_class = False
+        self.defined_class: bool = False
         if self.item_id:
             self.defined_class = True
 
         self.fields: List[Dict] = schema['properties']
+        self.required_fields: List[str] = schema.get('required')
 
-
-        self.fields = []
+        self.fields: List[SchemaDataItem] = []
         for field, field_properties in schema['properties'].items():
             if field_properties['type'] in ('object', 'array'):
                 raise ValueError(
@@ -252,7 +266,3 @@ class DataAccessPermission:
         self.permitted_actions = set()
         for action in self.permitted_actions:
             self.permitted_actions.add(DataOperationType(action))
-        # actions = right['permissions']
-        # self.permitted_actions = [
-        #    DataOperationType(value) for value in actions
-        #]

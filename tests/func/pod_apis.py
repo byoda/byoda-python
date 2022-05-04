@@ -101,14 +101,34 @@ query {
 }
 '''
 
+QUERY_NETWORK_WITH_FILTER = '''
+query {{
+    network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+        relation
+        member_id
+        timestamp
+    }}
+}}
+'''
+
 MUTATE_NETWORK = '''
 mutation {{
     append_network_links (
         member_id: "{uuid}",
         relation: "{relation}",
-        timestamp: "{now}"
+        timestamp: "{timestamp}"
     ) {{
         member_id relation timestamp
+    }}
+}}
+'''
+
+DELETE_FROM_NETWORK_WITH_FILTER = '''
+mutation {{
+    delete_from_network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+        relation
+        member_id
+        timestamp
     }}
 }}
 '''
@@ -464,7 +484,17 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
-        result = client.execute(query=PERSON_QUERY, headers=auth_header)
+
+        with self.assertRaises(KeyError) as context:
+            result = client.execute(
+                query=MUTATE_PERSON.format(
+                    family_name='Hessing',
+                    homepage_url='https://byoda.net'
+                ),
+                headers=auth_header
+            )
+
+        self.assertTrue('given_name' in context.exception.args)
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -556,7 +586,7 @@ class TestDirectoryApis(unittest.TestCase):
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
             ),
             headers=member_headers
         )
@@ -567,18 +597,19 @@ class TestDirectoryApis(unittest.TestCase):
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
             ),
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
         self.assertIsNone(result.get('errors'))
 
+        friend_timestamp = str(datetime.now(tz=timezone.utc).isoformat())
         result = client.execute(
             MUTATE_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='friend',
-                now=str(str(datetime.now(tz=timezone.utc).isoformat()))
+                timestamp=friend_timestamp
             ),
             headers=member_headers
         )
@@ -597,6 +628,52 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertNotEqual(
             result['data']['network_links'][1],
             result['data']['network_links'][2]
+        )
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='relation', cmp='eq', value='friend'
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['network_links']), 1)
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='relation', cmp='eq', value='follow'
+            ),
+            headers=member_headers
+        )
+
+        self.assertNotEqual(
+            result['data']['network_links'][0],
+            result['data']['network_links'][1]
+        )
+
+        result = client.execute(
+            QUERY_NETWORK_WITH_FILTER.format(
+                field='timestamp', cmp='at', value=friend_timestamp
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['network_links']), 1)
+        self.assertEqual(
+            result['data']['network_links'][0]['relation'], 'friend'
+        )
+
+        result = client.execute(
+            DELETE_FROM_NETWORK_WITH_FILTER.format(
+                field='timestamp', cmp='at', value=friend_timestamp
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        self.assertEqual(
+            result['data']['delete_from_network_links'][0]['relation'],
+            'friend'
         )
 
 
