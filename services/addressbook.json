@@ -19,10 +19,12 @@
                     },
                     "member_id": {
                         "description": "Membership UUID",
+                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
                         "type": "string"
                     }
                 },
-                "type": "object"
+                "type": "object",
+                "required": ["joined", "member_id"]
             },
             "person": {
                 "#accesscontrol": {
@@ -50,9 +52,9 @@
                         "format": "idn-email",
                         "type": "string",
                         "#accesscontrol": {
-                            "service": [
-                                "search:exact-caseinsensitive"
-                            ]
+                            "service": {
+                                "permissions": ["search:exact-caseinsensitive"]
+                            }
                         }
                     },
                     "family_name": {
@@ -67,7 +69,8 @@
                         "type": "string"
                     }
                 },
-                "type": "object"
+                "type": "object",
+                "required": ["given_name", "family_name", "email"]
             },
             "network_links": {
                 "#accesscontrol": {
@@ -151,14 +154,16 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "description": "The ID of the other member",
-                        "type": "string"
+                        "description": "The UUID of the other member",
+                        "type": "string",
+                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     },
                     "relation": {
                         "description": "What relation you have with the other member",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "member_id", "relation"]
             },
             "memberlog": {
                 "$id": "/schemas/memberlog",
@@ -184,7 +189,8 @@
                         "description": "Additional information about the request",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "remote_addr", "action", "action"]
             },
             "asset": {
                 "$id": "/schemas/asset",
@@ -210,7 +216,8 @@
                         "description": "comma-separated list of keywords",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["timestamp", "manifest_url", "asset_type"]
             }
         }
     },
