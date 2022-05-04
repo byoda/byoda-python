@@ -131,7 +131,7 @@ The following actions are supported:
 - read with specifier:
   - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 14400 seconds): how long may the requesting entity cache the data
 - update, no specifiers
-- delete: delete the value of the key
+- delete: delete the records matching the value of the specified filters
 - append: add an entry to an array
 - persist: allow the client to persist this data. This action is only supported for the 'service' entity. This action must only be used for data that the service needs to reach out to members when there is a problem with the service or with someones membership of the service, ie. the email address and the member_id of the membership.
 - search (not yet supported in the pod): only applies to simple values, not to objects or arrays): Search an array for object with a key containing the specified value. Specifiers:
