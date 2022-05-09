@@ -309,10 +309,12 @@ class FileStorage:
             f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
         )
 
-    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None
+                          ) -> List[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
         '''
+        
         folders = []
 
         dir_path = self.get_full_path(folder_path)[0]

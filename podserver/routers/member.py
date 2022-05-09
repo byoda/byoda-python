@@ -33,7 +33,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
     '/member/service_id/{service_id}',
     response_model=MemberResponseModel
 )
-def get_member(request: Request, service_id: int,
+async def get_member(request: Request, service_id: int,
                auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Get metadata for the membership of a service.
@@ -65,8 +65,8 @@ def get_member(request: Request, service_id: int,
 
 @router.post('/member/service_id/{service_id}/version/{version}',
              response_model=MemberResponseModel)
-def post_member(request: Request, service_id: int, version: int,
-                auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def post_member(request: Request, service_id: int, version: int,
+                      auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Become a member of a service.
     :param service_id: service_id of the service
@@ -83,7 +83,7 @@ def post_member(request: Request, service_id: int, version: int,
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if member:
@@ -104,8 +104,8 @@ def post_member(request: Request, service_id: int, version: int,
 
 @router.put('/member/service_id/{service_id}/version/{version}',
             response_model=MemberResponseModel)
-def put_member(request: Request, service_id: int, version: int,
-               auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def put_member(request: Request, service_id: int, version: int,
+                     auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service

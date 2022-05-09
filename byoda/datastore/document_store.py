@@ -86,11 +86,11 @@ class DocumentStore:
 
         self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
-    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
         '''
         Get the sub-directories in a directory. With some storage backends,
         this functionality will be emulated as it doesn't support directories
         or folders.
         '''
 
-        return self.backend.get_folders(folder_path, prefix)
+        return await self.backend.get_folders(folder_path, prefix)

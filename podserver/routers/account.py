@@ -26,7 +26,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
 @router.get('/account', response_model=AccountResponseModel)
-def get_account(request: Request,
+async def get_account(request: Request,
                 auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Get data for the pod account.

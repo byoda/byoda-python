@@ -245,14 +245,14 @@ class Account:
             f'Registered account with directory server: {resp.status_code}'
         )
 
-    def get_memberships(self) -> Set:
+    async def get_memberships(self) -> Set:
         '''
         Get a list of the service_ids that the pod has joined by looking
         at storage.
         '''
 
         memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = self.document_store.get_folders(
+        folders = await self.document_store.get_folders(
             memberships_dir, prefix='service-'
         )
 
@@ -264,7 +264,7 @@ class Account:
 
         return service_ids
 
-    def load_memberships(self):
+    async def load_memberships(self):
         '''
         Loads the memberships of an account by iterating through
         a directory structure in the document store of the server.
@@ -272,7 +272,7 @@ class Account:
 
         _LOGGER.debug('Loading memberships')
 
-        service_ids = self.get_memberships()
+        service_ids = await self.get_memberships()
 
         for service_id in service_ids or []:
             if service_id not in self.memberships:
