@@ -29,41 +29,41 @@ from byoda.datatypes import StorageType, CloudType
 ROOT_DIR = '/tmp/byoda-tests/filestorage'
 
 
-class TestFileStorage(unittest.TestCase):
+class TestFileStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         shutil.rmtree(ROOT_DIR, ignore_errors=True)
         os.makedirs(ROOT_DIR, exist_ok=True)
 
-    def test_gcp_storage(self):
+    async def test_gcp_storage(self):
         storage = FileStorage.get_storage(
             CloudType.GCP, 'byoda', root_dir=ROOT_DIR
         )
-        run_file_tests(self, storage)
+        await run_file_tests(self, storage)
 
-    def test_azure_storage(self):
+    async def test_azure_storage(self):
         storage = FileStorage.get_storage(
             CloudType.AZURE, 'byoda', root_dir=ROOT_DIR
         )
-        run_file_tests(self, storage)
+        await run_file_tests(self, storage)
 
-    def test_aws_storage(self):
+    async def test_aws_storage(self):
         storage = FileStorage.get_storage(
             CloudType.AWS, 'byoda', root_dir=ROOT_DIR
         )
-        run_file_tests(self, storage)
+        await run_file_tests(self, storage)
 
-    def test_local_storage(self):
+    async def test_local_storage(self):
         storage = FileStorage(ROOT_DIR)
-        run_file_tests(self, storage)
+        await run_file_tests(self, storage)
 
 
-def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
+async def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
 
     # Prep the test by putting the file in the directory used by the
     # FileStorage instance
     shutil.copy('/etc/profile', ROOT_DIR + '/profile')
 
-    storage.copy(
+    await storage.copy(
         '/profile', 'test/profile',
         storage_type=StorageType.PRIVATE
     )
@@ -71,12 +71,12 @@ def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     with open('/etc/profile', 'rb') as file_desc:
         profile_data = file_desc.read()
 
-    data = storage.read('test/profile')
+    data = await storage.read('test/profile')
     test.assertEqual(profile_data, data)
 
     write_filepath = 'test/subdir/profile-write'
-    storage.write(write_filepath, data)
-    storage.write('test/anothersubdir/profile-write', data)
+    await storage.write(write_filepath, data)
+    await storage.write('test/anothersubdir/profile-write', data)
 
     exists = storage.exists(write_filepath)
     test.assertTrue(exists)

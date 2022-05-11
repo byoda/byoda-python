@@ -87,8 +87,8 @@ class GcpFileStorage(FileStorage):
 
         return blob
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
-             storage_type=StorageType.PRIVATE) -> str:
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
+                   storage_type=StorageType.PRIVATE) -> str:
         '''
         Reads a file from Azure Object storage. If a locally cached copy is
         available it uses that instead of reading from S3 storage. If a
@@ -103,7 +103,7 @@ class GcpFileStorage(FileStorage):
 
         try:
             if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                data = super().read(filepath, file_mode)
+                data = await super().read(filepath, file_mode)
                 _LOGGER.debug('Read %s from cache', filepath)
                 return data
         except FileNotFoundError:
@@ -128,9 +128,9 @@ class GcpFileStorage(FileStorage):
 
         return data
 
-    def write(self, filepath: str, data: str,
-              file_mode: FileMode = FileMode.BINARY,
-              storage_type: StorageType = StorageType.PRIVATE) -> None:
+    async def write(self, filepath: str, data: str,
+                    file_mode: FileMode = FileMode.BINARY,
+                    storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes data to Azure Blob storage.
 
@@ -149,7 +149,7 @@ class GcpFileStorage(FileStorage):
             file_desc.write(data)
 
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            super().write(filepath, data, file_mode)
+            await super().write(filepath, data, file_mode)
 
         _LOGGER.debug(
             f'Wrote {filepath} to GCP bucket '
@@ -224,10 +224,10 @@ class GcpFileStorage(FileStorage):
         # is enabled for the Pod because upload/download uses a local file
         _LOGGER.debug(f'Created container {directory} on local storage')
 
-    def copy(self, source: str, dest: str,
-             file_mode: FileMode = FileMode.BINARY,
-             storage_type: StorageType = StorageType.PRIVATE,
-             exist_ok=True) -> None:
+    async def copy(self, source: str, dest: str,
+                   file_mode: FileMode = FileMode.BINARY,
+                   storage_type: StorageType = StorageType.PRIVATE,
+                   exist_ok=True) -> None:
         '''
         Copies a file from the local file system to the Azure storage account
 
@@ -238,7 +238,7 @@ class GcpFileStorage(FileStorage):
         :parm file_mode: how the file should be opened
         '''
 
-        data = super().read(source, file_mode)
+        data = await super().read(source, file_mode)
 
         blob = self._get_blob_client(dest, storage_type)
         with blob.open(f'w{file_mode.value}') as file_desc:
@@ -250,7 +250,7 @@ class GcpFileStorage(FileStorage):
 
         # We populate the local disk cache also with the copy
         if storage_type == StorageType.PRIVATE:
-            super().copy(source, dest)
+            await super().copy(source, dest)
 
     def get_folders(self, folder_path: str, prefix: str = None,
                     storage_type: StorageType = StorageType.PRIVATE

@@ -151,8 +151,8 @@ class FileStorage:
 
         file_descriptor.close()
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
-             ) -> str:
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
+                   ) -> str:
         '''
         Read a file
 
@@ -172,8 +172,8 @@ class FileStorage:
 
         return data
 
-    def write(self, filepath: str, data: bytes,
-              file_mode: FileMode = FileMode.BINARY) -> None:
+    async def write(self, filepath: str, data: bytes,
+                    file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Writes a str or bytes to the local file system
 
@@ -291,8 +291,8 @@ class FileStorage:
         dirpath, filename = self.get_full_path(filepath)
         return os.stat.getmtime(dirpath + filename)
 
-    def copy(self, src: str, dest: str,
-             storage_type: StorageType = StorageType.PRIVATE) -> None:
+    async def copy(self, src: str, dest: str,
+                   storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Copies a file on the local file system
         '''
@@ -309,12 +309,12 @@ class FileStorage:
             f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
         )
 
-    async def get_folders(self, folder_path: str, prefix: str = None
-                          ) -> List[str]:
+    def get_folders(self, folder_path: str, prefix: str = None
+                    ) -> List[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
         '''
-        
+
         folders = []
 
         dir_path = self.get_full_path(folder_path)[0]

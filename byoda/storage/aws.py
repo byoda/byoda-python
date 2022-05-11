@@ -64,8 +64,8 @@ class AwsFileStorage(FileStorage):
 
         return path
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
-             storage_type=StorageType.PRIVATE) -> str:
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
+                   storage_type=StorageType.PRIVATE) -> str:
         '''
         Reads a file from S3 storage. If a locally cached copy is available it
         uses that instead of reading from S3 storage. If a locally cached copy
@@ -83,7 +83,7 @@ class AwsFileStorage(FileStorage):
             # TODO: support conditional downloads based on timestamp of local
             # file
             if self.cache_enabled:
-                data = super().read(filepath, file_mode)
+                data = await super().read(filepath, file_mode)
                 _LOGGER.debug('Read %s from cache', filepath)
                 return data
         except FileNotFoundError:
@@ -109,13 +109,13 @@ class AwsFileStorage(FileStorage):
             # Caused by file deletion by NamedTemporaryFile
             pass
 
-        data = super().read(filepath, file_mode)
+        data = await super().read(filepath, file_mode)
 
         return data
 
-    def write(self, filepath: str, data: str,
-              file_mode: FileMode = FileMode.BINARY,
-              storage_type: StorageType = StorageType.PRIVATE) -> None:
+    async def write(self, filepath: str, data: str,
+                    file_mode: FileMode = FileMode.BINARY,
+                    storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes data to S3 storage.
 
@@ -128,7 +128,7 @@ class AwsFileStorage(FileStorage):
         # We always have to write to local storage as AWS object upload uses
         # the local file
         if storage_type == StorageType.PRIVATE:
-            super().write(filepath, data, file_mode=file_mode)
+            await super().write(filepath, data, file_mode=file_mode)
 
         # TODO: can we do async / await here?
         key = self._get_key(filepath)
@@ -207,10 +207,10 @@ class AwsFileStorage(FileStorage):
         if storage_type == StorageType.PRIVATE:
             return super().create_directory(directory, exist_ok=exist_ok)
 
-    def copy(self, source: str, dest: str,
-             file_mode: FileMode = FileMode.BINARY,
-             storage_type: StorageType = StorageType.PRIVATE,
-             exist_ok=True) -> None:
+    async def copy(self, source: str, dest: str,
+                   file_mode: FileMode = FileMode.BINARY,
+                   storage_type: StorageType = StorageType.PRIVATE,
+                   exist_ok=True) -> None:
         '''
         Copies a file from the local file system to the S3 object storage
 
@@ -231,7 +231,7 @@ class AwsFileStorage(FileStorage):
 
         # We populate the local disk cache also with the copy
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            super().copy(source, dest)
+            await super().copy(source, dest)
 
     def get_folders(self, folder_path: str, prefix: str = None,
                     storage_type: StorageType = StorageType.PRIVATE

@@ -21,7 +21,6 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 
 import logging
 from typing import Set, Dict
-from tempfile import NamedTemporaryFile
 
 from azure.identity import DefaultAzureCredential
 
@@ -120,8 +119,8 @@ class AzureFileStorage(FileStorage):
 
         return client
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
-             storage_type=StorageType.PRIVATE) -> str:
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
+                   storage_type=StorageType.PRIVATE) -> str:
         '''
         Reads a file from Azure Object storage. If a locally cached copy is
         available it uses that instead of reading from S3 storage. If a
@@ -138,7 +137,7 @@ class AzureFileStorage(FileStorage):
             # TODO: support conditional downloads based on timestamp of local
             # file
             if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                data = super().read(filepath, file_mode)
+                data = await super().read(filepath, file_mode)
                 _LOGGER.debug('Read %s from cache', filepath)
                 return data
         except FileNotFoundError:
@@ -146,11 +145,9 @@ class AzureFileStorage(FileStorage):
 
         blob_client = self._get_blob_client(filepath)
 
-        # Download the data from the blob and save it to disk cache
-        # TODO: can we do async / await here?
         try:
-            download_stream = blob_client.download_blob()
-            data = download_stream.readall()
+            download_stream = await blob_client.download_blob()
+            data = await download_stream.readall()
         except ResourceNotFoundError as exc:
             raise FileNotFoundError(
                 f'Azure blob {filepath} not found in container "byoda" for '
@@ -165,9 +162,9 @@ class AzureFileStorage(FileStorage):
 
         return data
 
-    def write(self, filepath: str, data: str,
-              file_mode: FileMode = FileMode.BINARY,
-              storage_type: StorageType = StorageType.PRIVATE) -> None:
+    async def write(self, filepath: str, data: str,
+                    file_mode: FileMode = FileMode.BINARY,
+                    storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes data to Azure Blob storage.
 
@@ -177,12 +174,13 @@ class AzureFileStorage(FileStorage):
         :param storage_type: use private or public storage account
         '''
 
-        if storage_type == StorageType.PRIVATE:
-            super().write(filepath, data, file_mode=file_mode)
+        if storage_type == StorageType.PRIVATE and self.cache_enabled:
+            await super().write(filepath, data, file_mode=file_mode)
+
+        await super().write(filepath, data)
 
         blob_client = self._get_blob_client(filepath)
 
-        super().write(filepath, data)
         file_desc = super().open(filepath, OpenMode.READ, file_mode)
         blob_client.upload_blob(file_desc, overwrite=True)
 
@@ -262,10 +260,10 @@ class AzureFileStorage(FileStorage):
         if storage_type == StorageType.PRIVATE:
             super().create_directory(directory, exist_ok=exist_ok)
 
-    def copy(self, source: str, dest: str,
-             file_mode: FileMode = FileMode.BINARY,
-             storage_type: StorageType = StorageType.PRIVATE,
-             exist_ok=True) -> None:
+    async def copy(self, source: str, dest: str,
+                   file_mode: FileMode = FileMode.BINARY,
+                   storage_type: StorageType = StorageType.PRIVATE,
+                   exist_ok=True) -> None:
         '''
         Copies a file from the local file system to the Azure storage account
 
@@ -287,7 +285,7 @@ class AzureFileStorage(FileStorage):
 
         # We populate the local disk cache also with the copy
         if storage_type == StorageType.PRIVATE:
-            super().copy(source, dest)
+            await super().copy(source, dest)
 
     def get_folders(self, folder_path: str, prefix: str = None,
                     storage_type: StorageType = StorageType.PRIVATE
