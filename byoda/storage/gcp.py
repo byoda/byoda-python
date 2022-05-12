@@ -87,6 +87,14 @@ class GcpFileStorage(FileStorage):
 
         return blob
 
+    async def close_clients(self):
+        '''
+        Closes any open connections. An instance of this class can not
+        be used anymore after this method is called.
+        '''
+
+        pass
+
     async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
                    storage_type=StorageType.PRIVATE) -> str:
         '''
@@ -119,7 +127,7 @@ class GcpFileStorage(FileStorage):
             )
 
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            super().write(filepath, data, file_mode)
+            await super().write(filepath, data, file_mode)
 
         _LOGGER.debug(
             f'Read {filepath} from GCP bucket'
@@ -156,8 +164,8 @@ class GcpFileStorage(FileStorage):
             f'{self.buckets[storage_type.value]}'
         )
 
-    def exists(self, filepath: str,
-               storage_type: StorageType = StorageType.PRIVATE) -> bool:
+    async def exists(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
         Checks is a file exists on Azure object storage
 
@@ -167,7 +175,7 @@ class GcpFileStorage(FileStorage):
         '''
 
         if (storage_type == StorageType.PRIVATE and self.cache_enabled
-                and super().exists(filepath)):
+                and await super().exists(filepath)):
             _LOGGER.debug(f'{filepath} exists in local cache')
             return True
         else:
@@ -189,11 +197,11 @@ class GcpFileStorage(FileStorage):
                 )
                 return False
 
-    def delete(self, filepath: str,
-               storage_type: StorageType = StorageType.PRIVATE) -> bool:
+    async def delete(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
 
         if storage_type == StorageType.PRIVATE:
-            super().delete(filepath)
+            await super().delete(filepath)
 
         blob = self._get_blob_client(filepath, storage_type)
         blob.delete()
@@ -206,9 +214,9 @@ class GcpFileStorage(FileStorage):
 
         return f'https://{self.domain}/{self.buckets[storage_type.value]}/'
 
-    def create_directory(self, directory: str, exist_ok: bool = True,
-                         storage_type: StorageType = StorageType.PRIVATE
-                         ) -> bool:
+    async def create_directory(self, directory: str, exist_ok: bool = True,
+                               storage_type: StorageType = StorageType.PRIVATE
+                               ) -> bool:
         '''
         Directories do not exist on GCP object storage but this function makes
         sure the directory exists in the local cache
@@ -218,7 +226,7 @@ class GcpFileStorage(FileStorage):
         '''
 
         if storage_type == StorageType.PRIVATE:
-            super().create_directory(directory, exist_ok=exist_ok)
+            await super().create_directory(directory, exist_ok=exist_ok)
 
         # We need to create the local directory regardless whether caching
         # is enabled for the Pod because upload/download uses a local file
@@ -252,9 +260,9 @@ class GcpFileStorage(FileStorage):
         if storage_type == StorageType.PRIVATE:
             await super().copy(source, dest)
 
-    def get_folders(self, folder_path: str, prefix: str = None,
-                    storage_type: StorageType = StorageType.PRIVATE
-                    ) -> Set[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None,
+                          storage_type: StorageType = StorageType.PRIVATE
+                          ) -> Set[str]:
         '''
         Azure Storage let's you walk through blobs whose name start
         with a prefix

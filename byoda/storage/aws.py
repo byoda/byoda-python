@@ -52,6 +52,14 @@ class AwsFileStorage(FileStorage):
             f'{self.buckets[StorageType.PUBLIC.value]}'
         )
 
+    async def close_clients(self):
+        '''
+        Closes the azure container clients. An instance of this class can
+        not be used anymore after this method is called.
+        '''
+
+        pass
+
     def _get_key(self, filepath: str) -> str:
         '''
         Returns the S3 key for a path to a file
@@ -99,7 +107,7 @@ class AwsFileStorage(FileStorage):
                 self.driver.download_fileobj(
                     self.buckets[storage_type.value], key, file_desc
                 )
-                super().move(file_desc.name, filepath)
+                await super().move(file_desc.name, filepath)
                 _LOGGER.debug(
                     f'Read {key} from AWS S3 and saved it to {filepath}'
                 )
@@ -130,7 +138,6 @@ class AwsFileStorage(FileStorage):
         if storage_type == StorageType.PRIVATE:
             await super().write(filepath, data, file_mode=file_mode)
 
-        # TODO: can we do async / await here?
         key = self._get_key(filepath)
         file_desc = super().open(filepath, OpenMode.READ, file_mode)
         self.driver.upload_fileobj(
@@ -138,8 +145,8 @@ class AwsFileStorage(FileStorage):
         )
         _LOGGER.debug(f'Wrote {key} to AWS S3')
 
-    def exists(self, filepath: str,
-               storage_type: StorageType = StorageType.PRIVATE) -> bool:
+    async def exists(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
         Checks is a file exists on S3 storage
 
@@ -149,7 +156,7 @@ class AwsFileStorage(FileStorage):
         '''
 
         if (storage_type == StorageType.PRIVATE and self.cache_enabled
-                and super().exists(filepath)):
+                and await super().exists(filepath)):
             _LOGGER.debug(f'{filepath} exists in local cache')
             return True
         else:
@@ -163,11 +170,11 @@ class AwsFileStorage(FileStorage):
             except boto3.exceptions.botocore.exceptions.ClientError:
                 return False
 
-    def delete(self, filepath: str,
-               storage_type: StorageType = StorageType.PRIVATE) -> bool:
+    async def delete(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
 
         if storage_type == StorageType.PRIVATE:
-            super().delete(filepath)
+            await super().delete(filepath)
 
         key = self._get_key(filepath)
         response = self.driver.delete_object(
@@ -191,9 +198,9 @@ class AwsFileStorage(FileStorage):
             '.amazonaws.com/'
         )
 
-    def create_directory(self, directory: str, exist_ok: bool = True,
-                         storage_type: StorageType = StorageType.PRIVATE
-                         ) -> bool:
+    async def create_directory(self, directory: str, exist_ok: bool = True,
+                               storage_type: StorageType = StorageType.PRIVATE
+                               ) -> bool:
         '''
         Directories do not exist on S3 storage but this function makes sure
         the directory exists in the local cache
@@ -205,7 +212,7 @@ class AwsFileStorage(FileStorage):
         # We need to create the local directory regardless whether caching
         # is enabled for the Pod because upload/download uses a local file
         if storage_type == StorageType.PRIVATE:
-            return super().create_directory(directory, exist_ok=exist_ok)
+            return await super().create_directory(directory, exist_ok=exist_ok)
 
     async def copy(self, source: str, dest: str,
                    file_mode: FileMode = FileMode.BINARY,
@@ -233,9 +240,9 @@ class AwsFileStorage(FileStorage):
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
             await super().copy(source, dest)
 
-    def get_folders(self, folder_path: str, prefix: str = None,
-                    storage_type: StorageType = StorageType.PRIVATE
-                    ) -> Set[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None,
+                          storage_type: StorageType = StorageType.PRIVATE
+                          ) -> Set[str]:
         '''
         AWS S3 supports emulated folders through keys that end with a '/'
         '''

@@ -78,33 +78,35 @@ async def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     await storage.write(write_filepath, data)
     await storage.write('test/anothersubdir/profile-write', data)
 
-    exists = storage.exists(write_filepath)
+    exists = await storage.exists(write_filepath)
     test.assertTrue(exists)
 
-    exists = storage.exists('blahblah/blahblah')
+    exists = await storage.exists('blahblah/blahblah')
     test.assertFalse(exists)
 
-    subdirs = storage.get_folders('test/')
+    subdirs = await storage.get_folders('test/')
     test.assertEqual(len(subdirs), 2)
 
-    subdirs = storage.get_folders('test/', prefix='sub')
+    subdirs = await storage.get_folders('test/', prefix='sub')
     test.assertEqual(len(subdirs), 1)
 
     if (type(storage) in
             (AzureFileStorage, AwsFileStorage, GcpFileStorage)):
-        url = storage.get_url() + 'test/profile'
+        url = storage.get_url()  + 'test/profile'
         response = requests.get(url, allow_redirects=False)
         test.assertIn(response.status_code, (302, 403, 409))
 
-    storage.delete('test/profile')
-    storage.delete('test/anothersubdir/profile-write')
-    storage.delete('test/subdir/profile-write')
+    await storage.delete('test/profile')
+    await storage.delete('test/anothersubdir/profile-write')
+    await storage.delete('test/subdir/profile-write')
 
     # GCP delete also deletes empty parent 'folders'??
     if not type(storage) in (AzureFileStorage, GcpFileStorage):
-        storage.delete('test/subdir/')
-        storage.delete('test/anothersubdir/')
-        storage.delete('test')
+        await storage.delete('test/subdir/')
+        await storage.delete('test/anothersubdir/')
+        await storage.delete('test')
+
+    await storage.close_clients()
 
 
 if __name__ == '__main__':

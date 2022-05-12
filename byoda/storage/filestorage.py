@@ -151,6 +151,14 @@ class FileStorage:
 
         file_descriptor.close()
 
+    async def close_clients(self):
+        '''
+        Dummy function for Cloud Storage clients like Azure that need their
+        async clients to be closed explicitly
+        '''
+
+        pass
+
     async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
                    ) -> str:
         '''
@@ -208,7 +216,7 @@ class FileStorage:
         with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
-    def exists(self, filepath: str) -> bool:
+    async def exists(self, filepath: str) -> bool:
         '''
         Check if the file exists in the local file system
 
@@ -225,7 +233,7 @@ class FileStorage:
             )
         return exists
 
-    def move(self, src_filepath: str, dest_filepath: str):
+    async def move(self, src_filepath: str, dest_filepath: str):
         '''
         Moves the file to the destination file
         :param src_filepath: absolute full path + file name of the source file
@@ -238,7 +246,7 @@ class FileStorage:
 
         shutil.move(src_filepath, dirpath + '/' + filename)
 
-    def delete(self, filepath: str) -> bool:
+    async def delete(self, filepath: str) -> bool:
         '''
         Delete the file from the local file system
         :param filepath: location of the file on the file system
@@ -267,7 +275,8 @@ class FileStorage:
 
         return 'http://localhost'
 
-    def create_directory(self, directory: str, exist_ok: bool = True) -> None:
+    async def create_directory(self, directory: str, exist_ok: bool = True
+                               ) -> None:
         '''
         Creates a directory on the local file system, including any
         intermediate directories if they don't exist already
@@ -309,8 +318,8 @@ class FileStorage:
             f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
         )
 
-    def get_folders(self, folder_path: str, prefix: str = None
-                    ) -> List[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None
+                          ) -> List[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
         '''
