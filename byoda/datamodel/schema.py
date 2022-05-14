@@ -122,21 +122,23 @@ class Schema:
         return data
 
     @staticmethod
-    def get_schema(filepath: str, storage_driver: FileStorage,
-                   service_data_secret: ServiceDataSecret,
-                   network_data_secret: NetworkDataSecret,
-                   verify_contract_signatures: bool = True):
+    async def get_schema(filepath: str, storage_driver: FileStorage,
+                         service_data_secret: ServiceDataSecret,
+                         network_data_secret: NetworkDataSecret,
+                         verify_contract_signatures: bool = True):
         '''
         Facory to read schema from a file
         '''
-        data = storage_driver.read(filepath)
+        data = await storage_driver.read(filepath)
         json_schema = json.loads(data)
 
         schema = Schema(json_schema)
         schema.service_data_secret = service_data_secret
         schema.network_data_secret = network_data_secret
 
-        schema.load(verify_contract_signatures=verify_contract_signatures)
+        await schema.load(
+            verify_contract_signatures=verify_contract_signatures
+        )
 
         return schema
 

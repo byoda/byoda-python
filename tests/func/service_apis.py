@@ -13,11 +13,11 @@ the headers that would normally be set by the reverse proxy
 
 import sys
 import os
+import yaml
+import shutil
+import asyncio
 import unittest
 import requests
-import shutil
-import yaml
-import time
 from uuid import uuid4
 
 from multiprocessing import Process
@@ -57,20 +57,22 @@ BASE_URL = f'http://localhost:{TEST_PORT}/api'
 _LOGGER = None
 
 
-class TestDirectoryApis(unittest.TestCase):
+class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
-            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+            TestDirectoryApis.APP_CONFIG = yaml.load(
+                file_desc, Loader=yaml.SafeLoader
+            )
 
-        cls.APP_CONFIG['svcserver']['service_id'] = SERVICE_ID
+        app_config = TestDirectoryApis.APP_CONFIG
 
-        cls.APP_CONFIG['svcserver']['root_dir'] = TEST_DIR
+        app_config['svcserver']['service_id'] = SERVICE_ID
+        app_config['svcserver']['root_dir'] = TEST_DIR
 
         try:
             shutil.rmtree(TEST_DIR)
@@ -81,16 +83,17 @@ class TestDirectoryApis(unittest.TestCase):
 
         service_dir = (
             f'{TEST_DIR}/network-'
-            f'{cls.APP_CONFIG["application"]["network"]}'
+            f'{app_config["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
         os.makedirs(service_dir)
 
-        network = Network.create(
-            cls.APP_CONFIG['application']['network'],
+        network = await Network.create(
+            app_config['application']['network'],
             TEST_DIR,
-            cls.APP_CONFIG['svcserver']['private_key_password']
+            app_config['svcserver']['private_key_password']
         )
+        await network.load_network_secrets()
 
         service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
@@ -99,17 +102,18 @@ class TestDirectoryApis(unittest.TestCase):
         shutil.copy(DUMMY_SCHEMA, TEST_DIR + '/' + service_file)
 
         svc = Service(
-            network, service_file, cls.APP_CONFIG['svcserver']['service_id']
+            network, service_file,
+            app_config['svcserver']['service_id']
         )
-        svc.create_secrets(
+        await svc.create_secrets(
             network.services_ca, local=True,
-            password=cls.APP_CONFIG['svcserver']['private_key_password']
+            password=app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(cls.APP_CONFIG)
+        config.server = ServiceServer(app_config)
 
         config.server.load_secrets(
-            cls.APP_CONFIG['svcserver']['private_key_password']
+            app_config['svcserver']['private_key_password']
         )
         config.server.load_schema(verify_contract_signatures=False)
 
@@ -117,7 +121,7 @@ class TestDirectoryApis(unittest.TestCase):
             'Byoda test svcserver', 'server for testing service APIs',
             'v0.0.1', None, [], [service, member]
         )
-        cls.PROCESS = Process(
+        TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
@@ -127,8 +131,8 @@ class TestDirectoryApis(unittest.TestCase):
             },
             daemon=True
         )
-        cls.PROCESS.start()
-        time.sleep(3)
+        TestDirectoryApis.PROCESS.start()
+        asyncio.sleep(1)
 
     @classmethod
     def tearDownClass(cls):
@@ -214,5 +218,4 @@ class TestDirectoryApis(unittest.TestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
     unittest.main()

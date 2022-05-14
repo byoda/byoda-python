@@ -111,7 +111,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 
 
 @router.get('/service/service_id/{service_id}', response_model=SchemaModel)
-def get_service(request: Request, service_id: int):
+async def get_service(request: Request, service_id: int):
     '''
     Get the data contract of the specified service.
 
@@ -142,7 +142,7 @@ def get_service(request: Request, service_id: int):
             raise ValueError(f'Unkown service id: {service_id}')
 
         if not service.schema:
-            service.registration_status = service.get_registration_status()
+            service.registration_status = await service.get_registration_status()
             if service.registration_status == RegistrationStatus.SchemaSigned:
                 filepath = network.paths.get(
                     Paths.SERVICE_FILE, service_id=service_id
@@ -342,7 +342,7 @@ def put_service(request: Request, service_id: int,
 
 @router.patch('/service/service_id/{service_id}',
               response_model=SchemaResponseModel)
-def patch_service(request: Request, schema: SchemaModel, service_id: int,
+async def patch_service(request: Request, schema: SchemaModel, service_id: int,
                   auth: ServiceRequestAuthFast = Depends(
                      ServiceRequestAuthFast)):
     '''
@@ -428,7 +428,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
                         service.data_secret = ServiceDataSecret(
                             None, service_id, network
                         )
-                        service.data_secret.load(with_private_key=False)
+                        await service.data_secret.load(with_private_key=False)
                     service_contract.verify_signature(
                         service.data_secret, SignatureType.SERVICE
                     )
@@ -438,7 +438,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
                     )
                     storage_driver = network.paths.storage_driver
                     filepath = network.paths.get(Paths.SERVICE_FILE)
-                    service_contract.save(filepath, storage_driver)
+                    await service_contract.save(filepath, storage_driver)
                 except ValueError:
                     status = ReviewStatusType.REJECTED
                     errors.append(

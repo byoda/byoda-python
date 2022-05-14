@@ -174,8 +174,8 @@ class Paths:
 
         return path
 
-    def exists(self, path_template: str, service_id: int = None,
-               member_alias: str = None):
+    async def exists(self, path_template: str, service_id: int = None,
+                     member_alias: str = None):
         '''
         Checks if a path exists
 
@@ -185,11 +185,12 @@ class Paths:
         parameter is not specified
         '''
 
-        return self.storage_driver.exists(
+        return await self.storage_driver.exists(
             self.get(path_template, service_id=service_id)
         )
 
-    def _create_directory(self, path_template: str, service_id: int = None):
+    async def _create_directory(self, path_template: str,
+                                service_id: int = None) -> str:
         '''
         Ensures a directory exists. If it does not already exit
         then the directory will be created
@@ -204,8 +205,8 @@ class Paths:
             path_template, service_id=service_id
         )
 
-        if not self.storage_driver.exists(directory):
-            self.storage_driver.create_directory(directory)
+        if not await self.storage_driver.exists(directory):
+            await self.storage_driver.create_directory(directory)
 
         return directory
 
@@ -217,11 +218,11 @@ class Paths:
     def secrets_directory(self):
         return self.get(self.SECRETS_DIR)
 
-    def secrets_directory_exists(self):
-        return self.exists(self.SECRETS_DIR)
+    async def secrets_directory_exists(self):
+        return await self.exists(self.SECRETS_DIR)
 
-    def create_secrets_directory(self):
-        return self._create_directory(self.SECRETS_DIR)
+    async def create_secrets_directory(self):
+        return await self._create_directory(self.SECRETS_DIR)
 
     # Network directory
     @property
@@ -235,11 +236,11 @@ class Paths:
     def network_directory(self):
         return self.get(self.NETWORK_DIR)
 
-    def network_directory_exists(self):
-        return self.exists(self.NETWORK_DIR)
+    async def network_directory_exists(self):
+        return await self.exists(self.NETWORK_DIR)
 
-    def create_network_directory(self):
-        return self._create_directory(self.NETWORK_DIR)
+    async def create_network_directory(self):
+        return await self._create_directory(self.NETWORK_DIR)
 
     # Account directory
     @property
@@ -253,12 +254,12 @@ class Paths:
     def account_directory(self, account_id: UUID = None):
         return self.get(self.ACCOUNT_DIR, account_id=account_id)
 
-    def account_directory_exists(self):
-        return self.exists(self.ACCOUNT_DIR)
+    async def account_directory_exists(self):
+        return await self.exists(self.ACCOUNT_DIR)
 
-    def create_account_directory(self):
-        if not self.account_directory_exists():
-            return self._create_directory(self.ACCOUNT_DIR)
+    async def create_account_directory(self):
+        if not await self.account_directory_exists():
+            return await self._create_directory(self.ACCOUNT_DIR)
 
     # service directory
     def service(self, service_id):
@@ -267,11 +268,11 @@ class Paths:
     def service_directory(self, service_id):
         return self.get(self.SERVICE_DIR, service_id=service_id)
 
-    def service_directory_exists(self, service_id):
-        return self.exists(self.SERVICE_DIR, service_id=service_id)
+    async def service_directory_exists(self, service_id):
+        return await self.exists(self.SERVICE_DIR, service_id=service_id)
 
-    def create_service_directory(self, service_id):
-        return self._create_directory(
+    async def create_service_directory(self, service_id):
+        return await self._create_directory(
             self.SERVICE_DIR, service_id=service_id
         )
 
@@ -281,16 +282,16 @@ class Paths:
             self.MEMBER_DIR, service_id=service_id
         )
 
-    def member_directory_exists(self, service_id):
-        return self.exists(
+    async def member_directory_exists(self, service_id):
+        return await self.exists(
             self.MEMBER_DIR, service_id=service_id
         )
 
-    def create_member_directory(self, service_id):
-        self._create_directory(
+    async def create_member_directory(self, service_id):
+        await self._create_directory(
             self.MEMBER_DIR, service_id=service_id
         )
-        return self._create_directory(
+        return await self._create_directory(
             self.MEMBER_DIR + '/data', service_id=service_id
         )
 
@@ -299,13 +300,13 @@ class Paths:
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
-    def member_service_file_exists(self, service_id):
-        return self.exists(
+    async def member_service_file_exists(self, service_id):
+        return await self.exists(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
-    def create_member_service_directory(self, service_id):
-        return self._create_directory(
+    async def create_member_service_directory(self, service_id):
+        return await self._create_directory(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
@@ -313,5 +314,5 @@ class Paths:
     def service_file(self, service_id):
         return self.get(self.SERVICE_FILE, service_id=service_id)
 
-    def service_file_exists(self, service_id):
-        return self.exists(self.SERVICE_FILE, service_id=service_id)
+    async def service_file_exists(self, service_id):
+        return await self.exists(self.SERVICE_FILE, service_id=service_id)

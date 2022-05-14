@@ -469,25 +469,25 @@ class Secret:
 
         return digest
 
-    def cert_file_exists(self) -> bool:
+    async def cert_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
 
         :returns: bool
         '''
 
-        return self.storage_driver.exists(self.cert_file)
+        return await self.storage_driver.exists(self.cert_file)
 
-    def private_key_file_exists(self) -> bool:
+    async def private_key_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
 
         :returns: bool
         '''
 
-        self.storage_driver.exists(self.private_key_file)
+        await self.storage_driver.exists(self.private_key_file)
 
-    def load(self, with_private_key: bool = True, password: str = 'byoda'):
+    async def load(self, with_private_key: bool = True, password: str = 'byoda'):
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -510,7 +510,7 @@ class Secret:
 
         try:
             _LOGGER.debug('Loading cert from %s', self.cert_file)
-            cert_data = self.storage_driver.read(self.cert_file)
+            cert_data = await self.storage_driver.read(self.cert_file)
         except FileNotFoundError:
             _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise
@@ -609,7 +609,7 @@ class Secret:
 
         return x509.load_pem_x509_csr(csr)
 
-    def save(self, password: str = 'byoda', overwrite: bool = False):
+    async def save(self, password: str = 'byoda', overwrite: bool = False):
         '''
         Save a cert and private key to their respective files
 
@@ -636,9 +636,9 @@ class Secret:
         data = self.certchain_as_pem()
 
         directory = os.path.dirname(self.cert_file)
-        self.storage_driver.create_directory(directory)
+        await self.storage_driver.create_directory(directory)
 
-        self.storage_driver.write(
+        await self.storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
         )
 

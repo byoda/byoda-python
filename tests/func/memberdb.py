@@ -12,6 +12,7 @@ import os
 import sys
 import yaml
 import shutil
+import asyncio
 import unittest
 from uuid import UUID
 
@@ -30,18 +31,21 @@ CONFIG_FILE = 'tests/collateral/config.yml'
 TEST_MEMBER_UUID = UUID('aaaaaaaa-ab12-2612-6212-30808f40d0fd')
 
 
-class TestKVCache(unittest.TestCase):
+class TestKVCache(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
-            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+            TestKVCache.APP_CONFIG = yaml.load(
+                file_desc, Loader=yaml.SafeLoader
+            )
 
-        test_dir = cls.APP_CONFIG['svcserver']['root_dir']
+        app_config = TestKVCache.APP_CONFIG
+
+        test_dir = app_config['svcserver']['root_dir']
         try:
             shutil.rmtree(test_dir)
         except FileNotFoundError:
@@ -52,15 +56,15 @@ class TestKVCache(unittest.TestCase):
         # Create the network so that the constructor of ServiceServer
         # can load it.
         Network.create(
-            cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['svcserver']['root_dir'],
-            cls.APP_CONFIG['svcserver']['private_key_password']
+            app_config['application']['network'],
+            app_config['svcserver']['root_dir'],
+            app_config['svcserver']['private_key_password']
         )
-
-        config.server = ServiceServer(cls.APP_CONFIG)
+        network: Network = await network.load_network_secrets()
+        config.server = ServiceServer(app_config)
 
         member_db = config.server.member_db
-        member_db.service_id = cls.APP_CONFIG['svcserver']['service_id']
+        member_db.service_id = app_config['svcserver']['service_id']
         member_db.delete_meta(TEST_MEMBER_UUID)
         member_db.delete_members_list()
 

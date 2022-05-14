@@ -66,18 +66,20 @@ BASE_URL = f'http://localhost:{TEST_PORT}/api'
 _LOGGER = None
 
 
-class TestDirectoryApis(unittest.TestCase):
+class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
-            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+            TestDirectoryApis.APP_CONFIG = yaml.load(
+                file_desc, Loader=yaml.SafeLoader
+            )
 
-        cls.APP_CONFIG['dirserver']['root_dir'] = TEST_DIR
+        app_config = TestDirectoryApis.APP_CONFIG
+        app_config['dirserver']['root_dir'] = TEST_DIR
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -85,25 +87,26 @@ class TestDirectoryApis(unittest.TestCase):
 
         os.makedirs(TEST_DIR)
         os.makedirs(
-            f'{SERVICE_DIR}/network-{cls.APP_CONFIG["application"]["network"]}'
+            f'{SERVICE_DIR}/network-{app_config["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
 
         network = Network.create(
-            cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['dirserver']['root_dir'],
-            cls.APP_CONFIG['dirserver']['private_key_password'],
+            app_config['application']['network'],
+            app_config['dirserver']['root_dir'],
+            app_config['dirserver']['private_key_password'],
         )
+        await network.load_network_secrets()
 
         config.server = DirectoryServer(
-            network, cls.APP_CONFIG['dirserver']['dnsdb']
+            network, app_config['dirserver']['dnsdb']
         )
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
             'v0.0.1', None, [], [account, service, member]
         )
-        cls.PROCESS = Process(
+        TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
@@ -113,8 +116,8 @@ class TestDirectoryApis(unittest.TestCase):
             },
             daemon=True
         )
-        cls.PROCESS.start()
-        time.sleep(3)
+        TestDirectoryApis.PROCESS.start()
+        time.sleep(1)
 
     @classmethod
     def tearDownClass(cls):
@@ -196,15 +199,15 @@ class TestDirectoryApis(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 401)
 
-    def test_network_service_creation(self):
+    async def test_network_service_creation(self):
         API = BASE_URL + '/v1/network/service'
 
         # We can not use deepcopy here so do two copies
         network = copy(config.server.network)
         network.paths = copy(config.server.network.paths)
         network.paths._root_directory = SERVICE_DIR
-        if not network.paths.secrets_directory_exists():
-            network.paths.create_secrets_directory()
+        if not await network.paths.secrets_directory_exists():
+            await network.paths.create_secrets_directory()
 
         service_id = SERVICE_ID
         serviceca_secret = ServiceCaSecret(
@@ -237,7 +240,7 @@ class TestDirectoryApis(unittest.TestCase):
             service='dir_api_test', service_id=service_id,
             network=config.server.network
         )
-        testsecret.load(with_private_key=False)
+        await testsecret.load(with_private_key=False)
 
         service_secret = ServiceSecret('dir_api_test', service_id, network)
         service_csr = service_secret.create_csr()

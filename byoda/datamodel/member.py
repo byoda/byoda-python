@@ -143,7 +143,7 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
-            self.schema: Schema = self.load_schema()
+            self.schema: Schema = await self.load_schema()
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
@@ -160,7 +160,7 @@ class Member:
             self.service_data_secret.load(with_private_key=False)
         elif not local_service_contract:
             self.service.download_data_secret(save=True)
-            self.service_data_secret.load(with_private_key=False)
+            await self.service_data_secret.load(with_private_key=False)
         else:
             _LOGGER.debug(
                 'Not loading service data secret as we are sideloading the '
@@ -197,10 +197,10 @@ class Member:
         return data
 
     @staticmethod
-    def create(service: Service, schema_version: int,
-               account: Account, member_id: UUID = None,
-               members_ca: MembersCaSecret = None,
-               local_service_contract: str = None):
+    async def create(service: Service, schema_version: int,
+                     account: Account, member_id: UUID = None,
+                     members_ca: MembersCaSecret = None,
+                     local_service_contract: str = None):
         '''
         Factory for a new membership
 
@@ -232,8 +232,6 @@ class Member:
         else:
             member.member_id = uuid4()
 
-        # member.create_secrets(members_ca=members_ca)
-
         if not member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
@@ -244,7 +242,7 @@ class Member:
                 save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
             )
 
-        member.schema = member.load_schema(
+        member.schema = await member.load_schema(
             filepath=local_service_contract,
             verify_signatures=not bool(local_service_contract)
         )
@@ -263,7 +261,7 @@ class Member:
             member.member_id, member.service_id, member.account
         )
 
-        member.create_secrets(members_ca=members_ca)
+        await member.create_secrets(members_ca=members_ca)
 
         member.data_secret.create_shared_key()
 
@@ -273,7 +271,7 @@ class Member:
         member.data.initalize()
 
         member.data.save_protected_shared_key()
-        member.data.save()
+        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         member.schema.save(filepath, member.paths.storage_driver)
@@ -325,7 +323,7 @@ class Member:
                 'Member instance does not have a service associated'
             )
 
-    def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+    async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
         '''
@@ -334,7 +332,7 @@ class Member:
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
-            self.tls_secret.load(
+            await self.tls_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
             self.member_id = self.tls_secret.member_id
@@ -345,7 +343,7 @@ class Member:
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
-            self.data_secret.load(
+            await self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
 
             )
@@ -409,7 +407,7 @@ class Member:
 
         return secret
 
-    def load_secrets(self) -> None:
+    async def load_secrets(self) -> None:
         '''
         Loads the membership secrets
         '''
@@ -417,7 +415,7 @@ class Member:
         self.tls_secret = MemberSecret(
             None, self.service_id, self.account
         )
-        self.tls_secret.load(
+        await self.tls_secret.load(
             with_private_key=True, password=self.private_key_password
         )
         self.member_id = self.tls_secret.member_id
@@ -425,7 +423,7 @@ class Member:
         self.data_secret = MemberDataSecret(
             self.member_id, self.service_id, self.account
         )
-        self.data_secret.load(
+        await self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
 
@@ -511,8 +509,8 @@ class Member:
             f' with network {self.network.name}'
         )
 
-    def load_schema(self, filepath: str = None, verify_signatures: bool = True
-                    ) -> Schema:
+    async def load_schema(self, filepath: str = None,
+                          verify_signatures: bool = True) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
@@ -520,8 +518,8 @@ class Member:
         if not filepath:
             filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
-        if self.storage_driver.exists(filepath):
-            schema = Schema.get_schema(
+        if await self.storage_driver.exists(filepath):
+            schema = await Schema.get_schema(
                 filepath, self.storage_driver,
                 service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
@@ -625,19 +623,19 @@ class Member:
             f'Verified network signature for service {self.service_id}'
         )
 
-    def load_data(self):
+    async def load_data(self):
         '''
         Loads the data stored for the membership
         '''
 
-        self.data.load()
+        await self.data.load()
 
-    def save_data(self, data):
+    async def save_data(self, data):
         '''
         Saves the data for the membership
         '''
 
-        self.data.save(data)
+        await self.data.save(data)
 
     @staticmethod
     def get_data(service_id, info: Info, filters=None) -> Dict:

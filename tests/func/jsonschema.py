@@ -170,12 +170,11 @@ network_links_mutation = '''
 '''
 
 
-class TestJsonSchema(unittest.TestCase):
+class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -185,7 +184,7 @@ class TestJsonSchema(unittest.TestCase):
         shutil.copyfile(
             DEFAULT_SCHEMA, TEST_DIR + '/' + os.path.split(DEFAULT_SCHEMA)[-1]
         )
-        network = Network.create(NETWORK, TEST_DIR, 'byoda')
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         # Remaining environment variables used:
         config.server = PodServer(network)
@@ -215,7 +214,7 @@ class TestJsonSchema(unittest.TestCase):
             storage_driver=network.paths.storage_driver
         )
         service.name = 'jsonschema_test'
-        service.create_secrets(network.services_ca)
+        await service.create_secrets(network.services_ca)
 
         member = Member(SERVICE_ID, pod_account)
         member.member_id = UUID(MEMBER_ID)
@@ -228,11 +227,11 @@ class TestJsonSchema(unittest.TestCase):
             member.member_id, member.service_id, member.account
         )
 
-        member.create_secrets(members_ca=service.members_ca)
+        await member.create_secrets(members_ca=service.members_ca)
 
         member.data_secret.create_shared_key()
 
-        member.schema = member.load_schema(
+        member.schema = await member.load_schema(
             os.path.split(DEFAULT_SCHEMA)[-1],
             verify_signatures=False
         )
@@ -240,16 +239,16 @@ class TestJsonSchema(unittest.TestCase):
         member.data = MemberData(
             member, member.paths, member.document_store
         )
-        member.data.save_protected_shared_key()
+        await member.data.save_protected_shared_key()
         member.data.initalize()
-        member.data.save()
+        await member.data.save()
 
         app = Starlette(debug=True)
         graphql_app = GraphQL(member.schema.gql_schema, debug=True)
         for path in ['/', '/graphql']:
             app.add_route(path, graphql_app)
 
-        cls.PROCESS = Process(
+        TestJsonSchema.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
@@ -259,12 +258,12 @@ class TestJsonSchema(unittest.TestCase):
             },
             daemon=True
         )
-        cls.PROCESS.start()
+        TestJsonSchema.PROCESS.start()
         time.sleep(3)
 
     @classmethod
     def tearDownClass(cls):
-        cls.PROCESS.terminate()
+        TestJsonSchema.PROCESS.terminate()
 
     def test_jsonschema(self):
         with open(DEFAULT_SCHEMA) as fd:

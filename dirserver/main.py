@@ -9,6 +9,7 @@ API server for Bring Your Own Data and Algorithms
 import os
 import sys
 import yaml
+import asyncio
 import uvicorn
 
 from byoda.util.fastapi import setup_api
@@ -26,38 +27,46 @@ from .routers import member
 
 _LOGGER = None
 
-with open('config.yml') as file_desc:
-    app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
-
-debug = app_config['application']['debug']
-verbose = not debug
-_LOGGER = Logger.getLogger(
-    sys.argv[0], debug=debug, verbose=verbose,
-    logfile=app_config['dirserver'].get('logfile')
-)
-
-network = Network(
-    app_config['dirserver'], app_config['application']
-)
-
-server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
-config.server = server
-
-server.get_registered_services()
-server.load_secrets()
-
-if not os.environ.get('SERVER_NAME') and config.server.network.name:
-    os.environ['SERVER_NAME'] = config.server.network.name
-
-app = setup_api(
-    'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', app_config, [], [account, service, member]
-)
+APP = None
 
 
-@app.get('/api/v1/status')
+async def main():
+    with open('config.yml') as file_desc:
+        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+    debug = app_config['application']['debug']
+    verbose = not debug
+    global _LOGGER
+    _LOGGER = Logger.getLogger(
+        sys.argv[0], debug=debug, verbose=verbose,
+        logfile=app_config['dirserver'].get('logfile')
+    )
+
+    network = Network(
+        app_config['dirserver'], app_config['application']
+    )
+    await network.load_network_secrets()
+    server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
+    config.server = server
+
+    server.get_registered_services()
+    await server.load_secrets()
+
+    if not os.environ.get('SERVER_NAME') and config.server.network.name:
+        os.environ['SERVER_NAME'] = config.server.network.name
+
+    global APP
+    APP = setup_api(
+        'BYODA directory server', 'The directory server for a BYODA network',
+        'v0.0.1', app_config, [], [account, service, member]
+    )
+    uvicorn.run(APP, host="127.0.0.1", port=8000)
+
+
+@APP.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
 
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    asyncio.run(main())

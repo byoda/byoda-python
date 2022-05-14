@@ -76,8 +76,8 @@ server.get_registered_services()
 # account_id environment variable?
 pod_account = Account(network_data['account_id'], network)
 pod_account.password = network_data.get('account_secret')
-pod_account.tls_secret.load(password=pod_account.private_key_password)
-pod_account.data_secret.load(password=pod_account.private_key_password)
+await pod_account.tls_secret.load(password=pod_account.private_key_password)
+await pod_account.data_secret.load(password=pod_account.private_key_password)
 pod_account.register()
 
 server.account = pod_account

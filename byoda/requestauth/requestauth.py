@@ -537,7 +537,7 @@ class RequestAuth:
 
             secret = unverified._get_issuer_secret()
             if not secret.cert:
-                secret.load(with_private_key=False)
+                await secret.load(with_private_key=False)
         except ExpiredSignatureError:
             raise HTTPException(
                 status_code=401, detail='JWT has expired'

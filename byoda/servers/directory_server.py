@@ -42,7 +42,7 @@ class DirectoryServer(Server):
 
         self.network.load_secrets()
 
-    def get_registered_services(self):
+    async def get_registered_services(self):
         '''
         Get the list of registered services in the network by
         scanning the directory tree. Add the services to the
@@ -77,6 +77,7 @@ class DirectoryServer(Server):
             if service.paths.exists(service_file):
                 service.load_schema(service_file)
             else:
-                service.registration_status = service.get_registration_status()
+                service.registration_status = \
+                    await service.get_registration_status()
 
             _LOGGER.debug(f'Loaded service {service_id}')

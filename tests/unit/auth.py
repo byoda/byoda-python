@@ -54,9 +54,8 @@ def get_test_uuid() -> UUID:
     return id
 
 
-class TestAccountManager(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
+class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+    def asyncSetUp(self):
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -103,7 +102,7 @@ class TestAccountManager(unittest.TestCase):
         member_id = get_test_uuid()
         pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
 
-    def test_jwt(self):
+    async def test_jwt(self):
         #
         # Test the python JWT module instead of our code so that we can confirm
         # that any regressions come from our code
@@ -133,7 +132,7 @@ class TestAccountManager(unittest.TestCase):
             'private/network-byoda.net-account-pod.key',
             config.server.document_store.backend
         )
-        secret.load()
+        await secret.load()
 
         server: PodServer = config.server
         account: Account = server.account

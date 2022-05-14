@@ -93,17 +93,18 @@ class Account:
         self.memberships: Dict[int, Member] = dict()
         self.load_memberships()
 
-    def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
         Creates the account secret and data secret if they do not already
         exist
         '''
 
-        self.create_account_secret(accounts_ca)
-        self.create_data_secret(accounts_ca)
+        await self.create_account_secret(accounts_ca)
+        await self.create_data_secret(accounts_ca)
 
-    def create_account_secret(self,
-                              accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_account_secret(self,
+                                    accounts_ca: NetworkAccountsCaSecret
+                                    = None):
         '''
         Creates the TLS secret for an account. TODO: create Let's Encrypt
         cert
@@ -118,11 +119,11 @@ class Account:
             _LOGGER.info(
                 f'Creating account secret {self.tls_secret.cert_file}'
             )
-            self.tls_secret = self._create_secret(
+            self.tls_secret = await self._create_secret(
                 AccountSecret, accounts_ca
             )
 
-    def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -137,12 +138,12 @@ class Account:
             _LOGGER.info(
                 f'Creating account data secret {self.data_secret.cert_file}'
             )
-            self.data_secret = self._create_secret(
+            self.data_secret = await self._create_secret(
                 AccountDataSecret, accounts_ca
             )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
-                       ) -> Secret:
+    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+                             ) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -201,11 +202,11 @@ class Account:
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
 
-        secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password)
 
         return secret
 
-    def load_secrets(self):
+    async def load_secrets(self):
         '''
         Loads the secrets for the account
         '''
@@ -213,11 +214,12 @@ class Account:
         self.tls_secret = AccountSecret(
             self.account, self.account_id, self.network
         )
-        self.tls_secret.load(password=self.private_key_password)
+        await self.tls_secret.load(password=self.private_key_password)
+
         self.data_secret = AccountDataSecret(
             self.account, self.account_id, self.network
         )
-        self.data_secret.load(password=self.private_key_password)
+        await self.data_secret.load(password=self.private_key_password)
 
     def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''
@@ -303,7 +305,7 @@ class Account:
 
         self.memberships[service_id] = member
 
-    def join(self, service_id: int, schema_version: int,
+    async def join(self, service_id: int, schema_version: int,
              members_ca: MembersCaSecret = None, member_id: UUID = None,
              local_service_contract: str = None
              ) -> Member:
@@ -331,7 +333,7 @@ class Account:
             filepath=local_service_contract
         )
 
-        member = Member.create(
+        member = await Member.create(
             service, schema_version, self, member_id=member_id,
             members_ca=members_ca,
             local_service_contract=local_service_contract

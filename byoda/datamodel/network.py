@@ -44,7 +44,7 @@ class Network:
     '''
     A BYODA social network
 
-    It supports the following use cases:
+    This class supports the following use cases:
     - An off-line server with access to the private key of the network
     signing CSRs of issuing CAs for accounts and services. I
     - A server acting as issuing CA, receiving API requests for signing
@@ -77,6 +77,26 @@ class Network:
         '''
 
         # TODO: continue reducing the length of this constructor
+
+        # Loading secrets for when operating as a directory server
+        self.accounts_ca: NetworkAccountsCaSecret = None
+        self.services_ca: NetworkServicesCaSecret = None
+        self.tls_secret: Secret = None
+
+        self.services: Dict[int: Service] = dict()
+        self.service_summaries: Dict[int:Dict] = dict()
+
+        # Secrets for a service must be loaded using SvcServer.load_secrets()
+        self.services_ca: ServiceCaSecret = None
+        self.tls_secret: ServiceSecret = None
+        self.member_ca: MembersCaSecret = None
+
+        # Loading secrets when operating as a pod
+        self.account_id = None
+        self.account_secret = None
+        self.member_secrets = set()
+        self.services = dict()
+        self.account = None
 
         self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
@@ -117,7 +137,6 @@ class Network:
         )
 
         # Everyone must at least have the root ca cert.
-        self.root_ca: NetworkRootCaSecret = None
         if root_ca:
             self.root_ca: NetworkRootCaSecret = root_ca
         else:
@@ -125,76 +144,8 @@ class Network:
 
         self.data_secret: NetworkDataSecret = NetworkDataSecret(self.paths)
 
-        if ServerRole.RootCa in self.roles:
-            self.root_ca.load(
-                with_private_key=True, password=self.private_key_password
-            )
-            self.data_secret.load(
-                with_private_key=True, password=self.private_key_password
-            )
-        elif ServerRole.Test in self.roles:
-            self.data_secret = Network._create_secret(
-                self.name, NetworkDataSecret, self.root_ca, self.paths,
-                self.private_key_password
-            )
-
-        else:
-            if not self.root_ca.cert:
-                try:
-                    self.root_ca.load(with_private_key=False)
-                except FileNotFoundError:
-                    _LOGGER.debug(
-                        'Did not find cert for network root CA, downloading it'
-                    )
-                    resp = ApiClient.call(
-                        Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
-                    )
-                    if resp.status_code != 200:
-                        raise ValueError(
-                            'No network cert available locally or from the '
-                            'network'
-                        )
-                    _LOGGER.debug('Downloaded cert for Network root CA')
-                    self.root_ca.from_string(resp.text)
-                    self.root_ca.save()
-
-            if not self.data_secret.cert:
-                try:
-                    self.data_secret.load(with_private_key=False)
-                except FileNotFoundError:
-                    resp = ApiClient.call(
-                        Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
-                    )
-                    if resp.status_code != 200:
-                        raise ValueError(
-                            'No network cert available locally or from the '
-                            'network'
-                        )
-                    self.data_secret.from_string(resp.text)
-                    self.data_secret.save()
-
-        # Loading secrets for when operating as a directory server
-        self.accounts_ca: NetworkAccountsCaSecret = None
-        self.services_ca: NetworkServicesCaSecret = None
-        self.tls_secret: Secret = None
-
-        self.services: Dict[int: Service] = dict()
-        self.service_summaries: Dict[int:Dict] = dict()
-
-        # Secrets for a service must be loaded using SvcServer.load_secrets()
-        self.services_ca: ServiceCaSecret = None
-        self.tls_secret: ServiceSecret = None
-        self.member_ca: MembersCaSecret = None
-
-        # Loading secrets when operating as a pod
-        self.account_id = None
-        self.account_secret = None
-        self.member_secrets = set()
-        self.services = dict()
-        self.account = None
-
     @staticmethod
-    def create(network_name: str, root_dir: str, password: str):
+    async def create(network_name: str, root_dir: str, password: str):
         '''
         Factory for creating a new Byoda network and its secrets.
 
@@ -213,21 +164,21 @@ class Network:
 
         paths = Paths(network=network_name, root_directory=root_dir)
 
-        if not paths.network_directory_exists():
+        if not await paths.network_directory_exists():
             paths.create_network_directory()
 
-        if not paths.secrets_directory_exists():
-            paths.create_secrets_directory()
+        if not await paths.secrets_directory_exists():
+            await paths.create_secrets_directory()
 
         # Create root CA
         root_ca = NetworkRootCaSecret(paths=paths)
 
         if root_ca.cert_file_exists():
-            root_ca.load(with_private_key=True, password=password)
+            await root_ca.load(with_private_key=True, password=password)
         else:
             root_ca.create(expire=100*365)
             root_ca_password = passgen.passgen(length=48)
-            root_ca.save(password=root_ca_password)
+            await root_ca.save(password=root_ca_password)
             _LOGGER.info(
                 f'!!! Saving root CA using password {root_ca_password}'
             )
@@ -260,7 +211,7 @@ class Network:
         return network
 
     @staticmethod
-    def _create_secret(network: str, secret_cls: Callable, issuing_ca: Secret,
+    async def _create_secret(network: str, secret_cls: Callable, issuing_ca: Secret,
                        paths: Paths, password: str):
         '''
         Abstraction helper for creating secrets for a Network to avoid
@@ -286,7 +237,7 @@ class Network:
         secret = secret_cls(paths=paths)
 
         if secret.cert_file_exists():
-            secret.load(password=password)
+            await secret.load(password=password)
             return secret
 
         # TODO: SECURITY: add constraints
@@ -298,25 +249,73 @@ class Network:
 
         return secret
 
-    def load_secrets(self) -> None:
+    async def load_secrets(self) -> None:
         '''
         Loads the secrets of the network, except for the root CA
         '''
 
         self.accounts_ca = NetworkAccountsCaSecret(self.paths)
-        self.accounts_ca.load(
+        await self.accounts_ca.load(
             with_private_key=True, password=self.private_key_password
         )
         self.services_ca = NetworkServicesCaSecret(self.paths)
-        self.services_ca.load(
+        await self.services_ca.load(
             with_private_key=True, password=self.private_key_password
         )
         self.data_secret = NetworkDataSecret(self.paths)
-        self.data_secret.load(
+        await self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
 
-    def add_service(self, service_id: int,
+    async def load_network_secrets(self):
+        if ServerRole.RootCa in self.roles:
+            await self.root_ca.load(
+                with_private_key=True, password=self.private_key_password
+            )
+            await self.data_secret.load(
+                with_private_key=True, password=self.private_key_password
+            )
+        elif ServerRole.Test in self.roles:
+            self.data_secret = Network._create_secret(
+                self.name, NetworkDataSecret, self.root_ca, self.paths,
+                self.private_key_password
+            )
+        else:
+            if not self.root_ca.cert:
+                try:
+                    await self.root_ca.load(with_private_key=False)
+                except FileNotFoundError:
+                    _LOGGER.debug(
+                        'Did not find cert for network root CA, downloading it'
+                    )
+                    resp = ApiClient.call(
+                        Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
+                    )
+                    if resp.status_code != 200:
+                        raise ValueError(
+                            'No network cert available locally or from the '
+                            'network'
+                        )
+                    _LOGGER.debug('Downloaded cert for Network root CA')
+                    self.root_ca.from_string(resp.text)
+                    await self.root_ca.save()
+
+            if not self.data_secret.cert:
+                try:
+                    await self.data_secret.load(with_private_key=False)
+                except FileNotFoundError:
+                    resp = ApiClient.call(
+                        Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
+                    )
+                    if resp.status_code != 200:
+                        raise ValueError(
+                            'No network cert available locally or from the '
+                            'network'
+                        )
+                    self.data_secret.from_string(resp.text)
+                    await self.data_secret.save()
+
+    async def add_service(self, service_id: int,
                     registration_status: RegistrationStatus = None) -> Service:
         '''
         Adds a service to the in-memory list of known services. No exception
@@ -339,6 +338,6 @@ class Network:
             service.registration_status = \
                 registration_status
         else:
-            service.registration_status = service.get_registration_status()
+            service.registration_status = await service.get_registration_status()
 
         return service

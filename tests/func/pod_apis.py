@@ -55,6 +55,8 @@ BASE_URL = 'http://localhost:{PORT}/api'
 
 _LOGGER = None
 
+POD_ACCOUNT: Account = None
+
 ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
 
@@ -134,12 +136,11 @@ mutation {{
 '''
 
 
-class TestDirectoryApis(unittest.TestCase):
+class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -162,6 +163,7 @@ class TestDirectoryApis(unittest.TestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+        await network.load_network_secrets()
 
         config.test_case = True
 
@@ -195,13 +197,14 @@ class TestDirectoryApis(unittest.TestCase):
             for service in server.network.service_summaries.values()
             if service['name'] == 'addressbook'
         ][0]
+
         global ADDRESSBOOK_SERVICE_ID
         ADDRESSBOOK_SERVICE_ID = service['service_id']
         global ADDRESSBOOK_VERSION
         ADDRESSBOOK_VERSION = service['version']
 
         member_id = get_test_uuid()
-        pod_account.join(
+        await pod_account.join(
             ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
             local_service_contract='addressbook.json'
         )
@@ -216,17 +219,17 @@ class TestDirectoryApis(unittest.TestCase):
             account_member.enable_graphql_api(app)
             account_member.update_registration()
 
-        cls.PROCESS = Process(
+        TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
                 'host': '0.0.0.0',
-                'port': server.HTTP_PORT,
+                'port': config.server.HTTP_PORT,
                 'log_level': 'debug'
             },
             daemon=True
         )
-        cls.PROCESS.start()
+        TestDirectoryApis.PROCESS.start()
         time.sleep(3)
 
     @classmethod
@@ -679,5 +682,4 @@ class TestDirectoryApis(unittest.TestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
     unittest.main()
