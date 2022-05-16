@@ -90,7 +90,7 @@ async def main():
         f'{service.paths.root_directory}/{service.network.root_ca.cert_file}'
     )
 
-    if not service.paths.service_file_exists(service.service_id):
+    if not await service.paths.service_file_exists(service.service_id):
         service.download_schema(save=True)
 
     await server.load_schema(verify_contract_signatures=False)

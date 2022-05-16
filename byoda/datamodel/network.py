@@ -246,7 +246,7 @@ class Network:
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
         secret.from_signed_cert(certchain)
-        secret.save(password=password)
+        await secret.save(password=password)
 
         return secret
 

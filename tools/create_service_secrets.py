@@ -81,7 +81,7 @@ async def main(argv):
 
     service = Service(network=network)
     if args.schema:
-            service.examine_servicecontract(args.schema)
+        await service.examine_servicecontract(args.schema)
 
     await service.create_secrets(
         network.services_ca, password=args.password, local=False

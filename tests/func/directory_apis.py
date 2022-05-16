@@ -247,7 +247,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_csr = service_secret.create_csr()
         certchain = serviceca_secret.sign_csr(service_csr)
         service_secret.from_signed_cert(certchain)
-        service_secret.save()
+        await service_secret.save()
 
         service_cn = Secret.extract_commonname(certchain.signed_cert)
         serviceca_cn = Secret.extract_commonname(serviceca_cert)
@@ -261,7 +261,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_data_csr = service_data_secret.create_csr()
         data_certchain = serviceca_secret.sign_csr(service_data_csr)
         service_data_secret.from_signed_cert(data_certchain)
-        service_data_secret.save()
+        await service_data_secret.save()
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',

@@ -161,9 +161,9 @@ class Service:
                 'verify_signatures should only be False for test cases'
             )
 
-        service = Service(network=network, filepath=filepath)
+        service = Service(network=network)
         if filepath:
-            service.examine_servicecontract(filepath)
+            await service.examine_servicecontract(filepath)
 
         if verify_signatures:
             await service.load_data_secret(with_private_key, password)
@@ -220,7 +220,7 @@ class Service:
         )
 
         if verify_contract_signatures:
-            self.verify_schema_signatures()
+            await self.verify_schema_signatures()
             self.registration_status = RegistrationStatus.SchemaSigned
 
     async def save_schema(self, data: str, filepath: str = None):
@@ -459,7 +459,7 @@ class Service:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-            secret.save(password=private_key_password, overwrite=False)
+            await secret.save(password=private_key_password, overwrite=False)
             # We do not set self.registration_status as locally signing
             # does not provide information about the status of service in
             # the network
@@ -490,7 +490,7 @@ class Service:
         data = response.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
         self.registration_status = RegistrationStatus.CsrSigned
-        secret.save(password=private_key_password, overwrite=False)
+        await secret.save(password=private_key_password, overwrite=False)
 
         # Every time we receive the network data cert, we
         # save it as it could have changed since the last time we
@@ -547,7 +547,7 @@ class Service:
         server = config.server
 
         if not self.schema:
-            if self.schema_file_exists():
+            if await self.schema_file_exists():
                 if not self.data_secret or not self.data_secret.cert():
                     await self.load_data_secret(
                         with_private_key=False, password=None
@@ -580,7 +580,7 @@ class Service:
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
             if await self.service_ca.cert_file_exists():
-                if self.service_ca.private_key_file_exists():
+                if await self.service_ca.private_key_file_exists():
                     # We must be running on a ServiceServer
                     await self.service_ca.load(
                         with_private_key=True, password=self.private_key_password

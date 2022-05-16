@@ -92,7 +92,7 @@ async def main():
     await pod_account.data_secret.load(
         password=pod_account.private_key_password
     )
-    pod_account.register()
+    await pod_account.register()
 
     server.account = pod_account
 

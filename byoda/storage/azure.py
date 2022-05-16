@@ -74,11 +74,11 @@ class AzureFileStorage(FileStorage):
             ),
         }
 
-        if not self.clients[StorageType.PRIVATE.value].exists():
-            self.clients[StorageType.PRIVATE.value].create_container()
+        if not await self.clients[StorageType.PRIVATE.value].exists():
+            await self.clients[StorageType.PRIVATE.value].create_container()
 
-        if not self.clients[StorageType.PUBLIC.value].exists():
-            self.clients[StorageType.PUBLIC.value].create_container()
+        if not await self.clients[StorageType.PUBLIC.value].exists():
+            await self.clients[StorageType.PUBLIC.value].create_container()
 
         _LOGGER.debug(
             'Initialized Azure Blob SDK for buckets '

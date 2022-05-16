@@ -122,7 +122,7 @@ async def load_service(args, network: Network, password: str):
     Load service and its secrets
     '''
     service = Service(network=network)
-    service.examine_servicecontract(args.contract)
+    await service.examine_servicecontract(args.contract)
 
     await service.load_schema(args.contract, verify_contract_signatures=False)
     if not args.signing_party or args.signing_party == 'service':

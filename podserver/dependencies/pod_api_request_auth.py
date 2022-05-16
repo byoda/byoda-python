@@ -68,7 +68,7 @@ class PodApiRequestAuth(RequestAuth):
 
     async def auth(self):
         try:
-            super().auth(
+            await super().auth(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,

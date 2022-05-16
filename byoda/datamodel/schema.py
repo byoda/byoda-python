@@ -136,7 +136,7 @@ class Schema:
         schema.service_data_secret = service_data_secret
         schema.network_data_secret = network_data_secret
 
-        await schema.load(
+        schema.load(
             verify_contract_signatures=verify_contract_signatures
         )
 
@@ -150,7 +150,7 @@ class Schema:
 
         return json.dumps(self.json_schema, sort_keys=True, indent=4)
 
-    def load(self, verify_contract_signatures: bool = True):
+    def load(self, verify_contract_signatures: bool = True) -> None:
         '''
         Load a schema from a dict
         '''

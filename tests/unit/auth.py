@@ -99,9 +99,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         server.account = pod_account
 
-        pod_account.create_account_secret()
-        pod_account.create_data_secret()
-        pod_account.register()
+        await pod_account.create_account_secret()
+        await pod_account.create_data_secret()
+        await pod_account.register()
 
         server.get_registered_services()
 

@@ -13,8 +13,8 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
-import time
 import shutil
+import asyncio
 import unittest
 import requests
 from requests.auth import HTTPBasicAuth
@@ -234,10 +234,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        time.sleep(3)
+        asyncio.sleep(1)
 
     @classmethod
-    def tearDownClass(cls):
+    async def asyncTearDown(self):
         TestDirectoryApis.PROCESS.terminate()
 
     def test_pod_rest_api_tls_client_cert(self):

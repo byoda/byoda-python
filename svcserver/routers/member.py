@@ -167,10 +167,10 @@ def post_member(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/member/version/{schema_version}',
             response_model=IpAddressResponseModel)
-def put_member(request: Request, schema_version: int,
-               certchain: CertChainRequestModel,
-               auth: MemberRequestAuthFast = Depends(
-                   MemberRequestAuthFast)):
+async def put_member(request: Request, schema_version: int,
+                     certchain: CertChainRequestModel,
+                     auth: MemberRequestAuthFast = Depends(
+                        MemberRequestAuthFast)):
     '''
     Registers a known pod with its IP address and its data cert
     '''
@@ -205,7 +205,7 @@ def put_member(request: Request, schema_version: int,
     # from_string() concats the cert and the certchain together
     # so we can use it here with just providing the certchain parameter
     member_data_secret.from_string(certchain.certchain)
-    member_data_secret.save(overwrite=True)
+    await member_data_secret.save(overwrite=True)
 
     config.server.member_db.add_meta(
         auth.member_id, auth.remote_addr, schema_version, certchain.certchain,

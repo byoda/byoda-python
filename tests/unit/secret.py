@@ -71,7 +71,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         target_schema = target_dir + '/service-contract.json'
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
         service = Service(network=network)
-        service.examine_servicecontract(target_schema)
+        await service.examine_servicecontract(target_schema)
         service.create_secrets(network.services_ca, local=True)
 
         service.service_ca.validate(network.root_ca, with_openssl=True)

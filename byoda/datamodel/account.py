@@ -330,12 +330,10 @@ class Account:
             )
 
         service_id = int(service_id)
-        service = Service(
-            service_id=service_id, network=self.network,
-        )
 
+        service = Service(service_id=service_id, network=self.network)
         if local_service_contract:
-            service.examine_servicecontract(local_service_contract)
+            await service.examine_servicecontract(local_service_contract)
 
         member = await Member.create(
             service, schema_version, self, member_id=member_id,

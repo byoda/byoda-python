@@ -626,7 +626,7 @@ class Secret:
                 f'already exists at {self.cert_file}'
             )
         if (not overwrite and self.private_key
-                and self.storage_driver.exists(self.private_key_file)):
+                and await self.storage_driver.exists(self.private_key_file)):
             raise PermissionError(
                 f'Can not save the private key because the key already '
                 f'exists at {self.private_key_file}'

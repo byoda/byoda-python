@@ -105,7 +105,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             network=network, service_id=app_config['svcserver']['service_id']
         )
         if service_file:
-            service.examine_servicecontract(service_file)
+            await service.examine_servicecontract(service_file)
 
         await svc.create_secrets(
             network.services_ca, local=True,

@@ -122,12 +122,12 @@ class Member:
                 verify_signatures = True
 
             try:
-                self.service = Service.get_service(
+                self.service = await Service.get_service(
                     self.network, filepath=filepath,
                     verify_signatures=verify_signatures
                 )
                 if not local_service_contract:
-                    self.service.verify_schema_signatures()
+                    await self.service.verify_schema_signatures()
             except FileNotFoundError:
                 # if the service contract is not yet available for
                 # this membership then it should be downloaded at
@@ -237,7 +237,7 @@ class Member:
         else:
             member.member_id = uuid4()
 
-        if not member.paths.exists(member.paths.SERVICE_FILE):
+        if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
         # TODO: make this more user-friendly by attempting to download
@@ -342,7 +342,9 @@ class Member:
             )
             self.member_id = self.tls_secret.member_id
         else:
-            self.tls_secret = await self._create_secret(MemberSecret, members_ca)
+            self.tls_secret = await self._create_secret(
+                MemberSecret, members_ca
+            )
 
         if self.data_secret and await self.data_secret.cert_file_exists():
             self.data_secret = MemberDataSecret(
@@ -353,7 +355,7 @@ class Member:
 
             )
         else:
-            self.data_secret = self._create_secret(
+            self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )
 
@@ -386,7 +388,7 @@ class Member:
                 f'member {self.member_id} already exists'
             )
 
-        if secret.private_key_file_exists():
+        if await secret.private_key_file_exists():
             raise ValueError(
                 f'Private key for {type(secret)} for service {self.service_id}'
                 f' and member {self.member_id} already exists'
@@ -401,14 +403,14 @@ class Member:
             else:
                 # Get the CSR signed, the resulting cert saved to disk
                 # and used to register with both the network and the service
-                self.register(secret)
+                await self.register(secret)
 
         else:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-            secret.save(password=self.private_key_password)
+            await secret.save(password=self.private_key_password)
 
         return secret
 
@@ -448,7 +450,7 @@ class Member:
 
         return jwt
 
-    def register(self, secret) -> None:
+    async def register(self, secret) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service. The pod will requests the service to sign its TLS CSR
@@ -470,7 +472,7 @@ class Member:
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
         )
-        secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password)
 
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
@@ -538,7 +540,7 @@ class Member:
             raise FileNotFoundError(filepath)
 
         if verify_signatures:
-            self.verify_schema_signatures(schema)
+            await self.verify_schema_signatures(schema)
 
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
