@@ -284,7 +284,7 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM)
 
-    def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
+    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
         Gets the cert signed and adds the signed cert to the secret
 
@@ -298,7 +298,7 @@ class Secret:
             f'Getting CSR with common name {self.common_name} signed'
         )
         self.from_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
-        self.save(password=self.password)
+        await self.save(password=self.password)
 
     def from_signed_cert(self, cert_chain: CertChain):
         '''

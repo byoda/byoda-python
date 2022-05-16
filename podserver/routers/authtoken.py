@@ -62,7 +62,7 @@ async def get_member_authtoken(request: Request, service_id: int,
         )
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
 
     member: Member = account.memberships.get(service_id)
 

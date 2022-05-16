@@ -114,7 +114,7 @@ async def main(argv):
     storage_driver = FileStorage(root_dir)
     filepath = service.paths.get(Paths.SERVICE_FILE)
     _LOGGER.debug(f'Saving signed schema to {filepath}')
-    service.schema.save(filepath, storage_driver=storage_driver)
+    await service.schema.save(filepath, storage_driver=storage_driver)
 
 
 async def load_service(args, network: Network, password: str):

@@ -429,7 +429,7 @@ class Service:
 
         # TODO: SECURITY: add constraints
         csr = secret.create_csr()
-        self.get_csr_signature(
+        await self.get_csr_signature(
             secret, csr, issuing_ca, private_key_password=private_key_password
         )
 

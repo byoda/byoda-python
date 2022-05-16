@@ -60,6 +60,8 @@ POD_ACCOUNT: Account = None
 ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
 
+EVENTS = []
+
 PERSON_QUERY = '''
 query {
     person {
@@ -141,6 +143,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
+        EVENTS.append('asyncSetUp')
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -234,10 +237,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        asyncio.sleep(1)
+        await asyncio.sleep(1)
 
     @classmethod
     async def asyncTearDown(self):
+        EVENTS.append('asyncSetUp')
+
         TestDirectoryApis.PROCESS.terminate()
 
     def test_pod_rest_api_tls_client_cert(self):
@@ -320,6 +325,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 409)
 
     def test_pod_rest_api_jwt(self):
+
         account = config.server.account
         account_id = account.account_id
 
@@ -687,3 +693,4 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()
+    print(', '.join(EVENTS))

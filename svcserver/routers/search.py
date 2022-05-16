@@ -55,7 +55,7 @@ router = APIRouter(
 
 
 @router.get('/search/{email}', response_model=PersonResponseModel)
-def search(request: Request, email: str,
+async def search(request: Request, email: str,
            auth: MemberRequestAuthFast = Depends(MemberRequestAuthFast)):
     '''
     Search a member of the service based on the exact match of the
@@ -82,7 +82,7 @@ def search(request: Request, email: str,
         f'found {member_id}'
     )
 
-    data = member_db.get_data(UUID(member_id))
+    data = await member_db.get_data(UUID(member_id))
 
     data['member_id'] = member_id
 

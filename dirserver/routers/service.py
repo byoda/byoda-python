@@ -160,7 +160,7 @@ async def get_service(request: Request, service_id: int):
 @router.post(
     '/service', response_model=SignedServiceCertResponseModel, status_code=201
 )
-def post_service(request: Request, csr: CertSigningRequestModel,
+async def post_service(request: Request, csr: CertSigningRequestModel,
                  auth: ServiceRequestOptionalAuthFast =
                  Depends(ServiceRequestOptionalAuthFast)):
     '''
@@ -262,7 +262,7 @@ def post_service(request: Request, csr: CertSigningRequestModel,
     # If someone else already registered a Service then saving the cert will
     # raise an exception
     try:
-        service.service_ca.save(overwrite=False)
+        await service.service_ca.save(overwrite=False)
     except PermissionError:
         raise HTTPException(409, 'Service CA certificate already exists')
 
@@ -286,7 +286,7 @@ def post_service(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/service/service_id/{service_id}',
             response_model=IpAddressResponseModel)
-def put_service(request: Request, service_id: int,
+async def put_service(request: Request, service_id: int,
                 certchain: CertChainRequestModel,
                 auth: ServiceRequestAuthFast = Depends(
                     ServiceRequestAuthFast)):
@@ -326,7 +326,7 @@ def put_service(request: Request, service_id: int,
 
     service.data_secret.from_string(certchain.certchain)
 
-    service.data_secret.save(overwrite=True)
+    await service.data_secret.save(overwrite=True)
 
     _LOGGER.debug(
         f'Updating registration for service id {service_id} with remote'

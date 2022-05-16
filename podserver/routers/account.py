@@ -61,7 +61,7 @@ async def get_account(request: Request,
 
     root_directory = account.paths.root_directory
 
-    account.load_memberships()
+    await account.load_memberships()
 
     services = []
     for service in network.service_summaries.values():

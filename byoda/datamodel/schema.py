@@ -188,13 +188,13 @@ class Schema:
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
-    def save(self, filepath: str, storage_driver: FileStorage):
+    async def save(self, filepath: str, storage_driver: FileStorage):
         '''
         Write a schema to a JSON file, ie. when an account becomes
         a member of the service that the schema belongs to
         '''
 
-        storage_driver.write(filepath, self.as_string())
+        await storage_driver.write(filepath, self.as_string())
 
     def create_signature(self, secret: DataSecret,
                          signature_type: SignatureType,

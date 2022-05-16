@@ -251,8 +251,8 @@ class RequestAuth:
             )
 
     @staticmethod
-    def authenticate_graphql_request(request: starlette.requests.Request,
-                                     service_id: int):
+    async def authenticate_graphql_request(request: starlette.requests.Request,
+                                           service_id: int):
         '''
         Wrapper for static RequestAuth.authenticate method. This method
         is invoked by the GraphQL APIs
@@ -260,7 +260,7 @@ class RequestAuth:
         :returns: An instance of RequestAuth
         '''
 
-        auth = RequestAuth.authenticate(
+        auth = await RequestAuth.authenticate(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
@@ -277,9 +277,10 @@ class RequestAuth:
         return auth
 
     @staticmethod
-    def authenticate(tls_status: TlsStatus,
-                     client_dn: str, issuing_ca_dn: str, authorization: str,
-                     remote_addr: IpAddress, method: HttpRequestMethod):
+    async def authenticate(tls_status: TlsStatus,
+                           client_dn: str, issuing_ca_dn: str,
+                           authorization: str, remote_addr: IpAddress,
+                           method: HttpRequestMethod):
         '''
         Authenticate a request based on incoming TLS headers or JWT
 
@@ -320,13 +321,13 @@ class RequestAuth:
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(remote_addr, method)
-            auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+            await auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
 
             _LOGGER.debug('Authentication for member %s', auth.member_id)
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(remote_addr, method)
-            auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+            await auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
 
             _LOGGER.debug('Authentication for service %s', auth.service_id)
         else:
@@ -552,7 +553,7 @@ class RequestAuth:
         try:
             unverified = JWT.decode(authorization, None, network.name)
 
-            secret = unverified._get_issuer_secret()
+            secret = await unverified._get_issuer_secret()
             if not secret.cert:
                 await secret.load(with_private_key=False)
         except ExpiredSignatureError:

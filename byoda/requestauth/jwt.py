@@ -158,7 +158,7 @@ class JWT:
 
         return jwt
 
-    def _get_issuer_secret(self) -> Secret:
+    async def _get_issuer_secret(self) -> Secret:
         '''
         Gets the secret for the account or member that issued the JWT so
         that the public key for the secret can be used to verify the
@@ -191,7 +191,7 @@ class JWT:
                 and self.service_id is not None):
             # We have a JWT signed by a member of a service and we are
             # running on a pod, let's get the secret for the membership
-            config.server.account.load_memberships()
+            await config.server.account.load_memberships()
             member = config.server.account.memberships.get(self.service_id)
             if member:
                 if member.member_id != self.issuer_id:

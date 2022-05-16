@@ -275,11 +275,11 @@ class Member:
         )
         member.data.initalize()
 
-        member.data.save_protected_shared_key()
+        await member.data.save_protected_shared_key()
         await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
-        member.schema.save(filepath, member.paths.storage_driver)
+        await member.schema.save(filepath, member.paths.storage_driver)
 
         return member
 
@@ -645,7 +645,7 @@ class Member:
         await self.data.save(data)
 
     @staticmethod
-    def get_data(service_id, info: Info, filters=None) -> Dict:
+    async def get_data(service_id, info: Info, filters=None) -> Dict:
         '''
         Extracts the requested data field.
 
@@ -669,7 +669,7 @@ class Member:
 
         server = config.server
         member = server.account.memberships[service_id]
-        member.load_data()
+        await member.load_data()
 
         data = member.data.get(info.path.key)
         if filters:
@@ -684,7 +684,7 @@ class Member:
         return data
 
     @staticmethod
-    def mutate_data(service_id, info: Info) -> None:
+    async def mutate_data(service_id, info: Info) -> None:
         '''
         Mutates the provided data
 
@@ -711,7 +711,7 @@ class Member:
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
-        member.load_data()
+        await member.load_data()
 
         # We do not modify existing data as it will need to be validated
         # by JSON Schema before it can be accepted.
@@ -756,11 +756,11 @@ class Member:
 
             member.data[class_object][key] = mutate_data[key]
 
-        member.save_data(data)
+        await member.save_data(data)
 
         return member.data
 
-    def append_data(service_id, info: Info) -> None:
+    async def append_data(service_id, info: Info) -> None:
         '''
         Appends the provided data
 
@@ -787,7 +787,7 @@ class Member:
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
-        member.load_data()
+        await member.load_data()
 
         # We do not modify existing data as it will need to be validated
         # by JSON Schema before it can be accepted.
@@ -809,12 +809,12 @@ class Member:
         # Strawberry passes us data that we can just copy as-is
         member.data[class_object].append(mutate_data)
 
-        member.save_data(data)
+        await member.save_data(data)
 
         return member.data
 
     @staticmethod
-    def delete_array_data(service_id: int, info: Info, filters) -> Dict:
+    async def delete_array_data(service_id: int, info: Info, filters) -> Dict:
         '''
         Deletes one or more objects from an array.
 
@@ -849,7 +849,7 @@ class Member:
 
         server = config.server
         member = server.account.memberships[service_id]
-        member.load_data()
+        await member.load_data()
 
         data = copy(member.data.get(class_object))
 
@@ -868,6 +868,6 @@ class Member:
 
         member.data[class_object] = data
 
-        member.save_data(member.data)
+        await member.save_data(member.data)
 
         return removed

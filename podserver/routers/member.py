@@ -52,7 +52,7 @@ async def get_member(request: Request, service_id: int,
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if not member:
@@ -125,7 +125,7 @@ async def put_member(request: Request, service_id: int, version: int,
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if not member:
