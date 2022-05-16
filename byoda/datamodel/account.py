@@ -88,12 +88,11 @@ class Account:
         self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
         self.paths.account_id = self.account_id
-        self.paths.create_account_directory()
 
         self.memberships: Dict[int, Member] = dict()
-        self.load_memberships()
 
-    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None
+                             ):
         '''
         Creates the account secret and data secret if they do not already
         exist
@@ -115,7 +114,7 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not self.tls_secret.cert_file_exists():
+        if not await self.tls_secret.cert_file_exists():
             _LOGGER.info(
                 f'Creating account secret {self.tls_secret.cert_file}'
             )
@@ -123,7 +122,8 @@ class Account:
                 AccountSecret, accounts_ca
             )
 
-    async def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_data_secret(self,
+                                 accounts_ca: NetworkAccountsCaSecret = None):
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -133,7 +133,7 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if (not self.data_secret.cert_file_exists()
+        if (not await self.data_secret.cert_file_exists()
                 or not self.data_secret.cert):
             _LOGGER.info(
                 f'Creating account data secret {self.data_secret.cert_file}'
@@ -163,13 +163,13 @@ class Account:
             self.account, self.account_id, network=self.network
         )
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             raise ValueError(
                 f'Cert for {type(secret)} for account_id {self.account_id} '
                 'already exists'
             )
 
-        if secret.private_key_file_exists():
+        if await secret.private_key_file_exists():
             raise ValueError(
                 f'Private key for {type(secret)} for account_id '
                 f'{self.account_id} already exists'
@@ -233,7 +233,7 @@ class Account:
         )
         return jwt
 
-    def register(self):
+    async def register(self):
         '''
         Register the pod with the directory server of the network
         '''
@@ -280,7 +280,7 @@ class Account:
             if service_id not in self.memberships:
                 self.load_membership(service_id)
 
-    def load_membership(self, service_id: int) -> Member:
+    async def load_membership(self, service_id: int) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -292,7 +292,9 @@ class Account:
             )
 
         member = Member(service_id, self)
-        member.load_secrets()
+        await member.setup()
+
+        await member.load_secrets()
         member.data = MemberData(
             member, member.paths, member.document_store
         )
@@ -301,14 +303,14 @@ class Account:
             member.create_nginx_config()
 
         member.data.load_protected_shared_key()
-        member.load_data()
+        await member.load_data()
 
         self.memberships[service_id] = member
 
     async def join(self, service_id: int, schema_version: int,
-             members_ca: MembersCaSecret = None, member_id: UUID = None,
-             local_service_contract: str = None
-             ) -> Member:
+                   members_ca: MembersCaSecret = None, member_id: UUID = None,
+                   local_service_contract: str = None
+                   ) -> Member:
         '''
         Join a service for the first time
 
@@ -330,8 +332,10 @@ class Account:
         service_id = int(service_id)
         service = Service(
             service_id=service_id, network=self.network,
-            filepath=local_service_contract
         )
+
+        if local_service_contract:
+            service.examine_servicecontract(local_service_contract)
 
         member = await Member.create(
             service, schema_version, self, member_id=member_id,

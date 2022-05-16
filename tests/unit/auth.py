@@ -35,6 +35,8 @@ from byoda.servers.pod_server import PodServer
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType, IdType
 from byoda.datatypes import TlsStatus
+from byoda.datatypes import HttpRequestMethod
+
 
 from podserver.util import get_environment_vars
 
@@ -55,7 +57,7 @@ def get_test_uuid() -> UUID:
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    def asyncSetUp(self):
+    async def asyncSetUp(self):
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -77,6 +79,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+        await network.load_network_secrets()
 
         config.server = PodServer(network)
         server = config.server
@@ -91,6 +94,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         server.paths = network.paths
 
         pod_account = Account(network_data['account_id'], network)
+        await pod_account.paths.create_account_directory()
+        await pod_account.load_memberships()
+
         server.account = pod_account
 
         pod_account.create_account_secret()
@@ -154,8 +160,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         jwt = account.create_jwt()
 
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.auth(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -164,13 +171,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(request_auth.id_type, IdType.ACCOUNT)
 
-    def test_cert(self):
+    async def test_cert(self):
         # flake8: noqa=E501
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=accounts-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.auth(TlsStatus.SUCCESS, client_dn, ca_dn, None)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
@@ -182,9 +190,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=members-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
-
+        await request_auth.auth(TlsStatus.SUCCESS, client_dn, ca_dn, None)
 
 
 if __name__ == '__main__':

@@ -53,15 +53,26 @@ class PodApiRequestAuth(RequestAuth):
         :raises: HTTPExceptions 400, 401, 403
         '''
 
-        # Saveguard: only REST APIs for the POD can use class for
+        # Saveguard: only REST APIs for the POD can use this class for
         # authentication
         if request.url.path.startswith(GRAPHQL_API_URL_PREFIX):
             raise HTTPException(status_code=403, detail='Not a REST API call')
 
+        super().__init__(request.client.host, request.method)
+
+        self.service_id = service_id
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization = authorization
+
+    async def auth(self):
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, authorization, request.client.host
+            super().auth(
+                self.x_client_ssl_verify or TlsStatus.NONE,
+                self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca,
+                self.authorization
             )
         except MissingAuthInfo:
             raise HTTPException(

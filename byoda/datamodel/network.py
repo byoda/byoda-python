@@ -173,7 +173,7 @@ class Network:
         # Create root CA
         root_ca = NetworkRootCaSecret(paths=paths)
 
-        if root_ca.cert_file_exists():
+        if await root_ca.cert_file_exists():
             await root_ca.load(with_private_key=True, password=password)
         else:
             root_ca.create(expire=100*365)
@@ -188,20 +188,21 @@ class Network:
             'private_key_password': password, 'roles': ['test']
         }
         network = Network(network_data, network_data, root_ca)
+        await network.load_network_secrets()
 
         # Root CA, signs Accounts CA, Services CA and
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
         # as we use the Let's Encrypt cert for TLS termination
         if not network.data_secret or not network.data_secret.cert:
-            network.data_secret = Network._create_secret(
+            network.data_secret = await Network._create_secret(
                 network.name, NetworkDataSecret, root_ca, paths, password
             )
 
-        network.accounts_ca = Network._create_secret(
+        network.accounts_ca = await Network._create_secret(
             network.name, NetworkAccountsCaSecret, root_ca, paths, password
         )
 
-        network.services_ca = Network._create_secret(
+        network.services_ca = await Network._create_secret(
             network.name, NetworkServicesCaSecret, root_ca, paths, password
         )
 
@@ -211,8 +212,8 @@ class Network:
         return network
 
     @staticmethod
-    async def _create_secret(network: str, secret_cls: Callable, issuing_ca: Secret,
-                       paths: Paths, password: str):
+    async def _create_secret(network: str, secret_cls: Callable,
+                             issuing_ca: Secret, paths: Paths, password: str):
         '''
         Abstraction helper for creating secrets for a Network to avoid
         repetition of code for creating the various member secrets of the
@@ -236,7 +237,7 @@ class Network:
 
         secret = secret_cls(paths=paths)
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             await secret.load(password=password)
             return secret
 
@@ -276,7 +277,7 @@ class Network:
                 with_private_key=True, password=self.private_key_password
             )
         elif ServerRole.Test in self.roles:
-            self.data_secret = Network._create_secret(
+            self.data_secret = await Network._create_secret(
                 self.name, NetworkDataSecret, self.root_ca, self.paths,
                 self.private_key_password
             )
@@ -316,7 +317,8 @@ class Network:
                     await self.data_secret.save()
 
     async def add_service(self, service_id: int,
-                    registration_status: RegistrationStatus = None) -> Service:
+                          registration_status: RegistrationStatus = None
+                          ) -> Service:
         '''
         Adds a service to the in-memory list of known services. No exception
         will be thrown if the service is already known
@@ -335,9 +337,9 @@ class Network:
                 f'Setting service {service_id} to status '
                 f'{registration_status}'
             )
-            service.registration_status = \
-                registration_status
+            service.registration_status = registration_status
         else:
-            service.registration_status = await service.get_registration_status()
+            service.registration_status = \
+                await service.get_registration_status()
 
         return service

@@ -111,9 +111,35 @@ class RequestAuth:
     to the web application as client IP
     '''
 
-    def __init__(self, tls_status: TlsStatus,
-                 client_dn: str, issuing_ca_dn: str,
-                 authorization: str, remote_addr: IpAddress):
+    def __init__(self, remote_addr: IpAddress, method: HttpRequestMethod):
+        '''
+        constructor
+
+        :param remote_addr: IP address of the caller
+        '''
+
+        self.is_authenticated: bool = False
+        self.auth_source: AuthSource = AuthSource.NONE
+
+        self.remote_addr: IpAddress = remote_addr
+
+        self.method: HttpRequestMethod = method
+        self.id_type: IdType = None
+        self.client_cn: str = None
+        self.issuing_ca_cn: str = None
+        self.token: str = None
+        self.account_id: UUID = None
+        self.service_id: int = None
+        self.member_id: UUID = None
+        self.domain: str = None
+
+        self.tls_status: TlsStatus = None
+        self.client_dn: str = None
+        self.issuing_ca_dn: str = None
+        self.authorization: str = None
+
+    async def auth(self, tls_status: TlsStatus, client_dn: str,
+                   issuing_ca_dn: str, authorization: str):
         '''
         Get the authentication info for the client that made the API call.
         As long as either the TLS client cert or the JWT from the
@@ -129,59 +155,52 @@ class RequestAuth:
         :param client_dn: designated name of the presented client TLS cert
         :param issuing_ca_dn: designated name of the issuing CA for the
         presented TLS client cert
-        :param authorization: value of the Authorization header
-        information in the request for authentication
-        :returns: (n/a)
+        :returns: (none)
         :raises: MissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
         status code 400 or 401 if malformed authentication info was provided
+
+        Process the headers and if auth is 'required', throw
+        exceptions based on misformed DN/CN in certs
+
+        :param authorization: value of the Authorization header
+        information in the request for authentication
         '''
 
-        self.is_authenticated: bool = False
-        self.auth_source: AuthSource = AuthSource.NONE
-
-        self.remote_addr: IpAddress = remote_addr
-
-        self.id_type: IdType = None
-        self.client_cn: str = None
-        self.issuing_ca_cn: str = None
-        self.token: str = None
-        self.account_id: UUID = None
-        self.service_id: int = None
-        self.member_id: UUID = None
-        self.domain: str = None
-
-        #
-        # Process the headers and if auth is 'required', throw
-        # exceptions based on misformed DN/CN in certs
-        #
+        self.tls_status = tls_status
+        self.client_dn = client_dn
+        self.issuing_ca_dn = issuing_ca_dn
+        self.authorization = authorization
 
         error = 401
         detail = 'Missing authentication info'
-        if tls_status is None:
-            tls_status = TlsStatus.NONE
+        if self.tls_status is None:
+            self.tls_status = TlsStatus.NONE
         if isinstance(tls_status, str):
-            tls_status = TlsStatus(tls_status)
+            self.tls_status = TlsStatus(self.tls_status)
 
-        if tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS):
+        if self.tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS):
             raise HTTPException(
-                status_code=403, detail=f'Client TLS status is {tls_status}'
+                status_code=403,
+                detail=f'Client TLS status is {self.tls_status}'
             )
 
-        if tls_status == TlsStatus.NONE and not authorization:
+        if self.tls_status == TlsStatus.NONE and not self.authorization:
             raise MissingAuthInfo
 
         if client_dn:
             try:
-                self.authenticate_client_cert(client_dn, issuing_ca_dn)
+                self.authenticate_client_cert(
+                    self.client_dn, self.issuing_ca_dn
+                )
                 self.auth_source = AuthSource.CERT
                 return
             except HTTPException as exc:
                 error = exc.status_code
                 detail = exc.detail
 
-        if authorization:
-            self.authenticate_authorization_header(authorization)
+        if self.authorization:
+            await self.authenticate_authorization_header(self.authorization)
             self.auth_source = AuthSource.TOKEN
             return
 
@@ -300,17 +319,15 @@ class RequestAuth:
             )
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
-            auth = MemberRequestAuth(
-                tls_status, client_dn, issuing_ca_dn, authorization,
-                remote_addr, method
-            )
+            auth = MemberRequestAuth(remote_addr, method)
+            auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+
             _LOGGER.debug('Authentication for member %s', auth.member_id)
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
-            auth = ServiceRequestAuth(
-                tls_status, client_dn, issuing_ca_dn, authorization,
-                remote_addr, method
-            )
+            auth = ServiceRequestAuth(remote_addr, method)
+            auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+
             _LOGGER.debug('Authentication for service %s', auth.service_id)
         else:
             raise ValueError(
@@ -502,7 +519,7 @@ class RequestAuth:
 
         return idtype
 
-    def authenticate_authorization_header(self, authorization: str):
+    async def authenticate_authorization_header(self, authorization: str):
         '''
         Check the JWT in the value for the Authorization header.
 

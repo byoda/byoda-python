@@ -12,7 +12,6 @@ the service
 import os
 import sys
 import yaml
-import time
 import asyncio
 from datetime import datetime, timedelta, timezone
 
@@ -67,7 +66,9 @@ async def main():
         MAX_WAIT = 10
 
     server = ServiceServer(app_config)
-    server.load_secrets(
+    await server.load_network_secrets()
+
+    await server.load_secrets(
         password=app_config['svcserver']['private_key_password']
     )
     config.server = server

@@ -28,7 +28,6 @@ from typing import Dict
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 from byoda.datatypes import CloudType
 
@@ -90,11 +89,15 @@ async def run_bootstrap_tasks(data: Dict):
     )
 
     network = Network(data, data)
+    await network.load_network_secrets()
 
     server.network = network
     server.paths = network.paths
 
     account = Account(data['account_id'], network)
+    await account.paths.create_account_directory()
+    await account.load_memberships()
+
     server.account = account
 
     _LOGGER.debug('Running bootstrap tasks')

@@ -620,7 +620,7 @@ class Secret:
         already exist and overwrite == False
         '''
 
-        if not overwrite and self.storage_driver.exists(self.cert_file):
+        if not overwrite and await self.storage_driver.exists(self.cert_file):
             raise PermissionError(
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
@@ -652,7 +652,7 @@ class Secret:
                 )
             )
 
-            self.storage_driver.write(
+            await self.storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
             )

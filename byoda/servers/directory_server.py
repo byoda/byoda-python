@@ -74,8 +74,8 @@ class DirectoryServer(Server):
             service = network.add_service(service_id)
 
             service_file = service.paths.get(Paths.SERVICE_FILE)
-            if service.paths.exists(service_file):
-                service.load_schema(service_file)
+            if await service.paths.exists(service_file):
+                await service.load_schema(service_file)
             else:
                 service.registration_status = \
                     await service.get_registration_status()

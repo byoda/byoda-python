@@ -142,13 +142,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
         self.assertEqual(data['ipv6_address'], None)
 
-    def test_network_account_post(self):
+    async def test_network_account_post(self):
         API = BASE_URL + '/v1/network/account'
 
         network = Network(
             TestDirectoryApis.APP_CONFIG['dirserver'],
             TestDirectoryApis.APP_CONFIG['application']
         )
+        await network.load_network_secrets()
 
         uuid = uuid4()
         secret = AccountSecret(

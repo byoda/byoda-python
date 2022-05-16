@@ -70,7 +70,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         os.makedirs(TEST_DIR + target_dir)
         target_schema = target_dir + '/service-contract.json'
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
-        service = Service(network, target_schema)
+        service = Service(network=network)
+        service.examine_servicecontract(target_schema)
         service.create_secrets(network.services_ca, local=True)
 
         service.service_ca.validate(network.root_ca, with_openssl=True)
@@ -80,6 +81,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         account_id = uuid4()
         account = Account(account_id, network)
+        await account.paths.create_account_directory()
+        await account.load_memberships()
         await account.create_secrets(network.accounts_ca)
 
         account.tls_secret.validate(network.root_ca, with_openssl=True)
@@ -114,6 +117,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         #
         target_account_id = uuid4()
         target_account = Account(target_account_id, network, account='test')
+        await target_account.paths.create_account_directory()
+        await target_account.load_memberships()
         await target_account.create_secrets(network.accounts_ca)
 
         account.data_secret.create_shared_key(target_account.data_secret)

@@ -102,15 +102,18 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         shutil.copy(DUMMY_SCHEMA, TEST_DIR + '/' + service_file)
 
         svc = Service(
-            network, service_file,
-            app_config['svcserver']['service_id']
+            network=network, service_id=app_config['svcserver']['service_id']
         )
+        if service_file:
+            service.examine_servicecontract(service_file)
+
         await svc.create_secrets(
             network.services_ca, local=True,
             password=app_config['svcserver']['private_key_password']
         )
 
         config.server = ServiceServer(app_config)
+        await config.server.load_network_secrets()
 
         config.server.load_secrets(
             app_config['svcserver']['private_key_password']

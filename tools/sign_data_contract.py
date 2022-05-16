@@ -65,7 +65,9 @@ async def main(argv):
     )
 
     config.server = ServiceServer(app_config)
-    service = load_service(args, config.server.network, password)
+    await config.server.load_network_secrets()
+
+    service = await load_service(args, config.server.network, password)
 
     if not args.local:
         service.registration_status = await service.get_registration_status()
@@ -115,18 +117,18 @@ async def main(argv):
     service.schema.save(filepath, storage_driver=storage_driver)
 
 
-def load_service(args, network: Network, password: str):
+async def load_service(args, network: Network, password: str):
     '''
     Load service and its secrets
     '''
-    service = Service(
-        network=network, filepath=args.contract,
-    )
-    service.load_schema(args.contract, verify_contract_signatures=False)
+    service = Service(network=network)
+    service.examine_servicecontract(args.contract)
+
+    await service.load_schema(args.contract, verify_contract_signatures=False)
     if not args.signing_party or args.signing_party == 'service':
-        service.load_secrets(with_private_key=True, password=password)
+        await service.load_secrets(with_private_key=True, password=password)
     else:
-        service.load_secrets(with_private_key=False)
+        await service.load_secrets(with_private_key=False)
 
     return service
 

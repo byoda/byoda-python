@@ -183,12 +183,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         server.paths = network.paths
 
         pod_account = Account(network_data['account_id'], network)
+        await pod_account.paths.create_account_directory()
+        await pod_account.load_memberships()
+
         server.account = pod_account
+
         pod_account.password = os.environ['ACCOUNT_SECRET']
 
-        pod_account.create_account_secret()
-        pod_account.create_data_secret()
-        pod_account.register()
+        await pod_account.create_account_secret()
+        await pod_account.create_data_secret()
+        await pod_account.register()
 
         server.get_registered_services()
 
@@ -234,7 +238,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.PROCESS.terminate()
+        TestDirectoryApis.PROCESS.terminate()
 
     def test_pod_rest_api_tls_client_cert(self):
         account = config.server.account

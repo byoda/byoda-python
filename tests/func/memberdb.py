@@ -12,7 +12,6 @@ import os
 import sys
 import yaml
 import shutil
-import asyncio
 import unittest
 from uuid import UUID
 
@@ -61,7 +60,9 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['private_key_password']
         )
         network: Network = await network.load_network_secrets()
+
         config.server = ServiceServer(app_config)
+        await config.server.load_network_secrets()
 
         member_db = config.server.member_db
         member_db.service_id = app_config['svcserver']['service_id']

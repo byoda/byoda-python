@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, List, TypeVar, Callable, Tuple
+from typing import Dict, List, TypeVar, Callable
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,6 +101,10 @@ class Member:
         # The FastAPI app. We store this value to support upgrades of schema
         self.app: FastAPI = None
 
+        self.tls_secret = None
+        self.data_secret = None
+
+    async def setup(self, local_service_contract: str = None):
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -135,7 +139,9 @@ class Member:
                     self.network, service_id=self.service_id,
                 )
 
-                self.service.download_data_secret(save=True, failhard=False)
+                await self.service.download_data_secret(
+                    save=True, failhard=False
+                )
 
             self.network.services[self.service_id] = self.service
 
@@ -149,26 +155,23 @@ class Member:
             # not join yet
             pass
 
-        self.service = self.network.services[service_id]
+        self.service = self.network.services[self.service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
-            None, service_id, self.network
+            None, self.service_id, self.network
         )
-        if self.service_data_secret.cert_file_exists():
-            self.service_data_secret.load(with_private_key=False)
+        if await self.service_data_secret.cert_file_exists():
+            await self.service_data_secret.load(with_private_key=False)
         elif not local_service_contract:
-            self.service.download_data_secret(save=True)
+            await self.service.download_data_secret(save=True)
             await self.service_data_secret.load(with_private_key=False)
         else:
             _LOGGER.debug(
                 'Not loading service data secret as we are sideloading the '
                 'service contract'
             )
-
-        self.tls_secret = None
-        self.data_secret = None
 
     def as_dict(self) -> Dict:
         '''
@@ -222,6 +225,8 @@ class Member:
             service.service_id, account,
             local_service_contract=local_service_contract
         )
+        await member.setup(local_service_contract=local_service_contract)
+
         if member_id:
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
@@ -328,7 +333,7 @@ class Member:
         Creates the secrets for a membership
         '''
 
-        if self.tls_secret and self.tls_secret.cert_file_exists():
+        if self.tls_secret and await self.tls_secret.cert_file_exists():
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
@@ -337,9 +342,9 @@ class Member:
             )
             self.member_id = self.tls_secret.member_id
         else:
-            self.tls_secret = self._create_secret(MemberSecret, members_ca)
+            self.tls_secret = await self._create_secret(MemberSecret, members_ca)
 
-        if self.data_secret and self.data_secret.cert_file_exists():
+        if self.data_secret and await self.data_secret.cert_file_exists():
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
@@ -352,8 +357,8 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
-                       ) -> Secret:
+    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+                             ) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid
         repetition of code for creating the various member secrets of the
@@ -375,7 +380,7 @@ class Member:
             self.member_id, self.service_id, account=self.account
         )
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             raise ValueError(
                 f'Cert for {type(secret)} for service {self.service_id} and '
                 f'member {self.member_id} already exists'
@@ -587,7 +592,7 @@ class Member:
             'seems to restart the FastAPI app'
         )
 
-    def verify_schema_signatures(self, schema: Schema):
+    async def verify_schema_signatures(self, schema: Schema):
         '''
         Verify the signatures for the schema, a.k.a. data contract
 
@@ -605,7 +610,7 @@ class Member:
                 self.network, service_id=self.service_id,
                 storage_driver=self.storage_driver
             )
-            service.download_data_secret(save=True)
+            await service.download_data_secret(save=True)
 
         schema.verify_signature(
             self.service.data_secret, SignatureType.SERVICE

@@ -229,7 +229,8 @@ class FileStorage:
         exists = os.path.exists(f'{dirpath}/{filename}')
         if not exists:
             _LOGGER.debug(
-                f'File not found in local filesystem: {dirpath}/{filename}'
+                'File not found in local filesystem: '
+                f'{dirpath}/{filename}'
             )
         return exists
 
@@ -237,8 +238,8 @@ class FileStorage:
         '''
         Moves the file to the destination file
         :param src_filepath: absolute full path + file name of the source file
-        :param dest_filepath: full path + file name of the destination file relative
-        to the root directory
+        :param dest_filepath: full path + file name of the destination file
+        relative to the root directory
         :raises: FileNotFoundError, PermissionError
         '''
 
@@ -315,7 +316,8 @@ class FileStorage:
 
         _LOGGER.debug(
             f'Copied {src_dirpath}/{src_filename} to '
-            f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
+            f'{dest_dirpath}/{dest_filename} on the local file '
+            f'system: {result}'
         )
 
     async def get_folders(self, folder_path: str, prefix: str = None

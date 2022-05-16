@@ -24,7 +24,10 @@ from .routers import member
 
 _LOGGER = None
 
-def main():
+APP = None
+
+
+async def main():
     config_file = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
@@ -41,6 +44,7 @@ def main():
         os.environ['SERVER_NAME'] = config.server.network.name
 
     config.server = ServiceServer(app_config)
+    await config.server.load_network_secrets()
 
     config.server.load_secrets(
         app_config['svcserver']['private_key_password']
@@ -54,14 +58,16 @@ def main():
         from .routers import search
         api_list.append(search)
 
-    app = setup_api(
-        'BYODA service server', 'A server hosting a service in a BYODA network',
-        'v0.0.1', app_config, config.server.service.schema.cors_origins, api_list
+    global APP
+    APP = setup_api(
+        'BYODA service server', 'A server hosting a service in a BYODA '
+        'network v0.0.1',
+        app_config, config.server.service.schema.cors_origins, api_list
     )
-    uvicorn.run(app, host="127.0.0.1", port=6000)
+    uvicorn.run(APP, host="127.0.0.1", port=6000)
 
 
-@app.get('/api/v1/status')
+@APP.get('/api/v1/status')
 async def status():
     return {'status': 'healthy'}
 

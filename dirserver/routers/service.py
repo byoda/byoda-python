@@ -26,6 +26,7 @@ from cryptography import x509
 
 from byoda.datamodel.service import RegistrationStatus
 from byoda.datastore.dnsdb import DnsRecordType
+from byoda.servers import Server
 
 from byoda.datatypes import IdType, ReviewStatusType
 from byoda.datatypes import AuthSource
@@ -142,12 +143,13 @@ async def get_service(request: Request, service_id: int):
             raise ValueError(f'Unkown service id: {service_id}')
 
         if not service.schema:
-            service.registration_status = await service.get_registration_status()
+            service.registration_status = \
+                await service.get_registration_status()
             if service.registration_status == RegistrationStatus.SchemaSigned:
                 filepath = network.paths.get(
                     Paths.SERVICE_FILE, service_id=service_id
                 )
-                service.load_schema(filepath)
+                await service.load_schema(filepath)
 
     if not service.schema:
         raise HTTPException(404, f'Service {service_id} not found')
@@ -343,8 +345,8 @@ def put_service(request: Request, service_id: int,
 @router.patch('/service/service_id/{service_id}',
               response_model=SchemaResponseModel)
 async def patch_service(request: Request, schema: SchemaModel, service_id: int,
-                  auth: ServiceRequestAuthFast = Depends(
-                     ServiceRequestAuthFast)):
+                        auth: ServiceRequestAuthFast = Depends(
+                            ServiceRequestAuthFast)):
     '''
     Submit a new (revision of a) service schema, aka data contract
     for signing with the Network Data secret

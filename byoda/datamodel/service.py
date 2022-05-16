@@ -71,8 +71,8 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, network: Network = None, filepath: str = None,
-                 service_id: int = None, storage_driver: FileStorage = None):
+    def __init__(self, network: Network = None, service_id: int = None,
+                 storage_driver: FileStorage = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -130,11 +130,16 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
-        if filepath:
-            raw_data = self.storage_driver.read(filepath)
-            data = json.loads(raw_data)
-            self.service_id = int(data['service_id'])
-            self.name = data['name']
+
+    async def examine_servicecontract(self, filepath: str) -> None:
+        '''
+        Extracts the name and the service ID from the service contract
+        '''
+
+        raw_data = await self.storage_driver.read(filepath)
+        data = json.loads(raw_data)
+        self.service_id = int(data['service_id'])
+        self.name = data['name']
 
     @classmethod
     async def get_service(cls, network: Network, filepath: str = None,
@@ -157,9 +162,11 @@ class Service:
             )
 
         service = Service(network=network, filepath=filepath)
+        if filepath:
+            service.examine_servicecontract(filepath)
 
         if verify_signatures:
-            service.load_data_secret(with_private_key, password)
+            await service.load_data_secret(with_private_key, password)
 
         await service.load_schema(
             filepath=filepath, verify_contract_signatures=verify_signatures
@@ -442,7 +449,7 @@ class Service:
 
         if (isinstance(secret, ServiceCaSecret) and (
                 self.registration_status != RegistrationStatus.Unknown
-                or secret.cert_file_exists())):
+                or await secret.cert_file_exists())):
             # TODO: support renewal of ServiceCA cert
             raise ValueError('ServiceCA cert has already been signed')
 
@@ -542,7 +549,9 @@ class Service:
         if not self.schema:
             if self.schema_file_exists():
                 if not self.data_secret or not self.data_secret.cert():
-                    self.load_data_secret(with_private_key=False, password=None)
+                    await self.load_data_secret(
+                        with_private_key=False, password=None
+                    )
 
                 await self.load_schema(self.paths.get(Paths.SERVICE_FILE))
 
@@ -570,7 +579,7 @@ class Service:
 
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
-            if self.service_ca.cert_file_exists():
+            if await self.service_ca.cert_file_exists():
                 if self.service_ca.private_key_file_exists():
                     # We must be running on a ServiceServer
                     await self.service_ca.load(
@@ -701,8 +710,9 @@ class Service:
             filepath = self.tls_secret.save_tmp_private_key()
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
-    def load_data_secret(self, with_private_key: bool, password: str = None,
-                         download: bool = False) -> None:
+    async def load_data_secret(self, with_private_key: bool,
+                               password: str = None,
+                               download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
         '''
@@ -715,14 +725,14 @@ class Service:
                 self.name, self.service_id, self.network
             )
 
-            if not self.data_secret.cert_file_exists():
+            if not await self.data_secret.cert_file_exists():
                 if download:
                     if with_private_key:
                         raise ValueError(
                             'Can not download private key of the secret from '
                             'the network'
                         )
-                    self.download_data_secret()
+                    await self.download_data_secret()
                 else:
                     _LOGGER.exception(
                         'Could not read service data secret for service: '
@@ -734,7 +744,8 @@ class Service:
                     with_private_key=with_private_key, password=password
                 )
 
-    def download_data_secret(self, save: bool = True, failhard: bool = False) -> str:
+    async def download_data_secret(self, save: bool = True,
+                                   failhard: bool = False) -> str:
         '''
         Downloads the data secret from the web service for the service
 
@@ -755,7 +766,7 @@ class Service:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
                 self.data_secret.from_string(resp.text)
-                self.data_secret.save(overwrite=(not failhard))
+                await self.data_secret.save(overwrite=(not failhard))
 
             return resp.text
 

@@ -9,11 +9,8 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from ipaddress import ip_address as IpAddress
 
 from fastapi import HTTPException
-
-from byoda.datatypes import HttpRequestMethod
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import MissingAuthInfo
@@ -24,18 +21,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ServiceRequestAuth(RequestAuth):
-    def __init__(self, tls_status: TlsStatus,
-                 client_dn: str, issuing_ca_dn: str,
-                 authorization: str, remote_addr: IpAddress,
-                 method: HttpRequestMethod):
+    async def auth(self, tls_status: TlsStatus,
+                   client_dn: str, issuing_ca_dn: str,
+                   authorization: str) -> bool:
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
         API is the owner of the private key for the certificate it presented
         so we trust the HTTP headers set by the reverse proxy
 
-        :param request: Starlette request instance
-        :param service_id: the service identifier for the service
         :returns: (n/a)
         :raises: HTTPException
         '''
@@ -49,9 +43,8 @@ class ServiceRequestAuth(RequestAuth):
             )
 
         try:
-            super().__init__(
+            await super().auth(
                 tls_status, client_dn, issuing_ca_dn, authorization,
-                remote_addr
             )
         except MissingAuthInfo:
             raise HTTPException(

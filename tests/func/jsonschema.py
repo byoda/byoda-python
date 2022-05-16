@@ -204,12 +204,15 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
 
         account_id = uuid4()
         pod_account = Account(account_id, network)
+        await pod_account.paths.create_account_directory()
+        await pod_account.load_memberships()
+
         server.account = pod_account
 
         # We can't join the service as it doesn't exist in the network
         # so we have to use our own membership logic
         service = Service(
-            network,
+            network=network,
             service_id=SERVICE_ID,
             storage_driver=network.paths.storage_driver
         )
@@ -217,6 +220,8 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         await service.create_secrets(network.services_ca)
 
         member = Member(SERVICE_ID, pod_account)
+        await member.setup()
+
         member.member_id = UUID(MEMBER_ID)
         pod_account.memberships[SERVICE_ID] = member
 

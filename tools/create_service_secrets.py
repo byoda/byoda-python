@@ -79,7 +79,10 @@ async def main(argv):
 
     network = load_network(args, network_data)
 
-    service = Service(network=network, filepath=args.schema)
+    service = Service(network=network)
+    if args.schema:
+            service.examine_servicecontract(args.schema)
+
     await service.create_secrets(
         network.services_ca, password=args.password, local=False
     )
