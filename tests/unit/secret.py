@@ -36,7 +36,7 @@ SCHEMA_VERSION = 1
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    def asyncSetUp(self):
+    async def asyncSetUp(self):
         shutil.rmtree(TEST_DIR)
         os.mkdir(TEST_DIR)
 
@@ -47,8 +47,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         #
         # Test creation of the CA hierarchy
-        network = Network.create(NETWORK, TEST_DIR, 'byoda')
-        await network.load_network_secrets()
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = DirectoryServer(network, None)
         config.server.network = network
@@ -72,7 +71,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
         service = Service(network=network)
         await service.examine_servicecontract(target_schema)
-        service.create_secrets(network.services_ca, local=True)
+        await service.create_secrets(network.services_ca, local=True)
 
         service.service_ca.validate(network.root_ca, with_openssl=True)
         service.apps_ca.validate(network.root_ca, with_openssl=True)

@@ -74,13 +74,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         pass
 
     # noqa: F841
-    def test_load_schema(self):
+    async def test_load_schema(self):
         uuid = get_test_uuid()                      # noqa: F841
 
-        schema = Schema.get_schema(
+        schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
+        raise NotImplementedError('Need to complete this test case')
 
 
 if __name__ == '__main__':
