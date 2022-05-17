@@ -243,7 +243,7 @@ class Member:
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
         if not local_service_contract:
-            member.service.download_schema(
+            await member.service.download_schema(
                 save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
             )
 

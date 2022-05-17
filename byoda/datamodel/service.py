@@ -623,7 +623,7 @@ class Service:
         )
         return response
 
-    def download_schema(self, save: bool = True, filepath: str = None) -> str:
+    async def download_schema(self, save: bool = True, filepath: str = None) -> str:
         '''
         Downloads the latest schema from the webserver of the service
 
@@ -644,7 +644,7 @@ class Service:
         )
         if resp.status_code == 200:
             if save:
-                self.save_schema(resp.text, filepath=filepath)
+                await self.save_schema(resp.text, filepath=filepath)
 
             return resp.text
 

@@ -28,8 +28,6 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.member import Secret
 
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
-
 from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -47,6 +45,8 @@ from byoda import config
 CONFIG_FILE = 'tests/collateral/config.yml'
 
 TEST_DIR = '/tmp/byoda-tests/auth'
+
+ADDRESSBOOK_SERVICE = 4294929430
 
 
 def get_test_uuid() -> UUID:
@@ -106,7 +106,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         server.get_registered_services()
 
         member_id = get_test_uuid()
-        pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
+        await pod_account.join(ADDRESSBOOK_SERVICE, 1, member_id=member_id)
 
     async def test_jwt(self):
         #
@@ -142,11 +142,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         server: PodServer = config.server
         account: Account = server.account
-        member: Member = account.memberships[BYODA_PRIVATE_SERVICE]
+        member: Member = account.memberships[ADDRESSBOOK_SERVICE]
         jwt = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.auth(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')

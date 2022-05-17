@@ -91,7 +91,7 @@ async def main():
     )
 
     if not await service.paths.service_file_exists(service.service_id):
-        service.download_schema(save=True)
+        await service.download_schema(save=True)
 
     await server.load_schema(verify_contract_signatures=False)
 

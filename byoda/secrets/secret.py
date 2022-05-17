@@ -538,7 +538,7 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                data = self.storage_driver.read(
+                data = await self.storage_driver.read(
                     self.private_key_file, file_mode=FileMode.BINARY
                 )
 
