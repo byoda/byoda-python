@@ -39,7 +39,8 @@ class GcpFileStorage(FileStorage):
 
     def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
         '''
-        Abstraction of storage of files on GCS object storage
+        Abstraction of storage of files on GCS object storage. Do not call
+        this constructor but call the GcpFileStorage.setup() factory method
 
         :param bucket_prefix: prefix of the GCS bucket, to which '-private' and
         '-public' will be appended
@@ -75,6 +76,20 @@ class GcpFileStorage(FileStorage):
             f'{self.buckets[StorageType.PRIVATE.value]} and '
             f'{self.buckets[StorageType.PUBLIC.value]}'
         )
+
+    @staticmethod
+    async def setup(bucket_prefix: str, cache_path: str = None):
+        '''
+        Factory for AzureFileStorage
+
+        :param bucket_prefix: prefix of the GCS bucket, to which '-private' and
+        '-public' will be appended
+        :param cache_path: path to the cache on the local file system. If no
+        cache_path is specified, a local cache will not be used. This is the
+        configuration to use when running multiple pods in parallel
+        '''
+
+        return GcpFileStorage(bucket_prefix, cache_path)
 
     def _get_blob_client(self, filepath: str,
                          storage_type: StorageType = StorageType.PRIVATE

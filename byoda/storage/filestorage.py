@@ -89,13 +89,13 @@ class FileStorage:
 
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
-            storage = AwsFileStorage(bucket_prefix, root_dir)
+            storage = AwsFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
-            storage = AzureFileStorage(bucket_prefix, root_dir)
+            storage = AzureFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.GCP:
             from .gcp import GcpFileStorage
-            storage = GcpFileStorage(bucket_prefix, root_dir)
+            storage = GcpFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
             storage = FileStorage(root_dir)

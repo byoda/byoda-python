@@ -30,7 +30,8 @@ class AwsFileStorage(FileStorage):
 
     def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
         '''
-        Abstraction of storage of files on S3 object storage
+        Abstraction of storage of files on S3 object storage. Do not call this
+        constructor directly but call the AwaFileStorage.setup() factory method
 
         :param bucket_prefix: prefix of the S3 bucket, to which '-private' and
         '-public' will be appended
@@ -51,6 +52,18 @@ class AwsFileStorage(FileStorage):
             f'{self.buckets[StorageType.PRIVATE.value]} and '
             f'{self.buckets[StorageType.PUBLIC.value]}'
         )
+
+    @staticmethod
+    async def setup(bucket_prefix: str, cache_path: str = None):
+        '''
+        Factory for AwsFileStorage
+
+        :param bucket_prefix: prefix of the storage account, to which
+        'private' and 'public' will be appended
+        :param cache_path: path to the cache on the local file system
+        '''
+
+        return AwsFileStorage(bucket_prefix, cache_path)
 
     async def close_clients(self):
         '''

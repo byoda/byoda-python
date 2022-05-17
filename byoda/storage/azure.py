@@ -43,7 +43,8 @@ class AzureFileStorage(FileStorage):
 
     def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
         '''
-        Abstraction of storage of files on Azure storage accounts
+        Abstraction of storage of files on Azure storage accounts. Do not call
+        this constructor but call the AzureFileStorage.setup() factory method
 
         :param bucket_prefix: prefix of the storage account, to which
         'private' and 'public' will be appended
@@ -74,17 +75,31 @@ class AzureFileStorage(FileStorage):
             ),
         }
 
-        if not await self.clients[StorageType.PRIVATE.value].exists():
-            await self.clients[StorageType.PRIVATE.value].create_container()
+    @staticmethod
+    async def setup(bucket_prefix: str, cache_path: str = None):
+        '''
+        Factory for AzureFileStorage
 
-        if not await self.clients[StorageType.PUBLIC.value].exists():
-            await self.clients[StorageType.PUBLIC.value].create_container()
+        :param bucket_prefix: prefix of the storage account, to which
+        'private' and 'public' will be appended
+        :param cache_path: path to the cache on the local file system
+        '''
+
+        storage = AzureFileStorage(bucket_prefix, cache_path)
+        
+        if not await storage.clients[StorageType.PRIVATE.value].exists():
+            await storage.clients[StorageType.PRIVATE.value].create_container()
+
+        if not await storage.clients[StorageType.PUBLIC.value].exists():
+            await storage.clients[StorageType.PUBLIC.value].create_container()
 
         _LOGGER.debug(
             'Initialized Azure Blob SDK for buckets '
-            f'{self.buckets[StorageType.PRIVATE.value]} and '
-            f'{self.buckets[StorageType.PUBLIC.value]}'
+            f'{storage.buckets[StorageType.PRIVATE.value]} and '
+            f'{storage.buckets[StorageType.PUBLIC.value]}'
         )
+
+        return storage
 
     async def close_clients(self):
         '''

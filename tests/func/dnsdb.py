@@ -27,7 +27,8 @@ from byoda.datastore.dnsdb import DnsRecordType
 from byoda.datastore.dnsdb import DnsDb
 
 
-CONFIG = 'tests/collateral/config-dnsdb-test.yml'
+# CONFIG = 'tests/collateral/config-dnsdb-test.yml'
+CONFIG = 'tests/collateral/config.yml'
 TEST_DIR = '/tmp/byoda-func-test-secrets'
 NETWORK = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
