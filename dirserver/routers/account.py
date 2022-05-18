@@ -55,7 +55,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.debug(f'POST Account API called from {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     network: Network = config.server.network
 
@@ -167,7 +167,7 @@ async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
 
     _LOGGER.debug(f'Account PUT API called from IP {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     # Authorization for the request
     if not auth.is_authenticated:

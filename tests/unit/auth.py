@@ -147,7 +147,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.auth(TlsStatus.NONE, None, None, jwt.encoded)
+        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -163,7 +163,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.auth(TlsStatus.NONE, None, None, jwt.encoded)
+        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -179,7 +179,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.auth(TlsStatus.SUCCESS, client_dn, ca_dn, None)
+        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
@@ -193,7 +193,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.auth(TlsStatus.SUCCESS, client_dn, ca_dn, None)
+        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
 
 
 if __name__ == '__main__':

@@ -138,8 +138,8 @@ class RequestAuth:
         self.issuing_ca_dn: str = None
         self.authorization: str = None
 
-    async def auth(self, tls_status: TlsStatus, client_dn: str,
-                   issuing_ca_dn: str, authorization: str):
+    async def authenticate(self, tls_status: TlsStatus, client_dn: str,
+                           issuing_ca_dn: str, authorization: str):
         '''
         Get the authentication info for the client that made the API call.
         As long as either the TLS client cert or the JWT from the
@@ -321,7 +321,7 @@ class RequestAuth:
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(remote_addr, method)
-            await auth.auth(
+            await auth.authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization
             )
 
@@ -329,7 +329,7 @@ class RequestAuth:
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(remote_addr, method)
-            await auth.auth(
+            await auth.authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization
             )
 

@@ -46,7 +46,7 @@ async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
     '''
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
-    await auth.auth()
+    await auth.authenticate()
 
     # Authorization
     # End of authorization

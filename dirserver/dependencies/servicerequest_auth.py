@@ -54,9 +54,9 @@ class ServiceRequestAuthFast(RequestAuth):
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.authorization: str = None
 
-    async def auth(self):
+    async def authenticate(self):
         try:
-            await super().auth(
+            await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
@@ -120,9 +120,9 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.authorization: str = None
 
-    async def auth(self):
+    async def authenticate(self):
         try:
-            await super().auth(
+            await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,

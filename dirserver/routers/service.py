@@ -298,7 +298,7 @@ async def put_service(request: Request, service_id: int,
 
     _LOGGER.debug(f'PUT Service API called from {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     network: Network = config.server.network
 
@@ -360,7 +360,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
 
     _LOGGER.debug(f'PATCH Service API called from {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     # Authorize the request
     if service_id != auth.service_id:

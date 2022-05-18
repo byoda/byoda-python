@@ -69,7 +69,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.debug(f'POST Member API called from {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     server: ServiceServer = config.server
     service: Service = server.service
@@ -179,7 +179,7 @@ async def put_member(request: Request, schema_version: int,
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
 
-    await auth.auth()
+    await auth.authenticate()
 
     network = config.server.network
     service = config.server.service

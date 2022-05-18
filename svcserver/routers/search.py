@@ -65,8 +65,8 @@ async def search(request: Request, email: str,
     '''
 
     _LOGGER.debug(f'Search API called for {email} from {request.client.host}')
-    await auth.auth()
-    
+    await auth.authenticate()
+
     # Authorization: not required as called is a member
 
     member_db: MemberDb = config.server.member_db

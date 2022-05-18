@@ -43,7 +43,7 @@ async def get_member(request: Request, service_id: int,
     '''
 
     _LOGGER.debug(f'GET Member API called from {request.client.host}')
-    await auth.auth()
+    await auth.authenticate()
 
     account: Account = config.server.account
 
@@ -76,7 +76,7 @@ async def post_member(request: Request, service_id: int, version: int,
     '''
 
     _LOGGER.debug(f'Post Member API called from {request.client.host}')
-    await auth.auth()
+    await auth.authenticate()
 
     account: Account = config.server.account
 
@@ -116,7 +116,7 @@ async def put_member(request: Request, service_id: int, version: int,
     '''
 
     _LOGGER.debug(f'Put Member API called from {request.client.host}')
-    await auth.auth()
+    await auth.authenticate()
 
     server: PodServer = config.server
     account: Account = server.account

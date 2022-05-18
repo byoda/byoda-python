@@ -51,11 +51,11 @@ class AccountRequestAuthFast(RequestAuth):
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.authorization = None
 
-    async def auth(self):
+    async def authenticate(self):
         server = config.server
 
         try:
-            await super().auth(
+            await super().authenticate(
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca, None
             )
@@ -114,11 +114,11 @@ class AccountRequestOptionalAuthFast(RequestAuth):
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.authorization = None
 
-    async def auth(self):
+    async def authenticate(self):
         server = config.server
 
         try:
-            await super().auth(
+            await super().authenticate(
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca, None
             )

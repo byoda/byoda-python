@@ -35,7 +35,7 @@ async def get_account(request: Request,
     '''
 
     _LOGGER.debug(f'GET Account API called from {request.client.host}')
-    await auth.auth()
+    await auth.authenticate()
 
     # Authorization: handled by PodApiRequestAuth, which checks account
     # cert / JWT was used and it matches the account ID of the pod
