@@ -56,7 +56,8 @@ from byoda import config
 
 
 from dirserver.dependencies.servicerequest_auth import ServiceRequestAuthFast
-from dirserver.dependencies.servicerequest_auth import ServiceRequestOptionalAuthFast
+from dirserver.dependencies.servicerequest_auth import \
+    ServiceRequestOptionalAuthFast
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -260,7 +260,7 @@ class RequestAuth:
         :returns: An instance of RequestAuth
         '''
 
-        auth = await RequestAuth.authenticate(
+        auth = await RequestAuth.authenticate_graphql(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
@@ -277,10 +277,10 @@ class RequestAuth:
         return auth
 
     @staticmethod
-    async def authenticate(tls_status: TlsStatus,
-                           client_dn: str, issuing_ca_dn: str,
-                           authorization: str, remote_addr: IpAddress,
-                           method: HttpRequestMethod):
+    async def authenticate_graphql(tls_status: TlsStatus,
+                                   client_dn: str, issuing_ca_dn: str,
+                                   authorization: str, remote_addr: IpAddress,
+                                   method: HttpRequestMethod):
         '''
         Authenticate a request based on incoming TLS headers or JWT
 
@@ -321,13 +321,17 @@ class RequestAuth:
         elif id_type == IdType.MEMBER:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(remote_addr, method)
-            await auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+            await auth.auth(
+                tls_status, client_dn, issuing_ca_dn, authorization
+            )
 
             _LOGGER.debug('Authentication for member %s', auth.member_id)
         elif id_type == IdType.SERVICE:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(remote_addr, method)
-            await auth.auth(tls_status, client_dn, issuing_ca_dn, authorization)
+            await auth.auth(
+                tls_status, client_dn, issuing_ca_dn, authorization
+            )
 
             _LOGGER.debug('Authentication for service %s', auth.service_id)
         else:
