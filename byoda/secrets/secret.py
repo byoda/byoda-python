@@ -763,6 +763,8 @@ class Secret:
         :raises: ValueError
         '''
 
+        _LOGGER.debug(f'Reviewing common name: {commonname}')
+
         if not isinstance(commonname, str):
             raise ValueError(
                 f'Common name must be of type str, not {type(commonname)}'

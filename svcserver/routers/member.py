@@ -55,10 +55,10 @@ router = APIRouter(
 
 @router.post('/member', response_model=SignedMemberCertResponseModel,
              status_code=201)
-def post_member(request: Request, csr: CertSigningRequestModel,
-                auth: MemberRequestAuthOptionalFast =
-                Depends(MemberRequestAuthOptionalFast)
-                ):
+async def post_member(request: Request, csr: CertSigningRequestModel,
+                      auth: MemberRequestAuthOptionalFast =
+                      Depends(MemberRequestAuthOptionalFast)
+                      ):
     '''
     Submit a Certificate Signing Request for the Member certificate
     and get the cert signed by the Service Members CA
@@ -68,6 +68,8 @@ def post_member(request: Request, csr: CertSigningRequestModel,
     '''
 
     _LOGGER.debug(f'POST Member API called from {request.client.host}')
+
+    await auth.auth()
 
     server: ServiceServer = config.server
     service: Service = server.service
@@ -176,6 +178,8 @@ async def put_member(request: Request, schema_version: int,
     '''
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
+
+    await auth.auth()
 
     network = config.server.network
     service = config.server.service

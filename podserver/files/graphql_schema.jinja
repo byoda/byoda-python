@@ -177,7 +177,13 @@ class Query:
         info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields %}
+{%         if field.python_type == 'datetime' %}
+            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
+{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
+            UUID(info.context['data']['{{ field.name }}']),
+{%         else %}{# if field.python_type == 'datetime' #}
             info.context['data']['{{ field.name }}'],
+{%         endif %}{# if field.python_type == 'datetime' #}
 {%       endfor %}{# for field in root_class.fields #}
         )
         return {{ root_class.name }}_data

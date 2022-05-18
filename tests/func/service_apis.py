@@ -105,7 +105,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             network=network, service_id=app_config['svcserver']['service_id']
         )
         if service_file:
-            await service.examine_servicecontract(service_file)
+            await svc.examine_servicecontract(service_file)
 
         await svc.create_secrets(
             network.services_ca, local=True,
@@ -115,10 +115,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         config.server = ServiceServer(app_config)
         await config.server.load_network_secrets()
 
-        config.server.load_secrets(
+        await config.server.load_secrets(
             app_config['svcserver']['private_key_password']
         )
-        config.server.load_schema(verify_contract_signatures=False)
+        await config.server.load_schema(verify_contract_signatures=False)
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
@@ -135,11 +135,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        asyncio.sleep(1)
+        await asyncio.sleep(1)
 
     @classmethod
-    def tearDownClass(cls):
-        cls.PROCESS.terminate()
+    async def asyncTDown(self):
+        TestDirectoryApis.PROCESS.terminate()
 
     def test_service_get(self):
         API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'

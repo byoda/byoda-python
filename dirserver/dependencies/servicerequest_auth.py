@@ -46,10 +46,21 @@ class ServiceRequestAuthFast(RequestAuth):
         '''
 
         _LOGGER.debug('verifying authentication with a service cert')
+
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization: str = None
+
+    async def auth(self):
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().auth(
+                self.x_client_ssl_verify or TlsStatus.NONE,
+                self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca,
+                self.authorization
             )
         except MissingAuthInfo:
             raise HTTPException(
@@ -100,11 +111,22 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
-        _LOGGER.debug('verifying authentication with a service cert')
+        _LOGGER.debug('verifying optional authentication with a service cert')
+
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization: str = None
+
+    async def auth(self):
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().auth(
+                self.x_client_ssl_verify or TlsStatus.NONE,
+                self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca,
+                self.authorization
             )
         except MissingAuthInfo:
             return

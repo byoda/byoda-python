@@ -54,12 +54,11 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
         # Create the network so that the constructor of ServiceServer
         # can load it.
-        Network.create(
+        network: Network = await Network.create(
             app_config['application']['network'],
             app_config['svcserver']['root_dir'],
             app_config['svcserver']['private_key_password']
         )
-        network: Network = await network.load_network_secrets()
 
         config.server = ServiceServer(app_config)
         await config.server.load_network_secrets()

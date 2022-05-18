@@ -11,7 +11,7 @@ Test cases for json schema
 import os
 import sys
 import json
-import time
+import asyncio
 import unittest
 import logging
 import shutil
@@ -264,7 +264,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestJsonSchema.PROCESS.start()
-        time.sleep(3)
+        await asyncio.sleep(3)
 
     @classmethod
     def tearDownClass(cls):

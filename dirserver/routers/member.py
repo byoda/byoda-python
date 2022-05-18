@@ -39,13 +39,14 @@ router = APIRouter(
 @router.put(
     '/member', response_model=IpAddressResponseModel, status_code=200
 )
-def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
-                 MemberRequestAuthFast)):
+async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
+                     MemberRequestAuthFast)):
     '''
     Request DNS record to be hosted for the Common Name of the MemberCert
     '''
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
+    await auth.auth()
 
     # Authorization
     # End of authorization
