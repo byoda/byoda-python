@@ -103,7 +103,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await pod_account.create_data_secret()
         await pod_account.register()
 
-        server.get_registered_services()
+        await server.get_registered_services()
 
         member_id = get_test_uuid()
         await pod_account.join(ADDRESSBOOK_SERVICE, 1, member_id=member_id)

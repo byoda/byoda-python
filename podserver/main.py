@@ -77,7 +77,7 @@ async def main():
     server.network = network
     server.paths = network.paths
 
-    server.get_registered_services()
+    await server.get_registered_services()
 
     # TODO: if we have a pod secret, should we compare its commonname with the
     # account_id environment variable?

@@ -101,7 +101,11 @@ class MemberRequestAuthFast(RequestAuth):
         self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
         self.x_client_ssl_subject: str = x_client_ssl_subject
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
-        self.service_id = server.service.service_id
+        if server.service:
+            self.service_id = server.service.service_id
+        else:
+            self.service_id = None
+
         self.authorization: str = None
 
     async def auth(self):

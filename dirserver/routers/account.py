@@ -41,10 +41,10 @@ router = APIRouter(prefix='/api/v1/network', dependencies=[])
     '/account', response_model=SignedAccountCertResponseModel,
     status_code=201
 )
-def post_account(request: Request, csr: CertSigningRequestModel,
-                 auth: AccountRequestOptionalAuthFast =
-                 Depends(AccountRequestOptionalAuthFast)
-                 ):
+async def post_account(request: Request, csr: CertSigningRequestModel,
+                       auth: AccountRequestOptionalAuthFast =
+                       Depends(AccountRequestOptionalAuthFast)
+                       ):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -54,6 +54,8 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     '''
 
     _LOGGER.debug(f'POST Account API called from {request.client.host}')
+
+    await auth.auth()
 
     network: Network = config.server.network
 
@@ -84,7 +86,7 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
     try:
         network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
-        
+
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -157,13 +159,15 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
 
 @router.put('/account', response_model=IpAddressResponseModel)
-def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
+async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
                 AccountRequestAuthFast)):
     '''
     Creates/updates the DNS entry for the commonname in the TLS Client cert.
     '''
 
     _LOGGER.debug(f'Account PUT API called from IP {request.client.host}')
+
+    await auth.auth()
 
     # Authorization for the request
     if not auth.is_authenticated:

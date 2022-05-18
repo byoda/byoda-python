@@ -165,7 +165,7 @@ class Network:
         paths = Paths(network=network_name, root_directory=root_dir)
 
         if not await paths.network_directory_exists():
-            paths.create_network_directory()
+            await paths.create_network_directory()
 
         if not await paths.secrets_directory_exists():
             await paths.create_secrets_directory()

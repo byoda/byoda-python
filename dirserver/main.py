@@ -49,7 +49,7 @@ async def main():
     server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
     config.server = server
 
-    server.get_registered_services()
+    await server.get_registered_services()
     await server.load_secrets()
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:

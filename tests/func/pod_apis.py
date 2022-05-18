@@ -197,7 +197,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await pod_account.create_data_secret()
         await pod_account.register()
 
-        server.get_registered_services()
+        await server.get_registered_services()
 
         service = [
             service

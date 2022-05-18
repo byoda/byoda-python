@@ -153,7 +153,7 @@ async def put_member(request: Request, service_id: int, version: int,
         )
 
     # Get the latest list of services from the directory server
-    server.get_registered_services()
+    await server.get_registered_services()
     network: Network = account.network
     service_summary = network.service_summaries.get(service_id)
     if not service_summary:

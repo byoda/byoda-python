@@ -13,12 +13,12 @@ the headers that would normally be set by the reverse proxy
 
 import sys
 import os
-import unittest
-import requests
-import shutil
 import yaml
 import json
-import time
+import shutil
+import asyncio
+import unittest
+import requests
 from uuid import uuid4
 from copy import copy
 
@@ -91,12 +91,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'/services/service-{SERVICE_ID}'
         )
 
-        network = Network.create(
+        network = await Network.create(
             app_config['application']['network'],
             app_config['dirserver']['root_dir'],
             app_config['dirserver']['private_key_password'],
         )
-        await network.load_network_secrets()
 
         config.server = DirectoryServer(
             network, app_config['dirserver']['dnsdb']
@@ -117,11 +116,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        time.sleep(1)
+        await asyncio.sleep(1)
 
     @classmethod
-    def tearDownClass(cls):
-        cls.PROCESS.terminate()
+    async def asyncTearDown(cls):
+        TestDirectoryApis.PROCESS.terminate()
 
     def test_network_account_put(self):
         API = BASE_URL + '/v1/network/account'
