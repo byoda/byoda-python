@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, List, TypeVar, Callable, Tuple
+from typing import Dict, List, TypeVar, Callable
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,6 +101,10 @@ class Member:
         # The FastAPI app. We store this value to support upgrades of schema
         self.app: FastAPI = None
 
+        self.tls_secret = None
+        self.data_secret = None
+
+    async def setup(self, local_service_contract: str = None):
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -118,12 +122,12 @@ class Member:
                 verify_signatures = True
 
             try:
-                self.service = Service.get_service(
+                self.service = await Service.get_service(
                     self.network, filepath=filepath,
                     verify_signatures=verify_signatures
                 )
                 if not local_service_contract:
-                    self.service.verify_schema_signatures()
+                    await self.service.verify_schema_signatures()
             except FileNotFoundError:
                 # if the service contract is not yet available for
                 # this membership then it should be downloaded at
@@ -135,7 +139,9 @@ class Member:
                     self.network, service_id=self.service_id,
                 )
 
-                self.service.download_data_secret(save=True, failhard=False)
+                await self.service.download_data_secret(
+                    save=True, failhard=False
+                )
 
             self.network.services[self.service_id] = self.service
 
@@ -143,32 +149,29 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
-            self.schema: Schema = self.load_schema()
+            self.schema: Schema = await self.load_schema()
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
             pass
 
-        self.service = self.network.services[service_id]
+        self.service = self.network.services[self.service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
-            None, service_id, self.network
+            None, self.service_id, self.network
         )
-        if self.service_data_secret.cert_file_exists():
-            self.service_data_secret.load(with_private_key=False)
+        if await self.service_data_secret.cert_file_exists():
+            await self.service_data_secret.load(with_private_key=False)
         elif not local_service_contract:
-            self.service.download_data_secret(save=True)
-            self.service_data_secret.load(with_private_key=False)
+            await self.service.download_data_secret(save=True)
+            await self.service_data_secret.load(with_private_key=False)
         else:
             _LOGGER.debug(
                 'Not loading service data secret as we are sideloading the '
                 'service contract'
             )
-
-        self.tls_secret = None
-        self.data_secret = None
 
     def as_dict(self) -> Dict:
         '''
@@ -197,10 +200,10 @@ class Member:
         return data
 
     @staticmethod
-    def create(service: Service, schema_version: int,
-               account: Account, member_id: UUID = None,
-               members_ca: MembersCaSecret = None,
-               local_service_contract: str = None):
+    async def create(service: Service, schema_version: int,
+                     account: Account, member_id: UUID = None,
+                     members_ca: MembersCaSecret = None,
+                     local_service_contract: str = None):
         '''
         Factory for a new membership
 
@@ -222,6 +225,8 @@ class Member:
             service.service_id, account,
             local_service_contract=local_service_contract
         )
+        await member.setup(local_service_contract=local_service_contract)
+
         if member_id:
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
@@ -232,19 +237,17 @@ class Member:
         else:
             member.member_id = uuid4()
 
-        # member.create_secrets(members_ca=members_ca)
-
-        if not member.paths.exists(member.paths.SERVICE_FILE):
+        if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
         # TODO: make this more user-friendly by attempting to download
         # the specific version of a schema
         if not local_service_contract:
-            member.service.download_schema(
+            await member.service.download_schema(
                 save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
             )
 
-        member.schema = member.load_schema(
+        member.schema = await member.load_schema(
             filepath=local_service_contract,
             verify_signatures=not bool(local_service_contract)
         )
@@ -263,7 +266,7 @@ class Member:
             member.member_id, member.service_id, member.account
         )
 
-        member.create_secrets(members_ca=members_ca)
+        await member.create_secrets(members_ca=members_ca)
 
         member.data_secret.create_shared_key()
 
@@ -272,11 +275,11 @@ class Member:
         )
         member.data.initalize()
 
-        member.data.save_protected_shared_key()
-        member.data.save()
+        await member.data.save_protected_shared_key()
+        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
-        member.schema.save(filepath, member.paths.storage_driver)
+        await member.schema.save(filepath, member.paths.storage_driver)
 
         return member
 
@@ -325,37 +328,39 @@ class Member:
                 'Member instance does not have a service associated'
             )
 
-    def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+    async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
         '''
 
-        if self.tls_secret and self.tls_secret.cert_file_exists():
+        if self.tls_secret and await self.tls_secret.cert_file_exists():
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
-            self.tls_secret.load(
+            await self.tls_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
             self.member_id = self.tls_secret.member_id
         else:
-            self.tls_secret = self._create_secret(MemberSecret, members_ca)
+            self.tls_secret = await self._create_secret(
+                MemberSecret, members_ca
+            )
 
-        if self.data_secret and self.data_secret.cert_file_exists():
+        if self.data_secret and await self.data_secret.cert_file_exists():
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
-            self.data_secret.load(
+            await self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
 
             )
         else:
-            self.data_secret = self._create_secret(
+            self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
-                       ) -> Secret:
+    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+                             ) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid
         repetition of code for creating the various member secrets of the
@@ -377,13 +382,13 @@ class Member:
             self.member_id, self.service_id, account=self.account
         )
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             raise ValueError(
                 f'Cert for {type(secret)} for service {self.service_id} and '
                 f'member {self.member_id} already exists'
             )
 
-        if secret.private_key_file_exists():
+        if await secret.private_key_file_exists():
             raise ValueError(
                 f'Private key for {type(secret)} for service {self.service_id}'
                 f' and member {self.member_id} already exists'
@@ -398,18 +403,18 @@ class Member:
             else:
                 # Get the CSR signed, the resulting cert saved to disk
                 # and used to register with both the network and the service
-                self.register(secret)
+                await self.register(secret)
 
         else:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-            secret.save(password=self.private_key_password)
+            await secret.save(password=self.private_key_password)
 
         return secret
 
-    def load_secrets(self) -> None:
+    async def load_secrets(self) -> None:
         '''
         Loads the membership secrets
         '''
@@ -417,7 +422,7 @@ class Member:
         self.tls_secret = MemberSecret(
             None, self.service_id, self.account
         )
-        self.tls_secret.load(
+        await self.tls_secret.load(
             with_private_key=True, password=self.private_key_password
         )
         self.member_id = self.tls_secret.member_id
@@ -425,7 +430,7 @@ class Member:
         self.data_secret = MemberDataSecret(
             self.member_id, self.service_id, self.account
         )
-        self.data_secret.load(
+        await self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
 
@@ -445,7 +450,7 @@ class Member:
 
         return jwt
 
-    def register(self, secret) -> None:
+    async def register(self, secret) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service. The pod will requests the service to sign its TLS CSR
@@ -467,7 +472,7 @@ class Member:
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
         )
-        secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password)
 
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
@@ -511,8 +516,8 @@ class Member:
             f' with network {self.network.name}'
         )
 
-    def load_schema(self, filepath: str = None, verify_signatures: bool = True
-                    ) -> Schema:
+    async def load_schema(self, filepath: str = None,
+                          verify_signatures: bool = True) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
         '''
@@ -520,8 +525,8 @@ class Member:
         if not filepath:
             filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
-        if self.storage_driver.exists(filepath):
-            schema = Schema.get_schema(
+        if await self.storage_driver.exists(filepath):
+            schema = await Schema.get_schema(
                 filepath, self.storage_driver,
                 service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
@@ -535,7 +540,7 @@ class Member:
             raise FileNotFoundError(filepath)
 
         if verify_signatures:
-            self.verify_schema_signatures(schema)
+            await self.verify_schema_signatures(schema)
 
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
@@ -589,7 +594,7 @@ class Member:
             'seems to restart the FastAPI app'
         )
 
-    def verify_schema_signatures(self, schema: Schema):
+    async def verify_schema_signatures(self, schema: Schema):
         '''
         Verify the signatures for the schema, a.k.a. data contract
 
@@ -607,7 +612,7 @@ class Member:
                 self.network, service_id=self.service_id,
                 storage_driver=self.storage_driver
             )
-            service.download_data_secret(save=True)
+            await service.download_data_secret(save=True)
 
         schema.verify_signature(
             self.service.data_secret, SignatureType.SERVICE
@@ -625,22 +630,22 @@ class Member:
             f'Verified network signature for service {self.service_id}'
         )
 
-    def load_data(self):
+    async def load_data(self):
         '''
         Loads the data stored for the membership
         '''
 
-        self.data.load()
+        await self.data.load()
 
-    def save_data(self, data):
+    async def save_data(self, data):
         '''
         Saves the data for the membership
         '''
 
-        self.data.save(data)
+        await self.data.save(data)
 
     @staticmethod
-    def get_data(service_id, info: Info, filters=None) -> Dict:
+    async def get_data(service_id, info: Info, filters=None) -> Dict:
         '''
         Extracts the requested data field.
 
@@ -664,7 +669,7 @@ class Member:
 
         server = config.server
         member = server.account.memberships[service_id]
-        member.load_data()
+        await member.load_data()
 
         data = member.data.get(info.path.key)
         if filters:
@@ -679,7 +684,7 @@ class Member:
         return data
 
     @staticmethod
-    def mutate_data(service_id, info: Info) -> None:
+    async def mutate_data(service_id, info: Info) -> None:
         '''
         Mutates the provided data
 
@@ -706,7 +711,7 @@ class Member:
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
-        member.load_data()
+        await member.load_data()
 
         # We do not modify existing data as it will need to be validated
         # by JSON Schema before it can be accepted.
@@ -751,11 +756,11 @@ class Member:
 
             member.data[class_object][key] = mutate_data[key]
 
-        member.save_data(data)
+        await member.save_data(data)
 
         return member.data
 
-    def append_data(service_id, info: Info) -> None:
+    async def append_data(service_id, info: Info) -> None:
         '''
         Appends the provided data
 
@@ -782,7 +787,7 @@ class Member:
 
         # Any data we may have in memory may be stale when we run
         # multiple processes so we always need to load the data
-        member.load_data()
+        await member.load_data()
 
         # We do not modify existing data as it will need to be validated
         # by JSON Schema before it can be accepted.
@@ -804,12 +809,12 @@ class Member:
         # Strawberry passes us data that we can just copy as-is
         member.data[class_object].append(mutate_data)
 
-        member.save_data(data)
+        await member.save_data(data)
 
         return member.data
 
     @staticmethod
-    def delete_array_data(service_id: int, info: Info, filters) -> Dict:
+    async def delete_array_data(service_id: int, info: Info, filters) -> Dict:
         '''
         Deletes one or more objects from an array.
 
@@ -844,7 +849,7 @@ class Member:
 
         server = config.server
         member = server.account.memberships[service_id]
-        member.load_data()
+        await member.load_data()
 
         data = copy(member.data.get(class_object))
 
@@ -863,6 +868,6 @@ class Member:
 
         member.data[class_object] = data
 
-        member.save_data(member.data)
+        await member.save_data(member.data)
 
         return removed

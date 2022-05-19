@@ -71,8 +71,8 @@ class Service:
     and by pods
     '''
 
-    def __init__(self, network: Network = None, filepath: str = None,
-                 service_id: int = None, storage_driver: FileStorage = None):
+    def __init__(self, network: Network = None, service_id: int = None,
+                 storage_driver: FileStorage = None):
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -130,14 +130,19 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
-        if filepath:
-            raw_data = self.storage_driver.read(filepath)
-            data = json.loads(raw_data)
-            self.service_id = int(data['service_id'])
-            self.name = data['name']
+
+    async def examine_servicecontract(self, filepath: str) -> None:
+        '''
+        Extracts the name and the service ID from the service contract
+        '''
+
+        raw_data = await self.storage_driver.read(filepath)
+        data = json.loads(raw_data)
+        self.service_id = int(data['service_id'])
+        self.name = data['name']
 
     @classmethod
-    def get_service(cls, network: Network, filepath: str = None,
+    async def get_service(cls, network: Network, filepath: str = None,
                     verify_signatures: bool = True,
                     with_private_key: bool = False, password: str = None):
         '''
@@ -156,12 +161,14 @@ class Service:
                 'verify_signatures should only be False for test cases'
             )
 
-        service = Service(network=network, filepath=filepath)
+        service = Service(network=network)
+        if filepath:
+            await service.examine_servicecontract(filepath)
 
         if verify_signatures:
-            service.load_data_secret(with_private_key, password)
+            await service.load_data_secret(with_private_key, password)
 
-        service.load_schema(
+        await service.load_schema(
             filepath=filepath, verify_contract_signatures=verify_signatures
         )
 
@@ -175,8 +182,8 @@ class Service:
     def fqdn(self):
         return self.tls_secret.common_name
 
-    def load_schema(self, filepath: str = None,
-                    verify_contract_signatures: bool = True) -> bool:
+    async def load_schema(self, filepath: str = None,
+                          verify_contract_signatures: bool = True) -> bool:
         '''
         Loads the schema for a service
 
@@ -197,7 +204,7 @@ class Service:
                 'of a network is not yet implemented'
             )
 
-        self.schema = Schema.get_schema(
+        self.schema = await Schema.get_schema(
             filepath, self.storage_driver,
             service_data_secret=self.data_secret,
             network_data_secret=self.network.data_secret,
@@ -213,10 +220,10 @@ class Service:
         )
 
         if verify_contract_signatures:
-            self.verify_schema_signatures()
+            await self.verify_schema_signatures()
             self.registration_status = RegistrationStatus.SchemaSigned
 
-    def save_schema(self, data: str, filepath: str = None):
+    async def save_schema(self, data: str, filepath: str = None):
         '''
         Saves the raw data of the service contract to the Service directory
         '''
@@ -224,9 +231,9 @@ class Service:
         if not filepath:
             filepath = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
 
-        self.storage_driver.write(filepath, data)
+        await self.storage_driver.write(filepath, data)
 
-    def verify_schema_signatures(self):
+    async def verify_schema_signatures(self):
         '''
         Verify the signatures for the schema, a.k.a. data contract
 
@@ -240,10 +247,10 @@ class Service:
         if not self.data_secret or not self.data_secret.cert:
             # Let's see if we can read the data secret ourselves
             self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
-            self.data_secret.load(with_private_key=False)
+            await self.data_secret.load(with_private_key=False)
         if not self.network.data_secret or not self.network.data_secret.cert:
             self.network.data_secret = NetworkDataSecret(self.network.paths)
-            self.network.data_secret.load(with_private_key=False)
+            await self.network.data_secret.load(with_private_key=False)
 
         self.schema.verify_signature(self.data_secret, SignatureType.SERVICE)
 
@@ -266,7 +273,7 @@ class Service:
 
         self.schema.validate(data)
 
-    def schema_file_exists(self) -> bool:
+    async def schema_file_exists(self) -> bool:
         '''
         Check if the file with the schema exists on the local file system
         '''
@@ -282,7 +289,7 @@ class Service:
         filepath = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
         return os.path.exists(filepath)
 
-    def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
+    async def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
                        local: bool = False, password: str = None) -> None:
         '''
         Creates all the secrets of a service
@@ -297,22 +304,21 @@ class Service:
         if password:
             self.private_key_password = password
 
-        if not self.paths.service_directory_exists(self.service_id):
-            self.paths.create_service_directory(self.service_id)
+        if not await self.paths.service_directory_exists(self.service_id):
+            await self.paths.create_service_directory(self.service_id)
 
-        if not self.paths.secrets_directory_exists():
-            self.paths.create_secrets_directory()
+        if not await self.paths.secrets_directory_exists():
+            await self.paths.create_secrets_directory()
 
-        self.create_service_ca(network_services_ca, local=True)
+        await self.create_service_ca(network_services_ca, local=True)
+        await self.create_apps_ca()
+        await self.create_members_ca()
+        await self.create_tls_secret()
+        await self.create_data_secret()
 
-        self.create_apps_ca()
-        self.create_members_ca()
-        self.create_tls_secret()
-        self.create_data_secret()
-
-    def create_service_ca(self,
-                          network_services_ca: NetworkServicesCaSecret = None,
-                          local: bool = False) -> None:
+    async def create_service_ca(self,
+                                network_services_ca: NetworkServicesCaSecret = None,
+                                local: bool = False) -> None:
         '''
         Create the service CA using a generated password for the private key. This
         password is different then the passwords for the other secrets as the
@@ -327,19 +333,19 @@ class Service:
         private_key_password = passgen.passgen(length=48)
 
         if local:
-            self.service_ca = self._create_secret(
+            self.service_ca = await self._create_secret(
                 ServiceCaSecret, network_services_ca,
                 private_key_password=private_key_password
             )
         else:
-            self.service_ca = self._create_secret(
+            self.service_ca = await self._create_secret(
                 ServiceCaSecret, None, private_key_password=private_key_password
             )
         _LOGGER.info(
             '!!! Private key password for the off-line Service CA: '
             f'{private_key_password}'
         )
-    def create_members_ca(self) -> None:
+    async def create_members_ca(self) -> None:
         '''
         Creates the member CA, signed by the Service CA
 
@@ -347,22 +353,22 @@ class Service:
         the CSR of the member CA
         '''
 
-        self.members_ca = self._create_secret(
+        self.members_ca = await self._create_secret(
             MembersCaSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
 
-    def create_apps_ca(self) -> None:
+    async def create_apps_ca(self) -> None:
         '''
         Create the CA that signs application secrets
         '''
 
-        self.apps_ca = self._create_secret(
+        self.apps_ca = await self._create_secret(
             AppsCaSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
 
-    def create_tls_secret(self) -> None:
+    async def create_tls_secret(self) -> None:
         '''
         Creates the service TLS secret, signed by the Service CA
 
@@ -370,12 +376,12 @@ class Service:
         the CSR of the service secret
         '''
 
-        self.tls_secret = self._create_secret(
+        self.tls_secret = await self._create_secret(
             ServiceSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
 
-    def create_data_secret(self) -> None:
+    async def create_data_secret(self) -> None:
         '''
         Creates the service data secret, signed by the Service CA
 
@@ -383,13 +389,13 @@ class Service:
         the CSR of the service secret
         '''
 
-        self.data_secret = self._create_secret(
+        self.data_secret = await self._create_secret(
             ServiceDataSecret, self.service_ca,
             private_key_password=self.private_key_password
         )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret,
-                       private_key_password: str = None) -> Secret:
+    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret,
+                             private_key_password: str = None) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -409,13 +415,13 @@ class Service:
             self.name, self.service_id, network=self.network
         )
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             raise ValueError(
                 f'{type(secret)} cert for {self.name} ({self.service_id}) '
                 'already exists'
             )
 
-        if secret.private_key_file_exists():
+        if await secret.private_key_file_exists():
             raise ValueError(
                 f'{type(secret)} key for {self.name} ({self.service_id}) '
                 'already exists'
@@ -423,15 +429,15 @@ class Service:
 
         # TODO: SECURITY: add constraints
         csr = secret.create_csr()
-        self.get_csr_signature(
+        await self.get_csr_signature(
             secret, csr, issuing_ca, private_key_password=private_key_password
         )
 
         return secret
 
-    def get_csr_signature(self, secret: Secret, csr: CSR,
-                          issuing_ca: CaSecret,
-                          private_key_password: str = None) -> None:
+    async def get_csr_signature(self, secret: Secret, csr: CSR,
+                                issuing_ca: CaSecret,
+                                private_key_password: str = None) -> None:
         '''
         Gets the signed cert(chain) for the CSR and saves returned cert and the
         existing private key.
@@ -443,7 +449,7 @@ class Service:
 
         if (isinstance(secret, ServiceCaSecret) and (
                 self.registration_status != RegistrationStatus.Unknown
-                or secret.cert_file_exists())):
+                or await secret.cert_file_exists())):
             # TODO: support renewal of ServiceCA cert
             raise ValueError('ServiceCA cert has already been signed')
 
@@ -453,7 +459,7 @@ class Service:
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
-            secret.save(password=private_key_password, overwrite=False)
+            await secret.save(password=private_key_password, overwrite=False)
             # We do not set self.registration_status as locally signing
             # does not provide information about the status of service in
             # the network
@@ -484,7 +490,7 @@ class Service:
         data = response.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
         self.registration_status = RegistrationStatus.CsrSigned
-        secret.save(password=private_key_password, overwrite=False)
+        await secret.save(password=private_key_password, overwrite=False)
 
         # Every time we receive the network data cert, we
         # save it as it could have changed since the last time we
@@ -493,10 +499,10 @@ class Service:
         if not network.data_secret:
             network.data_secret = NetworkDataSecret(network.paths)
         network.data_secret.from_string(data['network_data_cert_chain'])
-        network.data_secret.save(overwrite=True)
+        await network.data_secret.save(overwrite=True)
 
     @staticmethod
-    def is_registered(service_id: int,
+    async def is_registered(service_id: int,
                       registration_status: RegistrationStatus = None) -> bool:
         '''
         Checks is the service is registered in the network. When running
@@ -523,7 +529,7 @@ class Service:
             )
 
         service = Service(network, service_id=service_id)
-        status = service.get_registration_status()
+        status = await service.get_registration_status()
 
         if status == RegistrationStatus.Unknown:
             return False
@@ -533,7 +539,7 @@ class Service:
 
         return status == registration_status.value
 
-    def get_registration_status(self) -> RegistrationStatus:
+    async def get_registration_status(self) -> RegistrationStatus:
         '''
         Checks what the registration status if of a service in the
         Service server or the Directory server.
@@ -541,18 +547,20 @@ class Service:
         server = config.server
 
         if not self.schema:
-            if self.schema_file_exists():
+            if await self.schema_file_exists():
                 if not self.data_secret or not self.data_secret.cert():
-                    self.load_data_secret(with_private_key=False, password=None)
+                    await self.load_data_secret(
+                        with_private_key=False, password=None
+                    )
 
-                self.load_schema(self.paths.get(Paths.SERVICE_FILE))
+                await self.load_schema(self.paths.get(Paths.SERVICE_FILE))
 
         if self.schema and self.schema.signatures.get('network'):
             return RegistrationStatus.SchemaSigned
 
         if server.server_type == ServerType.DIRECTORY:
             try:
-                self.network.dnsdb.lookup(
+                await self.network.dnsdb.lookup(
                     None, IdType.SERVICE, DnsRecordType.A,
                     service_id=self.service_id,
                 )
@@ -571,14 +579,14 @@ class Service:
 
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
-            if self.service_ca.cert_file_exists():
-                if self.service_ca.private_key_file_exists():
+            if await self.service_ca.cert_file_exists():
+                if await self.service_ca.private_key_file_exists():
                     # We must be running on a ServiceServer
-                    self.service_ca.load(
+                    await self.service_ca.load(
                         with_private_key=True, password=self.private_key_password
                     )
                 else:
-                    self.service_ca.load(with_private_key=False)
+                    await self.service_ca.load(with_private_key=False)
 
                 return RegistrationStatus.CsrSigned
         else:
@@ -615,7 +623,7 @@ class Service:
         )
         return response
 
-    def download_schema(self, save: bool = True, filepath: str = None) -> str:
+    async def download_schema(self, save: bool = True, filepath: str = None) -> str:
         '''
         Downloads the latest schema from the webserver of the service
 
@@ -636,7 +644,7 @@ class Service:
         )
         if resp.status_code == 200:
             if save:
-                self.save_schema(resp.text, filepath=filepath)
+                await self.save_schema(resp.text, filepath=filepath)
 
             return resp.text
 
@@ -644,7 +652,7 @@ class Service:
             f'Download of service schema failed: {resp.status_code}'
         )
 
-    def load_secrets(self, with_private_key: bool = True, password: str = None,
+    async def load_secrets(self, with_private_key: bool = True, password: str = None,
                      service_ca_password=None) -> None:
         '''
         Loads all the secrets of a service
@@ -662,17 +670,17 @@ class Service:
                 self.name, self.service_id, self.network
             )
             if service_ca_password:
-                self.service_ca.load(
+                await self.service_ca.load(
                     with_private_key=True, password=service_ca_password
                 )
             else:
-                self.service_ca.load(with_private_key=False)
+                await self.service_ca.load(with_private_key=False)
 
         if not self.apps_ca:
             self.apps_ca = AppsCaSecret(
                 self.name, self.service_id, self.network
             )
-            self.apps_ca.load(
+            await self.apps_ca.load(
                 with_private_key=with_private_key, password=password
             )
 
@@ -680,7 +688,7 @@ class Service:
             self.members_ca = MembersCaSecret(
                 None, self.service_id, self.network
             )
-            self.members_ca.load(
+            await self.members_ca.load(
                 with_private_key=with_private_key, password=password
             )
 
@@ -688,12 +696,12 @@ class Service:
             self.tls_secret = ServiceSecret(
                 self.name, self.service_id, self.network
             )
-            self.tls_secret.load(
+            await self.tls_secret.load(
                 with_private_key=with_private_key, password=password
             )
 
         if not self.data_secret:
-            self.load_data_secret(with_private_key, password=password)
+            await self.load_data_secret(with_private_key, password=password)
 
         # We use the service secret as client TLS cert for outbound
         # requests. We only do this if we read the private key
@@ -702,8 +710,9 @@ class Service:
             filepath = self.tls_secret.save_tmp_private_key()
             config.requests.cert = (self.tls_secret.cert_file, filepath)
 
-    def load_data_secret(self, with_private_key: bool, password: str = None,
-                         download: bool = False) -> None:
+    async def load_data_secret(self, with_private_key: bool,
+                               password: str = None,
+                               download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
         '''
@@ -716,14 +725,14 @@ class Service:
                 self.name, self.service_id, self.network
             )
 
-            if not self.data_secret.cert_file_exists():
+            if not await self.data_secret.cert_file_exists():
                 if download:
                     if with_private_key:
                         raise ValueError(
                             'Can not download private key of the secret from '
                             'the network'
                         )
-                    self.download_data_secret()
+                    await self.download_data_secret()
                 else:
                     _LOGGER.exception(
                         'Could not read service data secret for service: '
@@ -731,11 +740,12 @@ class Service:
                     )
                     raise FileNotFoundError(self.data_secret.cert_file)
             else:
-                self.data_secret.load(
+                await self.data_secret.load(
                     with_private_key=with_private_key, password=password
                 )
 
-    def download_data_secret(self, save: bool = True, failhard: bool = False) -> str:
+    async def download_data_secret(self, save: bool = True,
+                                   failhard: bool = False) -> str:
         '''
         Downloads the data secret from the web service for the service
 
@@ -756,7 +766,7 @@ class Service:
             if save:
                 self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
                 self.data_secret.from_string(resp.text)
-                self.data_secret.save(overwrite=(not failhard))
+                await self.data_secret.save(overwrite=(not failhard))
 
             return resp.text
 

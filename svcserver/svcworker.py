@@ -12,8 +12,7 @@ the service
 import os
 import sys
 import yaml
-
-import time
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from python_graphql_client import GraphqlClient
@@ -48,7 +47,7 @@ CLIENT_QUERY = '''
 '''
 
 
-def main():
+async def main():
     config_file = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
@@ -67,7 +66,9 @@ def main():
         MAX_WAIT = 10
 
     server = ServiceServer(app_config)
-    server.load_secrets(
+    await server.load_network_secrets()
+
+    await server.load_secrets(
         password=app_config['svcserver']['private_key_password']
     )
     config.server = server
@@ -89,10 +90,10 @@ def main():
         f'{service.paths.root_directory}/{service.network.root_ca.cert_file}'
     )
 
-    if not service.paths.service_file_exists(service.service_id):
-        service.download_schema(save=True)
+    if not await service.paths.service_file_exists(service.service_id):
+        await service.download_schema(save=True)
 
-    server.load_schema(verify_contract_signatures=False)
+    await server.load_schema(verify_contract_signatures=False)
 
     _LOGGER.debug(
         f'Starting service worker for service ID: {service.service_id}'
@@ -136,7 +137,9 @@ def main():
                 person_data = result['data']['person']
                 server.member_db.set_data(member_id, person_data)
 
-                server.member_db.kvcache.set(person_data['email'], str(member_id))
+                server.member_db.kvcache.set(
+                    person_data['email'], str(member_id)
+                )
             else:
                 _LOGGER.debug(
                     f'GraphQL person query failed against member {member_id}'
@@ -147,7 +150,7 @@ def main():
         #
         # and now we wait for the time to process the next client
         #
-        time.sleep(waittime)
+        asyncio.sleep(waittime)
 
 
 def next_member_wait(last_seen: datetime) -> int:
@@ -172,4 +175,4 @@ def next_member_wait(last_seen: datetime) -> int:
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

@@ -57,13 +57,13 @@ class DocumentStore:
 
         return storage
 
-    def read(self, filepath: str, data_secret: DataSecret) -> Dict:
+    async def read(self, filepath: str, data_secret: DataSecret) -> Dict:
         '''
         Reads, decrypts and deserializes a JSON document
         '''
 
         # DocumentStore only stores encrypted data, which is binary
-        data = self.backend.read(filepath, file_mode=FileMode.BINARY)
+        data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
 
         if data_secret:
             data = data_secret.decrypt(data)
@@ -75,7 +75,7 @@ class DocumentStore:
 
         return data
 
-    def write(self, filepath: str, data: Dict, data_secret: DataSecret):
+    async def write(self, filepath: str, data: Dict, data_secret: DataSecret):
         '''
         Encrypts the data, serializes it to JSON and writes the data to storage
         '''
@@ -84,13 +84,14 @@ class DocumentStore:
 
         data = data_secret.encrypt(data)
 
-        self.backend.write(filepath, data, file_mode=FileMode.BINARY)
+        await self.backend.write(filepath, data, file_mode=FileMode.BINARY)
 
-    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None
+                          ) -> List[str]:
         '''
         Get the sub-directories in a directory. With some storage backends,
         this functionality will be emulated as it doesn't support directories
         or folders.
         '''
 
-        return self.backend.get_folders(folder_path, prefix)
+        return await self.backend.get_folders(folder_path, prefix)

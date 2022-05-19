@@ -20,11 +20,15 @@ from typing import Optional, Tuple
 from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
+from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
-# from sqlalchemy import select
+# FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
-
 from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
 
 from byoda.datatypes import IdType
@@ -65,13 +69,44 @@ class DnsDb:
 
         self._metadata = MetaData()
         self._engine = None
-        self._domains_table = None
-        self._records_table = None
 
         self._domain_ids = {}
 
+        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
+
+        self._domains_table = Table(
+            'domains', self._metadata,
+            Column('id', Integer),
+            Column('name', String(255)),
+            Column('master', String(128)),
+            Column('last_check', Integer),
+            Column('type', String(6)),
+            Column('notified_serial', BigInteger),
+            Column('account', String(40))
+        )
+        self._records_table = Table(
+            'records', self._metadata,
+            Column('id', BigInteger, primary_key=True),
+            Column('domain_id', Integer, ForeignKey('domains.id')),
+            Column('name', String(255)),
+            Column('type', String(10)),
+            Column('content', String(65535)),
+            Column('ttl', Integer),
+            Column('prio', Integer),
+            Column('disabled', Boolean),
+            Column('ordername', String(255)),
+            Column('auth', Boolean),
+
+            Column('db_expire', Integer)
+        )
+
     @staticmethod
-    def setup(connectionstring: str, network_name: str):
+    async def setup(connectionstring: str, network_name: str):
         '''
         Factory for DnsDb class
 
@@ -84,39 +119,21 @@ class DnsDb:
 
         dnsdb = DnsDb(network_name)
 
-        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+        dnsdb._engine = create_async_engine(
+            connectionstring, echo=False, isolation_level='AUTOCOMMIT',
+            future=True
+        )
 
-        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
+        # Base = declarative_base()
+        dnsdb.async_session = sessionmaker(
+            dnsdb._engine, class_=AsyncSession, expire_on_commit=False
+        )
+        # Ensure the 'accounts' subdomain for the network exists
+        subdomain = f'accounts.{network_name}'
+        async with AsyncSession(dnsdb._engine) as db_session_2:
+            domain_id = await dnsdb._get_domain_id(db_session_2, subdomain)
 
-        # TODO: figure out why asynchpg is not working
-        # FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
-        if False and 'asyncpg' in connectionstring:
-            from sqlalchemy.ext.asyncio import create_async_engine
-            dnsdb._engine = create_async_engine(
-                connectionstring, echo=False, future=True,
-                isolation_level='AUTOCOMMIT'
-            )
-        else:
-            from sqlalchemy import create_engine
-            dnsdb._engine = create_engine(
-                connectionstring, echo=False, isolation_level='AUTOCOMMIT'
-            )
-
-        with dnsdb._engine.connect() as conn:
-            dnsdb._domains_table = Table(
-                'domains', dnsdb._metadata, autoload_with=dnsdb._engine
-            )
-            dnsdb._records_table = Table(
-                'records', dnsdb._metadata, autoload_with=dnsdb._engine
-            )
-
-            # Ensure the 'accounts' subdomain for the network exists
-            subdomain = f'accounts.{network_name}'
-            domain_id = dnsdb._get_domain_id(conn, subdomain)
-            dnsdb._domain_ids[subdomain] = domain_id
+        dnsdb._domain_ids[subdomain] = domain_id
 
         return dnsdb
 
@@ -172,8 +189,9 @@ class DnsDb:
 
         return uuid, id_type, service_id
 
-    def create_update(self, uuid: UUID, id_type: IdType,
-                      ip_addr: ip_address, service_id: int = None) -> bool:
+    async def create_update(self, uuid: UUID, id_type: IdType,
+                            ip_addr: ip_address, db_session: AsyncSession,
+                            service_id: int = None) -> bool:
         '''
         Create DNS A and optionally a TXT record, replacing any existing DNS
         record.
@@ -181,6 +199,7 @@ class DnsDb:
         :param uuid: account or member. Must be None for IdType.SERVICE
         :param id_type: instance of byoda.datatypes.IdType
         :param ip_addr: client ip
+        :param db_session: AsyncSession to PostgreSql DB
         :param service_id: service identifier
         :returns: whether existing DNS records were updated
         :raises:
@@ -207,8 +226,9 @@ class DnsDb:
             # SQLAlachemy doesn't have 'UPSERT' so we do a lookup, remove if
             # the entry already exists and then create the new record
             try:
-                existing_value = self.lookup(
-                    uuid, id_type, dns_record_type, service_id=service_id
+                existing_value = await self.lookup(
+                    uuid, id_type, dns_record_type, db_session,
+                    service_id=service_id,
                 )
                 if existing_value and value == str(existing_value):
                     # Nothing to change
@@ -218,8 +238,9 @@ class DnsDb:
                     )
                     continue
 
-                record_replaced = record_replaced or self.remove(
-                    uuid, id_type, dns_record_type, service_id=service_id
+                record_replaced = record_replaced or await self.remove(
+                    uuid, id_type, dns_record_type, db_session,
+                    service_id=service_id
                 )
             except KeyError:
                 pass
@@ -228,26 +249,27 @@ class DnsDb:
             # 'cache' of domains_id might be out of date
             hostname, subdomain = fqdn.split('.', 1)
             if subdomain not in self._domain_ids:
-                domain_id = self._upsert_subdomain(subdomain)
+                domain_id = await self._upsert_subdomain(subdomain, db_session)
             else:
                 domain_id = self._domain_ids[subdomain]
 
-            with self._engine.connect() as conn:
-                stmt = insert(
-                    self._records_table
-                ).values(
-                    name=fqdn, content=str(value), domain_id=domain_id,
-                    db_expire=db_expire, type=dns_record_type.value,
-                    ttl=DEFAULT_TTL, prio=0, auth=True
-                )
+            stmt = insert(
+                self._records_table
+            ).values(
+                name=fqdn, content=str(value), domain_id=domain_id,
+                db_expire=db_expire, type=dns_record_type.value,
+                ttl=DEFAULT_TTL, prio=0, auth=True
+            )
 
-                conn.execute(stmt)
+            async with AsyncSession(self._engine) as db_session_2:
+                await db_session_2.execute(stmt)
 
         return record_replaced
 
-    def lookup(self, uuid: UUID, id_type: IdType,
-               dns_record_type: DnsRecordType,
-               service_id: int = None) -> ip_address:
+    async def lookup(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType,
+                     db_session: AsyncSession, service_id: int = None
+                     ) -> ip_address:
         '''
         Look up in DnsDB the DNS record for the UUID, which is either an
         account_id, a member_id or a service_id
@@ -255,6 +277,7 @@ class DnsDb:
         :param uuid: instance of uuid.UUID
         :param id_type: instance of byoda.datatypes.IdType
         :param dns_record_type: type of DNS record to look up
+        :param db_session: AsyncSession to PostgreSql DB
         :param service_id: the identifier for the service
         :returns: IP address found for the lookup in DnsDB
         :raises: KeyError if DNS record for the uuid could not be found
@@ -264,62 +287,67 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        return self.lookup_fqdn(fqdn, dns_record_type)
+        return await self.lookup_fqdn(fqdn, dns_record_type, db_session)
 
-    def lookup_fqdn(self, fqdn: str, dns_record_type) -> ip_address:
+    async def lookup_fqdn(self, fqdn: str, dns_record_type: DnsRecordType,
+                          db_session: AsyncSession) -> ip_address:
         '''
         Looks up FQDN in the DnsDB
 
         :param fqdn: FQDN to look up
+        :param dns_record_type: what type of DNS record to look up
+        :param db_session: AsyncSession to PostgreSql DB
         :returns: IP address found for the lookup in DnsDB
         :raises: KeyError if DNS record for the uuid could not be found
         '''
 
         value = None
-        with self._engine.connect() as conn:
-            _LOGGER.debug(f'Performing lookup for {fqdn}')
-            stmt = select(
-                self._records_table.c.id, self._records_table.c.content
-            ).where(
-                and_(
-                    self._records_table.c.name == fqdn,
-                    self._records_table.c.type == dns_record_type.value
-                )
+        _LOGGER.debug(f'Performing lookup for {fqdn}')
+        stmt = select(
+            self._records_table.c.id, self._records_table.c.content
+        ).where(
+            and_(
+                self._records_table.c.name == fqdn,
+                self._records_table.c.type == dns_record_type.value
+            )
+        )
+
+        try:
+            _LOGGER.debug(f'Executing SQL command: {stmt}')
+            async with AsyncSession(self._engine) as db_session_2:
+                domains = await db_session_2.execute(stmt)
+        except Exception as exc:
+            _LOGGER.error(f'Failed to execute SQL statement: {exc}')
+            return
+
+        values = [domain.content for domain in domains]
+
+        if not len(values):
+            raise KeyError(
+                f'No {dns_record_type} records found for {fqdn}'
             )
 
-            try:
-                _LOGGER.debug(f'Executing SQL command: {stmt}')
-                domains = conn.execute(stmt)
-            except Exception as exc:
-                _LOGGER.error(f'Failed to execute SQL statement: {exc}')
-                return
+        if len(values) > 1:
+            _LOGGER.warning(
+                f'FQDN {fqdn} has more than one {dns_record_type} '
+                f'record: {", ".join(values)}'
+            )
 
-            values = [domain.content for domain in domains]
+        value = values[0]
+        if dns_record_type == DnsRecordType.A:
+            value = IPv4Address(value)
 
-            if not len(values):
-                raise KeyError(
-                    f'No {dns_record_type} records found for {fqdn}'
-                )
+        return value
 
-            if len(values) > 1:
-                _LOGGER.warning(
-                    f'FQDN {fqdn} has more than one {dns_record_type} '
-                    f'record: {", ".join(values)}'
-                )
-
-            value = values[0]
-            if dns_record_type == DnsRecordType.A:
-                value = IPv4Address(value)
-
-            return value
-
-    def remove(self, uuid: UUID, id_type: IdType,
-               dns_record_type: DnsRecordType, service_id=None) -> bool:
+    async def remove(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType, db_session: AsyncSession,
+                     service_id=None) -> bool:
         '''
         Removes the DNS records for the uuid
 
         :param uuid: client
         :param id_type: account / member / service
+        :param db_session: AsyncSession to PostgreSql DB
         :param service_id: service identifier, required for IdType.service
         :returns: bool on whether one or more records were removed
         '''
@@ -328,42 +356,160 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        with self._engine.connect() as conn:
-            if dns_record_type == DnsRecordType.TXT:
+        if dns_record_type == DnsRecordType.TXT:
+            stmt = delete(
+                self._records_table
+            ).where(
+                and_(
+                    self._records_table.c.name == fqdn,
+                    self._records_table.c.type == dns_record_type.value
+                )
+            )
+            async with AsyncSession(self._engine) as db_session_2:
+                await db_session_2.execute(stmt)
+        else:
+            stmt = select(
+                self._records_table.c.id
+            ).where(
+                self._records_table.c.name == fqdn
+            )
+            async with AsyncSession(self._engine) as db_session_2:
+                result = await db_session_2.execute(stmt)
+                domains = result.fetchall()
+
+            for domain in domains:
                 stmt = delete(
                     self._records_table
                 ).where(
                     and_(
-                        self._records_table.c.name == fqdn,
+                        self._records_table.c.id == domain.id,
                         self._records_table.c.type == dns_record_type.value
                     )
                 )
-                conn.execute(stmt)
-            else:
-                stmt = select(
-                    self._records_table.c.id
-                ).where(
-                    self._records_table.c.name == fqdn
-                )
-                domains = conn.execute(stmt).fetchall()
+                async with AsyncSession(self._engine) as db_session_2:
+                    await db_session_2.execute(stmt)
 
-                for domain in domains:
-                    stmt = delete(
-                        self._records_table
-                    ).where(
-                        and_(
-                            self._records_table.c.id == domain.id,
-                            self._records_table.c.type == dns_record_type.value
-                        )
-                    )
-                    conn.execute(stmt)
-
-                _LOGGER.debug(
-                    f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
-                    f'and service_id {service_id}'
-                )
+            _LOGGER.debug(
+                f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
+                f'and service_id {service_id}'
+            )
 
         return len(domains) > 0
+
+    async def _get_domain_id(self, db_session: AsyncSession, subdomain: str,
+                             create_missing: bool = True) -> int:
+        '''
+        Get the Powerdns domain_id for the subdomain from Postgres
+
+        :param db_session: AsyncSession to PostgreSql DB
+        :param subdomain: string with the domain
+        :returns: domain_id
+        '''
+
+        if subdomain in self._domain_ids:
+            return self._domain_ids[subdomain]
+
+        stmt = select(
+            self._domains_table.c.id
+        ).where(
+            self._domains_table.c.name == subdomain
+        )
+
+        async with AsyncSession(self._engine) as db_session_2:
+            domains = await db_session_2.execute(stmt)
+
+        first = domains.first()
+
+        if not first:
+            if create_missing:
+                _LOGGER.info('Creating domain {subdomain} in DnsDB')
+                await self._upsert_subdomain(subdomain, db_session)
+                return await self._get_domain_id(
+                    db_session, subdomain, create_missing=False
+                )
+            else:
+                raise ValueError(
+                    f'Could not find or create ID for domain {subdomain}'
+                )
+        else:
+            domain_id = first.id
+
+        return domain_id
+
+    async def _upsert_subdomain(self, subdomain: str, db_session: AsyncSession
+                                ) -> bool:
+        '''
+        Adds subdomain to list of domains
+
+        :param conn: sqlalchemy connection instance
+        :param subdomain: string with the domain to add
+        :param db_session: AsyncSession to PostgreSql DB
+        :returns: bool on success
+        :raises:
+        '''
+
+        if subdomain in self._domain_ids:
+            raise ValueError(
+                f'Subdomain {subdomain} already has domain id '
+                f'{self._domain_ids[subdomain]}'
+            )
+
+        stmt = insert(
+            self._domains_table
+        ).values(
+            name=subdomain,
+            type='NATIVE'
+        ).on_conflict_do_nothing(
+            index_elements=['name']
+        )
+        _LOGGER.debug(f'Upserting domain {subdomain}')
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
+
+        domain_id = await self._get_domain_id(db_session, subdomain)
+        self._domain_ids[subdomain] = domain_id
+
+        soa = \
+            f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
+        stmt = insert(
+            self._records_table
+        ).values(
+            name=subdomain, content=soa,
+            domain_id=domain_id,
+            type='SOA', ttl=DEFAULT_TTL, prio=0,
+            auth=True
+        )
+        # on_conflict requires a constraint on the 'name' column of the
+        # 'records' table
+        # on_conflict_stmt = stmt.on_conflict_do_nothing(
+        #    index_elements=['name']
+        # )
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
+
+        ns = 'dir.byoda.net.'
+        stmt = insert(
+            self._records_table
+        ).values(
+            name='@', content=ns,
+            domain_id=domain_id,
+            type='NS', ttl=DEFAULT_TTL, prio=0,
+            auth=True
+        )
+        # on_conflict requires a constraint on the 'name' column of the
+        # 'records' table
+        # on_conflict_stmt = stmt.on_conflict_do_nothing(
+        #    index_elements=['name']
+        # )
+
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
+
+        _LOGGER.debug(
+            f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
+        )
+
+        return domain_id
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
                              ip_addr: ip_address = None,
@@ -421,115 +567,6 @@ class DnsDb:
             )
 
         return
-
-    def _get_domain_id(self, conn: Engine, subdomain: str,
-                       create_missing: bool = True) -> int:
-        '''
-        Get the Powerdns domain_id for the subdomain from Postgres
-
-        :param sqlalchemy connection instance
-        :param subdomain: string with the domain
-        :returns: domain_id
-        '''
-
-        if subdomain in self._domain_ids:
-            return self._domain_ids[subdomain]
-
-        stmt = select(
-            self._domains_table.c.id
-        ).where(
-            self._domains_table.c.name == subdomain
-        )
-
-        domains = conn.execute(stmt)
-        first = domains.first()
-
-        if not first:
-            if create_missing:
-                _LOGGER.info('Creating domain {subdomain} in DnsDB')
-                self._upsert_subdomain(subdomain)
-                return self._get_domain_id(
-                    conn, subdomain, create_missing=False
-                )
-            else:
-                raise ValueError(
-                    f'Could not find or create ID for domain {subdomain}'
-                )
-        else:
-            domain_id = first.id
-
-        return domain_id
-
-    def _upsert_subdomain(self, subdomain: str) -> bool:
-        '''
-        Adds subdomain to list of domains
-
-        :param conn: sqlalchemy connection instance
-        :param subdomain: string with the domain to add
-        :returns: bool on success
-        :raises:
-        '''
-
-        if subdomain in self._domain_ids:
-            raise ValueError(
-                f'Subdomain {subdomain} already has domain id '
-                f'{self._domain_ids[subdomain]}'
-            )
-
-        with self._engine.connect() as conn:
-            stmt = insert(
-                self._domains_table
-            ).values(
-                name=subdomain,
-                type='NATIVE'
-            ).on_conflict_do_nothing(
-                index_elements=['name']
-            )
-            _LOGGER.debug(f'Upserting domain {subdomain}')
-            conn.execute(stmt)
-
-            domain_id = self._get_domain_id(conn, subdomain)
-            self._domain_ids[subdomain] = domain_id
-
-            soa = \
-                f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
-            stmt = insert(
-                self._records_table
-            ).values(
-                name=subdomain, content=soa,
-                domain_id=domain_id,
-                type='SOA', ttl=DEFAULT_TTL, prio=0,
-                auth=True
-            )
-            # on_conflict requires a constraint on the 'name' column of the
-            # 'records' table
-            # on_conflict_stmt = stmt.on_conflict_do_nothing(
-            #    index_elements=['name']
-            # )
-            conn.execute(stmt)
-
-            ns = 'dir.byoda.net.'
-            stmt = insert(
-                self._records_table
-            ).values(
-                name='@', content=ns,
-                domain_id=domain_id,
-                type='NS', ttl=DEFAULT_TTL, prio=0,
-                auth=True
-            )
-            # on_conflict requires a constraint on the 'name' column of the
-            # 'records' table
-            # on_conflict_stmt = stmt.on_conflict_do_nothing(
-            #    index_elements=['name']
-            # )
-
-            conn.execute(stmt)
-
-            _LOGGER.debug(
-                f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
-            )
-
-            return domain_id
 
 
 @event.listens_for(Engine, "before_cursor_execute")

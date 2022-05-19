@@ -26,8 +26,8 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
 @router.get('/account', response_model=AccountResponseModel)
-def get_account(request: Request,
-                auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def get_account(request: Request,
+                      auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Get data for the pod account.
     The data request is evaluated using the identify specified in the
@@ -35,6 +35,7 @@ def get_account(request: Request,
     '''
 
     _LOGGER.debug(f'GET Account API called from {request.client.host}')
+    await auth.authenticate()
 
     # Authorization: handled by PodApiRequestAuth, which checks account
     # cert / JWT was used and it matches the account ID of the pod
@@ -60,7 +61,7 @@ def get_account(request: Request,
 
     root_directory = account.paths.root_directory
 
-    account.load_memberships()
+    await account.load_memberships()
 
     services = []
     for service in network.service_summaries.values():

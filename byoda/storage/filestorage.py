@@ -89,13 +89,13 @@ class FileStorage:
 
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
-            storage = AwsFileStorage(bucket_prefix, root_dir)
+            storage = AwsFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
-            storage = AzureFileStorage(bucket_prefix, root_dir)
+            storage = AzureFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.GCP:
             from .gcp import GcpFileStorage
-            storage = GcpFileStorage(bucket_prefix, root_dir)
+            storage = GcpFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
             storage = FileStorage(root_dir)
@@ -151,8 +151,16 @@ class FileStorage:
 
         file_descriptor.close()
 
-    def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
-             ) -> str:
+    async def close_clients(self):
+        '''
+        Dummy function for Cloud Storage clients like Azure that need their
+        async clients to be closed explicitly
+        '''
+
+        pass
+
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
+                   ) -> str:
         '''
         Read a file
 
@@ -172,8 +180,8 @@ class FileStorage:
 
         return data
 
-    def write(self, filepath: str, data: bytes,
-              file_mode: FileMode = FileMode.BINARY) -> None:
+    async def write(self, filepath: str, data: bytes,
+                    file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Writes a str or bytes to the local file system
 
@@ -208,7 +216,7 @@ class FileStorage:
         with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
-    def exists(self, filepath: str) -> bool:
+    async def exists(self, filepath: str) -> bool:
         '''
         Check if the file exists in the local file system
 
@@ -221,16 +229,17 @@ class FileStorage:
         exists = os.path.exists(f'{dirpath}/{filename}')
         if not exists:
             _LOGGER.debug(
-                f'File not found in local filesystem: {dirpath}/{filename}'
+                'File not found in local filesystem: '
+                f'{dirpath}/{filename}'
             )
         return exists
 
-    def move(self, src_filepath: str, dest_filepath: str):
+    async def move(self, src_filepath: str, dest_filepath: str):
         '''
         Moves the file to the destination file
         :param src_filepath: absolute full path + file name of the source file
-        :param dest_filepath: full path + file name of the destination file relative
-        to the root directory
+        :param dest_filepath: full path + file name of the destination file
+        relative to the root directory
         :raises: FileNotFoundError, PermissionError
         '''
 
@@ -238,7 +247,7 @@ class FileStorage:
 
         shutil.move(src_filepath, dirpath + '/' + filename)
 
-    def delete(self, filepath: str) -> bool:
+    async def delete(self, filepath: str) -> bool:
         '''
         Delete the file from the local file system
         :param filepath: location of the file on the file system
@@ -267,7 +276,8 @@ class FileStorage:
 
         return 'http://localhost'
 
-    def create_directory(self, directory: str, exist_ok: bool = True) -> None:
+    async def create_directory(self, directory: str, exist_ok: bool = True
+                               ) -> None:
         '''
         Creates a directory on the local file system, including any
         intermediate directories if they don't exist already
@@ -291,8 +301,8 @@ class FileStorage:
         dirpath, filename = self.get_full_path(filepath)
         return os.stat.getmtime(dirpath + filename)
 
-    def copy(self, src: str, dest: str,
-             storage_type: StorageType = StorageType.PRIVATE) -> None:
+    async def copy(self, src: str, dest: str,
+                   storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Copies a file on the local file system
         '''
@@ -306,13 +316,16 @@ class FileStorage:
 
         _LOGGER.debug(
             f'Copied {src_dirpath}/{src_filename} to '
-            f'{dest_dirpath}/{dest_filename} on the local file system: {result}'
+            f'{dest_dirpath}/{dest_filename} on the local file '
+            f'system: {result}'
         )
 
-    def get_folders(self, folder_path: str, prefix: str = None) -> List[str]:
+    async def get_folders(self, folder_path: str, prefix: str = None
+                          ) -> List[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
         '''
+
         folders = []
 
         dir_path = self.get_full_path(folder_path)[0]

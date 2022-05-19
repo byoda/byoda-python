@@ -98,8 +98,11 @@ class MemberSecret(Secret):
 
         return common_name
 
-    def load(self, with_private_key: bool = True, password: str = 'byoda'):
-        super().load(with_private_key=with_private_key, password=password)
+    async def load(self, with_private_key: bool = True,
+                   password: str = 'byoda'):
+        await super().load(
+            with_private_key=with_private_key, password=password
+        )
         self.member_id = UUID(self.common_name.split('.')[0])
 
     def save_tmp_private_key(self):

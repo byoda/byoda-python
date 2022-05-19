@@ -55,8 +55,8 @@ router = APIRouter(
 
 
 @router.get('/search/{email}', response_model=PersonResponseModel)
-def search(request: Request, email: str,
-           auth: MemberRequestAuthFast = Depends(MemberRequestAuthFast)):
+async def search(request: Request, email: str,
+                 auth: MemberRequestAuthFast = Depends(MemberRequestAuthFast)):
     '''
     Search a member of the service based on the exact match of the
     email address
@@ -65,6 +65,7 @@ def search(request: Request, email: str,
     '''
 
     _LOGGER.debug(f'Search API called for {email} from {request.client.host}')
+    await auth.authenticate()
 
     # Authorization: not required as called is a member
 
@@ -82,7 +83,7 @@ def search(request: Request, email: str,
         f'found {member_id}'
     )
 
-    data = member_db.get_data(UUID(member_id))
+    data = await member_db.get_data(UUID(member_id))
 
     data['member_id'] = member_id
 

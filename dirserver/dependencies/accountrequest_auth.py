@@ -43,19 +43,27 @@ class AccountRequestAuthFast(RequestAuth):
         '''
 
         _LOGGER.debug('Verifying authentication with an account cert')
+
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization = None
+
+    async def authenticate(self):
         server = config.server
 
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().authenticate(
+                self.x_client_ssl_verify, self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca, None
             )
         except MissingAuthInfo:
             raise HTTPException(
                 status_code=401,
                 detail=(
-                    'This API requires a TLS client cert or JWT for '
-                    'authentication'
+                    'This API requires a TLS client cert for authen tication'
                 )
             )
 
@@ -98,12 +106,21 @@ class AccountRequestOptionalAuthFast(RequestAuth):
         '''
 
         _LOGGER.debug('verifying authentication with an account cert')
+
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization = None
+
+    async def authenticate(self):
         server = config.server
 
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().authenticate(
+                self.x_client_ssl_verify, self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca, None
             )
         except MissingAuthInfo:
             # This class does not require authentication so we just return

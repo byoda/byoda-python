@@ -284,7 +284,7 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM)
 
-    def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
+    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
         Gets the cert signed and adds the signed cert to the secret
 
@@ -298,7 +298,7 @@ class Secret:
             f'Getting CSR with common name {self.common_name} signed'
         )
         self.from_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
-        self.save(password=self.password)
+        await self.save(password=self.password)
 
     def from_signed_cert(self, cert_chain: CertChain):
         '''
@@ -469,25 +469,26 @@ class Secret:
 
         return digest
 
-    def cert_file_exists(self) -> bool:
+    async def cert_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
 
         :returns: bool
         '''
 
-        return self.storage_driver.exists(self.cert_file)
+        return await self.storage_driver.exists(self.cert_file)
 
-    def private_key_file_exists(self) -> bool:
+    async def private_key_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
 
         :returns: bool
         '''
 
-        self.storage_driver.exists(self.private_key_file)
+        await self.storage_driver.exists(self.private_key_file)
 
-    def load(self, with_private_key: bool = True, password: str = 'byoda'):
+    async def load(self, with_private_key: bool = True,
+                   password: str = 'byoda'):
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -510,7 +511,7 @@ class Secret:
 
         try:
             _LOGGER.debug('Loading cert from %s', self.cert_file)
-            cert_data = self.storage_driver.read(self.cert_file)
+            cert_data = await self.storage_driver.read(self.cert_file)
         except FileNotFoundError:
             _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise
@@ -538,7 +539,7 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                data = self.storage_driver.read(
+                data = await self.storage_driver.read(
                     self.private_key_file, file_mode=FileMode.BINARY
                 )
 
@@ -609,7 +610,7 @@ class Secret:
 
         return x509.load_pem_x509_csr(csr)
 
-    def save(self, password: str = 'byoda', overwrite: bool = False):
+    async def save(self, password: str = 'byoda', overwrite: bool = False):
         '''
         Save a cert and private key to their respective files
 
@@ -620,13 +621,13 @@ class Secret:
         already exist and overwrite == False
         '''
 
-        if not overwrite and self.storage_driver.exists(self.cert_file):
+        if not overwrite and await self.storage_driver.exists(self.cert_file):
             raise PermissionError(
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
             )
         if (not overwrite and self.private_key
-                and self.storage_driver.exists(self.private_key_file)):
+                and await self.storage_driver.exists(self.private_key_file)):
             raise PermissionError(
                 f'Can not save the private key because the key already '
                 f'exists at {self.private_key_file}'
@@ -636,9 +637,9 @@ class Secret:
         data = self.certchain_as_pem()
 
         directory = os.path.dirname(self.cert_file)
-        self.storage_driver.create_directory(directory)
+        await self.storage_driver.create_directory(directory)
 
-        self.storage_driver.write(
+        await self.storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
         )
 
@@ -652,7 +653,7 @@ class Secret:
                 )
             )
 
-            self.storage_driver.write(
+            await self.storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
             )
@@ -762,6 +763,8 @@ class Secret:
         :returns: the common name with the domain name chopped off
         :raises: ValueError
         '''
+
+        _LOGGER.debug(f'Reviewing common name: {commonname}')
 
         if not isinstance(commonname, str):
             raise ValueError(

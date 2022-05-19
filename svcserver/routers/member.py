@@ -55,10 +55,10 @@ router = APIRouter(
 
 @router.post('/member', response_model=SignedMemberCertResponseModel,
              status_code=201)
-def post_member(request: Request, csr: CertSigningRequestModel,
-                auth: MemberRequestAuthOptionalFast =
-                Depends(MemberRequestAuthOptionalFast)
-                ):
+async def post_member(request: Request, csr: CertSigningRequestModel,
+                      auth: MemberRequestAuthOptionalFast =
+                      Depends(MemberRequestAuthOptionalFast)
+                      ):
     '''
     Submit a Certificate Signing Request for the Member certificate
     and get the cert signed by the Service Members CA
@@ -68,6 +68,8 @@ def post_member(request: Request, csr: CertSigningRequestModel,
     '''
 
     _LOGGER.debug(f'POST Member API called from {request.client.host}')
+
+    await auth.authenticate()
 
     server: ServiceServer = config.server
     service: Service = server.service
@@ -167,15 +169,17 @@ def post_member(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/member/version/{schema_version}',
             response_model=IpAddressResponseModel)
-def put_member(request: Request, schema_version: int,
-               certchain: CertChainRequestModel,
-               auth: MemberRequestAuthFast = Depends(
-                   MemberRequestAuthFast)):
+async def put_member(request: Request, schema_version: int,
+                     certchain: CertChainRequestModel,
+                     auth: MemberRequestAuthFast = Depends(
+                        MemberRequestAuthFast)):
     '''
     Registers a known pod with its IP address and its data cert
     '''
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
+
+    await auth.authenticate()
 
     network = config.server.network
     service = config.server.service
@@ -205,7 +209,7 @@ def put_member(request: Request, schema_version: int,
     # from_string() concats the cert and the certchain together
     # so we can use it here with just providing the certchain parameter
     member_data_secret.from_string(certchain.certchain)
-    member_data_secret.save(overwrite=True)
+    await member_data_secret.save(overwrite=True)
 
     config.server.member_db.add_meta(
         auth.member_id, auth.remote_addr, schema_version, certchain.certchain,

@@ -43,12 +43,22 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         '''
 
         _LOGGER.debug('verifying authentication with a member cert')
-        server: Server = config.server
 
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.authorization: str = None
+
+    async def authenticate(self):
+        server: Server = config.server
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().authenticate(
+                self.x_client_ssl_verify or TlsStatus.NONE,
+                self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca,
+                self.authorization
             )
         except MissingAuthInfo:
             return
@@ -73,22 +83,39 @@ class MemberRequestAuthFast(RequestAuth):
                  x_client_ssl_subject: Optional[str] = Header(None),
                  x_client_ssl_issuing_ca: Optional[str] = Header(None)):
         '''
-        Get the authentication info for the client that made the API call.
-        The reverse proxy has already validated that the client calling the
-        API is the owner of the private key for the certificate it presented
-        so we trust the HTTP headers set by the reverse proxy
+        Get the optional authentication info for the client that made the API
+        call.
 
-        :param service_id: the service identifier for the service
+        The reverse proxy has already validated that the client calling
+        the API is the owner of the private key for the certificate it
+        presented so we trust the HTTP headers set by the reverse proxy
+
         :raises: HTTPException
         '''
 
         _LOGGER.debug('verifying authentication with a member cert')
         server: Server = config.server
 
+        super().__init__(request.client.host, request.method)
+
+        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
+        self.x_client_ssl_subject: str = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        if server.service:
+            self.service_id = server.service.service_id
+        else:
+            self.service_id = None
+
+        self.authorization: str = None
+
+    async def authenticate(self):
+        server: Server = config.server
         try:
-            super().__init__(
-                x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-                x_client_ssl_issuing_ca, None, request.client.host
+            await super().authenticate(
+                self.x_client_ssl_verify or TlsStatus.NONE,
+                self.x_client_ssl_subject,
+                self.x_client_ssl_issuing_ca,
+                self.authorization
             )
         except MissingAuthInfo:
             raise HTTPException(

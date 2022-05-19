@@ -21,13 +21,13 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 import os
 import sys
+import daemon
+import asyncio
 from typing import Dict
 
-import daemon
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
 
 from byoda.datatypes import CloudType
 
@@ -73,7 +73,7 @@ def main(args):
             run_tasks()
 
 
-def run_bootstrap_tasks(data: Dict):
+async def run_bootstrap_tasks(data: Dict):
     '''
     When we are bootstrapping, we create any data that is missing from
     the data store.
@@ -89,16 +89,20 @@ def run_bootstrap_tasks(data: Dict):
     )
 
     network = Network(data, data)
+    await network.load_network_secrets()
 
     server.network = network
     server.paths = network.paths
 
     account = Account(data['account_id'], network)
+    await account.paths.create_account_directory()
+    await account.load_memberships()
+
     server.account = account
 
     _LOGGER.debug('Running bootstrap tasks')
     try:
-        account.tls_secret.load(
+        await account.tls_secret.load(
             password=account.private_key_password
         )
         common_name = account.tls_secret.common_name
@@ -116,7 +120,7 @@ def run_bootstrap_tasks(data: Dict):
         _LOGGER.info('Created account secret during bootstrap')
 
     try:
-        account.data_secret.load(
+        await account.data_secret.load(
             password=account.private_key_password
         )
         _LOGGER.debug('Read account data secret')
@@ -136,4 +140,4 @@ def run_tasks():
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    asyncio.run(main(sys.argv))

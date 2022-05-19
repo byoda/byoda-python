@@ -33,8 +33,8 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
     '/member/service_id/{service_id}',
     response_model=MemberResponseModel
 )
-def get_member(request: Request, service_id: int,
-               auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def get_member(request: Request, service_id: int,
+                     auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Get metadata for the membership of a service.
 
@@ -43,6 +43,7 @@ def get_member(request: Request, service_id: int,
     '''
 
     _LOGGER.debug(f'GET Member API called from {request.client.host}')
+    await auth.authenticate()
 
     account: Account = config.server.account
 
@@ -51,7 +52,7 @@ def get_member(request: Request, service_id: int,
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if not member:
@@ -65,8 +66,8 @@ def get_member(request: Request, service_id: int,
 
 @router.post('/member/service_id/{service_id}/version/{version}',
              response_model=MemberResponseModel)
-def post_member(request: Request, service_id: int, version: int,
-                auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def post_member(request: Request, service_id: int, version: int,
+                      auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Become a member of a service.
     :param service_id: service_id of the service
@@ -75,6 +76,7 @@ def post_member(request: Request, service_id: int, version: int,
     '''
 
     _LOGGER.debug(f'Post Member API called from {request.client.host}')
+    await auth.authenticate()
 
     account: Account = config.server.account
 
@@ -83,7 +85,7 @@ def post_member(request: Request, service_id: int, version: int,
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if member:
@@ -96,7 +98,7 @@ def post_member(request: Request, service_id: int, version: int,
 
     _LOGGER.debug(f'Joining service {service_id}')
     # BUG: any additional workers also need to join the service
-    member = account.join(service_id, version)
+    member = await account.join(service_id, version)
 
     _LOGGER.debug(f'Returning info about joined service {service_id}')
     return member.as_dict()
@@ -104,8 +106,8 @@ def post_member(request: Request, service_id: int, version: int,
 
 @router.put('/member/service_id/{service_id}/version/{version}',
             response_model=MemberResponseModel)
-def put_member(request: Request, service_id: int, version: int,
-               auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def put_member(request: Request, service_id: int, version: int,
+                     auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service
@@ -114,6 +116,7 @@ def put_member(request: Request, service_id: int, version: int,
     '''
 
     _LOGGER.debug(f'Put Member API called from {request.client.host}')
+    await auth.authenticate()
 
     server: PodServer = config.server
     account: Account = server.account
@@ -122,7 +125,7 @@ def put_member(request: Request, service_id: int, version: int,
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
-    account.load_memberships()
+    await account.load_memberships()
     member: Member = account.memberships.get(service_id)
 
     if not member:
@@ -150,7 +153,7 @@ def put_member(request: Request, service_id: int, version: int,
         )
 
     # Get the latest list of services from the directory server
-    server.get_registered_services()
+    await server.get_registered_services()
     network: Network = account.network
     service_summary = network.service_summaries.get(service_id)
     if not service_summary:

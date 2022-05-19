@@ -134,7 +134,7 @@ def _check_data_access(data_element: str, subschema: Dict,
         if child_subschema:
             _LOGGER.debug(
                 f'Data element {data_element} has {len(child_subschema.keys())}'
-                'child elements'
+                ' child elements'
             )
             for child_data_element, child_element_schema in child_subschema.items():
                 child_access_allowed = _check_data_access(

@@ -9,9 +9,10 @@ Manages the signing of a data contract of a service.
 '''
 
 import os
-import argparse
 import sys
 import yaml
+import asyncio
+import argparse
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
@@ -36,7 +37,7 @@ _LOGGER = None
 _ROOT_DIR = os.environ['HOME'] + '/.byoda'
 
 
-def main(argv):
+async def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
@@ -64,10 +65,12 @@ def main(argv):
     )
 
     config.server = ServiceServer(app_config)
-    service = load_service(args, config.server.network, password)
+    await config.server.load_network_secrets()
+
+    service = await load_service(args, config.server.network, password)
 
     if not args.local:
-        service.registration_status = service.get_registration_status()
+        service.registration_status = await service.get_registration_status()
         if service.registration_status == RegistrationStatus.Unknown:
             raise ValueError(
                 'Please use "create_service_secrets.py" script first'
@@ -98,7 +101,7 @@ def main(argv):
     if (result is not False and (
             not args.signing_party
             or args.signing_party == SignatureType.NETWORK.value)):
-        result = create_network_signature(service, args, password)
+        result = await create_network_signature(service, args, password)
 
     if not result:
         _LOGGER.error('Failed to get the network signature')
@@ -111,21 +114,21 @@ def main(argv):
     storage_driver = FileStorage(root_dir)
     filepath = service.paths.get(Paths.SERVICE_FILE)
     _LOGGER.debug(f'Saving signed schema to {filepath}')
-    service.schema.save(filepath, storage_driver=storage_driver)
+    await service.schema.save(filepath, storage_driver=storage_driver)
 
 
-def load_service(args, network: Network, password: str):
+async def load_service(args, network: Network, password: str):
     '''
     Load service and its secrets
     '''
-    service = Service(
-        network=network, filepath=args.contract,
-    )
-    service.load_schema(args.contract, verify_contract_signatures=False)
+    service = Service(network=network)
+    await service.examine_servicecontract(args.contract)
+
+    await service.load_schema(args.contract, verify_contract_signatures=False)
     if not args.signing_party or args.signing_party == 'service':
-        service.load_secrets(with_private_key=True, password=password)
+        await service.load_secrets(with_private_key=True, password=password)
     else:
-        service.load_secrets(with_private_key=False)
+        await service.load_secrets(with_private_key=False)
 
     return service
 
@@ -146,7 +149,7 @@ def create_service_signature(service):
     _LOGGER.debug(f'Added service signature {schema["signatures"]["service"]}')
 
 
-def create_network_signature(service, args, password) -> bool:
+async def create_network_signature(service, args, password) -> bool:
     '''
     Add network signature to the service schema/data contract,
     either locally or by a directory server over the network
@@ -177,13 +180,15 @@ def create_network_signature(service, args, password) -> bool:
         # with the network signature
         _LOGGER.debug('Locally creating network signature')
         network.data_secret = NetworkDataSecret(network.paths)
-        network.data_secret.load(with_private_key=True, password=password)
+        await network.data_secret.load(
+            with_private_key=True, password=password
+        )
         service.schema.create_signature(
             network.data_secret, SignatureType.NETWORK
         )
     else:
         service_secret = ServiceSecret(None, service.service_id, network)
-        service_secret.load(with_private_key=True, password=password)
+        await service_secret.load(with_private_key=True, password=password)
         _LOGGER.debug('Requesting network signature from the directory server')
         response = RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),
@@ -223,4 +228,4 @@ def create_network_signature(service, args, password) -> bool:
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    asyncio.run(main(sys.argv))

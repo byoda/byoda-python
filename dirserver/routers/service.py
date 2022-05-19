@@ -26,13 +26,13 @@ from cryptography import x509
 
 from byoda.datamodel.service import RegistrationStatus
 from byoda.datastore.dnsdb import DnsRecordType
+from byoda.servers.server import Server
 
 from byoda.datatypes import IdType, ReviewStatusType
 from byoda.datatypes import AuthSource
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
-from byoda.datastore.certstore import CertStore
 from byoda.servers.directory_server import DirectoryServer
 from byoda.datamodel.network import Network
 
@@ -42,6 +42,9 @@ from byoda.models import CertSigningRequestModel
 from byoda.models import SignedServiceCertResponseModel
 from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
+
+from byoda.datastore.certstore import CertStore
+from byoda.datastore.dnsdb import DnsDb
 
 from byoda.secrets import Secret
 from byoda.secrets import ServiceCaSecret
@@ -53,8 +56,11 @@ from byoda.util.message_signature import SignatureType
 
 from byoda import config
 
-from ..dependencies.servicerequest_auth import ServiceRequestAuthFast
-from ..dependencies.servicerequest_auth import ServiceRequestOptionalAuthFast
+
+from dirserver.dependencies.servicerequest_auth import ServiceRequestAuthFast
+from dirserver.dependencies.servicerequest_auth import \
+    ServiceRequestOptionalAuthFast
+from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +73,7 @@ router = APIRouter(
 
 
 @router.get('/services', response_model=ServiceSummariesModel)
-def get_services(request: Request, skip: int = 0, count: int = 0):
+async def get_services(request: Request, skip: int = 0, count: int = 0):
     '''
     Get a list of summaries of the available services. This API is called by
     pods.
@@ -84,7 +90,7 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
     server: DirectoryServer = config.server
     network: Network = config.server.network
 
-    server.get_registered_services()
+    await server.get_registered_services()
 
     _LOGGER.debug(f'We now have {len(network.services)} services in memory')
 
@@ -111,20 +117,20 @@ def get_services(request: Request, skip: int = 0, count: int = 0):
 
 
 @router.get('/service/service_id/{service_id}', response_model=SchemaModel)
-def get_service(request: Request, service_id: int):
+async def get_service(request: Request, service_id: int):
     '''
     Get the data contract of the specified service.
 
-    This API does not require authentication as service schemas are
-    public information
+    This API does not require authentication or authorization as service
+    schemas are public information
     '''
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
 
     server: Server = config.server
-    network = config.server.network
+    network: Network = config.server.network
 
-    server.get_registered_services()
+    await server.get_registered_services()
 
     _LOGGER.debug(f'We now have {len(network.services)} services in memory')
 
@@ -142,12 +148,13 @@ def get_service(request: Request, service_id: int):
             raise ValueError(f'Unkown service id: {service_id}')
 
         if not service.schema:
-            service.registration_status = service.get_registration_status()
+            service.registration_status = \
+                await service.get_registration_status()
             if service.registration_status == RegistrationStatus.SchemaSigned:
                 filepath = network.paths.get(
                     Paths.SERVICE_FILE, service_id=service_id
                 )
-                service.load_schema(filepath)
+                await service.load_schema(filepath)
 
     if not service.schema:
         raise HTTPException(404, f'Service {service_id} not found')
@@ -158,9 +165,10 @@ def get_service(request: Request, service_id: int):
 @router.post(
     '/service', response_model=SignedServiceCertResponseModel, status_code=201
 )
-def post_service(request: Request, csr: CertSigningRequestModel,
-                 auth: ServiceRequestOptionalAuthFast =
-                 Depends(ServiceRequestOptionalAuthFast)):
+async def post_service(request: Request, csr: CertSigningRequestModel,
+                       auth: ServiceRequestOptionalAuthFast =
+                       Depends(ServiceRequestOptionalAuthFast),
+                       db_session=Depends(asyncdb_session)):
     '''
     Submit a Certificate Signing Request for the ServiceCA certificate
     and get the cert signed by the network services CA
@@ -172,6 +180,7 @@ def post_service(request: Request, csr: CertSigningRequestModel,
     _LOGGER.debug(f'POST Service API called from {request.client.host}')
 
     network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
@@ -193,9 +202,8 @@ def post_service(request: Request, csr: CertSigningRequestModel,
             )
         )
 
-    dnsdb = config.server.network.dnsdb
     try:
-        dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
+        await dnsdb.lookup_fqdn(common_name, DnsRecordType.A, db_session)
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -260,7 +268,7 @@ def post_service(request: Request, csr: CertSigningRequestModel,
     # If someone else already registered a Service then saving the cert will
     # raise an exception
     try:
-        service.service_ca.save(overwrite=False)
+        await service.service_ca.save(overwrite=False)
     except PermissionError:
         raise HTTPException(409, 'Service CA certificate already exists')
 
@@ -268,8 +276,8 @@ def post_service(request: Request, csr: CertSigningRequestModel,
     # race condition between submitting the CSR through the POST API and
     # registering the service server through the PUT API
     if not dns_exists:
-        dnsdb.create_update(
-            None, IdType.SERVICE, auth.remote_addr,
+        await dnsdb.create_update(
+            None, IdType.SERVICE, auth.remote_addr, db_session,
             service_id=entity_id.service_id
         )
 
@@ -284,17 +292,21 @@ def post_service(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/service/service_id/{service_id}',
             response_model=IpAddressResponseModel)
-def put_service(request: Request, service_id: int,
-                certchain: CertChainRequestModel,
-                auth: ServiceRequestAuthFast = Depends(
-                    ServiceRequestAuthFast)):
+async def put_service(request: Request, service_id: int,
+                      certchain: CertChainRequestModel,
+                      auth: ServiceRequestAuthFast = Depends(
+                          ServiceRequestAuthFast),
+                      db_session=Depends(asyncdb_session)):
     '''
     Registers a known service with its IP address and its data cert
     '''
 
     _LOGGER.debug(f'PUT Service API called from {request.client.host}')
 
+    await auth.authenticate()
+
     network: Network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
     if service_id != auth.service_id:
         raise ValueError(
@@ -324,15 +336,16 @@ def put_service(request: Request, service_id: int,
 
     service.data_secret.from_string(certchain.certchain)
 
-    service.data_secret.save(overwrite=True)
+    await service.data_secret.save(overwrite=True)
 
     _LOGGER.debug(
         f'Updating registration for service id {service_id} with remote'
         f'address {auth.remote_addr}'
     )
 
-    network.dnsdb.create_update(
-        None, IdType.SERVICE, auth.remote_addr, service_id=service_id
+    await dnsdb.create_update(
+        None, IdType.SERVICE, auth.remote_addr, db_session,
+        service_id=service_id
     )
 
     return {
@@ -342,9 +355,9 @@ def put_service(request: Request, service_id: int,
 
 @router.patch('/service/service_id/{service_id}',
               response_model=SchemaResponseModel)
-def patch_service(request: Request, schema: SchemaModel, service_id: int,
-                  auth: ServiceRequestAuthFast = Depends(
-                     ServiceRequestAuthFast)):
+async def patch_service(request: Request, schema: SchemaModel, service_id: int,
+                        auth: ServiceRequestAuthFast = Depends(
+                            ServiceRequestAuthFast)):
     '''
     Submit a new (revision of a) service schema, aka data contract
     for signing with the Network Data secret
@@ -353,6 +366,8 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
     '''
 
     _LOGGER.debug(f'PATCH Service API called from {request.client.host}')
+
+    await auth.authenticate()
 
     # Authorize the request
     if service_id != auth.service_id:
@@ -367,7 +382,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
         )
     # End of authorization
 
-    network = config.server.network
+    network: Network = config.server.network
 
     # TODO: create a whole bunch of schema validation tests
     # including one to just deserialize and reserialize and
@@ -428,7 +443,8 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
                         service.data_secret = ServiceDataSecret(
                             None, service_id, network
                         )
-                        service.data_secret.load(with_private_key=False)
+                        await service.data_secret.load(with_private_key=False)
+
                     service_contract.verify_signature(
                         service.data_secret, SignatureType.SERVICE
                     )
@@ -438,7 +454,7 @@ def patch_service(request: Request, schema: SchemaModel, service_id: int,
                     )
                     storage_driver = network.paths.storage_driver
                     filepath = network.paths.get(Paths.SERVICE_FILE)
-                    service_contract.save(filepath, storage_driver)
+                    await service_contract.save(filepath, storage_driver)
                 except ValueError:
                     status = ReviewStatusType.REJECTED
                     errors.append(

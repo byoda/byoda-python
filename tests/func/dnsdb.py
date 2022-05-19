@@ -10,9 +10,9 @@ Test the DnsDB class against Postgres server for byoda.net
 
 import sys
 import yaml
-import time
-from ipaddress import ip_address
+import asyncio
 import unittest
+from ipaddress import ip_address
 
 import dns.resolver
 
@@ -27,7 +27,8 @@ from byoda.datastore.dnsdb import DnsRecordType
 from byoda.datastore.dnsdb import DnsDb
 
 
-CONFIG = 'tests/collateral/config-dnsdb-test.yml'
+# CONFIG = 'tests/collateral/config-dnsdb-test.yml'
+CONFIG = 'tests/collateral/config.yml'
 TEST_DIR = '/tmp/byoda-func-test-secrets'
 NETWORK = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
@@ -41,167 +42,210 @@ TEST_SECOND_IP = '10.255.255.253'
 TEST_NETWORK = None
 
 
-class TestDnsDb(unittest.TestCase):
-    def test_dnsdb(self):
+class TestDnsDb(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+        await delete_test_data()
+
+    async def test_dnsdb(self):
         with open(CONFIG) as file_desc:
             config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
         global TEST_NETWORK
         TEST_NETWORK = config['application']['network']
 
-        dnsdb = DnsDb.setup(
+        dnsdb = await DnsDb.setup(
             config['dirserver']['dnsdb'], TEST_NETWORK
         )
 
-        # SERVICE
-        uuid = TEST_SERVICE_UUID
-        service_id = TEST_SERVICE_ID
-        first_ip = ip_address(TEST_FIRST_IP)
-        second_ip = ip_address(TEST_SECOND_IP)
+        async with dnsdb.async_session() as db_session:
+            # SERVICE
+            uuid = TEST_SERVICE_UUID
+            service_id = TEST_SERVICE_ID
+            first_ip = ip_address(TEST_FIRST_IP)
+            second_ip = ip_address(TEST_SECOND_IP)
 
-        service_fqdn = dnsdb.compose_fqdn(
-            None, IdType.SERVICE, service_id=service_id
-        )
-        self.assertEqual(
-            service_fqdn, f'service.service-{str(service_id)}.{TEST_NETWORK}'
-        )
-
-        with self.assertRaises(KeyError):
-            dnsdb.lookup(
-                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            service_fqdn = dnsdb.compose_fqdn(
+                None, IdType.SERVICE, service_id=service_id
+            )
+            self.assertEqual(
+                service_fqdn,
+                f'service.service-{str(service_id)}.{TEST_NETWORK}'
             )
 
-        self.assertFalse(
-            dnsdb.create_update(
-                None, IdType.SERVICE, first_ip, service_id=service_id
+            with self.assertRaises(KeyError):
+                await dnsdb.lookup(
+                    None, IdType.SERVICE, DnsRecordType.A, db_session,
+                    service_id=service_id
+                )
+
+            self.assertFalse(
+                await dnsdb.create_update(
+                    None, IdType.SERVICE, first_ip, db_session,
+                    service_id=service_id
+                )
             )
-        )
-        self.assertEqual(
-            dnsdb.lookup(
-                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
-            ), first_ip
-        )
-
-        self.assertFalse(
-            dnsdb.create_update(
-                None, IdType.SERVICE, first_ip, service_id=service_id
-            )
-        )
-        self.assertEqual(
-            dnsdb.lookup(
-                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
-            ), first_ip
-        )
-
-        self.assertTrue(
-            dnsdb.create_update(
-                None, IdType.SERVICE, second_ip, service_id=service_id
-            )
-        )
-
-        self.assertEqual(
-            dnsdb.lookup(
-                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
-            ), second_ip
-        )
-
-        dnsdb.remove(
-            None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
-        )
-
-        with self.assertRaises(KeyError):
-            dnsdb.lookup(
-                None, IdType.SERVICE, DnsRecordType.A, service_id=service_id
+            self.assertEqual(
+                await dnsdb.lookup(
+                    None, IdType.SERVICE, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ), first_ip
             )
 
-        # MEMBER
-        uuid = TEST_MEMBER_UUID
-        member = dnsdb.compose_fqdn(uuid, IdType.MEMBER, service_id=service_id)
-        self.assertEqual(
-            member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
-        )
-
-        with self.assertRaises(KeyError):
-            dnsdb.lookup(
-                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            self.assertFalse(
+                await dnsdb.create_update(
+                    None, IdType.SERVICE, first_ip, db_session,
+                    service_id=service_id
+                )
             )
 
-        self.assertFalse(
-            dnsdb.create_update(
-                uuid, IdType.MEMBER, first_ip, service_id=service_id
-            )
-        )
-
-        self.assertEqual(
-            dnsdb.lookup(
-                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
-            ),
-            first_ip
-        )
-
-        self.assertFalse(
-            dnsdb.create_update(
-                uuid, IdType.MEMBER, first_ip, service_id=service_id
-            )
-        )
-
-        self.assertEqual(
-            dnsdb.lookup(
-                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
-            ),
-            first_ip
-        )
-
-        self.assertTrue(
-            dnsdb.create_update(
-                uuid, IdType.MEMBER, second_ip, service_id=service_id
-            )
-        )
-
-        self.assertEqual(
-            dnsdb.lookup(
-                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
-            ),
-            second_ip
-        )
-        dnsdb.remove(
-            uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
-        )
-
-        with self.assertRaises(KeyError):
-            dnsdb.lookup(
-                uuid, IdType.MEMBER, DnsRecordType.A, service_id=service_id
+            self.assertEqual(
+                await dnsdb.lookup(
+                    None, IdType.SERVICE, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ), first_ip
             )
 
-        # ACCOUNT
-        uuid = TEST_ACCOUNT_UUID
-        account = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
-        self.assertEqual(account, f'{str(uuid)}.accounts.{TEST_NETWORK}')
+            self.assertTrue(
+                await dnsdb.create_update(
+                    None, IdType.SERVICE, second_ip, db_session,
+                    service_id=service_id
+                )
+            )
 
-        with self.assertRaises(KeyError):
-            dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
+            self.assertEqual(
+                await dnsdb.lookup(
+                    None, IdType.SERVICE, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ), second_ip
+            )
 
-        fqdn = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
+            await dnsdb.remove(
+                None, IdType.SERVICE, DnsRecordType.A, db_session,
+                service_id=service_id
+            )
 
-        self.assertFalse(dnsdb.create_update(uuid, IdType.ACCOUNT, first_ip))
-        self.assertEqual(
-            first_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
-        )
+            with self.assertRaises(KeyError):
+                await dnsdb.lookup(
+                    None, IdType.SERVICE, DnsRecordType.A, db_session,
+                    service_id=service_id
+                )
 
-        dns_ip = do_dns_lookup(fqdn)
-        self.assertEqual(dns_ip, first_ip)
+            # MEMBER
+            uuid = TEST_MEMBER_UUID
+            member = dnsdb.compose_fqdn(
+                uuid, IdType.MEMBER, service_id=service_id
+            )
+            self.assertEqual(
+                member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
+            )
 
-        second_ip = ip_address(TEST_SECOND_IP)
-        self.assertTrue(dnsdb.create_update(uuid, IdType.ACCOUNT, second_ip))
-        dns_ip = do_dns_lookup(fqdn)
-        self.assertEqual(
-            second_ip, dnsdb.lookup(uuid, IdType.ACCOUNT, DnsRecordType.A)
-        )
+            with self.assertRaises(KeyError):
+                await dnsdb.lookup(
+                    uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                    service_id=service_id
+                )
 
-        time.sleep(DNS_CACHE_PERIOD + 1)
+            self.assertFalse(
+                await dnsdb.create_update(
+                    uuid, IdType.MEMBER, first_ip, db_session,
+                    service_id=service_id
+                )
+            )
 
-        dns_ip = do_dns_lookup(fqdn)
-        self.assertEqual(dns_ip, second_ip)
+            self.assertEqual(
+                await dnsdb.lookup(
+                    uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ),
+                first_ip
+            )
+
+            self.assertFalse(
+                await dnsdb.create_update(
+                    uuid, IdType.MEMBER, first_ip, db_session,
+                    service_id=service_id
+                )
+            )
+
+            self.assertEqual(
+                await dnsdb.lookup(
+                    uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ),
+                first_ip
+            )
+
+            self.assertTrue(
+                await dnsdb.create_update(
+                    uuid, IdType.MEMBER, second_ip, db_session,
+                    service_id=service_id
+                )
+            )
+
+            self.assertEqual(
+                await dnsdb.lookup(
+                    uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                    service_id=service_id
+                ),
+                second_ip
+            )
+            await dnsdb.remove(
+                uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                service_id=service_id
+            )
+
+            with self.assertRaises(KeyError):
+                await dnsdb.lookup(
+                    uuid, IdType.MEMBER, DnsRecordType.A, db_session,
+                    service_id=service_id
+                )
+
+            # ACCOUNT
+            uuid = TEST_ACCOUNT_UUID
+            account = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
+            self.assertEqual(account, f'{str(uuid)}.accounts.{TEST_NETWORK}')
+
+            with self.assertRaises(KeyError):
+                await dnsdb.lookup(
+                    uuid, IdType.ACCOUNT, DnsRecordType.A, db_session
+                )
+
+            fqdn = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
+
+            self.assertFalse(
+                await dnsdb.create_update(
+                    uuid, IdType.ACCOUNT, first_ip, db_session
+                )
+            )
+            self.assertEqual(
+                first_ip, await dnsdb.lookup(
+                    uuid, IdType.ACCOUNT, DnsRecordType.A, db_session
+                )
+            )
+
+            dns_ip = do_dns_lookup(fqdn)
+            self.assertEqual(dns_ip, first_ip)
+
+            second_ip = ip_address(TEST_SECOND_IP)
+            self.assertTrue(
+                await dnsdb.create_update(
+                    uuid, IdType.ACCOUNT, second_ip, db_session
+                )
+            )
+            dns_ip = do_dns_lookup(fqdn)
+            self.assertEqual(
+                second_ip,
+                await dnsdb.lookup(
+                    uuid, IdType.ACCOUNT, DnsRecordType.A, db_session
+                )
+            )
+
+            await asyncio.sleep(DNS_CACHE_PERIOD + 1)
+
+            dns_ip = do_dns_lookup(fqdn)
+            self.assertEqual(dns_ip, second_ip)
 
         # TODO Packet and record caching of PowerDNS likely makes this test
         # fail
@@ -223,15 +267,15 @@ def do_dns_lookup(fqdn):
     return dns_ip
 
 
-def delete_test_data():
+async def delete_test_data():
     with open(CONFIG) as file_desc:
         config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
     global TEST_NETWORK
     TEST_NETWORK = config['application']['network']
 
-    dnsdb = DnsDb.setup(config['dirserver']['dnsdb'], TEST_NETWORK)
-    with dnsdb._engine.connect() as conn:
+    dnsdb = await DnsDb.setup(config['dirserver']['dnsdb'], TEST_NETWORK)
+    async with dnsdb._engine.connect() as conn:
         stmt = delete(
             dnsdb._records_table
         ).where(
@@ -244,7 +288,7 @@ def delete_test_data():
                 f'{TEST_SERVICE_ID}.services.{TEST_NETWORK}'
             )
         )
-        conn.execute(stmt)
+        await conn.execute(stmt)
 
         stmt = delete(
             dnsdb._domains_table
@@ -255,11 +299,8 @@ def delete_test_data():
                 dnsdb._domains_table.c.name == f'members-{TEST_SERVICE_ID}.{TEST_NETWORK}',        # noqa: E501
             )
         )
-        conn.execute(stmt)
+        await conn.execute(stmt)
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
-    delete_test_data()
     unittest.main()

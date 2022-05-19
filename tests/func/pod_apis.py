@@ -13,8 +13,8 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
-import time
 import shutil
+import asyncio
 import unittest
 import requests
 from requests.auth import HTTPBasicAuth
@@ -55,8 +55,12 @@ BASE_URL = 'http://localhost:{PORT}/api'
 
 _LOGGER = None
 
+POD_ACCOUNT: Account = None
+
 ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
+
+EVENTS = []
 
 PERSON_QUERY = '''
 query {
@@ -134,12 +138,12 @@ mutation {{
 '''
 
 
-class TestDirectoryApis(unittest.TestCase):
+class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
+        EVENTS.append('asyncSetUp')
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -162,6 +166,7 @@ class TestDirectoryApis(unittest.TestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+        await network.load_network_secrets()
 
         config.test_case = True
 
@@ -181,27 +186,32 @@ class TestDirectoryApis(unittest.TestCase):
         server.paths = network.paths
 
         pod_account = Account(network_data['account_id'], network)
+        await pod_account.paths.create_account_directory()
+        await pod_account.load_memberships()
+
         server.account = pod_account
+
         pod_account.password = os.environ['ACCOUNT_SECRET']
 
-        pod_account.create_account_secret()
-        pod_account.create_data_secret()
-        pod_account.register()
+        await pod_account.create_account_secret()
+        await pod_account.create_data_secret()
+        await pod_account.register()
 
-        server.get_registered_services()
+        await server.get_registered_services()
 
         service = [
             service
             for service in server.network.service_summaries.values()
             if service['name'] == 'addressbook'
         ][0]
+
         global ADDRESSBOOK_SERVICE_ID
         ADDRESSBOOK_SERVICE_ID = service['service_id']
         global ADDRESSBOOK_VERSION
         ADDRESSBOOK_VERSION = service['version']
 
         member_id = get_test_uuid()
-        pod_account.join(
+        await pod_account.join(
             ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
             local_service_contract='addressbook.json'
         )
@@ -216,22 +226,24 @@ class TestDirectoryApis(unittest.TestCase):
             account_member.enable_graphql_api(app)
             account_member.update_registration()
 
-        cls.PROCESS = Process(
+        TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
                 'host': '0.0.0.0',
-                'port': server.HTTP_PORT,
+                'port': config.server.HTTP_PORT,
                 'log_level': 'debug'
             },
             daemon=True
         )
-        cls.PROCESS.start()
-        time.sleep(3)
+        TestDirectoryApis.PROCESS.start()
+        await asyncio.sleep(1)
 
     @classmethod
-    def tearDownClass(cls):
-        cls.PROCESS.terminate()
+    async def asyncTearDown(self):
+        EVENTS.append('asyncSetUp')
+
+        TestDirectoryApis.PROCESS.terminate()
 
     def test_pod_rest_api_tls_client_cert(self):
         account = config.server.account
@@ -313,6 +325,7 @@ class TestDirectoryApis(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
 
     def test_pod_rest_api_jwt(self):
+
         account = config.server.account
         account_id = account.account_id
 
@@ -679,5 +692,5 @@ class TestDirectoryApis(unittest.TestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
     unittest.main()
+    print(', '.join(EVENTS))

@@ -50,7 +50,7 @@ class PodServer(Server):
             self.account.tls_secret.cert_file, filepath
         )
 
-    def get_registered_services(self):
+    async def get_registered_services(self):
         '''
         Downloads a list of service summaries
         '''

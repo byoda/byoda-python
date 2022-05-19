@@ -2,8 +2,8 @@
 
 ## Intro
 Byoda is a new and radically different social media platform:
-- Your data is stored in your own data pod.
-- Access to your data is controlled by a data contract and is enforced by your pod.
+- Your data is stored in your own personal data store.
+- Access to your data is controlled by a __data contract__ and is enforced by a __data firewall__.
 - You can select the algorithm(s) that generate your content feed for you.
 - Anyone can develop apps and services on the platform.
 - The code for the reference implementation of the various components is open source.

@@ -88,22 +88,22 @@ class Account:
         self.paths: Paths = copy(network.paths)
         self.paths.account = self.account
         self.paths.account_id = self.account_id
-        self.paths.create_account_directory()
 
         self.memberships: Dict[int, Member] = dict()
-        self.load_memberships()
 
-    def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None
+                             ):
         '''
         Creates the account secret and data secret if they do not already
         exist
         '''
 
-        self.create_account_secret(accounts_ca)
-        self.create_data_secret(accounts_ca)
+        await self.create_account_secret(accounts_ca)
+        await self.create_data_secret(accounts_ca)
 
-    def create_account_secret(self,
-                              accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_account_secret(self,
+                                    accounts_ca: NetworkAccountsCaSecret
+                                    = None):
         '''
         Creates the TLS secret for an account. TODO: create Let's Encrypt
         cert
@@ -114,15 +114,16 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not self.tls_secret.cert_file_exists():
+        if not await self.tls_secret.cert_file_exists():
             _LOGGER.info(
                 f'Creating account secret {self.tls_secret.cert_file}'
             )
-            self.tls_secret = self._create_secret(
+            self.tls_secret = await self._create_secret(
                 AccountSecret, accounts_ca
             )
 
-    def create_data_secret(self, accounts_ca: NetworkAccountsCaSecret = None):
+    async def create_data_secret(self,
+                                 accounts_ca: NetworkAccountsCaSecret = None):
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -132,17 +133,17 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if (not self.data_secret.cert_file_exists()
+        if (not await self.data_secret.cert_file_exists()
                 or not self.data_secret.cert):
             _LOGGER.info(
                 f'Creating account data secret {self.data_secret.cert_file}'
             )
-            self.data_secret = self._create_secret(
+            self.data_secret = await self._create_secret(
                 AccountDataSecret, accounts_ca
             )
 
-    def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
-                       ) -> Secret:
+    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+                             ) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -162,13 +163,13 @@ class Account:
             self.account, self.account_id, network=self.network
         )
 
-        if secret.cert_file_exists():
+        if await secret.cert_file_exists():
             raise ValueError(
                 f'Cert for {type(secret)} for account_id {self.account_id} '
                 'already exists'
             )
 
-        if secret.private_key_file_exists():
+        if await secret.private_key_file_exists():
             raise ValueError(
                 f'Private key for {type(secret)} for account_id '
                 f'{self.account_id} already exists'
@@ -201,11 +202,11 @@ class Account:
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
 
-        secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password)
 
         return secret
 
-    def load_secrets(self):
+    async def load_secrets(self):
         '''
         Loads the secrets for the account
         '''
@@ -213,11 +214,12 @@ class Account:
         self.tls_secret = AccountSecret(
             self.account, self.account_id, self.network
         )
-        self.tls_secret.load(password=self.private_key_password)
+        await self.tls_secret.load(password=self.private_key_password)
+
         self.data_secret = AccountDataSecret(
             self.account, self.account_id, self.network
         )
-        self.data_secret.load(password=self.private_key_password)
+        await self.data_secret.load(password=self.private_key_password)
 
     def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''
@@ -231,7 +233,7 @@ class Account:
         )
         return jwt
 
-    def register(self):
+    async def register(self):
         '''
         Register the pod with the directory server of the network
         '''
@@ -245,14 +247,14 @@ class Account:
             f'Registered account with directory server: {resp.status_code}'
         )
 
-    def get_memberships(self) -> Set:
+    async def get_memberships(self) -> Set:
         '''
         Get a list of the service_ids that the pod has joined by looking
         at storage.
         '''
 
         memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = self.document_store.get_folders(
+        folders = await self.document_store.get_folders(
             memberships_dir, prefix='service-'
         )
 
@@ -264,7 +266,7 @@ class Account:
 
         return service_ids
 
-    def load_memberships(self):
+    async def load_memberships(self):
         '''
         Loads the memberships of an account by iterating through
         a directory structure in the document store of the server.
@@ -272,13 +274,13 @@ class Account:
 
         _LOGGER.debug('Loading memberships')
 
-        service_ids = self.get_memberships()
+        service_ids = await self.get_memberships()
 
         for service_id in service_ids or []:
             if service_id not in self.memberships:
                 self.load_membership(service_id)
 
-    def load_membership(self, service_id: int) -> Member:
+    async def load_membership(self, service_id: int) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -290,7 +292,9 @@ class Account:
             )
 
         member = Member(service_id, self)
-        member.load_secrets()
+        await member.setup()
+
+        await member.load_secrets()
         member.data = MemberData(
             member, member.paths, member.document_store
         )
@@ -299,14 +303,14 @@ class Account:
             member.create_nginx_config()
 
         member.data.load_protected_shared_key()
-        member.load_data()
+        await member.load_data()
 
         self.memberships[service_id] = member
 
-    def join(self, service_id: int, schema_version: int,
-             members_ca: MembersCaSecret = None, member_id: UUID = None,
-             local_service_contract: str = None
-             ) -> Member:
+    async def join(self, service_id: int, schema_version: int,
+                   members_ca: MembersCaSecret = None, member_id: UUID = None,
+                   local_service_contract: str = None
+                   ) -> Member:
         '''
         Join a service for the first time
 
@@ -326,12 +330,12 @@ class Account:
             )
 
         service_id = int(service_id)
-        service = Service(
-            service_id=service_id, network=self.network,
-            filepath=local_service_contract
-        )
 
-        member = Member.create(
+        service = Service(service_id=service_id, network=self.network)
+        if local_service_contract:
+            await service.examine_servicecontract(local_service_contract)
+
+        member = await Member.create(
             service, schema_version, self, member_id=member_id,
             members_ca=members_ca,
             local_service_contract=local_service_contract

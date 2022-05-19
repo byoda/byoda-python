@@ -22,6 +22,7 @@ from byoda.secrets.secret import Secret
 from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.datastore.certstore import CertStore
 
+from byoda.datastore.dnsdb import DnsDb
 from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.models import CertSigningRequestModel
@@ -32,6 +33,8 @@ from byoda import config
 
 from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 from ..dependencies.accountrequest_auth import AccountRequestOptionalAuthFast
+from ..dependencies.async_db_session import asyncdb_session
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/network', dependencies=[])
@@ -41,10 +44,11 @@ router = APIRouter(prefix='/api/v1/network', dependencies=[])
     '/account', response_model=SignedAccountCertResponseModel,
     status_code=201
 )
-def post_account(request: Request, csr: CertSigningRequestModel,
-                 auth: AccountRequestOptionalAuthFast =
-                 Depends(AccountRequestOptionalAuthFast)
-                 ):
+async def post_account(request: Request, csr: CertSigningRequestModel,
+                       auth: AccountRequestOptionalAuthFast =
+                       Depends(AccountRequestOptionalAuthFast),
+                       db_session=Depends(asyncdb_session)
+                       ):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -55,7 +59,10 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.debug(f'POST Account API called from {request.client.host}')
 
+    await auth.authenticate()
+
     network: Network = config.server.network
+    dnsdb: DnsDb = network.dnsdb
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
@@ -83,8 +90,9 @@ def post_account(request: Request, csr: CertSigningRequestModel,
         )
 
     try:
-        network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
-        
+        await dnsdb.lookup_fqdn(
+            common_name, DnsRecordType.A, db_session
+        )
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -145,8 +153,8 @@ def post_account(request: Request, csr: CertSigningRequestModel,
     network_data_cert_chain = network.data_secret.cert_as_pem()
 
     if not dns_exists:
-        network.dnsdb.create_update(
-            entity_id.id, IdType.ACCOUNT, auth.remote_addr
+        await dnsdb.create_update(
+            entity_id.id, IdType.ACCOUNT, auth.remote_addr, db_session
         )
 
     return {
@@ -157,13 +165,15 @@ def post_account(request: Request, csr: CertSigningRequestModel,
 
 
 @router.put('/account', response_model=IpAddressResponseModel)
-def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
-                AccountRequestAuthFast)):
+async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
+                AccountRequestAuthFast), db_session=Depends(asyncdb_session)):
     '''
     Creates/updates the DNS entry for the commonname in the TLS Client cert.
     '''
 
     _LOGGER.debug(f'Account PUT API called from IP {request.client.host}')
+
+    await auth.authenticate()
 
     # Authorization for the request
     if not auth.is_authenticated:
@@ -173,10 +183,10 @@ def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
         )
     # end of authorization
 
-    network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
-    network.dnsdb.create_update(
-        auth.account_id, IdType.ACCOUNT, auth.remote_addr
+    await dnsdb.create_update(
+        auth.account_id, IdType.ACCOUNT, auth.remote_addr, db_session
     )
 
     return {

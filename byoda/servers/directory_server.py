@@ -26,14 +26,15 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class DirectoryServer(Server):
-    def __init__(self, network: Network, dnsdb_connection_string: str):
+    def __init__(self, network: Network):
         super().__init__(network)
 
-        if dnsdb_connection_string:
-            # Test cases may set dnsdb_connection_string ad None
-            network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
-
         self.server_type = ServerType.DIRECTORY
+
+    async def connect_db(self, dnsdb_connection_string: str):
+        self.network.dnsdb = await DnsDb.setup(
+            dnsdb_connection_string, self.network.name
+        )
 
     def load_secrets(self, connection: str = None):
         '''
@@ -42,7 +43,7 @@ class DirectoryServer(Server):
 
         self.network.load_secrets()
 
-    def get_registered_services(self):
+    async def get_registered_services(self):
         '''
         Get the list of registered services in the network by
         scanning the directory tree. Add the services to the
@@ -74,9 +75,10 @@ class DirectoryServer(Server):
             service = network.add_service(service_id)
 
             service_file = service.paths.get(Paths.SERVICE_FILE)
-            if service.paths.exists(service_file):
-                service.load_schema(service_file)
+            if await service.paths.exists(service_file):
+                await service.load_schema(service_file)
             else:
-                service.registration_status = service.get_registration_status()
+                service.registration_status = \
+                    await service.get_registration_status()
 
             _LOGGER.debug(f'Loaded service {service_id}')

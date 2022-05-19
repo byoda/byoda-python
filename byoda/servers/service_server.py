@@ -39,12 +39,14 @@ class ServiceServer(Server):
         network = Network(
             app_config['svcserver'], app_config['application']
         )
+
         super().__init__(network)
 
         self.server_type = ServerType.SERVICE
 
         self.service = Service(
-            self.network, None, app_config['svcserver']['service_id']
+            network=self.network,
+            service_id=app_config['svcserver']['service_id']
         )
 
         self.member_db: MemberDb = MemberDb(app_config['svcserver']['cache'])
@@ -52,17 +54,20 @@ class ServiceServer(Server):
 
         self.dns_resolver = DnsResolver(network.name)
 
-    def load_secrets(self, password: str):
-        self.service.load_secrets(
+    async def load_network_secrets(self):
+        await self.network.load_network_secrets()
+
+    async def load_secrets(self, password: str):
+        await self.service.load_secrets(
             with_private_key=True,
             password=password
         )
 
         self.service.tls_secret.save_tmp_private_key()
 
-    def load_schema(self, verify_contract_signatures: bool = True):
+    async def load_schema(self, verify_contract_signatures: bool = True):
         schema_file = self.service.paths.get(Paths.SERVICE_FILE)
-        self.service.load_schema(
+        await self.service.load_schema(
             filepath=schema_file,
             verify_contract_signatures=verify_contract_signatures
         )

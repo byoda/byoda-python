@@ -27,18 +27,21 @@ CONFIG_FILE = 'tests/collateral/config.yml'
 TEST_KEY = 'test'
 
 
-class TestKVCache(unittest.TestCase):
+class TestKVCache(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    @classmethod
-    def setUpClass(cls):
+    async def asyncSetUp(self):
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
-            cls.APP_CONFIG = yaml.load(file_desc, Loader=yaml.SafeLoader)
+            TestKVCache.APP_CONFIG = yaml.load(
+                file_desc, Loader=yaml.SafeLoader
+            )
 
-        test_dir = cls.APP_CONFIG['svcserver']['root_dir']
+        app_config = TestKVCache.APP_CONFIG
+
+        test_dir = app_config['svcserver']['root_dir']
         try:
             shutil.rmtree(test_dir)
         except FileNotFoundError:
@@ -46,12 +49,15 @@ class TestKVCache(unittest.TestCase):
 
         os.makedirs(test_dir)
 
-        Network.create(
-            cls.APP_CONFIG['application']['network'],
-            cls.APP_CONFIG['svcserver']['root_dir'],
-            cls.APP_CONFIG['svcserver']['private_key_password']
+        network = await Network.create(
+            app_config['application']['network'],
+            app_config['svcserver']['root_dir'],
+            app_config['svcserver']['private_key_password']
         )
-        config.server = ServiceServer(cls.APP_CONFIG)
+        await network.load_network_secrets()
+
+        config.server = ServiceServer(app_config)
+        await config.server.load_network_secrets()
 
         config.server.member_db.kvcache.delete(TEST_KEY)
 

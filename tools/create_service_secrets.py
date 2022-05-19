@@ -10,8 +10,9 @@ Creates secrets for a service
 
 import sys
 import os
-import argparse
+import asyncio
 import shutil
+import argparse
 
 import requests
 
@@ -30,7 +31,7 @@ _LOGGER = None
 _ROOT_DIR = os.environ['HOME'] + '/.byoda'
 
 
-def main(argv):
+async def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
@@ -78,14 +79,17 @@ def main(argv):
 
     network = load_network(args, network_data)
 
-    service = Service(network=network, filepath=args.schema)
-    service.create_secrets(
+    service = Service(network=network)
+    if args.schema:
+        await service.examine_servicecontract(args.schema)
+
+    await service.create_secrets(
         network.services_ca, password=args.password, local=False
     )
 
 
-def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
-                 ) -> Network:
+async def load_network(args: argparse.ArgumentParser,
+                       network_data: dict[str, str]) -> Network:
     '''
     Load existing network secrets
 
@@ -93,6 +97,7 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
     '''
 
     network = Network(network_data, network_data)
+    await network.load_network_secrets()
 
     config.server = Server(network)
 
@@ -101,10 +106,10 @@ def load_network(args: argparse.ArgumentParser, network_data: dict[str, str]
 
     network.root_ca = NetworkRootCaSecret(network.paths)
 
-    network.root_ca.load(with_private_key=False)
+    await network.root_ca.load(with_private_key=False)
 
     return network
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    asyncio.run(main(sys.argv))

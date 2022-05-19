@@ -35,21 +35,21 @@ SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
 
 
-class TestAccountManager(unittest.TestCase):
-    def setUp(self):
+class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         shutil.rmtree(TEST_DIR)
         os.mkdir(TEST_DIR)
 
-    def test_secrets(self):
+    async def test_secrets(self):
         '''
         Create a network CA hierarchy
         '''
 
         #
         # Test creation of the CA hierarchy
-        network = Network.create(NETWORK, TEST_DIR, 'byoda')
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
-        config.server = DirectoryServer(network, None)
+        config.server = DirectoryServer(network)
         config.server.network = network
         config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
@@ -69,8 +69,9 @@ class TestAccountManager(unittest.TestCase):
         os.makedirs(TEST_DIR + target_dir)
         target_schema = target_dir + '/service-contract.json'
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
-        service = Service(network, target_schema)
-        service.create_secrets(network.services_ca, local=True)
+        service = Service(network=network)
+        await service.examine_servicecontract(target_schema)
+        await service.create_secrets(network.services_ca, local=True)
 
         service.service_ca.validate(network.root_ca, with_openssl=True)
         service.apps_ca.validate(network.root_ca, with_openssl=True)
@@ -79,7 +80,9 @@ class TestAccountManager(unittest.TestCase):
 
         account_id = uuid4()
         account = Account(account_id, network)
-        account.create_secrets(network.accounts_ca)
+        await account.paths.create_account_directory()
+        await account.load_memberships()
+        await account.create_secrets(network.accounts_ca)
 
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
@@ -113,7 +116,9 @@ class TestAccountManager(unittest.TestCase):
         #
         target_account_id = uuid4()
         target_account = Account(target_account_id, network, account='test')
-        target_account.create_secrets(network.accounts_ca)
+        await target_account.paths.create_account_directory()
+        await target_account.load_memberships()
+        await target_account.create_secrets(network.accounts_ca)
 
         account.data_secret.create_shared_key(target_account.data_secret)
         target_account.data_secret.load_shared_key(

@@ -31,9 +31,9 @@ security = HTTPBasic()
     '/authtoken/service_id/{service_id}',
     response_model=AuthTokenResponseModel
 )
-def get_member_authtoken(request: Request, service_id: int,
-                         credentials: HTTPBasicCredentials = Depends(security)
-                         ):
+async def get_member_authtoken(request: Request, service_id: int,
+                               credentials: HTTPBasicCredentials
+                               = Depends(security)):
     '''
     Get an authentication token for the membership
 
@@ -62,7 +62,7 @@ def get_member_authtoken(request: Request, service_id: int,
         )
 
     # Make sure we have the latest updates of memberships
-    account.load_memberships()
+    await account.load_memberships()
 
     member: Member = account.memberships.get(service_id)
 
@@ -80,16 +80,16 @@ def get_member_authtoken(request: Request, service_id: int,
 
     jwt = member.create_jwt()
     _LOGGER.debug('Returning JWT')
-    
+
     return {'auth_token': jwt.encoded}
 
 
 @router.get(
     '/authtoken', response_model=AuthTokenResponseModel
 )
-def get_account_authtoken(request: Request,
-                          credentials: HTTPBasicCredentials = Depends(security)
-                          ):
+async def get_account_authtoken(request: Request,
+                                credentials: HTTPBasicCredentials =
+                                Depends(security)):
     '''
     Get an authentication token for the account
 

@@ -28,13 +28,13 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.member import Secret
 
-from byoda.datamodel.service import BYODA_PRIVATE_SERVICE
-
 from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType, IdType
 from byoda.datatypes import TlsStatus
+from byoda.datatypes import HttpRequestMethod
+
 
 from podserver.util import get_environment_vars
 
@@ -46,6 +46,8 @@ CONFIG_FILE = 'tests/collateral/config.yml'
 
 TEST_DIR = '/tmp/byoda-tests/auth'
 
+ADDRESSBOOK_SERVICE = 4294929430
+
 
 def get_test_uuid() -> UUID:
     id = str(uuid4())
@@ -54,9 +56,8 @@ def get_test_uuid() -> UUID:
     return id
 
 
-class TestAccountManager(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
+class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -78,6 +79,7 @@ class TestAccountManager(unittest.TestCase):
         network_data = get_environment_vars()
 
         network = Network(network_data, network_data)
+        await network.load_network_secrets()
 
         config.server = PodServer(network)
         server = config.server
@@ -92,18 +94,21 @@ class TestAccountManager(unittest.TestCase):
         server.paths = network.paths
 
         pod_account = Account(network_data['account_id'], network)
+        await pod_account.paths.create_account_directory()
+        await pod_account.load_memberships()
+
         server.account = pod_account
 
-        pod_account.create_account_secret()
-        pod_account.create_data_secret()
-        pod_account.register()
+        await pod_account.create_account_secret()
+        await pod_account.create_data_secret()
+        await pod_account.register()
 
-        server.get_registered_services()
+        await server.get_registered_services()
 
         member_id = get_test_uuid()
-        pod_account.join(BYODA_PRIVATE_SERVICE, 1, member_id=member_id)
+        await pod_account.join(ADDRESSBOOK_SERVICE, 1, member_id=member_id)
 
-    def test_jwt(self):
+    async def test_jwt(self):
         #
         # Test the python JWT module instead of our code so that we can confirm
         # that any regressions come from our code
@@ -133,15 +138,16 @@ class TestAccountManager(unittest.TestCase):
             'private/network-byoda.net-account-pod.key',
             config.server.document_store.backend
         )
-        secret.load()
+        await secret.load()
 
         server: PodServer = config.server
         account: Account = server.account
-        member: Member = account.memberships[BYODA_PRIVATE_SERVICE]
+        member: Member = account.memberships[ADDRESSBOOK_SERVICE]
         jwt = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -155,8 +161,9 @@ class TestAccountManager(unittest.TestCase):
         jwt = account.create_jwt()
 
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.NONE, None, None, jwt.encoded, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -165,13 +172,14 @@ class TestAccountManager(unittest.TestCase):
         )
         self.assertEqual(request_auth.id_type, IdType.ACCOUNT)
 
-    def test_cert(self):
+    async def test_cert(self):
         # flake8: noqa=E501
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=accounts-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
+        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
@@ -183,9 +191,9 @@ class TestAccountManager(unittest.TestCase):
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=members-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            TlsStatus.SUCCESS, client_dn, ca_dn, None, '127.0.0.1'
+            '127.0.0.1', HttpRequestMethod.GET
         )
-
+        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
 
 
 if __name__ == '__main__':

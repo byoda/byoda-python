@@ -122,21 +122,23 @@ class Schema:
         return data
 
     @staticmethod
-    def get_schema(filepath: str, storage_driver: FileStorage,
-                   service_data_secret: ServiceDataSecret,
-                   network_data_secret: NetworkDataSecret,
-                   verify_contract_signatures: bool = True):
+    async def get_schema(filepath: str, storage_driver: FileStorage,
+                         service_data_secret: ServiceDataSecret,
+                         network_data_secret: NetworkDataSecret,
+                         verify_contract_signatures: bool = True):
         '''
         Facory to read schema from a file
         '''
-        data = storage_driver.read(filepath)
+        data = await storage_driver.read(filepath)
         json_schema = json.loads(data)
 
         schema = Schema(json_schema)
         schema.service_data_secret = service_data_secret
         schema.network_data_secret = network_data_secret
 
-        schema.load(verify_contract_signatures=verify_contract_signatures)
+        schema.load(
+            verify_contract_signatures=verify_contract_signatures
+        )
 
         return schema
 
@@ -148,7 +150,7 @@ class Schema:
 
         return json.dumps(self.json_schema, sort_keys=True, indent=4)
 
-    def load(self, verify_contract_signatures: bool = True):
+    def load(self, verify_contract_signatures: bool = True) -> None:
         '''
         Load a schema from a dict
         '''
@@ -186,13 +188,13 @@ class Schema:
 
         self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
 
-    def save(self, filepath: str, storage_driver: FileStorage):
+    async def save(self, filepath: str, storage_driver: FileStorage):
         '''
         Write a schema to a JSON file, ie. when an account becomes
         a member of the service that the schema belongs to
         '''
 
-        storage_driver.write(filepath, self.as_string())
+        await storage_driver.write(filepath, self.as_string())
 
     def create_signature(self, secret: DataSecret,
                          signature_type: SignatureType,

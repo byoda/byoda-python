@@ -54,7 +54,7 @@ class PageInfo:
 
 Cursor = str
 
-def authenticate(root, info, data_operation: DataOperationType_Byoda):
+async def authenticate(root, info, data_operation: DataOperationType_Byoda):
     '''
     This is middleware called by the code generated from the Jinja
     templates implementing GraphQL support
@@ -68,7 +68,7 @@ def authenticate(root, info, data_operation: DataOperationType_Byoda):
     try:
         # Checks that a client cert was provided and that the cert and
         # certchain is correct
-        auth = RequestAuthByoda.authenticate_graphql_request(
+        auth = await RequestAuthByoda.authenticate_graphql_request(
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
@@ -163,27 +163,33 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
+    async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    def {{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
+    async def {{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> typing.List[{{ root_class.referenced_class.name }}]:
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
         _LOGGER.debug('Resolving {{ root_class.name }}')
 
-        result = authenticate(self, info, DataOperationType_Byoda.READ)
+        result = await authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
 {%     if root_class.type != DataType.ARRAY %}
-        info.context['data'] = MemberClassByoda.get_data({{ service_id }}, info)
+        info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields %}
+{%         if field.python_type == 'datetime' %}
+            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
+{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
+            UUID(info.context['data']['{{ field.name }}']),
+{%         else %}{# if field.python_type == 'datetime' #}
             info.context['data']['{{ field.name }}'],
+{%         endif %}{# if field.python_type == 'datetime' #}
 {%       endfor %}{# for field in root_class.fields #}
         )
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-        data = MemberClassByoda.get_data({{ service_id }}, info, filters)
+        data = await MemberClassByoda.get_data({{ service_id }}, info, filters)
         ret_data = []
         for obj in data or []:
             info.context['data'] = obj
@@ -212,7 +218,7 @@ class Mutation:
 {%   if not root_class.item_id %}
 {%     if root_class.type == DataType.OBJECT %}
     @strawberry.field
-    def mutate_{{ root_class.name }}(self, info: Info,
+    async def mutate_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.fields %}
                 {{ field.name }}: {{ field.python_type }},
 {%       endfor %}{# for field in root_class.fields #}
@@ -220,7 +226,7 @@ class Mutation:
         _LOGGER.debug('Root query for mutate_{{ root_class.name }}')
 
         # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
-        result = authenticate(self, info,  DataOperationType_Byoda.UPDATE)
+        result = await authenticate(self, info,  DataOperationType_Byoda.UPDATE)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
@@ -229,7 +235,7 @@ class Mutation:
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
-        MemberClassByoda.mutate_data({{ service_id }}, info)
+        await MemberClassByoda.mutate_data({{ service_id }}, info)
         return {{ root_class.name }}(
 {%       for field in root_class.fields %}
             {{ field.name }},
@@ -239,14 +245,14 @@ class Mutation:
 {%     elif root_class.type == DataType.ARRAY %}{# if root_class.type == DataType.OBJECT #}
 {# APIs for array processing #}
     @strawberry.field
-    def append_{{ root_class.name }}(self, info: Info,
+    async def append_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.referenced_class.fields %}
         {{ field.name }}: {{ field.python_type }},
 {%       endfor %}{# for field in root_class.referenced_class.fields #}
         ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
-        result = authenticate(self, info, DataOperationType_Byoda.APPEND)
+        result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
@@ -255,7 +261,7 @@ class Mutation:
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}{# for field in root_class.referenced_class.fields #}
         }
-        MemberClassByoda.append_data({{ service_id }}, info)
+        await MemberClassByoda.append_data({{ service_id }}, info)
         return {{ root_class.referenced_class.name }}(
 {%       for field in root_class.referenced_class.fields %}
             {{ field.name }},
@@ -263,13 +269,13 @@ class Mutation:
         )
 
     @strawberry.field
-    def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter]) -> typing.List[typing.Optional[{{ root_class.referenced_class.name }}]]:
+    async def delete_from_{{ root_class.name }}(self, info: Info, filters: typing.Optional[{{ root_class.referenced_class.name }}_input_filter]) -> typing.List[typing.Optional[{{ root_class.referenced_class.name }}]]:
         _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
 
-        if not authenticate(self, info, DataOperationType_Byoda.DELETE):
+        if not await authenticate(self, info, DataOperationType_Byoda.DELETE):
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
+        data = await MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
         result = []
         for item in data:
             result.append(

@@ -56,7 +56,7 @@ class MemberData(Dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    def load(self):
+    async def load(self):
         '''
         Load the data from the data store
         '''
@@ -67,7 +67,7 @@ class MemberData(Dict):
         )
 
         try:
-            self.unvalidated_data = self.document_store.read(
+            self.unvalidated_data = await self.document_store.read(
                 filepath, self.member.data_secret
             )
             # TODO: deserialize data in to UUID, datetime, etc
@@ -80,7 +80,7 @@ class MemberData(Dict):
 
         self.validate()
 
-    def save(self, data=None):
+    async def save(self, data=None):
         '''
         Save the data to the data store
         '''
@@ -101,7 +101,7 @@ class MemberData(Dict):
             self.member.schema.validate(self)
 
             # TODO: properly serialize data
-            self.document_store.write(
+            await self.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
@@ -140,7 +140,7 @@ class MemberData(Dict):
             )
             raise
 
-    def load_protected_shared_key(self):
+    async def load_protected_shared_key(self):
         '''
         Reads the protected symmetric key from file storage. Support
         for changing symmetric keys is currently not supported.
@@ -151,7 +151,7 @@ class MemberData(Dict):
         )
 
         try:
-            protected = self.member.storage_driver.read(
+            protected = await self.member.storage_driver.read(
                 filepath, file_mode=FileMode.BINARY
             )
             self.member.data_secret.load_shared_key(protected)
@@ -162,13 +162,13 @@ class MemberData(Dict):
             )
             raise
 
-    def save_protected_shared_key(self):
+    async def save_protected_shared_key(self):
         '''
         Saves the protected symmetric key
         '''
 
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
-        self.member.storage_driver.write(
+        await self.member.storage_driver.write(
             filepath, self.member.data_secret.protected_shared_key,
             file_mode=FileMode.BINARY
         )
