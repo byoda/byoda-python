@@ -14,7 +14,7 @@ from byoda import config
 
 
 async def asyncdb_session() -> AsyncSession:
-    dnsdb: DnsDb = config.network.dnsdb
+    dnsdb: DnsDb = config.server.network.dnsdb
 
     async with dnsdb.async_session() as session:
         yield session

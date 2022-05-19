@@ -17,15 +17,19 @@ import logging
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 
+
 from byoda.datatypes import IdType
 
 from byoda.datamodel.service import Service
 
 from byoda.models.ipaddress import IpAddressResponseModel
 
+from byoda.datastore.dnsdb import DnsDb
+
 from byoda import config
 
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
+from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,12 +44,14 @@ router = APIRouter(
     '/member', response_model=IpAddressResponseModel, status_code=200
 )
 async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
-                     MemberRequestAuthFast)):
+                     MemberRequestAuthFast),
+                     db_session=Depends(asyncdb_session)):
     '''
     Request DNS record to be hosted for the Common Name of the MemberCert
     '''
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
+
     await auth.authenticate()
 
     # Authorization
@@ -56,10 +62,10 @@ async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
             404, f'Registration for unknown service: {auth.service_id}'
         )
 
-    network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
-    await network.dnsdb.create_update(
-        auth.member_id, IdType.MEMBER, auth.remote_addr,
+    await dnsdb.create_update(
+        auth.member_id, IdType.MEMBER, auth.remote_addr, db_session,
         service_id=auth.service_id
     )
 

@@ -22,6 +22,7 @@ from byoda.secrets.secret import Secret
 from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.datastore.certstore import CertStore
 
+from byoda.datastore.dnsdb import DnsDb
 from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.models import CertSigningRequestModel
@@ -61,6 +62,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
     await auth.authenticate()
 
     network: Network = config.server.network
+    dnsdb: DnsDb = network.dnsdb
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
@@ -88,8 +90,9 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
         )
 
     try:
-        await network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A, session)
-
+        await dnsdb.lookup_fqdn(
+            common_name, DnsRecordType.A, db_session
+        )
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -150,8 +153,8 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
     network_data_cert_chain = network.data_secret.cert_as_pem()
 
     if not dns_exists:
-        await network.dnsdb.create_update(
-            entity_id.id, IdType.ACCOUNT, auth.remote_addr
+        await dnsdb.create_update(
+            entity_id.id, IdType.ACCOUNT, auth.remote_addr, db_session
         )
 
     return {
@@ -163,7 +166,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/account', response_model=IpAddressResponseModel)
 async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
-                AccountRequestAuthFast)):
+                AccountRequestAuthFast), db_session=Depends(asyncdb_session)):
     '''
     Creates/updates the DNS entry for the commonname in the TLS Client cert.
     '''
@@ -180,10 +183,10 @@ async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
         )
     # end of authorization
 
-    network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
-    await network.dnsdb.create_update(
-        auth.account_id, IdType.ACCOUNT, auth.remote_addr
+    await dnsdb.create_update(
+        auth.account_id, IdType.ACCOUNT, auth.remote_addr, db_session
     )
 
     return {

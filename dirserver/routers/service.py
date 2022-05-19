@@ -33,7 +33,6 @@ from byoda.datatypes import AuthSource
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
-from byoda.datastore.certstore import CertStore
 from byoda.servers.directory_server import DirectoryServer
 from byoda.datamodel.network import Network
 
@@ -43,6 +42,9 @@ from byoda.models import CertSigningRequestModel
 from byoda.models import SignedServiceCertResponseModel
 from byoda.models import SchemaModel, SchemaResponseModel
 from byoda.models.ipaddress import IpAddressResponseModel
+
+from byoda.datastore.certstore import CertStore
+from byoda.datastore.dnsdb import DnsDb
 
 from byoda.secrets import Secret
 from byoda.secrets import ServiceCaSecret
@@ -58,6 +60,7 @@ from byoda import config
 from dirserver.dependencies.servicerequest_auth import ServiceRequestAuthFast
 from dirserver.dependencies.servicerequest_auth import \
     ServiceRequestOptionalAuthFast
+from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,14 +121,14 @@ async def get_service(request: Request, service_id: int):
     '''
     Get the data contract of the specified service.
 
-    This API does not require authentication as service schemas are
-    public information
+    This API does not require authentication or authorization as service
+    schemas are public information
     '''
 
     _LOGGER.debug(f'GET Service API called from {request.client.host}')
 
     server: Server = config.server
-    network = config.server.network
+    network: Network = config.server.network
 
     await server.get_registered_services()
 
@@ -164,7 +167,8 @@ async def get_service(request: Request, service_id: int):
 )
 async def post_service(request: Request, csr: CertSigningRequestModel,
                        auth: ServiceRequestOptionalAuthFast =
-                       Depends(ServiceRequestOptionalAuthFast)):
+                       Depends(ServiceRequestOptionalAuthFast),
+                       db_session=Depends(asyncdb_session)):
     '''
     Submit a Certificate Signing Request for the ServiceCA certificate
     and get the cert signed by the network services CA
@@ -176,6 +180,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     _LOGGER.debug(f'POST Service API called from {request.client.host}')
 
     network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
@@ -197,9 +202,8 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
             )
         )
 
-    dnsdb = config.server.network.dnsdb
     try:
-        await dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
+        await dnsdb.lookup_fqdn(common_name, DnsRecordType.A, db_session)
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -273,7 +277,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # registering the service server through the PUT API
     if not dns_exists:
         await dnsdb.create_update(
-            None, IdType.SERVICE, auth.remote_addr,
+            None, IdType.SERVICE, auth.remote_addr, db_session,
             service_id=entity_id.service_id
         )
 
@@ -291,7 +295,8 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
 async def put_service(request: Request, service_id: int,
                       certchain: CertChainRequestModel,
                       auth: ServiceRequestAuthFast = Depends(
-                          ServiceRequestAuthFast)):
+                          ServiceRequestAuthFast),
+                      db_session=Depends(asyncdb_session)):
     '''
     Registers a known service with its IP address and its data cert
     '''
@@ -301,6 +306,7 @@ async def put_service(request: Request, service_id: int,
     await auth.authenticate()
 
     network: Network = config.server.network
+    dnsdb: DnsDb = config.server.network.dnsdb
 
     if service_id != auth.service_id:
         raise ValueError(
@@ -337,8 +343,9 @@ async def put_service(request: Request, service_id: int,
         f'address {auth.remote_addr}'
     )
 
-    await network.dnsdb.create_update(
-        None, IdType.SERVICE, auth.remote_addr, service_id=service_id
+    await dnsdb.create_update(
+        None, IdType.SERVICE, auth.remote_addr, db_session,
+        service_id=service_id
     )
 
     return {
@@ -375,7 +382,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
         )
     # End of authorization
 
-    network = config.server.network
+    network: Network = config.server.network
 
     # TODO: create a whole bunch of schema validation tests
     # including one to just deserialize and reserialize and
@@ -437,6 +444,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
                             None, service_id, network
                         )
                         await service.data_secret.load(with_private_key=False)
+
                     service_contract.verify_signature(
                         service.data_secret, SignatureType.SERVICE
                     )
