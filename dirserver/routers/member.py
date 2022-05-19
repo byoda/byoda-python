@@ -58,7 +58,7 @@ async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
 
     network = config.server.network
 
-    network.dnsdb.create_update(
+    await network.dnsdb.create_update(
         auth.member_id, IdType.MEMBER, auth.remote_addr,
         service_id=auth.service_id
     )

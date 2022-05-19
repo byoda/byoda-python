@@ -32,6 +32,8 @@ from byoda import config
 
 from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 from ..dependencies.accountrequest_auth import AccountRequestOptionalAuthFast
+from ..dependencies.async_db_session import asyncdb_session
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/network', dependencies=[])
@@ -43,7 +45,8 @@ router = APIRouter(prefix='/api/v1/network', dependencies=[])
 )
 async def post_account(request: Request, csr: CertSigningRequestModel,
                        auth: AccountRequestOptionalAuthFast =
-                       Depends(AccountRequestOptionalAuthFast)
+                       Depends(AccountRequestOptionalAuthFast),
+                       db_session=Depends(asyncdb_session)
                        ):
     '''
     Submit a Certificate Signing Request and get the signed
@@ -85,7 +88,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
         )
 
     try:
-        network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
+        await network.dnsdb.lookup_fqdn(common_name, DnsRecordType.A, session)
 
         dns_exists = True
     except KeyError:
@@ -147,7 +150,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
     network_data_cert_chain = network.data_secret.cert_as_pem()
 
     if not dns_exists:
-        network.dnsdb.create_update(
+        await network.dnsdb.create_update(
             entity_id.id, IdType.ACCOUNT, auth.remote_addr
         )
 
@@ -179,7 +182,7 @@ async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
 
     network = config.server.network
 
-    network.dnsdb.create_update(
+    await network.dnsdb.create_update(
         auth.account_id, IdType.ACCOUNT, auth.remote_addr
     )
 

@@ -49,7 +49,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # Test creation of the CA hierarchy
         network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
-        config.server = DirectoryServer(network, None)
+        config.server = DirectoryServer(network)
         config.server.network = network
         config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE,

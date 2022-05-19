@@ -20,11 +20,15 @@ from typing import Optional, Tuple
 from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
+from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
-# from sqlalchemy import select
+# FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
-
 from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
 
 from byoda.datatypes import IdType
@@ -65,13 +69,44 @@ class DnsDb:
 
         self._metadata = MetaData()
         self._engine = None
-        self._domains_table = None
-        self._records_table = None
 
         self._domain_ids = {}
 
+        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
+
+        self._domains_table = Table(
+            'domains', self._metadata,
+            Column('id', Integer),
+            Column('name', String(255)),
+            Column('master', String(128)),
+            Column('last_check', Integer),
+            Column('type', String(6)),
+            Column('notified_serial', BigInteger),
+            Column('account', String(40))
+        )
+        self._records_table = Table(
+            'records', self._metadata,
+            Column('id', BigInteger, primary_key=True),
+            Column('domain_id', Integer, ForeignKey('domains.id')),
+            Column('name', String(255)),
+            Column('type', String(10)),
+            Column('content', String(65535)),
+            Column('ttl', Integer),
+            Column('prio', Integer),
+            Column('disabled', Boolean),
+            Column('ordername', String(255)),
+            Column('auth', Boolean),
+
+            Column('db_expire', Integer)
+        )
+
     @staticmethod
-    def setup(connectionstring: str, network_name: str):
+    async def setup(connectionstring: str, network_name: str):
         '''
         Factory for DnsDb class
 
@@ -84,38 +119,19 @@ class DnsDb:
 
         dnsdb = DnsDb(network_name)
 
-        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+        dnsdb._engine = create_async_engine(
+            connectionstring, echo=False, isolation_level='AUTOCOMMIT',
+            future=True
+        )
 
-        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
-
-        # TODO: figure out why asynchpg is not working
-        # FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
-        if False and 'asyncpg' in connectionstring:
-            from sqlalchemy.ext.asyncio import create_async_engine
-            dnsdb._engine = create_async_engine(
-                connectionstring, echo=False, future=True,
-                isolation_level='AUTOCOMMIT'
-            )
-        else:
-            from sqlalchemy import create_engine
-            dnsdb._engine = create_engine(
-                connectionstring, echo=False, isolation_level='AUTOCOMMIT'
-            )
-
-        with dnsdb._engine.connect() as conn:
-            dnsdb._domains_table = Table(
-                'domains', dnsdb._metadata, autoload_with=dnsdb._engine
-            )
-            dnsdb._records_table = Table(
-                'records', dnsdb._metadata, autoload_with=dnsdb._engine
-            )
-
+        # Base = declarative_base()
+        dnsdb.async_session = sessionmaker(
+            dnsdb._engine, class_=AsyncSession, expire_on_commit=False
+        )
+        async with dnsdb._engine.connect() as conn:
             # Ensure the 'accounts' subdomain for the network exists
             subdomain = f'accounts.{network_name}'
-            domain_id = dnsdb._get_domain_id(conn, subdomain)
+            domain_id = await dnsdb._get_domain_id(conn, subdomain)
             dnsdb._domain_ids[subdomain] = domain_id
 
         return dnsdb
@@ -172,8 +188,8 @@ class DnsDb:
 
         return uuid, id_type, service_id
 
-    def create_update(self, uuid: UUID, id_type: IdType,
-                      ip_addr: ip_address, service_id: int = None) -> bool:
+    async def create_update(self, uuid: UUID, id_type: IdType,
+                            ip_addr: ip_address, service_id: int = None) -> bool:
         '''
         Create DNS A and optionally a TXT record, replacing any existing DNS
         record.
@@ -207,7 +223,7 @@ class DnsDb:
             # SQLAlachemy doesn't have 'UPSERT' so we do a lookup, remove if
             # the entry already exists and then create the new record
             try:
-                existing_value = self.lookup(
+                existing_value = await self.lookup(
                     uuid, id_type, dns_record_type, service_id=service_id
                 )
                 if existing_value and value == str(existing_value):
@@ -218,7 +234,7 @@ class DnsDb:
                     )
                     continue
 
-                record_replaced = record_replaced or self.remove(
+                record_replaced = record_replaced or await self.remove(
                     uuid, id_type, dns_record_type, service_id=service_id
                 )
             except KeyError:
@@ -228,11 +244,11 @@ class DnsDb:
             # 'cache' of domains_id might be out of date
             hostname, subdomain = fqdn.split('.', 1)
             if subdomain not in self._domain_ids:
-                domain_id = self._upsert_subdomain(subdomain)
+                domain_id = await self._upsert_subdomain(subdomain)
             else:
                 domain_id = self._domain_ids[subdomain]
 
-            with self._engine.connect() as conn:
+            async with self._engine.connect() as conn:
                 stmt = insert(
                     self._records_table
                 ).values(
@@ -241,13 +257,13 @@ class DnsDb:
                     ttl=DEFAULT_TTL, prio=0, auth=True
                 )
 
-                conn.execute(stmt)
+                await conn.execute(stmt)
 
         return record_replaced
 
-    def lookup(self, uuid: UUID, id_type: IdType,
-               dns_record_type: DnsRecordType,
-               service_id: int = None) -> ip_address:
+    async def lookup(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType,
+                     service_id: int = None) -> ip_address:
         '''
         Look up in DnsDB the DNS record for the UUID, which is either an
         account_id, a member_id or a service_id
@@ -264,9 +280,10 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        return self.lookup_fqdn(fqdn, dns_record_type)
+        return await self.lookup_fqdn(fqdn, dns_record_type)
 
-    def lookup_fqdn(self, fqdn: str, dns_record_type) -> ip_address:
+    async def lookup_fqdn(self, fqdn: str, dns_record_type, session
+                          ) -> ip_address:
         '''
         Looks up FQDN in the DnsDB
 
@@ -276,7 +293,7 @@ class DnsDb:
         '''
 
         value = None
-        with self._engine.connect() as conn:
+        async with self._engine.connect() as conn:
             _LOGGER.debug(f'Performing lookup for {fqdn}')
             stmt = select(
                 self._records_table.c.id, self._records_table.c.content
@@ -289,7 +306,7 @@ class DnsDb:
 
             try:
                 _LOGGER.debug(f'Executing SQL command: {stmt}')
-                domains = conn.execute(stmt)
+                domains = await session.execute(stmt)
             except Exception as exc:
                 _LOGGER.error(f'Failed to execute SQL statement: {exc}')
                 return
@@ -313,8 +330,8 @@ class DnsDb:
 
             return value
 
-    def remove(self, uuid: UUID, id_type: IdType,
-               dns_record_type: DnsRecordType, service_id=None) -> bool:
+    async def remove(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType, service_id=None) -> bool:
         '''
         Removes the DNS records for the uuid
 
@@ -328,7 +345,7 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        with self._engine.connect() as conn:
+        async with self._engine.connect() as conn:
             if dns_record_type == DnsRecordType.TXT:
                 stmt = delete(
                     self._records_table
@@ -338,14 +355,15 @@ class DnsDb:
                         self._records_table.c.type == dns_record_type.value
                     )
                 )
-                conn.execute(stmt)
+                await conn.execute(stmt)
             else:
                 stmt = select(
                     self._records_table.c.id
                 ).where(
                     self._records_table.c.name == fqdn
                 )
-                domains = conn.execute(stmt).fetchall()
+                result = await conn.execute(stmt)
+                domains = result.fetchall()
 
                 for domain in domains:
                     stmt = delete(
@@ -356,7 +374,7 @@ class DnsDb:
                             self._records_table.c.type == dns_record_type.value
                         )
                     )
-                    conn.execute(stmt)
+                    await conn.execute(stmt)
 
                 _LOGGER.debug(
                     f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
@@ -422,8 +440,8 @@ class DnsDb:
 
         return
 
-    def _get_domain_id(self, conn: Engine, subdomain: str,
-                       create_missing: bool = True) -> int:
+    async def _get_domain_id(self, conn: AsyncEngine, subdomain: str,
+                             create_missing: bool = True) -> int:
         '''
         Get the Powerdns domain_id for the subdomain from Postgres
 
@@ -441,14 +459,14 @@ class DnsDb:
             self._domains_table.c.name == subdomain
         )
 
-        domains = conn.execute(stmt)
+        domains = await conn.execute(stmt)
         first = domains.first()
 
         if not first:
             if create_missing:
                 _LOGGER.info('Creating domain {subdomain} in DnsDB')
-                self._upsert_subdomain(subdomain)
-                return self._get_domain_id(
+                await self._upsert_subdomain(subdomain)
+                return await self._get_domain_id(
                     conn, subdomain, create_missing=False
                 )
             else:
@@ -460,7 +478,7 @@ class DnsDb:
 
         return domain_id
 
-    def _upsert_subdomain(self, subdomain: str) -> bool:
+    async def _upsert_subdomain(self, subdomain: str) -> bool:
         '''
         Adds subdomain to list of domains
 
@@ -476,7 +494,7 @@ class DnsDb:
                 f'{self._domain_ids[subdomain]}'
             )
 
-        with self._engine.connect() as conn:
+        async with self._engine.connect() as conn:
             stmt = insert(
                 self._domains_table
             ).values(
@@ -486,9 +504,9 @@ class DnsDb:
                 index_elements=['name']
             )
             _LOGGER.debug(f'Upserting domain {subdomain}')
-            conn.execute(stmt)
+            await conn.execute(stmt)
 
-            domain_id = self._get_domain_id(conn, subdomain)
+            domain_id = await self._get_domain_id(conn, subdomain)
             self._domain_ids[subdomain] = domain_id
 
             soa = \
@@ -506,7 +524,7 @@ class DnsDb:
             # on_conflict_stmt = stmt.on_conflict_do_nothing(
             #    index_elements=['name']
             # )
-            conn.execute(stmt)
+            await conn.execute(stmt)
 
             ns = 'dir.byoda.net.'
             stmt = insert(
@@ -523,7 +541,7 @@ class DnsDb:
             #    index_elements=['name']
             # )
 
-            conn.execute(stmt)
+            await conn.execute(stmt)
 
             _LOGGER.debug(
                 f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'

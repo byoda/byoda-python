@@ -46,7 +46,9 @@ async def main():
         app_config['dirserver'], app_config['application']
     )
     await network.load_network_secrets()
-    server = DirectoryServer(network, app_config['dirserver']['dnsdb'])
+    server = DirectoryServer(network)
+    await server.connect_db(app_config['dirserver']['dnsdb'])
+
     config.server = server
 
     await server.get_registered_services()

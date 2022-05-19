@@ -97,9 +97,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             app_config['dirserver']['private_key_password'],
         )
 
-        config.server = DirectoryServer(
-            network, app_config['dirserver']['dnsdb']
-        )
+        config.server = DirectoryServer(network)
+        await config.server.connect_db(app_config['dirserver']['dnsdb'])
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',

@@ -26,14 +26,15 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class DirectoryServer(Server):
-    def __init__(self, network: Network, dnsdb_connection_string: str):
+    def __init__(self, network: Network):
         super().__init__(network)
 
-        if dnsdb_connection_string:
-            # Test cases may set dnsdb_connection_string ad None
-            network.dnsdb = DnsDb.setup(dnsdb_connection_string, network.name)
-
         self.server_type = ServerType.DIRECTORY
+
+    async def connect_db(self, dnsdb_connection_string: str):
+        self.network.dnsdb = await DnsDb.setup(
+            dnsdb_connection_string, self.network.name
+        )
 
     def load_secrets(self, connection: str = None):
         '''

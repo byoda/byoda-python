@@ -560,7 +560,7 @@ class Service:
 
         if server.server_type == ServerType.DIRECTORY:
             try:
-                self.network.dnsdb.lookup(
+                await self.network.dnsdb.lookup(
                     None, IdType.SERVICE, DnsRecordType.A,
                     service_id=self.service_id,
                 )
