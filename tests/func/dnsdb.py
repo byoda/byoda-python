@@ -17,6 +17,7 @@ from ipaddress import ip_address
 import dns.resolver
 
 from sqlalchemy import delete, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
@@ -254,6 +255,8 @@ class TestDnsDb(unittest.IsolatedAsyncioTestCase):
         # with self.assertRaises(dns.resolver.NXDOMAIN):
         #    do_dns_lookup(fqdn)
 
+        dnsdb._engine.dispose()
+
 
 def do_dns_lookup(fqdn):
     resolver = dns.resolver.Resolver()
@@ -275,7 +278,7 @@ async def delete_test_data():
     TEST_NETWORK = config['application']['network']
 
     dnsdb = await DnsDb.setup(config['dirserver']['dnsdb'], TEST_NETWORK)
-    async with dnsdb._engine.connect() as conn:
+    async with AsyncSession(dnsdb._engine) as db_session:
         stmt = delete(
             dnsdb._records_table
         ).where(
@@ -288,7 +291,7 @@ async def delete_test_data():
                 f'{TEST_SERVICE_ID}.services.{TEST_NETWORK}'
             )
         )
-        await conn.execute(stmt)
+        await db_session.execute(stmt)
 
         stmt = delete(
             dnsdb._domains_table
@@ -299,8 +302,9 @@ async def delete_test_data():
                 dnsdb._domains_table.c.name == f'members-{TEST_SERVICE_ID}.{TEST_NETWORK}',        # noqa: E501
             )
         )
-        await conn.execute(stmt)
+        await db_session.execute(stmt)
 
+    dnsdb._engine.dispose()
 
 if __name__ == '__main__':
     unittest.main()
