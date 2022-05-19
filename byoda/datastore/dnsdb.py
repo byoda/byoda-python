@@ -128,11 +128,12 @@ class DnsDb:
         dnsdb.async_session = sessionmaker(
             dnsdb._engine, class_=AsyncSession, expire_on_commit=False
         )
-        async with dnsdb._engine.connect() as conn:
-            # Ensure the 'accounts' subdomain for the network exists
-            subdomain = f'accounts.{network_name}'
-            domain_id = await dnsdb._get_domain_id(conn, subdomain)
-            dnsdb._domain_ids[subdomain] = domain_id
+        # Ensure the 'accounts' subdomain for the network exists
+        subdomain = f'accounts.{network_name}'
+        async with AsyncSession(dnsdb._engine) as db_session_2:
+            domain_id = await dnsdb._get_domain_id(db_session_2, subdomain)
+
+        dnsdb._domain_ids[subdomain] = domain_id
 
         return dnsdb
 
@@ -228,7 +229,6 @@ class DnsDb:
                 existing_value = await self.lookup(
                     uuid, id_type, dns_record_type, db_session,
                     service_id=service_id,
-
                 )
                 if existing_value and value == str(existing_value):
                     # Nothing to change
@@ -261,7 +261,8 @@ class DnsDb:
                 ttl=DEFAULT_TTL, prio=0, auth=True
             )
 
-            await db_session.execute(stmt)
+            async with AsyncSession(self._engine) as db_session_2:
+                await db_session_2.execute(stmt)
 
         return record_replaced
 
@@ -313,7 +314,8 @@ class DnsDb:
 
         try:
             _LOGGER.debug(f'Executing SQL command: {stmt}')
-            domains = await db_session.execute(stmt)
+            async with AsyncSession(self._engine) as db_session_2:
+                domains = await db_session_2.execute(stmt)
         except Exception as exc:
             _LOGGER.error(f'Failed to execute SQL statement: {exc}')
             return
@@ -363,15 +365,17 @@ class DnsDb:
                     self._records_table.c.type == dns_record_type.value
                 )
             )
-            await db_session.execute(stmt)
+            async with AsyncSession(self._engine) as db_session_2:
+                await db_session_2.execute(stmt)
         else:
             stmt = select(
                 self._records_table.c.id
             ).where(
                 self._records_table.c.name == fqdn
             )
-            result = await db_session.execute(stmt)
-            domains = result.fetchall()
+            async with AsyncSession(self._engine) as db_session_2:
+                result = await db_session_2.execute(stmt)
+                domains = result.fetchall()
 
             for domain in domains:
                 stmt = delete(
@@ -382,7 +386,8 @@ class DnsDb:
                         self._records_table.c.type == dns_record_type.value
                     )
                 )
-                await db_session.execute(stmt)
+                async with AsyncSession(self._engine) as db_session_2:
+                    await db_session_2.execute(stmt)
 
             _LOGGER.debug(
                 f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
@@ -410,7 +415,9 @@ class DnsDb:
             self._domains_table.c.name == subdomain
         )
 
-        domains = await db_session.execute(stmt)
+        async with AsyncSession(self._engine) as db_session_2:
+            domains = await db_session_2.execute(stmt)
+
         first = domains.first()
 
         if not first:
@@ -456,7 +463,8 @@ class DnsDb:
             index_elements=['name']
         )
         _LOGGER.debug(f'Upserting domain {subdomain}')
-        await db_session.execute(stmt)
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
 
         domain_id = await self._get_domain_id(db_session, subdomain)
         self._domain_ids[subdomain] = domain_id
@@ -476,7 +484,8 @@ class DnsDb:
         # on_conflict_stmt = stmt.on_conflict_do_nothing(
         #    index_elements=['name']
         # )
-        await db_session.execute(stmt)
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
 
         ns = 'dir.byoda.net.'
         stmt = insert(
@@ -493,7 +502,8 @@ class DnsDb:
         #    index_elements=['name']
         # )
 
-        await db_session.execute(stmt)
+        async with AsyncSession(self._engine) as db_session_2:
+            await db_session_2.execute(stmt)
 
         _LOGGER.debug(
             f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
