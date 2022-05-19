@@ -26,7 +26,7 @@ from sqlalchemy.future import select
 # FastAPI/sqlalchemy/asyncpg example: https://stribny.name/blog/fastapi-asyncalchemy/   # noqa
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
 from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
@@ -121,7 +121,7 @@ class DnsDb:
 
         dnsdb._engine = create_async_engine(
             connectionstring, echo=False, isolation_level='AUTOCOMMIT',
-            future=True
+            future=True, poolclass=NullPool
         )
 
         # Base = declarative_base()
