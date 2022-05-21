@@ -645,7 +645,7 @@ class Member:
         await self.data.save(data)
 
     @staticmethod
-    async def get_data(service_id, info: Info, filters=None) -> Dict:
+    async def get_data(service_id: int, info: Info, filters=None) -> Dict:
         '''
         Extracts the requested data field.
 
@@ -759,6 +759,83 @@ class Member:
         await member.save_data(data)
 
         return member.data
+
+    @staticmethod
+    async def update_data(service_id: int, filters, info: Info) -> Dict:
+        '''
+        Updates a dict in an array
+
+        :param service_id: Service ID for which the GraphQL API was called
+        :param info: the Strawberry 'info' variable
+        '''
+
+        if not info.path:
+            raise ValueError('Did not get value for path parameter')
+
+        if info.path.typename != 'Mutation':
+            raise ValueError(
+                f'Got graphql invocation for "{info.path.typename}" '
+                f'instead of "Mutation"'
+            )
+
+        if not filters:
+            raise ValueError(
+                'Must specify one or more filters to select content for '
+                'update'
+            )
+
+        _LOGGER.debug(
+            f'Got graphql invocation for {info.path.typename} '
+            f'for object {info.path.key}'
+        )
+
+        # By convention implemented in the Jinja template, the called mutate
+        # 'function' starts with the string 'update_' so we to find out
+        # what mutation was invoked, we want what comes after it.
+        class_object = info.path.key[len('update_'):].lower()
+
+        server = config.server
+        member = server.account.memberships[service_id]
+        await member.load_data()
+
+        data = copy(member.data.get(class_object))
+
+        if not data:
+            return {}
+
+        if not isinstance(data, list):
+            _LOGGER.warning(
+                'Received query with filters for data that is not a list: '
+                f'{member.data}'
+            )
+
+        # We remove the data based on the filters and then
+        # add the data back to the list
+        (data, removed) = DataFilterSet.filter_exclude(
+            filters, data
+        )
+
+        # We can update only one list item per query
+        if not removed or len(removed) == 0:
+            raise ValueError('filters did not match any data')
+        elif len(removed) > 1:
+            raise ValueError('filters match more than one record')
+
+        update_data: Dict = info.selected_fields[0].arguments
+
+        # 'filters' is a keyword that can't be used as the name of a field
+        # in a schema
+        update_data.pop('filters')
+
+        removed[0].update(update_data)
+
+        data.append(removed[0])
+
+        member.data[class_object] = data
+
+        await member.save_data(member.data)
+
+        return removed[0]
 
     async def append_data(service_id, info: Info) -> None:
         '''

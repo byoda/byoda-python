@@ -12,6 +12,8 @@ import re
 from uuid import UUID
 from datetime import datetime, date, time
 
+from dateutil import parser as iso8601_parser
+
 from typing import List, Dict, Callable, Union, Tuple
 
 _LOGGER = logging.getLogger(__name__)
@@ -229,6 +231,9 @@ class UuidDataFilter(DataFilter):
         equal operator
         '''
 
+        if isinstance(data, str):
+            data = UUID(data)
+
         if not isinstance(data, UUID):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
@@ -248,6 +253,9 @@ class UuidDataFilter(DataFilter):
 class DateTimeDataFilter(DataFilter):
     def __init__(self, operator: str, value: Union[datetime, date, time]):
         super().__init__(operator)
+
+        if isinstance(value, str):
+            value = iso8601_parser(str)
 
         if type(value) not in (datetime, date, time):
             raise ValueError(
