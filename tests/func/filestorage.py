@@ -92,7 +92,7 @@ async def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
 
     if (type(storage) in
             (AzureFileStorage, AwsFileStorage, GcpFileStorage)):
-        url = storage.get_url()  + 'test/profile'
+        url = storage.get_url() + 'test/profile'
         response = requests.get(url, allow_redirects=False)
         test.assertIn(response.status_code, (302, 403, 409))
 

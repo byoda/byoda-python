@@ -115,12 +115,23 @@ query {{
 }}
 '''
 
-MUTATE_NETWORK = '''
+APPEND_NETWORK = '''
 mutation {{
     append_network_links (
         member_id: "{uuid}",
         relation: "{relation}",
         timestamp: "{timestamp}"
+    ) {{
+        member_id relation timestamp
+    }}
+}}
+'''
+
+UPDATE_NETWORK_RELATION = '''
+mutation {{
+    update_network_links (
+        filters: {{ {field}: {{ {cmp}: "{value}" }} }},
+        relation: "{relation}",
     ) {{
         member_id relation timestamp
     }}
@@ -596,7 +607,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result['errors'])
 
         result = client.execute(
-            MUTATE_NETWORK.format(
+            APPEND_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
                 timestamp=str(datetime.now(tz=timezone.utc).isoformat())
@@ -607,7 +618,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         result = client.execute(
-            MUTATE_NETWORK.format(
+            APPEND_NETWORK.format(
                 uuid=get_test_uuid(),
                 relation='follow',
                 timestamp=str(datetime.now(tz=timezone.utc).isoformat())
@@ -617,10 +628,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result['data'])
         self.assertIsNone(result.get('errors'))
 
+        friend_uuid = get_test_uuid()
         friend_timestamp = str(datetime.now(tz=timezone.utc).isoformat())
         result = client.execute(
-            MUTATE_NETWORK.format(
-                uuid=get_test_uuid(),
+            APPEND_NETWORK.format(
+                uuid=friend_uuid,
                 relation='friend',
                 timestamp=friend_timestamp
             ),
@@ -675,6 +687,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             result['data']['network_links'][0]['relation'], 'friend'
         )
+
+        result = client.execute(
+            UPDATE_NETWORK_RELATION.format(
+                field='member_id', cmp='eq', value=friend_uuid,
+                relation='best_friend'
+            ),
+            headers=member_headers
+        )
+        self.assertIsNotNone(result['data'])
 
         result = client.execute(
             DELETE_FROM_NETWORK_WITH_FILTER.format(
