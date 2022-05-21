@@ -248,7 +248,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
     @classmethod
     async def asyncTearDown(self):
@@ -696,6 +696,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
+        self.assertEqual(
+            result['data']['update_network_links']['relation'],
+            'best_friend'
+        )
+        self.assertEqual(
+            result['data']['update_network_links']['member_id'],
+            str(friend_uuid)
+        )
 
         result = client.execute(
             DELETE_FROM_NETWORK_WITH_FILTER.format(
@@ -707,7 +715,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result['data']['delete_from_network_links']), 1)
         self.assertEqual(
             result['data']['delete_from_network_links'][0]['relation'],
-            'friend'
+            'best_friend'
         )
 
 

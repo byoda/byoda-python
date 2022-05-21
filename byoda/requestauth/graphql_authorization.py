@@ -167,6 +167,9 @@ def _get_query_key(path: List[str]) -> str:
         elif obj.startswith('append_'):
             key = obj[len('append_'):]
             break
+        elif obj.startswith('update_'):
+            key = obj[len('update_'):]
+            break
         elif obj.startswith('delete_from_'):
             key = obj[len('delete_from_'):]
             break

@@ -809,20 +809,33 @@ class Member:
                 f'{member.data}'
             )
 
+        # We remove the data based on the filters and then
+        # add the data back to the list
         (data, removed) = DataFilterSet.filter_exclude(
             filters, data
         )
 
-        if data and len(data) > 1:
+        # We can update only one list item per query
+        if not removed or len(removed) == 0:
+            raise ValueError('filters did not match any data')
+        elif len(removed) > 1:
             raise ValueError('filters match more than one record')
 
         update_data: Dict = info.selected_fields[0].arguments
 
-        member.data[class_object] = data.append(update_data)
+        # 'filters' is a keyword that can't be used as the name of a field
+        # in a schema
+        update_data.pop('filters')
+
+        removed[0].update(update_data)
+
+        data.append(removed[0])
+
+        member.data[class_object] = data
 
         await member.save_data(member.data)
 
-        return update_data
+        return removed[0]
 
     async def append_data(service_id, info: Info) -> None:
         '''
