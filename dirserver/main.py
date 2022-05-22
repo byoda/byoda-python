@@ -35,7 +35,6 @@ app = setup_api(
 
 #uvicorn.run(app, host="127.0.0.1", port=8000)
 
-
 @app.on_event('startup')
 async def setup():
     with open('config.yml') as file_desc:

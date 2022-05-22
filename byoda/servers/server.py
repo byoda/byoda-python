@@ -39,7 +39,7 @@ class Server:
         self.paths: Paths = None
         self.started: datetime = datetime.utcnow()
 
-    def load_secrets(self, password: str = None):
+    async def load_secrets(self, password: str = None):
         '''
         Loads the secrets of the server
         '''
