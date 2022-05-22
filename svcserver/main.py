@@ -51,7 +51,7 @@ async def setup():
     _LOGGER.debug(f'Read configuration file: {config_file}')
 
     network = Network(
-        app_config['dirserver'], app_config['application']
+        app_config['svcserver'], app_config['application']
     )
     await network.load_network_secrets()
 
