@@ -64,7 +64,7 @@ async def main(argv):
         json_out=False
     )
 
-    config.server = ServiceServer(app_config)
+    config.server = ServiceServer(network, app_config)
     await config.server.load_network_secrets()
 
     service = await load_service(args, config.server.network, password)

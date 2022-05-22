@@ -29,16 +29,13 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 
 
 class ServiceServer(Server):
-    def __init__(self, app_config: dict):
+    def __init__(self, network: Network, app_config: dict):
         '''
         Initiates a service server
 
         :param verify_contract_signatures: should the signature of the service
         schema be verified. Test cases may specify this as 'False'
         '''
-        network = Network(
-            app_config['svcserver'], app_config['application']
-        )
 
         super().__init__(network)
 

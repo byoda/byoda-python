@@ -21,6 +21,8 @@ from requests.exceptions import HTTPError
 
 from byoda.servers.service_server import ServiceServer
 
+from byoda.datamodel.network import Network
+
 from byoda import config
 
 from byoda.util.logger import Logger
@@ -65,7 +67,11 @@ async def main():
         global MAX_WAIT
         MAX_WAIT = 10
 
-    server = ServiceServer(app_config)
+    network = Network(
+        app_config['dirserver'], app_config['application']
+    )
+
+    server = ServiceServer(network, app_config)
     await server.load_network_secrets()
 
     await server.load_secrets(

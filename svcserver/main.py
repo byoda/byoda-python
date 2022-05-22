@@ -17,6 +17,8 @@ from byoda import config
 
 from byoda.servers.service_server import ServiceServer
 
+from byoda.datamodel.network import Network
+
 from .routers import service
 from .routers import member
 from .routers import search
@@ -29,8 +31,8 @@ with open(config_file) as file_desc:
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
-    'network v0.0.1',
-    app_config['cors_origins'], [service, member, search]
+    'network', 'v0.0.1',
+    app_config['svcserver']['cors_origins'], [service, member, search]
 )
 
 
@@ -48,10 +50,15 @@ async def setup():
     )
     _LOGGER.debug(f'Read configuration file: {config_file}')
 
+    network = Network(
+        app_config['dirserver'], app_config['application']
+    )
+    await network.load_network_secrets()
+
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
 
-    config.server = ServiceServer(app_config)
+    config.server = ServiceServer(network, app_config)
     await config.server.load_network_secrets()
 
     await config.server.load_secrets(

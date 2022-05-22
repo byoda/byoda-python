@@ -20,8 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 _LOGGER = logging.getLogger(__name__)
 
 
-def setup_api(title, description, version, cors_origins: List[str],
-              routers: List):
+def setup_api(title: str, description: str, version: str,
+              cors_origins: List[str], routers: List):
     middleware = [
         Middleware(
             RawContextMiddleware,
