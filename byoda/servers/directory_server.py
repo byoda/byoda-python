@@ -72,7 +72,7 @@ class DirectoryServer(Server):
                 _LOGGER.debug(f'Skipping loading of service {service_id}')
                 continue
 
-            service = network.add_service(service_id)
+            service = await network.add_service(service_id)
 
             service_file = service.paths.get(Paths.SERVICE_FILE)
             if await service.paths.exists(service_file):
