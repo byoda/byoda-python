@@ -120,12 +120,11 @@ class Network:
         if ServerRole.Pod in self.roles:
             self.bucket_prefix: Union[str, None] = server['bucket_prefix']
             self.account: Union[str, None] = 'pod'
-            self.cloud: str = server.get('cloud', 'LOCAL')
         else:
             self.bucket_prefix: Union[str, None] = None
             self.account: Union[str, None] = None
-            self.cloud: Union[str, None] = None
 
+        self.cloud: str = server.get('cloud', 'LOCAL')
 
     @staticmethod
     async def create(network_name: str, root_dir: str, password: str):

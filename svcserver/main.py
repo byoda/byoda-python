@@ -62,7 +62,7 @@ async def main():
     APP = setup_api(
         'BYODA service server', 'A server hosting a service in a BYODA '
         'network v0.0.1',
-        app_config, config.server.service.schema.cors_origins, api_list
+        config.server.service.schema.cors_origins, api_list
     )
     uvicorn.run(APP, host="127.0.0.1", port=6000)
 
