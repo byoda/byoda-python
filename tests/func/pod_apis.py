@@ -187,7 +187,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        server.set_document_store(
+        await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
             cloud_type=CloudType(network_data['cloud']),
             bucket_prefix=network_data['bucket_prefix'],

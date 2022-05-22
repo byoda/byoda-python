@@ -34,7 +34,7 @@ class DocumentStore:
         self.store_type: DocumentStoreType = None
 
     @staticmethod
-    def get_document_store(storage_type: DocumentStoreType,
+    async def get_document_store(storage_type: DocumentStoreType,
                            cloud_type: CloudType.AWS = CloudType,
                            bucket_prefix: str = None, root_dir: str = None
                            ):
@@ -49,7 +49,7 @@ class DocumentStore:
                     f'Must specify cloud_type and bucket_prefix for document '
                     f'storage {storage_type}'
                 )
-            storage.backend = FileStorage.get_storage(
+            storage.backend = await FileStorage.get_storage(
                 cloud_type, bucket_prefix, root_dir
             )
         else:

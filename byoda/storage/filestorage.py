@@ -71,8 +71,20 @@ class FileStorage:
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
 
     @staticmethod
-    def get_storage(cloud: CloudType, bucket_prefix: str, root_dir: str = None
-                    ):
+    async def setup(root_dir: str):
+        '''
+        Factory for AwsFileStorage
+
+        :param bucket_prefix: prefix of the storage account, to which
+        'private' and 'public' will be appended
+        :param cache_path: path to the cache on the local file system
+        '''
+
+        return FileStorage(root_dir)
+
+    @staticmethod
+    async def get_storage(cloud: CloudType, bucket_prefix: str, root_dir: str = None
+                          ):
         '''
         Factory for FileStorage and classes derived from it
 
@@ -89,16 +101,16 @@ class FileStorage:
 
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
-            storage = AwsFileStorage.setup(bucket_prefix, root_dir)
+            storage = await AwsFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
-            storage = AzureFileStorage.setup(bucket_prefix, root_dir)
+            storage = await AzureFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.GCP:
             from .gcp import GcpFileStorage
-            storage = GcpFileStorage.setup(bucket_prefix, root_dir)
+            storage = await GcpFileStorage.setup(bucket_prefix, root_dir)
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
-            storage = FileStorage(root_dir)
+            storage = await FileStorage.setup(root_dir)
         else:
             raise NotImplementedError(
                 f'There is no support for cloud {cloud}'

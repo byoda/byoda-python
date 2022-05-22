@@ -8,7 +8,7 @@ Class for modeling a social network
 
 import os
 import logging
-from typing import Dict, Set
+from typing import Dict, Set, Union
 from typing import Callable
 
 import passgen
@@ -61,8 +61,7 @@ class Network:
     # Pods should only accept test service IDs when running in DEBUG mode
     MIN_TEST_SERVICE_ID = 4293918720
 
-    def __init__(self, server: dict, application: dict,
-                 root_ca: NetworkRootCaSecret = None):
+    def __init__(self, server: dict, application: dict):
         '''
         Set up the network
 
@@ -119,30 +118,14 @@ class Network:
         self.private_key_password: str = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            bucket_prefix: str = server['bucket_prefix']
-            account: str = 'pod'
+            self.bucket_prefix: Union[str, None] = server['bucket_prefix']
+            self.account: Union[str, None] = 'pod'
+            self.cloud: str = server.get('cloud', 'LOCAL')
         else:
-            bucket_prefix = None
-            account = None
+            self.bucket_prefix: Union[str, None] = None
+            self.account: Union[str, None] = None
+            self.cloud: Union[str, None] = None
 
-        # FileStorage.get_storage ignores bucket_prefix parameter
-        # when local storage is used.
-        private_object_storage: FileStorage = FileStorage.get_storage(
-            server.get('cloud', 'LOCAL'), bucket_prefix, self.root_dir
-        )
-
-        self.paths: Paths = Paths(
-            root_directory=self.root_dir, network=self.name,
-            account=account, storage_driver=private_object_storage
-        )
-
-        # Everyone must at least have the root ca cert.
-        if root_ca:
-            self.root_ca: NetworkRootCaSecret = root_ca
-        else:
-            self.root_ca = NetworkRootCaSecret(self.paths)
-
-        self.data_secret: NetworkDataSecret = NetworkDataSecret(self.paths)
 
     @staticmethod
     async def create(network_name: str, root_dir: str, password: str):
@@ -187,8 +170,8 @@ class Network:
             'network': network_name, 'root_dir': root_dir,
             'private_key_password': password, 'roles': ['test']
         }
-        network = Network(network_data, network_data, root_ca)
-        await network.load_network_secrets()
+        network = Network(network_data, network_data)
+        await network.load_network_secrets(root_ca)
 
         # Root CA, signs Accounts CA, Services CA and
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
@@ -268,7 +251,27 @@ class Network:
             with_private_key=True, password=self.private_key_password
         )
 
-    async def load_network_secrets(self):
+    async def load_network_secrets(self, root_ca: NetworkRootCaSecret = None):
+
+        # FileStorage.get_storage ignores bucket_prefix parameter
+        # when local storage is used.
+        private_object_storage: FileStorage = await FileStorage.get_storage(
+            self.cloud, self.bucket_prefix, self.root_dir
+        )
+
+        self.paths: Paths = Paths(
+            root_directory=self.root_dir, network=self.name,
+            account=self.account, storage_driver=private_object_storage
+        )
+
+        # Everyone must at least have the root ca cert.
+        if root_ca:
+            self.root_ca: NetworkRootCaSecret = root_ca
+        else:
+            self.root_ca = NetworkRootCaSecret(self.paths)
+
+        self.data_secret: NetworkDataSecret = NetworkDataSecret(self.paths)
+
         if ServerRole.RootCa in self.roles:
             await self.root_ca.load(
                 with_private_key=True, password=self.private_key_password

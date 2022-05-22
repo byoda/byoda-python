@@ -24,6 +24,7 @@ from byoda.datamodel.network import Network
 from .routers import account
 from .routers import service
 from .routers import member
+from .routers import status
 
 _LOGGER = None
 
@@ -60,14 +61,9 @@ async def main():
     global APP
     APP = setup_api(
         'BYODA directory server', 'The directory server for a BYODA network',
-        'v0.0.1', app_config, [], [account, service, member]
+        'v0.0.1', app_config, [], [account, service, member, status]
     )
     uvicorn.run(APP, host="127.0.0.1", port=8000)
-
-
-@APP.get('/api/v1/status')
-async def status():
-    return {'status': 'healthy'}
 
 
 if __name__ == "__main__":

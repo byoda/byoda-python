@@ -93,7 +93,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             TEST_DIR,
             app_config['svcserver']['private_key_password']
         )
-        await network.load_network_secrets()
 
         service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
