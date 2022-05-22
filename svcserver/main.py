@@ -22,6 +22,7 @@ from byoda.datamodel.network import Network
 from .routers import service
 from .routers import member
 from .routers import search
+from .routers import status
 
 _LOGGER = None
 
@@ -32,7 +33,7 @@ with open(config_file) as file_desc:
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
     'network', 'v0.0.1',
-    app_config['svcserver']['cors_origins'], [service, member, search]
+    app_config['svcserver']['cors_origins'], [service, member, search, status]
 )
 
 

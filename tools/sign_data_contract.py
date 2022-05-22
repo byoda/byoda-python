@@ -64,6 +64,10 @@ async def main(argv):
         json_out=False
     )
 
+    network = Network(
+        app_config['svcserver'], app_config['application']
+    )
+
     config.server = ServiceServer(network, app_config)
     await config.server.load_network_secrets()
 
