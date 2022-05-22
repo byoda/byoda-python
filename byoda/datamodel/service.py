@@ -595,7 +595,7 @@ class Service:
 
         return RegistrationStatus.Unknown
 
-    def register_service(self):
+    async def register_service(self):
         '''
         Registers the service with the network using the Service TLS secret
 

@@ -82,7 +82,7 @@ async def main(argv):
         schema['signatures'] = {}
 
     if not args.local:
-        response = service.register_service()
+        response = await service.register_service()
         if response.status_code != 200:
             raise ValueError(
                 f'Failed to register service: {response.status_code}'

@@ -9,8 +9,6 @@ API server for Bring Your Own Data and Algorithms
 import os
 import sys
 import yaml
-import asyncio
-import uvicorn
 
 from byoda.util.fastapi import setup_api
 
@@ -33,7 +31,6 @@ app = setup_api(
     'v0.0.1', [], [account, service, member, status]
 )
 
-#uvicorn.run(app, host="127.0.0.1", port=8000)
 
 @app.on_event('startup')
 async def setup():
