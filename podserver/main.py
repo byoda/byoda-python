@@ -86,7 +86,7 @@ async def setup():
     # TODO: if we have a pod secret, should we compare its commonname with the
     # account_id environment variable?
     pod_account = Account(network_data['account_id'], network)
-    await account.paths.create_account_directory()
+    await pod_account.paths.create_account_directory()
     await pod_account.load_memberships()
 
     pod_account.password = network_data.get('account_secret')
