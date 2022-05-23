@@ -278,7 +278,7 @@ class Account:
 
         for service_id in service_ids or []:
             if service_id not in self.memberships:
-                self.load_membership(service_id)
+                await self.load_membership(service_id)
 
     async def load_membership(self, service_id: int) -> Member:
         '''

@@ -56,7 +56,12 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         )
         await network.load_network_secrets()
 
-        config.server = ServiceServer(app_config)
+        network = Network(
+            app_config['svcserver'], app_config['application']
+        )
+        await network.load_network_secrets()
+
+        config.server = ServiceServer(network, app_config)
         await config.server.load_network_secrets()
 
         config.server.member_db.kvcache.delete(TEST_KEY)

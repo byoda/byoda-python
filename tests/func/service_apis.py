@@ -93,7 +93,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             TEST_DIR,
             app_config['svcserver']['private_key_password']
         )
-        await network.load_network_secrets()
 
         service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
@@ -112,7 +111,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             password=app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(app_config)
+        config.server = ServiceServer(network, app_config)
         await config.server.load_network_secrets()
 
         await config.server.load_secrets(
@@ -122,7 +121,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
-            'v0.0.1', None, [], [service, member]
+            'v0.0.1', [], [service, member]
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,

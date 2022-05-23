@@ -51,7 +51,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.server = DirectoryServer(network)
         config.server.network = network
-        config.server.set_document_store(
+        await config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
             cloud_type=CloudType('LOCAL'),
             bucket_prefix='byoda',

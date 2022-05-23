@@ -267,7 +267,7 @@ class DnsDb:
 
     async def lookup(self, uuid: UUID, id_type: IdType,
                      dns_record_type: DnsRecordType,
-                     db_session: AsyncSession, service_id: int = None
+                     db_session: AsyncSession = None, service_id: int = None
                      ) -> ip_address:
         '''
         Look up in DnsDB the DNS record for the UUID, which is either an
@@ -286,7 +286,13 @@ class DnsDb:
 
         fqdn = self.compose_fqdn(uuid, id_type, service_id)
 
-        return await self.lookup_fqdn(fqdn, dns_record_type, db_session)
+        if db_session:
+            return await self.lookup_fqdn(fqdn, dns_record_type, db_session)
+        else:
+            async with self.async_session() as db_session:
+                return await self.lookup_fqdn(
+                    fqdn, dns_record_type, db_session
+                )
 
     async def lookup_fqdn(self, fqdn: str, dns_record_type: DnsRecordType,
                           db_session: AsyncSession) -> ip_address:

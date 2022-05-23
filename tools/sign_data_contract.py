@@ -64,7 +64,11 @@ async def main(argv):
         json_out=False
     )
 
-    config.server = ServiceServer(app_config)
+    network = Network(
+        app_config['svcserver'], app_config['application']
+    )
+
+    config.server = ServiceServer(network, app_config)
     await config.server.load_network_secrets()
 
     service = await load_service(args, config.server.network, password)
@@ -82,7 +86,7 @@ async def main(argv):
         schema['signatures'] = {}
 
     if not args.local:
-        response = service.register_service()
+        response = await service.register_service()
         if response.status_code != 200:
             raise ValueError(
                 f'Failed to register service: {response.status_code}'

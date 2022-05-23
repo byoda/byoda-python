@@ -45,7 +45,7 @@ _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/podworker.log'
 
 
-def main(args):
+async def main(args):
     # Remaining environment variables used:
     data = get_environment_vars()
 
@@ -57,7 +57,7 @@ def main(args):
     _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
     if data['bootstrap']:
-        run_bootstrap_tasks(data)
+        await run_bootstrap_tasks(data)
 
     if data['daemonize']:
         with daemon.DaemonContext():
@@ -81,7 +81,7 @@ async def run_bootstrap_tasks(data: Dict):
 
     config.server = PodServer()
     server = config.server
-    server.set_document_store(
+    await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType(data['cloud']),
         bucket_prefix=data['bucket_prefix'],

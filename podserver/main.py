@@ -18,9 +18,6 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 
 import sys
-import asyncio
-
-import uvicorn
 
 from byoda import config
 from byoda.util.logger import Logger
@@ -42,18 +39,25 @@ from .util import get_environment_vars
 from .routers import account
 from .routers import member
 from .routers import authtoken
+from .routers import status
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
-APP = None
+# TODO: re-intro CORS origin ACL:
+# pod_account.tls_secret.common_name
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', [], [account, member, authtoken, status]
+)
 
 
-async def main():
-    config.server = PodServer()
-    server = config.server
+@app.on_event('startup')
+async def setup():
+    server: PodServer = PodServer()
+    config.server = server
 
     # Remaining environment variables used:
     network_data = get_environment_vars()
@@ -64,7 +68,7 @@ async def main():
         loglevel=network_data['loglevel'], logfile=LOG_FILE
     )
 
-    server.set_document_store(
+    await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType(network_data['cloud']),
         bucket_prefix=network_data['bucket_prefix'],
@@ -82,7 +86,7 @@ async def main():
     # TODO: if we have a pod secret, should we compare its commonname with the
     # account_id environment variable?
     pod_account = Account(network_data['account_id'], network)
-    await account.paths.create_account_directory()
+    await pod_account.paths.create_account_directory()
     await pod_account.load_memberships()
 
     pod_account.password = network_data.get('account_secret')
@@ -118,24 +122,6 @@ async def main():
     nginx_config.create(htaccess_password=pod_account.password)
     nginx_config.reload()
 
-    global APP
-    APP = setup_api(
-        'BYODA pod server', 'The pod server for a BYODA network',
-        'v0.0.1', None, [pod_account.tls_secret.common_name],
-        [account, member, authtoken]
-    )
-
     for account_member in pod_account.memberships.values():
-        account_member.enable_graphql_api(APP)
+        account_member.enable_graphql_api(app)
         account_member.update_registration()
-
-    uvicorn.run(APP, host='127.0.0.1', port=PodServer.HTTP_PORT)
-
-
-@APP.get('/api/v1/status')
-def status():
-    return {'status': 'healthy'}
-
-
-if __name__ == '__main__':
-    asyncio.run(main())

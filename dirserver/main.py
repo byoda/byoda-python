@@ -9,8 +9,6 @@ API server for Bring Your Own Data and Algorithms
 import os
 import sys
 import yaml
-import asyncio
-import uvicorn
 
 from byoda.util.fastapi import setup_api
 
@@ -24,13 +22,18 @@ from byoda.datamodel.network import Network
 from .routers import account
 from .routers import service
 from .routers import member
+from .routers import status
 
 _LOGGER = None
 
-APP = None
+app = setup_api(
+    'BYODA directory server', 'The directory server for a BYODA network',
+    'v0.0.1', [], [account, service, member, status]
+)
 
 
-async def main():
+@app.on_event('startup')
+async def setup():
     with open('config.yml') as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
@@ -56,19 +59,3 @@ async def main():
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
-
-    global APP
-    APP = setup_api(
-        'BYODA directory server', 'The directory server for a BYODA network',
-        'v0.0.1', app_config, [], [account, service, member]
-    )
-    uvicorn.run(APP, host="127.0.0.1", port=8000)
-
-
-@APP.get('/api/v1/status')
-async def status():
-    return {'status': 'healthy'}
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

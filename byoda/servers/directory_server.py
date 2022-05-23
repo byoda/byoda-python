@@ -36,12 +36,12 @@ class DirectoryServer(Server):
             dnsdb_connection_string, self.network.name
         )
 
-    def load_secrets(self, connection: str = None):
+    async def load_secrets(self, connection: str = None):
         '''
         Loads the secrets used by the directory server
         '''
 
-        self.network.load_secrets()
+        await self.network.load_secrets()
 
     async def get_registered_services(self):
         '''
@@ -72,7 +72,7 @@ class DirectoryServer(Server):
                 _LOGGER.debug(f'Skipping loading of service {service_id}')
                 continue
 
-            service = network.add_service(service_id)
+            service = await network.add_service(service_id)
 
             service_file = service.paths.get(Paths.SERVICE_FILE)
             if await service.paths.exists(service_file):

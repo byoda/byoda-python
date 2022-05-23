@@ -60,7 +60,7 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(app_config)
+        config.server = ServiceServer(network, app_config)
         await config.server.load_network_secrets()
 
         member_db = config.server.member_db

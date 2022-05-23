@@ -561,7 +561,7 @@ class Service:
         if server.server_type == ServerType.DIRECTORY:
             try:
                 await self.network.dnsdb.lookup(
-                    None, IdType.SERVICE, DnsRecordType.A,
+                    None, IdType.SERVICE, DnsRecordType.A, None,
                     service_id=self.service_id,
                 )
                 return RegistrationStatus.Registered
@@ -595,7 +595,7 @@ class Service:
 
         return RegistrationStatus.Unknown
 
-    def register_service(self):
+    async def register_service(self):
         '''
         Registers the service with the network using the Service TLS secret
 

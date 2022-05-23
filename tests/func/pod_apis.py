@@ -187,7 +187,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        server.set_document_store(
+        await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
             cloud_type=CloudType(network_data['cloud']),
             bucket_prefix=network_data['bucket_prefix'],
@@ -229,7 +229,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', None, [pod_account.tls_secret.common_name],
+            'v0.0.1', [pod_account.tls_secret.common_name],
             [account, member, authtoken]
         )
 
