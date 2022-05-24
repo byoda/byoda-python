@@ -11,7 +11,8 @@ from enum import Enum
 from typing import Dict, ClassVar
 from uuid import UUID
 
-import requests
+import aiohttp
+import ssl
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -68,8 +69,23 @@ class ApiClient:
             )
 
         if pool not in config.client_pools:
-            self.session = requests.Session()
-            self.session.timeout = 3
+            if api.startswith(f'https://dir'):
+                # For calls by Accounts and Services to the directory server,
+                # we do not have to set the root CA as the directory server
+                # uses a Let's Encrypt cert
+                _LOGGER.debug(
+                    'No using byoda certchain for server cert '
+                    f'verification of {api}'
+                )
+                self.ssl_context = ssl.create_default_context()
+            else:
+                filepath = (
+                    server.network.paths._root_directory + '/' +
+                    server.network.root_ca.cert_file
+                )
+                self.ssl_context = ssl.create_default_context(cafile=filepath)
+                _LOGGER.debug(f'Set server cert validation to {filepath}')
+
             if secret:
                 key_path = secret.save_tmp_private_key()
                 cert_filepath = (
@@ -78,36 +94,19 @@ class ApiClient:
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_path}'
                 )
-                self.session.cert = (cert_filepath, key_path)
-            else:
-                self.session.cert = None
+                self.ssl_context.load_cert_chain(cert_filepath, key_path)
 
-            self.session.verify = True
-            if api.startswith(f'https://dir'):
-                # For calls by Accounts and Services to the directory server,
-                # we do not have to set the root CA as the directory server
-                # uses a Let's Encrypt cert
-                self.session.verify = True
-                _LOGGER.debug(
-                    'Disabled using byoda certchain for server cert '
-                    'verification'
-                )
-            else:
-                filepath = (
-                    server.network.paths._root_directory + '/' +
-                    server.network.root_ca.cert_file
-                )
-                self.session.verify = filepath
-                _LOGGER.debug(f'Set server cert validation to {filepath}')
+            timeout = aiohttp.ClientTimeout(total=3)
+            self.session = aiohttp.ClientSession(timeout=timeout)
 
             config.client_pools[type(secret)] = self.session
         else:
             self.session = config.client_pools[type(secret)]
 
     @staticmethod
-    def call(api: str, method: str = 'GET', secret:Secret = None, params: Dict = None,
+    async def call(api: str, method: str = 'GET', secret:Secret = None, params: Dict = None,
              data: Dict = None, service_id: int = None, member_id: UUID = None,
-             account_id: UUID = None, network_name: str = None) -> requests.Response:
+             account_id: UUID = None, network_name: str = None) -> aiohttp.ClientResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -127,18 +126,19 @@ class ApiClient:
         )
         _LOGGER.debug(
             f'Calling {method} {api} with query parameters {params} '
-            f'with root CA file: {client.session.verify} and data: {data} '
+            f'and data: {data}'
         )
-        try:
-            response = client.session.request(
-                method, api, params=params, json=data
-            )
-        except (requests.exceptions.ConnectTimeout,
-                requests.exceptions.ConnectionError) as exc:
-            raise RuntimeError(exc)
+        async with client.session as session:
+            try:
+                response = await session.request(
+                    method, api, params=params, json=data, ssl=client.ssl_context
+                )
+            except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
+                raise RuntimeError(exc)
 
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f'Failure to call API {api}: {response.status_code}'
-            )
-        return response
+            if response.status >= 400:
+                raise RuntimeError(
+                    f'Failure to call API {api}: {response.status}'
+                )
+
+            return response

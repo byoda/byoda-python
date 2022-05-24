@@ -36,6 +36,7 @@ jsonschema = {extras = ["format"], version = "*"}
 pyjwt = "*"
 asyncpg = "*"
 cd = "*"
+aiohttp = {extras = ["speedups"], version = "*"}
 
 [dev-packages]
 flake8 = "*"

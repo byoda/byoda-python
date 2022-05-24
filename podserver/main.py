@@ -124,4 +124,4 @@ async def setup():
 
     for account_member in pod_account.memberships.values():
         account_member.enable_graphql_api(app)
-        account_member.update_registration()
+        await account_member.update_registration()

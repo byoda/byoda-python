@@ -196,7 +196,7 @@ class RequestAuth:
                 self.auth_source = AuthSource.CERT
                 return
             except HTTPException as exc:
-                error = exc.status_code
+                error = exc.status
                 detail = exc.detail
 
         if self.authorization:

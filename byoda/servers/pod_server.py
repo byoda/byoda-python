@@ -58,11 +58,11 @@ class PodServer(Server):
         network = self.network
 
         url = network.paths.get(Paths.NETWORKSERVICES_API)
-        response = RestApiClient.call(url)
+        resp = await RestApiClient.call(url)
 
         self.network.service_summaries = dict()
-        if response.status_code == 200:
-            summaries = response.json()
+        if resp.status == 200:
+            summaries = await resp.json()
             for summary in summaries.get('service_summaries', []):
                 self.network.service_summaries[summary['service_id']] = summary
             _LOGGER.debug(
@@ -72,5 +72,5 @@ class PodServer(Server):
         else:
             _LOGGER.debug(
                 'Failed to retrieve list of services from the network: '
-                f'HTTP {response.status_code}'
+                f'HTTP {resp.status}'
             )

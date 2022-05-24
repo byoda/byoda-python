@@ -460,14 +460,14 @@ class Member:
         csr = secret.create_csr()
 
         payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
-        resp = RestApiClient.call(
+        resp = await RestApiClient.call(
             self.paths.get(Paths.SERVICEMEMBER_API),
             HttpMethod.POST, data=payload
         )
-        if resp.status_code != 201:
+        if resp.status != 201:
             raise RuntimeError('Certificate signing request failed')
 
-        cert_data = resp.json()
+        cert_data = await resp.json()
 
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
@@ -477,7 +477,7 @@ class Member:
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
-            RestApiClient.call(
+            await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),
                 method=HttpMethod.PUT,
                 secret=secret, service_id=self.service_id
@@ -488,14 +488,14 @@ class Member:
                 f'{self.service_id} with network {self.network.name}'
             )
 
-    def update_registration(self) -> None:
+    async def update_registration(self) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service
         '''
 
         # Call the member API of the service to update the registration
-        RestApiClient.call(
+        await RestApiClient.call(
             f'{Paths.SERVICEMEMBER_API}/version/{self.schema.version}',
             method=HttpMethod.PUT, secret=self.tls_secret,
             data={'certchain': self.data_secret.certchain_as_pem()},
@@ -506,7 +506,7 @@ class Member:
             f'{self.service_id}'
         )
 
-        RestApiClient.call(
+        await RestApiClient.call(
             self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.PUT,
             secret=self.tls_secret, service_id=self.service_id
         )
