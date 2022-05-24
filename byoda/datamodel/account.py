@@ -11,8 +11,6 @@ from uuid import UUID
 from typing import TypeVar, Callable, Dict, Set
 from copy import copy
 
-import aiohttp
-
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datastore.document_store import DocumentStore
@@ -188,18 +186,16 @@ class Account:
 
                 # TODO: Refactor to use RestClientApi
                 _LOGGER.debug(f'Getting CSR signed from {url}')
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=payload) as resp:
-                        if resp.status != 201:
-                            raise RuntimeError(
-                                'Certificate signing request failed'
-                            )
+                resp = await RestApiClient.call(
+                    url, method=HttpMethod.POST, data=payload
+                )
+                if resp.status != 201:
+                    raise RuntimeError('Certificate signing request failed')
 
-                        cert_data = await resp.json()
-                        secret.from_string(
-                            cert_data['signed_cert'],
-                            certchain=cert_data['cert_chain']
-                        )
+                cert_data = await resp.json()
+                secret.from_string(
+                    cert_data['signed_cert'], certchain=cert_data['cert_chain']
+                )
         else:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
