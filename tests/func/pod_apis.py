@@ -235,7 +235,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         for account_member in pod_account.memberships.values():
             account_member.enable_graphql_api(app)
-            account_member.update_registration()
+            await account_member.update_registration()
 
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
@@ -580,7 +580,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         query = '''
                 mutation {
                     mutate_member(
-                        member_id: "0",
+                        member_id: "7a0260ef-7afb-426f-b132-4062ef7636d7",
                         joined: "2021-09-19T09:04:00+07:00"
                     ) {
                         member_id

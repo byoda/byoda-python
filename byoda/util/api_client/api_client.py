@@ -130,7 +130,7 @@ class ApiClient:
         )
         async with client.session as session:
             try:
-                response = await session.request(
+                response: aiohttp.ClientResponse = await session.request(
                     method, api, params=params, json=data, ssl=client.ssl_context
                 )
             except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
