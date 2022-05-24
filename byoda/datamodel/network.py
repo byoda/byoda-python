@@ -291,31 +291,31 @@ class Network:
                     _LOGGER.debug(
                         'Did not find cert for network root CA, downloading it'
                     )
-                    resp = ApiClient.call(
+                    resp = await ApiClient.call(
                         Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
                     )
-                    if resp.status_code != 200:
+                    if resp.status != 200:
                         raise ValueError(
                             'No network cert available locally or from the '
                             'network'
                         )
                     _LOGGER.debug('Downloaded cert for Network root CA')
-                    self.root_ca.from_string(resp.text)
+                    self.root_ca.from_string(await resp.text())
                     await self.root_ca.save()
 
             if not self.data_secret.cert:
                 try:
                     await self.data_secret.load(with_private_key=False)
                 except FileNotFoundError:
-                    resp = ApiClient.call(
+                    resp = await ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )
-                    if resp.status_code != 200:
+                    if resp.status != 200:
                         raise ValueError(
                             'No network cert available locally or from the '
                             'network'
                         )
-                    self.data_secret.from_string(resp.text)
+                    self.data_secret.from_string(await resp.text())
                     await self.data_secret.save()
 
     async def add_service(self, service_id: int,

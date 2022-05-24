@@ -11,7 +11,7 @@ from uuid import UUID
 from typing import TypeVar, Callable, Dict, Set
 from copy import copy
 
-import requests
+import aiohttp
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -188,14 +188,18 @@ class Account:
 
                 # TODO: Refactor to use RestClientApi
                 _LOGGER.debug(f'Getting CSR signed from {url}')
-                resp = requests.post(url, json=payload)
-                if resp.status_code != 201:
-                    raise RuntimeError('Certificate signing request failed')
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload) as resp:
+                        if resp.status != 201:
+                            raise RuntimeError(
+                                'Certificate signing request failed'
+                            )
 
-                cert_data = resp.json()
-                secret.from_string(
-                    cert_data['signed_cert'], certchain=cert_data['cert_chain']
-                )
+                        cert_data = await resp.json()
+                        secret.from_string(
+                            cert_data['signed_cert'],
+                            certchain=cert_data['cert_chain']
+                        )
         else:
             csr = secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
@@ -241,10 +245,10 @@ class Account:
         # Register pod to directory server
         url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
-        resp = RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
+        resp = await RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
 
         _LOGGER.debug(
-            f'Registered account with directory server: {resp.status_code}'
+            f'Registered account with directory server: {resp.status}'
         )
 
     async def get_memberships(self) -> Set:

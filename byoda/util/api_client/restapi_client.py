@@ -40,7 +40,7 @@ class RestApiClient:
         pass
 
     @staticmethod
-    def call(api: str, method: HttpMethod = HttpMethod.GET, secret: Secret = None,
+    async def call(api: str, method: HttpMethod = HttpMethod.GET, secret: Secret = None,
              params: Dict = None, data: Dict = None, service_id: int = None,
              member_id: UUID = None, account_id: UUID = None) -> requests.Response:
 
@@ -65,7 +65,7 @@ class RestApiClient:
                 # API URL did not end with an ID specifier
                 pass
 
-        response = ApiClient.call(
+        response = await ApiClient.call(
             api, method.value, secret=secret, params=params, data=data, service_id=service_id,
             member_id=member_id, account_id=account_id
         )

@@ -87,9 +87,9 @@ async def main(argv):
 
     if not args.local:
         response = await service.register_service()
-        if response.status_code != 200:
+        if response.status != 200:
             raise ValueError(
-                f'Failed to register service: {response.status_code}'
+                f'Failed to register service: {response.status}'
             )
 
     result = None
@@ -194,16 +194,16 @@ async def create_network_signature(service, args, password) -> bool:
         service_secret = ServiceSecret(None, service.service_id, network)
         await service_secret.load(with_private_key=True, password=password)
         _LOGGER.debug('Requesting network signature from the directory server')
-        response = RestApiClient.call(
+        resp = await RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PATCH,
             secret=service_secret,
             data=service.schema.json_schema,
         )
-        if response.status_code != 200:
+        if resp.status != 200:
             return False
 
-        data = response.json()
+        data = await resp.json()
         if data['errors']:
             _LOGGER.debug('Validation of service by the network failed')
             for error in data['errors']:
@@ -211,14 +211,14 @@ async def create_network_signature(service, args, password) -> bool:
 
             return False
         else:
-            response = RestApiClient.call(
+            resp = await RestApiClient.call(
                 service.paths.get(Paths.NETWORKSERVICE_API),
                 HttpMethod.GET,
                 secret=service_secret,
                 service_id=service.service_id
             )
-            if response.status_code == 200:
-                service.schema.json_schema = response.json()
+            if resp.status == 200:
+                service.schema.json_schema = await resp.json()
                 service.registration_status = \
                     RegistrationStatus.SchemaSigned
                 return True
