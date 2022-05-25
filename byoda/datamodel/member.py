@@ -96,13 +96,14 @@ class Member:
         self.document_store: DocumentStore = self.account.document_store
         self.storage_driver: FileStorage = self.document_store.backend
 
-        self.private_key_password = account.private_key_password
+        self.private_key_password: str = account.private_key_password
 
         # The FastAPI app. We store this value to support upgrades of schema
         self.app: FastAPI = None
 
-        self.tls_secret = None
-        self.data_secret = None
+        self.tls_secret: MemberSecret = None
+        self.data_secret: MemberDataSecret = None
+        self.service_data_secret: ServiceDataSecret = None
 
     async def setup(self, local_service_contract: str = None):
         if self.service_id not in self.network.services:
