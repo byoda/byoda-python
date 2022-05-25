@@ -85,7 +85,7 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
 
 And we can enter our data for the address book service after we fill in our data for the various fields to replace the placeholders between '<>':
 ```
-cat >person-mutate.jso <<EOF
+cat >person-mutate.json <<EOF
 {
         "query": "mutation {mutate_person(given_name: \"<your name>\"  additional_names: \"\", family_name: \"<your family name>\", email: \"<your email>\", homepage_url: \"<your homepage>\", avatar_url: \"<your avatar url>\") { given_name additional_names family_name email homepage_url avatar_url } }"
 }
