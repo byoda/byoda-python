@@ -308,7 +308,11 @@ class Member:
             public_cloud_endpoint=self.paths.storage_driver.get_url(
                 StorageType.PUBLIC
             ),
+            private_cloud_endpoint=self.paths.storage_driver.get_url(
+                StorageType.PRIVATE
+            ),
             port=PodServer.HTTP_PORT,
+            service_id=self.service_id,
             root_dir=config.server.network.paths.root_directory
         )
 

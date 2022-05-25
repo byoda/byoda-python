@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pipenv install --deploy --ignore-pipfile && pipenv clean
+
 ###
 ### Byoda bits
 ###
@@ -53,7 +55,6 @@ RUN touch /etc/nginx/htaccess.db
 EXPOSE 443
 
 COPY . byoda-python/
-RUN cd /podserver/byoda-python && pipenv install --deploy --ignore-pipfile && pipenv clean
 COPY podserver/files/config.yml byoda-python/
 COPY podserver/files/startup.sh .
 

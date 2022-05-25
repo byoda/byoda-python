@@ -52,7 +52,8 @@ class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
                  alias: str, network: str, public_cloud_endpoint: str,
-                 port: int, root_dir: str = '/byoda'):
+                 private_cloud_endpoint: str,
+                 port: int, service_id: int = None, root_dir: str = '/byoda'):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -68,6 +69,9 @@ class NginxConfig(TargetConfig):
         created
         :param public_cloud_endpoint: FQDN for the endpoint of the
         public bucket
+        :param private_cloud_endpoint: FQDN for the endpoint of the
+        private bucket
+        :param service_id: service ID for the membership, if applicable
         '''
 
         self.identifier: str = str(identifier)
@@ -77,6 +81,7 @@ class NginxConfig(TargetConfig):
         self.key_filepath: str = key_filepath
         self.network: str = network
         self.public_cloud_endpoint: str = public_cloud_endpoint
+        self.private_cloud_endpoint: str = private_cloud_endpoint
         self.directory: str = directory
         self.filename: str = filename
         self.root_dir: str = root_dir

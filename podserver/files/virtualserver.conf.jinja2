@@ -76,6 +76,10 @@ server {
         set $cors "0";
         proxy_pass http://127.0.0.1:{{ port }};
     }
+{% else %}
+    location /member-data-cert.pem {
+        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem
+    }
 
 {% endif -%}
 
@@ -92,6 +96,7 @@ server {
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
     }
+
 
     location /public/ {
         proxy_pass {{ public_cloud_endpoint }}/;
@@ -126,6 +131,10 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+    }
+
+    location /member-data-cert.pem {
+        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem
     }
 
     error_page  404              /404.html;

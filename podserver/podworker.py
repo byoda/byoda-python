@@ -116,7 +116,7 @@ async def run_bootstrap_tasks(data: Dict):
             raise ValueError(error_msg)
         _LOGGER.debug('Read account TLS secret')
     except FileNotFoundError:
-        account.create_account_secret()
+        await account.create_account_secret()
         _LOGGER.info('Created account secret during bootstrap')
 
     try:
@@ -125,7 +125,7 @@ async def run_bootstrap_tasks(data: Dict):
         )
         _LOGGER.debug('Read account data secret')
     except FileNotFoundError:
-        account.create_data_secret()
+        await account.create_data_secret()
         _LOGGER.info('Created account secret during bootstrap')
 
     _LOGGER.debug('Podworker exiting normally')
