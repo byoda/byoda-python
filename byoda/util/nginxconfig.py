@@ -76,6 +76,7 @@ class NginxConfig(TargetConfig):
 
         self.identifier: str = str(identifier)
         self.subdomain: str = subdomain
+        self.service_id: int = service_id
         self.alias: str = alias
         self.cert_filepath: str = cert_filepath
         self.key_filepath: str = key_filepath
@@ -127,7 +128,9 @@ class NginxConfig(TargetConfig):
             alias=self.alias,
             network=self.network,
             public_cloud_endpoint=self.public_cloud_endpoint,
+            private_cloud_endpoint=self.private_cloud_endpoint,
             root_dir=self.root_dir,
+            service_id=self.service_id,
             port=self.port
         )
         with open(self.config_filepath, 'w') as file_desc:
