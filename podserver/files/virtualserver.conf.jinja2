@@ -134,7 +134,7 @@ server {
     }
 
     location /member-data-cert.pem {
-        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem
+        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
 
     error_page  404              /404.html;
