@@ -342,6 +342,6 @@ class Account:
         )
 
         member.create_nginx_config()
-        member.memberships[member.service_id] = member
+        self.memberships[member.service_id] = member
 
         return member
