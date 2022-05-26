@@ -78,7 +78,7 @@ server {
     }
 {% else %}
     location /member-data-cert.pem {
-        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem
+        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
 
 {% endif -%}
@@ -99,7 +99,7 @@ server {
 
 
     location /public/ {
-        proxy_pass {{ public_cloud_endpoint }}/;
+        proxy_pass {{ public_cloud_endpoint }};
     }
 }
 
