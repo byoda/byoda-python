@@ -58,7 +58,7 @@ async def get_member(request: Request, service_id: int,
     if not member:
         raise HTTPException(
             status_code=404,
-            detail='Not a member of service with ID {service_id}'
+            detail=f'Not a member of service with ID {service_id}'
         )
 
     return member.as_dict()
@@ -131,7 +131,7 @@ async def put_member(request: Request, service_id: int, version: int,
     if not member:
         raise HTTPException(
             status_code=404,
-            detail='Not a member of service with ID {service_id}'
+            detail=f'Not a member of service with ID {service_id}'
         )
 
     current_version = member.schema.version

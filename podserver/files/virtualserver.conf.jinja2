@@ -78,7 +78,7 @@ server {
     }
 {% else %}
     location /member-data-cert.pem {
-        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
+        alias {{ root_dir }}/network-{{ network }}/account-pod/services/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
 
 {% endif -%}
@@ -134,8 +134,7 @@ server {
     }
 
     location /member-data-cert.pem {
-        proxy_pass {{private_cloud_endpoint }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
-    }
+        alias {{ root_dir }}/network-{{ network }}/account-pod/services/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;    }
 
     error_page  404              /404.html;
 
