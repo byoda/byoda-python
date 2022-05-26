@@ -341,6 +341,7 @@ class Account:
             local_service_contract=local_service_contract
         )
 
-        self.memberships[member.service_id] = member
+        member.create_nginx_config()
+        member.memberships[member.service_id] = member
 
         return member
