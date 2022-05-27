@@ -421,8 +421,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Peter',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
+
             ),
             headers=auth_header
         )
@@ -477,8 +481,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Carl',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
             ),
             headers=member_headers)
         self.assertEqual(
@@ -490,8 +497,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Steven',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
             ),
             headers=member_headers
         )

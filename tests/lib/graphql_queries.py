@@ -23,11 +23,11 @@ MUTATE_PERSON = '''
 mutation {{
     mutate_person(
         given_name: "{given_name}",
-        additional_names: "",
+        additional_names: "{additional_names}",
         family_name: "{family_name}",
         email: "{email}",
-        homepage_url: "https://some.place/",
-        avatar_url: "https://some.place/avatar"
+        homepage_url: "{homepage_url}",
+        avatar_url: "{avatar_url}"
     ) {{
         given_name
         additional_names
