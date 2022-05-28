@@ -22,7 +22,7 @@ from byoda.datatypes import DataOperationType
 
 from byoda.datamodel.member import Member
 
-from byoda.requestauth import RequestAuth
+from byoda.requestauth.requestauth import RequestAuth
 
 from byoda import config
 

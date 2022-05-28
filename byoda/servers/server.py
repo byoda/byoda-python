@@ -26,6 +26,7 @@ Network = TypeVar('Network')
 Account = TypeVar('Account')
 Service = TypeVar('Service')
 RegistrationStatus = TypeVar('RegistrationStatus')
+JWT = TypeVar('JWT')
 
 
 class Server:
@@ -56,3 +57,12 @@ class Server:
             store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,
             root_dir=root_dir
         )
+
+    async def review_jwt(self, jwt: JWT):
+        raise NotImplementedError
+
+    async def get_jwt_secret(self, jwt: JWT):
+        raise NotImplementedError
+
+    def accepts_jwts(self):
+        raise NotImplementedError

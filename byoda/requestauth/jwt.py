@@ -8,17 +8,13 @@ Wrapper class for the PyJWT module
 
 import logging
 from uuid import UUID
+from typing import TypeVar
+from datetime import datetime, timezone, timedelta
 
 import jwt as py_jwt
 
 
-from datetime import datetime, timezone, timedelta
-
-from byoda.servers.service_server import ServiceServer
-from byoda.servers.pod_server import PodServer
-
 from byoda.secrets import Secret
-from byoda.secrets import MemberSecret
 
 from byoda.datatypes import IdType
 
@@ -26,6 +22,8 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
+ServiceServer = TypeVar('ServiceServer')
+PodServer = TypeVar('PodServer')
 
 JWT_EXPIRATION_DAYS = 365
 JWT_ALGO_PREFFERED = 'RS256'
@@ -99,13 +97,14 @@ class JWT:
         return self.encoded
 
     @staticmethod
-    def decode(authorization: str, secret: Secret, network: str):
+    async def decode(authorization: str, secret: Secret, network: str):
         '''
         Decode an encoded JWT with or without verification.
 
         :param authorization: the encoded JWT
         :param secret: verification will not be performed if None is specified
         :param audience: the audience members that must be in the JWT
+        :raises: ValueError, FileNotFound
         :returns: JWT
         '''
 
@@ -114,7 +113,9 @@ class JWT:
 
         authorization = authorization.strip()
 
+        # the py_jwt.decode function verifies the audience of the JWT
         audience = [f'urn:network-{network}']
+
         if secret:
             data = py_jwt.decode(
                 authorization, secret.cert.public_key(), leeway=10,
@@ -129,13 +130,21 @@ class JWT:
             )
 
         jwt = JWT(data['aud'])
+
+        if secret:
+            jwt.verified = True
+        else:
+            jwt.verified = False
+
         jwt.expiration = data['exp']
         jwt.issuer = data.get('iss')
         if not jwt.issuer:
-            raise ValueError('No issuer specified in the JWT token')
+            raise ValueError('No issuer specified in the JWT')
 
-        if jwt.issuer.startswith('urn'):
+        if jwt.issuer.startswith('urn:'):
             jwt.issuer = jwt.issuer[4:]
+        else:
+            raise ValueError('JWT issuer does not start with "urn:"')
 
         if jwt.issuer.startswith('member_id-'):
             jwt.issuer_type = IdType.MEMBER
@@ -152,9 +161,19 @@ class JWT:
         if jwt.service_id is not None:
             jwt.service_id = int(jwt.service_id)
 
+        if not secret:
+            # Get the secret, if necessary from remote pod
+            secret = await jwt._get_issuer_secret()
+
+            # Now that we have the secret, verify the signature by decoding
+            # the Authorization header again
+            py_jwt.decode(
+                authorization, secret.cert.public_key(), leeway=10,
+                audience=audience, algorithms=JWT_ALGO_ACCEPTED
+            )
+
         jwt.secret = secret
-        if jwt.secret:
-            jwt.verified = True
+        jwt.verified = True
 
         return jwt
 
@@ -172,46 +191,10 @@ class JWT:
         # been verified so must not change any data! Nor do we want
         # to provide information to hackers submitting bogus JWTs
 
-        if isinstance(config.server, ServiceServer):
-            # Let's see if we have the public cert of the issuer of the JWT
+        await config.server.review_jwt(self)
+        secret: Secret = await config.server.get_jwt_secret(self)
 
-            if self.service_id is None:
-                raise ValueError('No service ID specified in the JWT')
-
-            if self.issuer_type == IdType.ACCOUNT:
-                raise ValueError(
-                    'Service API can not be called with a JWT for an account'
-                )
-
-            secret: MemberSecret = MemberSecret(
-                self.issuer_id, self.service_id, None,
-                config.server.service.network
-            )
-        elif (isinstance(config.server, PodServer)
-                and self.service_id is not None):
-            # We have a JWT signed by a member of a service and we are
-            # running on a pod, let's get the secret for the membership
-            await config.server.account.load_memberships()
-            member = config.server.account.memberships.get(self.service_id)
-            if member:
-                if member.member_id != self.issuer_id:
-                    raise NotImplementedError(
-                        'We do not yet support JWTs signed by other members'
-                    )
-
-                secret = member.tls_secret
-            else:
-                # We don't want to give details in the error message as it
-                # could allow people to discover which services a pod has
-                # joined
-                _LOGGER.exception(
-                    f'Unknown service ID: {self.service_id}'
-                )
-                raise ValueError
-        elif isinstance(config.server, PodServer) and self.service_id is None:
-            # We are running on the pod and the JWT is signed by the account
-            secret = config.server.account.tls_secret
-        else:
+        if not secret:
             _LOGGER.exception(
                 f'Could not get the secret for {self.id_type.value}{self.id}'
             )

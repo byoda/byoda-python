@@ -14,6 +14,11 @@ from byoda.util.api_client import RestApiClient
 from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
+from byoda.datatypes import IdType
+
+from byoda.secrets import AccountSecret
+from byoda.secrets import MemberSecret
+
 from byoda import config
 
 from .server import Server
@@ -24,6 +29,9 @@ _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network')
 RegistrationStatus = TypeVar('RegistrationStatus')
+JWT = TypeVar('JWT')
+Member = TypeVar('Member')
+Account = TypeVar('Account')
 
 
 class PodServer(Server):
@@ -74,3 +82,72 @@ class PodServer(Server):
                 'Failed to retrieve list of services from the network: '
                 f'HTTP {resp.status}'
             )
+
+    async def review_jwt(self, jwt: JWT):
+        '''
+        Reviews the JWT for processing on a service server
+
+        :param jwt: the received JWT
+        :raises: ValueError:
+        :returns: (none)
+        '''
+
+        if jwt.service_id is None and jwt.issuer_type != IdType.ACCOUNT:
+            raise ValueError(
+                'Service ID must not specified in the JWT for an account'
+            )
+
+        account: Account = config.server.account
+        if jwt.issuer_type == IdType.ACCOUNT:
+            if jwt.issuer_id != account.account_id:
+                raise ValueError(
+                    f'Received JWT for wrong account_id: {jwt.issuer_id}'
+                )
+
+        elif jwt.issuer_type == IdType.MEMBER:
+            await config.server.account.load_memberships()
+            member: Member = config.server.account.memberships.get(
+                jwt.service_id
+            )
+
+            if not member:
+                # We don't want to give details in the error message as it
+                # could allow people to discover which services a pod has
+                # joined
+                _LOGGER.exception(
+                    f'Unknown service ID: {self.service_id}'
+                )
+                raise ValueError
+        else:
+            raise ValueError(
+                f'Podserver does not support JWTs for {jwt.issuer_type}'
+            )
+
+    async def get_jwt_secret(self, jwt: JWT):
+        '''
+        Load the secret used to sign the jwt. As a service is the CA for
+        member secrets, the service server should have access to the public
+        key of all member secrets
+        '''
+
+        if jwt.issuer_type == IdType.ACCOUNT:
+            secret: AccountSecret = config.server.account.tls_secret
+        elif jwt.issuer_type == IdType.MEMBER:
+            await config.server.account.load_memberships()
+            member: Member = config.server.account.memberships.get(
+                jwt.service_id
+            )
+
+            if member.member_id == jwt.issuer_id:
+                secret: MemberSecret = member.tls_secret
+            else:
+                # see if we can get the secret of the other memember so
+                # we can verify the JWT signature wit hthat secret
+                secret: MemberSecret = await self.download_secret(
+                    jwt.issuer_id
+                )
+
+        return secret
+
+    def accepts_jwts(self):
+        return True

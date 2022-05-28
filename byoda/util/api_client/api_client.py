@@ -96,7 +96,7 @@ class ApiClient:
                 )
                 self.ssl_context.load_cert_chain(cert_filepath, key_path)
 
-            timeout = aiohttp.ClientTimeout(total=5)
+            timeout = aiohttp.ClientTimeout(total=10)
             self.session = aiohttp.ClientSession(timeout=timeout)
 
             config.client_pools[type(secret)] = self.session

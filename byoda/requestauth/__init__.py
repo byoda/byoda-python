@@ -9,6 +9,3 @@ request
 :license    : GPLv3
 '''
 
-# flake8: noqa=F401
-
-from .requestauth import RequestAuth

@@ -23,6 +23,7 @@ from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
 from byoda.servers.pod_server import PodServer
+from byoda.servers.server import Server
 
 from byoda.datatypes import IdType
 from byoda.datatypes import HttpRequestMethod
@@ -302,7 +303,7 @@ class RequestAuth:
 
         if authorization:
             # Watch out, the JWT signature does not get verified here.
-            jwt = JWT.decode(authorization, None, network.name)
+            jwt = await JWT.decode(authorization, None, network.name)
             if id_type and id_type != jwt.issuer_type:
                 raise HTTPException(
                     status_code=401,
@@ -531,11 +532,10 @@ class RequestAuth:
         :raises: HTTPException
         '''
 
-        if isinstance(config.server, PodServer):
-            network: Network = config.server.account.network
-        elif isinstance(config.server, ServiceServer):
-            network: Network = config.server.service.network
-        else:
+        server: Server = config.server
+        network: Network = server.network
+
+        if not server.accepts_jwts():
             raise HTTPException(
                 status_code=400,
                 detail='Only Pods and service servers accept JWTs'
@@ -555,7 +555,7 @@ class RequestAuth:
         # First we use the unverified JTW to find out
         # in which context we need to authenticate the client
         try:
-            unverified = JWT.decode(authorization, None, network.name)
+            unverified = await JWT.decode(authorization, None, network.name)
 
             secret = await unverified._get_issuer_secret()
             if not secret.cert:
@@ -589,7 +589,7 @@ class RequestAuth:
 
         # Now we have the secret for verifying the signature of the JWT
         try:
-            JWT.decode(authorization, secret, network.name)
+            await JWT.decode(authorization, secret, network.name)
 
             # We now know we can trust the data we earlier parsed from the JWT
             jwt = unverified

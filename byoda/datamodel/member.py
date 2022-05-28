@@ -18,7 +18,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
 
-from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -37,7 +36,11 @@ from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
+from byoda.util.api_client.api_client import ApiClient
+
 from byoda.requestauth.jwt import JWT
+
+from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
 
@@ -648,6 +651,29 @@ class Member:
         '''
 
         await self.data.save(data)
+
+    async def download_secret(self, member_id: UUID = None):
+
+        if not member_id:
+            member_id = self.member_id
+        elif isinstance(member_id, str):
+            member_id = UUID(member_id)
+
+        secret = MemberSecret(member_id, self.service_id)
+        response = ApiClient.call(
+            f'https://{secret.common_name}/member-cert.pem'
+        )
+
+        if response.status != 200:
+            raise RuntimeError(
+                'Download the member cert resulted in status: '
+                f'{response.status}'
+            )
+
+        certchain = response.content
+        secret.from_string(certchain)
+
+        return secret
 
     @staticmethod
     async def get_data(service_id: int, info: Info, filters=None) -> Dict:

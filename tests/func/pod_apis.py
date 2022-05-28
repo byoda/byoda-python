@@ -29,13 +29,13 @@ from python_graphql_client import GraphqlClient
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
+
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
@@ -431,6 +431,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=auth_header
         )
         self.assertTrue('data' in result)
+        self.assertIsNotNone(result['data'])
+        self.assertTrue('mutate_person' in result['data'])
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )

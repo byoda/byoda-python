@@ -77,6 +77,10 @@ server {
         proxy_pass http://127.0.0.1:{{ port }};
     }
 {% else %}
+    location = /member-cert.pem {
+        alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
+    }
+    
     location = /member-data-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
@@ -131,6 +135,10 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+    }
+
+    location = /member-cert.pem {
+        alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
     }
 
     location = /member-data-cert.pem {
