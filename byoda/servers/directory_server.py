@@ -15,6 +15,8 @@ from byoda.datastore.dnsdb import DnsDb
 
 from byoda.datatypes import ServerType
 
+from byoda.requestauth.jwt import JWT
+
 from byoda.util.paths import Paths
 
 from .server import Server
@@ -82,3 +84,12 @@ class DirectoryServer(Server):
                     await service.get_registration_status()
 
             _LOGGER.debug(f'Loaded service {service_id}')
+
+    async def review_jwt(self, jwt: JWT):
+        raise NotImplementedError('the directory server does not accept JWTs')
+
+    async def get_jwt_secret(self, jwt: JWT):
+        raise NotImplementedError('the directory server does not accept JWTs')
+
+    def accepts_jwts(self):
+        return False

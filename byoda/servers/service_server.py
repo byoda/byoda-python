@@ -15,7 +15,10 @@ from byoda.datamodel.network import Network
 
 from byoda.datastore.memberdb import MemberDb
 
+from byoda.secrets.member_secret import MemberSecret
+
 from byoda.datatypes import ServerType
+from byoda.datatypes import IdType
 
 from byoda.servers.server import Server
 
@@ -23,9 +26,13 @@ from byoda.util.dnsresolver import DnsResolver
 
 from byoda.util.paths import Paths
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 RegistrationStatus = TypeVar('RegistrationStatus')
+
+JWT = TypeVar('JWT')
 
 
 class ServiceServer(Server):
@@ -70,3 +77,38 @@ class ServiceServer(Server):
         )
 
         self.member_db.schema = self.service.schema
+
+    async def review_jwt(self, jwt: JWT):
+        '''
+        Reviews the JWT for processing on a service server
+
+        :param jwt: the received JWT
+        :raises: ValueError:
+        :returns: (none)
+        '''
+
+        if jwt.service_id is None:
+            raise ValueError('No service ID specified in the JWT')
+
+        if jwt.issuer_type != IdType.MEMBER:
+            raise ValueError(
+                'Service API can only be called with a JWT for a member'
+            )
+
+    async def get_jwt_secret(self, jwt: JWT):
+        '''
+        Load the secret used to sign the jwt. As a service is the CA for
+        member secrets, the service server should have access to the public
+        key of all member secrets
+        '''
+        secret: MemberSecret = MemberSecret(
+            jwt.issuer_id, jwt.service_id, None,
+            config.server.service.network
+        )
+
+        await secret.load(with_private_key=False)
+
+        return secret
+
+    def accepts_jwts(self):
+        return True

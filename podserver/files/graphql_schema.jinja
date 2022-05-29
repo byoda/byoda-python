@@ -26,7 +26,7 @@ import logging as loggingByoda
 
 # from byoda.datamodel.member import Member as MemberClassByoda
 
-from byoda.requestauth import RequestAuth as RequestAuthByoda
+from byoda.requestauth.requestauth import RequestAuth as RequestAuthByoda
 from byoda.requestauth.graphql_authorization import DataOperationType as DataOperationType_Byoda
 from byoda.requestauth.graphql_authorization import authorize_graphql_request as authorize_graphql_request_Byoda
 
@@ -84,7 +84,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        return authorize_graphql_request_Byoda(
+        return await authorize_graphql_request_Byoda(
             data_operation, {{ service_id}}, info
         )
     except Exception as exc:

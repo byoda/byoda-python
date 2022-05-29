@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from multiprocessing import Process
+import fastapi
 import uvicorn
 
 from python_graphql_client import GraphqlClient
@@ -29,23 +30,34 @@ from python_graphql_client import GraphqlClient
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
+from byoda.datatypes import IdType
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
 
 from byoda import config
 
-from podserver.util import get_environment_vars
+from byoda.secrets.member_secret import MemberSecret
+from byoda.requestauth.jwt import JWT
 
+from byoda.servers.pod_server import PodServer
+
+from podserver.util import get_environment_vars
 from podserver.routers import account
 from podserver.routers import member
 from podserver.routers import authtoken
 
 from tests.lib import get_test_uuid
+
+from tests.lib.graphql_queries import QUERY_PERSON
+from tests.lib.graphql_queries import MUTATE_PERSON
+from tests.lib.graphql_queries import QUERY_NETWORK
+from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
+from tests.lib.graphql_queries import APPEND_NETWORK
+from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
+from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -61,92 +73,6 @@ ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
 
 EVENTS = []
-
-PERSON_QUERY = '''
-query {
-    person {
-        given_name
-        additional_names
-        family_name
-        email
-        homepage_url
-        avatar_url
-    }
-}
-'''
-
-MUTATE_PERSON = '''
-mutation {{
-    mutate_person(
-        given_name: "{given_name}",
-        additional_names: "",
-        family_name: "{family_name}",
-        email: "{email}",
-        homepage_url: "https://some.place/",
-        avatar_url: "https://some.place/avatar"
-    ) {{
-        given_name
-        additional_names
-        family_name
-        email
-        homepage_url
-        avatar_url
-    }}
-}}
-'''
-
-QUERY_NETWORK = '''
-query {
-    network_links {
-        relation
-        member_id
-        timestamp
-    }
-}
-'''
-
-QUERY_NETWORK_WITH_FILTER = '''
-query {{
-    network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
-        relation
-        member_id
-        timestamp
-    }}
-}}
-'''
-
-APPEND_NETWORK = '''
-mutation {{
-    append_network_links (
-        member_id: "{uuid}",
-        relation: "{relation}",
-        timestamp: "{timestamp}"
-    ) {{
-        member_id relation timestamp
-    }}
-}}
-'''
-
-UPDATE_NETWORK_RELATION = '''
-mutation {{
-    update_network_links (
-        filters: {{ {field}: {{ {cmp}: "{value}" }} }},
-        relation: "{relation}",
-    ) {{
-        member_id relation timestamp
-    }}
-}}
-'''
-
-DELETE_FROM_NETWORK_WITH_FILTER = '''
-mutation {{
-    delete_from_network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
-        relation
-        member_id
-        timestamp
-    }}
-}}
-'''
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
@@ -282,7 +208,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 2)
+        self.assertEqual(len(data['services']), 1)
 
         # Get the service ID for the addressbook service
         service_id = None
@@ -388,7 +314,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 2)
+        self.assertEqual(len(data['services']), 1)
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
@@ -478,7 +404,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-    def test_graphql_addressbook_jwt(self):
+    async def test_graphql_addressbook_jwt(self):
         account = config.server.account
         account_id = account.account_id
         service_id = ADDRESSBOOK_SERVICE_ID
@@ -499,12 +425,18 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Peter',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
+
             ),
             headers=auth_header
         )
         self.assertTrue('data' in result)
+        self.assertIsNotNone(result['data'])
+        self.assertTrue('mutate_person' in result['data'])
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Peter'
         )
@@ -519,6 +451,86 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertTrue('given_name' in context.exception.args)
+
+        #
+        # JWT for the 'Azure POD' member
+        #
+
+        # add network_link for the 'remote member'
+        remote_member_id = '0c8143d8-9311-485d-a639-ed8ef980bebb'
+        result = client.execute(
+            APPEND_NETWORK.format(
+                uuid=remote_member_id,
+                relation='friend',
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+        member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
+        dest_dir = f'{TEST_DIR}/{member_dir}'
+
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member-cert.pem',
+            dest_dir
+        )
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member.key',
+            dest_dir
+        )
+
+        secret = MemberSecret(
+            remote_member_id, ADDRESSBOOK_SERVICE_ID, account
+        )
+        secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
+        secret.private_key_file = f'{member_dir}/azure-pod-member.key'
+        await secret.load()
+        jwt = JWT.create(
+            remote_member_id, IdType.MEMBER, secret, account.network.name,
+            service_id=ADDRESSBOOK_SERVICE_ID
+        )
+        remote_member_auth_header = {
+            'Authorization': f'bearer {jwt.encoded}'
+        }
+
+        result = client.execute(
+            query=QUERY_PERSON, headers=remote_member_auth_header
+        )
+
+        self.assertTrue('data' in result)
+        self.assertIsNotNone(result['data'])
+
+        result = client.execute(
+            DELETE_FROM_NETWORK_WITH_FILTER.format(
+                field='member_id', cmp='eq', value=remote_member_id
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        self.assertEqual(
+            result['data']['delete_from_network_links'][0]['relation'],
+            'friend'
+        )
+
+        result = client.execute(
+            APPEND_NETWORK.format(
+                uuid=remote_member_id,
+                relation='colleague',
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            query=QUERY_PERSON, headers=remote_member_auth_header
+        )
+
+        self.assertIsNone(result['data'])
+        self.assertTrue(result['errors'])
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -555,21 +567,27 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Carl',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
             ),
             headers=member_headers)
         self.assertEqual(
             result['data']['mutate_person']['given_name'], 'Carl'
         )
 
-        result = client.execute(query=PERSON_QUERY, headers=member_headers)
+        result = client.execute(query=QUERY_PERSON, headers=member_headers)
 
         result = client.execute(
             query=MUTATE_PERSON.format(
                 given_name='Steven',
+                additional_names='',
                 family_name='Hessing',
-                email='steven@byoda.org'
+                email='steven@byoda.org',
+                homepage_url='https://byoda.org',
+                avatar_url='https://some.place/somewhere'
             ),
             headers=member_headers
         )
@@ -602,7 +620,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # Query fails because other members do not have access
-        result = client.execute(PERSON_QUERY, headers=alt_member_headers)
+        result = client.execute(QUERY_PERSON, headers=alt_member_headers)
         self.assertIsNone(result['data'])
         self.assertIsNotNone(result['errors'])
 

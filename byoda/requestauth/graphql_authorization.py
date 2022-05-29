@@ -22,7 +22,7 @@ from byoda.datatypes import DataOperationType
 
 from byoda.datamodel.member import Member
 
-from byoda.requestauth import RequestAuth
+from byoda.requestauth.requestauth import RequestAuth
 
 from byoda import config
 
@@ -40,7 +40,7 @@ class AccessEntityType(Enum):
     ANONYMOUS   = 'anonymous'
 
 
-def authorize_graphql_request(operation: DataOperationType, service_id: int,
+async def authorize_graphql_request(operation: DataOperationType, service_id: int,
                               info: Info, root = None):
     '''
     Checks the authorization of a graphql request for a service.
@@ -80,7 +80,7 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
     _LOGGER.debug(f'Authorizing request for data element {key}')
 
     auth: RequestAuth = info.context['auth']
-    access_allowed = _check_data_access(
+    access_allowed = await _check_data_access(
         key, data_schema[key], operation, auth, service_id
     )
 
@@ -95,7 +95,7 @@ def authorize_graphql_request(operation: DataOperationType, service_id: int,
 
     return access_allowed
 
-def _check_data_access(data_element: str, subschema: Dict,
+async def _check_data_access(data_element: str, subschema: Dict,
                        operation: DataOperationType, auth: RequestAuth,
                        service_id: int) -> Optional[bool]:
     '''
@@ -103,8 +103,14 @@ def _check_data_access(data_element: str, subschema: Dict,
     requested in the GraphQL query is permitted according to the
     service contract
 
-    :param key: the name of the data element for which the subschema is provided
-    :param js
+    :param data_element: the name of the data element for which the subschema
+    is provided
+    :param subschema: the section of the serivce contract for this data element
+    :param operation: the type of access request
+    :param auth: the information about the authentication of the request
+    :param service_id: the service for which the access is requested
+    :returns: whether the data access request is allowed by the service
+    contract
     '''
 
     access_controls = subschema.get(_ACCESS_MARKER)
@@ -113,7 +119,7 @@ def _check_data_access(data_element: str, subschema: Dict,
             f'Data element {data_element} has access controls defined'
         )
 
-        access_allowed = authorize_operation(
+        access_allowed = await authorize_operation(
             operation, access_controls, auth, service_id
         )
         _LOGGER.debug(
@@ -137,7 +143,7 @@ def _check_data_access(data_element: str, subschema: Dict,
                 ' child elements'
             )
             for child_data_element, child_element_schema in child_subschema.items():
-                child_access_allowed = _check_data_access(
+                child_access_allowed = await _check_data_access(
                     child_data_element, child_element_schema, operation, auth,
                     service_id
                 )
@@ -188,7 +194,7 @@ def _get_query_key(path: List[str]) -> str:
 
     return key
 
-def authorize_operation(operation: DataOperationType, access_controls: dict,
+async def authorize_operation(operation: DataOperationType, access_controls: dict,
                       auth: RequestAuth, service_id: int) -> Optional[bool]:
     '''
     Check whether the client is allowed to perform the operation by the
@@ -218,7 +224,7 @@ def authorize_operation(operation: DataOperationType, access_controls: dict,
             if operation.value in permitted_actions:
                 return True
 
-        # Are we performing the GraphQL API ourselves?
+        # Are we querying the GraphQL API ourselves?
         if entity == AccessEntityType.MEMBER.value:
             if auth.id_type == IdType.MEMBER:
                 if authorize_member(service_id, auth):
@@ -232,14 +238,32 @@ def authorize_operation(operation: DataOperationType, access_controls: dict,
                     if operation.value in permitted_actions:
                         return True
 
+        if entity == AccessEntityType.ANYMEMBER.value:
+            if auth.id_type == IdType.MEMBER:
+                if authorize_any_member(service_id, auth):
+                    if operation.value in permitted_actions:
+                        return True
+
         if entity == AccessEntityType.NETWORK.value:
             distance = access_control.get('distance', 1)
             if distance < 1:
                 raise ValueError('Network distance must be larger than 0')
-            raise NotImplementedError
+
+            relation = access_control.get('relation')
+            if await authorize_network(service_id, auth, distance, relation):
+                if operation.value in permitted_actions:
+                    return True
 
 
 def authorize_member(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorize ourselves
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
     member = config.server.account.memberships.get(service_id)
 
     if auth.member_id and member and auth.member_id == member.member_id:
@@ -248,7 +272,35 @@ def authorize_member(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
+def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorizes any member of the service, regardless of whether the client
+    is in our network
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
+    member = config.server.account.memberships.get(service_id)
+
+    if member and auth.member_id and auth.service_id == service_id:
+        return True
+
+    return False
+
+
 def authorize_service(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorizes requests made with the TLS cert of the service
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
     member = config.server.account.memberships.get(service_id)
 
     if (member and auth.service_id is not None
@@ -258,16 +310,43 @@ def authorize_service(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
-def authorize_network(service_id: int, auth: RequestAuth, distance: int) -> bool:
+async def authorize_network(service_id: int, auth: RequestAuth, distance: int,
+                            relation: str) -> bool:
+    '''
+    Authorizes GraphQL API requests by people that are in your network
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :param distance: max distance from the owner of the pod to the person
+    submitting the GraphQL request. Currently, only direct links (distance=1)
+    are supported
+    :param relation: only consider network links with the specified relation.
+    If relation is 'None' then all network links are considered
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
     if distance > 1:
-        raise NotImplementedError(
+        raise ValueError(
             f'Network distance of 1 is only supported value: {distance}'
         )
 
-    member = config.server.account.memberships.get(service_id)
+    if not isinstance(relation, list):
+        relation = list(relation)
+
+    member: Member = config.server.account.memberships.get(service_id)
 
     if member and auth.member_id:
-        raise NotImplementedError('See if the member is in our network for the service')
-        return True
+        await member.load_data()
+        network_links = member.data.get('network_links')
+        network = [
+            link for link in network_links
+            if link['member_id'] == str(auth.member_id)
+                 and (not relation or
+                    link['relation'].lower() in relation
+                 )
+        ]
+        if len(network):
+            return True
 
     return False

@@ -83,8 +83,8 @@ class FileStorage:
         return FileStorage(root_dir)
 
     @staticmethod
-    async def get_storage(cloud: CloudType, bucket_prefix: str, root_dir: str = None
-                          ):
+    async def get_storage(cloud: CloudType, bucket_prefix: str,
+                          root_dir: str = None):
         '''
         Factory for FileStorage and classes derived from it
 

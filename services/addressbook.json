@@ -36,7 +36,7 @@
                     },
                     "network": {
                         "distance": 1,
-                        "relation": "friend|family",
+                        "relation": ["friend", "family"],
                         "permissions": ["read"]
                     }
                 },
@@ -76,7 +76,11 @@
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "network": {
+                        "permissions": ["read"]
                     }
+
                 },
                 "type": "array",
                 "items": {

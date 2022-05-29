@@ -18,7 +18,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from strawberry.types import Info
 from strawberry.fastapi import GraphQLRouter
 
-from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -37,7 +36,11 @@ from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
 
+from byoda.util.api_client.api_client import ApiClient
+
 from byoda.requestauth.jwt import JWT
+
+from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
 
@@ -96,13 +99,14 @@ class Member:
         self.document_store: DocumentStore = self.account.document_store
         self.storage_driver: FileStorage = self.document_store.backend
 
-        self.private_key_password = account.private_key_password
+        self.private_key_password: str = account.private_key_password
 
         # The FastAPI app. We store this value to support upgrades of schema
         self.app: FastAPI = None
 
-        self.tls_secret = None
-        self.data_secret = None
+        self.tls_secret: MemberSecret = None
+        self.data_secret: MemberDataSecret = None
+        self.service_data_secret: ServiceDataSecret = None
 
     async def setup(self, local_service_contract: str = None):
         if self.service_id not in self.network.services:
@@ -532,7 +536,7 @@ class Member:
         if await self.storage_driver.exists(filepath):
             schema = await Schema.get_schema(
                 filepath, self.storage_driver,
-                service_data_secret=self.service.data_secret,
+                service_data_secret=self.service_data_secret,
                 network_data_secret=self.network.data_secret,
                 verify_contract_signatures=verify_signatures
             )
@@ -647,6 +651,33 @@ class Member:
         '''
 
         await self.data.save(data)
+
+    async def download_secret(self, member_id: UUID = None):
+
+        if not member_id:
+            member_id = self.member_id
+        elif isinstance(member_id, str):
+            member_id = UUID(member_id)
+
+        fqdn = MemberSecret.create_commonname(
+            member_id, self.service_id, self.network.name
+        )
+        response = await ApiClient.call(
+            f'https://{fqdn}/member-cert.pem'
+        )
+
+        if response.status != 200:
+            raise RuntimeError(
+                'Download the member cert resulted in status: '
+                f'{response.status}'
+            )
+
+        certchain = await response.text()
+
+        secret = MemberSecret(member_id, self.service_id, self.account)
+        secret.from_string(certchain)
+
+        return secret
 
     @staticmethod
     async def get_data(service_id: int, info: Info, filters=None) -> Dict:
