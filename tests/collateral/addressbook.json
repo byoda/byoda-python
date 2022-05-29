@@ -36,7 +36,7 @@
                     },
                     "network": {
                         "distance": 1,
-                        "relation": "friend|family",
+                        "relation": ["friend", "family"],
                         "permissions": ["read"]
                     }
                 },

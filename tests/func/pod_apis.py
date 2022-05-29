@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from multiprocessing import Process
+import fastapi
 import uvicorn
 
 from python_graphql_client import GraphqlClient
@@ -35,7 +36,6 @@ from byoda.datatypes import IdType
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
-
 
 from byoda import config
 
@@ -461,7 +461,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             APPEND_NETWORK.format(
                 uuid=remote_member_id,
-                relation='follow',
+                relation='friend',
                 timestamp=str(datetime.now(tz=timezone.utc).isoformat())
             ),
             headers=auth_header
@@ -490,16 +490,47 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             remote_member_id, IdType.MEMBER, secret, account.network.name,
             service_id=ADDRESSBOOK_SERVICE_ID
         )
-        auth_header = {
+        remote_member_auth_header = {
             'Authorization': f'bearer {jwt.encoded}'
         }
 
         result = client.execute(
-            query=QUERY_PERSON, headers=auth_header
+            query=QUERY_PERSON, headers=remote_member_auth_header
         )
 
         self.assertTrue('data' in result)
         self.assertIsNotNone(result['data'])
+
+        result = client.execute(
+            DELETE_FROM_NETWORK_WITH_FILTER.format(
+                field='member_id', cmp='eq', value=remote_member_id
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        self.assertEqual(
+            result['data']['delete_from_network_links'][0]['relation'],
+            'friend'
+        )
+
+        result = client.execute(
+            APPEND_NETWORK.format(
+                uuid=remote_member_id,
+                relation='colleague',
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+
+        result = client.execute(
+            query=QUERY_PERSON, headers=remote_member_auth_header
+        )
+
+        self.assertIsNone(result['data'])
+        self.assertTrue(result['errors'])
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

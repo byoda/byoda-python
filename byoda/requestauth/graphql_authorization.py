@@ -143,7 +143,7 @@ async def _check_data_access(data_element: str, subschema: Dict,
                 ' child elements'
             )
             for child_data_element, child_element_schema in child_subschema.items():
-                child_access_allowed = _check_data_access(
+                child_access_allowed = await _check_data_access(
                     child_data_element, child_element_schema, operation, auth,
                     service_id
                 )
@@ -224,7 +224,7 @@ async def authorize_operation(operation: DataOperationType, access_controls: dic
             if operation.value in permitted_actions:
                 return True
 
-        # Are we performing the GraphQL API ourselves?
+        # Are we querying the GraphQL API ourselves?
         if entity == AccessEntityType.MEMBER.value:
             if auth.id_type == IdType.MEMBER:
                 if authorize_member(service_id, auth):
@@ -238,17 +238,32 @@ async def authorize_operation(operation: DataOperationType, access_controls: dic
                     if operation.value in permitted_actions:
                         return True
 
+        if entity == AccessEntityType.ANYMEMBER:
+            if auth.id_type == IdType.MEMBER:
+                if authorize_any_member(service_id, auth):
+                    if operation.value in permitted_actions:
+                        return True
+
         if entity == AccessEntityType.NETWORK.value:
             distance = access_control.get('distance', 1)
             if distance < 1:
                 raise ValueError('Network distance must be larger than 0')
 
-            if await authorize_network(service_id, auth, distance):
+            relation = access_control.get('relation')
+            if await authorize_network(service_id, auth, distance, relation):
                 if operation.value in permitted_actions:
                     return True
 
 
 def authorize_member(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorize ourselves
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
     member = config.server.account.memberships.get(service_id)
 
     if auth.member_id and member and auth.member_id == member.member_id:
@@ -257,7 +272,35 @@ def authorize_member(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
+def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorizes any member of the service, regardless of whether the client
+    is in our network
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
+    member = config.server.account.memberships.get(service_id)
+
+    if member and auth.member_id and auth.service_id == service_id:
+        return True
+
+    return False
+
+
 def authorize_service(service_id: int, auth: RequestAuth) -> bool:
+    '''
+    Authorizes requests made with the TLS cert of the service
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
     member = config.server.account.memberships.get(service_id)
 
     if (member and auth.service_id is not None
@@ -267,11 +310,29 @@ def authorize_service(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
-async def authorize_network(service_id: int, auth: RequestAuth, distance: int) -> bool:
+async def authorize_network(service_id: int, auth: RequestAuth, distance: int,
+                            relation: str) -> bool:
+    '''
+    Authorizes GraphQL API requests by people that are in your network
+
+    :param service_id: service membership that received the GraphQL API request
+    :param auth: the object with info about the authentication of the client
+    :param distance: max distance from the owner of the pod to the person
+    submitting the GraphQL request. Currently, only direct links (distance=1)
+    are supported
+    :param relation: only consider network links with the specified relation.
+    If relation is 'None' then all network links are considered
+    :returns: whether the client is authorized to perform the requested
+    operation
+    '''
+
     if distance > 1:
         raise ValueError(
             f'Network distance of 1 is only supported value: {distance}'
         )
+
+    if not isinstance(relation, list):
+        relation = list(relation)
 
     member: Member = config.server.account.memberships.get(service_id)
 
@@ -281,6 +342,9 @@ async def authorize_network(service_id: int, auth: RequestAuth, distance: int) -
         network = [
             link for link in network_links
             if link['member_id'] == str(auth.member_id)
+                 and (not relation or
+                    link['relation'].lower() in relation
+                 )
         ]
         if len(network):
             return True
