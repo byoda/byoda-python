@@ -85,7 +85,7 @@ class PodServer(Server):
 
     async def review_jwt(self, jwt: JWT):
         '''
-        Reviews the JWT for processing on a service server
+        Reviews the JWT for processing on a pod server
 
         :param jwt: the received JWT
         :raises: ValueError:
@@ -125,9 +125,7 @@ class PodServer(Server):
 
     async def get_jwt_secret(self, jwt: JWT):
         '''
-        Load the secret used to sign the jwt. As a service is the CA for
-        member secrets, the service server should have access to the public
-        key of all member secrets
+        Load the public key for the secret that was used to sign the jwt.
         '''
 
         if jwt.issuer_type == IdType.ACCOUNT:
