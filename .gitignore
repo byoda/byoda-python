@@ -3,6 +3,9 @@ config-dnsdb-test.yml
 config-addressbook.yml
 uwsgi.yml
 
+# test collateral containing secrets
+tests/collateral/local
+
 # We store code generated for parsing GraphQL queries here
 podserver/codegen/*
 

@@ -143,7 +143,7 @@ class PodServer(Server):
             else:
                 # see if we can get the secret of the other memember so
                 # we can verify the JWT signature wit hthat secret
-                secret: MemberSecret = await self.download_secret(
+                secret: MemberSecret = await member.download_secret(
                     jwt.issuer_id
                 )
 

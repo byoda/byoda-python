@@ -84,7 +84,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        return authorize_graphql_request_Byoda(
+        return await authorize_graphql_request_Byoda(
             data_operation, {{ service_id}}, info
         )
     except Exception as exc:

@@ -659,9 +659,11 @@ class Member:
         elif isinstance(member_id, str):
             member_id = UUID(member_id)
 
-        secret = MemberSecret(member_id, self.service_id)
-        response = ApiClient.call(
-            f'https://{secret.common_name}/member-cert.pem'
+        fqdn = MemberSecret.create_commonname(
+            member_id, self.service_id, self.network.name
+        )
+        response = await ApiClient.call(
+            f'https://{fqdn}/member-cert.pem'
         )
 
         if response.status != 200:
@@ -670,7 +672,9 @@ class Member:
                 f'{response.status}'
             )
 
-        certchain = response.content
+        certchain = await response.text()
+
+        secret = MemberSecret(member_id, self.service_id, self.account)
         secret.from_string(certchain)
 
         return secret

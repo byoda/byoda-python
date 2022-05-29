@@ -303,7 +303,9 @@ class RequestAuth:
 
         if authorization:
             # Watch out, the JWT signature does not get verified here.
-            jwt = await JWT.decode(authorization, None, network.name)
+            jwt = await JWT.decode(
+                authorization, None, network.name, download_remote_cert=False
+            )
             if id_type and id_type != jwt.issuer_type:
                 raise HTTPException(
                     status_code=401,

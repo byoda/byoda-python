@@ -97,13 +97,17 @@ class JWT:
         return self.encoded
 
     @staticmethod
-    async def decode(authorization: str, secret: Secret, network: str):
+    async def decode(authorization: str, secret: Secret, network: str,
+                     download_remote_cert: bool = True):
         '''
         Decode an encoded JWT with or without verification.
 
         :param authorization: the encoded JWT
         :param secret: verification will not be performed if None is specified
         :param audience: the audience members that must be in the JWT
+        :param download_remote_cert: should remote cert be downloaded to verify
+        the signature of the JWT? The value for this parameter is ignored when
+        a value for the 'secret' parameter is provided
         :raises: ValueError, FileNotFound
         :returns: JWT
         '''
@@ -161,7 +165,7 @@ class JWT:
         if jwt.service_id is not None:
             jwt.service_id = int(jwt.service_id)
 
-        if not secret:
+        if not secret and download_remote_cert:
             # Get the secret, if necessary from remote pod
             secret = await jwt._get_issuer_secret()
 
@@ -171,9 +175,9 @@ class JWT:
                 authorization, secret.cert.public_key(), leeway=10,
                 audience=audience, algorithms=JWT_ALGO_ACCEPTED
             )
+            jwt.verified = True
 
         jwt.secret = secret
-        jwt.verified = True
 
         return jwt
 

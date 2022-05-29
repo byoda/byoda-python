@@ -31,16 +31,20 @@ from byoda.datamodel.account import Account
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
+from byoda.datatypes import IdType
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
 
-from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
-from podserver.util import get_environment_vars
+from byoda.secrets.member_secret import MemberSecret
+from byoda.requestauth.jwt import JWT
 
+from byoda.servers.pod_server import PodServer
+
+from podserver.util import get_environment_vars
 from podserver.routers import account
 from podserver.routers import member
 from podserver.routers import authtoken
@@ -400,7 +404,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-    def test_graphql_addressbook_jwt(self):
+    async def test_graphql_addressbook_jwt(self):
         account = config.server.account
         account_id = account.account_id
         service_id = ADDRESSBOOK_SERVICE_ID
@@ -447,6 +451,55 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertTrue('given_name' in context.exception.args)
+
+        #
+        # JWT for the 'Azure POD' member
+        #
+
+        # add network_link for the 'remote member'
+        remote_member_id = '0c8143d8-9311-485d-a639-ed8ef980bebb'
+        result = client.execute(
+            APPEND_NETWORK.format(
+                uuid=remote_member_id,
+                relation='follow',
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('errors'))
+        member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
+        dest_dir = f'{TEST_DIR}/{member_dir}'
+
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member-cert.pem',
+            dest_dir
+        )
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member.key',
+            dest_dir
+        )
+
+        secret = MemberSecret(
+            remote_member_id, ADDRESSBOOK_SERVICE_ID, account
+        )
+        secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
+        secret.private_key_file = f'{member_dir}/azure-pod-member.key'
+        await secret.load()
+        jwt = JWT.create(
+            remote_member_id, IdType.MEMBER, secret, account.network.name,
+            service_id=ADDRESSBOOK_SERVICE_ID
+        )
+        auth_header = {
+            'Authorization': f'bearer {jwt.encoded}'
+        }
+
+        result = client.execute(
+            query=QUERY_PERSON, headers=auth_header
+        )
+
+        self.assertTrue('data' in result)
+        self.assertIsNotNone(result['data'])
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
