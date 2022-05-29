@@ -238,7 +238,7 @@ async def authorize_operation(operation: DataOperationType, access_controls: dic
                     if operation.value in permitted_actions:
                         return True
 
-        if entity == AccessEntityType.ANYMEMBER:
+        if entity == AccessEntityType.ANYMEMBER.value:
             if auth.id_type == IdType.MEMBER:
                 if authorize_any_member(service_id, auth):
                     if operation.value in permitted_actions:
