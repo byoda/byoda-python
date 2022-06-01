@@ -15,7 +15,7 @@ file system
 import os
 import sys
 import re
-import json
+import orjson
 import argparse
 import subprocess
 
@@ -37,7 +37,7 @@ def main(argv):
     args = parser.parse_args()
 
     with open(args.data_file) as file_desc:
-        data = json.load(file_desc)
+        data = orjson.load(file_desc)
 
     root_dir = args.root_directory
     network_dir = f'{root_dir}/network-{args.network}'

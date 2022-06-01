@@ -10,7 +10,7 @@ Class for modeling a service on a social network
 import os
 import logging
 import socket
-import json
+import orjson
 from typing import TypeVar, Callable, Dict
 from copy import copy
 from enum import Enum
@@ -137,7 +137,7 @@ class Service:
         '''
 
         raw_data = await self.storage_driver.read(filepath)
-        data = json.loads(raw_data)
+        data = orjson.loads(raw_data)
         self.service_id = int(data['service_id'])
         self.name = data['name']
 

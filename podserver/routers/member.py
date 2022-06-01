@@ -8,7 +8,7 @@
 
 
 import logging
-import json
+import orjson
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 
@@ -183,7 +183,7 @@ async def put_member(request: Request, service_id: int, version: int,
 
     if service.schema.version != version:
         text = service.dowload_schema(save=False)
-        contract_data = json.loads(text)
+        contract_data = orjson.loads(text)
         contract_version = contract_data['version']
         if contract_data['version'] != version:
             raise HTTPException(

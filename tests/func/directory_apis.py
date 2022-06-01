@@ -14,7 +14,7 @@ the headers that would normally be set by the reverse proxy
 import sys
 import os
 import yaml
-import json
+import orjson
 import shutil
 import asyncio
 import unittest
@@ -279,7 +279,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Send the service schema
         with open(DEFAULT_SCHEMA) as file_desc:
-            schema_data = json.load(file_desc)
+            data = file_desc.read()
+            schema_data = orjson.loads(data)
 
         schema_data['service_id'] = service_id
         schema_data['version'] = 1

@@ -9,7 +9,7 @@ storing data about their members
 
 from json.decoder import JSONDecodeError
 import logging
-import json
+import orjson
 
 from redis import Redis
 
@@ -88,7 +88,7 @@ class KVRedis(KVCache):
             if len(data) > 1 and data[0] == '{' and data[-1] == '}':
                 try:
                     _LOGGER.debug('Attempting to deserialize JSON data')
-                    data = json.loads(value)
+                    data = orjson.loads(value)
                     value = data
                 except JSONDecodeError:
                     pass
@@ -141,7 +141,7 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         if isinstance(value, dict):
-            value = json.dumps(value)
+            value = orjson.dumps(value)
 
         ret = self.driver.set(key, value, ex=expiration)
 

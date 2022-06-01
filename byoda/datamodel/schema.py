@@ -8,7 +8,7 @@ Class for modeling the (JSON) schema to validating data
 
 import os
 import sys
-import json
+import orjson
 import logging
 from copy import deepcopy
 from typing import List, Dict, Set, TypeVar
@@ -130,7 +130,7 @@ class Schema:
         Facory to read schema from a file
         '''
         data = await storage_driver.read(filepath)
-        json_schema = json.loads(data)
+        json_schema = orjson.loads(data)
 
         schema = Schema(json_schema)
         schema.service_data_secret = service_data_secret
@@ -148,7 +148,9 @@ class Schema:
         for creating or verifying a signature for the schema
         '''
 
-        return json.dumps(self.json_schema, sort_keys=True, indent=4)
+        return orjson.dumps(
+            self.json_schema, option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
+        )
 
     def load(self, verify_contract_signatures: bool = True) -> None:
         '''
