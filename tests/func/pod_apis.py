@@ -22,7 +22,6 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from multiprocessing import Process
-import fastapi
 import uvicorn
 
 from python_graphql_client import GraphqlClient
@@ -72,15 +71,14 @@ POD_ACCOUNT: Account = None
 ADDRESSBOOK_SERVICE_ID = None
 ADDRESSBOOK_VERSION = 1
 
-EVENTS = []
-
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
     async def asyncSetUp(self):
-        EVENTS.append('asyncSetUp')
+
+        config.debug = True
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -178,7 +176,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        EVENTS.append('asyncSetUp')
 
         TestDirectoryApis.PROCESS.terminate()
 
@@ -740,4 +737,3 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()
-    print(', '.join(EVENTS))

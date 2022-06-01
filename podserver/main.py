@@ -62,9 +62,12 @@ async def setup():
     # Remaining environment variables used:
     network_data = get_environment_vars()
 
+    if str(network_data['debug']).lower() == 'true':
+        config.debug = True
+
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=False, debug=network_data['debug'],
+        sys.argv[0], json_out=False, debug=config.debug,
         loglevel=network_data['loglevel'], logfile=LOG_FILE
     )
 

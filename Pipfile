@@ -37,6 +37,8 @@ pyjwt = "*"
 asyncpg = "*"
 cd = "*"
 aiohttp = {extras = ["speedups"], version = "*"}
+python-multipart = "*"
+orjson = "*"
 
 [dev-packages]
 flake8 = "*"

@@ -10,7 +10,7 @@ Test cases for json schema
 
 import os
 import sys
-import json
+import orjson
 import asyncio
 import unittest
 import logging
@@ -272,7 +272,8 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
 
     def test_jsonschema(self):
         with open(DEFAULT_SCHEMA) as fd:
-            fastjson_schema = json.load(fd)
+            data = fd.read()
+            fastjson_schema = orjson.loads(data)
 
         validate = fastjsonschema.compile(fastjson_schema)
 

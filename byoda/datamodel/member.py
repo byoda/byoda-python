@@ -575,7 +575,9 @@ class Member:
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
         path = GRAPHQL_API_URL_PREFIX + str(self.service_id)
-        graphql_app = GraphQLRouter(self.schema.gql_schema)
+        graphql_app = GraphQLRouter(
+            self.schema.gql_schema, graphiql=config.debug
+        )
 
         app.include_router(graphql_app, prefix=path)
 

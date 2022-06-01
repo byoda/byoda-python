@@ -6,7 +6,7 @@ Class for modeling an element of data of a member
 '''
 
 import logging
-import json
+import orjson
 
 from datetime import datetime, timezone
 from typing import Dict, TypeVar
@@ -123,7 +123,7 @@ class MemberData(Dict):
         with open(filename) as file_desc:
             raw_data = file_desc.read(MAX_FILE_SIZE)
 
-        self.unvalidated_data = json.loads(raw_data)
+        self.unvalidated_data = orjson.loads(raw_data)
 
     def validate(self):
         '''

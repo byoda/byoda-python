@@ -12,6 +12,11 @@ import requests
 
 DEFAULT_NETWORK = 'byoda.net'
 
+
+# Enable various debugging options in the pod, including
+# whether the GraphQL web page should be enabled.
+debug = False
+
 # Used by logging to add extra data to each log record,
 # typically using the byoda.util.logger.flask_log_fields
 # decorator
@@ -30,3 +35,4 @@ request = requests.Session()
 # Test cases set the value to True. Code may evaluate whether
 # it is running as part of a test case to accept function parameters
 test_case: bool = False
+

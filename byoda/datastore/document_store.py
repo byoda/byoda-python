@@ -12,7 +12,7 @@ can be extended by for NoSQL storage to improve scalability.
 '''
 
 import logging
-import json
+import orjson
 from enum import Enum
 from typing import Dict, List
 
@@ -69,7 +69,7 @@ class DocumentStore:
             data = data_secret.decrypt(data)
 
         if data:
-            data = json.loads(data)
+            data = orjson.loads(data)
         else:
             data = dict()
 
@@ -80,7 +80,9 @@ class DocumentStore:
         Encrypts the data, serializes it to JSON and writes the data to storage
         '''
 
-        data = json.dumps(data, indent=4, sort_keys=True)
+        data = orjson.dumps(
+            data, option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
+        )
 
         data = data_secret.encrypt(data)
 
