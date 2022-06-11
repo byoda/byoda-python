@@ -60,6 +60,11 @@ class RightsEntityType(Enum):
     ANY_MEMBER           = 'any_member'
     ANONYMOUS            = 'anonymous'
 
+class VisibilityType(Enum):
+    PRIVATE              = 'private'
+    MEMBER               = 'member'
+    KNOWN                = 'known'
+    PUBLIC               = 'public'
 
 class HttpRequestMethod(Enum):
     GET         = 'GET'

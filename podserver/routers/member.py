@@ -10,12 +10,19 @@
 import logging
 import orjson
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter
+from fastapi import UploadFile
+from fastapi import Depends
+from fastapi import Request
+from fastapi import HTTPException
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
+
+from byoda.datatypes import VisibilityType
+from byoda.datatypes import StorageType
 
 from byoda.models import MemberResponseModel
 
@@ -206,3 +213,49 @@ async def put_member(request: Request, service_id: int, version: int,
 
         # BUG: any additional workers also need to join the service
         member.upgrade()
+
+
+async def post_member_upload(request: Request, service_id: int,
+                             file: UploadFile, visibility: VisibilityType,
+                             auth: PodApiRequestAuth =
+                             Depends(PodApiRequestAuth)):
+    '''
+    Become a member of a service.
+    :param service_id: service_id of the service
+    :param version: version of the service schema
+    :raises: HTTPException 409
+    '''
+
+    _LOGGER.debug(f'Post Member Upload API called from {request.client.host}')
+    await auth.authenticate()
+
+    account: Account = config.server.account
+
+    # Authorization: handled by PodApiRequestsAuth, which checks the
+    # cert / JWT was for an account and its account ID matches that
+    # of the pod
+
+    # Make sure we have the latest updates of memberships
+    await account.load_memberships()
+    storage_driver = config.server.storage_driver
+
+    member: Member = account.memberships.get(service_id)
+
+    if not member:
+        raise HTTPException(status_code=400)
+
+    _LOGGER.debug(
+        f'Uploading file {file.filename} for service {service_id} with '
+        f'visibility {visibility}'
+    )
+
+    storage_type = StorageType.PRIVATE
+    if visibility in (VisibilityType.KNOWN, VisibilityType.PUBLIC):
+        storage_type = StorageType.PUBLIC
+
+    storage_driver.write(
+        data=None, file_descriptor=file.file, storage_type=storage_type
+    )
+
+    _LOGGER.debug(f'Returning info about joined service {service_id}')
+    return member.as_dict()

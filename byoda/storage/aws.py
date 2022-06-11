@@ -11,7 +11,7 @@ The profile server uses noSQL storage for profile data
 
 import logging
 from typing import Set
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryFile
 
 import boto3
 
@@ -134,7 +134,8 @@ class AwsFileStorage(FileStorage):
 
         return data
 
-    async def write(self, filepath: str, data: str,
+    async def write(self, filepath: str, data: str = None,
+                    file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
@@ -142,26 +143,48 @@ class AwsFileStorage(FileStorage):
 
         :param filepath: the key of the S3 object
         :param data: the data to be written to the file
+        :param file_descriptor: read from the file that the file_descriptor is
+        for
         :param file_mode: is the data in the file text or binary
         :param storage_type: use private or public storage bucket
         '''
 
+        if data is None and file_descriptor is None:
+            raise ValueError('Either data or file_descriptor must be provided')
+
+        if data is not None and storage_type == StorageType.PUBLIC:
+            raise ValueError(
+                'writing an array of bytes to public cloud storage is not '
+                'supported'
+            )
+
+        if data is not None and len(data) > 2 * 1024*1024*1024:
+            raise ValueError('Writing data larger than 2GB is not supported')
+
         # We always have to write to local storage as AWS object upload uses
         # the local file
-        if storage_type == StorageType.PRIVATE:
-            await super().write(filepath, data, file_mode=file_mode)
+        if data is not None:
+            if storage_type == StorageType.PRIVATE and self.cache_enabled:
+                await super().write(filepath, data, file_mode=file_mode)
+                file_descriptor = super().open(
+                    filepath, OpenMode.READ, file_mode
+                )
+            else:
+                file_descriptor = TemporaryFile(mode='w+b')
+                file_descriptor.write(data)
+                file_descriptor.seek(0)
 
         key = self._get_key(filepath)
-        file_desc = super().open(filepath, OpenMode.READ, file_mode)
         self.driver.upload_fileobj(
-            file_desc, self.buckets[storage_type.value], key
+            file_descriptor, self.buckets[storage_type.value], key
         )
+
         _LOGGER.debug(f'Wrote {key} to AWS S3')
 
     async def exists(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
-        Checks is a file exists on S3 storage
+        Checks if a file exists on S3 storage
 
         :param filepath: the key for the object on S3 storage
         :param storage_type: use private or public storage bucket

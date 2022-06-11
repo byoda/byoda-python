@@ -21,6 +21,7 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 
 import logging
 from typing import Set, Dict
+from tempfile import TemporaryFile
 
 from azure.identity.aio import DefaultAzureCredential
 
@@ -86,7 +87,7 @@ class AzureFileStorage(FileStorage):
         '''
 
         storage = AzureFileStorage(bucket_prefix, cache_path)
-        
+
         if not await storage.clients[StorageType.PRIVATE.value].exists():
             await storage.clients[StorageType.PRIVATE.value].create_container()
 
@@ -203,7 +204,8 @@ class AzureFileStorage(FileStorage):
 
         return data
 
-    async def write(self, filepath: str, data: str,
+    async def write(self, filepath: str, data: str = None,
+                    file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
@@ -215,15 +217,34 @@ class AzureFileStorage(FileStorage):
         :param storage_type: use private or public storage account
         '''
 
-        if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            await super().write(filepath, data, file_mode=file_mode)
+        if data is None and file_descriptor is None:
+            raise ValueError('Either data or file_descriptor must be provided')
 
-        await super().write(filepath, data)
+        if data is not None and storage_type == StorageType.PUBLIC:
+            raise ValueError(
+                'writing an array of bytes to public cloud storage is not '
+                'supported'
+            )
 
-        blob_client = self._get_blob_client(filepath)
+        if data is not None and len(data) > 2 * 1024*1024*1024:
+            raise ValueError('Writing data larger than 2GB is not supported')
 
-        file_desc = super().open(filepath, OpenMode.READ, file_mode)
-        await blob_client.upload_blob(file_desc, overwrite=True)
+        if data is not None:
+            if storage_type == StorageType.PRIVATE and self.cache_enabled:
+                await super().write(filepath, data, file_mode=file_mode)
+                file_descriptor = super().open(
+                    filepath, OpenMode.READ, file_mode
+                )
+            else:
+                file_descriptor = TemporaryFile(mode='w+b')
+                file_descriptor.write(data)
+                file_descriptor.seek(0)
+
+        blob_client = self._get_blob_client(
+            filepath, storage_type=storage_type
+        )
+
+        await blob_client.upload_blob(file_descriptor, overwrite=True)
 
         _LOGGER.debug(
             f'wrote blob "byoda/{filepath}" for bucket '
@@ -233,7 +254,7 @@ class AzureFileStorage(FileStorage):
     async def exists(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
-        Checks is a file exists on Azure object storage
+        Checks if a file exists on Azure object storage
 
         :param filepath: the key for the object on S3 storage
         :param storage_type: use private or public storage account

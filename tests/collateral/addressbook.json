@@ -114,7 +114,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset_reaction_received"
+                    "$ref": "/schemas/asset_reaction"
                 }
             },
             "memberlogs": {
@@ -240,8 +240,8 @@
                 },
                 "required": ["timestamp", "member_id", "relation"]
             },
-            "asset_reaction_received": {
-                "$id": "/schemas/asset_reaction_received",
+            "asset_reaction": {
+                "$id": "/schemas/asset_reaction",
                 "$schema": "https://json-schema.org/draft-07/schema#",
                 "description": "Reactions to assets of the member",
                 "type": "object",
