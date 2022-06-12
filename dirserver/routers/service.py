@@ -203,7 +203,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
         )
 
     try:
-        await dnsdb.lookup_fqdn(common_name, DnsRecordType.A, db_session)
+        await dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
         dns_exists = True
     except KeyError:
         dns_exists = False
@@ -277,7 +277,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # registering the service server through the PUT API
     if not dns_exists:
         await dnsdb.create_update(
-            None, IdType.SERVICE, auth.remote_addr, db_session,
+            None, IdType.SERVICE, auth.remote_addr
             service_id=entity_id.service_id
         )
 
@@ -344,7 +344,7 @@ async def put_service(request: Request, service_id: int,
     )
 
     await dnsdb.create_update(
-        None, IdType.SERVICE, auth.remote_addr, db_session,
+        None, IdType.SERVICE, auth.remote_addr,
         service_id=service_id
     )
 

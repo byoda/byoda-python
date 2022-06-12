@@ -91,7 +91,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     try:
         await dnsdb.lookup_fqdn(
-            common_name, DnsRecordType.A, db_session
+            common_name, DnsRecordType.A
         )
         dns_exists = True
     except KeyError:
@@ -154,7 +154,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     if not dns_exists:
         await dnsdb.create_update(
-            entity_id.id, IdType.ACCOUNT, auth.remote_addr, db_session
+            entity_id.id, IdType.ACCOUNT, auth.remote_addr
         )
 
     return {
@@ -186,7 +186,7 @@ async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
     dnsdb: DnsDb = config.server.network.dnsdb
 
     await dnsdb.create_update(
-        auth.account_id, IdType.ACCOUNT, auth.remote_addr, db_session
+        auth.account_id, IdType.ACCOUNT, auth.remote_addr
     )
 
     return {
