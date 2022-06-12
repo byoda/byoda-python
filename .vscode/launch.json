@@ -202,7 +202,7 @@
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": ".",
-                "GOOGLE_APPLICATION_CREDENTIALS": "/home/steven/.secrets/gcp-sa-byoda-storage.json"
+                "GOOGLE_APPLICATION_CREDENTIALS": "tests/collateral/local/gcp-sa-byoda-storage.json"
             },
         }
     ]

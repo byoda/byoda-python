@@ -191,8 +191,12 @@ class GcpFileStorage(FileStorage):
                 file_descriptor.write(data)
                 file_descriptor.seek(0)
 
-        if isinstance(data, str):
-            data = data.encode('utf-8')
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+        else:
+            # HACK: we should perhaps switch for async I/O to
+            # https://pypi.org/project/gcloud-aio-storage/
+            data = file_descriptor.read()
 
         blob = self._get_blob_client(filepath, storage_type)
 

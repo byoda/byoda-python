@@ -192,14 +192,24 @@ class FileStorage:
 
         return data
 
-    async def write(self, filepath: str, data: bytes,
+    async def write(self, filepath: str, data: bytes, file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Writes a str or bytes to the local file system
 
         :param filepath: location of the file on the file system
+        :param data: the data to be written to the file
+        :param file_descriptor: read from the file that the file_descriptor is
+        for. The file descriptor must use the text/binary mode
+        as specified by the file_mode parameter
         :param file_mode: read file as text or as binary
         '''
+
+        if data is None and file_descriptor is None:
+            raise ValueError('Either data or file_descriptor must be provided')
+
+        if data is not None and len(data) > 2 * 1024*1024*1024:
+            raise ValueError('Writing data larger than 2GB is not supported')
 
         if isinstance(data, str) and file_mode == FileMode.BINARY:
             data = data.encode('utf-8')
@@ -208,6 +218,9 @@ class FileStorage:
 
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'w{file_mode.value}'
+
+        if file_descriptor:
+            data = file_descriptor.read()
 
         _LOGGER.debug(f'Writing local file {updated_filepath}')
         with open(updated_filepath, openmode) as file_desc:
