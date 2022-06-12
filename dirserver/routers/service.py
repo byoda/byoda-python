@@ -277,7 +277,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # registering the service server through the PUT API
     if not dns_exists:
         await dnsdb.create_update(
-            None, IdType.SERVICE, auth.remote_addr
+            None, IdType.SERVICE, auth.remote_addr,
             service_id=entity_id.service_id
         )
 
