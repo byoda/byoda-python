@@ -60,7 +60,6 @@ from byoda import config
 from dirserver.dependencies.servicerequest_auth import ServiceRequestAuthFast
 from dirserver.dependencies.servicerequest_auth import \
     ServiceRequestOptionalAuthFast
-from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,8 +166,7 @@ async def get_service(request: Request, service_id: int):
 )
 async def post_service(request: Request, csr: CertSigningRequestModel,
                        auth: ServiceRequestOptionalAuthFast =
-                       Depends(ServiceRequestOptionalAuthFast),
-                       db_session=Depends(asyncdb_session)):
+                       Depends(ServiceRequestOptionalAuthFast)):
     '''
     Submit a Certificate Signing Request for the ServiceCA certificate
     and get the cert signed by the network services CA
@@ -295,8 +293,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
 async def put_service(request: Request, service_id: int,
                       certchain: CertChainRequestModel,
                       auth: ServiceRequestAuthFast = Depends(
-                          ServiceRequestAuthFast),
-                      db_session=Depends(asyncdb_session)):
+                          ServiceRequestAuthFast)):
     '''
     Registers a known service with its IP address and its data cert
     '''

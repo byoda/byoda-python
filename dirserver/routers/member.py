@@ -29,7 +29,6 @@ from byoda.datastore.dnsdb import DnsDb
 from byoda import config
 
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
-from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,8 +43,7 @@ router = APIRouter(
     '/member', response_model=IpAddressResponseModel, status_code=200
 )
 async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
-                     MemberRequestAuthFast),
-                     db_session=Depends(asyncdb_session)):
+                     MemberRequestAuthFast)):
     '''
     Request DNS record to be hosted for the Common Name of the MemberCert
     '''

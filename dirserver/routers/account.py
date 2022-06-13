@@ -33,7 +33,6 @@ from byoda import config
 
 from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 from ..dependencies.accountrequest_auth import AccountRequestOptionalAuthFast
-from ..dependencies.async_db_session import asyncdb_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,9 +45,7 @@ router = APIRouter(prefix='/api/v1/network', dependencies=[])
 )
 async def post_account(request: Request, csr: CertSigningRequestModel,
                        auth: AccountRequestOptionalAuthFast =
-                       Depends(AccountRequestOptionalAuthFast),
-                       db_session=Depends(asyncdb_session)
-                       ):
+                       Depends(AccountRequestOptionalAuthFast)):
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -166,7 +163,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/account', response_model=IpAddressResponseModel)
 async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
-                AccountRequestAuthFast), db_session=Depends(asyncdb_session)):
+                AccountRequestAuthFast)):
     '''
     Creates/updates the DNS entry for the commonname in the TLS Client cert.
     '''

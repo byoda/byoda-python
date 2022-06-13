@@ -34,7 +34,6 @@ hiredis = "*"
 rfc3339-validator = "*"
 jsonschema = {extras = ["format"], version = "*"}
 pyjwt = "*"
-asyncpg = "*"
 cd = "*"
 aiohttp = {extras = ["speedups"], version = "*"}
 python-multipart = "*"
