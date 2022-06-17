@@ -19,6 +19,9 @@ from byoda.datatypes import CloudType, StorageType
 
 _LOGGER = logging.getLogger(__name__)
 
+PUBLIC_POSTFIX = '/public'
+LOCAL_URL = 'http://localhost'
+
 
 class OpenMode(Enum):
     READ     = 'r'          # noqa: E221
@@ -50,7 +53,6 @@ class FileStorage:
                 self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
                 self.cache_path = self.local_path
-
             else:
                 self.cache_enabled: bool = False
                 self.local_path: str = '/tmp/'
@@ -67,6 +69,9 @@ class FileStorage:
             self.local_path: str = '/' + local_path.strip('/') + '/'
 
         os.makedirs(self.local_path, exist_ok=True)
+
+        if cloud_type != CloudType.LOCAL:
+            os.makedirs(self.local_path + PUBLIC_POSTFIX, exist_ok=True)
 
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
 
@@ -120,7 +125,8 @@ class FileStorage:
 
         return storage
 
-    def get_full_path(self, filepath: str, create_dir: bool = True
+    def get_full_path(self, filepath: str, create_dir: bool = True,
+                      storage_type: StorageType = StorageType.PRIVATE
                       ) -> Tuple[str, str]:
         '''
         Returns the absolute path for the file path relative
@@ -136,7 +142,12 @@ class FileStorage:
         relative_path, filename = os.path.split(filepath)
         relative_path = relative_path.rstrip('/')
 
-        dirpath = self.local_path + relative_path
+        if storage_type == StorageType.PRIVATE:
+            dirpath = self.local_path + relative_path
+        else:
+            dirpath = (
+                self.local_path.rstrip('/') + PUBLIC_POSTFIX + relative_path
+            )
 
         if create_dir:
             os.makedirs(dirpath, exist_ok=True)
@@ -144,12 +155,13 @@ class FileStorage:
         return dirpath, filename
 
     def open(self, filepath: str, open_mode: OpenMode = OpenMode.READ,
-             file_mode: FileMode = FileMode.BINARY) -> BinaryIO:
+             file_mode: FileMode = FileMode.BINARY,
+             storage_type: StorageType = StorageType.PRIVATE) -> BinaryIO:
         '''
         Open a file on the local file system
         '''
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(filepath, storage_type)
 
         _LOGGER.debug(f'Opening local file {dirpath}/{filename}')
         return open(
@@ -171,8 +183,8 @@ class FileStorage:
 
         pass
 
-    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY
-                   ) -> str:
+    async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
+                   storage_type: StorageType = StorageType.PRIVATE) -> str:
         '''
         Read a file
 
@@ -181,7 +193,9 @@ class FileStorage:
         :returns: str or bytes, depending on the file_mode parameter
         '''
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(
+            filepath, storage_type=storage_type
+        )
 
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'r{file_mode.value}'
@@ -193,7 +207,8 @@ class FileStorage:
         return data
 
     async def write(self, filepath: str, data: bytes, file_descriptor=None,
-                    file_mode: FileMode = FileMode.BINARY) -> None:
+                    file_mode: FileMode = FileMode.BINARY,
+                    storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes a str or bytes to the local file system
 
@@ -214,7 +229,9 @@ class FileStorage:
         if isinstance(data, str) and file_mode == FileMode.BINARY:
             data = data.encode('utf-8')
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(
+            filepath, storage_type=storage_type
+        )
 
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'w{file_mode.value}'
@@ -227,7 +244,8 @@ class FileStorage:
             file_desc.write(data)
 
     def append(self, filepath: str, data: str,
-               file_mode: FileMode = FileMode.BINARY):
+               file_mode: FileMode = FileMode.BINARY,
+               storage_type: StorageType = StorageType.PRIVATE):
         '''
         Append data to a file
 
@@ -236,12 +254,15 @@ class FileStorage:
         :param file_mode: read file as text or as binary
         '''
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(
+            filepath, storage_type=storage_type
+        )
 
         with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
-    async def exists(self, filepath: str) -> bool:
+    async def exists(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
         Check if the file exists in the local file system
 
@@ -249,7 +270,9 @@ class FileStorage:
         :returns: whether the file exists or not
         '''
 
-        dirpath, filename = self.get_full_path(filepath, create_dir=False)
+        dirpath, filename = self.get_full_path(
+            filepath, create_dir=False, storage_type=storage_type
+        )
 
         exists = os.path.exists(f'{dirpath}/{filename}')
         if not exists:
@@ -259,7 +282,8 @@ class FileStorage:
             )
         return exists
 
-    async def move(self, src_filepath: str, dest_filepath: str):
+    async def move(self, src_filepath: str, dest_filepath: str,
+                   storage_type: StorageType = StorageType.PRIVATE):
         '''
         Moves the file to the destination file
         :param src_filepath: absolute full path + file name of the source file
@@ -268,18 +292,23 @@ class FileStorage:
         :raises: FileNotFoundError, PermissionError
         '''
 
-        dirpath, filename = self.get_full_path(dest_filepath, create_dir=False)
+        dirpath, filename = self.get_full_path(
+            dest_filepath, create_dir=False, storage_type=storage_type)
 
         shutil.move(src_filepath, dirpath + '/' + filename)
 
-    async def delete(self, filepath: str) -> bool:
+    async def delete(self, filepath: str,
+                     storage_type: StorageType = StorageType.PRIVATE) -> bool:
         '''
         Delete the file from the local file system
         :param filepath: location of the file on the file system
         :returns: whether the file exists or not
         '''
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(
+            filepath, storage_type=storage_type
+        )
+
         try:
             if filename:
                 try:
@@ -292,16 +321,28 @@ class FileStorage:
         except FileNotFoundError:
             return False
 
-    def get_url(self, public: bool = True) -> str:
+    def get_url(self, filepath: str = None,
+                storage_type: StorageType = StorageType.PRIVATE) -> str:
         '''
         Get the URL for the public storage bucket. With local storage,
         which should only be used for testing, we assume that there
         is a web server running on 'localhost'
+
+        :param filepath: path to the file
+        :param storage_type: return the url for the private or public storage
+        :returns: str
         '''
 
-        return 'http://localhost'
+        if not filepath:
+            filepath = '/'
 
-    async def create_directory(self, directory: str, exist_ok: bool = True
+        if storage_type == StorageType.PUBLIC:
+            filepath = PUBLIC_POSTFIX + '/' + filepath
+
+        return LOCAL_URL + filepath
+
+    async def create_directory(self, directory: str, exist_ok: bool = True,
+                               storage_type: StorageType = StorageType.PRIVATE
                                ) -> None:
         '''
         Creates a directory on the local file system, including any
@@ -312,10 +353,13 @@ class FileStorage:
         exists
         '''
 
-        dirpath, filename = self.get_full_path(directory, create_dir=False)
-        return os.makedirs(dirpath, exist_ok=True)
+        dirpath, filename = self.get_full_path(
+            directory, create_dir=False, storage_type=storage_type
+        )
+        return os.makedirs(dirpath, exist_ok=exist_ok)
 
-    def getmtime(self, filepath: str) -> float:
+    def getmtime(self, filepath: str,
+                 storage_type: StorageType = StorageType.PRIVATE) -> float:
         '''
         Returns the last modified time of a file on the local file system
 
@@ -323,7 +367,10 @@ class FileStorage:
         :returns: the number of seconds since epoch that the file was modified
         '''
 
-        dirpath, filename = self.get_full_path(filepath)
+        dirpath, filename = self.get_full_path(
+            filepath, create_dir=False, storage_type=storage_type
+        )
+
         return os.stat.getmtime(dirpath + filename)
 
     async def copy(self, src: str, dest: str,
@@ -331,8 +378,12 @@ class FileStorage:
         '''
         Copies a file on the local file system
         '''
-        src_dirpath, src_filename = self.get_full_path(src)
-        dest_dirpath, dest_filename = self.get_full_path(dest)
+        src_dirpath, src_filename = self.get_full_path(
+            src, storage_type=storage_type
+        )
+        dest_dirpath, dest_filename = self.get_full_path(
+            dest, storage_type=storage_type
+        )
 
         result = shutil.copyfile(
             src_dirpath + '/' + src_filename,
@@ -345,7 +396,8 @@ class FileStorage:
             f'system: {result}'
         )
 
-    async def get_folders(self, folder_path: str, prefix: str = None
+    async def get_folders(self, folder_path: str, prefix: str = None,
+                          storage_type: StorageType = StorageType.PRIVATE
                           ) -> List[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
@@ -353,7 +405,9 @@ class FileStorage:
 
         folders = []
 
-        dir_path = self.get_full_path(folder_path)[0]
+        dir_path = self.get_full_path(
+            folder_path, storage_type=storage_type
+        )[0]
 
         for directory in os.listdir(dir_path):
             if not prefix or directory.startswith(prefix):

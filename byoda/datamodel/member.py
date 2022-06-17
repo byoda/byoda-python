@@ -310,10 +310,10 @@ class Member:
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PUBLIC
+                storage_type=StorageType.PUBLIC
             ),
             private_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PRIVATE
+                storage_type=StorageType.PRIVATE
             ),
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,

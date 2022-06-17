@@ -17,6 +17,7 @@ from .ipaddress import IpAddressResponseModel
 from .service import ServiceSummariesModel
 from .schema import SchemaModel, SchemaResponseModel
 from .member import MemberRequestModel, MemberResponseModel
+from .member import UploadResponseModel
 from .account import AccountResponseModel
 from .authtoken import AuthTokenResponseModel
 

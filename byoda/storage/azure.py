@@ -300,13 +300,21 @@ class AzureFileStorage(FileStorage):
             f'{self.buckets[storage_type.value]}'
         )
 
-    def get_url(self, storage_type: StorageType = StorageType.PRIVATE) -> str:
+    def get_url(self, filepath: str = None,
+                storage_type: StorageType = StorageType.PRIVATE) -> str:
         '''
-        Get the URL for the public storage bucket, ie. something like
+        Get the URL for the public storage bucket or key, ie. something like
         https://<storage_account>.blob.core.windows.net/<prefix>-[private|public]
+
+        :param filepath: path to the file
+        :param storage_type: return the url for the private or public storage
+        :returns: str
         '''
 
-        return f'https://{self.buckets[storage_type.value]}/'
+        if filepath is None:
+            filepath = ''
+
+        return f'https://{self.buckets[storage_type.value]}/{filepath}'
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE

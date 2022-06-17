@@ -167,7 +167,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             kwargs={
                 'host': '0.0.0.0',
                 'port': config.server.HTTP_PORT,
-                'log_level': 'debug'
+                'log_level': 'trace'
             },
             daemon=True
         )
@@ -274,12 +274,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         )
         data = response.json()
-        auth_header = {
+        member_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=auth_header)
+        response = requests.get(API, headers=member_auth_header)
         self.assertEqual(response.status_code, 403)
 
         #
@@ -292,12 +292,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         )
         data = response.json()
-        auth_header = {
+        account_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=auth_header)
+        response = requests.get(API, headers=account_auth_header)
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -315,7 +315,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
-            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}', headers=auth_header
+            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}',
+            headers=account_auth_header
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -337,9 +338,34 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         response = requests.post(
             f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
             f'version/{ADDRESSBOOK_VERSION}',
-            headers=auth_header
+            headers=account_auth_header
         )
         self.assertEqual(response.status_code, 409)
+
+        #    json={
+        #        'service_id': ADDRESSBOOK_SERVICE_ID,
+        #        'visibility': 'public'
+        #    },
+        API = (
+            BASE_URL +
+            f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
+            '/visibility/public/filename/ls.bin'
+        )
+        response = requests.post(
+            API,
+            files=[
+                (
+                    'file', ('ls.bin', open('/bin/ls', 'rb'))
+                )
+            ],
+            headers=member_auth_header
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(
+            data['location'], 'http://localhost/public/ls.bin'
+        )
 
     def test_auth_token_request(self):
         account = config.server.account

@@ -9,7 +9,7 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from typing import Optional
+from typing import Optional, TypeVar
 
 from fastapi import Header, HTTPException, Request
 
@@ -21,6 +21,8 @@ from byoda.exceptions import MissingAuthInfo
 
 from byoda import config
 
+Member = TypeVar('Member')
+PodServer = TypeVar('PodServer')
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +68,17 @@ class PodApiRequestAuth(RequestAuth):
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.authorization = authorization
 
-    async def authenticate(self):
+    async def authenticate(self, service_id: int = None):
+        '''
+        Checks whether the API is called with our account_id, or,
+        if a service_id is specified, whether the API is called
+        by a member of that service. In this case, checking whether
+        the member is authorized to call the API is not the responsibility
+        of this method
+
+        :param service_id: the service ID for which the API was called
+        '''
+
         try:
             await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
@@ -79,29 +91,46 @@ class PodApiRequestAuth(RequestAuth):
                 status_code=401, detail='No authentication provided'
             )
 
-        # Account cert / JWT can only be used for Pod REST APIs and, vice
-        # versa, Pod REST APIs can only be called with the account cert.
-        # GraphQL APIs do not call PodApRequestAuth()
-        if self.id_type != IdType.ACCOUNT:
+        if service_id is None:
+            id_type = IdType.ACCOUNT
+        else:
+            id_type = IdType.MEMBER
+
+        if self.id_type != id_type:
             raise HTTPException(
                 status_code=403,
                 detail=(
-                    'Pod REST APIs can only be called with an account cert'
-                    ' or account JWT'
+                    'This pod REST API can only be called with a '
+                    f'cert or a JWT for a {id_type.value}'
                 )
             )
 
-        if self.auth_source == AuthSource.CERT:
-            self.check_account_cert(config.server.network)
-
         account = config.server.account
 
-        if self.account_id != account.account_id:
-            _LOGGER.warning(
-                'Authentication failure with account_id {self.account_id}'
-            )
-            raise HTTPException(
-                status_code=401, detail='Authentication failure'
-            )
+        if self.id_type == IdType.ACCOUNT:
+            if self.auth_source == AuthSource.CERT:
+                self.check_account_cert(config.server.network)
+
+            if self.account_id != account.account_id:
+                _LOGGER.warning(
+                    'Authentication failure with account_id {self.account_id}'
+                )
+                raise HTTPException(
+                    status_code=401, detail='Authentication failure'
+                )
+        else:
+            if self.auth_source == AuthSource.CERT:
+                self.check_member_cert(service_id, config.server.network)
+
+            await account.load_memberships()
+            member: Member = account.memberships.get(service_id)
+            if not member:
+                _LOGGER.warning(
+                    f'Authentication failure for service {service_id}'
+                    'that we are not a member of'
+                )
+                raise HTTPException(
+                    status_code=401, detail='Authentication failure'
+                )
 
         self.is_authenticated = True

@@ -116,10 +116,10 @@ async def setup():
         alias=network.paths.account,
         network=network.name,
         public_cloud_endpoint=network.paths.storage_driver.get_url(
-            StorageType.PUBLIC
+            storage_type=StorageType.PUBLIC
         ),
         private_cloud_endpoint=network.paths.storage_driver.get_url(
-            StorageType.PRIVATE
+            storage_type=StorageType.PRIVATE
         ),
         port=PodServer.HTTP_PORT,
         root_dir=server.network.paths.root_directory

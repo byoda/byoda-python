@@ -60,5 +60,22 @@ class MemberRequestModel(BaseModel):
     def as_dict(self):
         return {
             'service_id': self.service_id,
-            'verion:': self.version
+            'version:': self.version
+        }
+
+
+class UploadResponseModel(BaseModel):
+    service_id: int
+    location: str
+
+    def __repr__(self):
+        return(
+            '<UploadResponseModel={service_id: int, location: str}>'
+        )
+
+    def as_dict(self):
+        return {
+            'service_id': self.service_id,
+            'location': self.location,
+
         }

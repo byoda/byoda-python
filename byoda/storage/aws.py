@@ -219,19 +219,26 @@ class AwsFileStorage(FileStorage):
 
         return response['ResponseMetadata']['HTTPStatusCode'] == 204
 
-    def get_url(self, storage_type: StorageType = StorageType.PRIVATE
-                ) -> str:
+    def get_url(self, filepath: str = None,
+                storage_type: StorageType = StorageType.PRIVATE) -> str:
         '''
         Get the URL for the public storage bucket, ie. something like
         'https://<bucket>.s3.us-west-1.amazonaws.com'
+
+        :param filepath: path to the file
+        :param storage_type: return the url for the private or public storage
+        :returns: str
         '''
+
+        if filepath is None:
+            filepath = ''
 
         data = self.driver.head_bucket(Bucket=self.buckets[storage_type.value])
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
         return (
             f'https://{self.buckets[storage_type.value]}.s3-{region}'
-            '.amazonaws.com/'
+            f'.amazonaws.com/{filepath}'
         )
 
     async def create_directory(self, directory: str, exist_ok: bool = True,

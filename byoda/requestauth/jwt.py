@@ -58,6 +58,9 @@ class JWT:
         _LOGGER.debug('Creating a JWT')
         jwt = JWT(network_name)
 
+        jwt.issuer_id = identifier
+        jwt.issuer_type = id_type
+
         if id_type == IdType.ACCOUNT:
             jwt.issuer = f'urn:account_id-{identifier}'
         elif id_type == IdType.MEMBER:
