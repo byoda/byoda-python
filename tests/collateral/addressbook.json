@@ -303,6 +303,20 @@
                 },
                 "required": ["timestamp", "remote_addr", "action", "action"]
             },
+            "age_restriction": {
+                "$id": "/schemas/age_restriction",
+                "$schema": "https://json-schema.org/draft-07/schema#",
+                "description": "An age restriction from a content rating system",
+                "type": "object",
+                "properties": {
+                    "rating_system": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "string"
+                    }
+                }
+            },
             "asset": {
                 "$id": "/schemas/asset",
                 "$schema": "https://json-schema.org/draft-07/schema#",
@@ -321,6 +335,46 @@
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "type": "string"
+                    },
+                    "locale": {
+                        "description": "locale for the metadata, ie. en_US",
+                        "type": "string"
+                    },
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string"
+                    },
+                    "created": {
+                        "description": "data of creation of this asset",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+
+                    "content_warnings": {
+                        "description": "list of terms with potential triggers, such as violence, or cursing",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "copyright_years": {
+                        "type": "string"
+                    },
+                    "publisher": {
+                        "description": "the publisher of the asset",
+                        "type": "string"
+                    },
+                    "title": {
+                        "description": "title of the asset",
+                        "type": "string"
+                    },
+                    "subject": {
+                        "description": "a brief description of the asset",
+                        "type": "string"
+                    },
+                    "contents": {
+                        "description": "text for the asset",
                         "type": "string"
                     },
                     "keywords": {
