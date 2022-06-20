@@ -11,7 +11,6 @@ templates
 
 import logging
 from enum import Enum
-from os import stat
 from typing import Dict, List, Set
 from urllib.parse import urlparse
 
@@ -68,13 +67,45 @@ class SchemaDataItem:
         self.enabled_apis: Set = set()
 
         self.type: DataType = DataType(schema['type'])
-        self.python_type: str = None
-        if self.type not in (DataType.OBJECT, DataType.ARRAY):
-            self.python_type: str = SCALAR_TYPE_MAP[self.type]
+        self.format: str = self.schema.get('format')
+        self.python_type: str = self.get_python_type(class_name, self.schema)
+
+        self.parse_access_permissions()
+
+    def get_python_type(self, data_name: str, data_schema: Dict) -> str:
+        '''
+        Returns translation of the jsonschema -> python typing string
+
+        :param name: name of the data element
+        :param subschema: json-schema blurb for the data element
+        :returns: the Python typing value for the data element
+        :raises: ValueError, KeyError
+        '''
+
+        js_type = data_schema.get('type')
+        if not js_type:
+            raise ValueError(f'Class {data_name} does not have a type defined')
+
+        try:
+            jsonschema_type = DataType(js_type)
+        except KeyError:
+            raise ValueError(
+                f'Data class {data_name} is of unrecognized data type: {js_type}'
+            )
+
+        data_format = data_schema.get('format')
+
+        if jsonschema_type not in (DataType.OBJECT, DataType.ARRAY):
+            try:
+                python_type: str = SCALAR_TYPE_MAP[jsonschema_type]
+            except KeyError:
+                raise ValueError(
+                    f'No GraphQL data type mapping for f{jsonschema_type}'
+                )
+
             if self.type == DataType.STRING:
-                data_format = self.schema.get('format')
                 if data_format == 'date-time':
-                   self.python_type = 'datetime'
+                   return 'datetime'
                 # elif data_format == 'date':
                 #     self.python_type = 'date'
                 # elif data_format == 'time':
@@ -86,9 +117,31 @@ class SchemaDataItem:
                         )):
                     # Note that fastjsonschema does not yet support this format
                     # Switch to https://github.com/marksparkza/jschon ?
-                    self.python_type = 'UUID'
+                    return 'UUID'
+            return python_type
+        elif jsonschema_type == DataType.ARRAY:
+            items = data_schema.get('items')
+            if not items:
+                raise ValueError(
+                    f'Array {data_name} does not have items defined'
+                )
 
-        self.parse_access_permissions()
+            if 'type' in items:
+                return f'List[{SCALAR_TYPE_MAP[DataType(items["type"])]}]'
+            elif '$ref' in items:
+                if not items['$ref'].startswith('https') and items['$ref'].count('/') != 2:
+                    raise ValueError(
+                        f'Reference for {data_name} must follow format '
+                        f' of "/schema/{data_name}"'
+                    )
+                class_reference = items['$ref'].split('/')[-1]
+                return f'List[{class_reference}'
+        elif jsonschema_type == DataType.OBJECT:
+            return
+
+        raise ValueError(
+            f'Unknown data type for {data_name}: {jsonschema_type}'
+        )
 
     @staticmethod
     def create(class_name: str, schema: Dict, schema_id: str,
@@ -202,11 +255,23 @@ class SchemaDataObject(SchemaDataItem):
 
         self.fields: List[SchemaDataItem] = []
         for field, field_properties in schema['properties'].items():
-            if field_properties['type'] in ('object', 'array'):
+            if field_properties['type'] == 'object':
                 raise ValueError(
                     f'Nested objects or arrays under object {class_name} are '
                     'not yet supported'
                 )
+            elif field_properties['type'] == 'array':
+                items = field_properties.get('items')
+                if not items:
+                    raise ValueError(
+                        f'Array for {class_name} does not specify items'
+                    )
+                if not isinstance(items, dict):
+                    raise ValueError(
+                        f'Items property of array {class_name} must be an '
+                        'object'
+                    )
+
             item = SchemaDataItem.create(field, field_properties, schema_id)
             self.fields.append(item)
 

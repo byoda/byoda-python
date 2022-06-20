@@ -150,6 +150,8 @@ class {{ root_class.referenced_class.name }}_input_filter:
     {{ field.name }}: Optional[number_query_operator_input] = None
 {%       elif field.python_type == 'UUID' %}
     {{ field.name }}: Optional[uuid_query_operator_input] = None
+{%       elif field.python_type == 'array' %}
+    {{ field.name }}: Optional[List[str]] = None
 {%       endif %}{# if field.python_type == "str" #}
 {%     endfor %}{# for field in root_class.referenced_class.fields #}
 

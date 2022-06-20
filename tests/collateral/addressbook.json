@@ -303,20 +303,6 @@
                 },
                 "required": ["timestamp", "remote_addr", "action", "action"]
             },
-            "age_restriction": {
-                "$id": "/schemas/age_restriction",
-                "$schema": "https://json-schema.org/draft-07/schema#",
-                "description": "An age restriction from a content rating system",
-                "type": "object",
-                "properties": {
-                    "rating_system": {
-                        "type": "string"
-                    },
-                    "rating": {
-                        "type": "string"
-                    }
-                }
-            },
             "asset": {
                 "$id": "/schemas/asset",
                 "$schema": "https://json-schema.org/draft-07/schema#",
@@ -350,7 +336,6 @@
                         "type": "string",
                         "format": "date-time"
                     },
-
                     "content_warnings": {
                         "description": "list of terms with potential triggers, such as violence, or cursing",
                         "type": "array",
@@ -384,7 +369,12 @@
                     "forum": {
                         "description": "forum, if any, that the asset was posted to",
                         "type": "string"
+                    },
+                    "repsponse_to": {
+                        "description": "ID of asset that this asset is a response to",
+                        "type": "string"
                     }
+
                 },
                 "required": ["timestamp", "manifest_url", "asset_type"]
             }
