@@ -92,7 +92,26 @@ mutation {{
 }}
 '''
 
-APPEND_ASSETS = '''
+UPDATE_NETWORK_ASSETS = '''
+mutation {{
+    update_network_assets (
+        filters: {{ {field}: {{ {cmp}: "{value}" }} }},
+        contents: "{contents}",
+        keywords: {keywords}
+    ) {{
+        timestamp
+        asset_type
+        asset_id
+        creator
+        created
+        title
+        subject
+        contents
+        keywords
+    }}
+}}
+'''
+APPEND_NETWORK_ASSETS = '''
 mutation {{
     append_network_assets (
         timestamp: "{timestamp}",
@@ -103,6 +122,7 @@ mutation {{
         title: "{title}",
         subject: "{subject}",
         contents: "{contents}",
+        keywords: {keywords}
     ) {{
         timestamp
         asset_type
@@ -112,6 +132,7 @@ mutation {{
         title
         subject
         contents
+        keywords
     }}
 }}
 '''

@@ -57,7 +57,8 @@ from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
-from tests.lib.graphql_queries import APPEND_ASSETS
+from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
+from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -555,7 +556,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # add network_link for the 'remote member'
         asset_id = uuid4()
         result = client.execute(
-            APPEND_ASSETS.format(
+            APPEND_NETWORK_ASSETS.format(
                 timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
                 asset_type='post',
                 asset_id=asset_id,
@@ -563,7 +564,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 created=str(datetime.now(tz=timezone.utc).isoformat()),
                 title="test asset",
                 subject="just a test asset",
-                contents="some utf-8 markdown string"
+                contents="some utf-8 markdown string",
+                keywords='["just", "testing"]'
             ),
             headers=auth_header
         )
@@ -576,9 +578,30 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['asset_id'], str(asset_id))
         self.assertEqual(data['creator'], 'Pod API Test')
         self.assertEqual(data['title'], 'test asset')
+        self.assertEqual(data['subject'], 'just a test asset')
+        self.assertEqual(data['contents'], 'some utf-8 markdown string')
+        self.assertEqual(data['keywords'], ['just', 'testing'])
+
+        result = client.execute(
+            UPDATE_NETWORK_ASSETS.format(
+                field='asset_id', cmp='eq', value=asset_id,
+                contents="more utf-8 markdown strings",
+                keywords='["more", "tests"]'
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNotNone(result['data']['append_network_assets'])
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['append_network_assets']
+        self.assertEqual(data['asset_type'], 'post')
+        self.assertEqual(data['asset_id'], str(asset_id))
+        self.assertEqual(data['creator'], 'Pod API Test')
         self.assertEqual(data['title'], 'test asset')
         self.assertEqual(data['subject'], 'just a test asset')
         self.assertEqual(data['contents'], 'some utf-8 markdown string')
+        self.assertEqual(data['keywords'], ['more', 'tests'])
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
