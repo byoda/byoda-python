@@ -142,7 +142,7 @@
                     "$ref": "/schemas/asset"
                 }
             },
-            "service_members_assets": {
+            "service_assets": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
@@ -314,10 +314,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
-                    "manifest_url": {
-                        "description": "URL for the manifest of the asset",
-                        "type": "string",
-                        "format": "uri"
+                    "asset_id": {
+                            "description": "The UUID of the member that reacted to our asset",
+                            "type": "string",
+                            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -344,7 +344,10 @@
                         }
                     },
                     "copyright_years": {
-                        "type": "string"
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     },
                     "publisher": {
                         "description": "the publisher of the asset",
@@ -364,19 +367,22 @@
                     },
                     "keywords": {
                         "description": "comma-separated list of keywords",
-                        "type": "string"
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "forum": {
                         "description": "forum, if any, that the asset was posted to",
                         "type": "string"
                     },
-                    "repsponse_to": {
+                    "response_to": {
                         "description": "ID of asset that this asset is a response to",
-                        "type": "string"
+                        "type": "string",
+                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     }
-
                 },
-                "required": ["timestamp", "manifest_url", "asset_type"]
+                "required": ["timestamp", "asset_id", "asset_type"]
             }
         }
     },

@@ -19,7 +19,7 @@ import unittest
 import requests
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from multiprocessing import Process
 import uvicorn
@@ -57,6 +57,7 @@ from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
+from tests.lib.graphql_queries import APPEND_ASSETS
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -342,10 +343,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 409)
 
-        #    json={
-        #        'service_id': ADDRESSBOOK_SERVICE_ID,
-        #        'visibility': 'public'
-        #    },
         API = (
             BASE_URL +
             f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
@@ -554,6 +551,34 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result['data'])
         self.assertTrue(result['errors'])
+
+        # add network_link for the 'remote member'
+        asset_id = uuid4()
+        result = client.execute(
+            APPEND_ASSETS.format(
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
+                asset_type='post',
+                asset_id=asset_id,
+                creator="Pod API Test",
+                created=str(datetime.now(tz=timezone.utc).isoformat()),
+                title="test asset",
+                subject="just a test asset",
+                contents="some utf-8 markdown string"
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNotNone(result['data']['append_network_assets'])
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['append_network_assets']
+        self.assertEqual(data['asset_type'], 'post')
+        self.assertEqual(data['asset_id'], str(asset_id))
+        self.assertEqual(data['creator'], 'Pod API Test')
+        self.assertEqual(data['title'], 'test asset')
+        self.assertEqual(data['title'], 'test asset')
+        self.assertEqual(data['subject'], 'just a test asset')
+        self.assertEqual(data['contents'], 'some utf-8 markdown string')
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

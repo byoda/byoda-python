@@ -282,9 +282,16 @@ class Mutation:
     @strawberry.field
     async def append_{{ root_class.name }}(self, info: Info,
 {%       for field in root_class.referenced_class.fields %}
-        {{ field.name }}: {{ field.python_type }},
+{%          if field.name in root_class.referenced_class.required_fields %}
+            {{ field.name }}: {{ field.python_type }},
+{%          endif %}
+{%       endfor %}
+{%       for field in root_class.referenced_class.fields %}
+{%          if field.name not in root_class.referenced_class.required_fields %}
+            {{ field.name }}: {{ field.python_type }} = None,
+{%          endif %}
 {%       endfor %}{# for field in root_class.referenced_class.fields #}
-        ) -> {{ root_class.referenced_class.name }}:
+            ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)

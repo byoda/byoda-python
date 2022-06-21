@@ -91,3 +91,27 @@ mutation {{
     }}
 }}
 '''
+
+APPEND_ASSETS = '''
+mutation {{
+    append_network_assets (
+        timestamp: "{timestamp}",
+        asset_type: "{asset_type}",
+        asset_id: "{asset_id}",
+        creator: "{creator}",
+        created: "{created}",
+        title: "{title}",
+        subject: "{subject}",
+        contents: "{contents}",
+    ) {{
+        timestamp
+        asset_type
+        asset_id
+        creator
+        created
+        title
+        subject
+        contents
+    }}
+}}
+'''
