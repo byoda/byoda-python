@@ -591,16 +591,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=auth_header
         )
         self.assertIsNotNone(result['data'])
-        self.assertIsNotNone(result['data']['append_network_assets'])
+        self.assertIsNotNone(result['data']['update_network_assets'])
 
         self.assertIsNone(result.get('errors'))
-        data = result['data']['append_network_assets']
+        data = result['data']['update_network_assets']
         self.assertEqual(data['asset_type'], 'post')
         self.assertEqual(data['asset_id'], str(asset_id))
         self.assertEqual(data['creator'], 'Pod API Test')
         self.assertEqual(data['title'], 'test asset')
         self.assertEqual(data['subject'], 'just a test asset')
-        self.assertEqual(data['contents'], 'some utf-8 markdown string')
+        self.assertEqual(data['contents'], 'more utf-8 markdown strings')
         self.assertEqual(data['keywords'], ['more', 'tests'])
 
     def test_graphql_addressbook_tls_cert(self):
@@ -811,3 +811,4 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()
+
