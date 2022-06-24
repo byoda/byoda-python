@@ -195,7 +195,7 @@ class Query:
             info.context['data'] = obj
             {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-            info.context['data']['{{ field_name }}'],
+                info.context['data']['{{ field_name }}'],
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
             )
             ret_data.append({{ root_class.referenced_class.name }}_data)
