@@ -93,6 +93,18 @@ class StorageType(Enum):
     PRIVATE = 'private'
     PUBLIC = 'public'
 
+class DataType(Enum):
+    # flake8: noqa=E221
+    STRING    = 'string'
+    INTEGER   = 'integer'
+    NUMBER    = 'number'
+    BOOLEAN   = 'boolean'
+    UUID      = 'uuid'
+    DATETIME  = 'datetime'
+    OBJECT    = 'object'
+    ARRAY     = 'array'
+    REFERENCE = 'reference'
+
 
 class DataOperationType(Enum):
     # flake8: noqa=E221

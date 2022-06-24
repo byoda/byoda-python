@@ -336,6 +336,10 @@ class Member:
                 'Member instance does not have a service associated'
             )
 
+        raise NotImplementedError(
+            'Schema updates are not yet supported by the pod'
+        )
+
     async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
