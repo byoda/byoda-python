@@ -35,9 +35,9 @@ class DocumentStore:
 
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,
-                           cloud_type: CloudType.AWS = CloudType,
-                           bucket_prefix: str = None, root_dir: str = None
-                           ):
+                                 cloud_type: CloudType.AWS = CloudType,
+                                 bucket_prefix: str = None,
+                                 root_dir: str = None):
         '''
         Factory for initiating a document store
         '''

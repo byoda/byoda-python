@@ -310,10 +310,10 @@ class Member:
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PUBLIC
+                storage_type=StorageType.PUBLIC
             ),
             private_cloud_endpoint=self.paths.storage_driver.get_url(
-                StorageType.PRIVATE
+                storage_type=StorageType.PRIVATE
             ),
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,
@@ -335,6 +335,10 @@ class Member:
             raise ValueError(
                 'Member instance does not have a service associated'
             )
+
+        raise NotImplementedError(
+            'Schema updates are not yet supported by the pod'
+        )
 
     async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
         '''
@@ -976,9 +980,7 @@ class Member:
                 f'{member.data}'
             )
 
-        (data, removed) = DataFilterSet.filter_exclude(
-            filters, data
-        )
+        (data, removed) = DataFilterSet.filter_exclude(filters, data)
 
         member.data[class_object] = data
 

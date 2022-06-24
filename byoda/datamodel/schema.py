@@ -16,10 +16,9 @@ from types import ModuleType
 
 import jinja2
 
-import fastjsonschema
 
 # Importing this exception so others can import it from here
-from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
+# from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
 
 from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.dataclass import DataType
@@ -98,7 +97,7 @@ class Schema:
         self._network_signature: NetworkSignature = None
 
         # This is a callable to validate data against the JSON schema
-        self.validate: fastjsonschema.validate = None
+        self.validate: None
 
         self.service_data_secret: ServiceDataSecret = None
         self.network_data_secret: NetworkDataSecret = None
@@ -188,7 +187,7 @@ class Schema:
                 )
                 raise
 
-        self.validate = fastjsonschema.compile(self.json_schema['jsonschema'])
+        self.validate = None
 
     async def save(self, filepath: str, storage_driver: FileStorage):
         '''

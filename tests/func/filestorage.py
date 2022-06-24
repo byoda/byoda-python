@@ -27,6 +27,7 @@ from byoda.storage import FileStorage
 from byoda.datatypes import StorageType, CloudType
 
 ROOT_DIR = '/tmp/byoda-tests/filestorage'
+CLOUD_STORAGE_TYPES = (AzureFileStorage, AwsFileStorage, GcpFileStorage)
 
 
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
@@ -90,11 +91,20 @@ async def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
     subdirs = await storage.get_folders('test/', prefix='sub')
     test.assertEqual(len(subdirs), 1)
 
-    if (type(storage) in
-            (AzureFileStorage, AwsFileStorage, GcpFileStorage)):
+    if type(storage) in CLOUD_STORAGE_TYPES:
         url = storage.get_url() + 'test/profile'
         response = requests.get(url, allow_redirects=False)
         test.assertIn(response.status_code, (302, 403, 409))
+
+        with open('/bin/ls', 'rb') as file_desc:
+            await storage.write(
+                'test/file_descriptor_write', file_descriptor=file_desc,
+                storage_type=StorageType.PUBLIC
+            )
+
+        await storage.delete(
+            'test/file_descriptor_write', storage_type=StorageType.PUBLIC
+        )
 
     await storage.delete('test/profile')
     await storage.delete('test/anothersubdir/profile-write')

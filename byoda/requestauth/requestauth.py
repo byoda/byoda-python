@@ -168,10 +168,10 @@ class RequestAuth:
         information in the request for authentication
         '''
 
-        self.tls_status = tls_status
-        self.client_dn = client_dn
-        self.issuing_ca_dn = issuing_ca_dn
-        self.authorization = authorization
+        self.tls_status: TlsStatus = tls_status
+        self.client_dn: str = client_dn
+        self.issuing_ca_dn: str = issuing_ca_dn
+        self.authorization: str = authorization
 
         error = 401
         detail = 'Missing authentication info'

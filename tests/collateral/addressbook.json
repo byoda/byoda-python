@@ -114,7 +114,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset_reaction_received"
+                    "$ref": "/schemas/asset_reaction"
                 }
             },
             "memberlogs": {
@@ -142,7 +142,7 @@
                     "$ref": "/schemas/asset"
                 }
             },
-            "service_members_assets": {
+            "service_assets": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
@@ -240,8 +240,8 @@
                 },
                 "required": ["timestamp", "member_id", "relation"]
             },
-            "asset_reaction_received": {
-                "$id": "/schemas/asset_reaction_received",
+            "asset_reaction": {
+                "$id": "/schemas/asset_reaction",
                 "$schema": "https://json-schema.org/draft-07/schema#",
                 "description": "Reactions to assets of the member",
                 "type": "object",
@@ -314,25 +314,75 @@
                         "format": "date-time",
                         "type": "string"
                     },
-                    "manifest_url": {
-                        "description": "URL for the manifest of the asset",
-                        "type": "string",
-                        "format": "uri"
+                    "asset_id": {
+                            "description": "The UUID of the member that reacted to our asset",
+                            "type": "string",
+                            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
                         "type": "string"
                     },
+                    "locale": {
+                        "description": "locale for the metadata, ie. en_US",
+                        "type": "string"
+                    },
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string"
+                    },
+                    "created": {
+                        "description": "data of creation of this asset",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "content_warnings": {
+                        "description": "list of terms with potential triggers, such as violence, or cursing",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "copyright_years": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "publisher": {
+                        "description": "the publisher of the asset",
+                        "type": "string"
+                    },
+                    "title": {
+                        "description": "title of the asset",
+                        "type": "string"
+                    },
+                    "subject": {
+                        "description": "a brief description of the asset",
+                        "type": "string"
+                    },
+                    "contents": {
+                        "description": "text for the asset",
+                        "type": "string"
+                    },
                     "keywords": {
                         "description": "comma-separated list of keywords",
-                        "type": "string"
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "forum": {
                         "description": "forum, if any, that the asset was posted to",
                         "type": "string"
+                    },
+                    "response_to": {
+                        "description": "ID of asset that this asset is a response to",
+                        "type": "string",
+                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                     }
                 },
-                "required": ["timestamp", "manifest_url", "asset_type"]
+                "required": ["timestamp", "asset_id", "asset_type"]
             }
         }
     },

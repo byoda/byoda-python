@@ -20,7 +20,7 @@ from strawberry.types import Info
 from fastapi import HTTPException
 
 from byoda.datamodel.member import Member as MemberClassByoda
-
+from byoda.datatypes import DataType
 
 import logging as loggingByoda
 
@@ -122,37 +122,44 @@ class uuid_query_operator_input:
     eq: Optional[UUID] = None
     ne: Optional[UUID] = None
 
+{% set ns = namespace(classes_seen='') %}
 {% for root_class in classes.values() %}
-{%   if root_class.type != DataType.ARRAY %}
+{%   if root_class.type != DataType.ARRAY  %}
 
 @strawberry.type
 class {{ root_class.name }}:
-{%     for field in root_class.fields %}
+{%     for field in root_class.fields.values() %}
     {{ field.name }}: {% if field.name in root_class.required_fields %}{{ field.python_type }}{% else %}Optional[{{field.python_type}}]{% endif %}
 
-{%     endfor %}{# for field in root_class.fields #}
+{%     endfor %}{# for field in root_class.fields.values() #}
 
 @strawberry.input
 class {{ root_class.name }}_input:
-{%     for field in root_class.fields %}
+{%     for field in root_class.fields.values() %}
     {{field.name }}: {{ field.python_type }}
-{%     endfor %}{# for field in root_class.fields #}
+{%     endfor %}{# for field in root_class.fields.values() #}
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 
+{# avoid classes referenced by multiple root classes from being included multiple times #}
+{%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
+{%     if class_name_deliminated not in ns.classes_seen %}
 @strawberry.input
 class {{ root_class.referenced_class.name }}_input_filter:
-{%     for field in root_class.referenced_class.fields %}
-{%       if field.python_type == 'str' %}
-    {{ field.name }}: Optional[string_query_operator_input] = None
-{%       elif field.python_type in ('datetime', 'date', 'time') %}
-    {{ field.name }}: Optional[datetime_query_operator_input] = None
-{%       elif field.python_type in ('int', 'float') %}
-    {{ field.name }}: Optional[number_query_operator_input] = None
-{%       elif field.python_type == 'UUID' %}
-    {{ field.name }}: Optional[uuid_query_operator_input] = None
-{%       endif %}{# if field.python_type == "str" #}
-{%     endfor %}{# for field in root_class.referenced_class.fields #}
-
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+{%         if field.type == DataType.STRING %}
+    {{ field_name }}: Optional[string_query_operator_input] = None
+{%         elif field.type == DataType.DATETIME %}
+    {{ field_name }}: Optional[datetime_query_operator_input] = None
+{%         elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
+    {{ field_name }}: Optional[number_query_operator_input] = None
+{%         elif field.type == DataType.UUID %}
+    {{ field_name }}: Optional[uuid_query_operator_input] = None
+{%         elif field.type == DataType.ARRAY %}
+    {{ field_name }}: Optional[List[str]] = None
+{%         endif %}{# if field.python_type == "str" #}
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+{%       set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
+{%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# root_class in classes.values() #}
 
@@ -175,15 +182,9 @@ class Query:
 {%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
-{%       for field in root_class.fields %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(info.context['data']['{{ field.name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
+{%       for field in root_class.fields.values() %}
             info.context['data']['{{ field.name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field in root_class.fields #}
+{%       endfor %}{# for field in root_class.fields.values() #}
         )
         return {{ root_class.name }}_data
 
@@ -193,15 +194,9 @@ class Query:
         for obj in data or []:
             info.context['data'] = obj
             {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
-{%       for field in root_class.referenced_class.fields %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(info.context['data']['{{ field.name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
-            info.context['data']['{{ field.name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+                info.context['data']['{{ field_name }}'],
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
             )
             ret_data.append({{ root_class.referenced_class.name }}_data)
 
@@ -218,9 +213,9 @@ class Mutation:
 {%     if root_class.type == DataType.OBJECT %}
     @strawberry.field
     async def mutate_{{ root_class.name }}(self, info: Info,
-{%       for field in root_class.fields %}
-                {{ field.name }}: {{ field.python_type }},
-{%       endfor %}{# for field in root_class.fields #}
+{%       for field in root_class.fields.values() %}
+            {{ field.name }}: Optional[{{ field.python_type }}] = None,
+{%       endfor %}{# for field in root_class.fields.values() #}
             ) -> {{ root_class.name }}:
         _LOGGER.debug('Root query for mutate_{{ root_class.name }}')
 
@@ -230,13 +225,13 @@ class Mutation:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
-{%       for field in root_class.fields %}
+{%       for field in root_class.fields.values()%}
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
         await MemberClassByoda.mutate_data({{ service_id }}, info)
         return {{ root_class.name }}(
-{%       for field in root_class.fields %}
+{%       for field in root_class.fields.values()%}
             {{ field.name }},
 {%       endfor %}
         )
@@ -245,9 +240,9 @@ class Mutation:
 {# APIs for array processing #}
     @strawberry.field
     async def update_{{ root_class.name }}(self, info: Info, filters: {{ root_class.referenced_class.name }}_input_filter,
-{%       for field in root_class.referenced_class.fields %}
-        {{ field.name }}: Optional[{{ field.python_type }}] = None,
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items()%}
+        {{ field_name }}: Optional[{{ field.python_type }}] = None,
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for update_{{ root_class.name }}')
 
@@ -256,9 +251,9 @@ class Mutation:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
-{%       for field in root_class.referenced_class.fields %}
-            '{{ field.name }}': {{ field.name }},
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items()%}
+            '{{ field_name }}': {{ field.name }},
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
         }
 
         item = await MemberClassByoda.update_data({{ service_id }}, filters, info)
@@ -266,23 +261,24 @@ class Mutation:
             return
 
         return {{ root_class.referenced_class.name }}(
-{%       for field in root_class.referenced_class.fields %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(item['{{ field.name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(item['{{ field.name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
-            item['{{ field.name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+            item.get('{{ field_name }}'),
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
         )
 
     @strawberry.field
     async def append_{{ root_class.name }}(self, info: Info,
-{%       for field in root_class.referenced_class.fields %}
-        {{ field.name }}: {{ field.python_type }},
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
-        ) -> {{ root_class.referenced_class.name }}:
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+{%          if field_name in root_class.referenced_class.required_fields %}
+            {{ field_name }}: {{ field.python_type }},
+{%          endif %}
+{%       endfor %}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+{%          if field_name not in root_class.referenced_class.required_fields %}
+            {{ field_name }}: Optional[{{ field.python_type }}] = None,
+{%          endif %}
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
+            ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
@@ -290,15 +286,15 @@ class Mutation:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
-{%       for field in root_class.referenced_class.fields %}
-            '{{ field.name }}': {{ field.name }},
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+            '{{ field_name }}': {{ field_name }},
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         }
         await MemberClassByoda.append_data({{ service_id }}, info)
         return {{ root_class.referenced_class.name }}(
-{%       for field in root_class.referenced_class.fields %}
-            {{ field.name }},
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+            {{ field_name }},
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         )
 
     @strawberry.field
@@ -313,15 +309,9 @@ class Mutation:
         for item in data:
             result.append(
                 {{ root_class.referenced_class.name }}(
-{%       for field in root_class.referenced_class.fields %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(item['{{ field.name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(item['{{ field.name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
-            item['{{ field.name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field in root_class.referenced_class.fields #}
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+                    item.get('{{ field_name }}'),
+{%       endfor %}{# for field in root_class.referenced_class.fields.values( )#}
                 )
             )
 

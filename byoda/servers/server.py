@@ -18,6 +18,7 @@ from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType, DocumentStore
+from byoda.storage.filestorage import FileStorage
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class Server:
         self.account: Account = None
         self.service: Service = None
         self.document_store: DocumentStore = None
+        self.storage_driver: FileStorage = None
         self.cloud = None
         self.paths: Paths = None
         self.started: datetime = datetime.utcnow()
@@ -57,6 +59,8 @@ class Server:
             store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,
             root_dir=root_dir
         )
+
+        self.storage_driver: FileStorage = self.document_store.backend
 
     async def review_jwt(self, jwt: JWT):
         raise NotImplementedError

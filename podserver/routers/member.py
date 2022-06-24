@@ -10,16 +10,25 @@
 import logging
 import orjson
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter
+from fastapi import UploadFile
+from fastapi import Depends
+from fastapi import Request
+from fastapi import HTTPException
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
 
+from byoda.datatypes import VisibilityType
+from byoda.datatypes import StorageType
+
 from byoda.models import MemberResponseModel
+from byoda.models import UploadResponseModel
 
 from byoda import config
+
 from byoda.servers.pod_server import PodServer
 
 from ..dependencies.pod_api_request_auth import PodApiRequestAuth
@@ -206,3 +215,72 @@ async def put_member(request: Request, service_id: int, version: int,
 
         # BUG: any additional workers also need to join the service
         member.upgrade()
+
+
+@router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',
+             response_model=UploadResponseModel)
+async def post_member_upload(request: Request, file: UploadFile,
+                             service_id: int, visibility: VisibilityType,
+                             filename: str = None,
+                             auth: PodApiRequestAuth =
+                             Depends(PodApiRequestAuth)):
+    '''
+    Become a member of a service.
+    :param service_id: service_id of the service
+    :param version: version of the service schema
+    :raises: HTTPException 409
+    '''
+
+    _LOGGER.debug(f'Post Member Upload API called from {request.client.host}')
+
+    await auth.authenticate(service_id=service_id)
+
+    account: Account = config.server.account
+    await account.load_memberships()
+    member: Member = account.memberships.get(service_id)
+
+    if not member:
+        raise HTTPException(status_code=401, detail='Authentication failure')
+
+    # Authorization: handled by PodApiRequestsAuth, which checks the
+    # cert / JWT was for an account and its member_id ID matches that
+    # of the pod
+    if auth.member_id != member.member_id:
+        _LOGGER.warning(
+            f'Member REST API called by a member {auth.member_id}'
+            f'that is not us ({member.member_id})'
+        )
+        raise HTTPException(
+            status_code=401, detail='Authentication failure'
+        )
+
+    # Make sure we have the latest updates of memberships
+    storage_driver = config.server.storage_driver
+
+    _LOGGER.debug(
+        f'Uploading file {file.filename} for service {service_id} with '
+        f'visibility {visibility}'
+    )
+
+    storage_type = StorageType.PRIVATE
+    if visibility in (VisibilityType.KNOWN, VisibilityType.PUBLIC):
+        storage_type = StorageType.PUBLIC
+
+    if not filename:
+        filename = file.file
+
+    await storage_driver.write(
+        filename, data=None,
+        file_descriptor=file.file,
+        storage_type=storage_type
+    )
+
+    location = storage_driver.get_url(
+        filepath=filename, storage_type=storage_type
+    )
+
+    _LOGGER.debug(f'Returning info about file uploaded to {location}')
+    return {
+        'service_id': service_id,
+        'location': location,
+    }

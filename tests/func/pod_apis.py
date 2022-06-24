@@ -19,7 +19,7 @@ import unittest
 import requests
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from multiprocessing import Process
 import uvicorn
@@ -57,6 +57,8 @@ from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
+from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
+from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -167,12 +169,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             kwargs={
                 'host': '0.0.0.0',
                 'port': config.server.HTTP_PORT,
-                'log_level': 'debug'
+                'log_level': 'trace'
             },
             daemon=True
         )
         TestDirectoryApis.PROCESS.start()
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
     @classmethod
     async def asyncTearDown(self):
@@ -274,12 +276,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         )
         data = response.json()
-        auth_header = {
+        member_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=auth_header)
+        response = requests.get(API, headers=member_auth_header)
         self.assertEqual(response.status_code, 403)
 
         #
@@ -292,12 +294,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         )
         data = response.json()
-        auth_header = {
+        account_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=auth_header)
+        response = requests.get(API, headers=account_auth_header)
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -315,7 +317,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
-            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}', headers=auth_header
+            f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}',
+            headers=account_auth_header
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -337,9 +340,30 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         response = requests.post(
             f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
             f'version/{ADDRESSBOOK_VERSION}',
-            headers=auth_header
+            headers=account_auth_header
         )
         self.assertEqual(response.status_code, 409)
+
+        API = (
+            BASE_URL +
+            f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
+            '/visibility/public/filename/ls.bin'
+        )
+        response = requests.post(
+            API,
+            files=[
+                (
+                    'file', ('ls.bin', open('/bin/ls', 'rb'))
+                )
+            ],
+            headers=member_auth_header
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(
+            data['location'], 'http://localhost/public/ls.bin'
+        )
 
     def test_auth_token_request(self):
         account = config.server.account
@@ -528,6 +552,56 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result['data'])
         self.assertTrue(result['errors'])
+
+        # add network_link for the 'remote member'
+        asset_id = uuid4()
+        result = client.execute(
+            APPEND_NETWORK_ASSETS.format(
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
+                asset_type='post',
+                asset_id=asset_id,
+                creator="Pod API Test",
+                created=str(datetime.now(tz=timezone.utc).isoformat()),
+                title="test asset",
+                subject="just a test asset",
+                contents="some utf-8 markdown string",
+                keywords='["just", "testing"]'
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNotNone(result['data']['append_network_assets'])
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['append_network_assets']
+        self.assertEqual(data['asset_type'], 'post')
+        self.assertEqual(data['asset_id'], str(asset_id))
+        self.assertEqual(data['creator'], 'Pod API Test')
+        self.assertEqual(data['title'], 'test asset')
+        self.assertEqual(data['subject'], 'just a test asset')
+        self.assertEqual(data['contents'], 'some utf-8 markdown string')
+        self.assertEqual(data['keywords'], ['just', 'testing'])
+
+        result = client.execute(
+            UPDATE_NETWORK_ASSETS.format(
+                field='asset_id', cmp='eq', value=asset_id,
+                contents="more utf-8 markdown strings",
+                keywords='["more", "tests"]'
+            ),
+            headers=auth_header
+        )
+        self.assertIsNotNone(result['data'])
+        self.assertIsNotNone(result['data']['update_network_assets'])
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['update_network_assets']
+        self.assertEqual(data['asset_type'], 'post')
+        self.assertEqual(data['asset_id'], str(asset_id))
+        self.assertEqual(data['creator'], 'Pod API Test')
+        self.assertEqual(data['title'], 'test asset')
+        self.assertEqual(data['subject'], 'just a test asset')
+        self.assertEqual(data['contents'], 'more utf-8 markdown strings')
+        self.assertEqual(data['keywords'], ['more', 'tests'])
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

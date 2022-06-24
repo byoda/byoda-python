@@ -1,0 +1,8 @@
+## The 'local' directory needs to have several secrets in order to run various test cases
+
+The VS Code definition for the 'file_storage_test' test case defines:
+"GOOGLE_APPLICATION_CREDENTIALS": "tests/collateral/local/gcp-sa-byoda-storage.json"
+
+Also required are
+tests/collateral/local/azure-pod-member-cert.pem
+tests/collateral/local/azure-pod-member.key

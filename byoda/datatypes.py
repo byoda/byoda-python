@@ -60,6 +60,11 @@ class RightsEntityType(Enum):
     ANY_MEMBER           = 'any_member'
     ANONYMOUS            = 'anonymous'
 
+class VisibilityType(Enum):
+    PRIVATE              = 'private'
+    MEMBER               = 'member'
+    KNOWN                = 'known'
+    PUBLIC               = 'public'
 
 class HttpRequestMethod(Enum):
     GET         = 'GET'
@@ -87,6 +92,18 @@ class CacheTech(Enum):
 class StorageType(Enum):
     PRIVATE = 'private'
     PUBLIC = 'public'
+
+class DataType(Enum):
+    # flake8: noqa=E221
+    STRING    = 'string'
+    INTEGER   = 'integer'
+    NUMBER    = 'number'
+    BOOLEAN   = 'boolean'
+    UUID      = 'uuid'
+    DATETIME  = 'datetime'
+    OBJECT    = 'object'
+    ARRAY     = 'array'
+    REFERENCE = 'reference'
 
 
 class DataOperationType(Enum):
