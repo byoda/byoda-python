@@ -59,7 +59,7 @@ class SchemaDataItem:
 
     def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
 
-        self.name: str = class_name
+        self.name: Union[str, None] = class_name
         self.schema: Dict = schema
         self.description: str = schema.get('description')
         self.item_id: str = schema.get('$id')
@@ -283,12 +283,10 @@ class SchemaDataScalar(SchemaDataItem):
         '''
 
         if (self.type == DataType.UUID
-                and value
-                and not isinstance(value, UUID)):
+                and value and not isinstance(value, UUID)):
             result = UUID(value)
         elif (self.type == DataType.DATETIME
-                and value
-                and not isinstance(value, datetime)):
+                and value and not isinstance(value, datetime)):
             result = datetime.fromisoformat(value)
         else:
             result = value
@@ -330,8 +328,8 @@ class SchemaDataObject(SchemaDataItem):
                         f'Items property of array {class_name} must be an '
                         'object'
                     )
-            else:
-                item = SchemaDataItem.create(field, field_properties, schema_id)
+
+            item = SchemaDataItem.create(field, field_properties, schema_id)
 
             self.fields[field] = item
 
@@ -388,7 +386,7 @@ class SchemaDataArray(SchemaDataItem):
             )
         if 'type' in items:
             self.items = DataType(items['type'])
-            self.referenced_class = None
+            self.referenced_class = SchemaDataItem.create(None, schema['items'], self.schema_id)
         elif '$ref' in items:
             self.items = DataType.REFERENCE
             reference = items['$ref']
@@ -424,7 +422,8 @@ class SchemaDataArray(SchemaDataItem):
 
         result = []
         for item in data:
-            normalized_item = self.referenced_class.normalize(item)
+            if self.referenced_class:
+                normalized_item = self.referenced_class.normalize(item)
             result.append(normalized_item)
 
         return result

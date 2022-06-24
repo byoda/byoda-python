@@ -980,9 +980,7 @@ class Member:
                 f'{member.data}'
             )
 
-        (data, removed) = DataFilterSet.filter_exclude(
-            filters, data
-        )
+        (data, removed) = DataFilterSet.filter_exclude(filters, data)
 
         member.data[class_object] = data
 

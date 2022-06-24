@@ -183,13 +183,7 @@ class Query:
         info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields.values() %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(info.context['data']['{{ field.name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(info.context['data']['{{ field.name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
             info.context['data']['{{ field.name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
 {%       endfor %}{# for field in root_class.fields.values() #}
         )
         return {{ root_class.name }}_data
@@ -201,13 +195,7 @@ class Query:
             info.context['data'] = obj
             {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-{%         if field.python_type == 'datetime' %}
-            datetime.fromisoformat(info.context['data']['{{ field_name }}']),
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            UUID(info.context['data']['{{ field_name }}']),
-{%         else %}{# if field.python_type == 'datetime' #}
             info.context['data']['{{ field_name }}'],
-{%         endif %}{# if field.python_type == 'datetime' #}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
             )
             ret_data.append({{ root_class.referenced_class.name }}_data)
@@ -272,28 +260,6 @@ class Mutation:
         if not item:
             return
 
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-{%         if field.python_type == 'datetime' %}
-        value = item.get('{{ field_name }}')
-
-        if value:
-            if not isinstance(value, datetime):
-                item['{{ field_name }}'] = datetime.fromisoformat(value)
-        else:
-            item['{{ field_name }}'] = None
-
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-        value = item.get('{{ field_name }}')
-
-        if value:
-            if not isinstance(value, UUID):
-                item['{{ field_name }}'] = UUID(value)
-        else:
-            item['{{ field_name }}'] = None
-
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-
         return {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
             item.get('{{ field_name }}'),
@@ -341,24 +307,6 @@ class Mutation:
         data = await MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
         result = []
         for item in data:
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-            value = item.get('{{ field_name }}')
-{%         if field.python_type == 'datetime' %}
-            if value:
-                if not isinstance(value, datetime):
-                    item['{{ field_name }}'] = datetime.fromisoformat(value)
-            else:
-                item['{{ field_name }}'] = None
-
-{%         elif field.python_type == 'UUID' %}{# if field.python_type == 'datetime' #}
-            if value:
-                if not isinstance(value, UUID):
-                    item['{{ field_name }}'] = UUID(value)
-            else:
-                item['{{ field_name }}'] = None
-
-{%         endif %}{# if field.python_type == 'datetime' #}
-{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
             result.append(
                 {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
