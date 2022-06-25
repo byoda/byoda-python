@@ -41,20 +41,40 @@ mutation {{
 
 QUERY_NETWORK = '''
 query {
-    network_links {
-        relation
-        member_id
-        timestamp
+    network_links_connection {
+        total_count
+        edges {
+            cursor
+            network_link {
+                relation
+                member_id
+                timestamp
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
     }
 }
 '''
 
 QUERY_NETWORK_WITH_FILTER = '''
 query {{
-    network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
-        relation
-        member_id
-        timestamp
+    network_links_connection(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+        total_count
+        edges {{
+            cursor
+            network_link {{
+                relation
+                member_id
+                timestamp
+            }}
+        }}
+        page_info {{
+            end_cursor
+            has_next_page
+        }}
     }}
 }}
 '''
@@ -90,6 +110,27 @@ mutation {{
         timestamp
     }}
 }}
+'''
+
+QUERY_NETWORK_ASSETS = '''
+query {
+    network_assets_connection {
+        total_count
+        edges {
+            cursor
+            asset {
+                timestamp
+                asset_type
+                asset_id
+                title
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
 '''
 
 UPDATE_NETWORK_ASSETS = '''

@@ -10,9 +10,10 @@ Automatically generated code for GraphQL support for a Byoda servce
 
 from __future__ import annotations
 
+import hashlib
 from uuid import UUID
-from datetime import datetime, date, time
-from typing import List, Optional, TypeVar
+from datetime import datetime
+from typing import List, Dict, Optional, TypeVar
 import strawberry
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
@@ -33,25 +34,6 @@ from byoda.requestauth.graphql_authorization import authorize_graphql_request as
 _LOGGER = loggingByoda.getLogger(__name__)
 
 GenericType = TypeVar("GenericType")
-
-@strawberry.type
-class PageInfo:
-    '''
-    Pagination context to navigate objects with cursor-based pagination. Here
-    we have a cursor of the last object and we fetch items starting from that
-    one
-
-    Read more at:
-        - https://graphql.org/learn/pagination/#pagination-and-edges
-        - https://relay.dev/graphql/connections.htm
-    '''
-
-    has_next_page: bool
-    has_previous_page: bool
-    start_cursor: Optional[str]
-    end_cursor: Optional[str]
-
-Cursor = str
 
 async def authenticate(root, info, data_operation: DataOperationType_Byoda):
     '''
@@ -89,6 +71,26 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
         )
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
+
+def get_cursor_hash(data: Dict, fields: List[str]) -> str:
+    '''
+    Helper function to generate cursors for objects based on the stringified values
+    of the required fields of object
+    '''
+
+    hash_gen = hashlib.sha1()
+    for field in fields:
+        hash_gen.update(str(data.get(field, '')).encode('utf-8'))
+
+    cursor = hash_gen.hexdigest()
+
+    return cursor[0:8]
+
+
+@strawberry.type
+class page_info:
+    end_cursor: str
+    has_next_page: bool
 
 @strawberry.input
 class string_query_operator_input:
@@ -163,6 +165,22 @@ class {{ root_class.referenced_class.name }}_input_filter:
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# root_class in classes.values() #}
 
+{% for root_class in classes.values() %}
+{%   if root_class.type == DataType.ARRAY %}
+@strawberry.type
+class {{ root_class.name }}_page:
+    total_count: int
+    edges: List[{{ root_class.name }}_edge]
+    page_info: page_info
+
+@strawberry.type
+class {{ root_class.name }}_edge:
+    cursor: str
+    {{ root_class.referenced_class.name }}: {{ root_class.referenced_class.name }}
+
+{%   endif %}{# if root_class.type == DataType.ARRAY #}
+{% endfor %}{# for root_class in classes.values() #}
+
 @strawberry.type
 class Query:
 {% for root_class in classes.values() %}
@@ -171,7 +189,7 @@ class Query:
 {%     if root_class.type != DataType.ARRAY %}
     async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> List[{{ root_class.referenced_class.name }}]:
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> {{ root_class.name }}_page:
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
         _LOGGER.debug('Resolving {{ root_class.name }}')
 
@@ -183,24 +201,51 @@ class Query:
         info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields.values() %}
-            info.context['data']['{{ field.name }}'],
+            info.context['data'].get('{{ field.name }}'),
 {%       endfor %}{# for field in root_class.fields.values() #}
         )
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
         data = await MemberClassByoda.get_data({{ service_id }}, info, filters)
-        ret_data = []
+
+        if after:
+            cursor_seen: bool = False
+        else:
+            cursor_seen: bool = True
+
+        edges: List[{{ root_class.name }}_edge] = []
+        total_skipped:int  = 0
         for obj in data or []:
             info.context['data'] = obj
-            {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
+            required_field_names = [
+{%       for field_name in root_class.referenced_class.required_fields %}
+                '{{ field_name }}',
+{%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
+            ]
+            cursor = get_cursor_hash(obj, required_field_names)
+            if cursor_seen:
+                {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-                info.context['data']['{{ field_name }}'],
+                    info.context['data'].get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-            )
-            ret_data.append({{ root_class.referenced_class.name }}_data)
+                )
+                edge = {{ root_class.name }}_edge(cursor=cursor, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
+                edges.append(edge)
+            else:
+                total_skipped += 1
+                if cursor == after:
+                    cursor_seen = True
 
-        return ret_data
+            if first and len(edges) == first:
+                break
+
+        has_next_page = False
+        if total_skipped + len(edges) < len(data):
+            has_next_page = True
+
+        info = page_info(end_cursor=cursor, has_next_page=has_next_page)
+        return {{ root_class.name }}_page(total_count=len(data), edges=edges, page_info=info)
 
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
 {%   endif %}{#  if not root_class.item_id #}

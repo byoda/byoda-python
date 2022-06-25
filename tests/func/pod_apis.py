@@ -57,6 +57,7 @@ from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
+from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS
 from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
 from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
 
@@ -378,7 +379,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         data = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(data.get('auth_token'), str))
+        self.assertTrue(isinstance(data.get("auth_token"), str))
 
         response = requests.get(
             f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}'
@@ -562,11 +563,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
                 asset_type='post',
                 asset_id=asset_id,
-                creator="Pod API Test",
+                creator='Pod API Test',
                 created=str(datetime.now(tz=timezone.utc).isoformat()),
-                title="test asset",
-                subject="just a test asset",
-                contents="some utf-8 markdown string",
+                title='test asset',
+                subject='just a test asset',
+                contents='some utf-8 markdown string',
                 keywords='["just", "testing"]'
             ),
             headers=auth_header
@@ -587,7 +588,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             UPDATE_NETWORK_ASSETS.format(
                 field='asset_id', cmp='eq', value=asset_id,
-                contents="more utf-8 markdown strings",
+                contents='more utf-8 markdown strings',
                 keywords='["more", "tests"]'
             ),
             headers=auth_header
@@ -604,6 +605,28 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['subject'], 'just a test asset')
         self.assertEqual(data['contents'], 'more utf-8 markdown strings')
         self.assertEqual(data['keywords'], ['more', 'tests'])
+
+        for count in range(1, 100):
+            title = f'test account #{count}'
+            query = APPEND_NETWORK_ASSETS.format(
+                timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
+                asset_type='post',
+                asset_id=asset_id,
+                creator=title,
+                created=str(datetime.now(tz=timezone.utc).isoformat()),
+                title='test asset',
+                subject='just a test asset',
+                contents='some utf-8 markdown string',
+                keywords='["just", "testing"]'
+            )
+            result = client.execute(query, headers=auth_header)
+            self.assertIsNone(result.get('errors'))
+
+        result = client.execute(QUERY_NETWORK_ASSETS, headers=auth_header)
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['network_assets_connection']['edges']
+
+        self.assertEqual(len(data), 100)
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -737,14 +760,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
-        self.assertNotEqual(
-            result['data']['network_links'][0],
-            result['data']['network_links'][1]
-        )
-        self.assertNotEqual(
-            result['data']['network_links'][1],
-            result['data']['network_links'][2]
-        )
+        data = result['data']['network_links_connection']['edges']
+        self.assertNotEqual(data[0], data[1])
+        self.assertNotEqual(data[1], data[2])
 
         result = client.execute(
             QUERY_NETWORK_WITH_FILTER.format(
@@ -753,7 +771,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
-        self.assertEqual(len(result['data']['network_links']), 1)
+        data = result['data']['network_links_connection']['edges']
+        self.assertEqual(len(data), 1)
 
         result = client.execute(
             QUERY_NETWORK_WITH_FILTER.format(
@@ -761,11 +780,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             ),
             headers=member_headers
         )
-
-        self.assertNotEqual(
-            result['data']['network_links'][0],
-            result['data']['network_links'][1]
-        )
+        self.assertIsNotNone(result['data'])
+        data = result['data']['network_links_connection']['edges']
+        self.assertNotEqual(data[0],data[1])
 
         result = client.execute(
             QUERY_NETWORK_WITH_FILTER.format(
@@ -774,9 +791,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=member_headers
         )
         self.assertIsNotNone(result['data'])
-        self.assertEqual(len(result['data']['network_links']), 1)
+        data = result['data']['network_links_connection']['edges']
+        self.assertEqual(len(data), 1)
         self.assertEqual(
-            result['data']['network_links'][0]['relation'], 'friend'
+            data[0]['network_link']['relation'], 'friend'
         )
 
         result = client.execute(

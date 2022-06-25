@@ -58,7 +58,7 @@ async def authorize_graphql_request(operation: DataOperationType,
     # data_classes contain the access permissions for the class
     data_classes = member.schema.data_classes
 
-    key = _get_query_key(info.path)
+    key = get_query_key(info.path)
 
     if key not in data_classes:
         raise ValueError(
@@ -88,7 +88,7 @@ async def authorize_graphql_request(operation: DataOperationType,
     return access_allowed
 
 
-def _get_query_key(path: List[str]) -> str:
+def get_query_key(path: List[str]) -> str:
     '''
     Gets the name of the data element from the service contract that is
     requested in the GraphQL query.
@@ -100,6 +100,8 @@ def _get_query_key(path: List[str]) -> str:
     for obj in reversed(path):
         if obj is None or obj.lower() in ('query', 'mutation'):
             continue
+        elif obj.endswith('_connection'):
+            key = obj[:-1 * len('_connection')]
         elif obj.startswith('mutate_'):
             key = obj[len('mutate_'):]
             break
