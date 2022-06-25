@@ -63,6 +63,8 @@ from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 
+REMOTE_MEMBER_ID = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+
 TEST_DIR = '/tmp/byoda-tests/pod_apis'
 BASE_URL = 'http://localhost:{PORT}/api'
 
@@ -478,7 +480,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
 
         # add network_link for the 'remote member'
-        remote_member_id = '0c8143d8-9311-485d-a639-ed8ef980bebb'
+        remote_member_id = REMOTE_MEMBER_ID
         result = client.execute(
             APPEND_NETWORK.format(
                 uuid=remote_member_id,
