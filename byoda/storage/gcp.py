@@ -128,7 +128,7 @@ class GcpFileStorage(FileStorage):
 
         try:
             if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                data = await super().read(filepath, file_mode)
+                data = await super().read(filepath, file_mode=file_mode)
                 _LOGGER.debug('Read %s from cache', filepath)
                 return data
         except FileNotFoundError:
@@ -144,7 +144,7 @@ class GcpFileStorage(FileStorage):
             )
 
         if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            await super().write(filepath, data, file_mode)
+            await super().write(filepath, data, file_mode=file_mode)
 
         _LOGGER.debug(
             f'Read {filepath} from GCP bucket'
@@ -184,7 +184,7 @@ class GcpFileStorage(FileStorage):
             if (storage_type == StorageType.PRIVATE and self.cache_enabled):
                 await super().write(filepath, data, file_mode=file_mode)
                 file_descriptor = super().open(
-                    filepath, OpenMode.READ, file_mode
+                    filepath, OpenMode.READ, file_mode=file_mode
                 )
             else:
                 file_descriptor = TemporaryFile(mode='w+b')
@@ -300,7 +300,7 @@ class GcpFileStorage(FileStorage):
         :parm file_mode: how the file should be opened
         '''
 
-        data = await super().read(source, file_mode)
+        data = await super().read(source, file_mode=file_mode)
 
         blob = self._get_blob_client(dest, storage_type)
         with blob.open(f'w{file_mode.value}') as file_desc:
