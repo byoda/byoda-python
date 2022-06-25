@@ -2,7 +2,7 @@
     "description": "A simple network to maintain contacts",
     "jsonschema": {
         "$id": "https://service.service-4294929430.byoda.net/service/addressbook",
-        "$schema": "https://json-schema.org/draft-07/schema#",
+        "$schema": "https://json-schema.org/draft/2020-12/schema#",
         "description": "A simple network to maintain contacts",
         "properties": {
             "member": {
@@ -19,7 +19,7 @@
                     },
                     "member_id": {
                         "description": "Membership UUID",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                        "format": "uuid",
                         "type": "string"
                     }
                 },
@@ -178,7 +178,7 @@
         "$defs": {
             "network_link": {
                 "$id": "/schemas/network_link",
-                "$schema": "https://json-schema.org/draft-07/schema#",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "links to other members who you have a social connection with, such as friend, colleague, family, etc.",
                 "type": "object",
                 "properties": {
@@ -190,7 +190,7 @@
                     "member_id": {
                         "description": "The UUID of the other member",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format": "uuid"
                     },
                     "relation": {
                         "description": "What relation you have with the other member",
@@ -201,7 +201,7 @@
             },
             "asset_link": {
                 "$id": "/schemas/asset_link",
-                "$schema": "https://json-schema.org/draft-07/schema#",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "links to other assets, that you have read, liked, etc.",
                 "type": "object",
                 "properties": {
@@ -213,12 +213,12 @@
                     "member_id": {
                         "description": "The UUID of the member that published the asset",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format": "uuid"
                     },
                     "asset_id": {
                         "description": "The UUID of the asset",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format": "uuid"
                     },
                     "asset_url": {
                         "description": "URL to an asset not hosted by a member of the service",
@@ -242,7 +242,7 @@
             },
             "asset_reaction": {
                 "$id": "/schemas/asset_reaction",
-                "$schema": "https://json-schema.org/draft-07/schema#",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "Reactions to assets of the member",
                 "type": "object",
                 "properties": {
@@ -254,12 +254,12 @@
                     "member_id": {
                         "description": "The UUID of the member that reacted to our asset",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format":  "uuid"
                     },
                     "asset_id": {
                         "description": "The UUID of our asset",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format":  "uuid"
                     },
                     "relation": {
                         "description": "What relation the other member has with our asset, for example liked",
@@ -278,7 +278,7 @@
             },
             "memberlog": {
                 "$id": "/schemas/memberlog",
-                "$schema": "https://json-schema.org/draft-07/schema#",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "log entries for the membership of the service",
                 "type": "object",
                 "properties": {
@@ -305,8 +305,8 @@
             },
             "asset": {
                 "$id": "/schemas/asset",
-                "$schema": "https://json-schema.org/draft-07/schema#",
-                "description": "an asset like a tweet, a message, a video, etc.",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
                 "type": "object",
                 "properties": {
                     "timestamp": {
@@ -317,7 +317,7 @@
                     "asset_id": {
                             "description": "The UUID of the member that reacted to our asset",
                             "type": "string",
-                            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                            "format": "uuid"
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -379,7 +379,7 @@
                     "response_to": {
                         "description": "ID of asset that this asset is a response to",
                         "type": "string",
-                        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        "format": "uuid"
                     }
                 },
                 "required": ["timestamp", "asset_id", "asset_type"]

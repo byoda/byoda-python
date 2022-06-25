@@ -3,6 +3,6 @@
 The VS Code definition for the 'file_storage_test' test case defines:
 "GOOGLE_APPLICATION_CREDENTIALS": "tests/collateral/local/gcp-sa-byoda-storage.json"
 
-Also required are
+Required for the pod-api functional test cases are the below files, with their content copied from a running pod joined to the addressbook service. Also set the REMOTE_MEMBER_ID on line 65 of tests/func/pod_apis.py to the UUID of the membership of the service.
 tests/collateral/local/azure-pod-member-cert.pem
 tests/collateral/local/azure-pod-member.key

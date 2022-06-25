@@ -17,9 +17,6 @@ from byoda.util.paths import Paths
 
 from byoda.datastore.document_store import DocumentStore
 
-from jsonschema import validate as jsonschema_validate
-# from .schema import JsonSchemaValueException
-
 # These imports are only used for typing
 from .schema import Schema
 from .dataclass import SchemaDataItem
@@ -122,13 +119,8 @@ class MemberData(Dict):
         try:
             if data:
                 self.unvalidated_data = data
-                self.validate()
-            else:
-                # Let's double check the data is valid
-                # self.member.schema.validate(self)
-                jsonschema_validate(
-                    self.unvalidated_data, self.member.schema.json_schema
-                )
+
+            self.validate()
 
             # TODO: properly serialize data
             await self.document_store.write(
@@ -162,10 +154,7 @@ class MemberData(Dict):
 
         try:
             if self.unvalidated_data:
-                # self = self.member.schema.validate(self.unvalidated_data)
-                jsonschema_validate(
-                    self.unvalidated_data, self.member.schema.json_schema
-                )
+                self.member.schema.validator.is_valid(self.unvalidated_data)
         except Exception as exc:
             _LOGGER.warning(
                 'Failed to validate data for service_id '

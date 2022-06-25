@@ -11,11 +11,12 @@ import sys
 import orjson
 import logging
 from copy import deepcopy
-from typing import List, Dict, Set, TypeVar
+from typing import List, Dict, Set, TypeVar, Callable
 from types import ModuleType
 
 import jinja2
 
+from jsonschema import Draft202012Validator
 
 # Importing this exception so others can import it from here
 # from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
@@ -96,8 +97,9 @@ class Schema:
         self._service_signature: ServiceSignature = None
         self._network_signature: NetworkSignature = None
 
-        # This is a callable to validate data against the JSON schema
-        self.validate: None
+        self.validator: Draft202012Validator = Draft202012Validator(
+            self.json_schema
+        )
 
         self.service_data_secret: ServiceDataSecret = None
         self.network_data_secret: NetworkDataSecret = None
@@ -186,8 +188,6 @@ class Schema:
                     f'{self.service_id}'
                 )
                 raise
-
-        self.validate = None
 
     async def save(self, filepath: str, storage_driver: FileStorage):
         '''
