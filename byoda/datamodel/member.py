@@ -712,7 +712,13 @@ class Member:
         member = server.account.memberships[service_id]
         await member.load_data()
 
-        data = member.data.get(info.path.key)
+        # For queries for arrays we implement pagination and identify
+        # those APIs by appending _connection to the name for the
+        # data class
+        key = info.path.key
+        if key.endswith('_connection'):
+            key = key[:-1* len('_connection')]
+        data = member.data.get(key)
         if filters:
             if not isinstance(data, list):
                 _LOGGER.warning(

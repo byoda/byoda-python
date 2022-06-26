@@ -11,7 +11,7 @@ if [[ $_ == $0 ]]; then
     exit 1
 fi
 
-if [ -z $1+x ]; then
+if [[ -z "$1" ]]; then
     export NETWORK="byoda.net"
 else
     export NETWORK=$1
