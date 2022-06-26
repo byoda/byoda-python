@@ -519,12 +519,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'Authorization': f'bearer {jwt.encoded}'
         }
 
+        # tests with 'remote_member_auth_header' fail because support for
+        # non-local JWTs has been replaced with 'netq' requests
         result = client.execute(
             query=QUERY_PERSON, headers=remote_member_auth_header
         )
 
-        self.assertTrue('data' in result)
-        self.assertIsNotNone(result['data'])
+        self.assertIsNone(result.get('data'))
+        self.assertIsNotNone(result.get('errors'))
 
         result = client.execute(
             DELETE_FROM_NETWORK_WITH_FILTER.format(
@@ -532,12 +534,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             ),
             headers=auth_header
         )
-        self.assertIsNotNone(result['data'])
-        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
-        self.assertEqual(
-            result['data']['delete_from_network_links'][0]['relation'],
-            'friend'
-        )
+        self.assertIsNotNone(result.get('data'))
+        self.assertIsNone(result.get('errors'))
 
         result = client.execute(
             APPEND_NETWORK.format(
@@ -547,7 +545,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             ),
             headers=auth_header
         )
-        self.assertIsNotNone(result['data'])
+        self.assertIsNotNone(result.get('data'))
         self.assertIsNone(result.get('errors'))
 
         result = client.execute(
@@ -557,7 +555,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result['data'])
         self.assertTrue(result['errors'])
 
-        # add network_link for the 'remote member'
         asset_id = uuid4()
         result = client.execute(
             APPEND_NETWORK_ASSETS.format(
