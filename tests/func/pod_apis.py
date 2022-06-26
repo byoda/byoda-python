@@ -58,6 +58,7 @@ from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS
+from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS_PAGINATION
 from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
 from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
 
@@ -627,6 +628,24 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = result['data']['network_assets_connection']['edges']
 
         self.assertEqual(len(data), 100)
+
+        cursor = ''
+        for looper in range(0, 7):
+            result = client.execute(
+                QUERY_NETWORK_ASSETS_PAGINATION.format(
+                    first=15, after=cursor
+                ),
+                headers=auth_header
+            )
+            self.assertIsNone(result.get('errors'))
+            more_data = result['data']['network_assets_connection']['edges']
+            cursor = more_data[-1]['cursor']
+            if looper < 6:
+                self.assertEqual(len(more_data), 15)
+                self.assertEqual(data[looper * 15], more_data[0])
+                self.assertEqual(data[looper * 15+14], more_data[14])
+
+        self.assertEqual(len(more_data), 10)
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

@@ -133,6 +133,27 @@ query {
 }
 '''
 
+QUERY_NETWORK_ASSETS_PAGINATION = '''
+query {{
+    network_assets_connection(first: {first} after: "{after}") {{
+        total_count
+        edges {{
+            cursor
+            asset {{
+                timestamp
+                asset_type
+                asset_id
+                title
+            }}
+        }}
+        page_info {{
+            end_cursor
+            has_next_page
+        }}
+    }}
+}}
+'''
+
 UPDATE_NETWORK_ASSETS = '''
 mutation {{
     update_network_assets (
