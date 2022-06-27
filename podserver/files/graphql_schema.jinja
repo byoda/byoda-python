@@ -188,16 +188,12 @@ class Query:
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
     async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
-{%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> {{ root_class.name }}_page:
-{%     endif %}{# if root_class.type != DataType.ARRAY #}
-        _LOGGER.debug('Resolving {{ root_class.name }}')
+        _LOGGER.debug('Resolving {{ root_class.name }} object')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-{%     if root_class.type != DataType.ARRAY %}
         info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields.values() %}
@@ -207,6 +203,13 @@ class Query:
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relation: List[str] = None) -> {{ root_class.name }}_page:
+        _LOGGER.debug('Resolving {{ root_class.name }} array')
+
+        result = await authenticate(self, info, DataOperationType_Byoda.READ)
+        if not result:
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
         data = await MemberClassByoda.get_data({{ service_id }}, info, filters)
 
         if after:
