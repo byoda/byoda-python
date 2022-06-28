@@ -61,6 +61,7 @@ from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS
 from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS_PAGINATION
 from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
 from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
+from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS_RECURSIVE
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -478,7 +479,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue('given_name' in context.exception.args)
 
         #
-        # JWT for the 'Azure POD' member
+        # JWT for the 'Azure POD' member.
+        # Test is obsolete as remote JWTs are no longer accepted
         #
 
         # add network_link for the 'remote member'
@@ -519,8 +521,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'Authorization': f'bearer {jwt.encoded}'
         }
 
-        # tests with 'remote_member_auth_header' fail because support for
-        # non-local JWTs has been replaced with 'netq' requests
         result = client.execute(
             query=QUERY_PERSON, headers=remote_member_auth_header
         )
@@ -535,7 +535,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=auth_header
         )
         self.assertIsNotNone(result.get('data'))
-        self.assertIsNone(result.get('errors'))
+        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        self.assertEqual(
+            result['data']['delete_from_network_links'][0]['relation'],
+            'friend'
+        )
 
         result = client.execute(
             APPEND_NETWORK.format(
@@ -545,7 +549,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             ),
             headers=auth_header
         )
-        self.assertIsNotNone(result.get('data'))
+        self.assertIsNotNone(result['data'])
         self.assertIsNone(result.get('errors'))
 
         result = client.execute(
@@ -555,6 +559,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result['data'])
         self.assertTrue(result['errors'])
 
+        # add network_link for the 'remote member'
         asset_id = uuid4()
         result = client.execute(
             APPEND_NETWORK_ASSETS.format(
@@ -643,6 +648,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(data[looper * 15+14], more_data[14])
 
         self.assertEqual(len(more_data), 10)
+
+        query = QUERY_NETWORK_ASSETS_RECURSIVE.format(
+            depth=1, relations='["colleague"]'
+        )
+        result = client.execute(query=query, headers=auth_header)
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['network_assets_connection']['edges']
 
     def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

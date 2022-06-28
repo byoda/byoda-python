@@ -35,7 +35,7 @@ _LOGGER = loggingByoda.getLogger(__name__)
 
 GenericType = TypeVar("GenericType")
 
-async def authenticate(root, info, data_operation: DataOperationType_Byoda):
+async def authenticate(root, info, data_operation: DataOperationType_Byoda, depth=0):
     '''
     This is middleware called by the code generated from the Jinja
     templates implementing GraphQL support
@@ -67,7 +67,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
         # Check whether the authenticated client is authorized to request
         # the data
         return await authorize_graphql_request_Byoda(
-            data_operation, {{ service_id}}, info
+            data_operation, {{ service_id}}, info, depth
         )
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
@@ -188,13 +188,13 @@ class Query:
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
     async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
-        _LOGGER.debug('Resolving {{ root_class.name }} object')
+        _LOGGER.debug(f'Resolving {{ root_class.name }} object')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
+        info.context['data'] = await MemberClassByoda.get_object_data({{ service_id }}, info)
         {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field in root_class.fields.values() %}
             info.context['data'].get('{{ field.name }}'),
@@ -203,14 +203,19 @@ class Query:
         return {{ root_class.name }}_data
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relation: List[str] = None) -> {{ root_class.name }}_page:
-        _LOGGER.debug('Resolving {{ root_class.name }} array')
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+        _LOGGER.debug(
+            f'Resolving {{ root_class.name }} array with depth {depth}'
+        )
 
-        result = await authenticate(self, info, DataOperationType_Byoda.READ)
+        if depth < 0 or depth > 1:
+            raise ValueError('Recursive depth must be 0 or 1')
+
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, depth)
         if not result:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = await MemberClassByoda.get_data({{ service_id }}, info, filters)
+        data = await MemberClassByoda.get_array_data({{ service_id }}, info, depth, relations, filters)
 
         if after:
             cursor_seen: bool = False
@@ -225,6 +230,7 @@ class Query:
 {%       for field_name in root_class.referenced_class.required_fields %}
                 '{{ field_name }}',
 {%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
+                'byoda_origin',
             ]
             cursor = get_cursor_hash(obj, required_field_names)
             if cursor_seen:

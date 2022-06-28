@@ -8,7 +8,7 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 
 import logging
 from enum import Enum
-from typing import Dict, ClassVar
+from typing import Dict
 from uuid import UUID
 
 import aiohttp
@@ -30,6 +30,16 @@ class ClientAuthType(Enum):
     Account     = 0
     Member      = 1
     Service     = 2
+
+
+class HttpMethod(Enum):
+    # flake8: noqa=E221
+    GET         = 'get'
+    POST        = 'post'
+    PUT         = 'put'
+    PATCH       = 'patch'
+    DELETE      = 'delete'
+    HEAD        = 'head'
 
 config.client_pools = dict()
 
@@ -117,6 +127,9 @@ class ApiClient:
         if not network_name:
             network = config.server.network
             network_name = network.name
+
+        if isinstance(method, HttpMethod):
+            method = method.value
 
         client = ApiClient(api, secret=secret, service_id=service_id)
 

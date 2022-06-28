@@ -8,7 +8,6 @@ RestApiClient, derived from ApiClient for calling REST APIs
 
 
 import logging
-from enum import Enum
 from typing import Dict
 from uuid import UUID
 
@@ -17,20 +16,11 @@ import aiohttp
 
 from byoda.secrets import Secret
 
-from .api_client import ApiClient
+from .api_client import ApiClient, HttpMethod
 
 
 _LOGGER = logging.getLogger(__name__)
 
-
-class HttpMethod(Enum):
-    # flake8: noqa=E221
-    GET         = 'get'
-    POST        = 'post'
-    PUT         = 'put'
-    PATCH       = 'patch'
-    DELETE      = 'delete'
-    HEAD        = 'head'
 
 class RestApiClient:
     '''
@@ -40,9 +30,11 @@ class RestApiClient:
         pass
 
     @staticmethod
-    async def call(api: str, method: HttpMethod = HttpMethod.GET, secret: Secret = None,
-             params: Dict = None, data: Dict = None, service_id: int = None,
-             member_id: UUID = None, account_id: UUID = None) -> aiohttp.ClientResponse:
+    async def call(api: str, method: HttpMethod = HttpMethod.GET,
+                   secret: Secret = None, params: Dict = None,
+                   data: Dict = None, service_id: int = None,
+                   member_id: UUID = None, account_id: UUID = None
+                   ) -> aiohttp.ClientResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs

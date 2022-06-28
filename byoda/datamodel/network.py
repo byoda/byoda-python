@@ -100,6 +100,7 @@ class Network:
         self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
         self.dnsdb = None
+        self.paths: Paths = None
 
         roles: Set[str] = server.get('roles', [])
         if roles and type(roles) not in (set, list):
