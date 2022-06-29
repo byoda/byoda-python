@@ -114,9 +114,11 @@ class ApiClient:
             self.session = config.client_pools[type(secret)]
 
     @staticmethod
-    async def call(api: str, method: str = 'GET', secret:Secret = None, params: Dict = None,
-             data: Dict = None, service_id: int = None, member_id: UUID = None,
-             account_id: UUID = None, network_name: str = None) -> aiohttp.ClientResponse:
+    async def call(api: str, method: str = 'GET', secret:Secret = None,
+                   params: Dict = None, data: Dict = None, headers: Dict = None,
+                   service_id: int = None, member_id: UUID = None,
+                   account_id: UUID = None, network_name: str = None
+                   ) -> aiohttp.ClientResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -144,7 +146,8 @@ class ApiClient:
         async with client.session as session:
             try:
                 response: aiohttp.ClientResponse = await session.request(
-                    method, api, params=params, json=data, ssl=client.ssl_context
+                    method, api, params=params, json=data, headers=headers,
+                    ssl=client.ssl_context
                 )
             except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
                 raise RuntimeError(exc)

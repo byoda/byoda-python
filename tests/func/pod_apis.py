@@ -32,6 +32,7 @@ from byoda.datamodel.account import Account
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
+from byoda.util.api_client.graphql_client import GraphQlClient as ByodaGraphQlClient
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -58,10 +59,8 @@ from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS
-from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS_PAGINATION
 from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
 from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
-from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS_RECURSIVE
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -440,43 +439,46 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 str(account_id)[:8], os.environ['ACCOUNT_SECRET']
             )
         )
-        data = response.json()
+        result = response.json()
         auth_header = {
-            'Authorization': f'bearer {data["auth_token"]}'
+            'Authorization': f'bearer {result["auth_token"]}'
         }
 
         url = BASE_URL + f'/v1/data/service-{service_id}'
-        client = GraphqlClient(endpoint=url)
 
-        result = client.execute(
-            query=MUTATE_PERSON.format(
-                given_name='Peter',
-                additional_names='',
-                family_name='Hessing',
-                email='steven@byoda.org',
-                homepage_url='https://byoda.org',
-                avatar_url='https://some.place/somewhere'
-
-            ),
-            headers=auth_header
+        vars = {
+            'given_name': 'Peter',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'steven@byoda.org',
+            'homepage_url': 'https://byoda.org',
+            'avatar_url': 'https://some.place/somewhere'
+        }
+        response = await ByodaGraphQlClient.call(
+            url, MUTATE_PERSON, variables=vars, headers=auth_header
         )
-        self.assertTrue('data' in result)
-        self.assertIsNotNone(result['data'])
-        self.assertTrue('mutate_person' in result['data'])
-        self.assertEqual(
-            result['data']['mutate_person']['given_name'], 'Peter'
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('mutate_person' in data)
+        self.assertEqual(data['mutate_person']['given_name'], 'Peter')
+
+        # Make the given_name parameter optional in the client query
+        # for this test
+        mutate_person_test = MUTATE_PERSON.replace(
+            '$given_name: String!', '$given_name: String'
         )
-
-        with self.assertRaises(KeyError) as context:
-            result = client.execute(
-                query=MUTATE_PERSON.format(
-                    family_name='Hessing',
-                    homepage_url='https://byoda.net'
-                ),
-                headers=auth_header
-            )
-
-        self.assertTrue('given_name' in context.exception.args)
+        vars = {
+            'email': 'steven@byoda.org',
+            'family_name': 'Hessing',
+        }
+        response = await ByodaGraphQlClient.call(
+            url, mutate_person_test, variables=vars, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNotNone(result.get('errors'))
 
         #
         # JWT for the 'Azure POD' member.
@@ -484,17 +486,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
 
         # add network_link for the 'remote member'
-        remote_member_id = REMOTE_MEMBER_ID
-        result = client.execute(
-            APPEND_NETWORK.format(
-                uuid=remote_member_id,
-                relation='friend',
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
-            ),
-            headers=auth_header
+        vars = {
+            'member_id': REMOTE_MEMBER_ID,
+            'relation': 'friend',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+        }
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK, variables=vars, headers=auth_header
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
+
         member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
         dest_dir = f'{TEST_DIR}/{member_dir}'
 
@@ -508,32 +513,34 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         secret = MemberSecret(
-            remote_member_id, ADDRESSBOOK_SERVICE_ID, account
+            REMOTE_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
         )
         secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
         secret.private_key_file = f'{member_dir}/azure-pod-member.key'
         await secret.load()
         jwt = JWT.create(
-            remote_member_id, IdType.MEMBER, secret, account.network.name,
+            REMOTE_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
             service_id=ADDRESSBOOK_SERVICE_ID
         )
         remote_member_auth_header = {
             'Authorization': f'bearer {jwt.encoded}'
         }
 
-        result = client.execute(
-            query=QUERY_PERSON, headers=remote_member_auth_header
+        response = await ByodaGraphQlClient.call(
+            url, QUERY_PERSON, headers=remote_member_auth_header
         )
+        result = await response.json()
 
-        self.assertIsNone(result.get('data'))
+        data = result.get('data')
+        self.assertIsNone(data)
         self.assertIsNotNone(result.get('errors'))
 
-        result = client.execute(
-            DELETE_FROM_NETWORK_WITH_FILTER.format(
-                field='member_id', cmp='eq', value=remote_member_id
-            ),
-            headers=auth_header
+        client = GraphqlClient(endpoint=url)
+        query = DELETE_FROM_NETWORK_WITH_FILTER.format(
+            field='member_id', cmp='eq', value=REMOTE_MEMBER_ID
         )
+        result = client.execute(query, headers=auth_header)
+
         self.assertIsNotNone(result.get('data'))
         self.assertEqual(len(result['data']['delete_from_network_links']), 1)
         self.assertEqual(
@@ -541,44 +548,53 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'friend'
         )
 
-        result = client.execute(
-            APPEND_NETWORK.format(
-                uuid=remote_member_id,
-                relation='colleague',
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
-            ),
-            headers=auth_header
+        vars = {
+            'member_id': REMOTE_MEMBER_ID,
+            'relation': 'colleague',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+
+        }
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK, variables=vars, headers=auth_header
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        result = client.execute(
-            query=QUERY_PERSON, headers=remote_member_auth_header
+        response = await ByodaGraphQlClient.call(
+            url, QUERY_PERSON, headers=remote_member_auth_header
         )
+        result = await response.json()
 
-        self.assertIsNone(result['data'])
-        self.assertTrue(result['errors'])
+        data = result.get('data')
+        self.assertIsNone(data)
+        self.assertIsNotNone(result.get('errors'))
 
         # add network_link for the 'remote member'
         asset_id = uuid4()
-        result = client.execute(
-            APPEND_NETWORK_ASSETS.format(
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
-                asset_type='post',
-                asset_id=asset_id,
-                creator='Pod API Test',
-                created=str(datetime.now(tz=timezone.utc).isoformat()),
-                title='test asset',
-                subject='just a test asset',
-                contents='some utf-8 markdown string',
-                keywords='["just", "testing"]'
-            ),
-            headers=auth_header
-        )
-        self.assertIsNotNone(result['data'])
-        self.assertIsNotNone(result['data']['append_network_assets'])
+        vars = {
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'asset_type': 'post',
+            'asset_id': str(asset_id),
+            'creator': 'Pod API Test',
+            'created': str(datetime.now(tz=timezone.utc).isoformat()),
+            'title': 'test asset',
+            'subject': 'just a test asset',
+            'contents': 'some utf-8 markdown string',
+            'keywords': ["just", "testing"]
+        }
 
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
+
         data = result['data']['append_network_assets']
         self.assertEqual(data['asset_type'], 'post')
         self.assertEqual(data['asset_id'], str(asset_id))
@@ -610,22 +626,29 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['keywords'], ['more', 'tests'])
 
         for count in range(1, 100):
-            title = f'test account #{count}'
-            query = APPEND_NETWORK_ASSETS.format(
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat()),
-                asset_type='post',
-                asset_id=asset_id,
-                creator=title,
-                created=str(datetime.now(tz=timezone.utc).isoformat()),
-                title='test asset',
-                subject='just a test asset',
-                contents='some utf-8 markdown string',
-                keywords='["just", "testing"]'
+            vars = {
+                'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'asset_type': 'post',
+                'asset_id': str(asset_id),
+                'creator': f'test account #{count}',
+                'created': str(datetime.now(tz=timezone.utc).isoformat()),
+                'title': 'test asset',
+                'subject': 'just a test asset',
+                'contents': 'some utf-8 markdown string',
+                'keywords': ["just", "testing"]
+            }
+
+            response = await ByodaGraphQlClient.call(
+                url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
             )
-            result = client.execute(query, headers=auth_header)
+            result = await response.json()
             self.assertIsNone(result.get('errors'))
 
-        result = client.execute(QUERY_NETWORK_ASSETS, headers=auth_header)
+        response = await ByodaGraphQlClient.call(
+            url, QUERY_NETWORK_ASSETS, headers=auth_header
+        )
+        result = await response.json()
+
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
 
@@ -633,12 +656,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         cursor = ''
         for looper in range(0, 7):
-            result = client.execute(
-                QUERY_NETWORK_ASSETS_PAGINATION.format(
-                    first=15, after=cursor
-                ),
-                headers=auth_header
+            vars = {
+                'first': 15,
+                'after': cursor
+            }
+            response = await ByodaGraphQlClient.call(
+                url, QUERY_NETWORK_ASSETS,
+                variables=vars, headers=auth_header
             )
+            result = await response.json()
+
             self.assertIsNone(result.get('errors'))
             more_data = result['data']['network_assets_connection']['edges']
             cursor = more_data[-1]['cursor']
@@ -649,14 +676,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(more_data), 10)
 
-        query = QUERY_NETWORK_ASSETS_RECURSIVE.format(
-            depth=1, relations='["colleague"]'
+        vars = {
+            'depth': 1,
+            'relations': ["colleague"]
+        }
+        response = await ByodaGraphQlClient.call(
+            url, QUERY_NETWORK_ASSETS,
+            variables=vars, headers=auth_header
         )
-        result = client.execute(query=query, headers=auth_header)
+        result = await response.json()
+
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
 
-    def test_graphql_addressbook_tls_cert(self):
+    async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
         account_id = account.account_id
         network = account.network
@@ -686,38 +719,52 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
-        client = GraphqlClient(endpoint=url)
 
-        result = client.execute(
-            query=MUTATE_PERSON.format(
-                given_name='Carl',
-                additional_names='',
-                family_name='Hessing',
-                email='steven@byoda.org',
-                homepage_url='https://byoda.org',
-                avatar_url='https://some.place/somewhere'
-            ),
-            headers=member_headers)
+        vars = {
+            'given_name': 'Carl',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'steven@byoda.org',
+            'homepage_url': 'https://byoda.org',
+            'avatar_url': 'https://some.place/somewhere'
+        }
+
+        response = await ByodaGraphQlClient.call(
+            url, MUTATE_PERSON,
+            variables=vars, headers=member_headers
+        )
+        result = await response.json()
+
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertEqual(
-            result['data']['mutate_person']['given_name'], 'Carl'
+            data['mutate_person']['given_name'], 'Carl'
         )
 
-        result = client.execute(query=QUERY_PERSON, headers=member_headers)
+        response = await ByodaGraphQlClient.call(
+            url, QUERY_PERSON, headers=member_headers
+        )
+        data = await response.json()
+        self.assertIsNotNone(data.get('data'))
+        self.assertIsNone(data.get('errors'))
 
-        result = client.execute(
-            query=MUTATE_PERSON.format(
-                given_name='Steven',
-                additional_names='',
-                family_name='Hessing',
-                email='steven@byoda.org',
-                homepage_url='https://byoda.org',
-                avatar_url='https://some.place/somewhere'
-            ),
-            headers=member_headers
+        vars = {
+            'given_name': 'Steven',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'steven@byoda.org',
+            'homepage_url': 'https://byoda.org',
+            'avatar_url': 'https://some.place/somewhere'
+        }
+        response = await ByodaGraphQlClient.call(
+            url, MUTATE_PERSON, variables=vars, headers=member_headers
         )
-        self.assertEqual(
-            result['data']['mutate_person']['given_name'], 'Steven'
-        )
+        data = await response.json()
+
+        self.assertIsNotNone(data.get('data'))
+        self.assertIsNone(data.get('errors'))
+        self.assertEqual(data['data']['mutate_person']['given_name'], 'Steven')
 
         query = '''
                 mutation {
@@ -730,9 +777,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 }
         '''
         # Mutation fails because 'member' can only read this data
-        result = client.execute(query, headers=member_headers)
-        self.assertIsNone(result['data'])
-        self.assertIsNotNone(result['errors'])
+        response = await ByodaGraphQlClient.call(
+            url, query, variables=vars, headers=member_headers
+        )
+        data = await response.json()
+
+        self.assertIsNone(data.get('data'))
+        self.assertIsNotNone(data.get('errors'))
 
         # Test with cert of another member
         alt_member_id = get_test_uuid()
@@ -744,6 +795,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # Query fails because other members do not have access
+        client = GraphqlClient(endpoint=url)
         result = client.execute(QUERY_PERSON, headers=alt_member_headers)
         self.assertIsNone(result['data'])
         self.assertIsNotNone(result['errors'])

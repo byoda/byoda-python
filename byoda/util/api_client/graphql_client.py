@@ -1,8 +1,6 @@
 '''
 GraphQlClient, for performing GraphQL queries
 
-Based on https://github.com/prodigyeducation/python-graphql-client/blob/master/python_graphql_client/
-
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
 :license    : GPLv3
@@ -10,7 +8,6 @@ Based on https://github.com/prodigyeducation/python-graphql-client/blob/master/p
 
 import logging
 from typing import Dict
-from uuid import UUID
 
 import aiohttp
 
@@ -29,8 +26,9 @@ class GraphQlClient:
         pass
 
     @staticmethod
-    async def call(url: str, query: bytes, secret: Secret,
-                   variables: Dict = None) -> aiohttp.ClientResponse:
+    async def call(url: str, query: bytes, secret: Secret = None,
+                   headers: Dict = None, variables: Dict = None
+                   ) -> aiohttp.ClientResponse:
 
         if isinstance(query, bytes):
             query = query.decode('utf-8')
@@ -41,8 +39,7 @@ class GraphQlClient:
             body["variables"] = variables
 
         response: aiohttp.ClientResponse = await ApiClient.call(
-            url, HttpMethod.POST, secret=secret, data=body
+            url, HttpMethod.POST, secret=secret, data=body, headers=headers
         )
 
         return response
-

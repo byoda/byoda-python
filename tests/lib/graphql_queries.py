@@ -20,23 +20,26 @@ query {
 '''
 
 MUTATE_PERSON = '''
-mutation {{
+mutation(
+        $given_name: String!, $additional_names: String,
+        $family_name: String!, $email: String!,
+        $homepage_url: String, $avatar_url: String) {
     mutate_person(
-        given_name: "{given_name}",
-        additional_names: "{additional_names}",
-        family_name: "{family_name}",
-        email: "{email}",
-        homepage_url: "{homepage_url}",
-        avatar_url: "{avatar_url}"
-    ) {{
+        given_name: $given_name,
+        additional_names: $additional_names,
+        family_name: $family_name,
+        email: $email,
+        homepage_url: $homepage_url,
+        avatar_url: $avatar_url
+    ) {
         given_name
         additional_names
         family_name
         email
         homepage_url
         avatar_url
-    }}
-}}
+    }
+}
 '''
 
 QUERY_NETWORK = '''
@@ -80,15 +83,15 @@ query {{
 '''
 
 APPEND_NETWORK = '''
-mutation {{
+mutation ($member_id: UUID!, $relation: String!, $timestamp: DateTime!) {
     append_network_links (
-        member_id: "{uuid}",
-        relation: "{relation}",
-        timestamp: "{timestamp}"
-    ) {{
+        member_id: $member_id,
+        relation: $relation,
+        timestamp: $timestamp
+    ) {
         member_id relation timestamp
-    }}
-}}
+    }
+}
 '''
 
 UPDATE_NETWORK_RELATION = '''
@@ -113,8 +116,10 @@ mutation {{
 '''
 
 QUERY_NETWORK_ASSETS = '''
-query {
-    network_assets_connection {
+query ($first: Int, $after: String, $depth: Int, $relations: [String!]) {
+    network_assets_connection(
+        first: $first, after: $after, depth: $depth, relations: $relations
+    ) {
         total_count
         edges {
             cursor
@@ -131,48 +136,6 @@ query {
         }
     }
 }
-'''
-
-QUERY_NETWORK_ASSETS_RECURSIVE = '''
-query {{
-    network_assets_connection(depth: {depth} relations: {relations}) {{
-        total_count
-        edges {{
-            cursor
-            asset {{
-                timestamp
-                asset_type
-                asset_id
-                title
-            }}
-        }}
-        page_info {{
-            end_cursor
-            has_next_page
-        }}
-    }}
-}}
-'''
-
-QUERY_NETWORK_ASSETS_PAGINATION = '''
-query {{
-    network_assets_connection(first: {first} after: "{after}") {{
-        total_count
-        edges {{
-            cursor
-            asset {{
-                timestamp
-                asset_type
-                asset_id
-                title
-            }}
-        }}
-        page_info {{
-            end_cursor
-            has_next_page
-        }}
-    }}
-}}
 '''
 
 UPDATE_NETWORK_ASSETS = '''
@@ -195,18 +158,21 @@ mutation {{
 }}
 '''
 APPEND_NETWORK_ASSETS = '''
-mutation {{
+mutation (
+        $timestamp: DateTime!, $asset_type: String!, $asset_id: UUID!,
+        $creator: String, $created: DateTime, $title: String, $subject: String,
+        $contents: String, $keywords: [String!]) {
     append_network_assets (
-        timestamp: "{timestamp}",
-        asset_type: "{asset_type}",
-        asset_id: "{asset_id}",
-        creator: "{creator}",
-        created: "{created}",
-        title: "{title}",
-        subject: "{subject}",
-        contents: "{contents}",
-        keywords: {keywords}
-    ) {{
+        timestamp: $timestamp,
+        asset_type: $asset_type,
+        asset_id: $asset_id,
+        creator: $creator,
+        created: $created,
+        title: $title,
+        subject: $subject,
+        contents: $contents,
+        keywords: $keywords
+    ) {
         timestamp
         asset_type
         asset_id
@@ -216,6 +182,6 @@ mutation {{
         subject
         contents
         keywords
-    }}
-}}
+    }
+}
 '''

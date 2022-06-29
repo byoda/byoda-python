@@ -47,19 +47,23 @@ class RestApiClient:
                     'member_id and account_id'
                 )
             try:
-                _LOGGER.debug('Removing identifier from end of request for POST call')
+                _LOGGER.debug(
+                    'Removing identifier from end of request for POST call'
+                )
                 paths = api.split('/')
                 int(paths[-1])
                 shortend_api = '/'.join(paths[0:-1])
-                _LOGGER.debug(f'Modified POST API call from {api} to {shortend_api}')
+                _LOGGER.debug(
+                    f'Modified POST API call from {api} to {shortend_api}'
+                )
                 api = shortend_api
             except (KeyError, ValueError):
                 # API URL did not end with an ID specifier
                 pass
 
         response: aiohttp.ClientResponse = await ApiClient.call(
-            api, method.value, secret=secret, params=params, data=data, service_id=service_id,
-            member_id=member_id, account_id=account_id
+            api, method.value, secret=secret, params=params, data=data,
+            service_id=service_id, member_id=member_id, account_id=account_id
         )
 
         return response

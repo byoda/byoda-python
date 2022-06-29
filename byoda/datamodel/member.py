@@ -61,7 +61,7 @@ Network = TypeVar('Network')
 
 GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
 
-RX_RECURSIVE_QUERY = re.compile(b'''^(.*?depth:\\s*?)(\\d+)(.*)$''')
+RX_RECURSIVE_QUERY = re.compile(b'''^(.*?"?depth"?:\\s*?)(\\d+)(.*)$''')
 
 
 class Member:
