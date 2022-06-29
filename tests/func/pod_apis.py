@@ -800,45 +800,52 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result['data'])
         self.assertIsNotNone(result['errors'])
 
-        result = client.execute(
-            APPEND_NETWORK.format(
-                uuid=get_test_uuid(),
-                relation='follow',
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
-            ),
-            headers=member_headers
+        vars = {
+            'member_id': str(get_test_uuid()),
+            'relation': 'follow',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+        }
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        result = client.execute(
-            APPEND_NETWORK.format(
-                uuid=get_test_uuid(),
-                relation='follow',
-                timestamp=str(datetime.now(tz=timezone.utc).isoformat())
-            ),
-            headers=member_headers
+        vars = {
+            'member_id': str(get_test_uuid()),
+            'relation': 'follow',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+        }
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
         friend_uuid = get_test_uuid()
         friend_timestamp = str(datetime.now(tz=timezone.utc).isoformat())
-        result = client.execute(
-            APPEND_NETWORK.format(
-                uuid=friend_uuid,
-                relation='friend',
-                timestamp=friend_timestamp
-            ),
-            headers=member_headers
+
+        vars = {
+            'member_id': str(friend_uuid),
+            'relation': 'friend',
+            'timestamp': friend_timestamp
+        }
+        response = await ByodaGraphQlClient.call(
+            url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        result = client.execute(
-            QUERY_NETWORK,
-            headers=member_headers
-        )
+        result = client.execute(QUERY_NETWORK, headers=member_headers)
         self.assertIsNotNone(result['data'])
         data = result['data']['network_links_connection']['edges']
         self.assertNotEqual(data[0], data[1])

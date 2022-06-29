@@ -94,6 +94,7 @@ mutation ($member_id: UUID!, $relation: String!, $timestamp: DateTime!) {
 }
 '''
 
+
 UPDATE_NETWORK_RELATION = '''
 mutation {{
     update_network_links (

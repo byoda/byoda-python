@@ -50,7 +50,8 @@ class ApiClient:
     misc. settings (ie. 'timeout')
     '''
 
-    def __init__(self, api: str, secret: Secret = None, service_id: int = None):
+    def __init__(self, api: str, secret: Secret = None, service_id: int = None,
+                 timeout: int = 10):
         '''
         Maintains a pool of connections for different destinations
 
@@ -106,7 +107,7 @@ class ApiClient:
                 )
                 self.ssl_context.load_cert_chain(cert_filepath, key_path)
 
-            timeout = aiohttp.ClientTimeout(total=10)
+            timeout = aiohttp.ClientTimeout(total=timeout)
             self.session = aiohttp.ClientSession(timeout=timeout)
 
             config.client_pools[type(secret)] = self.session
@@ -117,8 +118,8 @@ class ApiClient:
     async def call(api: str, method: str = 'GET', secret:Secret = None,
                    params: Dict = None, data: Dict = None, headers: Dict = None,
                    service_id: int = None, member_id: UUID = None,
-                   account_id: UUID = None, network_name: str = None
-                   ) -> aiohttp.ClientResponse:
+                   account_id: UUID = None, network_name: str = None,
+                   timeout: int = 10) -> aiohttp.ClientResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -147,7 +148,7 @@ class ApiClient:
             try:
                 response: aiohttp.ClientResponse = await session.request(
                     method, api, params=params, json=data, headers=headers,
-                    ssl=client.ssl_context
+                    ssl=client.ssl_context, timeout=timeout
                 )
             except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
                 raise RuntimeError(exc)
