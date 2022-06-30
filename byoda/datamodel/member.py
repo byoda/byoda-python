@@ -14,6 +14,8 @@ from uuid import uuid4, UUID
 from copy import copy, deepcopy
 from typing import Dict, List, TypeVar, Callable, Union
 
+import orjson
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -861,8 +863,13 @@ class Member:
             f'https://{fqdn}:444'
             f'{GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)}'
         )
+
+        query_data = orjson.loads(query)
+        query_string = query_data['query']
+        
         response = await GraphQlClient.call(
-            url, query, secret=self.tls_secret, timeout=3
+            url, query_string, vars=query_data['variables'],
+            secret=self.tls_secret, timeout=3
         )
 
         data = await response.json()

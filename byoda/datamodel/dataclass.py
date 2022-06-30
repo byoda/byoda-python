@@ -558,10 +558,18 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
     Authorizes GraphQL API requests by people that are in your network
 
     :param service_id: service membership that received the GraphQL API request
+    :param relations: what relations should be allowed acces to the data
+    :param distance: the maximmimum number of network links
     :param auth: the object with info about the authentication of the client
     :returns: whether the client is authorized to perform the requested
     operation
     '''
+
+    if distance < 0 or distance > 1:
+        raise ValueError('Only network distance 0 and 1 are supported')
+
+    if not relations:
+        return False
 
     if not isinstance(relations, list):
         relations = list(relations)
