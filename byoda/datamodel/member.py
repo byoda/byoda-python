@@ -861,7 +861,9 @@ class Member:
             f'https://{fqdn}:444'
             f'{GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)}'
         )
-        response = await GraphQlClient.call(url, query, self.tls_secret)
+        response = await GraphQlClient.call(
+            url, query, secret=self.tls_secret, timeout=120
+        )
 
         data = await response.json()
 

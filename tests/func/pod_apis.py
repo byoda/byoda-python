@@ -195,7 +195,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=account_headers)
+        response = requests.get(API, timeout=120, headers=account_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['account_id'], str(account_id))
@@ -223,7 +223,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = requests.get(
             f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            headers=account_headers
+            timeout=120, headers=account_headers
         )
         self.assertEqual(response.status_code, 200)
 
@@ -248,7 +248,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
                 f'/version/{version}'
             ),
-            headers=account_headers
+            timeout=120, headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
 
@@ -257,7 +257,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
                 f'/version/{version}'
             ),
-            headers=account_headers
+            timeout=120, headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
 
@@ -282,7 +282,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=member_auth_header)
+        response = requests.get(API, timeout=120, headers=member_auth_header)
         self.assertEqual(response.status_code, 403)
 
         #
@@ -300,7 +300,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, headers=account_auth_header)
+        response = requests.get(API, timeout=120, headers=account_auth_header)
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -319,7 +319,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
             f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            headers=account_auth_header
+            timeout=120, headers=account_auth_header
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -341,7 +341,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         response = requests.post(
             f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
             f'version/{ADDRESSBOOK_VERSION}',
-            headers=account_auth_header
+            timeout=120, headers=account_auth_header
         )
         self.assertEqual(response.status_code, 409)
 
@@ -357,7 +357,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                     'file', ('ls.bin', open('/bin/ls', 'rb'))
                 )
             ],
-            headers=member_auth_header
+            timeout=120, headers=member_auth_header
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -452,7 +452,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'avatar_url': 'https://some.place/somewhere'
         }
         response = await GraphQlClient.call(
-            url, MUTATE_PERSON, variables=vars, headers=auth_header
+            url, MUTATE_PERSON, vars=vars, timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -472,7 +472,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'family_name': 'Hessing',
         }
         response = await GraphQlClient.call(
-            url, mutate_person_test, variables=vars, headers=auth_header
+            url, mutate_person_test, vars=vars, timeout=120,
+            headers=auth_header
         )
         result = await response.json()
         self.assertIsNotNone(result.get('errors'))
@@ -489,7 +490,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK, variables=vars, headers=auth_header
+            url, APPEND_NETWORK, vars=vars, timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -524,7 +525,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, headers=remote_member_auth_header
+            url, QUERY_PERSON, timeout=120, headers=remote_member_auth_header
         )
         result = await response.json()
 
@@ -536,8 +537,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'member_id': {'eq': str(REMOTE_MEMBER_ID)}},
         }
         response = await GraphQlClient.call(
-            url, DELETE_FROM_NETWORK_WITH_FILTER, variables=vars,
-            headers=auth_header
+            url, DELETE_FROM_NETWORK_WITH_FILTER, vars=vars,
+            timeout=120, headers=auth_header
         )
         result = await response.json()
         data = result.get('data')
@@ -556,7 +557,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         }
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK, variables=vars, headers=auth_header
+            url, APPEND_NETWORK, vars=vars, timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -565,7 +566,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, headers=remote_member_auth_header
+            url, QUERY_PERSON, timeout=120, headers=remote_member_auth_header
         )
         result = await response.json()
 
@@ -588,7 +589,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
+            url, APPEND_NETWORK_ASSETS, vars=vars, timeout=120,
+            headers=auth_header
         )
         result = await response.json()
 
@@ -611,8 +613,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'keywords': ["more", "tests"]
         }
         response = await GraphQlClient.call(
-            url, UPDATE_NETWORK_ASSETS, variables=vars,
-            headers=auth_header
+            url, UPDATE_NETWORK_ASSETS, vars=vars,
+            timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -645,13 +647,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             }
 
             response = await GraphQlClient.call(
-                url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
+                url, APPEND_NETWORK_ASSETS, vars=vars, timeout=120,
+                headers=auth_header
             )
             result = await response.json()
             self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
-            url, QUERY_NETWORK_ASSETS, headers=auth_header
+            url, QUERY_NETWORK_ASSETS, timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -668,7 +671,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             }
             response = await GraphQlClient.call(
                 url, QUERY_NETWORK_ASSETS,
-                variables=vars, headers=auth_header
+                vars=vars, timeout=120, headers=auth_header
             )
             result = await response.json()
 
@@ -688,7 +691,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             url, QUERY_NETWORK_ASSETS,
-            variables=vars, headers=auth_header
+            vars=vars, timeout=120, headers=auth_header
         )
         result = await response.json()
 
@@ -712,7 +715,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
-            API + f'/service_id/{service_id}', headers=account_headers
+            API + f'/service_id/{service_id}', timeout=120,
+            headers=account_headers
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -736,7 +740,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, MUTATE_PERSON,
-            variables=vars, headers=member_headers
+            vars=vars, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -748,7 +752,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, headers=member_headers
+            url, QUERY_PERSON, timeout=120, headers=member_headers
         )
         data = await response.json()
         self.assertIsNotNone(data.get('data'))
@@ -763,7 +767,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'avatar_url': 'https://some.place/somewhere'
         }
         response = await GraphQlClient.call(
-            url, MUTATE_PERSON, variables=vars, headers=member_headers
+            url, MUTATE_PERSON, vars=vars, timeout=120, headers=member_headers
         )
         data = await response.json()
 
@@ -783,7 +787,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         '''
         # Mutation fails because 'member' can only read this data
         response = await GraphQlClient.call(
-            url, query, variables=vars, headers=member_headers
+            url, query, vars=vars, timeout=120, headers=member_headers
         )
         data = await response.json()
 
@@ -801,7 +805,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Query fails because other members do not have access
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, variables=vars, headers=alt_member_headers
+            url, QUERY_PERSON, vars=vars, timeout=120,
+            headers=alt_member_headers
         )
         result = await response.json()
 
@@ -818,7 +823,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK, variables=vars, headers=member_headers
+            url, APPEND_NETWORK, vars=vars, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -832,7 +837,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK, variables=vars, headers=member_headers
+            url, APPEND_NETWORK, vars=vars, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -849,7 +854,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'timestamp': friend_timestamp
         }
         response = await GraphQlClient.call(
-            url, APPEND_NETWORK, variables=vars, headers=member_headers
+            url, APPEND_NETWORK, vars=vars, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -858,7 +863,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
-            url, QUERY_NETWORK, headers=member_headers
+            url, QUERY_NETWORK, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -874,8 +879,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'relation': {'eq': 'friend'}},
         }
         response = await GraphQlClient.call(
-            url, QUERY_NETWORK, variables=vars,
-            headers=member_headers
+            url, QUERY_NETWORK, vars=vars,
+            timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -888,8 +893,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'relation': {'eq': 'follow'}},
         }
         response = await GraphQlClient.call(
-            url, QUERY_NETWORK, variables=vars,
-            headers=member_headers
+            url, QUERY_NETWORK, vars=vars,
+            timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -904,8 +909,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
-            url, QUERY_NETWORK, variables=vars,
-            headers=member_headers
+            url, QUERY_NETWORK, vars=vars,
+            timeout=120, headers=member_headers
         )
         result = await response.json()
         data = result.get('data')
@@ -922,8 +927,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'best_friend',
         }
         response = await GraphQlClient.call(
-            url, UPDATE_NETWORK_RELATION, variables=vars,
-            headers=member_headers
+            url, UPDATE_NETWORK_RELATION, vars=vars,
+            timeout=120, headers=member_headers
         )
         result = await response.json()
         data = result.get('data')
@@ -941,8 +946,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
-            url, DELETE_FROM_NETWORK_WITH_FILTER, variables=vars,
-            headers=member_headers
+            url, DELETE_FROM_NETWORK_WITH_FILTER, vars=vars,
+            timeout=120, headers=member_headers
         )
         result = await response.json()
         data = result.get('data')

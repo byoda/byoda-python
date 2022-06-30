@@ -27,7 +27,7 @@ class GraphQlClient:
 
     @staticmethod
     async def call(url: str, query: bytes, secret: Secret = None,
-                   headers: Dict = None, variables: Dict = None,
+                   headers: Dict = None, vars: Dict = None,
                    timeout: int = 10) -> aiohttp.ClientResponse:
 
         if isinstance(query, bytes):
@@ -35,8 +35,8 @@ class GraphQlClient:
 
         body = {"query": query}
 
-        if variables:
-            body["variables"] = variables
+        if vars:
+            body["variables"] = vars
 
         response: aiohttp.ClientResponse = await ApiClient.call(
             url, HttpMethod.POST, secret=secret, data=body, headers=headers,

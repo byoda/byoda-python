@@ -79,6 +79,8 @@ class ApiClient:
                 f'service-secret, not {type(secret)}'
             )
 
+        self.ssl_context = None
+
         if pool not in config.client_pools:
             if api.startswith(f'https://dir'):
                 # For calls by Accounts and Services to the directory server,
