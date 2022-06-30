@@ -1014,7 +1014,12 @@ class Member:
         # in a schema
         update_data.pop('filters')
 
-        removed[0].update(update_data)
+        removed[0].update(
+            {
+                key: value for key, value in update_data.items()
+                if value is not None
+            }
+        )
 
         data.append(removed[0])
 

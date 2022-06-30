@@ -43,8 +43,8 @@ mutation(
 '''
 
 QUERY_NETWORK = '''
-query {
-    network_links_connection {
+query ($filters: networkLinkInputFilter) {
+    network_links_connection(filters: $filters) {
         total_count
         edges {
             cursor
@@ -62,26 +62,6 @@ query {
 }
 '''
 
-QUERY_NETWORK_WITH_FILTER = '''
-query {{
-    network_links_connection(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
-        total_count
-        edges {{
-            cursor
-            network_link {{
-                relation
-                member_id
-                timestamp
-            }}
-        }}
-        page_info {{
-            end_cursor
-            has_next_page
-        }}
-    }}
-}}
-'''
-
 APPEND_NETWORK = '''
 mutation ($member_id: UUID!, $relation: String!, $timestamp: DateTime!) {
     append_network_links (
@@ -96,31 +76,30 @@ mutation ($member_id: UUID!, $relation: String!, $timestamp: DateTime!) {
 
 
 UPDATE_NETWORK_RELATION = '''
-mutation {{
-    update_network_links (
-        filters: {{ {field}: {{ {cmp}: "{value}" }} }},
-        relation: "{relation}",
-    ) {{
+mutation ($filters: networkLinkInputFilter!, $relation: String!) {
+    update_network_links(filters: $filters, relation: $relation) {
         member_id relation timestamp
-    }}
-}}
+    }
+}
 '''
 
 DELETE_FROM_NETWORK_WITH_FILTER = '''
-mutation {{
-    delete_from_network_links(filters: {{ {field}: {{ {cmp}: "{value}" }} }}) {{
+mutation ($filters: networkLinkInputFilter!) {
+    delete_from_network_links(filters: $filters) {
         relation
         member_id
         timestamp
-    }}
-}}
+    }
+}
 '''
 
+# Network Assets refer to Asset objects so we use assetInputFilter
 QUERY_NETWORK_ASSETS = '''
-query ($first: Int, $after: String, $depth: Int, $relations: [String!]) {
+query ($filters: assetInputFilter, $first: Int, $after: String, $depth: Int,
+      $relations: [String!]) {
     network_assets_connection(
-        first: $first, after: $after, depth: $depth, relations: $relations
-    ) {
+        filters: $filters, first: $first, after: $after, depth: $depth,
+        relations: $relations) {
         total_count
         edges {
             cursor
@@ -139,13 +118,19 @@ query ($first: Int, $after: String, $depth: Int, $relations: [String!]) {
 }
 '''
 
+# Network Assets refer to Asset objects so we use assetInputFilter
 UPDATE_NETWORK_ASSETS = '''
-mutation {{
+mutation (
+        $filters: assetInputFilter!, $timestamp: DateTime,
+        $asset_type: String, $asset_id: UUID, $creator: String,
+        $created: DateTime, $title: String, $subject: String,
+        $contents: String, $keywords: [String!]) {
     update_network_assets (
-        filters: {{ {field}: {{ {cmp}: "{value}" }} }},
-        contents: "{contents}",
-        keywords: {keywords}
-    ) {{
+        filters: $filters, timestamp: $timestamp,
+        asset_type: $asset_type, asset_id: $asset_id, creator: $creator,
+        created: $created, title: $title, subject: $subject,
+        contents: $contents, keywords: $keywords
+    ) {
         timestamp
         asset_type
         asset_id
@@ -155,9 +140,10 @@ mutation {{
         subject
         contents
         keywords
-    }}
-}}
+    }
+}
 '''
+
 APPEND_NETWORK_ASSETS = '''
 mutation (
         $timestamp: DateTime!, $asset_type: String!, $asset_id: UUID!,

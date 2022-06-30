@@ -24,15 +24,13 @@ from uuid import UUID, uuid4
 from multiprocessing import Process
 import uvicorn
 
-from python_graphql_client import GraphqlClient
-
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
-from byoda.util.api_client.graphql_client import GraphQlClient as ByodaGraphQlClient
+from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -54,7 +52,6 @@ from tests.lib import get_test_uuid
 from tests.lib.graphql_queries import QUERY_PERSON
 from tests.lib.graphql_queries import MUTATE_PERSON
 from tests.lib.graphql_queries import QUERY_NETWORK
-from tests.lib.graphql_queries import QUERY_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import APPEND_NETWORK
 from tests.lib.graphql_queries import UPDATE_NETWORK_RELATION
 from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
@@ -454,7 +451,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'homepage_url': 'https://byoda.org',
             'avatar_url': 'https://some.place/somewhere'
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, MUTATE_PERSON, variables=vars, headers=auth_header
         )
         result = await response.json()
@@ -474,7 +471,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'email': 'steven@byoda.org',
             'family_name': 'Hessing',
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, mutate_person_test, variables=vars, headers=auth_header
         )
         result = await response.json()
@@ -491,7 +488,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'friend',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK, variables=vars, headers=auth_header
         )
         result = await response.json()
@@ -526,7 +523,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'Authorization': f'bearer {jwt.encoded}'
         }
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, QUERY_PERSON, headers=remote_member_auth_header
         )
         result = await response.json()
@@ -535,17 +532,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(data)
         self.assertIsNotNone(result.get('errors'))
 
-        client = GraphqlClient(endpoint=url)
-        query = DELETE_FROM_NETWORK_WITH_FILTER.format(
-            field='member_id', cmp='eq', value=REMOTE_MEMBER_ID
+        vars = {
+            'filters': {'member_id': {'eq': str(REMOTE_MEMBER_ID)}},
+        }
+        response = await GraphQlClient.call(
+            url, DELETE_FROM_NETWORK_WITH_FILTER, variables=vars,
+            headers=auth_header
         )
-        result = client.execute(query, headers=auth_header)
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
 
-        self.assertIsNotNone(result.get('data'))
-        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        self.assertEqual(len(data['delete_from_network_links']), 1)
         self.assertEqual(
-            result['data']['delete_from_network_links'][0]['relation'],
-            'friend'
+            data['delete_from_network_links'][0]['relation'], 'friend'
         )
 
         vars = {
@@ -554,7 +555,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
 
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK, variables=vars, headers=auth_header
         )
         result = await response.json()
@@ -563,7 +564,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, QUERY_PERSON, headers=remote_member_auth_header
         )
         result = await response.json()
@@ -586,7 +587,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'keywords': ["just", "testing"]
         }
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
         )
         result = await response.json()
@@ -604,18 +605,23 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['contents'], 'some utf-8 markdown string')
         self.assertEqual(data['keywords'], ['just', 'testing'])
 
-        result = client.execute(
-            UPDATE_NETWORK_ASSETS.format(
-                field='asset_id', cmp='eq', value=asset_id,
-                contents='more utf-8 markdown strings',
-                keywords='["more", "tests"]'
-            ),
+        vars = {
+            'filters': {'asset_id': {'eq': str(asset_id)}},
+            'contents': 'more utf-8 markdown strings',
+            'keywords': ["more", "tests"]
+        }
+        response = await GraphQlClient.call(
+            url, UPDATE_NETWORK_ASSETS, variables=vars,
             headers=auth_header
         )
-        self.assertIsNotNone(result['data'])
-        self.assertIsNotNone(result['data']['update_network_assets'])
+        result = await response.json()
 
+        data = result.get('data')
+        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
+
+        self.assertIsNotNone(data['update_network_assets'])
+
         data = result['data']['update_network_assets']
         self.assertEqual(data['asset_type'], 'post')
         self.assertEqual(data['asset_id'], str(asset_id))
@@ -638,13 +644,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'keywords': ["just", "testing"]
             }
 
-            response = await ByodaGraphQlClient.call(
+            response = await GraphQlClient.call(
                 url, APPEND_NETWORK_ASSETS, variables=vars, headers=auth_header
             )
             result = await response.json()
             self.assertIsNone(result.get('errors'))
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, QUERY_NETWORK_ASSETS, headers=auth_header
         )
         result = await response.json()
@@ -660,7 +666,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'first': 15,
                 'after': cursor
             }
-            response = await ByodaGraphQlClient.call(
+            response = await GraphQlClient.call(
                 url, QUERY_NETWORK_ASSETS,
                 variables=vars, headers=auth_header
             )
@@ -680,7 +686,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'depth': 1,
             'relations': ["colleague"]
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, QUERY_NETWORK_ASSETS,
             variables=vars, headers=auth_header
         )
@@ -693,6 +699,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         account = config.server.account
         account_id = account.account_id
         network = account.network
+        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
         service_id = ADDRESSBOOK_SERVICE_ID
 
@@ -718,8 +725,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
         }
 
-        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
-
         vars = {
             'given_name': 'Carl',
             'additional_names': '',
@@ -729,7 +734,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'avatar_url': 'https://some.place/somewhere'
         }
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, MUTATE_PERSON,
             variables=vars, headers=member_headers
         )
@@ -742,7 +747,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             data['mutate_person']['given_name'], 'Carl'
         )
 
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, QUERY_PERSON, headers=member_headers
         )
         data = await response.json()
@@ -757,7 +762,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'homepage_url': 'https://byoda.org',
             'avatar_url': 'https://some.place/somewhere'
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, MUTATE_PERSON, variables=vars, headers=member_headers
         )
         data = await response.json()
@@ -777,7 +782,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 }
         '''
         # Mutation fails because 'member' can only read this data
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, query, variables=vars, headers=member_headers
         )
         data = await response.json()
@@ -795,8 +800,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # Query fails because other members do not have access
-        client = GraphqlClient(endpoint=url)
-        result = client.execute(QUERY_PERSON, headers=alt_member_headers)
+        response = await GraphQlClient.call(
+            url, QUERY_PERSON, variables=vars, headers=alt_member_headers
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNone(data)
+        self.assertIsNotNone(result.get('errors'))
+
         self.assertIsNone(result['data'])
         self.assertIsNotNone(result['errors'])
 
@@ -805,7 +817,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'follow',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
         result = await response.json()
@@ -819,7 +831,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'follow',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
         result = await response.json()
@@ -836,7 +848,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'friend',
             'timestamp': friend_timestamp
         }
-        response = await ByodaGraphQlClient.call(
+        response = await GraphQlClient.call(
             url, APPEND_NETWORK, variables=vars, headers=member_headers
         )
         result = await response.json()
@@ -845,72 +857,100 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        result = client.execute(QUERY_NETWORK, headers=member_headers)
-        self.assertIsNotNone(result['data'])
+        response = await GraphQlClient.call(
+            url, QUERY_NETWORK, headers=member_headers
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+
         data = result['data']['network_links_connection']['edges']
         self.assertNotEqual(data[0], data[1])
         self.assertNotEqual(data[1], data[2])
 
-        result = client.execute(
-            QUERY_NETWORK_WITH_FILTER.format(
-                field='relation', cmp='eq', value='friend'
-            ),
+        vars = {
+            'filters': {'relation': {'eq': 'friend'}},
+        }
+        response = await GraphQlClient.call(
+            url, QUERY_NETWORK, variables=vars,
             headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
-        data = result['data']['network_links_connection']['edges']
-        self.assertEqual(len(data), 1)
+        result = await response.json()
 
-        result = client.execute(
-            QUERY_NETWORK_WITH_FILTER.format(
-                field='relation', cmp='eq', value='follow'
-            ),
-            headers=member_headers
-        )
-        self.assertIsNotNone(result['data'])
-        data = result['data']['network_links_connection']['edges']
-        self.assertNotEqual(data[0],data[1])
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertEqual(len(data['network_links_connection']['edges']), 1)
 
-        result = client.execute(
-            QUERY_NETWORK_WITH_FILTER.format(
-                field='timestamp', cmp='at', value=friend_timestamp
-            ),
+        vars = {
+            'filters': {'relation': {'eq': 'follow'}},
+        }
+        response = await GraphQlClient.call(
+            url, QUERY_NETWORK, variables=vars,
             headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
-        data = result['data']['network_links_connection']['edges']
-        self.assertEqual(len(data), 1)
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        edges = data['network_links_connection']['edges']
+        self.assertEqual(len(edges), 2)
+        self.assertNotEqual(edges[0], edges[1])
+
+        vars = {
+            'filters': {'timestamp': {'at': friend_timestamp}},
+        }
+        response = await GraphQlClient.call(
+            url, QUERY_NETWORK, variables=vars,
+            headers=member_headers
+        )
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        edges = data['network_links_connection']['edges']
+        self.assertEqual(len(edges), 1)
         self.assertEqual(
-            data[0]['network_link']['relation'], 'friend'
+            edges[0]['network_link']['relation'], 'friend'
         )
 
-        result = client.execute(
-            UPDATE_NETWORK_RELATION.format(
-                field='member_id', cmp='eq', value=friend_uuid,
-                relation='best_friend'
-            ),
+        vars = {
+            'filters': {'member_id': {'eq': str(friend_uuid)}},
+            'relation': 'best_friend',
+        }
+        response = await GraphQlClient.call(
+            url, UPDATE_NETWORK_RELATION, variables=vars,
             headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
         self.assertEqual(
-            result['data']['update_network_links']['relation'],
+            data['update_network_links']['relation'],
             'best_friend'
         )
         self.assertEqual(
-            result['data']['update_network_links']['member_id'],
-            str(friend_uuid)
+            data['update_network_links']['member_id'], str(friend_uuid)
         )
 
-        result = client.execute(
-            DELETE_FROM_NETWORK_WITH_FILTER.format(
-                field='timestamp', cmp='at', value=friend_timestamp
-            ),
+        vars = {
+            'filters': {'timestamp': {'at': friend_timestamp}},
+        }
+        response = await GraphQlClient.call(
+            url, DELETE_FROM_NETWORK_WITH_FILTER, variables=vars,
             headers=member_headers
         )
-        self.assertIsNotNone(result['data'])
-        self.assertEqual(len(result['data']['delete_from_network_links']), 1)
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertEqual(len(data['delete_from_network_links']), 1)
         self.assertEqual(
-            result['data']['delete_from_network_links'][0]['relation'],
+            data['delete_from_network_links'][0]['relation'],
             'best_friend'
         )
 
