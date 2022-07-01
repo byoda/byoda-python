@@ -879,7 +879,7 @@ class Member:
                 if data_item and isinstance(data_item, dict):
                     data_item = data_class.normalize(data_item)
 
-                    data_item['byoda_origin'] = target
+                    data_item['byoda_origin'] = target_id
                     cleaned_data.append(data_item)
 
         _LOGGER.debug(
