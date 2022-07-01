@@ -690,51 +690,64 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             headers=azure_member_auth_header
         )
         result = await response.json()
-        self.assertIsNone(result.get('errors'))
-
-        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
-        vars = {
-            'member_id': str(member.member_id),
-            'relation': 'colleague',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
-
-        }
-        response = await GraphQlClient.call(
-            azure_url, APPEND_NETWORK, vars=vars, timeout=120,
-            headers=azure_member_auth_header
-        )
-        result = await response.json()
-
         data = result.get('data')
-        self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
+        links_found = data['network_links_connection']['total_count']
 
-        asset_id = uuid4()
-        vars = {
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
-            'asset_type': 'post',
-            'asset_id': str(asset_id),
-            'creator': 'Azure Pod API Test',
-            'created': str(datetime.now(tz=timezone.utc).isoformat()),
-            'title': 'Azure POD test asset',
-            'subject': 'just an Azure POD test asset',
-            'contents': 'some utf-8 markdown string in Azure',
-            'keywords': ["azure", "just", "testing"]
-        }
+        if not links_found:
+            member = account.memberships[ADDRESSBOOK_SERVICE_ID]
+            vars = {
+                'member_id': str(member.member_id),
+                'relation': 'colleague',
+                'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+            }
+            response = await GraphQlClient.call(
+                azure_url, APPEND_NETWORK, vars=vars, timeout=120,
+                headers=azure_member_auth_header
+            )
+            result = await response.json()
 
-        response = await GraphQlClient.call(
-            azure_url, APPEND_NETWORK_ASSETS, vars=vars, timeout=120,
-            headers=azure_member_auth_header
-        )
-        result = await response.json()
-
-        data = result.get('data')
-        self.assertIsNotNone(data)
-        self.assertIsNone(result.get('errors'))
+            data = result.get('data')
+            self.assertIsNotNone(data)
+            self.assertIsNone(result.get('errors'))
 
         vars = {
             'depth': 0,
-            'relations': ["colleague"]
+        }
+        response = await GraphQlClient.call(
+            azure_url, QUERY_NETWORK_ASSETS,
+            vars=vars, timeout=120, headers=azure_member_auth_header
+        )
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+
+        if not data['network_assets_connection']['total_count']:
+            asset_id = uuid4()
+            vars = {
+                'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'asset_type': 'post',
+                'asset_id': str(asset_id),
+                'creator': 'Azure Pod API Test',
+                'created': str(datetime.now(tz=timezone.utc).isoformat()),
+                'title': 'Azure POD test asset',
+                'subject': 'just an Azure POD test asset',
+                'contents': 'some utf-8 markdown string in Azure',
+                'keywords': ["azure", "just", "testing"]
+            }
+
+            response = await GraphQlClient.call(
+                azure_url, APPEND_NETWORK_ASSETS, vars=vars, timeout=120,
+                headers=azure_member_auth_header
+            )
+            result = await response.json()
+            data = result.get('data')
+            self.assertIsNotNone(data)
+            self.assertIsNone(result.get('errors'))
+
+        vars = {
+            'depth': 0,
         }
         response = await GraphQlClient.call(
             azure_url, QUERY_NETWORK_ASSETS,
@@ -748,6 +761,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         edges = data['network_assets_connection']['edges']
         self.assertGreaterEqual(len(edges), 1)
 
+        #
+        # Now we do the query to our pod with depth=1
         vars = {
             'depth': 1,
             'relations': ["colleague"]

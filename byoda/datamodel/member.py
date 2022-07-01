@@ -846,12 +846,14 @@ class Member:
             tasks.add(task)
 
         data = await asyncio.gather(*tasks, return_exceptions=True)
+        _LOGGER.debug(f'Collected {len(data)} items in total')
 
         pruned_data = []
         for item in data:
             if item and isinstance(item, dict) and not item.get('errors'):
                 pruned_data.append(item)
 
+        _LOGGER.debug(f'Collected {len(pruned_data)} items after pruning')
         return pruned_data
 
     async def exec_graphql_query(self, target: UUID, query: bytes
@@ -882,6 +884,7 @@ class Member:
         if isinstance(data, dict):
             data['byoda_origin'] = target
 
+        _LOGGER.debug(f'GraphQL query returned {len(data)} items')
         return data
 
     @staticmethod
@@ -955,8 +958,10 @@ class Member:
                 )
                 continue
 
+            _LOGGER.debug(f'Setting key {key} for data object {class_object}')
             member.data[class_object][key] = mutate_data[key]
 
+        _LOGGER.debug(f'Saving data fter mutation of {class_object}')
         await member.save_data(data)
 
         return member.data
@@ -1002,6 +1007,7 @@ class Member:
         data = copy(member.data.get(class_object))
 
         if not data:
+            _LOGGER.debug(f'No data available for {class_object}')
             return {}
 
         if not isinstance(data, list):
@@ -1014,6 +1020,9 @@ class Member:
         # add the data back to the list
         (data, removed) = DataFilterSet.filter_exclude(
             filters, data
+        )
+        _LOGGER.debug(
+            f'Filtering left {len(data)} items and removed {len(removed)}'
         )
 
         # We can update only one list item per query
@@ -1028,12 +1037,17 @@ class Member:
         # in a schema
         update_data.pop('filters')
 
-        removed[0].update(
-            {
+        updates = {
                 key: value for key, value in update_data.items()
                 if value is not None
             }
+
+        _LOGGER.debug(
+            f'Updating data for scalars {", ".join(updates.keys())} of'
+            f'object {class_object}'
         )
+
+        removed[0].update(updates)
 
         data.append(removed[0])
 
@@ -1087,9 +1101,11 @@ class Member:
         # The query may be for an array for which we do not yet have
         # any data
         if class_object not in member.data:
+            _LOGGER.debug(f'Initiating array {class_object} to empty list')
             member.data[class_object] = []
 
         # Strawberry passes us data that we can just copy as-is
+        _LOGGER.debug(f'Appending item to array {class_object}')
         member.data[class_object].append(mutate_data)
 
         await member.save_data(data)
@@ -1137,6 +1153,10 @@ class Member:
         data = copy(member.data.get(class_object))
 
         if not data:
+            _LOGGER.debug(
+                'Can not delete items from empty array for class '
+                f'{class_object}'
+            )
             return {}
 
         if not isinstance(data, list):
