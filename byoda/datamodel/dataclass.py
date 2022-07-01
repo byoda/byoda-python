@@ -205,6 +205,7 @@ class SchemaDataItem:
         :returns: None if no determination was made, otherwise True or False
         '''
 
+        _LOGGER.debug(f'Checking authorization for operation {operation}')
         if service_id != auth.service_id:
             _LOGGER.debug(
                 f'GraphQL API for service ID {service_id} called with credentials '
@@ -215,12 +216,18 @@ class SchemaDataItem:
         if not self.access_controls:
             # No access rights for the data element so can't decide
             # whether access is allowed or not
+            _LOGGER.debug(f'No access controls defined')
             return None
 
         for entity, permissions in self.access_controls.items():
             # Check if the GraphQL operation is allowed per the permissions
             # before matching the entity for the controls with the caller
             if operation not in permissions.permitted_actions:
+                perms = [perm.value for perm in permissions.permitted_actions]
+                _LOGGER.debug(
+                    f'Operation {operation} not matching permitted actions: '
+                    f'{", ".join(perms)}'
+                )
                 continue
 
             # Now check whether the requestor matches the entity of the
@@ -229,6 +236,7 @@ class SchemaDataItem:
             # Anyone is allowed to
             if entity == RightsEntityType.ANONYMOUS:
                 if operation in permissions.permitted_actions:
+                    _LOGGER.debug('Authorizing anonymous access')
                     return True
 
             # Are we querying the GraphQL API ourselves?
@@ -236,6 +244,7 @@ class SchemaDataItem:
                 if auth.id_type == IdType.MEMBER:
                     if authorize_member(service_id, auth):
                         if operation in permissions.permitted_actions:
+                            _LOGGER.debug('Authorizing member access')
                             return True
 
             # Did the service server call our GraphQL API?
@@ -243,19 +252,24 @@ class SchemaDataItem:
                 if auth.id_type == IdType.SERVICE:
                     if authorize_service(service_id, auth):
                         if operation in permissions.permitted_actions:
+                            _LOGGER.debug('Authorizing service access')
                             return True
 
             if entity == RightsEntityType.ANY_MEMBER:
                 if auth.id_type == IdType.MEMBER:
                     if authorize_any_member(service_id, auth):
                         if operation in permissions.permitted_actions:
+                            _LOGGER.debug('Authorizing any member access')
                             return True
 
             if entity == RightsEntityType.NETWORK:
                 if await authorize_network(
                         service_id, permissions.relations, permissions.distance, auth):
                     if operation in permissions.permitted_actions:
+                        _LOGGER.debug('Authorizing network access')
                         return True
+
+        _LOGGER.debug('No access controls matched')
 
         return None
 
@@ -367,9 +381,14 @@ class SchemaDataObject(SchemaDataItem):
             child_access_allowed = await data_class.authorize_access(
                 operation, auth, service_id
             )
+            _LOGGER.debug(
+                f'Object child data access authorized: {child_access_allowed}'
+            )
+
             if child_access_allowed is False:
                 return False
 
+        _LOGGER.debug(f'Object data access authorized: {access_allowed}')
         return access_allowed
 
 
@@ -451,8 +470,13 @@ class SchemaDataArray(SchemaDataItem):
             child_access_allowed = await self.referenced_class.authorize_access(
                 operation, auth, service_id
             )
+            _LOGGER.debug(
+                f'Child array data access authorized: {child_access_allowed}'
+            )
             if child_access_allowed is False:
                 return False
+
+        _LOGGER.debug(f'Array data access authorized: {child_access_allowed}')
 
         return access_allowed
 
@@ -509,8 +533,10 @@ def authorize_member(service_id: int, auth: RequestAuth) -> bool:
     member = config.server.account.memberships.get(service_id)
 
     if auth.member_id and member and auth.member_id == member.member_id:
+        _LOGGER.debug(f'Authorization success for ourselves: {auth.member_id}')
         return True
 
+    _LOGGER.debug(f'Authorization failed for ourselves: {auth.member_id}')
     return False
 
 
@@ -528,8 +554,10 @@ def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
     member = config.server.account.memberships.get(service_id)
 
     if member and auth.member_id and auth.service_id == service_id:
+        _LOGGER.debug(f'Authorization success for any member {auth.member_id}')
         return True
 
+    _LOGGER.debug(f'Authorization rejected for any member {auth.member_id}')
     return False
 
 
@@ -547,8 +575,10 @@ def authorize_service(service_id: int, auth: RequestAuth) -> bool:
 
     if (member and auth.service_id is not None
             and auth.service_id == service_id):
+        _LOGGER.debug(f'Authorization success for service {service_id}')
         return True
 
+    _LOGGER.debug('Authorization rejected for service {service_id}')
     return False
 
 
@@ -569,6 +599,7 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
         raise ValueError('Only network distance 0 and 1 are supported')
 
     if not relations:
+        _LOGGER.debug(f'No relations defined for service {service_id}')
         return False
 
     if not isinstance(relations, list):
@@ -579,6 +610,7 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
     if member and auth.member_id:
         await member.load_data()
         network_links = member.data.get('network_links')
+        _LOGGER.debug(f'Found total of {len(network_links)} network links')
         network = [
             link for link in network_links
             if link['member_id'] == auth.member_id
@@ -586,7 +618,10 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
                     link['relation'].lower() in relations
                  )
         ]
+        _LOGGER.debug(f'Found {len(network_links)} applicable network links')
         if len(network):
+            _LOGGER.debug('Network authorization successful')
             return True
 
+    _LOGGER.debug('Network authorization rejected')
     return False

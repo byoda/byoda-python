@@ -21,7 +21,7 @@ from strawberry.types import Info
 from fastapi import HTTPException
 
 from byoda.datamodel.member import Member as MemberClassByoda
-from byoda.datatypes import DataType
+from byoda.datatypes import IdType
 
 import logging as loggingByoda
 
@@ -53,6 +53,16 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
+        if auth.id_type == IdType.MEMBER:
+            _LOGGER.debug(
+                f'Authentication for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Authentication for service {auth.service_id}: '
+                'f{auth.is_authenticated}'
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=400, detail='Authentication failed'
@@ -66,9 +76,20 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        return await authorize_graphql_request_Byoda(
+        result = await authorize_graphql_request_Byoda(
             data_operation, {{ service_id}}, info, depth
         )
+        if auth.id_type == IdType.MEMBER:
+            _LOGGER.debug(
+                f'Authorization for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Authorization for service {auth.service_id}: '
+                'f{auth.is_authenticated}'
+            )
+        return result
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
@@ -224,6 +245,7 @@ class Query:
 
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
+        cursor = None
         for obj in data or []:
             info.context['data'] = obj
             required_field_names = [

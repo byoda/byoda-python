@@ -796,7 +796,7 @@ class Member:
         for item in modified_data or []:
             item['byoda_origin'] = member.member_id
 
-        all_data.extend(modified_data)
+        all_data.extend(modified_data or [])
 
         return all_data
 

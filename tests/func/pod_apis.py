@@ -685,7 +685,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Confirm we are not already in the network_links of the Azure pod
         azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
 
-        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
         response = await GraphQlClient.call(
             azure_url, QUERY_NETWORK, timeout=120,
             headers=azure_member_auth_header
@@ -693,20 +692,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
         self.assertIsNone(result.get('errors'))
 
-        response = await GraphQlClient.call(
-            azure_url, APPEND_NETWORK, vars=vars, timeout=120,
-            headers=azure_member_auth_header
-        )
-        result = await response.json()
-
-        data = result.get('data')
-        self.assertIsNotNone(data)
-        self.assertIsNone(result.get('errors'))
-
+        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
         vars = {
             'member_id': str(member.member_id),
             'relation': 'colleague',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+
         }
         response = await GraphQlClient.call(
             azure_url, APPEND_NETWORK, vars=vars, timeout=120,
@@ -717,6 +708,59 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
+
+        asset_id = uuid4()
+        vars = {
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'asset_type': 'post',
+            'asset_id': str(asset_id),
+            'creator': 'Azure Pod API Test',
+            'created': str(datetime.now(tz=timezone.utc).isoformat()),
+            'title': 'Azure POD test asset',
+            'subject': 'just an Azure POD test asset',
+            'contents': 'some utf-8 markdown string in Azure',
+            'keywords': ["azure", "just", "testing"]
+        }
+
+        response = await GraphQlClient.call(
+            azure_url, APPEND_NETWORK_ASSETS, vars=vars, timeout=120,
+            headers=azure_member_auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+
+        vars = {
+            'depth': 0,
+            'relations': ["colleague"]
+        }
+        response = await GraphQlClient.call(
+            azure_url, QUERY_NETWORK_ASSETS,
+            vars=vars, timeout=120, headers=azure_member_auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        edges = data['network_assets_connection']['edges']
+        self.assertGreaterEqual(len(edges), 1)
+
+        vars = {
+            'depth': 1,
+            'relations': ["colleague"]
+        }
+        response = await GraphQlClient.call(
+            url, QUERY_NETWORK_ASSETS,
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['network_assets_connection']['edges']
+        self.assertEqual(len(data), 101)
 
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
