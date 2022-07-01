@@ -628,13 +628,20 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
     if not isinstance(relations, list):
         relations = list(relations)
 
+    if relations:
+        _LOGGER.debug(
+            f'Relation of network links must be one of {",".join(relations)}'
+        )
+    else:
+        _LOGGER.debug('Network links with any relation are acceptable')
+
     member: Member = config.server.account.memberships.get(service_id)
 
     if not member:
         _LOGGER.debug(f'No membership found for service {service_id}')
         return False
 
-    if member and auth.member_id:
+    if auth.member_id:
         await member.load_data()
         network_links = member.data.get('network_links')
         _LOGGER.debug(f'Found total of {len(network_links)} network links')
@@ -645,7 +652,7 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
                     link['relation'].lower() in relations
                  )
         ]
-        _LOGGER.debug(f'Found {len(network_links)} applicable network links')
+        _LOGGER.debug(f'Found {len(network)} applicable network links')
         if len(network):
             _LOGGER.debug('Network authorization successful')
             return True

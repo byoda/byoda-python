@@ -529,7 +529,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         vars = {
             'member_id': REMOTE_MEMBER_ID,
-            'relation': 'colleague',
+            'relation': 'family',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
 
         }
@@ -665,11 +665,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # First query with depth = 1 shows only local results
         # because the remote pod has no entry in network_links with
-        # relation 'colleague' for us
+        # relation 'family' for us
         #
         vars = {
             'depth': 1,
-            'relations': ["colleague"]
+            'relations': ["family"]
         }
         response = await GraphQlClient.call(
             url, QUERY_NETWORK_ASSETS,
@@ -705,7 +705,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         if not link_to_us:
             vars = {
                 'member_id': str(member.member_id),
-                'relation': 'colleague',
+                'relation': 'family',
                 'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
             }
             response = await GraphQlClient.call(
@@ -791,7 +791,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Now we do the query for network assets to our pod with depth=1
         vars = {
             'depth': 1,
-            'relations': ["colleague"]
+            'relations': ["family"]
         }
         response = await GraphQlClient.call(
             url, QUERY_NETWORK_ASSETS,
