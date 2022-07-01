@@ -621,15 +621,19 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
     if distance < 0 or distance > 1:
         raise ValueError('Only network distance 0 and 1 are supported')
 
-    if not relations:
+    if relations is None:
         _LOGGER.debug(f'No relations defined for service {service_id}')
-        return False
+        relations = []
 
     if not isinstance(relations, list):
         relations = list(relations)
 
     member: Member = config.server.account.memberships.get(service_id)
 
+    if not member:
+        _LOGGER.debug(f'No membership found for service {service_id}')
+        return False
+    
     if member and auth.member_id:
         await member.load_data()
         network_links = member.data.get('network_links')

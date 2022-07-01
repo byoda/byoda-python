@@ -684,6 +684,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Confirm we are not already in the network_links of the Azure pod
         azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
+        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         response = await GraphQlClient.call(
             azure_url, QUERY_NETWORK, timeout=120,
@@ -692,10 +693,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
         data = result.get('data')
         self.assertIsNone(result.get('errors'))
-        links_found = data['network_links_connection']['total_count']
+        edges = data['network_links_connection']['edges']
+        filtered_edges = [
+            edge for edge in edges
+            if edge['network_link']['member_id'] == member.member_id
+        ]
+        link_to_us = None
+        if filtered_edges:
+            link_to_us = filtered_edges[0]
 
-        if not links_found:
-            member = account.memberships[ADDRESSBOOK_SERVICE_ID]
+        if not link_to_us:
             vars = {
                 'member_id': str(member.member_id),
                 'relation': 'colleague',
@@ -710,6 +717,25 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             data = result.get('data')
             self.assertIsNotNone(data)
             self.assertIsNone(result.get('errors'))
+
+            # Confirm we have a network_link entry
+            response = await GraphQlClient.call(
+                azure_url, QUERY_NETWORK, timeout=120,
+                headers=azure_member_auth_header
+            )
+            result = await response.json()
+            data = result.get('data')
+            self.assertIsNone(result.get('errors'))
+            edges = data['network_links_connection']['edges']
+            self.assertGreaterEqual(len(edges), 1)
+            filtered_edges = [
+                edge for edge in edges
+                if edge['network_link']['member_id'] == str(member.member_id)
+            ]
+            link_to_us = None
+            if filtered_edges:
+                link_to_us = filtered_edges[0]
+            self.assertIsNotNone(filtered_edges)
 
         vars = {
             'depth': 0,
