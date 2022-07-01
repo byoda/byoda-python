@@ -108,6 +108,7 @@ query ($filters: assetInputFilter, $first: Int, $after: String, $depth: Int,
                 asset_type
                 asset_id
                 title
+                byoda_origin
             }
         }
         page_info {

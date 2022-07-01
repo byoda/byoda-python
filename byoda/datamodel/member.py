@@ -12,7 +12,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy, deepcopy
-from typing import Dict, List, TypeVar, Callable, Union
+from typing import Dict, List, TypeVar, Callable, Union, Tuple
 
 import orjson
 
@@ -30,6 +30,7 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.dataclass import SchemaDataObject
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -766,20 +767,20 @@ class Member:
         member = server.account.memberships[service_id]
         await member.load_data()
 
-        all_data = []
-        if depth:
-            request: Request = info.context['request']
-            query = await request.body()
-            all_data = await member.proxy_graphql_request(
-                query, member.data['network_links'], depth, relations
-            )
-
         # For queries for arrays we implement pagination and identify
         # those APIs by appending _connection to the name for the
         # data class
         key = info.path.key
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
+
+        all_data = []
+        if depth:
+            request: Request = info.context['request']
+            query = await request.body()
+            all_data = await member.proxy_graphql_request(
+                key, query, member.data['network_links'], depth, relations
+            )
 
         data = member.data.get(key)
 
@@ -800,7 +801,7 @@ class Member:
 
         return all_data
 
-    async def proxy_graphql_request(self, query: bytes,
+    async def proxy_graphql_request(self, class_name: str, query: bytes,
                                     network_links: List[Dict],
                                     depth: int, relations: List[str]
                                     ) -> List[Dict]:
@@ -845,19 +846,49 @@ class Member:
             )
             tasks.add(task)
 
-        data = await asyncio.gather(*tasks, return_exceptions=True)
-        _LOGGER.debug(f'Collected {len(data)} items in total')
+        network_data: List[Dict[UUID:Dict]] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
+        _LOGGER.debug(f'Collected data from {len(network_data)} pods in total')
 
-        pruned_data = []
-        for item in data:
-            if item and isinstance(item, dict) and not item.get('errors'):
-                pruned_data.append(item)
+        schema: Schema = self.schema
+        if not schema:
+            raise ValueError('Schema has not yet been loaded')
 
-        _LOGGER.debug(f'Collected {len(pruned_data)} items after pruning')
-        return pruned_data
+        data_class: SchemaDataObject = \
+            schema.data_classes[class_name].referenced_class
+
+        cleaned_data = []
+        for target in network_data:
+            target_id, target_data = target
+            if not target_data:
+                _LOGGER.debug(f'POD {target_id} returned no data')
+                continue
+
+            key = list(target_data.keys())[0]
+            edges = target_data[key]['edges']
+
+            cleaned_data = []
+            for edge in edges:
+                edge_keys = list(edge.keys())
+                class_name = [
+                    edge_key for edge_key in edge_keys if edge_key != 'cursor'
+                ][0]
+                data_item = edge[class_name]
+                if data_item and isinstance(data_item, dict):
+                    data_item = data_class.normalize(data_item)
+
+                    data_item['byoda_origin'] = target
+                    cleaned_data.append(data_item)
+
+        _LOGGER.debug(
+            f'Collected {len(cleaned_data)} items after cleaning up the '
+            'results'
+        )
+        return cleaned_data
 
     async def exec_graphql_query(self, target: UUID, query: bytes
-                                 ) -> Dict[str, List[Dict]]:
+                                 ) -> Tuple[str, List[Dict]]:
         fqdn = MemberSecret.create_commonname(
             target, self.service_id, self.network.name
         )
@@ -879,13 +910,10 @@ class Member:
         data = body.get('data')
 
         if not data:
-            return None
+            return (target, None)
 
-        if isinstance(data, dict):
-            data['byoda_origin'] = target
-
-        _LOGGER.debug(f'GraphQL query returned {len(data)} items')
-        return data
+        _LOGGER.debug(f'GraphQL query returned {len(data)} data class')
+        return (target, data)
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:
@@ -961,7 +989,7 @@ class Member:
             _LOGGER.debug(f'Setting key {key} for data object {class_object}')
             member.data[class_object][key] = mutate_data[key]
 
-        _LOGGER.debug(f'Saving data fter mutation of {class_object}')
+        _LOGGER.debug(f'Saving data after mutation of {class_object}')
         await member.save_data(data)
 
         return member.data

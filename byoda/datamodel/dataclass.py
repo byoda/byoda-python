@@ -121,7 +121,7 @@ class SchemaDataItem:
                         f' of "/schema/{data_name}"'
                     )
                 class_reference = items['$ref'].split('/')[-1]
-                return f'List[{class_reference}'
+                return f'List[{class_reference}]'
         elif jsonschema_type == DataType.OBJECT:
             return
 
@@ -633,7 +633,7 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
     if not member:
         _LOGGER.debug(f'No membership found for service {service_id}')
         return False
-    
+
     if member and auth.member_id:
         await member.load_data()
         network_links = member.data.get('network_links')

@@ -155,6 +155,7 @@ class {{ root_class.name }}:
     {{ field.name }}: {% if field.name in root_class.required_fields %}{{ field.python_type }}{% else %}Optional[{{field.python_type}}]{% endif %}
 
 {%     endfor %}{# for field in root_class.fields.values() #}
+    byoda_origin: Optional[UUID] = None
 
 @strawberry.input
 class {{ root_class.name }}_input:
@@ -269,6 +270,7 @@ class Query:
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
                     info.context['data'].get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+                    info.context['data'].get('byoda_origin')
                 )
                 edge = {{ root_class.name }}_edge(cursor=cursor, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
                 edges.append(edge)
