@@ -788,7 +788,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(edges), 1)
 
         #
-        # Now we do the query to our pod with depth=1
+        # Now we do the query for network assets to our pod with depth=1
         vars = {
             'depth': 1,
             'relations': ["colleague"]
@@ -802,6 +802,60 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
         self.assertEqual(len(data), 101)
+
+        #
+        # Now we make sure the local pod and the Azure pod have data for
+        # the Person object
+        #
+        # First the local pod
+        vars = {
+            'given_name': 'Steven',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'steven@byoda.org',
+            'homepage_url': 'https://byoda.org',
+            'avatar_url': 'https://some.place/somewhere'
+        }
+        response = await GraphQlClient.call(
+            url, MUTATE_PERSON, vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('mutate_person' in data)
+        self.assertEqual(data['mutate_person']['given_name'], 'Steven')
+
+        # Then the Azure pod
+        vars = {
+            'given_name': 'Stefke',
+            'additional_names': '',
+            'family_name': 'Hessing',
+            'email': 'stevenhessing@live.com',
+            'homepage_url': 'https://byoda.org',
+            'avatar_url': 'https://some.place/somewhere'
+        }
+        response = await GraphQlClient.call(
+            azure_url, MUTATE_PERSON, vars=vars,
+            timeout=120, headers=azure_member_auth_header
+        )
+        result = await response.json()
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertEqual(data['mutate_person']['given_name'], 'Stefke')
+
+        vars = {
+            'depth': 1
+        }
+        response = await GraphQlClient.call(
+            url, QUERY_PERSON, timeout=120,
+            vars=vars, headers=auth_header
+        )
+        data = await response.json()
+        self.assertIsNotNone(data.get('data'))
+        self.assertIsNone(data.get('errors'))
 
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account

@@ -247,7 +247,9 @@ class Query:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = await MemberClassByoda.get_object_data({{ service_id }}, info)
+        data = await MemberClassByoda.get_data(
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+        )
 
 
         if after:
@@ -310,7 +312,9 @@ class Query:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = await MemberClassByoda.get_array_data({{ service_id }}, info, depth, relations, filters)
+        data = await MemberClassByoda.get_data(
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+        )
 
         if after:
             cursor_seen: bool = False
