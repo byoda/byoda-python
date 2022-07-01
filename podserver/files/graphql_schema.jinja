@@ -213,6 +213,10 @@ class Query:
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
+            _LOGGER(
+                'Authentication status for query for data from object '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = await MemberClassByoda.get_object_data({{ service_id }}, info)
@@ -234,6 +238,11 @@ class Query:
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ, depth)
         if not result:
+            _LOGGER(
+                'Authentication status for query for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberClassByoda.get_array_data({{ service_id }}, info, depth, relations, filters)
@@ -298,6 +307,10 @@ class Mutation:
         # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
         result = await authenticate(self, info,  DataOperationType_Byoda.UPDATE)
         if not result:
+            _LOGGER(
+                'Authentication status for mutation for data from object '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -324,6 +337,10 @@ class Mutation:
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
+            _LOGGER(
+                'Authentication status for update for data from array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -359,6 +376,10 @@ class Mutation:
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
+            _LOGGER(
+                'Authentication status for append for data to array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -378,6 +399,10 @@ class Mutation:
         _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
 
         if not await authenticate(self, info, DataOperationType_Byoda.DELETE):
+            _LOGGER(
+                'Authentication status for delete for data from array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberClassByoda.delete_array_data({{ service_id }}, info, filters)
