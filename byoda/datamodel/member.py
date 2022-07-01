@@ -12,7 +12,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy, deepcopy
-from typing import Dict, List, TypeVar, Callable, Union, Tuple
+from typing import Dict, List, TypeVar, Callable, Tuple
 
 import orjson
 
@@ -65,6 +65,8 @@ Network = TypeVar('Network')
 GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
 
 RX_RECURSIVE_QUERY = re.compile(b'''^(.*?"?depth"?:\\s*?)(\\d+)(.*)$''')
+
+ORIGIN_KEY = 'byoda_origin'
 
 
 class Member:
@@ -693,7 +695,7 @@ class Member:
 
     @staticmethod
     async def get_object_data(service_id: int, info: Info
-                              ) -> Union[Dict, List]:
+                              ) -> List:
         '''
         Extracts the requested data object.
 
@@ -724,11 +726,20 @@ class Member:
         member = server.account.memberships[service_id]
         await member.load_data()
 
+        # For queries for objects we implement pagination and identify
+        # those APIs by appending _connection to the name for the
+        # data class
         key = info.path.key
+        if key.endswith('_connection'):
+            key = key[:-1 * len('_connection')]
 
         data = member.data.get(key)
 
-        return data
+        if data:
+            data[ORIGIN_KEY] = member.member_id
+            return [data]
+        else:
+            return []
 
     @staticmethod
     async def get_array_data(service_id: int, info: Info,
@@ -795,7 +806,7 @@ class Member:
 
         modified_data = deepcopy(data)
         for item in modified_data or []:
-            item['byoda_origin'] = member.member_id
+            item[ORIGIN_KEY] = member.member_id
 
         all_data.extend(modified_data or [])
 
@@ -879,7 +890,7 @@ class Member:
                 if data_item and isinstance(data_item, dict):
                     data_item = data_class.normalize(data_item)
 
-                    data_item['byoda_origin'] = target_id
+                    data_item[ORIGIN_KEY] = target_id
                     cleaned_data.append(data_item)
 
         _LOGGER.debug(

@@ -14,6 +14,7 @@ import hashlib
 from uuid import UUID
 from datetime import datetime
 from typing import List, Dict, Optional, TypeVar
+
 import strawberry
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
@@ -21,7 +22,8 @@ from strawberry.types import Info
 from fastapi import HTTPException
 
 from byoda.datamodel.member import Member as MemberClassByoda
-from byoda.datatypes import IdType
+from byoda.datamodel.member import ORIGIN_KEY as BYODA_ORIGIN_KEY
+from byoda.datatypes import IdType as ByodaIdType
 
 import logging as loggingByoda
 
@@ -53,7 +55,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
-        if auth.id_type == IdType.MEMBER:
+        if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authentication for member {auth.member_id}: '
                 f'{auth.is_authenticated}'
@@ -79,7 +81,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         result = await authorize_graphql_request_Byoda(
             data_operation, {{ service_id}}, info, depth
         )
-        if auth.id_type == IdType.MEMBER:
+        if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authorization for member {auth.member_id}: '
                 f'{auth.is_authenticated}'
@@ -162,6 +164,28 @@ class {{ root_class.name }}_input:
 {%     for field in root_class.fields.values() %}
     {{field.name }}: {{ field.python_type }}
 {%     endfor %}{# for field in root_class.fields.values() #}
+
+{# avoid classes referenced by multiple root classes from being included multiple times #}
+{%     set class_name_deliminated = ':' + root_class.name + ':' %}
+{%     if class_name_deliminated not in ns.classes_seen %}
+@strawberry.input
+class {{ root_class.name }}_input_filter:
+{%       for field_name, field in root_class.fields.items() %}
+{%         if field.type == DataType.STRING %}
+    {{ field_name }}: Optional[string_query_operator_input] = None
+{%         elif field.type == DataType.DATETIME %}
+    {{ field_name }}: Optional[datetime_query_operator_input] = None
+{%         elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
+    {{ field_name }}: Optional[number_query_operator_input] = None
+{%         elif field.type == DataType.UUID %}
+    {{ field_name }}: Optional[uuid_query_operator_input] = None
+{%         elif field.type == DataType.ARRAY %}
+    {{ field_name }}: Optional[List[str]] = None
+{%         endif %}{# if field.python_type == "str" #}
+{%       endfor %}{# for field_name, field in root_class.fields.items() #}
+{%       set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
+{%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
+
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 
 {# avoid classes referenced by multiple root classes from being included multiple times #}
@@ -188,7 +212,6 @@ class {{ root_class.referenced_class.name }}_input_filter:
 {% endfor %}{# root_class in classes.values() #}
 
 {% for root_class in classes.values() %}
-{%   if root_class.type == DataType.ARRAY %}
 @strawberry.type
 class {{ root_class.name }}_page:
     total_count: int
@@ -199,9 +222,12 @@ class {{ root_class.name }}_page:
 class {{ root_class.name }}_edge:
     cursor: str
     origin: UUID
+{%     if root_class.type != DataType.ARRAY %}
+    {{ root_class.name }}: {{ root_class.name }}
+{% else %}{# if root_class.type != DataType.ARRAY #}
     {{ root_class.referenced_class.name }}: {{ root_class.referenced_class.name }}
+{% endif %}{# if root_class.type != DataType.ARRAY #}
 
-{%   endif %}{# if root_class.type == DataType.ARRAY #}
 {% endfor %}{# for root_class in classes.values() #}
 
 @strawberry.type
@@ -210,7 +236,7 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
         _LOGGER.debug(f'Resolving {{ root_class.name }} object')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
@@ -221,13 +247,50 @@ class Query:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        info.context['data'] = await MemberClassByoda.get_object_data({{ service_id }}, info)
-        {{ root_class.name }}_data = {{ root_class.name }}(
-{%       for field in root_class.fields.values() %}
-            info.context['data'].get('{{ field.name }}'),
-{%       endfor %}{# for field in root_class.fields.values() #}
-        )
-        return {{ root_class.name }}_data
+        data = await MemberClassByoda.get_object_data({{ service_id }}, info)
+
+
+        if after:
+            cursor_seen: bool = False
+        else:
+            cursor_seen: bool = True
+
+        edges: List[{{ root_class.name }}_edge] = []
+        total_skipped:int  = 0
+        cursor = ''
+        for obj in data or []:
+            required_field_names = [
+{%       for field_name in root_class.required_fields %}
+                '{{ field_name }}',
+{%       endfor %}{# for field_name in {{ root_class.required_fields }} #}
+            ]
+
+            origin = obj.pop(BYODA_ORIGIN_KEY)
+            cursor = get_cursor_hash(obj, origin, required_field_names)
+            if cursor_seen:
+                {{ root_class.name }}_data = {{ root_class.name }}(
+{%       for field_name, field in root_class.fields.items() %}
+                    obj.get('{{ field_name }}'),
+{%       endfor %}{# for field_name, field in root_class.fields.items() #}
+                )
+
+                edge = {{ root_class.name }}_edge(cursor=cursor, origin=origin, {{ root_class.name }}={{ root_class.name }}_data)
+                edges.append(edge)
+            else:
+                total_skipped += 1
+                if cursor == after:
+                    cursor_seen = True
+
+            if first and len(edges) == first:
+                break
+
+        has_next_page = False
+        if total_skipped + len(edges) < len(data):
+            has_next_page = True
+
+        info = page_info(end_cursor=cursor, has_next_page=has_next_page)
+        return {{ root_class.name }}_page(total_count=len(data), edges=edges, page_info=info)
+
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
     async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
@@ -264,7 +327,7 @@ class Query:
                 '{{ field_name }}',
 {%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
             ]
-            origin = obj.pop('byoda_origin')
+            origin = obj.pop(BYODA_ORIGIN_KEY)
             cursor = get_cursor_hash(obj, origin, required_field_names)
             if cursor_seen:
                 {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(

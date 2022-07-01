@@ -7,14 +7,28 @@ GraphQL queries used by test cases
 '''
 
 QUERY_PERSON = '''
-query {
-    person {
-        given_name
-        additional_names
-        family_name
-        email
-        homepage_url
-        avatar_url
+query ($filters: personInputFilter, $first: Int, $after: String, $depth: Int,
+      $relations: [String!]) {
+    person_connection(
+            filters: $filters, first: $first, after: $after,
+            depth: $depth, relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            person {
+                given_name
+                additional_names
+                family_name
+                email
+                homepage_url
+                avatar_url
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
     }
 }
 '''
