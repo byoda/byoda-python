@@ -849,7 +849,7 @@ class Member:
 
         pruned_data = []
         for item in data:
-            if item and not item.get('errors'):
+            if item and isinstance(item, dict) and not item.get('errors'):
                 pruned_data.append(item)
 
         return pruned_data

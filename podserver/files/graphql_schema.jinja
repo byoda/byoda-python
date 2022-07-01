@@ -245,7 +245,7 @@ class Query:
 
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
-        cursor = None
+        cursor = ''
         for obj in data or []:
             info.context['data'] = obj
             required_field_names = [
