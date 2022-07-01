@@ -17,6 +17,7 @@ import shutil
 import asyncio
 import unittest
 import requests
+from typing import Tuple
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -498,34 +499,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
-        dest_dir = f'{TEST_DIR}/{member_dir}'
-
-        shutil.copy(
-            'tests/collateral/local/azure-pod-member-cert.pem',
-            dest_dir
-        )
-        shutil.copy(
-            'tests/collateral/local/azure-pod-member.key',
-            dest_dir
-        )
-
-        secret = MemberSecret(
-            REMOTE_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
-        )
-        secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
-        secret.private_key_file = f'{member_dir}/azure-pod-member.key'
-        await secret.load()
-        jwt = JWT.create(
-            REMOTE_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
-            service_id=ADDRESSBOOK_SERVICE_ID
-        )
-        remote_member_auth_header = {
-            'Authorization': f'bearer {jwt.encoded}'
-        }
+        azure_member_auth_header, azure_fqdn = await get_azure_pod_jwt()
 
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, timeout=120, headers=remote_member_auth_header
+            url, QUERY_PERSON, timeout=120, headers=azure_member_auth_header
         )
         result = await response.json()
 
@@ -566,7 +543,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, timeout=120, headers=remote_member_auth_header
+            url, QUERY_PERSON, timeout=120, headers=azure_member_auth_header
         )
         result = await response.json()
 
@@ -685,6 +662,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(more_data), 10)
 
+        #
+        # First query with depth = 1 shows only local results
+        # because the remote pod has no entry in network_links with
+        # relation 'colleague' for us
+        #
         vars = {
             'depth': 1,
             'relations': ["colleague"]
@@ -697,6 +679,44 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
+        self.assertEqual(len(data), 100)
+
+        #
+        # Confirm we are not already in the network_links of the Azure pod
+        azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
+
+        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
+        response = await GraphQlClient.call(
+            azure_url, QUERY_NETWORK, timeout=120,
+            headers=azure_member_auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+
+        response = await GraphQlClient.call(
+            azure_url, APPEND_NETWORK, vars=vars, timeout=120,
+            headers=azure_member_auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+
+        vars = {
+            'member_id': str(member.member_id),
+            'relation': 'colleague',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+        }
+        response = await GraphQlClient.call(
+            azure_url, APPEND_NETWORK, vars=vars, timeout=120,
+            headers=azure_member_auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
 
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -960,7 +980,60 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
 
+async def get_jwt_header():
+    account = config.server.account
+    account_id = account.account_id
+    service_id = ADDRESSBOOK_SERVICE_ID
+    response = requests.get(
+        BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
+        auth=HTTPBasicAuth(
+            str(account_id)[:8], os.environ['ACCOUNT_SECRET']
+        )
+    )
+    result = response.json()
+    auth_header = {
+        'Authorization': f'bearer {result["auth_token"]}'
+    }
+
+    return auth_header
+
+
+async def get_azure_pod_jwt() -> Tuple[str, str]:
+    '''
+    Gets a JWT as would be created by the Azure Pod.
+
+    :returns: authorization header, fqdn of the Azure pod
+    '''
+
+    account = config.server.account
+    member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
+    dest_dir = f'{TEST_DIR}/{member_dir}'
+
+    shutil.copy(
+        'tests/collateral/local/azure-pod-member-cert.pem',
+        dest_dir
+    )
+    shutil.copy(
+        'tests/collateral/local/azure-pod-member.key',
+        dest_dir
+    )
+    secret = MemberSecret(
+        REMOTE_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
+    )
+    secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
+    secret.private_key_file = f'{member_dir}/azure-pod-member.key'
+    await secret.load()
+    jwt = JWT.create(
+        REMOTE_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
+        service_id=ADDRESSBOOK_SERVICE_ID
+    )
+    azure_member_auth_header = {
+        'Authorization': f'bearer {jwt.encoded}'
+    }
+    return azure_member_auth_header, secret.common_name
+
+
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-e
+
 unittest.main()

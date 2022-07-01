@@ -793,7 +793,7 @@ class Member:
                 data: List = DataFilterSet.filter(filters, data)
 
         modified_data = deepcopy(data)
-        for item in modified_data:
+        for item in modified_data or []:
             item['byoda_origin'] = member.member_id
 
         all_data.extend(modified_data)
@@ -849,7 +849,7 @@ class Member:
 
         pruned_data = []
         for item in data:
-            if not item.get('errors'):
+            if item and not item.get('errors'):
                 pruned_data.append(item)
 
         return pruned_data
@@ -866,13 +866,18 @@ class Member:
 
         query_data = orjson.loads(query)
         query_string = query_data['query']
-        
+
         response = await GraphQlClient.call(
             url, query_string, vars=query_data['variables'],
             secret=self.tls_secret, timeout=3
         )
 
-        data = await response.json()
+        body = await response.json()
+
+        data = body.get('data')
+
+        if not data:
+            return None
 
         if isinstance(data, dict):
             data['byoda_origin'] = target

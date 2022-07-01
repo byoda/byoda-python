@@ -18,6 +18,7 @@ from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
 from byoda.secrets import ServiceSecret
+from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
 from byoda import config
@@ -51,7 +52,7 @@ class ApiClient:
     '''
 
     def __init__(self, api: str, secret: Secret = None, service_id: int = None,
-                 timeout: int = 10):
+                 timeout: int = 10, port: int = None):
         '''
         Maintains a pool of connections for different destinations
 
@@ -59,20 +60,34 @@ class ApiClient:
         is not a MemberSecret
         '''
 
-        server = config.server
+        server: Server = config.server
+
+        self.port = port
 
         # We maintain a cache of sessions based on the authentication
         # requirements of the remote host and whether to use for verifying
         # the TLS server cert the root CA of the network or the regular CAs.
         self.session = None
         if not secret:
-            pool = 'noauth'
+            if not port:
+                if api.startswith('http://'):
+                    self.port = 80
+                    pool = 'noauth-http'
+                else:
+                    pool = 'noauth-https'
+
         elif isinstance(secret, ServiceSecret):
             pool = f'service-{service_id}'
+            if not port:
+                port = 444
         elif isinstance(secret, MemberSecret):
             pool = 'member'
+            if not port:
+                port = 444
         elif isinstance(secret, AccountSecret):
             pool = 'account'
+            if not port:
+                port = 444
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
@@ -81,7 +96,9 @@ class ApiClient:
 
         self.ssl_context = None
 
-        if pool not in config.client_pools:
+        # HACK: disable client pools as it generates RuntimeError
+        # for 'eventloop is already closed'
+        if pool not in config.client_pools or True:
             if api.startswith(f'https://dir'):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
@@ -109,22 +126,25 @@ class ApiClient:
                 )
                 self.ssl_context.load_cert_chain(cert_filepath, key_path)
 
-            timeout = aiohttp.ClientTimeout(total=timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            timeout_setting = aiohttp.ClientTimeout(total=timeout)
+            self.session = aiohttp.ClientSession(timeout=timeout_setting)
 
-            config.client_pools[type(secret)] = self.session
+            config.client_pools[pool] = self.session
         else:
-            self.session = config.client_pools[type(secret)]
+            self.session = config.client_pools[pool]
 
     @staticmethod
     async def call(api: str, method: str = 'GET', secret:Secret = None,
                    params: Dict = None, data: Dict = None, headers: Dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
-                   timeout: int = 10) -> aiohttp.ClientResponse:
+                   port: int = None, timeout: int = 10) -> aiohttp.ClientResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
+
+        Either the secret must be the secret of the pod (or test case) or
+        the headers need to include an Authentication header with a valid JWT
         '''
 
         # This is used by the bootstrap of the pod, when the global variable is not yet
@@ -146,18 +166,19 @@ class ApiClient:
             f'Calling {method} {api} with query parameters {params} '
             f'and data: {data}'
         )
-        async with client.session as session:
-            try:
-                response: aiohttp.ClientResponse = await session.request(
-                    method, api, params=params, json=data, headers=headers,
-                    ssl=client.ssl_context, timeout=timeout
-                )
-            except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
-                raise RuntimeError(exc)
+        try:
+            response: aiohttp.ClientResponse = await client.session.request(
+                method, api, params=params, json=data, headers=headers,
+                ssl=client.ssl_context, timeout=timeout
+            )
+        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
+            raise RuntimeError(exc)
 
-            if response.status >= 400:
-                raise RuntimeError(
-                    f'Failure to call API {api}: {response.status}'
-                )
+        await client.session.close()
 
-            return response
+        if response.status >= 400:
+            raise RuntimeError(
+                f'Failure to call API {api}: {response.status}'
+            )
+
+        return response
