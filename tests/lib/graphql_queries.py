@@ -103,12 +103,12 @@ query ($filters: assetInputFilter, $first: Int, $after: String, $depth: Int,
         total_count
         edges {
             cursor
+            origin
             asset {
                 timestamp
                 asset_type
                 asset_id
                 title
-                byoda_origin
             }
         }
         page_info {

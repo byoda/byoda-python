@@ -872,7 +872,8 @@ class Member:
             for edge in edges:
                 edge_keys = list(edge.keys())
                 class_name = [
-                    edge_key for edge_key in edge_keys if edge_key != 'cursor'
+                    edge_key for edge_key in edge_keys
+                    if edge_key not in ('cursor', 'origin')
                 ][0]
                 data_item = edge[class_name]
                 if data_item and isinstance(data_item, dict):

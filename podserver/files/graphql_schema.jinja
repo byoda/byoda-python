@@ -93,7 +93,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
-def get_cursor_hash(data: Dict, fields: List[str]) -> str:
+def get_cursor_hash(data: Dict, origin: UUID, fields: List[str]) -> str:
     '''
     Helper function to generate cursors for objects based on the stringified values
     of the required fields of object
@@ -103,6 +103,7 @@ def get_cursor_hash(data: Dict, fields: List[str]) -> str:
     for field in fields:
         hash_gen.update(str(data.get(field, '')).encode('utf-8'))
 
+    hash_gen.update(str(origin).encode('utf-8'))
     cursor = hash_gen.hexdigest()
 
     return cursor[0:8]
@@ -155,7 +156,6 @@ class {{ root_class.name }}:
     {{ field.name }}: {% if field.name in root_class.required_fields %}{{ field.python_type }}{% else %}Optional[{{field.python_type}}]{% endif %}
 
 {%     endfor %}{# for field in root_class.fields.values() #}
-    byoda_origin: Optional[UUID] = None
 
 @strawberry.input
 class {{ root_class.name }}_input:
@@ -198,6 +198,7 @@ class {{ root_class.name }}_page:
 @strawberry.type
 class {{ root_class.name }}_edge:
     cursor: str
+    origin: UUID
     {{ root_class.referenced_class.name }}: {{ root_class.referenced_class.name }}
 
 {%   endif %}{# if root_class.type == DataType.ARRAY #}
@@ -262,17 +263,16 @@ class Query:
 {%       for field_name in root_class.referenced_class.required_fields %}
                 '{{ field_name }}',
 {%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
-                'byoda_origin',
             ]
-            cursor = get_cursor_hash(obj, required_field_names)
+            origin = obj.pop('byoda_origin')
+            cursor = get_cursor_hash(obj, origin, required_field_names)
             if cursor_seen:
                 {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
                     info.context['data'].get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-                    info.context['data'].get('byoda_origin')
                 )
-                edge = {{ root_class.name }}_edge(cursor=cursor, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
+                edge = {{ root_class.name }}_edge(cursor=cursor, origin=origin, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
                 edges.append(edge)
             else:
                 total_skipped += 1
