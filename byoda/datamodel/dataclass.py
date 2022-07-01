@@ -216,7 +216,9 @@ class SchemaDataItem:
         if not self.access_controls:
             # No access rights for the data element so can't decide
             # whether access is allowed or not
-            _LOGGER.debug(f'No access controls defined')
+            _LOGGER.debug(
+                f'No access controls defined for data item {self.name}'
+            )
             return None
 
         for entity, permissions in self.access_controls.items():
@@ -226,7 +228,7 @@ class SchemaDataItem:
                 perms = [perm.value for perm in permissions.permitted_actions]
                 _LOGGER.debug(
                     f'Operation {operation} not matching permitted actions: '
-                    f'{", ".join(perms)}'
+                    f'{", ".join(perms)} for data item {self.name}'
                 )
                 continue
 
@@ -236,7 +238,9 @@ class SchemaDataItem:
             # Anyone is allowed to
             if entity == RightsEntityType.ANONYMOUS:
                 if operation in permissions.permitted_actions:
-                    _LOGGER.debug('Authorizing anonymous access')
+                    _LOGGER.debug(
+                        f'Authorizing anonymous access for data item {self.name}'
+                    )
                     return True
 
             # Are we querying the GraphQL API ourselves?
@@ -244,7 +248,10 @@ class SchemaDataItem:
                 if auth.id_type == IdType.MEMBER:
                     if authorize_member(service_id, auth):
                         if operation in permissions.permitted_actions:
-                            _LOGGER.debug('Authorizing member access')
+                            _LOGGER.debug(
+                                'Authorizing member access for data '
+                                f'item {self.name}'
+                            )
                             return True
 
             # Did the service server call our GraphQL API?
@@ -252,24 +259,33 @@ class SchemaDataItem:
                 if auth.id_type == IdType.SERVICE:
                     if authorize_service(service_id, auth):
                         if operation in permissions.permitted_actions:
-                            _LOGGER.debug('Authorizing service access')
+                            _LOGGER.debug(
+                                'Authorizing service access for data item '
+                                f'{self.name}')
                             return True
 
             if entity == RightsEntityType.ANY_MEMBER:
                 if auth.id_type == IdType.MEMBER:
                     if authorize_any_member(service_id, auth):
                         if operation in permissions.permitted_actions:
-                            _LOGGER.debug('Authorizing any member access')
+                            _LOGGER.debug(
+                                'Authorizing any member access for data item '
+                                f'{self.name}'
+                            )
                             return True
 
             if entity == RightsEntityType.NETWORK:
                 if await authorize_network(
-                        service_id, permissions.relations, permissions.distance, auth):
+                        service_id, permissions.relations,
+                        permissions.distance, auth):
                     if operation in permissions.permitted_actions:
-                        _LOGGER.debug('Authorizing network access')
+                        _LOGGER.debug(
+                            'Authorizing network access for data item '
+                            f'{self.name}'
+                        )
                         return True
 
-        _LOGGER.debug('No access controls matched')
+        _LOGGER.debug(f'No access controls matched for data item {self.name}')
 
         return None
 
@@ -388,7 +404,10 @@ class SchemaDataObject(SchemaDataItem):
             if child_access_allowed is False:
                 return False
 
-        _LOGGER.debug(f'Object data access authorized: {access_allowed}')
+        _LOGGER.debug(
+            f'Object data access authorized: {access_allowed} for data '
+            f'item {self.name}'
+        )
         return access_allowed
 
 
@@ -471,12 +490,16 @@ class SchemaDataArray(SchemaDataItem):
                 operation, auth, service_id
             )
             _LOGGER.debug(
-                f'Child array data access authorized: {child_access_allowed}'
+                f'Child of array data access authorized: '
+                f'{child_access_allowed} for data item {self.name}'
             )
             if child_access_allowed is False:
                 return False
 
-        _LOGGER.debug(f'Array data access authorized: {child_access_allowed}')
+        _LOGGER.debug(
+            f'Array data access authorized: {access_allowed} for data '
+            f'item {self.name}'
+        )
 
         return access_allowed
 
