@@ -13,7 +13,6 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
-import shutil
 import asyncio
 import unittest
 import requests
@@ -26,12 +25,8 @@ import uvicorn
 
 from requests.auth import HTTPBasicAuth
 
-from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
-
-from byoda.datastore.document_store import DocumentStoreType
-from byoda.datatypes import CloudType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -40,14 +35,12 @@ from byoda.util.fastapi import setup_api
 
 from byoda import config
 
-from byoda.servers.pod_server import PodServer
-
-from podserver.util import get_environment_vars
 from podserver.routers import account
 from podserver.routers import member
 from podserver.routers import authtoken
 
-from tests.lib import get_test_uuid
+
+from tests.lib.setup import get_test_uuid, setup_network
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
@@ -83,50 +76,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
-
-        config.debug = True
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(TEST_DIR)
-        shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
-
-        os.environ['ROOT_DIR'] = TEST_DIR
-        os.environ['BUCKET_PREFIX'] = 'byoda'
-        os.environ['CLOUD'] = 'LOCAL'
-        os.environ['NETWORK'] = 'byoda.net'
-        os.environ['ACCOUNT_ID'] = str(get_test_uuid())
-        os.environ['ACCOUNT_SECRET'] = 'test'
-        os.environ['LOGLEVEL'] = 'DEBUG'
-        os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
-        os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
-
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network = Network(network_data, network_data)
-        await network.load_network_secrets()
-
-        config.test_case = True
-
-        config.server = PodServer(network)
+        network_data = await setup_network(TEST_DIR)
         server = config.server
 
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        await server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType(network_data['cloud']),
-            bucket_prefix=network_data['bucket_prefix'],
-            root_dir=network_data['root_dir']
-        )
-
-        server.paths = network.paths
-
-        pod_account = Account(network_data['account_id'], network)
+        pod_account = Account(network_data['account_id'], server.network)
         await pod_account.paths.create_account_directory()
         await pod_account.load_memberships()
 
@@ -272,7 +228,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await account.load_memberships()
         service_id = ADDRESSBOOK_SERVICE_ID
         member: Member = account.memberships.get(service_id)
-
 
         #
         # This test fails because a member-JWT can't be used for REST APIs,

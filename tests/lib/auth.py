@@ -29,7 +29,7 @@ from tests.lib.defines import AZURE_POD_MEMBER_ID
 
 
 def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
-                   secret: str = None):
+                   secret: str = None, member_token: bool = True):
 
     if not id:
         account = config.server.account
@@ -38,10 +38,14 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
 
-    service_id = ADDRESSBOOK_SERVICE_ID
+    if member_token:
+        service_id = ADDRESSBOOK_SERVICE_ID
+        url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
+    else:
+        url = base_url + '/v1/pod/authtoken'
+        
     response = requests.get(
-        base_url + f'/v1/pod/authtoken/service_id/{service_id}',
-        auth=HTTPBasicAuth(str(id)[:8], secret)
+        url, auth=HTTPBasicAuth(str(id)[:8], secret)
     )
     result = response.json()
     auth_header = {

@@ -99,7 +99,7 @@ class ApiClient:
         # HACK: disable client pools as it generates RuntimeError
         # for 'eventloop is already closed'
         if pool not in config.client_pools or True:
-            if api.startswith(f'https://dir'):
+            if api.startswith('https://dir') or api.startswith('https://proxy'):
                 # For calls by Accounts and Services to the directory server,
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
