@@ -371,7 +371,7 @@ class SchemaDataObject(SchemaDataItem):
         data = copy(value)
         for field in data:
             if field == 'remote_member_id':
-                if isinstance(data[field,str]):
+                if isinstance(data[field], str):
                     # special handling for 'remote_member_id', which is a
                     # parameter used for remote appends
                     data[field] = UUID(data[field])
