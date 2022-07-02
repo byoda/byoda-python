@@ -110,12 +110,13 @@ mutation ($filters: networkLinkInputFilter!) {
 APPEND_NETWORK_INVITE = '''
 mutation (
     $member_id: UUID!, $relation: String!, $timestamp: DateTime!,
-    $remote_member_id: UUID, $depth: Int
+    $text: String, $remote_member_id: UUID, $depth: Int
 ) {
     append_network_invites (
         member_id: $member_id,
         relation: $relation,
         timestamp: $timestamp,
+        text: $text,
         remote_member_id: $remote_member_id,
         depth: $depth
     ) {

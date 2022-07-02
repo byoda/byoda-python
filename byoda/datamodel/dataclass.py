@@ -69,6 +69,10 @@ class SchemaDataItem:
 
         self.type: DataType = DataType(schema['type'])
 
+        # Used by SchemaDataArray to point to the class the entries
+        # of the array have
+        self.referenced_class: str = None
+
         self.python_type: str = self.get_python_type(class_name, self.schema)
         self.access_controls: Dict[RightsEntityType,Set[DataOperationType]] = {}
 

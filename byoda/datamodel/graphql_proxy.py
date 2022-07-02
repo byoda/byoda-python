@@ -70,7 +70,14 @@ class GraphQlProxy:
             updated_query, relations, remote_member_id
         )
 
-        cleaned_data = self._process_network_data(class_name, network_data)
+        if not remote_member_id:
+            cleaned_data = self._process_network_query_data(
+                class_name, network_data
+            )
+        else:
+            cleaned_data = self._process_network_append_data(
+                class_name, network_data
+            )
 
         return cleaned_data
 
@@ -169,21 +176,18 @@ class GraphQlProxy:
 
         return (target, data)
 
-    def _process_network_data(self, class_name: str, network_data: List[Dict]
-                              ) -> List[Dict]:
+    def _process_network_query_data(self, class_name: str,
+                                    network_data: List[Dict]) -> List[Dict]:
         '''
         Processes the data collected from all the queried pods
 
         :param class_name: The name of the object class requested in the query
         :param network_data: the data collected from the remote pods
         '''
-
-        data_class: SchemaDataItem = None
-        if isinstance(self.schema.data_classes[class_name], SchemaDataArray):
-            data_class = self.schema.data_classes[class_name].referenced_class
+        data_class: SchemaDataItem = self.schema.data_classes[class_name]
+        if data_class.referenced_class:
+            data_class = data_class.referenced_class
             class_name = data_class.name
-        else:
-            data_class = self.schema.data_classes[class_name]
 
         cleaned_data = []
         for target in network_data:
@@ -192,25 +196,47 @@ class GraphQlProxy:
                 _LOGGER.debug(f'POD {target_id} returned no data')
                 continue
 
-            # 'queries' have edges in their data but 'appends'
-            # do not
             key = list(target_data.keys())[0]
-            if 'edges' in target_data[key]:
-                edges = target_data[key]['edges']
+            edges = target_data[key]['edges']
 
-                cleaned_data = []
-                for edge in edges:
-                    data_item = edge[class_name]
-                    if data_item and isinstance(data_item, dict):
-                        data_item = data_class.normalize(data_item)
+            cleaned_data = []
+            for edge in edges:
+                data_item = edge[class_name]
+                if data_item and isinstance(data_item, dict):
+                    data_item = data_class.normalize(data_item)
 
-                        data_item[ORIGIN_KEY] = target_id
-                        cleaned_data.append(data_item)
-            else:
-                cleaned_data = list(target_data[key])
+                    data_item[ORIGIN_KEY] = target_id
+                    cleaned_data.append(data_item)
 
         _LOGGER.debug(
             f'Collected {len(cleaned_data)} items after cleaning up the '
             'results'
         )
         return cleaned_data
+
+    def _process_network_append_data(self, class_name: str,
+                                     network_data: List[Dict]) -> Dict:
+        '''
+        Processes the data collected from all the queried pods
+
+        :param class_name: The name of the object class requested in the query
+        :param network_data: the data collected from the remote pods
+        '''
+
+        data_class: SchemaDataArray = self.schema.data_classes[class_name]
+        if data_class.referenced_class:
+            data_class = data_class.referenced_class
+
+        target_id, target_data = network_data[0]
+        if not target_data:
+            raise ValueError('Append for proxied GraphQl query has no data')
+
+        key = list(target_data.keys())[0]
+        data = target_data[key]
+        for field, value in data.items():
+            data[field] = data_class.fields[field].normalize(value)
+
+        target_data[key][ORIGIN_KEY] = target_id
+
+        return target_data[key]
+

@@ -866,6 +866,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(member.member_id),
             'relation': 'friend',
+            'text': 'I am my own best friend',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
 
         }
@@ -873,14 +874,19 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, APPEND_NETWORK_INVITE, timeout=120,
             vars=vars, headers=auth_header
         )
-        data = await response.json()
-        self.assertIsNotNone(data.get('data'))
-        self.assertIsNone(data.get('errors'))
+        body = await response.json()
+        data = body.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(body.get('errors'))
+        data = data['append_network_invites']
+        for key, value in data.items():
+            self.assertEqual(value, vars[key])
 
         vars = {
             'member_id': str(member.member_id),
             'relation': 'friend',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'text': 'hello, do you want to be my friend?',
             'remote_member_id': REMOTE_MEMBER_ID,
             'depth': 1
         }
@@ -888,9 +894,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, APPEND_NETWORK_INVITE, timeout=120,
             vars=vars, headers=auth_header
         )
-        data = await response.json()
-        self.assertIsNotNone(data.get('data'))
-        self.assertIsNone(data.get('errors'))
+        body = await response.json()
+        data = body.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(body.get('errors'))
+        data = data['append_network_invites']
+        for key, value in data.items():
+            self.assertEqual(value, vars[key])
 
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
