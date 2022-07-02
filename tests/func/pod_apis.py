@@ -50,7 +50,7 @@ from podserver.routers import authtoken
 
 from tests.lib import get_test_uuid
 
-from tests.lib.graphql_queries import APPEND_NETWORK_INVITE, QUERY_PERSON
+from tests.lib.graphql_queries import QUERY_PERSON
 from tests.lib.graphql_queries import MUTATE_PERSON
 from tests.lib.graphql_queries import QUERY_NETWORK
 from tests.lib.graphql_queries import APPEND_NETWORK

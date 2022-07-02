@@ -192,17 +192,22 @@ class GraphQlProxy:
                 _LOGGER.debug(f'POD {target_id} returned no data')
                 continue
 
+            # 'queries' have edges in their data but 'appends'
+            # do not
             key = list(target_data.keys())[0]
-            edges = target_data[key]['edges']
+            if 'edges' in target_data[key]:
+                edges = target_data[key]['edges']
 
-            cleaned_data = []
-            for edge in edges:
-                data_item = edge[class_name]
-                if data_item and isinstance(data_item, dict):
-                    data_item = data_class.normalize(data_item)
+                cleaned_data = []
+                for edge in edges:
+                    data_item = edge[class_name]
+                    if data_item and isinstance(data_item, dict):
+                        data_item = data_class.normalize(data_item)
 
-                    data_item[ORIGIN_KEY] = target_id
-                    cleaned_data.append(data_item)
+                        data_item[ORIGIN_KEY] = target_id
+                        cleaned_data.append(data_item)
+            else:
+                cleaned_data = list(target_data[key])
 
         _LOGGER.debug(
             f'Collected {len(cleaned_data)} items after cleaning up the '

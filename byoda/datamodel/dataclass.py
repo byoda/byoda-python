@@ -375,7 +375,7 @@ class SchemaDataObject(SchemaDataItem):
                     # special handling for 'remote_member_id', which is a
                     # parameter used for remote appends
                     data[field] = UUID(data[field])
-            else:
+            elif field != 'depth':
                 data_class = self.fields[field]
                 data[field] = data_class.normalize(value[field])
 
