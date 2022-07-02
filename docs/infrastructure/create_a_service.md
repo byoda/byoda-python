@@ -46,17 +46,17 @@ Note that this API uses pagination so you may have to use the 'skip=<n>' query p
 The schema is a JSON file with a JSON Schema embedded. We have not yet published a JSON Schema for this JSON file.
 
 The JSON file at the top-level must have the following keys:
-|--------------|--------|----------|
-| description  | string | A description of your service |
-| name         | string | The name of your service |
-| owner        | string | Your name of the name of the company you create the service for |
-| supportemail | string | Email address where a person can request support for a service |
-| website      | string | The URL to your website |
-| service_id   | integer| the service ID for your service. As discussed in section #2 |
-| version      | integer| the version of the schema. See below on versioning|
-| signatures   | object | a JSON object, see section 5 on the signing of the JSON file
-| jsonschema   | jsonschema | the JSON Schema for the data for the service|
-|--------------|--------|----------|
+|--------------|--------|---    --------------------------------------------------------------------|
+| description  | string     | A description of your service                                         |
+| name         | string     | The name of your service                                              |
+| owner        | string     | Your name of the name of the company you create the service for       |
+| supportemail | string     | Email address where a person can request support for a service        |
+| website      | string     | The URL to your website                                               |
+| service_id   | integer    | the service ID for your service. As discussed in section #2           |
+| version      | integer    | the version of the schema. See below on versioning                    |
+| signatures   | object     | a JSON object, see section 5 on the signing of the JSON file          |
+| jsonschema   | jsonschema | the JSON Schema for the data for the service                          |
+|--------------|------------|-----------------------------------------------------------------------|
 
 We use the python [fastjsonschema](https://horejsek.github.io/python-fastjsonschema/) module for validating data against the JSON Schema, which states support for JSON Schema draft 4, 5, and 7.
 We do not support the full specification of JSON Schema for the translation to the GraphQL API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
@@ -82,7 +82,7 @@ The keys of properties directly under the JSON Schema (so not under $defs) must 
 If the type is "object" then it must have a key "properties with as value an object with the keys:
   - description: What the data stored in this property is used for
   - #accesscontrol: see below for more information
-  - type: must be a scalar, (ie. "string" or "number")
+  - type: must be a scalar, (ie. "string" or "number") or an array
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
 IF the type is "array" then the following keys are required:
@@ -99,7 +99,7 @@ A data structure under $defs must have the following keys:
 - type: must be "object"
 - properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
-  - type: must be a scalar, ie. "string" or "number"
+  - type: must be a scalar, ie. "string" or "number" or an array.
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
@@ -221,12 +221,12 @@ As you just created the ServiceData secret in step #2, you can generate the serv
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
-export SERVICE_CONTRACT=private.json
+export SERVICE_CONTRACT=addressbook.json
 
 export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
-if [ ! -f config.yml ]; then
+if [ ! -f $BYODA_HOME/byoda-python/config.yml ]; then
     cat config-sample.yml | \
         sed "s|SERVICE_ID|${SERVICE_ID}|" | \
         sed "s|BYODA_DOMAIN|${BYODA_DOMAIN}|" | \
@@ -243,7 +243,7 @@ cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
-## 5: Get the service up and running
+## 6: Get the service up and running
 These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu
 
 ```
@@ -255,7 +255,7 @@ if [ -f /tmp/service-${SERVICE_ID}.key ]; then
 fi
 
 sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
-sed -i "s|SERVICE_ID|$SERVICE_ID}" /etc/default/svcserver-${SERVICE_ID}
+sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/default/svcserver-${SERVICE_ID}
 
 sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
 sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service

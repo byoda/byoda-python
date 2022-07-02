@@ -14,6 +14,7 @@ import hashlib
 from uuid import UUID
 from datetime import datetime
 from typing import List, Dict, Optional, TypeVar
+
 import strawberry
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
@@ -21,7 +22,8 @@ from strawberry.types import Info
 from fastapi import HTTPException
 
 from byoda.datamodel.member import Member as MemberClassByoda
-from byoda.datatypes import DataType
+from byoda.datamodel.member import ORIGIN_KEY as BYODA_ORIGIN_KEY
+from byoda.datatypes import IdType as ByodaIdType
 
 import logging as loggingByoda
 
@@ -35,7 +37,7 @@ _LOGGER = loggingByoda.getLogger(__name__)
 
 GenericType = TypeVar("GenericType")
 
-async def authenticate(root, info, data_operation: DataOperationType_Byoda):
+async def authenticate(root, info, data_operation: DataOperationType_Byoda, depth=0):
     '''
     This is middleware called by the code generated from the Jinja
     templates implementing GraphQL support
@@ -53,6 +55,16 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
+        if auth.id_type == ByodaIdType.MEMBER:
+            _LOGGER.debug(
+                f'Authentication for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Authentication for service {auth.service_id}: '
+                'f{auth.is_authenticated}'
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=400, detail='Authentication failed'
@@ -66,13 +78,24 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda):
     try:
         # Check whether the authenticated client is authorized to request
         # the data
-        return await authorize_graphql_request_Byoda(
-            data_operation, {{ service_id}}, info
+        result = await authorize_graphql_request_Byoda(
+            data_operation, {{ service_id}}, info, depth
         )
+        if auth.id_type == ByodaIdType.MEMBER:
+            _LOGGER.debug(
+                f'Authorization for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Authorization for service {auth.service_id}: '
+                'f{auth.is_authenticated}'
+            )
+        return result
     except Exception as exc:
         raise HTTPException(status_code=401, detail='Not authorized')
 
-def get_cursor_hash(data: Dict, fields: List[str]) -> str:
+def get_cursor_hash(data: Dict, origin: UUID, fields: List[str]) -> str:
     '''
     Helper function to generate cursors for objects based on the stringified values
     of the required fields of object
@@ -82,6 +105,7 @@ def get_cursor_hash(data: Dict, fields: List[str]) -> str:
     for field in fields:
         hash_gen.update(str(data.get(field, '')).encode('utf-8'))
 
+    hash_gen.update(str(origin).encode('utf-8'))
     cursor = hash_gen.hexdigest()
 
     return cursor[0:8]
@@ -140,6 +164,28 @@ class {{ root_class.name }}_input:
 {%     for field in root_class.fields.values() %}
     {{field.name }}: {{ field.python_type }}
 {%     endfor %}{# for field in root_class.fields.values() #}
+
+{# avoid classes referenced by multiple root classes from being included multiple times #}
+{%     set class_name_deliminated = ':' + root_class.name + ':' %}
+{%     if class_name_deliminated not in ns.classes_seen %}
+@strawberry.input
+class {{ root_class.name }}_input_filter:
+{%       for field_name, field in root_class.fields.items() %}
+{%         if field.type == DataType.STRING %}
+    {{ field_name }}: Optional[string_query_operator_input] = None
+{%         elif field.type == DataType.DATETIME %}
+    {{ field_name }}: Optional[datetime_query_operator_input] = None
+{%         elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
+    {{ field_name }}: Optional[number_query_operator_input] = None
+{%         elif field.type == DataType.UUID %}
+    {{ field_name }}: Optional[uuid_query_operator_input] = None
+{%         elif field.type == DataType.ARRAY %}
+    {{ field_name }}: Optional[List[str]] = None
+{%         endif %}{# if field.python_type == "str" #}
+{%       endfor %}{# for field_name, field in root_class.fields.items() #}
+{%       set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
+{%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
+
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 
 {# avoid classes referenced by multiple root classes from being included multiple times #}
@@ -166,7 +212,6 @@ class {{ root_class.referenced_class.name }}_input_filter:
 {% endfor %}{# root_class in classes.values() #}
 
 {% for root_class in classes.values() %}
-{%   if root_class.type == DataType.ARRAY %}
 @strawberry.type
 class {{ root_class.name }}_page:
     total_count: int
@@ -176,9 +221,13 @@ class {{ root_class.name }}_page:
 @strawberry.type
 class {{ root_class.name }}_edge:
     cursor: str
+    origin: UUID
+{%     if root_class.type != DataType.ARRAY %}
+    {{ root_class.name }}: {{ root_class.name }}
+{% else %}{# if root_class.type != DataType.ARRAY #}
     {{ root_class.referenced_class.name }}: {{ root_class.referenced_class.name }}
+{% endif %}{# if root_class.type != DataType.ARRAY #}
 
-{%   endif %}{# if root_class.type == DataType.ARRAY #}
 {% endfor %}{# for root_class in classes.values() #}
 
 @strawberry.type
@@ -187,27 +236,21 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    async def {{ root_class.name }}(self, info: Info) -> {{ root_class.name }}:
-{%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None) -> {{ root_class.name }}_page:
-{%     endif %}{# if root_class.type != DataType.ARRAY #}
-        _LOGGER.debug('Resolving {{ root_class.name }}')
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+        _LOGGER.debug(f'Resolving {{ root_class.name }} object')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
         if not result:
+            _LOGGER.debug(
+                'Authentication status for query for data from object '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-{%     if root_class.type != DataType.ARRAY %}
-        info.context['data'] = await MemberClassByoda.get_data({{ service_id }}, info)
-        {{ root_class.name }}_data = {{ root_class.name }}(
-{%       for field in root_class.fields.values() %}
-            info.context['data'].get('{{ field.name }}'),
-{%       endfor %}{# for field in root_class.fields.values() #}
+        data = await MemberClassByoda.get_data(
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
         )
-        return {{ root_class.name }}_data
 
-{%     else %}{# if root_class.type != DataType.ARRAY #}
-        data = await MemberClassByoda.get_data({{ service_id }}, info, filters)
 
         if after:
             cursor_seen: bool = False
@@ -216,6 +259,71 @@ class Query:
 
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
+        cursor = ''
+        for obj in data or []:
+            required_field_names = [
+{%       for field_name in root_class.required_fields %}
+                '{{ field_name }}',
+{%       endfor %}{# for field_name in {{ root_class.required_fields }} #}
+            ]
+
+            origin = obj.pop(BYODA_ORIGIN_KEY)
+            cursor = get_cursor_hash(obj, origin, required_field_names)
+            if cursor_seen:
+                {{ root_class.name }}_data = {{ root_class.name }}(
+{%       for field_name, field in root_class.fields.items() %}
+                    obj.get('{{ field_name }}'),
+{%       endfor %}{# for field_name, field in root_class.fields.items() #}
+                )
+
+                edge = {{ root_class.name }}_edge(cursor=cursor, origin=origin, {{ root_class.name }}={{ root_class.name }}_data)
+                edges.append(edge)
+            else:
+                total_skipped += 1
+                if cursor == after:
+                    cursor_seen = True
+
+            if first and len(edges) == first:
+                break
+
+        has_next_page = False
+        if total_skipped + len(edges) < len(data):
+            has_next_page = True
+
+        info = page_info(end_cursor=cursor, has_next_page=has_next_page)
+        return {{ root_class.name }}_page(total_count=len(data), edges=edges, page_info=info)
+
+
+{%     else %}{# if root_class.type != DataType.ARRAY #}
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+        _LOGGER.debug(
+            f'Resolving {{ root_class.name }} array with depth {depth}'
+        )
+
+        if depth < 0 or depth > 1:
+            raise ValueError('Recursive depth must be 0 or 1')
+
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, depth)
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for query for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{result}'
+            )
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        data = await MemberClassByoda.get_data(
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+        )
+
+        if after:
+            cursor_seen: bool = False
+        else:
+            cursor_seen: bool = True
+
+        edges: List[{{ root_class.name }}_edge] = []
+        total_skipped:int  = 0
+        cursor = ''
         for obj in data or []:
             info.context['data'] = obj
             required_field_names = [
@@ -223,14 +331,15 @@ class Query:
                 '{{ field_name }}',
 {%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
             ]
-            cursor = get_cursor_hash(obj, required_field_names)
+            origin = obj.pop(BYODA_ORIGIN_KEY)
+            cursor = get_cursor_hash(obj, origin, required_field_names)
             if cursor_seen:
                 {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
                     info.context['data'].get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
                 )
-                edge = {{ root_class.name }}_edge(cursor=cursor, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
+                edge = {{ root_class.name }}_edge(cursor=cursor, origin=origin, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
                 edges.append(edge)
             else:
                 total_skipped += 1
@@ -267,6 +376,10 @@ class Mutation:
         # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
         result = await authenticate(self, info,  DataOperationType_Byoda.UPDATE)
         if not result:
+            _LOGGER.debug(
+                'Authentication status for mutation for data from object '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -293,6 +406,10 @@ class Mutation:
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
+            _LOGGER.debug(
+                'Authentication status for update for data from array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -323,11 +440,16 @@ class Mutation:
             {{ field_name }}: Optional[{{ field.python_type }}] = None,
 {%          endif %}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
+            remote_member_id: Optional[UUID] = None, depth: int = 0
             ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
         if not result:
+            _LOGGER.debug(
+                'Authentication status for append for data to array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         info.context['data'] = {
@@ -335,18 +457,26 @@ class Mutation:
             '{{ field_name }}': {{ field_name }},
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         }
-        await MemberClassByoda.append_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name }}(
+        data = await MemberClassByoda.append_data(
+            {{ service_id }}, info, remote_member_id=remote_member_id, depth=depth
+        )
+        {{ root_class.referenced_class.name }}_data =  {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-            {{ field_name }},
+            data.get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         )
+
+        return {{ root_class.referenced_class.name }}_data
 
     @strawberry.field
     async def delete_from_{{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter]) -> List[Optional[{{ root_class.referenced_class.name }}]]:
         _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
 
         if not await authenticate(self, info, DataOperationType_Byoda.DELETE):
+            _LOGGER.debug(
+                'Authentication status for delete for data from array '
+                f'{{ root_class.name }}: {result}'
+            )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberClassByoda.delete_array_data({{ service_id }}, info, filters)

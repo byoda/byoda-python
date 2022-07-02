@@ -139,10 +139,8 @@ class PodServer(Server):
             if member.member_id == jwt.issuer_id:
                 secret: MemberSecret = member.tls_secret
             else:
-                # see if we can get the secret of the other memember so
-                # we can verify the JWT signature wit hthat secret
-                secret: MemberSecret = await member.download_secret(
-                    jwt.issuer_id
+                raise ValueError(
+                    'JWTs can not be used to query pods other than our own'
                 )
 
         return secret

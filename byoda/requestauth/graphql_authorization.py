@@ -32,7 +32,8 @@ SchemaDataItem = TypeVar('SchemaDataItem')
 
 
 async def authorize_graphql_request(operation: DataOperationType,
-                                    service_id: int, info: Info, root=None):
+                                    service_id: int, info: Info, depth: int,
+                                    root=None):
     '''
     Checks the authorization of a graphql request for a service.
     It is called by the code generated from the Jinja
@@ -70,6 +71,13 @@ async def authorize_graphql_request(operation: DataOperationType,
 
     auth: RequestAuth = info.context['auth']
 
+    if depth and member.member_id != auth.member_id:
+        _LOGGER.debug(
+            'Attempt to perform recursive request by someone else '
+            f'than the owner of the pod: {auth.member_id}'
+        )
+        raise ValueError('Only owner of pod can submit recursive queries')
+
     data_class: SchemaDataItem = data_classes[key]
     access_allowed = await data_class.authorize_access(
         operation, auth, service_id
@@ -82,8 +90,10 @@ async def authorize_graphql_request(operation: DataOperationType,
                 and auth.member_id == member.member_id and
                 operation == DataOperationType.READ):
             access_allowed = True
+            _LOGGER.debug('Allowing default access for pod member')
         else:
             access_allowed = False
+            _LOGGER.debug('Blocking default access')
 
     return access_allowed
 

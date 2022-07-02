@@ -67,7 +67,9 @@ async def main(argv):
     network = Network(
         app_config['svcserver'], app_config['application']
     )
-
+    network.paths = Paths(
+        root_directory=root_dir, network=network.name
+    )
     config.server = ServiceServer(network, app_config)
     await config.server.load_network_secrets()
 

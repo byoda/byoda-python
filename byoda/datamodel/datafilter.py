@@ -448,6 +448,7 @@ class DataFilterSet:
         data
         '''
 
+        _LOGGER.debug(f'Applying filters: {filters}')
         filter_set = DataFilterSet(filters)
         results = []
         for item in data:

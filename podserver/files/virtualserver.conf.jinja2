@@ -80,7 +80,7 @@ server {
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
     }
-    
+
     location = /member-data-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
@@ -109,7 +109,7 @@ server {
 
 {% if subdomain != 'accounts' %}
 ###
-### Virtual server for access by apps to the member
+### Virtual server for access by pods to the member
 ###
 server {
     listen       444 ssl;
@@ -121,7 +121,12 @@ server {
     ssl_certificate {{ cert_filepath }};
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
-    ssl_verify_client off;
+    ssl_verify_client on;
+
+    ssl_verify_depth 4;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
 
     location /api/ {
         proxy_pass http://127.0.0.1:{{ port }};
