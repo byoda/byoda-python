@@ -87,6 +87,20 @@
                     "$ref": "/schemas/network_link"
                 }
             },
+            "network_invites": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/network_invite"
+                }
+            },
             "asset_links": {
                 "#accesscontrol": {
                     "member": {
@@ -194,6 +208,33 @@
                     },
                     "relation": {
                         "description": "What relation you have with the other member",
+                        "type": "string"
+                    }
+                },
+                "required": ["timestamp", "member_id", "relation"]
+            },
+            "network_invite": {
+                "$id": "/schemas/network_invite",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "An invite to join a network",
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "description": "time the network invite was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "member_id": {
+                        "description": "The UUID of the other member",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "relation": {
+                        "description": "The relation the other member claims to have with you",
+                        "type": "string"
+                    },
+                    "text": {
+                        "description": "The text of the invitation provded by the other member",
                         "type": "string"
                     }
                 },
