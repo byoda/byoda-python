@@ -30,7 +30,7 @@ pipenv run podserver/podworker.py
 PODWORKER_FAILURE=$?
 if [[ "$?" == "0" ]]; then
   echo "Podworker exited successfully"
-  pipenv run python3 -m gunicorn -c gunicorn.conf.py podserver.main:app
+  pipenv run python3 -m gunicorn --error-logfile /var/www/wwwroot/logs/gunicorn-error.log --access-logfile /var/www/wwwroot/logs/gunicorn-access.log -c gunicorn.conf.py podserver.main:app
 else
   echo "Podworker failed"
   SLEEP=1

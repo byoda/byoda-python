@@ -218,3 +218,35 @@ Now we just have to start nginx and the directory server
 sudo systemctl start dirserver nginx
 ```
 
+It is necessary to run a reverse proxy to support browser clients. Browsers do not use the root CA cert of the Byoda network so will refuse to connect to the pod directly. The convention is that clients can connect to:
+https://proxy.<network-domain>/<service_id>/<member_id> to connect to the pod.
+
+You will need to request an SSL certificate for 'proxy.<network-domain>'. Nginx can be used as a reverse proxy with the following virtual server configuration:
+```
+server {
+    listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
+
+    server_name  proxy.<network>;
+
+    ssl_certificate /etc/letsencrypt/live/proxy.<network>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/proxy.<network>/privkey.pem;
+
+    ssl_verify_client off;
+
+    proxy_ssl_verify_depth 4;
+    proxy_ssl_server_name on;
+    proxy_ssl_verify on;
+    proxy_ssl_protocols TLSv1.3;
+    proxy_ssl_trusted_certificate /opt/byoda/dirserver/network-<network>/network-<network>-root-ca-cert.pem;
+
+    location / {
+        root   /var/www/wwwroot/proxy.<network>/;
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+
+    location ~ ^\/(?<service>\d+)\/(?<memberid>[\da-fA-F\-]+)\/(?<api>.*)$ {
+        proxy_pass https://$memberid.members-$service.<network>/$api;
+    }
+}

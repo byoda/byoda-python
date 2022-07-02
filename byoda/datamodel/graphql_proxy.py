@@ -239,4 +239,3 @@ class GraphQlProxy:
         target_data[key][ORIGIN_KEY] = target_id
 
         return target_data[key]
-

@@ -64,13 +64,15 @@ from tests.lib.graphql_queries import APPEND_NETWORK_INVITE
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 
-REMOTE_MEMBER_ID = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+AZURE_POD_MEMBER_ID = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
 
 TEST_DIR = '/tmp/byoda-tests/pod_apis'
 BASE_URL = 'http://localhost:{PORT}/api'
 
 _LOGGER = None
 
+AZURE_POD_SECRET_FILE = \
+    'tests/collateral/local/azure-pod-account-secret.passwd'
 POD_ACCOUNT: Account = None
 
 ADDRESSBOOK_SERVICE_ID = None
@@ -488,7 +490,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # add network_link for the 'remote member'
         vars = {
-            'member_id': REMOTE_MEMBER_ID,
+            'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'friend',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
@@ -513,7 +515,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result.get('errors'))
 
         vars = {
-            'filters': {'member_id': {'eq': str(REMOTE_MEMBER_ID)}},
+            'filters': {'member_id': {'eq': str(AZURE_POD_MEMBER_ID)}},
         }
         response = await GraphQlClient.call(
             url, DELETE_FROM_NETWORK_WITH_FILTER, vars=vars,
@@ -530,7 +532,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         vars = {
-            'member_id': REMOTE_MEMBER_ID,
+            'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'family',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
 
@@ -887,7 +889,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'friend',
             'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
             'text': 'hello, do you want to be my friend?',
-            'remote_member_id': REMOTE_MEMBER_ID,
+            'AZURE_POD_MEMBER_ID': AZURE_POD_MEMBER_ID,
             'depth': 1
         }
         response = await GraphQlClient.call(
@@ -1163,16 +1165,43 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'best_friend'
         )
 
+    async def test_graphql_addressbook_proxy(self):
+        with open(AZURE_POD_SECRET_FILE) as file_desc:
+            account_secret = file_desc.read().strip()
 
-async def get_jwt_header():
-    account = config.server.account
-    account_id = account.account_id
+        account_id = AZURE_POD_MEMBER_ID
+
+        service_id = ADDRESSBOOK_SERVICE_ID
+        base_url = f'https://proxy.byoda.net/{service_id}/{account_id}/api'
+
+        auth_header = await get_jwt_header(
+            base_url=base_url, account_id=account_id,
+            account_secret=account_secret
+        )
+        self.assertIsNotNone(auth_header)
+
+        url = base_url + f'/v1/data/service-{service_id}'
+        response = await GraphQlClient.call(
+            url, QUERY_PERSON, timeout=3, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
+
+
+async def get_jwt_header(base_url: str = BASE_URL, account_id: UUID = None,
+                         account_secret: str = None):
+    if not account_id:
+        account = config.server.account
+        account_id = account.account_id
+
+    if not account_secret:
+        account_secret = os.environ['ACCOUNT_SECRET']
     service_id = ADDRESSBOOK_SERVICE_ID
     response = requests.get(
-        BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
-        auth=HTTPBasicAuth(
-            str(account_id)[:8], os.environ['ACCOUNT_SECRET']
-        )
+        base_url + f'/v1/pod/authtoken/service_id/{service_id}',
+        auth=HTTPBasicAuth(str(account_id)[:8], account_secret)
     )
     result = response.json()
     auth_header = {
@@ -1202,13 +1231,13 @@ async def get_azure_pod_jwt() -> Tuple[str, str]:
         dest_dir
     )
     secret = MemberSecret(
-        REMOTE_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
+        AZURE_POD_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
     )
     secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
     secret.private_key_file = f'{member_dir}/azure-pod-member.key'
     await secret.load()
     jwt = JWT.create(
-        REMOTE_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
+        AZURE_POD_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
         service_id=ADDRESSBOOK_SERVICE_ID
     )
     azure_member_auth_header = {
