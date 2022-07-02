@@ -185,7 +185,6 @@
                     "$ref": "/schemas/asset"
                 }
             }
-
         },
         "title": "addressbook",
         "type": "object",

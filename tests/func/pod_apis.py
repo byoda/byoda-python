@@ -138,9 +138,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await server.get_registered_services()
 
+        services = list(server.network.service_summaries.values())
         service = [
             service
-            for service in server.network.service_summaries.values()
+            for service in services
             if service['name'] == 'addressbook'
         ][0]
 

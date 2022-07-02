@@ -243,7 +243,7 @@ cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
-## 5: Get the service up and running
+## 6: Get the service up and running
 These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu
 
 ```
