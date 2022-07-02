@@ -108,13 +108,8 @@ async def get_account_authtoken(request: Request,
             or credentials.password != account.password):
         _LOGGER.warning(
             'Basic auth with invalid password for '
-            f'username {credentials.username}'
+            f'username {credentials.username} -> {account.password}'
         )
-        if config.debug:
-            _LOGGER.debug(
-                f'Password provided {credentials.username} does not '
-                f'match {account.password}'
-            )
         raise HTTPException(
             status_code=401, detail='Invalid username/password'
         )
