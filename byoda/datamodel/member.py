@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy, deepcopy
-from typing import Dict, List, TypeVar, Callable
+from typing import Dict, List, TypeVar, Callable, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -926,7 +926,9 @@ class Member:
 
         return removed[0]
 
-    async def append_data(service_id, info: Info) -> None:
+    async def append_data(service_id, info: Info,
+                          remote_member_id: Optional[UUID] = None,
+                          depth: int = 0) -> Dict:
         '''
         Appends the provided data
 
@@ -951,35 +953,54 @@ class Member:
         server = config.server
         member = server.account.memberships[service_id]
 
-        # Any data we may have in memory may be stale when we run
-        # multiple processes so we always need to load the data
-        await member.load_data()
-
-        # We do not modify existing data as it will need to be validated
-        # by JSON Schema before it can be accepted.
-        data = copy(member.data)
-
-        # By convention implemented in the Jinja template, the called mutate
-        # 'function' starts with the string 'mutate' so we to find out
+        # By convention implemented in the Jinja template, the called
+        # mutate 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('append_'):].lower()
+        key = info.path.key[len('append_'):].lower()
 
-        # Gets the data included in the mutation
-        mutate_data: Dict = info.selected_fields[0].arguments
+        if remote_member_id and remote_member_id != member.member_id:
+            if depth != 1:
+                raise ValueError(
+                    'Must specify depth of 1 for appending to another '
+                    'member'
+                )
+            request: Request = info.context['request']
+            query = await request.body()
+            proxy = GraphQlProxy(member)
+            all_data = await proxy.proxy_request(
+                key, query, depth, None, remote_member_id
+            )
+            return all_data
+        else:
+            if depth != 0:
+                raise ValueError(
+                    'Must specify depth = 0 for appending locally'
+                )
 
-        # The query may be for an array for which we do not yet have
-        # any data
-        if class_object not in member.data:
-            _LOGGER.debug(f'Initiating array {class_object} to empty list')
-            member.data[class_object] = []
+            # Any data we may have in memory may be stale when we run
+            # multiple processes so we always need to load the data
+            await member.load_data()
 
-        # Strawberry passes us data that we can just copy as-is
-        _LOGGER.debug(f'Appending item to array {class_object}')
-        member.data[class_object].append(mutate_data)
+            # We do not modify existing data as it will need to be validated
+            # by JSON Schema before it can be accepted.
+            data = copy(member.data)
 
-        await member.save_data(data)
+            # Gets the data included in the mutation
+            mutate_data: Dict = info.selected_fields[0].arguments
 
-        return member.data
+            # The query may be for an array for which we do not yet have
+            # any data
+            if key not in member.data:
+                _LOGGER.debug(f'Initiating array {key} to empty list')
+                member.data[key] = []
+
+            # Strawberry passes us data that we can just copy as-is
+            _LOGGER.debug(f'Appending item to array {key}')
+            member.data[key].append(mutate_data)
+
+            await member.save_data(data)
+
+            return mutate_data
 
     @staticmethod
     async def delete_array_data(service_id: int, info: Info, filters) -> Dict:

@@ -440,6 +440,7 @@ class Mutation:
             {{ field_name }}: Optional[{{ field.python_type }}] = None,
 {%          endif %}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
+            remote_member_id: Optional[UUID] = None, depth: int = 0
             ) -> {{ root_class.referenced_class.name }}:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
@@ -456,12 +457,16 @@ class Mutation:
             '{{ field_name }}': {{ field_name }},
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         }
-        await MemberClassByoda.append_data({{ service_id }}, info)
-        return {{ root_class.referenced_class.name }}(
+        data = await MemberClassByoda.append_data(
+            {{ service_id }}, info, remote_member_id=remote_member_id, depth=depth
+        )
+        {{ root_class.referenced_class.name }}_data =  {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-            {{ field_name }},
+            data.get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         )
+
+        return {{ root_class.referenced_class.name }}_data
 
     @strawberry.field
     async def delete_from_{{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter]) -> List[Optional[{{ root_class.referenced_class.name }}]]:

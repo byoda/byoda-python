@@ -46,7 +46,8 @@ class GraphQlProxy:
         self.schema: Schema = member.schema
 
     async def proxy_request(self, class_name: str, query: bytes,
-                            depth: int, relations: List[str]) -> List[Dict]:
+                            depth: int, relations: List[str],
+                            remote_member_id: UUID = None) -> List[Dict]:
         '''
         Manipulates the original request to decrement the query depth by 1,
         sends the updated request to all network links that have one of the
@@ -66,7 +67,7 @@ class GraphQlProxy:
         updated_query = self._update_query(query)
 
         network_data = await self._proxy_request(
-            updated_query, relations
+            updated_query, relations, remote_member_id
         )
 
         cleaned_data = self._process_network_data(class_name, network_data)
@@ -97,22 +98,30 @@ class GraphQlProxy:
 
         return updated_query
 
-    async def _proxy_request(self, query: bytes, relations: List[str]
-                             ) -> List[Dict]:
+    async def _proxy_request(self, query: bytes, relations: List[str],
+                             remote_member_id: UUID) -> List[Dict]:
         '''
-        Sends the GraphQL query to remote pods
+        Sends the GraphQL query to remote pods. If remote_member_id is
+        specified then the request will only be proxied to that member.
+        Otherwise, the request will be proxided to all members that
+        are in our network with one of the specified relations, or,
+        if no relations ar especified, to every member in our network.
 
-        :param network_links: the network links for the member
+        :param query: the original GraphQL request that was received
         :param relations: the relations that the query should be send to
+        :param remote_member_id: the member ID of the pod to send the query to
         :returns: list of responses per pod member ID
         '''
 
-        network_links = self.member.data['network_links']
+        if remote_member_id:
+            targets = [remote_member_id]
+        else:
+            network_links = self.member.data['network_links']
 
-        targets = [
-            target['member_id'] for target in network_links
-            if not relations or target['relation'] in relations
-        ]
+            targets = [
+                target['member_id'] for target in network_links
+                if not relations or target['relation'] in relations
+            ]
 
         tasks = set()
         for target in targets:

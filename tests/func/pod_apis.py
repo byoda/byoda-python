@@ -50,7 +50,7 @@ from podserver.routers import authtoken
 
 from tests.lib import get_test_uuid
 
-from tests.lib.graphql_queries import QUERY_PERSON
+from tests.lib.graphql_queries import APPEND_NETWORK_INVITE, QUERY_PERSON
 from tests.lib.graphql_queries import MUTATE_PERSON
 from tests.lib.graphql_queries import QUERY_NETWORK
 from tests.lib.graphql_queries import APPEND_NETWORK
@@ -59,6 +59,7 @@ from tests.lib.graphql_queries import DELETE_FROM_NETWORK_WITH_FILTER
 from tests.lib.graphql_queries import QUERY_NETWORK_ASSETS
 from tests.lib.graphql_queries import APPEND_NETWORK_ASSETS
 from tests.lib.graphql_queries import UPDATE_NETWORK_ASSETS
+from tests.lib.graphql_queries import APPEND_NETWORK_INVITE
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -852,6 +853,39 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             url, QUERY_PERSON, timeout=120,
+            vars=vars, headers=auth_header
+        )
+        data = await response.json()
+        self.assertIsNotNone(data.get('data'))
+        self.assertIsNone(data.get('errors'))
+
+        #
+        # Let's send network invites. First we invite ourself
+        # and then we invite the Azure pod
+        #
+        vars = {
+            'member_id': str(member.member_id),
+            'relation': 'friend',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+
+        }
+        response = await GraphQlClient.call(
+            url, APPEND_NETWORK_INVITE, timeout=120,
+            vars=vars, headers=auth_header
+        )
+        data = await response.json()
+        self.assertIsNotNone(data.get('data'))
+        self.assertIsNone(data.get('errors'))
+
+        vars = {
+            'member_id': str(member.member_id),
+            'relation': 'friend',
+            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'remote_member_id': REMOTE_MEMBER_ID,
+            'depth': 1
+        }
+        response = await GraphQlClient.call(
+            url, APPEND_NETWORK_INVITE, timeout=120,
             vars=vars, headers=auth_header
         )
         data = await response.json()

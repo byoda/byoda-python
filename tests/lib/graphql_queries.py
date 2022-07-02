@@ -107,6 +107,23 @@ mutation ($filters: networkLinkInputFilter!) {
 }
 '''
 
+APPEND_NETWORK_INVITE = '''
+mutation (
+    $member_id: UUID!, $relation: String!, $timestamp: DateTime!,
+    $remote_member_id: UUID, $depth: Int
+) {
+    append_network_invites (
+        member_id: $member_id,
+        relation: $relation,
+        timestamp: $timestamp,
+        remote_member_id: $remote_member_id,
+        depth: $depth
+    ) {
+        member_id relation timestamp
+    }
+}
+'''
+
 # Network Assets refer to Asset objects so we use assetInputFilter
 QUERY_NETWORK_ASSETS = '''
 query ($filters: assetInputFilter, $first: Int, $after: String, $depth: Int,

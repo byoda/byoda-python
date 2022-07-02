@@ -643,7 +643,7 @@ async def authorize_network(service_id: int, relations: List[str], distance: int
 
     if auth.member_id:
         await member.load_data()
-        network_links = member.data.get('network_links')
+        network_links = member.data.get('network_links') or []
         _LOGGER.debug(f'Found total of {len(network_links)} network links')
         network = [
             link for link in network_links
