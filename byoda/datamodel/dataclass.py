@@ -371,9 +371,10 @@ class SchemaDataObject(SchemaDataItem):
         data = copy(value)
         for field in data:
             if field == 'remote_member_id':
-                # special handling for 'remote_member_id', which is a
-                # parameter used for remote appends
-                data[field] = UUID(data[field])
+                if isinstance(data[field,str]):
+                    # special handling for 'remote_member_id', which is a
+                    # parameter used for remote appends
+                    data[field] = UUID(data[field])
             else:
                 data_class = self.fields[field]
                 data[field] = data_class.normalize(value[field])
