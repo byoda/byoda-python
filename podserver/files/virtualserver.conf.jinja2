@@ -12,12 +12,8 @@ server {
     ssl_certificate {{ cert_filepath }};
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
-    ssl_verify_client optional;
-{% if subdomain == 'accounts' %}
-    ssl_verify_depth 2;
-{% else %}
-    ssl_verify_depth 4;
-{% endif -%}
+    ssl_verify_client off;
+
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
     ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
@@ -112,7 +108,7 @@ server {
 ### Virtual server for access by pods to the member
 ###
 server {
-    listen       444 ssl;
+    listen       444 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
 
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 

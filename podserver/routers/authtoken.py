@@ -44,6 +44,9 @@ async def get_member_authtoken(request: Request, service_id: int,
     _LOGGER.debug(f'GET authtoken API called from {request.client.host}')
 
     account: Account = config.server.account
+    await account.load_memberships()
+
+    member: Member = account.memberships.get(service_id)
 
     if not account.password:
         raise HTTPException(
@@ -51,7 +54,7 @@ async def get_member_authtoken(request: Request, service_id: int,
             detail='Basic Auth disabled as no password was set'
         )
 
-    if (credentials.username != str(account.account_id)[:8]
+    if (credentials.username != str(member.member_id)[:8]
             or credentials.password != account.password):
         _LOGGER.warning(
             'Basic auth with invalid password for '
@@ -62,10 +65,6 @@ async def get_member_authtoken(request: Request, service_id: int,
         )
 
     # Make sure we have the latest updates of memberships
-    await account.load_memberships()
-
-    member: Member = account.memberships.get(service_id)
-
     if not member:
         # We want to hide that te pod does not have a membership for the
         # specified service
