@@ -10,8 +10,7 @@ import re
 import asyncio
 import logging
 from uuid import UUID
-from datetime import datetime
-from typing import TypeVar, List, Dict, Tuple, Union
+from typing import TypeVar, List, Dict, Tuple
 
 import orjson
 
@@ -138,8 +137,8 @@ class GraphQlProxy:
             target, self.member.service_id, self.member.network.name
         )
         url = (
-            f'https://{fqdn}:{POD_TO_POD_PORT}'
-            f'{GRAPHQL_API_URL_PREFIX.format(service_id=self.member.service_id)}'
+            f'https://{fqdn}:{POD_TO_POD_PORT}' +
+            GRAPHQL_API_URL_PREFIX.format(service_id=self.member.service_id)
         )
 
         query_data = orjson.loads(query)
