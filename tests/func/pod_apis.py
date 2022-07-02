@@ -688,7 +688,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
         member = account.memberships[ADDRESSBOOK_SERVICE_ID]
 
-r        response = await GraphQlClient.call(
+        response = await GraphQlClient.call(
             azure_url, QUERY_NETWORK, timeout=120,
             headers=azure_member_auth_header
         )
