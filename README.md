@@ -23,14 +23,14 @@ There are two ways to install the pod:
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public').
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
         - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
-    - The HTTPS port and TCP port 444 for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
+    - The HTTPS port for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
         - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
-    - Ports 443 and 444 on your server must be available for the pod to use
-    - Ports 443 and 444 must be accessible from the Internet.
+    - Ports 443 on your server must be available for the pod to use
+    - Ports 443 must be accessible from the Internet.
     - Carefully consider the security implementations on enabling port forwarding on your broadband router and whether this is the right setup for you.
 
 To launch the pod:
@@ -69,20 +69,20 @@ curl -s https://dir.byoda.net/api/v1/network/services | jq .
 Now we can use curl to get the list of services the pod has discovered in the network:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
-    --pass $PASSPHRASE https://$ACCOUNT_FQDN:444/api/v1/pod/account | jq .
+    --pass $PASSPHRASE https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
 ```
 
 We can make our pod join the address book service:
 ```
 curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
      --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
+    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
 
 We can confirm that our pod has joined the service with:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
+    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
 And we can enter our data for the address book service after we fill in our data for the various fields to replace the placeholders between '<>':
@@ -96,7 +96,7 @@ EOF
 
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-    https://$MEMBER_ADDR_FQDN:444/api/v1/data/service-$SERVICE_ADDR_ID \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
     --data @person-mutate.json | jq .
 ```
 To confirm that the pod now really has the data for your membership of the address book service:
@@ -109,7 +109,7 @@ EOF
 
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-    https://$MEMBER_ADDR_FQDN:444/api/v1/data/service-$SERVICE_ADDR_ID \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
     --data @person-query | jq .
 ```
 It will take a while for the address book service to retrieve your data from your pod and make it available from its search API. The address book service queries a pod every 10 seconds so, the exact time depends on how many people have joined the service. In the meantime, you can call the search API to find the member_id of my email address: steven@byoda.org
@@ -121,14 +121,14 @@ Let's note the member_id from the output of the previous command and tell your p
 ```
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-    https://$MEMBER_ADDR_FQDN:444/api/v1/data/service-$SERVICE_ADDR_ID \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "mutation { append_network_links( member_id: \"5890cede-6799-46f4-9357-986cd45f6909\", relation: \"friend\", timestamp: \"2022-07-02T03:30:27.180230+00:00\") {  member_id relation timestamp } }" }' | jq .
 ```
 Now let's see who your friends are in the membership for the address book service in your pod:
 ```
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-    https://$MEMBER_ADDR_FQDN:444/api/v1/data/service-$SERVICE_ADDR_ID \
+    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {network_links {member_id relation timestamp}}" }' | jq .
 ```
 We can also use JWTs. First, we acquire a JWT:

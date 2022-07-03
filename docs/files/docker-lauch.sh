@@ -138,7 +138,7 @@ echo "Creating container for account_id ${ACCOUNT_ID}"
 docker pull byoda/byoda-pod:latest
 sudo docker run -d \
     --name byoda \
-    -p 443:443 -p 444:444 -p 80:80 \
+    -p 443:443 \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \

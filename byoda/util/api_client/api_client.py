@@ -75,19 +75,14 @@ class ApiClient:
                     pool = 'noauth-http'
                 else:
                     pool = 'noauth-https'
+                    self.port = 443
 
         elif isinstance(secret, ServiceSecret):
             pool = f'service-{service_id}'
-            if not port:
-                port = 444
         elif isinstance(secret, MemberSecret):
             pool = 'member'
-            if not port:
-                port = 444
         elif isinstance(secret, AccountSecret):
             pool = 'account'
-            if not port:
-                port = 444
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
