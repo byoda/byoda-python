@@ -617,8 +617,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         member = account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         response = await GraphQlClient.call(
-            azure_url, GRAPHQL_STATEMENTS['network_links']['query'], timeout=120,
-            headers=azure_member_auth_header
+            azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
+            timeout=120, headers=azure_member_auth_header
         )
         result = await response.json()
         data = result.get('data')
@@ -650,8 +650,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
             # Confirm we have a network_link entry
             response = await GraphQlClient.call(
-                azure_url, GRAPHQL_STATEMENTS['network_links']['query'], timeout=120,
-                headers=azure_member_auth_header
+                azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
+                timeout=120, headers=azure_member_auth_header
             )
             result = await response.json()
             data = result.get('data')

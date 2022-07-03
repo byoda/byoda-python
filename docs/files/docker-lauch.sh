@@ -40,6 +40,8 @@ export BUCKET_PREFIX="changeme"
 export ACCOUNT_SECRET="changeme"
 export PRIVATE_KEY_SECRET="changeme"
 
+export NETWORK="byoda.net"
+
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
@@ -139,11 +141,12 @@ docker pull byoda/byoda-pod:latest
 sudo docker run -d \
     --name byoda \
     -p 443:443 \
+    -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
     -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
-    -e "NETWORK=byoda.net" \
+    -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
     -e "LOGLEVEL=${LOGLEVEL}" \

@@ -20,7 +20,7 @@ import multiprocessing
 
 # BIND parameter is set in systemd file
 
-forwarded_allow_ips = "127.0.0.1"
+forwarded_allow_ips = os.environ.get('TRUSTED_IP', '127.0.0.1')
 
 workers = os.environ.get('WORKERS', 2)
 
