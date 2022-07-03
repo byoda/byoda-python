@@ -12,7 +12,7 @@ server {
     ssl_certificate {{ cert_filepath }};
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
-    ssl_verify_client off;
+    ssl_verify_client optional;
 
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
