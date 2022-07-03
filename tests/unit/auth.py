@@ -42,18 +42,11 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
+from tests.lib.util import get_test_uuid
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 CONFIG_FILE = 'tests/collateral/config.yml'
 
 TEST_DIR = '/tmp/byoda-tests/auth'
-
-ADDRESSBOOK_SERVICE = 4294929430
-
-
-def get_test_uuid() -> UUID:
-    id = str(uuid4())
-    id = 'aaaaaaaa' + id[8:]
-    id = UUID(id)
-    return id
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
@@ -106,7 +99,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await server.get_registered_services()
 
         member_id = get_test_uuid()
-        await pod_account.join(ADDRESSBOOK_SERVICE, 1, member_id=member_id)
+        await pod_account.join(ADDRESSBOOK_SERVICE_ID, 1, member_id=member_id)
 
     async def test_jwt(self):
         #
@@ -142,7 +135,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         server: PodServer = config.server
         account: Account = server.account
-        member: Member = account.memberships[ADDRESSBOOK_SERVICE]
+        member: Member = account.memberships[ADDRESSBOOK_SERVICE_ID]
         jwt = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET

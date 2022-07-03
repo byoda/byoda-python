@@ -26,7 +26,7 @@ from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import AZURE_POD_SECRET_FILE
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
-from tests.lib.graphql_queries import QUERY_PERSON
+from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
 from tests.lib.auth import get_jwt_header
 
@@ -53,7 +53,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         url = base_url + f'/v1/data/service-{service_id}'
         response = await GraphQlClient.call(
-            url, QUERY_PERSON, timeout=3, headers=auth_header
+            url, GRAPHQL_STATEMENTS['person']['query'], timeout=3,
+            headers=auth_header
         )
         result = await response.json()
         self.assertIsNone(result.get('errors'))

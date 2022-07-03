@@ -11,7 +11,7 @@ import sys
 import orjson
 import logging
 from copy import deepcopy
-from typing import List, Dict, Set, TypeVar, Callable
+from typing import List, Dict, Set, TypeVar
 from types import ModuleType
 
 import jinja2

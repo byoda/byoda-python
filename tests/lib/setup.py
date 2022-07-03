@@ -8,12 +8,12 @@ Helper functions to set up tests
 
 import os
 import shutil
-from uuid import uuid4, UUID
 from typing import Dict
 
 from byoda import config
 
 from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
 
 from byoda.servers.pod_server import PodServer
 
@@ -22,15 +22,10 @@ from byoda.datatypes import CloudType
 
 from podserver.util import get_environment_vars
 
-
-def get_test_uuid() -> UUID:
-    id = str(uuid4())
-    id = 'aaaaaaaa' + id[8:]
-    id = UUID(id)
-    return id
+from tests.lib.util import get_test_uuid
 
 
-async def setup_network(test_dir: str) -> Dict:
+async def setup_network(test_dir: str) -> Dict[str, str]:
     config.debug = True
     try:
         shutil.rmtree(test_dir)
@@ -70,3 +65,41 @@ async def setup_network(test_dir: str) -> Dict:
     config.server.paths = network.paths
 
     return network_data
+
+
+async def setup_account(network_data: Dict[str, str]) -> Account:
+    server = config.server
+    pod_account = Account(network_data['account_id'], server.network)
+    await pod_account.paths.create_account_directory()
+    await pod_account.load_memberships()
+
+    server.account = pod_account
+
+    pod_account.password = os.environ['ACCOUNT_SECRET']
+
+    await pod_account.create_account_secret()
+    await pod_account.create_data_secret()
+    await pod_account.register()
+
+    await server.get_registered_services()
+
+    services = list(server.network.service_summaries.values())
+    service = [
+        service
+        for service in services
+        if service['name'] == 'addressbook'
+    ][0]
+
+    global ADDRESSBOOK_SERVICE_ID
+    ADDRESSBOOK_SERVICE_ID = service['service_id']
+    global ADDRESSBOOK_VERSION
+    ADDRESSBOOK_VERSION = service['version']
+
+    member_id = get_test_uuid()
+    await pod_account.join(
+        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
+        local_service_contract='addressbook.json'
+    )
+
+    return pod_account
+

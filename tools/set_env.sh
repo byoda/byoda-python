@@ -46,7 +46,7 @@ echo "Account key                  : $ACCOUNT_KEY"
 echo ""
 echo "Account page                 : https://$ACCOUNT_ID.accounts.byoda.net/"
 echo "OpenAPI redoc                : https://$ACCOUNT_ID.accounts.byoda.net/redoc"
-echo "POD logs                     : https://$ACCOUNT_ID.accounts.byoda.net/logs/{pod[worker].log,nginx-access.log,nginx-error.log}"
+echo "POD logs                     : https://$ACCOUNT_ID.accounts.byoda.net/logs/pod.log"
 
 # The address book service
 export SERVICE_ADDR_ID=4294929430
@@ -64,10 +64,13 @@ if [ -f  $MEMBER_ADDR_CERT ]; then
     export MEMBER_ADDR_FQDN=${MEMBER_ADDR_ID}.members-${SERVICE_ADDR_ID}.byoda.net
 fi
 
+export MEMBER_USERNAME=$(echo $MEMBER_ADDR_ID | cut -d '-' -f 1)
+
 echo ""
 echo "Address book service ID      : $SERVICE_ADDR_ID"
 echo "Member ID                    : $MEMBER_ADDR_ID"
 echo "Member FQDN                  : $MEMBER_ADDR_FQDN"
+echo "Member username              : $MEMBER_USERNAME"
 echo "Member cert                  : $MEMBER_ADDR_CERT"
 echo "Member key                   : $MEMBER_ADDR_KEY"
 echo ""

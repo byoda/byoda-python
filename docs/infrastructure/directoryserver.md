@@ -246,7 +246,15 @@ server {
         add_header X-XSS-Protection "1; mode=block";
     }
 
+    # example: curl https://86c8c2f0:<password>@proxy.byoda.net/4294929430/86c8c2f0-572e-4f58-a478-4037d2c9b94a/api/v1/pod/authtoken/service_id/4294929430
     location ~ ^\/(?<service>\d+)\/(?<memberid>[\da-fA-F\-]+)\/(?<api>.*)$ {
-        proxy_pass https://$memberid.members-$service.<network>/$api;
+        proxy_pass https://$memberid.members-$service.byoda.net/$api;
     }
+
+    # example: curl https://5890cede:<password>@proxy.byoda.net/5890cede-6799-46f4-9357-986cd45f6909/api/v1/pod/authtoken
+    location ~ ^\/(?<accountid>[\da-fA-F\-]+)\/(?<api>.*)$ {
+        proxy_pass https://$accountid.accounts.byoda.net/$api;
+    }
+
+
 }

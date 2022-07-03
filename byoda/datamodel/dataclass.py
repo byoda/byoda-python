@@ -15,7 +15,7 @@ from copy import copy
 from uuid import UUID
 from urllib.parse import urlparse
 from datetime import datetime
-from typing import Dict, List, Set, Union, TypeVar
+from typing import Dict, List, Set, Union, TypeVar, Tuple
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
@@ -40,13 +40,23 @@ class GraphQlAPI(Enum):
 
 
 # Translation from jsondata data type to Python data type in the Jinja template
-SCALAR_TYPE_MAP = {
+PYTHON_SCALAR_TYPE_MAP = {
     DataType.STRING: 'str',
     DataType.INTEGER: 'int',
     DataType.NUMBER: 'float',
     DataType.BOOLEAN: 'bool',
+    DataType.DATETIME: 'datetime',
+    DataType.UUID: 'UUID',
 }
 
+GRAPHQL_SCALAR_TYPE_MAP = {
+    DataType.STRING: 'String',
+    DataType.INTEGER: 'Int',
+    DataType.NUMBER: 'Float',
+    DataType.BOOLEAN: 'Boolean',
+    DataType.DATETIME: 'DateTime',
+    DataType.UUID: 'UUID',
+}
 
 class SchemaDataItem:
     '''
@@ -73,18 +83,24 @@ class SchemaDataItem:
         # of the array have
         self.referenced_class: str = None
 
-        self.python_type: str = self.get_python_type(class_name, self.schema)
+        self.python_type, self.graphql_type = self.get_types(
+            class_name, self.schema
+        )
+
         self.access_controls: Dict[RightsEntityType,Set[DataOperationType]] = {}
 
         self.parse_access_controls()
 
-    def get_python_type(self, data_name: str, data_schema: Dict) -> str:
+    def get_types(self, data_name: str, data_schema: Dict
+                       ) -> Tuple[str, str]:
         '''
         Returns translation of the jsonschema -> python typing string
+        and of the jsonschema -> graphql typing string
 
         :param name: name of the data element
         :param subschema: json-schema blurb for the data element
-        :returns: the Python typing value for the data element
+        :returns: the Python typing value and the GraphQL typing value for
+        the data element
         :raises: ValueError, KeyError
         '''
 
@@ -102,13 +118,20 @@ class SchemaDataItem:
 
         if jsonschema_type not in (DataType.OBJECT, DataType.ARRAY):
             try:
-                python_type: str = SCALAR_TYPE_MAP[jsonschema_type]
+                format = data_schema.get('format')
+                if format and format.lower() in ('date-time', 'uuid'):
+                    format_datatype = DataType(format)
+                    python_type: str = PYTHON_SCALAR_TYPE_MAP[format_datatype]
+                    graphql_type: str = GRAPHQL_SCALAR_TYPE_MAP[format_datatype]
+                else:
+                    python_type: str = PYTHON_SCALAR_TYPE_MAP[jsonschema_type]
+                    graphql_type: str = GRAPHQL_SCALAR_TYPE_MAP[jsonschema_type]
             except KeyError:
                 raise ValueError(
-                    f'No GraphQL data type mapping for f{jsonschema_type}'
+                    f'No GraphQL data type mapping for {jsonschema_type}'
                 )
 
-            return python_type
+            return python_type, graphql_type
         elif jsonschema_type == DataType.ARRAY:
             items = data_schema.get('items')
             if not items:
@@ -117,7 +140,9 @@ class SchemaDataItem:
                 )
 
             if 'type' in items:
-                return f'List[{SCALAR_TYPE_MAP[DataType(items["type"])]}]'
+                python_type = f'List[{PYTHON_SCALAR_TYPE_MAP[DataType(items["type"])]}]'
+                graphql_type = f'[{GRAPHQL_SCALAR_TYPE_MAP[DataType(items["type"])]}!]'
+                return python_type, graphql_type
             elif '$ref' in items:
                 if not items['$ref'].startswith('https') and items['$ref'].count('/') != 2:
                     raise ValueError(
@@ -125,9 +150,11 @@ class SchemaDataItem:
                         f' of "/schema/{data_name}"'
                     )
                 class_reference = items['$ref'].split('/')[-1]
-                return f'List[{class_reference}]'
+                python_type = f'List[{class_reference}]'
+                graphql_type = f'[{class_reference}!]'
+                return python_type, graphql_type
         elif jsonschema_type == DataType.OBJECT:
-            return
+            return None, None
 
         raise ValueError(
             f'Unknown data type for {data_name}: {jsonschema_type}'
@@ -469,7 +496,7 @@ class SchemaDataArray(SchemaDataItem):
         data = copy(value)
 
         result = []
-        for item in data:
+        for item in data or []:
             if self.referenced_class:
                 normalized_item = self.referenced_class.normalize(item)
             result.append(normalized_item)
