@@ -27,12 +27,17 @@ from tests.lib.util import get_test_uuid
 
 async def setup_network(test_dir: str) -> Dict[str, str]:
     config.debug = True
-    try:
-        shutil.rmtree(test_dir)
-    except FileNotFoundError:
-        pass
 
-    os.makedirs(test_dir)
+    if test_dir:
+        try:
+            shutil.rmtree(test_dir)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(test_dir)
+    else:
+        test_dir = '/tmp'
+
     shutil.copy('tests/collateral/addressbook.json', test_dir)
 
     os.environ['ROOT_DIR'] = test_dir

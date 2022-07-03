@@ -15,21 +15,23 @@ file system
 import os
 import sys
 import orjson
+import asyncio
 import argparse
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 from tests.lib.auth import get_jwt_header
-
+from tests.lib.setup import setup_network
 
 
 async def main(argv):
+    await setup_network(None)
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', '-n', type=str, default='byoda.net')
     parser.add_argument('--service_id', '-s', type=str, default='4294929430')
     parser.add_argument(
-        '--member_id', '-s', type=str, default=os.environ('MEMBER_ID')
+        '--member_id', '-m', type=str, default=os.environ['MEMBER_ID']
     )
     parser.add_argument('--password', '-p', type=str, default='byoda')
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
@@ -44,6 +46,9 @@ async def main(argv):
     class_name = args.class_name
     action = args.action
 
+    member_id = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+    password = 'supersecret'
+
     if args.class_name not in GRAPHQL_STATEMENTS:
         raise ValueError(
             f'{args.class_name} not in available classes: ' +
@@ -57,10 +62,14 @@ async def main(argv):
             ", ".join(GRAPHQL_STATEMENTS[args.class_name])
         )
 
-    with open(args.data_file) as file_desc:
-        text = file_desc.read()
-
-    vars = orjson.loads(text)
+    vars = {}
+    try:
+        with open(args.data_file) as file_desc:
+            text = file_desc.read()
+            vars = orjson.loads(text)
+    except FileNotFoundError:
+        if action != 'query':
+            raise
 
     base_url = f'https://proxy.{network}/{service_id}/{member_id}/api'
 
@@ -79,10 +88,12 @@ async def main(argv):
 
     data = result.get('data')
     if data:
-        print(f'Data returned by GraphQL: {result["data"]}')
+        text = orjson.dumps(data, option=orjson.OPT_INDENT_2)
+        print('Data returned by GraphQL: ')
+        print(text.decode('utf-8'))
     else:
         print(f'GraphQL error: {result.get("errors")}')
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    asyncio.run(main(sys.argv))
