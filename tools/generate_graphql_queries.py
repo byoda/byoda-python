@@ -50,7 +50,11 @@ def main(argv):
         trim_blocks=True,
         autoescape=True
     )
-    template = environment.get_template('graphql_queries.jinja')
+    if args.language != 'python':
+        raise ValueError('Only Python is supported at this time')
+
+    template_file = 'graphql_queries.py.jinja'
+    template = environment.get_template(template_file)
 
     code = template.render(
         classes=schema.data_classes,

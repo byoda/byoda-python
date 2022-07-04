@@ -29,8 +29,7 @@ There are two ways to install the pod:
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
-    - Ports 443 on your server must be available for the pod to use
-    - Ports 443 must be accessible from the Internet.
+    - Ports 443 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implementations on enabling port forwarding on your broadband router and whether this is the right setup for you.
 
 To launch the pod:
@@ -52,14 +51,18 @@ chmod 755 docker-launch.sh
 
 
 ## Basic info about the pod
-- The logs of the pod are stored in /var/www/wwwroot/logs. This directory is volume-mounted in the pod. The certs and data files are stored under /byoda, which is also volume-mounted in the pod.<br>
+- The logs of the pod are stored in /var/www/wwwroot/logs. This directory is volume-mounted in the pod. The certs and data files are stored in the cloud or locally on your server. In either case, are (also) availble under /byoda, which is also volume-mounted in the pod.<br>
 - The 'directory server' for byoda.net creates a DNS record for each pod based on the ACCOUNT_ID of the pod. The ACCOUNT_ID is stored in the ~/.byoda-account_id file on your VM/server. The FQDN is '<ACCOUNT_ID>.accounts.byoda.net'.
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. We can use _curl_ to our pod to join the address book service. Copy the [setenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/docker-lauch.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/graphql_query.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
-source setenv.sh
+sudo chmod -R a+r /byoda
+git clone https://github.com/StevenHessing/byoda-python.git
+cd byoda-python
+export PYTHONPATH=$PYTHONPATH:.
+source tools/setenv.sh
 ```
 Let's first see what services are available on the byoda.net network:
 ```
@@ -85,8 +88,19 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
     https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
-And we can enter our data for the address book service after we fill in our data for the various fields to replace the placeholders between '<>':
+The call-graphql.py tool can be used to interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
+
 ```
+cat >person.json <<EOF
+{
+    "given_name": "<your name>",
+    "family_name": "<your family name>",
+    "email": "<your email>"
+}
+EOF
+
+tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --data-file person.json --class_name person --action mutate
+
 cat >person-mutate.json <<EOF
 {
         "query": "mutation {mutate_person(given_name: \"<your name>\"  additional_names: \"\", family_name: \"<your family name>\", email: \"<your email>\", homepage_url: \"<your homepage>\", avatar_url: \"<your avatar url>\") { given_name additional_names family_name email homepage_url avatar_url } }"

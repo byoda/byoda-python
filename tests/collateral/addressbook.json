@@ -215,7 +215,7 @@
             "network_invite": {
                 "$id": "/schemas/network_invite",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "An invite to join a network",
+                "description": "An invite to network with another member",
                 "type": "object",
                 "properties": {
                     "timestamp": {

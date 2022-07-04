@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # Sets environment variables to facilitate using curl to tell the pod to do things
-#
+
 # maintainer : Steven Hessing <steven@byoda.org>
 # copyright  : Copyright 2021, 2022
 # license    : GPLv3
@@ -11,11 +11,7 @@ if [[ $_ == $0 ]]; then
     exit 1
 fi
 
-if [[ -z "$1" ]]; then
-    export NETWORK="byoda.net"
-else
-    export NETWORK=$1
-fi
+export NETWORK="byoda.net"
 
 export ROOT_CA=/byoda/network-$NETWORK/network-$NETWORK-root-ca-cert.pem
 export PASSPHRASE=$(grep PRIVATE_KEY_SECRET ~/docker-launch.sh  | head -1 | cut -f 2 -d '=' | sed 's|"||g')
@@ -46,7 +42,7 @@ echo "Account key                  : $ACCOUNT_KEY"
 echo ""
 echo "Account page                 : https://$ACCOUNT_ID.accounts.byoda.net/"
 echo "OpenAPI redoc                : https://$ACCOUNT_ID.accounts.byoda.net/redoc"
-echo "POD logs                     : https://$ACCOUNT_ID.accounts.byoda.net/logs/pod.log"
+echo "POD logs                     : https://$ACCOUNT_ID.accounts.byoda.net/logs/{pod[worker].log,nginx-access.log,nginx-error.log}"
 
 # The address book service
 export SERVICE_ADDR_ID=4294929430
@@ -63,8 +59,8 @@ if [ -f  $MEMBER_ADDR_CERT ]; then
     )
     export MEMBER_ADDR_FQDN=${MEMBER_ADDR_ID}.members-${SERVICE_ADDR_ID}.byoda.net
 fi
-
 export MEMBER_USERNAME=$(echo $MEMBER_ADDR_ID | cut -d '-' -f 1)
+export MEMBER_ID=$MEMBER_ADDR_ID
 
 echo ""
 echo "Address book service ID      : $SERVICE_ADDR_ID"

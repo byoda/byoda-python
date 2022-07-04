@@ -8,7 +8,7 @@ the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
-:license
+:license    : GPLv3
 '''
 
 import os
