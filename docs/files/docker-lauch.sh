@@ -139,7 +139,7 @@ fi
 echo "Creating container for account_id ${ACCOUNT_ID}"
 docker pull byoda/byoda-pod:latest
 sudo docker run -d \
-    --name byoda \
+    --name byoda --restart=unless-stopped \
     -p 443:443 \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \

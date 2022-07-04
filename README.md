@@ -56,11 +56,13 @@ chmod 755 docker-launch.sh
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/graphql_query.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo chmod -R a+r /byoda
 git clone https://github.com/StevenHessing/byoda-python.git
 cd byoda-python
+pipenv install
+pipenv shell
 export PYTHONPATH=$PYTHONPATH:.
 source tools/setenv.sh
 ```
@@ -99,27 +101,53 @@ cat >person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --data-file person.json --class_name person --action mutate
+tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --class_name person --action mutate --data-file person.json
+```
 
-cat >person-mutate.json <<EOF
+If you want to see your details again, you can run
+```
+tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --class_name person --action query
+```
+and you'll see a bit more info than you requested:
+```
 {
-        "query": "mutation {mutate_person(given_name: \"<your name>\"  additional_names: \"\", family_name: \"<your family name>\", email: \"<your email>\", homepage_url: \"<your homepage>\", avatar_url: \"<your avatar url>\") { given_name additional_names family_name email homepage_url avatar_url } }"
+  "person_connection": {
+    "total_count": 1,
+    "edges": [
+      {
+        "cursor": "ac965dd4",
+        "origin": "86c8c2f0-572e-4f58-a478-4037d2c9b94a",
+        "person": {
+          "additional_names": null,
+          "avatar_url": null,
+          "email": "<your email>",
+          "family_name": "<your family name>",
+          "given_name": "<your name>",
+          "homepage_url": null
+        }
+      }
+    ],
+    "page_info": {
+      "end_cursor": "ac965dd4",
+      "has_next_page": false
+    }
+  }
 }
+```
+As a query for person can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton.
+
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+```
+cat >follow.json <<EOF
+{
+    "member_id": "86c8c2f0-572e-4f58-a478-4037d2c9b94a",
+    "relation": "follow",
+    "timestamp": "2022-07-04T03:50:26.451308+00:00"
+}
+
 EOF
 
-
-curl -s -X POST -H 'content-type: application/json' \
-    --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
-    --data @person-mutate.json | jq .
-```
-To confirm that the pod now really has the data for your membership of the address book service:
-```
-cat >person-query.json <<EOF
-{
-        "query": "query {person {given_name additional_names family_name email homepage_url avatar_url}}"
-}
-EOF
+tools/call_graphql.py
 
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
