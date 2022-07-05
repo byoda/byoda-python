@@ -132,7 +132,7 @@ class AwsFileStorage(FileStorage):
 
         data = await super().read(filepath, file_mode)
 
-        _LOGGER.debug(f'Read {key} of {len(data)} bytes from AWS S3')
+        _LOGGER.debug(f'Read {key} of {len(data) or []} bytes from AWS S3')
 
         return data
 
@@ -181,7 +181,7 @@ class AwsFileStorage(FileStorage):
             file_descriptor, self.buckets[storage_type.value], key
         )
 
-        _LOGGER.debug(f'Wrote {key} of {len(data)} bytes to AWS S3')
+        _LOGGER.debug(f'Wrote {key} of {len(data or [])} bytes to AWS S3')
 
     async def exists(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:

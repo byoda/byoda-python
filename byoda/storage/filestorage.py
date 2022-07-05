@@ -204,7 +204,7 @@ class FileStorage:
             data = file_desc.read()
 
         _LOGGER.debug(
-            f'Read {len(data)} bytes from local file {updated_filepath}'
+            f'Read {len(data or [])} bytes from local file {updated_filepath}'
         )
 
         return data
@@ -246,7 +246,7 @@ class FileStorage:
             file_desc.write(data)
 
         _LOGGER.debug(
-            f'Wrote {len(data)} bytes to local file {updated_filepath}'
+            f'Wrote {len(data or [])} bytes to local file {updated_filepath}'
         )
 
     def append(self, filepath: str, data: str,

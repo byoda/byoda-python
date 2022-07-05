@@ -147,7 +147,7 @@ class GcpFileStorage(FileStorage):
             await super().write(filepath, data, file_mode=file_mode)
 
         _LOGGER.debug(
-            f'Read {len(data)} for {filepath} from GCP bucket'
+            f'Read {len(data or [])} for {filepath} from GCP bucket'
             f'{self.buckets[storage_type.value]}'
         )
 
@@ -204,7 +204,7 @@ class GcpFileStorage(FileStorage):
             file_desc.write(data)
 
         _LOGGER.debug(
-            f'Wrote {len(data)}) bytes for {filepath} to GCP bucket '
+            f'Wrote {len(data or [])} bytes for {filepath} to GCP bucket '
             f'{self.buckets[storage_type.value]}'
         )
 
