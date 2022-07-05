@@ -3,7 +3,9 @@
 
 ## Create an AWS account
 
-##
+Go to the [AWS new account page](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/) and sign up.
+
+## Install AWS tools on a unix PC you have access to
 Install the [AWS cli](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html#cliv2-linux-install)
 Install the [ECS clu](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_CLI_installation.html)
 Install the [Copilot CLI](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Copilot.html)
@@ -14,7 +16,7 @@ cd ~/tmp
 curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-rm
+rm awscliv2.zip
 curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
 sudo dpkg -i session-manager-plugin.deb
 rm "session-manager-plugin.deb"
@@ -32,9 +34,9 @@ Go to https://console.aws.amazon.com/iam
 - Review the summary and click on 'Create User'
 
 ## Create object storage and container
-Configure the AWS CLI for the user you just created. Enter the access key id, secret access key and default region name (ie. us-west-1) and default output (ie. json)
+Configure the AWS CLI for the user you just created. Enter the access key id, secret access key and default region name (ie. us-east-2) and default output (ie. json)
 ```
-REGION="us-west-1"
+REGION="us-east2"
 aws configure --profile byoda
 AWS Access Key ID [None]: <access key>
 AWS Secret Access Key [None]: <secret key>
@@ -42,147 +44,44 @@ Default region name [None]: us-west-1
 Default output format [None]: json
 ```
 
+## Create the VM
+To create an Ubuntu 22.04 VM, browse to the [Ubuntu AWS marketplace](https://aws.amazon.com/marketplace/server/procurement?productId=47489723-7305-4e22-8b22-b0d57054f216) and accept that you will get Ubuntu 22.04 for free.
+
+Create and import an SSH key
+```
+export SSH_KEY=byoda-pod
+ssh-keygen -t ed25519 -C ${SSH_KEY} -f ~/.ssh/id_ed25519-${SSH_KEY}
+aws ec2 import-key-pair --key-name ${SSH_KEY} --public-key-material fileb://~/.ssh/id_ed25519-${SSH_KEY}.pub --region ${REGION}
+```
+
+Create the VM:
+```
+TAGS='ResourceType=instance,Tags=[{Key=Name,Value=byoda-pod-aws}]'
+INSTANCE_ID=$(aws ec2 run-instances \
+    --instance-type t2.micro \
+	--image-id ${AMI_ID} \
+	--count 1 \
+	--key-name ${SSH_KEY} \
+	--tag-specifications "${TAGS}" \
+	--region ${REGION} | jq -r '.Instances | .[] | .InstanceId')
+```
+
+Update the security group to allow SSH access from your public IP and HTTPS access from anywhere
+```
+PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[*].Instances[*].PublicIpAddress' --region $REGION | jq -r '.[] | .[]'); echo "VM public IP: ${PUBLIC_IP}"
+VPC_ID=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[*].Instances[*].VpcId' --region $REGION | jq -r '.[] | .[]'); echo "VPC ID: ${VPC_ID}"
+SG_ID=$(aws ec2 describe-security-groups --region $REGION | jq -r '.SecurityGroups | . [] | .GroupId'); echo "Security Group ID: ${SG_ID}"
+
+MY_IP=$(curl -s ifconfig.co)
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr ${MY_IP}/32 --region ${REGION}
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 443 --cidr 0.0.0.0/0 --region ${REGION}
+```
+
 ## Create the S3 storage bucket
 ```
 BUCKET_PREFIX=$(LC_CTYPE=C tr -dc a-z0-9 </dev/urandom | head -c 24)
-aws s3 mb s3://${BUCKET_PREFIX}-public
-aws s3 mb s3://${BUCKET_PREFIX-private
-aws s3api put-bucket-acl --bucket byoda-public --acl public-read
-
-NETWORK="byoda.net"
-ACCOUNT_ID=$(uuid)
-ACCOUNT_SECRET=$(LC_CTYPE=C tr -dc a-zA-Z0-9 </dev/urandom | head -c 24)
+aws s3api create-bucket --bucket ${BUCKET_PREFIX}-private --acl private --region ${REGION} --create-bucket-configuration LocationConstraint=${REGION}
+aws s3api create-bucket --bucket ${BUCKET_PREFIX}-public --acl public-read --region ${REGION} --create-bucket-configuration LocationConstraint=${REGION}
 
 ```
 
-## Create a role and an access policy so that the byoda pod has Read/Write access to the S3 buckets
-See for more detail: https://aws.amazon.com/premiumsupport/knowledge-center/ec2-instance-access-s3-bucket/
-In [AWS IAM console](https://console.aws.amazon.com/iam/home#/policies):
-1- select policies
-2- select create policy button
-3- under VisualEditor, select service 'S3'
-4- under actions, select 'All S3 actions (s3:*)'
-5- under resources, add bucket twice, once for 'byoda-public' and once for 'byoda-private'
-6- select next, next and then enter for 'Review policy'
-  - Name: ecs-byoda-task-s3-access
-  - Description: Give Fargate Byoda container access to its buckets
-  - Summary:
-  - select create policy
-7- create role
-  - type of trusted entity: AWS service
-  - common use cases: Elastic Container Service
-  - select your use case: Elastic Container Service Task
-  - permissions 'ecs-byoda-task-s3-access'
-  - select 'Create'
-
-
-
-
-***Note that Fargate instructions are obsolete***
-
-```
-cat >aws-fargate-task.json <<EOF
-{
-    "family": "byoda-pod",
-    "taskRoleArn": "arn:aws:iam::251110099714:role/byoda-pod-s3",
-    "executionRoleArn": "arn:aws:iam::251110099714:role/ecsTaskExecutionRole",
-    "networkMode": "awsvpc",
-    "containerDefinitions": [
-        {
-            "name": "byoda-pod",
-            "image": "byoda/pod-python:0.0.4",
-            "portMappings": [
-                {
-                    "containerPort": 80,
-                    "hostPort": 80,
-                    "protocol": "tcp"
-                }
-            ],
-            "environment": [
-                {
-                    "name": "NETWORK",
-                    "value": "byoda.net"
-                },
-                {
-                    "name": "CLOUD",
-                    "value": "AWS"
-                },
-                {
-                    "name": "BUCKET_PREFIX",
-                    "value": "byoda"
-                },
-                {
-                    "name": "ACCOUNT_ID",
-                    "value": "beb6f914-904f-11eb-88ff-00155de02c92"
-                },
-                {
-                    "name": "ACCOUNT_SECRET",
-                    "value": "KYDVGirFhB4f0Gv"
-                },
-                {
-                    "name": "PRIVATE_KEY_SECRET",
-                    "value": "byoda"
-                },
-                {
-                    "name": "LOGLEVEL",
-                    "value": "DEBUG"
-                }
-            ],
-            "essential": true
-        }
-    ],
-    "requiresCompatibilities": [
-        "FARGATE"
-    ],
-    "cpu": "256",
-    "memory": "512"
-}
-EOF
-
-
-## Fargate task definition
-From [the guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_AWSCLI_Fargate.html):
-Task definition docs: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/create-task-definition.html
-
-Not working yet:
-    "environmentFiles": [
-        {
-            "type": "s3",
-            "value": "arn:aws:s3:::byoda-private/bootstrap.env"
-        }
-
-
-REGION="us-west-1"
-ZONE="${REGION}b"
-BYODA_CLUSTER="byoda-cluster"
-BYODA_SERVICE="podserver-service"
-VPC_ID=$(aws ec2 describe-vpcs | jq -r '.Vpcs | .[] | select(.IsDefault == true) | .VpcId')
-SUBNET_ID=$(aws ec2 describe-subnets | jq -r --arg ZONE $ZONE '.Subnets | .[] | select(.AvailabilityZone == $ZONE) | .SubnetId')
-SG_ID=$(aws ec2 create-security-group --description byoda-sg --group-name byoda-sg --vpc-id ${VPC_ID} | jq -r .GroupId)
-aws ec2 authorize-security-group-ingress --group-id ${SG_ID} --protocol tcp --port 80 --cidr 0.0.0.0/0
-echo "VPC ID: ${VPC_ID} SUBNET ID: ${SUBNET_ID} Security-Group ID ${SG_ID}"
-
-# Is this needed?
-# aws iam --region ${REGION} create-role --role-name ecsTaskExecutionRole --assume-role-policy-document file://aws-task-execution-role.json
-aws iam --region ${REGION} attach-role-policy --role-name ecsTaskExecutionRole --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-# Did the below line help ecs task to read environment file from S3 storage?
-aws iam --region ${REGION} attach-role-policy --role-name ecsTaskExecutionRole --policy-arn <arn-of-ecs-byoda-task-s3-access>
-
-aws ecs create-cluster --cluster-name ${BYODA_CLUSTER}
-aws ecs register-task-definition --cli-input-json file://aws-fargate-task.json
-aws ecs create-service \
-    --cluster ${BYODA_CLUSTER} \
-    --service-name ${BYODA_SERVICE} \
-    --task-definition byoda-pod:6 \
-    --desired-count 1 \
-    --launch-type "FARGATE" \
-    --network-configuration "awsvpcConfiguration={subnets=[subnet-586ce03e],securityGroups=[${SG_ID}], assignPublicIp=ENABLED}"
-
-# https://us-west-1.console.aws.amazon.com/ecs/home?region=us-west-1
-aws ecs describe-services --cluster ${BYODA_CLUSTER} --services ${BYODA_SERVICE}
-```
-
-If you are testing and want to avoid AWS charges then do some clean up:
-```
-aws ecs delete-service --cluster ${BYODA_CLUSTER} --service ${BYODA_SERVICE} --force
-aws ecs delete-cluster --cluster ${BYODA_CLUSTER}

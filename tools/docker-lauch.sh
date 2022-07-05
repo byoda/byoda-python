@@ -42,6 +42,11 @@ export PRIVATE_KEY_SECRET="changeme"
 
 export NETWORK="byoda.net"
 
+# These variables need to be set for pods on AWS:
+export AWS_ACCESS_KEY_ID="changeme"
+export AWS_SECRET_ACCESS_KEY="changeme"
+
+
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
@@ -85,6 +90,10 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
 elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     export CLOUD=AWS
     echo "Running in cloud: ${CLOUD}"
+    if [[ "${AWS_ACCESS_KEY_ID}" == "changeme" || "${AWS_SECRET_ACCESS_KEY}" == "changeme" ]]; then
+        echo "Set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables in this script"
+        exit 1
+    fi
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
@@ -138,6 +147,29 @@ fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
 docker pull byoda/byoda-pod:latest
+
+if [[ "${CLOUD}" == "AWS" ]]; then
+sudo docker run -d \
+    --name byoda --restart=unless-stopped \
+    -p 443:443 \
+    -e "WORKERS=1" \
+    -e "CLOUD=${CLOUD}" \
+    -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
+    -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
+    -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
+    -e "NETWORK=${NETWORK}" \
+    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
+    -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
+    -e "LOGLEVEL=${LOGLEVEL}" \
+    -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
+    -e "BOOTSTRAP=BOOTSTRAP" \
+    -e "ROOT_DIR=${ROOT_DIR}" \
+    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -v ${ROOT_DIR}:${ROOT_DIR} \
+    -v ${LOGDIR}:${LOGDIR} \
+    byoda/byoda-pod:latest
+else
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
     -p 443:443 \
@@ -156,3 +188,4 @@ sudo docker run -d \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
+fi

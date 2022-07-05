@@ -15,14 +15,92 @@ file system
 import os
 import sys
 import orjson
+import shutil
 import asyncio
 import argparse
+from uuid import UUID, uuid4
+from typing import Dict
+
+import requests
+from requests.auth import HTTPBasicAuth
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
+from byoda import config
+
+from byoda.datatypes import CloudType
+
+from byoda.datamodel.network import Network
+
+from byoda.datastore.document_store import DocumentStoreType
+
+from byoda.servers.pod_server import PodServer
+
+from podserver.util import get_environment_vars
+
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
-from tests.lib.auth import get_jwt_header
-from tests.lib.setup import setup_network
+from tests.lib.defines import BASE_URL
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
+
+async def setup_network(test_dir: str) -> Dict[str, str]:
+    os.environ['ROOT_DIR'] = '/byoda'
+    os.environ['BUCKET_PREFIX'] = 'byoda'
+    os.environ['CLOUD'] = 'LOCAL'
+    os.environ['NETWORK'] = 'byoda.net'
+    os.environ['ACCOUNT_ID'] = str(uuid4())
+    os.environ['ACCOUNT_SECRET'] = 'test'
+    os.environ['LOGLEVEL'] = 'DEBUG'
+    os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
+    os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
+
+    network_data = get_environment_vars()
+
+    network = Network(network_data, network_data)
+    await network.load_network_secrets()
+
+    config.test_case = True
+
+    config.server = PodServer(network)
+    config.server.network = network
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType(network_data['cloud']),
+        bucket_prefix=network_data['bucket_prefix'],
+        root_dir=network_data['root_dir']
+    )
+
+    config.server.paths = network.paths
+
+    return network_data
+
+
+def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
+                   secret: str = None, member_token: bool = True):
+
+    if not id:
+        account = config.server.account
+        id = account.account_id
+
+    if not secret:
+        secret = os.environ['ACCOUNT_SECRET']
+
+    if member_token:
+        service_id = ADDRESSBOOK_SERVICE_ID
+        url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
+    else:
+        url = base_url + '/v1/pod/authtoken'
+
+    response = requests.get(
+        url, auth=HTTPBasicAuth(str(id)[:8], secret)
+    )
+    result = response.json()
+    auth_header = {
+        'Authorization': f'bearer {result["auth_token"]}'
+    }
+
+    return auth_header
 
 
 async def main(argv):
@@ -31,19 +109,20 @@ async def main(argv):
     parser.add_argument('--network', '-n', type=str, default='byoda.net')
     parser.add_argument('--service_id', '-s', type=str, default='4294929430')
     parser.add_argument(
-        '--member_id', '-m', type=str, default=os.environ['MEMBER_ID']
+        '--member_id', '-i', type=str, default=os.environ['MEMBER_ID']
     )
     parser.add_argument(
         '--password', '-p', type=str, default=os.environ['ACCOUNT_PASSWORD']
     )
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
-    parser.add_argument('--class_name', '-c', type=str, default='person')
+    parser.add_argument('--class-name', '-c', type=str, default='person')
     parser.add_argument('--action', '-a', type=str, default='query')
     parser.add_argument('--depth', '-d', type=int, default=0)
-    parser.add_argument('--relation', '-r', type=str, default=None)
-    parser.add_argument('--filter_field', type=str, default=None)
-    parser.add_argument('--filter_compare', type=str, default=None)
-    parser.add_argument('--filter_value', type=str, default=None)
+    parser.add_argument('--relations', '-r', type=str, default=None)
+    parser.add_argument('--filter-field', type=str, default=None)
+    parser.add_argument('--filter-compare', type=str, default=None)
+    parser.add_argument('--filter-value', type=str, default=None)
+    parser.add_argument('--remote-member-id', '-m', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -54,7 +133,11 @@ async def main(argv):
     class_name = args.class_name
     action = args.action
     depth = args.depth
-    relations = args.relation.split(',')
+    remote_member_id = args.remote_member_id
+
+    relations = None
+    if args.relations:
+        relations = args.relation.split(',')
 
     member_id = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
     password = 'supersecret'
@@ -94,6 +177,9 @@ async def main(argv):
         vars['depth'] = depth
         if relations:
             vars['relations'] = relations
+
+    if remote_member_id:
+        vars['remote_member_id'] = remote_member_id
 
     if args.filter_field and args.filter_compare and args.filter_value:
         vars['filters'] = {

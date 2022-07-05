@@ -23,6 +23,8 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
+from byoda.util.paths import Paths
+
 from byoda import config
 
 from byoda.util.logger import Logger
@@ -68,9 +70,12 @@ async def main():
         MAX_WAIT = 10
 
     network = Network(
-        app_config['dirserver'], app_config['application']
+        app_config['svcserver'], app_config['application']
     )
-
+    network.paths = Paths(
+        network=network.name,
+        root_directory=app_config['svcserver']['root_dir']
+    )
     server = ServiceServer(network, app_config)
     await server.load_network_secrets()
 

@@ -33,16 +33,20 @@ There are two ways to install the pod:
     - Carefully consider the security implementations on enabling port forwarding on your broadband router and whether this is the right setup for you.
 
 To launch the pod:
-- Log in to your VM or server
-- Copy the [docker-launch.sh script](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/docker-lauch.sh) to the VM
+- If you want to deploy to a VM, follow the instructions for [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md), [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md) or [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md))
+- Log in to your VM or server.
+- Copy the [docker-launch.sh script](https://github.com/StevenHessing/byoda-python/blob/master/tools/docker-lauch.sh) to the VM
 - Edit the docker-launch.sh script and modify the following variables at the top of the script
   - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
   - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
   - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
+- for a pod on an AWS VM, also edit the variables:
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
 - Install the docker, uuid and jq packages and launch the pod
 
 ```
-sudo apt update && apt-get install -y docker uuid jd
+sudo apt update && apt-get install -y docker.io uuid jq
 chmod 755 docker-launch.sh
 ./docker-launch.sh
 ```
@@ -59,10 +63,10 @@ chmod 755 docker-launch.sh
 The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo chmod -R a+r /byoda
+sudo apt install python3-pip
+sudo pip3 install --upgrade orjson aiohttp jsonschema requests
 git clone https://github.com/StevenHessing/byoda-python.git
 cd byoda-python
-pipenv install
-pipenv shell
 export PYTHONPATH=$PYTHONPATH:.
 source tools/setenv.sh
 ```
@@ -90,6 +94,13 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
     https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
+We quickly now update our environment variables to pick up the new membership:
+```
+source tools/setenv.sh
+echo $MEMBER_ID
+```
+
+You will need that member ID later on in this tutorial
 The call-graphql.py tool can be used to interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
 
 ```
@@ -101,12 +112,12 @@ cat >person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --class_name person --action mutate --data-file person.json
+tools/call_graphql.py --class-name person --action mutate --data-file person.json
 ```
 
 If you want to see your details again, you can run
 ```
-tools/call_graphql.py --password ${ACCOUNT_PASSWORD} --class_name person --action query
+tools/call_graphql.py --class-name person --action query
 ```
 and you'll see a bit more info than you requested:
 ```
@@ -116,7 +127,7 @@ and you'll see a bit more info than you requested:
     "edges": [
       {
         "cursor": "ac965dd4",
-        "origin": "86c8c2f0-572e-4f58-a478-4037d2c9b94a",
+        "origin": "<your member ID>",
         "person": {
           "additional_names": null,
           "avatar_url": null,
@@ -144,10 +155,82 @@ cat >follow.json <<EOF
     "relation": "follow",
     "timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
-
 EOF
 
-tools/call_graphql.py
+tools/call_graphql.py --class-name network_links --action append
+```
+
+The address book has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
+```
+cat >invite.json <<EOF
+{
+    "timestamp": "2022-07-04T14:50:26.451308+00:00",
+    "member_id": "89936493-ec56-4c38-971d-cab1179d1a01",
+    "relation": "follow",
+    "text": "Hey, why don't you follow me!"
+}
+EOF
+
+tools/call_graphql.py --class-name network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file ~/invite.json --depth 1
+```
+
+With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
+
+The reason that your pod is allowed to add data to my pod is because of the [data definitions of the 'address book' service](https://github.com/StevenHessing/byoda-python/blob/master/tests/collateral/addressbook.json). In there, you can find:
+```
+    "network_invites": {
+        "#accesscontrol": {
+            "member": {
+                "permissions": ["read", "update", "delete", "append"]
+            },
+            "any_member": {
+                "permissions": ["append"]
+            }
+        },
+        "type": "array",
+        "items": {
+            "$ref": "/schemas/network_invite"
+        }
+    },
+```
+
+The 'any_member' access control allows any member of the address book service to append entries to the array of 'network_invites' but only you as the 'member', can read, update and delete from this array.
+
+If you look at the 'network_assets' data structure in the JSON file, you see:
+```
+    "network_assets": {
+        "#accesscontrol": {
+            "member": {
+                "permissions": ["read", "delete", "append"]
+            },
+            "network": {
+                "permissions": ["read"],
+                "distance": 1
+            }
+        },
+        "type": "array",
+        "items": {
+            "$ref": "/schemas/asset"
+        }
+    }
+```
+This means that once I have accepted your invite by adding an entry to my 'network_links' array, you can query my 'network_assets' and read my posts, tweets or video uploads that I have decided to add to the 'network_assets' array.
+
+With the 'distance: 1' parameter, only people that I have entries for in my 'network_links' array can see those assets. But in the same JSON, you can see the 'service_assets' array with access control
+```
+    "any_member": {
+        "permissions": ["read"]
+    }
+```
+and any member of the address book service will be able to query entries from that array.
+
+As you see, the pod implements the data model of the address book and provides a GraphQL interface for it. You can browse to the GraphQL web-interface directly by pointing your browser the URL listed in the last line of the output of 'set-env.sh', ie.:
+```
+https://89936493-ec56-4c38-971d-cab1179d1a01.members-4294929430.byoda.net/api/v1/data/service-4294929430
+```
+
+But your pod is not restricted to the 'address book' data model! You can create your own service and define its datamodel in [JSONSchema](https://www.json-schema.org/). When your pod reads that data model it will automatically generate the GraphQL APIs for that datamodel. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data model. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it.
+
 
 curl -s -X POST -H 'content-type: application/json' \
     --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
