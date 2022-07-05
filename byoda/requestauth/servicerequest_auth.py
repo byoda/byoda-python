@@ -44,6 +44,9 @@ class ServiceRequestAuth(RequestAuth):
             )
 
         try:
+            _LOGGER.debug(
+                f'Authenticating request by a service: {client_dn}'
+            )
             await super().authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization,
             )
@@ -62,6 +65,8 @@ class ServiceRequestAuth(RequestAuth):
         # the commonname found in the certchain presented by the
         # client.
         self.check_service_cert(server.network)
+
+        self.is_authenticated = True
 
     @staticmethod
     def get_service_id(commonname: str, authorization: str) -> str:

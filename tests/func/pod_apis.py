@@ -27,6 +27,8 @@ from requests.auth import HTTPBasicAuth
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
+from byoda.datamodel.service import Service
+from byoda.datamodel.network import Network
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -180,6 +182,37 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             timeout=120, headers=account_headers
         )
         self.assertEqual(response.status_code, 409)
+
+    async def test_service_auth(self):
+        '''
+        Test calling the GraphQL API of the pod with
+        the TLS client secret of the Service
+        '''
+
+        account: Account = config.server.account
+        network: Network = account.network
+
+        service_id = ADDRESSBOOK_SERVICE_ID
+        service_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN=service.service-{service_id}.byoda.net',
+            'X-Client-SSL-Issuing-CA':
+                f'CN=service-ca.service-ca-{service_id}.{network.name}'
+        }
+
+        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['person']['query'],
+            timeout=120, headers=service_headers
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('person_connection' in data)
 
     async def test_pod_rest_api_jwt(self):
 

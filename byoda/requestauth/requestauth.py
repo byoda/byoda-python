@@ -344,7 +344,10 @@ class RequestAuth:
                 tls_status, client_dn, issuing_ca_dn, authorization
             )
 
-            _LOGGER.debug('Authentication for service %s', auth.service_id)
+            _LOGGER.debug(
+                f'Authentication for service f{auth.service_id}: '
+                f'{auth.is_authenticated}'
+            )
         else:
             raise ValueError(
                 f'Invalid authentication type in common name {client_dn}'
