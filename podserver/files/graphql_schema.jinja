@@ -63,7 +63,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         else:
             _LOGGER.debug(
                 f'Authentication for service {auth.service_id}: '
-                'f{auth.is_authenticated}'
+                f'{auth.is_authenticated}'
             )
     except Exception as exc:
         raise HTTPException(

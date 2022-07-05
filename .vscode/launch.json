@@ -6,6 +6,7 @@
     "configurations": [
 
 
+
         {
             "name": "Current File",
             "type": "python",
@@ -31,24 +32,6 @@
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
                 "SERVER_NAME": "devws"
-            }
-        },
-        {
-            "name": "svcserver: private",
-            "type": "python",
-            "request": "launch",
-            "module": "uvicorn",
-            "console": "integratedTerminal",
-            "args": [
-                "svcserver.main:app",
-                "--host", "0.0.0.0",
-                "--port", "6000",
-                "--proxy-headers"
-            ],
-            "env": {
-                "PYTHONPATH": "/home/steven/src/byoda-python",
-                "SERVER_NAME": "devws",
-                "CONFIG_FILE": "config.yml"
             }
         },
         {

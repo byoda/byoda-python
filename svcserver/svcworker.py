@@ -25,6 +25,8 @@ from byoda.datamodel.network import Network
 
 from byoda.util.paths import Paths
 
+from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
+
 from byoda import config
 
 from byoda.util.logger import Logger
@@ -36,19 +38,6 @@ BASE_URL = (
     'https://{member_id}.members-{service_id}.{network}'
     '/api/v1/data/service-{service_id}'
 )
-
-CLIENT_QUERY = '''
-    query {
-        person {
-            given_name
-            additional_names
-            family_name
-            email
-            homepage_url
-            avatar_url
-        }
-    }
-'''
 
 
 async def main():
@@ -120,8 +109,8 @@ async def main():
         _LOGGER.debug(f'Processing member_id {member_id}')
         try:
             data = server.member_db.get_meta(member_id)
-        except (TypeError, KeyError):
-            _LOGGER.warning(f'Invalid data for member: {member_id}')
+        except (TypeError, KeyError) as exc:
+            _LOGGER.warning(f'Invalid data for member: {member_id}: {exc}')
             continue
 
         server.member_db.add_meta(
@@ -143,7 +132,9 @@ async def main():
             endpoint=url, cert=certkey, verify=root_ca_certfile
         )
         try:
-            result = client.execute(query=CLIENT_QUERY)
+            result = client.execute(
+                query=GRAPHQL_STATEMENTS['person']['query']
+            )
             if result.get('data'):
                 person_data = result['data']['person']
                 server.member_db.set_data(member_id, person_data)
@@ -161,6 +152,7 @@ async def main():
         #
         # and now we wait for the time to process the next client
         #
+        _LOGGER.debug('Sleeping for %d seconds', waittime)
         asyncio.sleep(waittime)
 
 
