@@ -191,6 +191,9 @@ class RequestAuth:
 
         if client_dn:
             try:
+                _LOGGER.debug(
+                    f'Authenticating using client cert: {self.client_dn}'
+                )
                 self.authenticate_client_cert(
                     self.client_dn, self.issuing_ca_dn
                 )
@@ -201,7 +204,10 @@ class RequestAuth:
                 detail = exc.detail
 
         if self.authorization:
-            await self.authenticate_authorization_header(self.authorization)
+            _LOGGER.debug(f'Authenticating using JWT')
+            await self.authenticate_authorization_header(
+                self.authorization
+            )
             self.auth_source = AuthSource.TOKEN
             return
 
@@ -240,15 +246,17 @@ class RequestAuth:
 
         self.id_type = RequestAuth.get_cert_idtype(self.client_cn)
         if self.id_type == IdType.ACCOUNT:
+            _LOGGER.debug('Authenticating client cert for an account')
             self.account_id = self.id
         elif self.id_type == IdType.MEMBER:
+            _LOGGER.debug('Authenticating client cert for a member')
             self.member_id = self.id
         elif self.id_type == IdType.SERVICE:
-            pass
+            _LOGGER.debug('Authenticating client cert for a service')
         else:
             raise HTTPException(
-                status_code=40,
-                detail=f'Unsupported ID type in  cert: {self.id_type.value}'
+                status_code=400,
+                detail=f'Unsupported ID type in cert: {self.id_type.value}'
             )
 
     @staticmethod

@@ -37,6 +37,7 @@ class ServiceRequestAuth(RequestAuth):
         server = config.server
 
         if authorization:
+            _LOGGER.debug('Service called GraphQL API with a JWT')
             raise HTTPException(
                 status_code=401,
                 detail='Service must not call GraphQL APIs using JWTs'
