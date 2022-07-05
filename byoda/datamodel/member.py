@@ -751,7 +751,7 @@ class Member:
                     f'{member.data}'
                 )
 
-        _LOGGER.debug(f'Got {len(data)} objects locally')
+        _LOGGER.debug(f'Got {len(data or [])} objects locally')
 
         modified_data = deepcopy(data)
         for item in modified_data or []:
@@ -896,7 +896,8 @@ class Member:
             filters, data
         )
         _LOGGER.debug(
-            f'Filtering left {len(data)} items and removed {len(removed)}'
+            f'Filtering left {len(data or [])} items and removed '
+            f'{len(removed or [])}'
         )
 
         # We can update only one list item per query
@@ -1064,10 +1065,10 @@ class Member:
         (data, removed) = DataFilterSet.filter_exclude(filters, data)
 
         _LOGGER.debug(
-            f'Removed {len(removed)} items from array {class_object}, '
-            f'keeping {len(data)} items'
+            f'Removed {len(removed or [])} items from array {class_object}, '
+            f'keeping {len(data or [])} items'
         )
-    
+
         member.data[class_object] = data
 
         await member.save_data(member.data)
