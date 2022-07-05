@@ -744,16 +744,17 @@ class Member:
 
         if filters:
             if isinstance(data, list):
-                data = DataFilterSet.filter(filters, data)
+                filtered_data = DataFilterSet.filter(filters, data)
             else:
                 _LOGGER.warning(
                     'Received query with filters for data that is not a list: '
                     f'{member.data}'
                 )
 
-        _LOGGER.debug(f'Got {len(data or [])} objects locally')
+        _LOGGER.debug(f'Got {len(data or [])} filtered objects out '
+                      f'of {len(data or [])} locally')
 
-        modified_data = deepcopy(data)
+        modified_data = deepcopy(filtered_data)
         for item in modified_data or []:
             item[ORIGIN_KEY] = member.member_id
 
