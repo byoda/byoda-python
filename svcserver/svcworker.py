@@ -157,7 +157,7 @@ async def main():
         # and now we wait for the time to process the next client
         #
         _LOGGER.debug('Sleeping for %d seconds', waittime)
-        asyncio.sleep(waittime)
+        await asyncio.sleep(waittime)
 
 
 def next_member_wait(last_seen: datetime) -> int:

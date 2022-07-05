@@ -750,9 +750,13 @@ class Member:
                     'Received query with filters for data that is not a list: '
                     f'{member.data}'
                 )
+        else:
+            filtered_data = data
 
-        _LOGGER.debug(f'Got {len(data or [])} filtered objects out '
-                      f'of {len(data or [])} locally')
+        _LOGGER.debug(
+            f'Got {len(filtered_data or [])} filtered objects out '
+            f'of {len(data or [])} locally'
+        )
 
         modified_data = deepcopy(filtered_data)
         for item in modified_data or []:
