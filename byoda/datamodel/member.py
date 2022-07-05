@@ -733,6 +733,9 @@ class Member:
             all_data = await proxy.proxy_request(
                 key, query, depth, relations
             )
+            _LOGGER.debug(
+                f'Collected {len(all_data)} items from the network'
+            )
 
         # DataFilterSet works on lists so we make put the object in a list
         data = member.data.get(key)
@@ -747,6 +750,8 @@ class Member:
                     'Received query with filters for data that is not a list: '
                     f'{member.data}'
                 )
+
+        _LOGGER.debug(f'Got {len(data)} objects locally')
 
         modified_data = deepcopy(data)
         for item in modified_data or []:
@@ -996,6 +1001,7 @@ class Member:
 
             # Strawberry passes us data that we can just copy as-is
             _LOGGER.debug(f'Appending item to array {key}')
+
             member.data[key].append(mutate_data)
 
             await member.save_data(data)
@@ -1057,6 +1063,11 @@ class Member:
 
         (data, removed) = DataFilterSet.filter_exclude(filters, data)
 
+        _LOGGER.debug(
+            f'Removed {len(removed)} items from array {class_object}, '
+            f'keeping {len(data)} items'
+        )
+    
         member.data[class_object] = data
 
         await member.save_data(member.data)

@@ -200,9 +200,12 @@ class FileStorage:
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'r{file_mode.value}'
 
-        _LOGGER.debug(f'Reading local file {updated_filepath}')
         with open(updated_filepath, openmode) as file_desc:
             data = file_desc.read()
+
+        _LOGGER.debug(
+            f'Read {len(data)} bytes from local file {updated_filepath}'
+        )
 
         return data
 
@@ -239,9 +242,12 @@ class FileStorage:
         if file_descriptor:
             data = file_descriptor.read()
 
-        _LOGGER.debug(f'Writing local file {updated_filepath}')
         with open(updated_filepath, openmode) as file_desc:
             file_desc.write(data)
+
+        _LOGGER.debug(
+            f'Wrote {len(data)} bytes to local file {updated_filepath}'
+        )
 
     def append(self, filepath: str, data: str,
                file_mode: FileMode = FileMode.BINARY,

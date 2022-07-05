@@ -200,6 +200,9 @@ class AzureFileStorage(FileStorage):
             filepath, OpenMode.WRITE, file_mode=file_mode
         )
         file_desc.write(data)
+
+        _LOGGER.debug(f'Read {len(data)} bytes from Azure')
+
         super().close(file_desc)
 
         return data
@@ -247,7 +250,7 @@ class AzureFileStorage(FileStorage):
         await blob_client.upload_blob(file_descriptor, overwrite=True)
 
         _LOGGER.debug(
-            f'wrote blob "byoda/{filepath}" for bucket '
+            f'wrote {len(data)} bytes to blob "byoda/{filepath}" for bucket '
             f'{self.buckets[storage_type.value]}'
         )
 

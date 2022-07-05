@@ -109,10 +109,11 @@ async def main(argv):
     parser.add_argument('--network', '-n', type=str, default='byoda.net')
     parser.add_argument('--service_id', '-s', type=str, default='4294929430')
     parser.add_argument(
-        '--member_id', '-i', type=str, default=os.environ['MEMBER_ID']
+        '--member_id', '-i', type=str, default=os.environ.get('MEMBER_ID')
     )
     parser.add_argument(
-        '--password', '-p', type=str, default=os.environ['ACCOUNT_PASSWORD']
+        '--password', '-p', type=str,
+        default=os.environ.get('ACCOUNT_PASSWORD')
     )
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
     parser.add_argument('--class-name', '-c', type=str, default='person')

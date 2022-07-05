@@ -72,6 +72,7 @@ class MemberData(Dict):
             self.unvalidated_data = await self.document_store.read(
                 filepath, self.member.data_secret
             )
+            _LOGGER.debug(f'Loaded {len(self.unvalidated_data)} items')
 
         except FileNotFoundError:
             _LOGGER.error(
@@ -131,6 +132,8 @@ class MemberData(Dict):
                 self,
                 self.member.data_secret
             )
+            _LOGGER.debug(f'Saved {len(self.keys())} items')
+
         except OSError:
             _LOGGER.error(
                 'Unable to write data file for service %s',

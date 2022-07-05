@@ -73,6 +73,8 @@ class DocumentStore:
         else:
             data = dict()
 
+        _LOGGER.debug(f'Read {len(data)} items')
+
         return data
 
     async def write(self, filepath: str, data: Dict, data_secret: DataSecret):
@@ -84,9 +86,13 @@ class DocumentStore:
             data, option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
         )
 
-        data = data_secret.encrypt(data)
+        _LOGGER.debug(f'Wrote {len(data)} items')
 
-        await self.backend.write(filepath, data, file_mode=FileMode.BINARY)
+        encrypted_data = data_secret.encrypt(data)
+
+        await self.backend.write(
+            filepath, encrypted_data, file_mode=FileMode.BINARY
+        )
 
     async def get_folders(self, folder_path: str, prefix: str = None
                           ) -> List[str]:

@@ -136,12 +136,16 @@ async def main():
                 query=GRAPHQL_STATEMENTS['person']['query']
             )
             if result.get('data'):
-                person_data = result['data']['person']
-                server.member_db.set_data(member_id, person_data)
+                edges = result['data']['person_connection']['edges']
+                if not edges:
+                    _LOGGER.debug('Did not get any info from the pod')
+                else:
+                    person_data = edges[0]['person']
+                    server.member_db.set_data(member_id, person_data)
 
-                server.member_db.kvcache.set(
-                    person_data['email'], str(member_id)
-                )
+                    server.member_db.kvcache.set(
+                        person_data['email'], str(member_id)
+                    )
             else:
                 _LOGGER.debug(
                     f'GraphQL person query failed against member {member_id}'
