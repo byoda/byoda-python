@@ -121,10 +121,14 @@ class Member:
                 filepath = local_service_contract
                 verify_signatures = False
             else:
-                filepath = self.paths.service_file(self.service_id)
+                filepath = self.paths.member_service_file(self.service_id)
+                _LOGGER.debug(f'Setting service contract file to {filepath}')
                 verify_signatures = True
 
             try:
+                _LOGGER.debug(
+                    f'Setting up service {self.service_id} from {filepath}'
+                )
                 self.service = await Service.get_service(
                     self.network, filepath=filepath,
                     verify_signatures=verify_signatures

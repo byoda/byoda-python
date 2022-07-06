@@ -510,8 +510,11 @@ class Secret:
             )
 
         if await self.storage_driver.exists(self.cert_file):
-            _LOGGER.debug('Loading cert from %s', self.cert_file)
             cert_data = await self.storage_driver.read(self.cert_file)
+            _LOGGER.debug(
+                f'Loading cert from {self.cert_file}, '
+                f'got {len(cert_data)} bytes'
+            )
         else:
             _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise FileNotFoundError(f'cert file not found: {self.cert_file}')

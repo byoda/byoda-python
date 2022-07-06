@@ -108,25 +108,17 @@ class AwsFileStorage(FileStorage):
         openmode = OpenMode.WRITE.value + file_mode.value
 
         try:
-            file_desc = NamedTemporaryFile(openmode)
-            self.driver.download_fileobj(
-                self.buckets[storage_type.value], key, file_desc,
-            )
-            await super().move(file_desc.name, filepath)
-            _LOGGER.debug(
-                f'Read {key} from AWS S3 and saved it to {filepath}'
-            )
-            file_desc.close()
+            with NamedTemporaryFile(openmode) as temp_desc:
+                self.driver.download_fileobj(
+                    self.buckets[storage_type.value], key, temp_desc,
+                )
+                temp_desc.flush()
+                with open(temp_desc.name, 'r' + file_mode.value) as file_desc:
+                    data = file_desc.read()
         except boto3.exceptions.botocore.exceptions.ClientError:
             raise FileNotFoundError(f'AWS file not found: {key}')
-        except FileNotFoundError:
-            # Caused by move of file, which NamedTemporaryFile does not
-            # know about
-            pass
 
-        data = await super().read(filepath, file_mode)
-
-        _LOGGER.debug(f'Read {key} of {len(data) or []} bytes from AWS S3')
+        _LOGGER.debug(f'Read {key} of {len(data or [])} bytes from AWS S3')
 
         return data
 
