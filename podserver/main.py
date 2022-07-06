@@ -103,13 +103,17 @@ async def setup():
 
     server.account = pod_account
 
+    # Save local copies for nginx and aiohttp to use
+    pod_account.tls_secret.save(server.local_storage)
+    pod_account.tls_secret.save_tmp_private_key()
+
     nginx_config = NginxConfig(
         directory=NGINX_SITE_CONFIG_DIR,
         filename='virtualserver.conf',
         identifier=network_data['account_id'],
         subdomain=IdType.ACCOUNT.value,
         cert_filepath=(
-            server.paths.root_directory + '/' +
+            server.local_storage.root_directory + '/' +
             pod_account.tls_secret.cert_file
         ),
         key_filepath=pod_account.tls_secret.unencrypted_private_key_file,

@@ -274,6 +274,22 @@ class FileStorage:
             )
         return exists
 
+    def save(self, filepath: str, data: str,
+             file_mode: FileMode = FileMode.BINARY):
+        '''
+        Saves file to local file system, even when called via a
+        cloud storage class derived from this class
+
+        :param filepath: location under the root_dir to save the file
+        :param data: data to save to the file
+        :param file_mode: write file as text or as binary
+        '''
+
+        dirpath, filename = self.get_full_path(filepath)
+
+        with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
+            file_desc.write(data)
+
     async def move(self, src_filepath: str, dest_filepath: str,
                    storage_type: StorageType = StorageType.PRIVATE):
         '''

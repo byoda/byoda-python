@@ -62,6 +62,8 @@ class Server:
 
         self.storage_driver: FileStorage = self.document_store.backend
 
+        self.local_storage: FileStorage = None
+
     async def review_jwt(self, jwt: JWT):
         raise NotImplementedError
 

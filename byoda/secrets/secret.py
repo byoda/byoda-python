@@ -613,24 +613,29 @@ class Secret:
 
         return x509.load_pem_x509_csr(csr)
 
-    async def save(self, password: str = 'byoda', overwrite: bool = False):
+    async def save(self, password: str = 'byoda', overwrite: bool = False,
+                   storage_driver: FileStorage = None):
         '''
         Save a cert and private key to their respective files
 
         :param password: password to decrypt the private_key
         :param overwrite: should any existing files be overwritten
+        :param storage_driver: the storage driver to use
         :returns: (none)
         :raises: PermissionError if the file for the cert and/or key
         already exist and overwrite == False
         '''
 
-        if not overwrite and await self.storage_driver.exists(self.cert_file):
+        if not storage_driver:
+            storage_driver = self.storage_driver
+
+        if not overwrite and await storage_driver.exists(self.cert_file):
             raise PermissionError(
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
             )
         if (not overwrite and self.private_key
-                and await self.storage_driver.exists(self.private_key_file)):
+                and await storage_driver.exists(self.private_key_file)):
             raise PermissionError(
                 f'Can not save the private key because the key already '
                 f'exists at {self.private_key_file}'
@@ -640,9 +645,9 @@ class Secret:
         data = self.certchain_as_pem()
 
         directory = os.path.dirname(self.cert_file)
-        await self.storage_driver.create_directory(directory)
+        await storage_driver.create_directory(directory)
 
-        await self.storage_driver.write(
+        await storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
         )
 
@@ -656,7 +661,7 @@ class Secret:
                 )
             )
 
-            await self.storage_driver.write(
+            await storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
             )

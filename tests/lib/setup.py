@@ -74,6 +74,13 @@ async def setup_network(test_dir: str) -> Dict[str, str]:
 
 async def setup_account(network_data: Dict[str, str]) -> Account:
     server = config.server
+    await server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType(network_data['cloud']),
+        bucket_prefix=network_data['bucket_prefix'],
+        root_dir=network_data['root_dir']
+    )
+
     pod_account = Account(network_data['account_id'], server.network)
     await pod_account.paths.create_account_directory()
     await pod_account.load_memberships()

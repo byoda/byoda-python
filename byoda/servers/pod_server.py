@@ -19,6 +19,11 @@ from byoda.datatypes import IdType
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
 
+from byoda.datatypes import CloudType
+from byoda.datastore.document_store import DocumentStoreType
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda import config
 
 from .server import Server
@@ -82,6 +87,17 @@ class PodServer(Server):
                 'Failed to retrieve list of services from the network: '
                 f'HTTP {resp.status}'
             )
+
+    async def set_document_store(self, store_type: DocumentStoreType,
+                                 cloud_type: CloudType = None,
+                                 bucket_prefix: str = None,
+                                 root_dir: str = None) -> None:
+
+        await super().set_document_store(
+            store_type, cloud_type, bucket_prefix, root_dir
+        )
+
+        self.local_storage = await FileStorage.setup(root_dir)
 
     async def review_jwt(self, jwt: JWT):
         '''
