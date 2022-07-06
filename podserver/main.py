@@ -81,7 +81,7 @@ async def setup():
     network = Network(network_data, network_data)
     await network.load_network_secrets()
     network.root_ca.save(
-        overwite=True, storage_driver=server.local_storage
+        storage_driver=server.local_storage
     )
 
     server.network = network
