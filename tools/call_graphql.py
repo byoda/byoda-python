@@ -116,7 +116,7 @@ async def main(argv):
         default=os.environ.get('ACCOUNT_PASSWORD')
     )
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
-    parser.add_argument('--class-name', '-c', type=str, default='person')
+    parser.add_argument('--class', '-c', type=str, default='person')
     parser.add_argument('--action', '-a', type=str, default='query')
     parser.add_argument('--depth', '-d', type=int, default=0)
     parser.add_argument('--relations', '-r', type=str, default=None)
@@ -139,9 +139,6 @@ async def main(argv):
     relations = None
     if args.relations:
         relations = args.relation.split(',')
-
-    member_id = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
-    password = 'supersecret'
 
     if args.class_name not in GRAPHQL_STATEMENTS:
         raise ValueError(
