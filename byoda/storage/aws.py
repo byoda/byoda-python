@@ -38,6 +38,8 @@ class AwsFileStorage(FileStorage):
         :param cache_path: path to the cache on the local file system
         '''
 
+        boto3.set_stream_logger('', logging.ERROR)
+        
         self.driver = boto3.client('s3')
 
         super().__init__(cache_path, cloud_type=CloudType.AWS)
