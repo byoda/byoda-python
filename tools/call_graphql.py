@@ -116,7 +116,7 @@ async def main(argv):
         default=os.environ.get('ACCOUNT_PASSWORD')
     )
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
-    parser.add_argument('--class', '-c', type=str, default='person')
+    parser.add_argument('--object', '-c', type=str, default='person')
     parser.add_argument('--action', '-a', type=str, default='query')
     parser.add_argument('--depth', '-d', type=int, default=0)
     parser.add_argument('--relations', '-r', type=str, default=None)
@@ -131,7 +131,7 @@ async def main(argv):
     service_id = args.service_id
     member_id = args.member_id
     password = args.password
-    class_name = args.class_name
+    object = args.object
     action = args.action
     depth = args.depth
     remote_member_id = args.remote_member_id
@@ -140,17 +140,17 @@ async def main(argv):
     if args.relations:
         relations = args.relation.split(',')
 
-    if args.class_name not in GRAPHQL_STATEMENTS:
+    if args.object not in GRAPHQL_STATEMENTS:
         raise ValueError(
-            f'{args.class_name} not in available classes: ' +
+            f'{args.object} not in available objects: ' +
             ', '.join(GRAPHQL_STATEMENTS.keys())
         )
 
-    if args.action not in GRAPHQL_STATEMENTS[args.class_name]:
+    if args.action not in GRAPHQL_STATEMENTS[args.object]:
         raise ValueError(
-            f'{args.action} not in list of available actions for class '
-            f'{args.class_name}: ' +
-            ", ".join(GRAPHQL_STATEMENTS[args.class_name])
+            f'{args.action} not in list of available actions for object '
+            f'{args.object}: ' +
+            ", ".join(GRAPHQL_STATEMENTS[args.object])
         )
 
     base_url = f'https://proxy.{network}/{service_id}/{member_id}/api'
@@ -190,7 +190,7 @@ async def main(argv):
         )
 
     response = await GraphQlClient.call(
-        graphql_url, GRAPHQL_STATEMENTS[class_name][action],
+        graphql_url, GRAPHQL_STATEMENTS[object][action],
         vars=vars, timeout=10, headers=auth_header
     )
     result = await response.json()

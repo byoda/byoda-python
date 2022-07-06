@@ -112,12 +112,12 @@ cat >person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --class person --action mutate --data-file person.json
+tools/call_graphql.py --object person --action mutate --data-file person.json
 ```
 
 If you want to see your details again, you can run
 ```
-tools/call_graphql.py --class person --action query
+tools/call_graphql.py --object person --action query
 ```
 and you'll see a bit more info than you requested:
 ```
@@ -157,7 +157,7 @@ cat >follow.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --class network_links --action append
+tools/call_graphql.py --object network_links --action append
 ```
 
 The address book has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
@@ -171,7 +171,7 @@ cat >invite.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --class network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file ~/invite.json --depth 1
+tools/call_graphql.py --object network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file ~/invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
