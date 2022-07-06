@@ -37,19 +37,19 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_gcp_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.GCP, 'byoda', root_dir=ROOT_DIR
+            CloudType.GCP, 'byoda', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
     async def test_azure_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.AZURE, 'byoda', root_dir=ROOT_DIR
+            CloudType.AZURE, 'byoda', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
     async def test_aws_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.AWS, 'byoda', root_dir=ROOT_DIR
+            CloudType.AWS, 'byoda', ROOT_DIR
         )
         await run_file_tests(self, storage)
 

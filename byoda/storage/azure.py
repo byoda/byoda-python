@@ -42,20 +42,21 @@ class AzureFileStorage(FileStorage):
     Provides access to Azure object (aka 'blob') storage
     '''
 
-    def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
+    def __init__(self, bucket_prefix: str, root_dir: str) -> None:
         '''
         Abstraction of storage of files on Azure storage accounts. Do not call
         this constructor but call the AzureFileStorage.setup() factory method
 
         :param bucket_prefix: prefix of the storage account, to which
         'private' and 'public' will be appended
-        :param cache_path: path to the cache on the local file system
+        :param root_dir: directory on local file system for any operations
+        involving local storage
         '''
 
         self.credential: DefaultAzureCredential = DefaultAzureCredential()
         self._blob_clients = {}
 
-        super().__init__(cache_path, cloud_type=CloudType.AZURE)
+        super().__init__(root_dir, cloud_type=CloudType.AZURE)
 
         domain = 'blob.core.windows.net'
         self.buckets: Dict[str:str] = {
@@ -77,16 +78,17 @@ class AzureFileStorage(FileStorage):
         }
 
     @staticmethod
-    async def setup(bucket_prefix: str, cache_path: str = None):
+    async def setup(bucket_prefix: str, root_dir: str = None):
         '''
         Factory for AzureFileStorage
 
         :param bucket_prefix: prefix of the storage account, to which
         'private' and 'public' will be appended
-        :param cache_path: path to the cache on the local file system
+        :param root_dir: directory on local file system for any operations
+        involving local storage
         '''
 
-        storage = AzureFileStorage(bucket_prefix, cache_path)
+        storage = AzureFileStorage(bucket_prefix, root_dir)
 
         if not await storage.clients[StorageType.PRIVATE.value].exists():
             await storage.clients[StorageType.PRIVATE.value].create_container()
@@ -175,16 +177,6 @@ class AzureFileStorage(FileStorage):
         :returns: array as str or bytes with the data read from the file
         '''
 
-        try:
-            # TODO: support conditional downloads based on timestamp of local
-            # file
-            if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                data = await super().read(filepath, file_mode)
-                _LOGGER.debug('Read %s from cache', filepath)
-                return data
-        except FileNotFoundError:
-            pass
-
         blob_client = self._get_blob_client(filepath)
 
         try:
@@ -196,14 +188,7 @@ class AzureFileStorage(FileStorage):
                 f'storage {self.buckets[storage_type.value]}: {exc}'
             )
 
-        file_desc = super().open(
-            filepath, OpenMode.WRITE, file_mode=file_mode
-        )
-        file_desc.write(data)
-
         _LOGGER.debug(f'Read {len(data or [])} bytes from Azure')
-
-        super().close(file_desc)
 
         return data
 
@@ -233,15 +218,9 @@ class AzureFileStorage(FileStorage):
             raise ValueError('Writing data larger than 2GB is not supported')
 
         if data is not None:
-            if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                await super().write(filepath, data, file_mode=file_mode)
-                file_descriptor = super().open(
-                    filepath, OpenMode.READ, file_mode
-                )
-            else:
-                file_descriptor = TemporaryFile(mode='w+b')
-                file_descriptor.write(data)
-                file_descriptor.seek(0)
+            file_descriptor = TemporaryFile(mode='w+b')
+            file_descriptor.write(data)
+            file_descriptor.seek(0)
 
         blob_client = self._get_blob_client(
             filepath, storage_type=storage_type
@@ -250,8 +229,8 @@ class AzureFileStorage(FileStorage):
         await blob_client.upload_blob(file_descriptor, overwrite=True)
 
         _LOGGER.debug(
-            f'wrote {len(data or [])} bytes to blob "byoda/{filepath}" for bucket '
-            f'{self.buckets[storage_type.value]}'
+            f'wrote {len(data or [])} bytes to blob "byoda/{filepath}" for '
+            f'bucket {self.buckets[storage_type.value]}'
         )
 
     async def exists(self, filepath: str,
@@ -264,34 +243,26 @@ class AzureFileStorage(FileStorage):
         :returns: bool on whether the key exists
         '''
 
-        if (storage_type == StorageType.PRIVATE and self.cache_enabled
-                and await super().exists(filepath)):
-            _LOGGER.debug(f'{filepath} exists in local cache')
+        blob_client = self._get_blob_client(filepath)
+        _LOGGER.debug(
+            f'Checking if blob "byoda/{filepath}" exists in the Azure '
+            f'storage account {self.buckets[storage_type.value]}'
+        )
+        if await blob_client.exists():
+            _LOGGER.debug(
+                f'{filepath} exists in Azure storage account '
+                f'{self.buckets[storage_type.value]}'
+            )
             return True
         else:
-            blob_client = self._get_blob_client(filepath)
             _LOGGER.debug(
-                f'Checking if blob "byoda/{filepath}" exists in the Azure '
-                f'storage account {self.buckets[storage_type.value]}'
+                f'{filepath} does not exist in Azure storage account '
+                f'{self.buckets[storage_type.value]}'
             )
-            if await blob_client.exists():
-                _LOGGER.debug(
-                    f'{filepath} exists in Azure storage account '
-                    f'{self.buckets[storage_type.value]}'
-                )
-                return True
-            else:
-                _LOGGER.debug(
-                    f'{filepath} does not exist in Azure storage account '
-                    f'{self.buckets[storage_type.value]}'
-                )
-                return False
+            return False
 
     async def delete(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
-
-        if storage_type == StorageType.PRIVATE:
-            await super().delete(filepath)
 
         blob_client = self._get_blob_client(
             filepath, storage_type=storage_type
@@ -323,15 +294,13 @@ class AzureFileStorage(FileStorage):
                                storage_type: StorageType = StorageType.PRIVATE
                                ) -> bool:
         '''
-        Directories do not exist on Azure storage but this function makes sure
-        the directory exists in the local cache
+        Directories do not exist on Azure storage
 
         :param directory: location of the file on the file system
         :returns: whether the file exists or not
         '''
 
-        if storage_type == StorageType.PRIVATE:
-            await super().create_directory(directory, exist_ok=exist_ok)
+        pass
 
     async def copy(self, source: str, dest: str,
                    file_mode: FileMode = FileMode.BINARY,
@@ -355,10 +324,6 @@ class AzureFileStorage(FileStorage):
             f'Uploaded {source} to "byoda/{dest}" on Azure storage account '
             f'{self.buckets[storage_type.value]}'
         )
-
-        # We populate the local disk cache also with the copy
-        if storage_type == StorageType.PRIVATE:
-            await super().copy(source, dest)
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE

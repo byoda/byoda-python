@@ -15,7 +15,6 @@ file system
 import os
 import sys
 import orjson
-import shutil
 import asyncio
 import argparse
 from uuid import UUID, uuid4

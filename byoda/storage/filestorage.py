@@ -44,24 +44,13 @@ class FileStorage:
 
         # These properties are only applicable if this instance
         # is derived from one of the cloud-storage classes
-        self.cache_enabled = None
-        self.cache_path = None
         self.cloud_type: CloudType = cloud_type
 
         if cloud_type != CloudType.LOCAL:
             if local_path:
-                self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
-                self.cache_path = self.local_path
             else:
-                self.cache_enabled: bool = False
                 self.local_path: str = '/tmp/'
-
-            for filename in os.listdir(self.cache_path):
-                filepath = os.path.join(self.cache_path, filename)
-                if os.path.isdir(filepath):
-                    shutil.rmtree(filepath, ignore_errors=True)
-
         else:
             if not local_path:
                 raise ValueError('Must specify local path')
@@ -69,9 +58,6 @@ class FileStorage:
             self.local_path: str = '/' + local_path.strip('/') + '/'
 
         os.makedirs(self.local_path, exist_ok=True)
-
-        if cloud_type != CloudType.LOCAL:
-            os.makedirs(self.local_path + PUBLIC_POSTFIX, exist_ok=True)
 
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
 
@@ -89,7 +75,7 @@ class FileStorage:
 
     @staticmethod
     async def get_storage(cloud: CloudType, bucket_prefix: str,
-                          root_dir: str = None):
+                          root_dir: str):
         '''
         Factory for FileStorage and classes derived from it
 
@@ -299,7 +285,7 @@ class FileStorage:
         '''
 
         dirpath, filename = self.get_full_path(
-            dest_filepath, create_dir=False, storage_type=storage_type)
+            dest_filepath, create_dir=True, storage_type=storage_type)
 
         shutil.move(src_filepath, dirpath + '/' + filename)
 

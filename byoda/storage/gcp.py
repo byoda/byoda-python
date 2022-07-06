@@ -29,7 +29,6 @@ from byoda.datatypes import StorageType, CloudType
 
 from .filestorage import FileStorage
 from .filestorage import FileMode
-from .filestorage import OpenMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class GcpFileStorage(FileStorage):
     Provides access to GCS (Google Cloud Storage)
     '''
 
-    def __init__(self, bucket_prefix: str, cache_path: str = None) -> None:
+    def __init__(self, bucket_prefix: str, root_dir: str) -> None:
         '''
         Abstraction of storage of files on GCS object storage. Do not call
         this constructor but call the GcpFileStorage.setup() factory method
@@ -49,9 +48,11 @@ class GcpFileStorage(FileStorage):
         :param cache_path: path to the cache on the local file system. If no
         cache_path is specified, a local cache will not be used. This is the
         configuration to use when running multiple pods in parallel
+        :param root_dir: directory on local file system for any operations
+        involving local storage
         '''
 
-        super().__init__(cache_path, cloud_type=CloudType.GCP)
+        super().__init__(root_dir, cloud_type=CloudType.GCP)
 
         self._client = storage.Client()
 
@@ -80,18 +81,17 @@ class GcpFileStorage(FileStorage):
         )
 
     @staticmethod
-    async def setup(bucket_prefix: str, cache_path: str = None):
+    async def setup(bucket_prefix: str, root_dir: str = None):
         '''
         Factory for AzureFileStorage
 
         :param bucket_prefix: prefix of the GCS bucket, to which '-private' and
         '-public' will be appended
-        :param cache_path: path to the cache on the local file system. If no
-        cache_path is specified, a local cache will not be used. This is the
-        configuration to use when running multiple pods in parallel
+        :param root_dir: directory on local file system for any operations
+        involving local storage
         '''
 
-        return GcpFileStorage(bucket_prefix, cache_path)
+        return GcpFileStorage(bucket_prefix, root_dir)
 
     def _get_blob_client(self, filepath: str,
                          storage_type: StorageType = StorageType.PRIVATE
@@ -126,14 +126,6 @@ class GcpFileStorage(FileStorage):
         :returns: array as str or bytes with the data read from the file
         '''
 
-        try:
-            if storage_type == StorageType.PRIVATE and self.cache_enabled:
-                data = await super().read(filepath, file_mode=file_mode)
-                _LOGGER.debug('Read %s from cache', filepath)
-                return data
-        except FileNotFoundError:
-            pass
-
         blob = self._get_blob_client(filepath, storage_type)
 
         try:
@@ -142,9 +134,6 @@ class GcpFileStorage(FileStorage):
             raise FileNotFoundError(
                 f'GCP bucket client could not find {filepath}: {exc}'
             )
-
-        if storage_type == StorageType.PRIVATE and self.cache_enabled:
-            await super().write(filepath, data, file_mode=file_mode)
 
         _LOGGER.debug(
             f'Read {len(data or [])} for {filepath} from GCP bucket'
@@ -181,15 +170,9 @@ class GcpFileStorage(FileStorage):
             raise ValueError('Writing data larger than 2GB is not supported')
 
         if data is not None:
-            if (storage_type == StorageType.PRIVATE and self.cache_enabled):
-                await super().write(filepath, data, file_mode=file_mode)
-                file_descriptor = super().open(
-                    filepath, OpenMode.READ, file_mode=file_mode
-                )
-            else:
-                file_descriptor = TemporaryFile(mode='w+b')
-                file_descriptor.write(data)
-                file_descriptor.seek(0)
+            file_descriptor = TemporaryFile(mode='w+b')
+            file_descriptor.write(data)
+            file_descriptor.seek(0)
 
             if isinstance(data, str):
                 data = data.encode('utf-8')
@@ -218,34 +201,26 @@ class GcpFileStorage(FileStorage):
         :returns: bool on whether the key exists
         '''
 
-        if (storage_type == StorageType.PRIVATE and self.cache_enabled
-                and await super().exists(filepath)):
-            _LOGGER.debug(f'{filepath} exists in local cache')
-            return True
-        else:
-            blob = self._get_blob_client(filepath, storage_type)
+        blob = self._get_blob_client(filepath, storage_type)
+        _LOGGER.debug(
+            f'Checking if key {filepath} exists in GCP bucket '
+            f'{self.buckets[storage_type.value]}'
+        )
+        if blob.exists():
             _LOGGER.debug(
-                f'Checking if key {filepath} exists in GCP bucket '
+                f'{filepath} exists in GCP storage bucket'
                 f'{self.buckets[storage_type.value]}'
             )
-            if blob.exists():
-                _LOGGER.debug(
-                    f'{filepath} exists in GCP storage bucket'
-                    f'{self.buckets[storage_type.value]}'
-                )
-                return True
-            else:
-                _LOGGER.debug(
-                    f'{filepath} does not exist GCP storage bucket '
-                    f'{self.buckets[storage_type.value]}'
-                )
-                return False
+            return True
+        else:
+            _LOGGER.debug(
+                f'{filepath} does not exist GCP storage bucket '
+                f'{self.buckets[storage_type.value]}'
+            )
+            return False
 
     async def delete(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
-
-        if storage_type == StorageType.PRIVATE:
-            await super().delete(filepath)
 
         blob = self._get_blob_client(filepath, storage_type)
         blob.delete()
@@ -265,26 +240,23 @@ class GcpFileStorage(FileStorage):
             filepath = ''
 
         return (
-            f'https://{self.domain}/{self.buckets[storage_type.value]}/{filepath}'
+            f'https://{self.domain}/{self.buckets[storage_type.value]}/' +
+            filepath
         )
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE
                                ) -> bool:
         '''
-        Directories do not exist on GCP object storage but this function makes
-        sure the directory exists in the local cache
+        Directories do not exist on GCP object storage
 
         :param directory: location of the file on the file system
-        :returns: whether the file exists or not
+        :param exist_ok: do not raise an error if the directory already exists
+        :param storage_type: check for the directory on private or public
+        storage
         '''
 
-        if storage_type == StorageType.PRIVATE:
-            await super().create_directory(directory, exist_ok=exist_ok)
-
-        # We need to create the local directory regardless whether caching
-        # is enabled for the Pod because upload/download uses a local file
-        _LOGGER.debug(f'Created container {directory} on local storage')
+        pass
 
     async def copy(self, source: str, dest: str,
                    file_mode: FileMode = FileMode.BINARY,

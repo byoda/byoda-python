@@ -27,7 +27,6 @@ from requests.auth import HTTPBasicAuth
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
-from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 
 from byoda.util.api_client.graphql_client import GraphQlClient
