@@ -300,7 +300,9 @@ class Member:
             self.load_secrets()
 
         self.tls_secret.save_tmp_private_key()
-        await self.tls_secret.save(config.server.local_storage)
+        await self.tls_secret.save(
+            overwrite=True, storage_driver=config.server.local_storage
+        )
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
