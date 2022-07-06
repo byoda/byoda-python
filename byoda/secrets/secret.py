@@ -579,7 +579,7 @@ class Secret:
         )
 
         if len(certs) == 0:
-            raise ValueError(f'No cert found in {self.cert_file}')
+            raise ValueError(f'No cert found in {cert}')
         elif len(certs) == 1:
             self.cert = x509.load_pem_x509_certificate(
                 str.encode(certs[0])
