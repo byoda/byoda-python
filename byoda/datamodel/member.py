@@ -290,7 +290,7 @@ class Member:
 
         return member
 
-    def create_nginx_config(self):
+    async def create_nginx_config(self):
         '''
         Generates the Nginx virtual server configuration for
         the membership

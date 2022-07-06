@@ -300,7 +300,7 @@ class Account:
         )
 
         if member.member_id not in self.memberships:
-            member.create_nginx_config()
+            await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
         await member.load_data()
@@ -341,7 +341,7 @@ class Account:
             local_service_contract=local_service_contract
         )
 
-        member.create_nginx_config()
+        await member.create_nginx_config()
         self.memberships[member.service_id] = member
 
         return member
