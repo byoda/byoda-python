@@ -113,9 +113,10 @@ class ApiClient:
 
             if secret:
                 key_path = secret.save_tmp_private_key()
-                cert_filepath = (
-                    server.network.paths.root_directory + '/' + secret.cert_file
-                )
+                cert_filepath = f'/tmp/cert-{secret.common_name}.pem'
+                with open(cert_filepath, 'w') as file_desc:
+                    file_desc.write(secret.certchain_as_pem())
+
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_path}'
                 )
