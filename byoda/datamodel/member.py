@@ -300,8 +300,8 @@ class Member:
             self.load_secrets()
 
         self.tls_secret.save_tmp_private_key()
-        self.tls_secret.save(config.server.local_storage)
-        
+        await self.tls_secret.save(config.server.local_storage)
+
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',

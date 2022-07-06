@@ -104,7 +104,7 @@ async def setup():
     server.account = pod_account
 
     # Save local copies for nginx and aiohttp to use
-    pod_account.tls_secret.save(server.local_storage)
+    await pod_account.tls_secret.save(server.local_storage)
     pod_account.tls_secret.save_tmp_private_key()
 
     nginx_config = NginxConfig(
