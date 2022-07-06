@@ -93,8 +93,9 @@ async def setup():
     # account_id environment variable?
     pod_account = Account(network_data['account_id'], network)
     await pod_account.paths.create_account_directory()
-    pod_account.tls_secret.save(
-        overwrite=True, storage_driver=server.local_storage
+    await pod_account.tls_secret.save(
+        password=network_data['private_key_password'], overwrite=True,
+        storage_driver=server.local_storage
     )
     await pod_account.load_memberships()
 
