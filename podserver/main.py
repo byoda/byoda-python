@@ -100,12 +100,12 @@ async def setup():
     await pod_account.data_secret.load(
         password=pod_account.private_key_password
     )
-    await pod_account.register()
     await pod_account.tls_secret.save(
         password=network_data['private_key_password'], overwrite=True,
         storage_driver=server.local_storage
     )
     await pod_account.load_memberships()
+    await pod_account.register()
 
     server.account = pod_account
 
