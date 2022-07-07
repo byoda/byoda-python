@@ -165,7 +165,6 @@ class Member:
             # not join yet
             pass
 
-
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
@@ -272,9 +271,6 @@ class Member:
             member.member_id, member.service_id, member.account
         )
 
-        server: Server = config.server
-        await member.tls_secret.save(server.local_storage)
-
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
@@ -282,6 +278,11 @@ class Member:
         await member.create_secrets(members_ca=members_ca)
 
         member.data_secret.create_shared_key()
+
+        server: Server = config.server
+        await member.tls_secret.save(
+            overwrite=True, storage_driver=server.local_storage
+        )
 
         member.data = MemberData(
             member, member.paths, member.document_store
