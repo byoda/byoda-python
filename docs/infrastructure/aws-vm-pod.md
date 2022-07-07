@@ -14,6 +14,7 @@ Install the [Copilot CLI](https://docs.aws.amazon.com/AmazonECS/latest/developer
 mkdir ~/tmp
 cd ~/tmp
 curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt-get install unzip
 unzip awscliv2.zip
 sudo ./aws/install
 rm awscliv2.zip
@@ -36,23 +37,34 @@ Go to https://console.aws.amazon.com/iam
 ## Create object storage and container
 Configure the AWS CLI for the user you just created. Enter the access key id, secret access key and default region name (ie. us-east-2) and default output (ie. json)
 ```
-REGION="us-east2"
 aws configure --profile byoda
 AWS Access Key ID [None]: <access key>
 AWS Secret Access Key [None]: <secret key>
-Default region name [None]: us-west-1
+Default region name [None]: us-east-2
 Default output format [None]: json
 ```
 
 ## Create the VM
 To create an Ubuntu 22.04 VM, browse to the [Ubuntu AWS marketplace](https://aws.amazon.com/marketplace/server/procurement?productId=47489723-7305-4e22-8b22-b0d57054f216) and accept that you will get Ubuntu 22.04 for free.
 
+Now find the AWS image for Ubuntu 22.04:
+```
+REGION="us-east2"
+IMAGE_FILTER="Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server*"
+IMAGE_SORT='sort_by(Images, &CreationDate)[-1].{Name: Name, ImageId: ImageId, CreationDate: CreationDate, Owner:OwnerId}'
+AMI_ID=$(aws ec2 describe-images --output json --region $REGION --filters ${IMAGE_FILTER} --query "${IMAGE_SORT}" | jq -r .ImageId)
+echo "AWS Ubuntu 22.04 AWS image ID: ${AMI_ID}"
+```
+
 Create and import an SSH key
 ```
 export SSH_KEY=byoda-pod
-ssh-keygen -t ed25519 -C ${SSH_KEY} -f ~/.ssh/id_ed25519-${SSH_KEY}
-aws ec2 import-key-pair --key-name ${SSH_KEY} --public-key-material fileb://~/.ssh/id_ed25519-${SSH_KEY}.pub --region ${REGION}
+if [ ! -f ~/.ssh/id_ed25519-${SSH_KEY} ]; then
+    ssh-keygen -t ed25519 -C ${SSH_KEY} -f ~/.ssh/id_ed25519-${SSH_KEY}
+	aws ec2 import-key-pair --key-name ${SSH_KEY} --public-key-material fileb://~/.ssh/id_ed25519-${SSH_KEY}.pub --region ${REGION}
+fi
 ```
+
 
 Create the VM:
 ```

@@ -22,7 +22,12 @@ There are two ways to install the pod:
     - Create two buckets (AWS/GCP) or storage accounts (Azure).
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public').
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
-        - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
+    - Cloud-specific instructions for creating the VM to run the pod on
+        - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+        - [Azure]([Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md) (work-in-progress)
+          - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
+        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md) (coming-real-soon)
+          - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
     - The HTTPS port for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
         - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
@@ -33,7 +38,6 @@ There are two ways to install the pod:
     - Carefully consider the security implementations on enabling port forwarding on your broadband router and whether this is the right setup for you.
 
 To launch the pod:
-- If you want to deploy to a VM, follow the instructions for [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md), [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md) or [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md))
 - Log in to your VM or server.
 - Copy the [docker-launch.sh script](https://github.com/StevenHessing/byoda-python/blob/master/tools/docker-lauch.sh) to the VM
 - Edit the docker-launch.sh script and modify the following variables at the top of the script
@@ -43,10 +47,11 @@ To launch the pod:
 - for a pod on an AWS VM, also edit the variables:
   - AWS_ACCESS_KEY_ID
   - AWS_SECRET_ACCESS_KEY
-- Install the docker, uuid and jq packages and launch the pod
+- Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
 
+Now run the following commands:
 ```
-sudo apt update && apt-get install -y docker.io uuid jq
+sudo apt update && sudo apt-get install -y docker.io uuid jq
 chmod 755 docker-launch.sh
 ./docker-launch.sh
 ```
@@ -62,7 +67,9 @@ chmod 755 docker-launch.sh
 ## Using the pod with the 'Address Book' service
 The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
+sudo mkdir /byoda 2>/dev/null
 sudo chmod -R a+r /byoda
+sudo apt update
 sudo apt install python3-pip
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests
 git clone https://github.com/StevenHessing/byoda-python.git

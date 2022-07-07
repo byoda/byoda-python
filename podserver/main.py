@@ -80,9 +80,12 @@ async def setup():
 
     network = Network(network_data, network_data)
     await network.load_network_secrets()
-    await network.root_ca.save(
-        storage_driver=server.local_storage
-    )
+    try:
+        await network.root_ca.save(
+            storage_driver=server.local_storage
+        )
+    except PermissionError:
+        _LOGGER.debug('Root CA cert already exists on local storage')
 
     server.network = network
     server.paths = network.paths
@@ -100,19 +103,22 @@ async def setup():
     await pod_account.data_secret.load(
         password=pod_account.private_key_password
     )
-    await pod_account.tls_secret.save(
-        password=network_data['private_key_password'], overwrite=True,
-        storage_driver=server.local_storage
-    )
+    try:
+        # Needed for nginx and aiohttp
+        await pod_account.tls_secret.save(
+            password=network_data['private_key_password'], overwrite=True,
+            storage_driver=server.local_storage
+        )
+        pod_account.tls_secret.save_tmp_private_key()
+    except PermissionError:
+        _LOGGER.debug('Account cert/key already exists on local storage')
+
     await pod_account.load_memberships()
     await pod_account.register()
 
     server.account = pod_account
 
     # Save local copies for nginx and aiohttp to use
-    await pod_account.tls_secret.save(
-        overwrite=True, storage_driver=server.local_storage
-    )
     pod_account.tls_secret.save_tmp_private_key()
 
     nginx_config = NginxConfig(
@@ -121,7 +127,7 @@ async def setup():
         identifier=network_data['account_id'],
         subdomain=IdType.ACCOUNT.value,
         cert_filepath=(
-            server.local_storage.root_directory + '/' +
+            server.local_storage.local_path + '/' +
             pod_account.tls_secret.cert_file
         ),
         key_filepath=pod_account.tls_secret.unencrypted_private_key_file,

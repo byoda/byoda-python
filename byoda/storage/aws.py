@@ -152,8 +152,11 @@ class AwsFileStorage(FileStorage):
         # We always have to write to local storage as AWS object upload uses
         # the local file
         if data is not None:
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+
             file_descriptor = TemporaryFile(mode='w+b')
-            file_descriptor.write(data.encode('utf-8'))
+            file_descriptor.write(data)
             file_descriptor.seek(0)
 
         key = self._get_key(filepath)
