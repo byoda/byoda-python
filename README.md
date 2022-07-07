@@ -70,7 +70,7 @@ The 'Address Book' service is a proof of concept on how a service in the BYODA n
 sudo mkdir /byoda 2>/dev/null
 sudo chmod -R a+r /byoda
 sudo apt update
-sudo apt install python3-pip
+sudo apt install python3-pip python_graphql_client certvalidator sqlalchemy passgen
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests
 git clone https://github.com/StevenHessing/byoda-python.git
 cd byoda-python

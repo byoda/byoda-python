@@ -170,6 +170,8 @@ class GcpFileStorage(FileStorage):
             raise ValueError('Writing data larger than 2GB is not supported')
 
         if data is not None:
+            if isinstance(data, str):
+                data = data.encode('utf-8')
             file_descriptor = TemporaryFile(mode='w+b')
             file_descriptor.write(data)
             file_descriptor.seek(0)
