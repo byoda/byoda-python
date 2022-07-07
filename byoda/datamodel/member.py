@@ -58,6 +58,7 @@ _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
+Server = TypeVar('Server')
 
 
 class Member:
@@ -270,6 +271,10 @@ class Member:
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
         )
+
+        server: Server = config.server
+        await member.tls_secret.save(server.local_storage)
+
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
