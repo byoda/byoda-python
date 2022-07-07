@@ -281,7 +281,8 @@ class Member:
 
         server: Server = config.server
         await member.tls_secret.save(
-            overwrite=True, storage_driver=server.local_storage
+             password=member.private_key_password, overwrite=True,
+             storage_driver=server.local_storage
         )
 
         member.data = MemberData(
@@ -290,7 +291,7 @@ class Member:
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save()
+        await member.data.save(member.private_key_password)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
@@ -308,7 +309,8 @@ class Member:
 
         self.tls_secret.save_tmp_private_key()
         await self.tls_secret.save(
-            overwrite=True, storage_driver=config.server.local_storage
+            self.private_key_password, overwrite=True,
+            storage_driver=config.server.local_storage
         )
 
         nginx_config = NginxConfig(
@@ -499,6 +501,11 @@ class Member:
         )
         await secret.save(password=self.private_key_password)
 
+        server: Server = config.server
+        await secret.save(
+            password=self.private_key_password, overwrite=True,
+            storage_driver=server.local_storage
+        )
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
