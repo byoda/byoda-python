@@ -121,7 +121,7 @@ class Member:
                 filepath = local_service_contract
                 verify_signatures = False
             else:
-                filepath = self.paths.member_service_file(self.service_id)
+                filepath = self.paths.service_file(self.service_id)
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
                 verify_signatures = True
 
