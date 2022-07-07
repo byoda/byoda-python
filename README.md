@@ -125,7 +125,7 @@ If you want to see your details again, you can run
 ```
 tools/call_graphql.py --object person --action query
 ```
-and you'll see a bit more info than you requested:
+and you'll see a bit more info than you put in person.json as we only supplied the fields required by the data model of the 'address book' service:
 ```
 {
   "person_connection": {
@@ -151,7 +151,7 @@ and you'll see a bit more info than you requested:
   }
 }
 ```
-As a query for person can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton.
+As a query for person can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton. The pagination follows the best practices defined by the GraphQL community.
 
 Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
 ```
@@ -163,7 +163,7 @@ cat >follow.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object network_links --action append
+tools/call_graphql.py --object network_links --action append --data-file follow.json
 ```
 
 The address book has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
@@ -177,7 +177,7 @@ cat >invite.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file ~/invite.json --depth 1
+tools/call_graphql.py --object network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
@@ -235,7 +235,7 @@ As you see, the pod implements the data model of the address book and provides a
 https://89936493-ec56-4c38-971d-cab1179d1a01.members-4294929430.byoda.net/api/v1/data/service-4294929430
 ```
 
-But your pod is not restricted to the 'address book' data model! You can create your own service and define its datamodel in [JSONSchema](https://www.json-schema.org/). When your pod reads that data model it will automatically generate the GraphQL APIs for that datamodel. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data model. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it.
+But your pod is not restricted to the 'address book' data model! You can create your own service and define its datamodel in a[JSONSchema](https://www.json-schema.org/) document. When your pod reads that data model it will automatically generate the GraphQL APIs for that datamodel. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data model. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it.
 
 
 curl -s -X POST -H 'content-type: application/json' \
