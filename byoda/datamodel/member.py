@@ -151,6 +151,8 @@ class Member:
                 )
 
             self.network.services[self.service_id] = self.service
+        else:
+            self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
@@ -162,7 +164,6 @@ class Member:
             # not join yet
             pass
 
-        self.service = self.network.services[self.service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
