@@ -75,7 +75,7 @@ sudo pip3 install --upgrade orjson aiohttp jsonschema requests
 git clone https://github.com/StevenHessing/byoda-python.git
 cd byoda-python
 export PYTHONPATH=$PYTHONPATH:.
-source tools/setenv.sh
+source tools/set_env.sh
 ```
 Let's first see what services are available on the byoda.net network:
 ```
@@ -93,6 +93,7 @@ curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
      --pass $PASSPHRASE \
     https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
+The pod returns amongst others the cert & key that you can use to call the APIs on the pod for that specific membershp.
 
 We can confirm that our pod has joined the service with:
 ```
@@ -102,11 +103,12 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
 
 We quickly now update our environment variables to pick up the new membership:
 ```
-source tools/setenv.sh
+sudo chmod -R a+r /byoda
+source tools/set_env.sh
 echo $MEMBER_ID
 ```
+You will need that member ID later on in this introduction. When the pod becomes a member of a service, it creates a namespace for that service so that data from different services is isolated and one service can not access the data of the other service, unless you explicitly allow it to. The pod has a unique member ID for each membership of a service.
 
-You will need that member ID later on in this tutorial
 The call-graphql.py tool can be used to interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
 
 ```

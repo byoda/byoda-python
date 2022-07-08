@@ -16,7 +16,7 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
-
+import os
 import sys
 
 from byoda import config
@@ -64,6 +64,9 @@ async def setup():
 
     if str(network_data['debug']).lower() == 'true':
         config.debug = True
+        # Make our files readable by everyone, so we can
+        # use tools like call_graphql.py to debug the server
+        os.umask(0o0000)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
