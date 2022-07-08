@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test cases for signatures for a service contract
+Test cases for SchemaItem.normalize
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -13,6 +13,7 @@ import sys
 import shutil
 import unittest
 import logging
+from datetime import datetime, timezone
 
 from byoda.datamodel.network import Network
 
@@ -34,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 NETWORK = config.DEFAULT_NETWORK
 SCHEMA = 'tests/collateral/addressbook.json'
 
-TEST_DIR = '/tmp/byoda-tests/pod-schema-signature'
+TEST_DIR = '/tmp/byoda-tests/pod-memberdata-normalize'
 BASE_URL = 'http://localhost:{PORT}/api'
 
 
@@ -70,18 +71,49 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # cls.PROCESS.terminate()
         pass
 
     # noqa: F841
     async def test_load_schema(self):
-        uuid = get_test_uuid()                      # noqa: F841
+        uuid = get_test_uuid()
+        now = datetime.now(timezone.utc)
 
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        raise NotImplementedError('Need to complete this test case')
+        data_classes = schema.get_graphql_classes()
+        data = {
+            'person': {
+                'given_name': 'Steven',
+                'family_name': 'Hessing',
+                'email': 'steven@byoda.org'
+            },
+            'network_links': [
+                {
+                    'timestamp': now.isoformat(),
+                    'member_id': uuid,
+                    'relation': 'follows'
+                }
+            ]
+        }
+        for field, value in data.items():
+            if field not in data_classes:
+                raise ValueError(
+                    f'Found data field {field} not in the data classes '
+                    'for the schema'
+                )
+
+            result = data_classes[field].normalize(value)
+            data[field] = result
+
+        self.assertTrue('person' in data)
+        self.assertEqual(len(data['person']), 3)
+        self.assertTrue('network_links' in data)
+        self.assertEqual(len(data['network_links']), 1)
+        self.assertEqual(data['network_links'][0]['relation'], 'follows')
+        self.assertEqual(data['network_links'][0]['timestamp'], now)
+        self.assertEqual(data['network_links'][0]['member_id'], uuid)
 
 
 if __name__ == '__main__':

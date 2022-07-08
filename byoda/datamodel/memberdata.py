@@ -43,7 +43,7 @@ class MemberData(Dict):
 
         self.document_store: DocumentStore = doc_store
 
-    def initalize(self):
+    def initalize(self) -> None:
         '''
         Initializes the data for a new membership. Every service
         contract must include
@@ -58,7 +58,7 @@ class MemberData(Dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    async def load(self):
+    async def load(self) -> None:
         '''
         Load the data from the data store
         '''
@@ -69,10 +69,13 @@ class MemberData(Dict):
         )
 
         try:
-            self.unvalidated_data = await self.document_store.read(
+            data = await self.document_store.read(
                 filepath, self.member.data_secret
             )
-            _LOGGER.debug(f'Loaded {len(self.unvalidated_data or [])} items')
+            for key, value in data.items():
+                self[key] = value
+
+            _LOGGER.debug(f'Loaded {len(self or [])} items')
 
         except FileNotFoundError:
             _LOGGER.error(
@@ -81,9 +84,9 @@ class MemberData(Dict):
             )
             return
 
-        self.normalize()
+        return self.normalize()
 
-    def normalize(self):
+    def normalize(self) -> None:
         '''
         Updates data values to match data type as defined in JSON-Schema,
         ie. for UUIDs and datetime
@@ -102,10 +105,10 @@ class MemberData(Dict):
                     'for the schema'
                 )
 
-            data = data_classes[field].normalize(value)
-            self[field] = data
+            normalized = data_classes[field].normalize(value)
+            self[field] = normalized
 
-    async def save(self, data=None):
+    async def save(self, data=None) -> None:
         '''
         Save the data to the data store
         '''
@@ -140,7 +143,7 @@ class MemberData(Dict):
                 self.member.service_id
             )
 
-    def _load_from_file(self, filename: str):
+    def _load_from_file(self, filename: str) -> None:
         '''
         This function should only be used by test cases
         '''
@@ -165,7 +168,7 @@ class MemberData(Dict):
             )
             raise
 
-    async def load_protected_shared_key(self):
+    async def load_protected_shared_key(self) -> None:
         '''
         Reads the protected symmetric key from file storage. Support
         for changing symmetric keys is currently not supported.
@@ -187,7 +190,7 @@ class MemberData(Dict):
             )
             raise
 
-    async def save_protected_shared_key(self):
+    async def save_protected_shared_key(self) -> None:
         '''
         Saves the protected symmetric key
         '''
