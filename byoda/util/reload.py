@@ -13,12 +13,19 @@ import logging
 
 _LOGGER = logging.getLogger(__name__)
 
+# podserver/files/startup.sh specifies this location for the pid file to
+# gunicorn
+PODSERVER_PIDFILE = '/var/run/podserver.pid'
+
 
 def reload_gunicorn() -> None:
     '''
     Reloads the gunicorn server
     '''
 
-    pid = os.getpid()
-    _LOGGER.info(f'Reloading gunicorn server with pid {pid}')
+    with open(PODSERVER_PIDFILE) as file_desc:
+        pid = int(file_desc.read())
+
+    _LOGGER.info(f'Reloading gunicorn master server with pid {pid}')
+    os.kill(pid, signal.SIGHUP)
     _LOGGER.info(f'Gunicorn server process {pid} reloaded')

@@ -68,7 +68,6 @@ chmod 755 docker-launch.sh
 The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo mkdir /byoda 2>/dev/null
-sudo chmod -R a+r /byoda
 sudo apt update
 sudo apt install python3-pip python_graphql_client certvalidator sqlalchemy passgen
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests
@@ -103,7 +102,6 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
 
 We quickly now update our environment variables to pick up the new membership:
 ```
-sudo chmod -R a+r /byoda
 source tools/set_env.sh
 echo $MEMBER_ID
 ```

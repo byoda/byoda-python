@@ -67,6 +67,8 @@ async def setup():
         # Make our files readable by everyone, so we can
         # use tools like call_graphql.py to debug the server
         os.umask(0o0000)
+    else:
+        os.umask(0x0077)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
