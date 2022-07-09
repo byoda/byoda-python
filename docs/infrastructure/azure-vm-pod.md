@@ -77,7 +77,7 @@ az network nsg rule create \
     --source-address-prefixes Internet
 
 az network nsg rule create \
-    --name https \
+    --name ssh \
     --nsg-name byoda-nsg \
     --resource-group ${RG} \
     --priority 1010 \
@@ -98,7 +98,7 @@ PUBLIC_IP=$( \
         --image ${IMAGE_URN} \
         --size Standard_B1s \
         --assign-identity [system] \
-        --role contributor \
+        --role "Storage Blob Data Contributor" \
         --scope ${PRIVATE_SA_ID} \
         --ssh-key-name byodassh \
         --public-ip-address byoda-ip \
@@ -117,7 +117,7 @@ VM_ID=$( \
 )
 
 
-az role assignment create --assignee ${VM_ID} --role contributor --scope ${PUBLIC_SA_ID}
+az role assignment create --assignee ${VM_ID} --role "Storage Blob Data Contributor" --scope ${PUBLIC_SA_ID}
 
 8.
 All done, just validate you can ssh to the VM:

@@ -516,7 +516,6 @@ class Secret:
                 f'got {len(cert_data)} bytes'
             )
         else:
-            _LOGGER.exception(f'cert file not found: {self.cert_file}')
             raise FileNotFoundError(f'cert file not found: {self.cert_file}')
 
         self.from_string(cert_data)
