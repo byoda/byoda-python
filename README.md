@@ -39,21 +39,28 @@ There are two ways to install the pod:
 
 To launch the pod:
 - Log in to your VM or server.
-- Copy the [docker-launch.sh script](https://github.com/StevenHessing/byoda-python/blob/master/tools/docker-lauch.sh) to the VM
-- Edit the docker-launch.sh script and modify the following variables at the top of the script
-  - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
-  - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
-  - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
-- for a pod on an AWS VM, also edit the variables:
-  - AWS_ACCESS_KEY_ID
-  - AWS_SECRET_ACCESS_KEY
-- Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
-
-Now run the following commands:
+- Clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
 ```
-sudo apt update && sudo apt-get install -y docker.io uuid jq
-chmod 755 docker-launch.sh
-./docker-launch.sh
+sudo apt update && sudo apt-get install -y docker.io uuid jq git vim
+git clone https://github.com/StevenHessing/byoda-python.git
+```
+- Copy and edit the docker-launch.sh script and modify the following variables at the top of the script
+    - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
+    - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
+    - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
+  - for a pod on an AWS VM, also edit the variables:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+  - Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
+
+```
+cp tools/docker-launch.sh ~
+vi ~/docker-launch.sh
+```
+- Now run the docker-launch.sh script
+```
+
+tools/docker-launch.sh
 ```
 
 **Congratulations, you now have a running pod that is member of the byoda.net network!** <br>
@@ -65,7 +72,7 @@ chmod 755 docker-launch.sh
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it a.o. to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/docs/files/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo mkdir /byoda 2>/dev/null
 sudo apt update
