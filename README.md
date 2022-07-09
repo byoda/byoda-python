@@ -1,11 +1,11 @@
 # Bring your own data & algorithms
 
 ## Intro
-Byoda is a new and radically different social media platform:
+Byoda is a personal data store with features enabling a new and radically different social media services:
 - Your data is stored in your own personal data store (or 'pod').
 - Access to your data is controlled by a __data contract__ and is enforced by a __data firewall__.
-- You can select the algorithm(s) that generate your content feed for you.
-- You can store your unique content in your own pod and monetize it.
+- You can select the algorithms that generate your content feed for you.
+- You will be able store your unique content in your own pod and monetize it.
 - Anyone can develop apps and services on the platform.
 - The code for the reference implementation of the various components is open source.
 
