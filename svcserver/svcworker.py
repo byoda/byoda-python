@@ -23,6 +23,10 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
+from byoda.util.paths import Paths
+
+from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
+
 from byoda import config
 
 from byoda.util.logger import Logger
@@ -34,19 +38,6 @@ BASE_URL = (
     'https://{member_id}.members-{service_id}.{network}'
     '/api/v1/data/service-{service_id}'
 )
-
-CLIENT_QUERY = '''
-    query {
-        person {
-            given_name
-            additional_names
-            family_name
-            email
-            homepage_url
-            avatar_url
-        }
-    }
-'''
 
 
 async def main():
@@ -68,9 +59,12 @@ async def main():
         MAX_WAIT = 10
 
     network = Network(
-        app_config['dirserver'], app_config['application']
+        app_config['svcserver'], app_config['application']
     )
-
+    network.paths = Paths(
+        network=network.name,
+        root_directory=app_config['svcserver']['root_dir']
+    )
     server = ServiceServer(network, app_config)
     await server.load_network_secrets()
 
@@ -115,8 +109,8 @@ async def main():
         _LOGGER.debug(f'Processing member_id {member_id}')
         try:
             data = server.member_db.get_meta(member_id)
-        except (TypeError, KeyError):
-            _LOGGER.warning(f'Invalid data for member: {member_id}')
+        except (TypeError, KeyError) as exc:
+            _LOGGER.warning(f'Invalid data for member: {member_id}: {exc}')
             continue
 
         server.member_db.add_meta(
@@ -138,14 +132,20 @@ async def main():
             endpoint=url, cert=certkey, verify=root_ca_certfile
         )
         try:
-            result = client.execute(query=CLIENT_QUERY)
+            result = client.execute(
+                query=GRAPHQL_STATEMENTS['person']['query']
+            )
             if result.get('data'):
-                person_data = result['data']['person']
-                server.member_db.set_data(member_id, person_data)
+                edges = result['data']['person_connection']['edges']
+                if not edges:
+                    _LOGGER.debug('Did not get any info from the pod')
+                else:
+                    person_data = edges[0]['person']
+                    server.member_db.set_data(member_id, person_data)
 
-                server.member_db.kvcache.set(
-                    person_data['email'], str(member_id)
-                )
+                    server.member_db.kvcache.set(
+                        person_data['email'], str(member_id)
+                    )
             else:
                 _LOGGER.debug(
                     f'GraphQL person query failed against member {member_id}'
@@ -156,7 +156,8 @@ async def main():
         #
         # and now we wait for the time to process the next client
         #
-        asyncio.sleep(waittime)
+        _LOGGER.debug('Sleeping for %d seconds', waittime)
+        await asyncio.sleep(waittime)
 
 
 def next_member_wait(last_seen: datetime) -> int:

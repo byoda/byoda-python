@@ -8,7 +8,6 @@ helper functions for authentication test cases
 
 import os
 import shutil
-import logging
 import requests
 from uuid import UUID
 from typing import Tuple
@@ -43,7 +42,7 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
         url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
     else:
         url = base_url + '/v1/pod/authtoken'
-        
+
     response = requests.get(
         url, auth=HTTPBasicAuth(str(id)[:8], secret)
     )

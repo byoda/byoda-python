@@ -1,0 +1,20 @@
+[Unit]
+Description=Byoda.net Address Book Worker
+Requires=network.target
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/byoda/byoda-python
+EnvironmentFile=/etc/default/svcserver-4294929430
+ExecStart=/opt/byoda/byoda-python/svcserver/svcworker.py
+User=www-data
+Group=www-data
+#Restart=always
+KillSignal=SIGQUIT
+Type=simple
+StandardError=journal
+KillMode=mixed
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

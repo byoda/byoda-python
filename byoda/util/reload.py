@@ -1,0 +1,31 @@
+'''
+Utility to reload the gunicorn server to pick up a new membership or
+the new version of the service contract for a service.
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022
+:license    : GPLv3
+'''
+
+import os
+import signal
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
+# podserver/files/startup.sh specifies this location for the pid file to
+# gunicorn
+PODSERVER_PIDFILE = '/var/run/podserver.pid'
+
+
+def reload_gunicorn() -> None:
+    '''
+    Reloads the gunicorn server
+    '''
+
+    with open(PODSERVER_PIDFILE) as file_desc:
+        pid = int(file_desc.read())
+
+    _LOGGER.info(f'Reloading gunicorn master server with pid {pid}')
+    os.kill(pid, signal.SIGHUP)
+    _LOGGER.info(f'Gunicorn server process {pid} reloaded')

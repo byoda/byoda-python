@@ -48,6 +48,8 @@ class ServiceServer(Server):
 
         self.server_type = ServerType.SERVICE
 
+        self.local_storage = network.paths.storage_driver
+        
         self.service = Service(
             network=self.network,
             service_id=app_config['svcserver']['service_id']

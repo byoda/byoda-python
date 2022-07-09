@@ -37,6 +37,7 @@ cd = "*"
 aiohttp = {extras = ["speedups"], version = "*"}
 python-multipart = "*"
 orjson = "*"
+jinja2-strcase = "*"
 
 [dev-packages]
 flake8 = "*"

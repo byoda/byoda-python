@@ -1,3 +1,5 @@
+# Instructions for creating a VM on GCP are to be completed
+
 Create GCS storage
 PREFIX=<random string of 8 characters>
 create a GCP project

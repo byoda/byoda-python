@@ -58,6 +58,7 @@ _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
+Server = TypeVar('Server')
 
 
 class Member:
@@ -122,9 +123,13 @@ class Member:
                 verify_signatures = False
             else:
                 filepath = self.paths.service_file(self.service_id)
+                _LOGGER.debug(f'Setting service contract file to {filepath}')
                 verify_signatures = True
 
             try:
+                _LOGGER.debug(
+                    f'Setting up service {self.service_id} from {filepath}'
+                )
                 self.service = await Service.get_service(
                     self.network, filepath=filepath,
                     verify_signatures=verify_signatures
@@ -147,6 +152,8 @@ class Member:
                 )
 
             self.network.services[self.service_id] = self.service
+        else:
+            self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
@@ -157,8 +164,6 @@ class Member:
             # We do not have the schema file for a service that the pod did
             # not join yet
             pass
-
-        self.service = self.network.services[self.service_id]
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
@@ -265,6 +270,7 @@ class Member:
         member.tls_secret = MemberSecret(
             member.member_id, member.service_id, member.account
         )
+
         member.data_secret = MemberDataSecret(
             member.member_id, member.service_id, member.account
         )
@@ -273,20 +279,26 @@ class Member:
 
         member.data_secret.create_shared_key()
 
+        server: Server = config.server
+        await member.tls_secret.save(
+             password=member.private_key_password, overwrite=True,
+             storage_driver=server.local_storage
+        )
+
         member.data = MemberData(
             member, member.paths, member.document_store
         )
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save()
+        await member.data.save(member.private_key_password)
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
 
         return member
 
-    def create_nginx_config(self):
+    async def create_nginx_config(self):
         '''
         Generates the Nginx virtual server configuration for
         the membership
@@ -296,6 +308,10 @@ class Member:
             self.load_secrets()
 
         self.tls_secret.save_tmp_private_key()
+        await self.tls_secret.save(
+            self.private_key_password, overwrite=True,
+            storage_driver=config.server.local_storage
+        )
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
@@ -485,6 +501,11 @@ class Member:
         )
         await secret.save(password=self.private_key_password)
 
+        server: Server = config.server
+        await secret.save(
+            password=self.private_key_password, overwrite=True,
+            storage_driver=server.local_storage
+        )
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
@@ -733,6 +754,9 @@ class Member:
             all_data = await proxy.proxy_request(
                 key, query, depth, relations
             )
+            _LOGGER.debug(
+                f'Collected {len(all_data)} items from the network'
+            )
 
         # DataFilterSet works on lists so we make put the object in a list
         data = member.data.get(key)
@@ -741,14 +765,21 @@ class Member:
 
         if filters:
             if isinstance(data, list):
-                data = DataFilterSet.filter(filters, data)
+                filtered_data = DataFilterSet.filter(filters, data)
             else:
                 _LOGGER.warning(
                     'Received query with filters for data that is not a list: '
                     f'{member.data}'
                 )
+        else:
+            filtered_data = data
 
-        modified_data = deepcopy(data)
+        _LOGGER.debug(
+            f'Got {len(filtered_data or [])} filtered objects out '
+            f'of {len(data or [])} locally'
+        )
+
+        modified_data = deepcopy(filtered_data)
         for item in modified_data or []:
             item[ORIGIN_KEY] = member.member_id
 
@@ -891,7 +922,8 @@ class Member:
             filters, data
         )
         _LOGGER.debug(
-            f'Filtering left {len(data)} items and removed {len(removed)}'
+            f'Filtering left {len(data or [])} items and removed '
+            f'{len(removed or [])}'
         )
 
         # We can update only one list item per query
@@ -996,6 +1028,7 @@ class Member:
 
             # Strawberry passes us data that we can just copy as-is
             _LOGGER.debug(f'Appending item to array {key}')
+
             member.data[key].append(mutate_data)
 
             await member.save_data(data)
@@ -1056,6 +1089,11 @@ class Member:
             )
 
         (data, removed) = DataFilterSet.filter_exclude(filters, data)
+
+        _LOGGER.debug(
+            f'Removed {len(removed or [])} items from array {class_object}, '
+            f'keeping {len(data or [])} items'
+        )
 
         member.data[class_object] = data
 

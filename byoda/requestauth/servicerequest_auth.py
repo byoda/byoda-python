@@ -37,12 +37,16 @@ class ServiceRequestAuth(RequestAuth):
         server = config.server
 
         if authorization:
+            _LOGGER.debug('Service called GraphQL API with a JWT')
             raise HTTPException(
                 status_code=401,
                 detail='Service must not call GraphQL APIs using JWTs'
             )
 
         try:
+            _LOGGER.debug(
+                f'Authenticating request by a service: {client_dn}'
+            )
             await super().authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization,
             )
@@ -61,6 +65,8 @@ class ServiceRequestAuth(RequestAuth):
         # the commonname found in the certchain presented by the
         # client.
         self.check_service_cert(server.network)
+
+        self.is_authenticated = True
 
     @staticmethod
     def get_service_id(commonname: str, authorization: str) -> str:

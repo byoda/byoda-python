@@ -108,7 +108,7 @@ class DataType(Enum):
     NUMBER    = 'number'
     BOOLEAN   = 'boolean'
     UUID      = 'uuid'
-    DATETIME  = 'datetime'
+    DATETIME  = 'date-time'
     OBJECT    = 'object'
     ARRAY     = 'array'
     REFERENCE = 'reference'

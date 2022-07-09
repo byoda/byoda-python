@@ -16,7 +16,7 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
-
+import os
 import sys
 
 from byoda import config
@@ -64,6 +64,11 @@ async def setup():
 
     if str(network_data['debug']).lower() == 'true':
         config.debug = True
+        # Make our files readable by everyone, so we can
+        # use tools like call_graphql.py to debug the server
+        os.umask(0o0000)
+    else:
+        os.umask(0x0077)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -80,6 +85,12 @@ async def setup():
 
     network = Network(network_data, network_data)
     await network.load_network_secrets()
+    try:
+        await network.root_ca.save(
+            storage_driver=server.local_storage
+        )
+    except PermissionError:
+        _LOGGER.debug('Root CA cert already exists on local storage')
 
     server.network = network
     server.paths = network.paths
@@ -90,8 +101,6 @@ async def setup():
     # account_id environment variable?
     pod_account = Account(network_data['account_id'], network)
     await pod_account.paths.create_account_directory()
-    await pod_account.load_memberships()
-
     pod_account.password = network_data.get('account_secret')
     await pod_account.tls_secret.load(
         password=pod_account.private_key_password
@@ -99,9 +108,23 @@ async def setup():
     await pod_account.data_secret.load(
         password=pod_account.private_key_password
     )
+    try:
+        # Needed for nginx and aiohttp
+        await pod_account.tls_secret.save(
+            password=network_data['private_key_password'], overwrite=True,
+            storage_driver=server.local_storage
+        )
+        pod_account.tls_secret.save_tmp_private_key()
+    except PermissionError:
+        _LOGGER.debug('Account cert/key already exists on local storage')
+
+    await pod_account.load_memberships()
     await pod_account.register()
 
     server.account = pod_account
+
+    # Save local copies for nginx and aiohttp to use
+    pod_account.tls_secret.save_tmp_private_key()
 
     nginx_config = NginxConfig(
         directory=NGINX_SITE_CONFIG_DIR,
@@ -109,7 +132,7 @@ async def setup():
         identifier=network_data['account_id'],
         subdomain=IdType.ACCOUNT.value,
         cert_filepath=(
-            server.paths.root_directory + '/' +
+            server.local_storage.local_path + '/' +
             pod_account.tls_secret.cert_file
         ),
         key_filepath=pod_account.tls_secret.unencrypted_private_key_file,

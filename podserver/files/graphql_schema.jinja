@@ -1,5 +1,5 @@
 '''
-Automatically generated code for GraphQL support for a Byoda servce
+Automatically generated code for GraphQL support for a Byoda service
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -63,7 +63,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         else:
             _LOGGER.debug(
                 f'Authentication for service {auth.service_id}: '
-                'f{auth.is_authenticated}'
+                f'{auth.is_authenticated}'
             )
     except Exception as exc:
         raise HTTPException(
@@ -89,7 +89,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         else:
             _LOGGER.debug(
                 f'Authorization for service {auth.service_id}: '
-                'f{auth.is_authenticated}'
+                f'{auth.is_authenticated}'
             )
         return result
     except Exception as exc:

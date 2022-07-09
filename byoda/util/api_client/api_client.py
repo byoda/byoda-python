@@ -5,15 +5,16 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 :license    : GPLv3
 '''
 
-
+import os
 import logging
 from enum import Enum
-from typing import Dict
+from typing import Dict, TypeVar
 from uuid import UUID
 
 import aiohttp
 import ssl
 
+from byoda.storage.filestorage import FileStorage
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
@@ -25,6 +26,7 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
+Network = TypeVar('Network')
 
 class ClientAuthType(Enum):
     # flake8: noqa=E221
@@ -61,6 +63,10 @@ class ApiClient:
         '''
 
         server: Server = config.server
+        if hasattr(server, 'local_storage'):
+            storage = server.local_storage
+        else:
+            storage = None
 
         self.port = port
 
@@ -75,19 +81,14 @@ class ApiClient:
                     pool = 'noauth-http'
                 else:
                     pool = 'noauth-https'
+                    self.port = 443
 
         elif isinstance(secret, ServiceSecret):
             pool = f'service-{service_id}'
-            if not port:
-                port = 444
         elif isinstance(secret, MemberSecret):
             pool = 'member'
-            if not port:
-                port = 444
         elif isinstance(secret, AccountSecret):
             pool = 'account'
-            if not port:
-                port = 444
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
@@ -109,18 +110,20 @@ class ApiClient:
                 )
                 self.ssl_context = ssl.create_default_context()
             else:
-                filepath = (
-                    server.network.paths._root_directory + '/' +
-                    server.network.root_ca.cert_file
-                )
-                self.ssl_context = ssl.create_default_context(cafile=filepath)
-                _LOGGER.debug(f'Set server cert validation to {filepath}')
+                ca_filepath = storage.local_path + server.network.root_ca.cert_file
+
+                self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
+                _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
             if secret:
+                if not storage:
+                    # Hack: podserver and svcserver use different attributes
+                        storage = server.storage_driver
+                        
                 key_path = secret.save_tmp_private_key()
-                cert_filepath = (
-                    server.network.paths.root_directory + '/' + secret.cert_file
-                )
+
+                cert_filepath = storage.local_path + secret.cert_file
+
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_path}'
                 )

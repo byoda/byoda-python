@@ -44,24 +44,13 @@ class FileStorage:
 
         # These properties are only applicable if this instance
         # is derived from one of the cloud-storage classes
-        self.cache_enabled = None
-        self.cache_path = None
         self.cloud_type: CloudType = cloud_type
 
         if cloud_type != CloudType.LOCAL:
             if local_path:
-                self.cache_enabled = True
                 self.local_path: str = '/' + local_path.strip('/') + '/'
-                self.cache_path = self.local_path
             else:
-                self.cache_enabled: bool = False
                 self.local_path: str = '/tmp/'
-
-            for filename in os.listdir(self.cache_path):
-                filepath = os.path.join(self.cache_path, filename)
-                if os.path.isdir(filepath):
-                    shutil.rmtree(filepath, ignore_errors=True)
-
         else:
             if not local_path:
                 raise ValueError('Must specify local path')
@@ -69,9 +58,6 @@ class FileStorage:
             self.local_path: str = '/' + local_path.strip('/') + '/'
 
         os.makedirs(self.local_path, exist_ok=True)
-
-        if cloud_type != CloudType.LOCAL:
-            os.makedirs(self.local_path + PUBLIC_POSTFIX, exist_ok=True)
 
         _LOGGER.debug('Initialized file storage under %s', self.local_path)
 
@@ -89,7 +75,7 @@ class FileStorage:
 
     @staticmethod
     async def get_storage(cloud: CloudType, bucket_prefix: str,
-                          root_dir: str = None):
+                          root_dir: str):
         '''
         Factory for FileStorage and classes derived from it
 
@@ -200,9 +186,12 @@ class FileStorage:
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'r{file_mode.value}'
 
-        _LOGGER.debug(f'Reading local file {updated_filepath}')
         with open(updated_filepath, openmode) as file_desc:
             data = file_desc.read()
+
+        _LOGGER.debug(
+            f'Read {len(data or [])} bytes from local file {updated_filepath}'
+        )
 
         return data
 
@@ -239,9 +228,12 @@ class FileStorage:
         if file_descriptor:
             data = file_descriptor.read()
 
-        _LOGGER.debug(f'Writing local file {updated_filepath}')
         with open(updated_filepath, openmode) as file_desc:
             file_desc.write(data)
+
+        _LOGGER.debug(
+            f'Wrote {len(data or [])} bytes to local file {updated_filepath}'
+        )
 
     def append(self, filepath: str, data: str,
                file_mode: FileMode = FileMode.BINARY,
@@ -282,6 +274,22 @@ class FileStorage:
             )
         return exists
 
+    def save(self, filepath: str, data: str,
+             file_mode: FileMode = FileMode.BINARY):
+        '''
+        Saves file to local file system, even when called via a
+        cloud storage class derived from this class
+
+        :param filepath: location under the root_dir to save the file
+        :param data: data to save to the file
+        :param file_mode: write file as text or as binary
+        '''
+
+        dirpath, filename = self.get_full_path(filepath)
+
+        with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
+            file_desc.write(data)
+
     async def move(self, src_filepath: str, dest_filepath: str,
                    storage_type: StorageType = StorageType.PRIVATE):
         '''
@@ -293,7 +301,7 @@ class FileStorage:
         '''
 
         dirpath, filename = self.get_full_path(
-            dest_filepath, create_dir=False, storage_type=storage_type)
+            dest_filepath, create_dir=True, storage_type=storage_type)
 
         shutil.move(src_filepath, dirpath + '/' + filename)
 

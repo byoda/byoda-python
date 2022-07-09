@@ -21,3 +21,8 @@ GCP: https://cloud.google.com/free/
 - always free (only in us-east1, us-west1, us-central1):
   - 1 x e2.micro VM (2 CPU cores, 1GB)
   - 5GB storage, 1GB data out (except China & Australia)
+
+Instructions on how to create a VM and storage account are available for:
+- [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+- [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
+- [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md))

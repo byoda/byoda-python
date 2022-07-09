@@ -40,6 +40,13 @@ export BUCKET_PREFIX="changeme"
 export ACCOUNT_SECRET="changeme"
 export PRIVATE_KEY_SECRET="changeme"
 
+export NETWORK="byoda.net"
+
+# These variables need to be set for pods on AWS:
+export AWS_ACCESS_KEY_ID="changeme"
+export AWS_SECRET_ACCESS_KEY="changeme"
+
+
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
@@ -63,12 +70,17 @@ echo "    ${SYSTEM_VERSION}"
 PRIVATE_BUCKET="${BUCKET_PREFIX}-private"
 PUBLIC_BUCKET="${BUCKET_PREFIX}-public"
 
+export ROOT_DIR=/byoda
+
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
     echo "Running in cloud: ${CLOUD}"
     # In Azure we don't have the '-' between prefix and private/public
     PRIVATE_BUCKET=${BUCKET_PREFIX}private
     PUBLIC_BUCKET=${BUCKET_PREFIX}public
+    echo "Wiping ${ROOT_DIR}"
+    sudo rm -rf ${ROOT_DIR}/*
+    sudo mkdir -p ${ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
@@ -76,6 +88,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
+    echo "Wiping ${ROOT_DIR}"
+    sudo rm -rf ${ROOT_DIR}/*
+    sudo mkdir -p ${ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
@@ -83,6 +98,13 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
 elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     export CLOUD=AWS
     echo "Running in cloud: ${CLOUD}"
+    if [[ "${AWS_ACCESS_KEY_ID}" == "changeme" || "${AWS_SECRET_ACCESS_KEY}" == "changeme" ]]; then
+        echo "Set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables in this script"
+        exit 1
+    fi
+    echo "Wiping ${ROOT_DIR}"
+    sudo rm -rf ${ROOT_DIR}/*
+    sudo mkdir -p ${ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
@@ -90,7 +112,7 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     fi
 else
     export CLOUD=LOCAL
-    echo "Not runing in a public cloud"
+    echo "Not running in a public cloud"
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
         sudo rm -rf ${ROOT_DIR} 2>/dev/null
@@ -118,7 +140,6 @@ else
     echo "Writing account_id to ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
 fi
 
-export ROOT_DIR=/byoda
 export LOGLEVEL=DEBUG
 export BOOTSTRAP=BOOTSTRAP
 
@@ -135,15 +156,39 @@ if [[ "${CLOUD}" != "LOCAL" ]]; then
 fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
-docker pull byoda/byoda-pod:latest
+sudo docker pull byoda/byoda-pod:latest
+
+if [[ "${CLOUD}" == "AWS" ]]; then
 sudo docker run -d \
-    --name byoda \
-    -p 443:443 -p 444:444 -p 80:80 \
+    --name byoda --restart=unless-stopped \
+    -p 443:443 \
+    -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
     -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
-    -e "NETWORK=byoda.net" \
+    -e "NETWORK=${NETWORK}" \
+    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
+    -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
+    -e "LOGLEVEL=${LOGLEVEL}" \
+    -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
+    -e "BOOTSTRAP=BOOTSTRAP" \
+    -e "ROOT_DIR=${ROOT_DIR}" \
+    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -v ${ROOT_DIR}:${ROOT_DIR} \
+    -v ${LOGDIR}:${LOGDIR} \
+    byoda/byoda-pod:latest
+else
+sudo docker run -d \
+    --name byoda --restart=unless-stopped \
+    -p 443:443 \
+    -e "WORKERS=1" \
+    -e "CLOUD=${CLOUD}" \
+    -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
+    -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
+    -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
+    -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
     -e "LOGLEVEL=${LOGLEVEL}" \
@@ -153,3 +198,4 @@ sudo docker run -d \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
+fi

@@ -38,6 +38,15 @@ class RestApiClient:
 
         '''
         Calls an API using the right credentials and accepted CAs
+
+        :param api: URL of API to call
+        :param method: GET, POST, etc.
+        :param secret: secret to use for client M-TLS
+        :param params: HTTP query parameters
+        :param data: data to send in both of the request
+        :param service_id:
+        :param member_id:
+        :param account_id:
         '''
 
         if method == HttpMethod.POST:
@@ -63,7 +72,7 @@ class RestApiClient:
 
         response: aiohttp.ClientResponse = await ApiClient.call(
             api, method.value, secret=secret, params=params, data=data,
-            service_id=service_id, member_id=member_id, account_id=account_id
+            service_id=service_id, member_id=member_id, account_id=account_id,
         )
 
         return response
