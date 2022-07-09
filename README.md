@@ -12,7 +12,7 @@ Byoda is a new and radically different social media platform:
 This repo hosts the reference implementation (in Python) of the Byoda directory server, a generic 'service' server and the data pod. For more information about Byoda, please go to the [web site](https://www.byoda.org/)
 
 ## Status
-This is alpha-quality software. The only user interface available is curl. The byoda.net network is running, a proof-of-concept service 'Address Book' is up and running and you can install the data pod on a VM in AWS, Azure or GCP or on a server in your home.
+This is alpha-quality software. The only user interface available today is curl and a tool to call GraphQL APIs. If you don't know what curl is, this software is probably not yet mature enough for you. The byoda.net network is running, a proof-of-concept service 'Address Book' is up and running and you can install the data pod on a VM in AWS, Azure or GCP or on a server in your home.
 
 ## Getting started with the data pod
 There are two ways to install the pod:
@@ -35,7 +35,7 @@ There are two ways to install the pod:
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
     - Ports 443 on your server must be available for the pod to use and must be accessible from the Internet
-    - Carefully consider the security implementations on enabling port forwarding on your broadband router and whether this is the right setup for you.
+    - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
 
 To launch the pod:
 - Log in to your VM or server.
@@ -78,7 +78,8 @@ tools/docker-launch.sh
 The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo mkdir /byoda 2>/dev/null
-sudo pip3 install --upgrade orjson aiohttp jsonschema requests python_graphql_client certvalidator sqlalchemy passgen
+sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
+    python_graphql_client certvalidator sqlalchemy passgen
 cd byoda-python
 export PYTHONPATH=$PYTHONPATH:.
 source tools/set_env.sh
@@ -125,7 +126,7 @@ cat >~/person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object person --action mutate --data-file ~/person.json 2>&1
+tools/call_graphql.py --object person --action mutate --data-file ~/person.json 2>/dev/null
 ```
 
 If you want to see your details again, you can run
@@ -254,12 +255,12 @@ To acquire a JWT for managing the pod, you get an 'account JWT':
 export ACCOUNT_JWT=$(curl -s --basic --cacert $ROOT_CA -u $ACCOUNT_USERNAME:$ACCOUNT_PASSWORD https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token); echo $ACCOUNT_JWT
 ```
 
-You can use the account JWT to call REST APIs on the POD, ie.:
+You can use the 'account' JWT to call REST APIs on the POD, ie.:
 ```
 curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
 ```
 
-If you need to call the GraphQL API, you need to have a member JWT:
+If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
 export MEMBER_JWT=$(curl -s --basic --cacert $ROOT_CA -u $MEMBER_USERNAME:$ACCOUNT_PASSWORD https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
 ```
@@ -277,18 +278,29 @@ You can also use the member-JWT to call REST APIs against the server for the ser
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/steven@byoda.org  | jq .
 ```
-## Hosting a service in the byoda.net network
 
-Next to running your pod, everyone can develop their own service in the network. What you'll need to do is:
-- Create a Service Contract in the form of a JSON Schema that models the data you want to store for the service in the data pod and who can access that data. The BYODA pod currently has limited support for complex data structures in the JSON-Schema so take the [service/addressbook.json](https://github.com/StevenHessing/byoda-python/blob/master/services/addressbook.json) as starting point. File an issue in Github as a feature request if you need support for a specific construct that is not currently supported.
-- Get the Service Contract signed by the network
-- On a host accessible from the Internet, make your modifications as needed for your service to the code under byoda-python/svcserver and run it as a service. The service server will automatically register with the network when it starts up. The directory server will create an FQDN 'service.service-<SERVICE_ID>.byoda.net with the public IP address of your host.
-For more detailed instructions, please review the ['Creating a service' document](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/create_a_service.md)
+In the address book schema, services are allowed to send requests to pods and collect their member ID and e-mail address because for the 'email' property of the 'person' object, we have:
+```
+    "email": {
+        "format": "idn-email",
+        "type": "string",
+        "#accesscontrol": {
+            "service": {
+                "permissions": ["search:exact-caseinsensitive"]
+            }
+        }
+    },
+```
+
+When services are allowed by their service contract to collect data from pods, they have to commit to not persist the data on their systems. They may cache the data in-memory for 48 hours but after that it must be automatically removed from the cache and the service will have to request the data from the pod again. This will allow people to keep control over their data while enabling people to discover other people using the service.
+
 
 ## TODO:
+The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.
+
 The main areas of development are:
-- Enable web-browsers to call the APIs on the pod:
-- Implementing the 'network:+n' construct for the access permissions in the JSON Schema to allow people in your network to query your GraphQL APIs.
-- Improve the support for complex data structures in the data contract.
-- Add API to upload content to the public object storage
+- Create a web user interface for the address book service
+- Implementing the 'network:+n' construct (with n>1) for the access permissions in the JSON Schema to allow people in your network to query your GraphQL APIs.
+- Improve the support for complex data structures in the data contract
+- create algorithms that you can run to collect data from your pod, the pods of your network and APIs hosted by the service to generate a feed of content for you.
 

@@ -117,7 +117,7 @@ class ApiClient:
 
             if secret:
                 if not storage:
-                    storage = server.network.storage_driver
+                    storage = server.network.paths.storage_driver
                 key_path = secret.save_tmp_private_key()
 
                 cert_filepath = storage.local_path + secret.cert_file
