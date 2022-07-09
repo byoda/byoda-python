@@ -79,7 +79,8 @@ The 'Address Book' service is a proof of concept on how a service in the BYODA n
 ```
 sudo mkdir /byoda 2>/dev/null
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
-    python_graphql_client certvalidator sqlalchemy passgen
+    python_graphql_client certvalidator sqlalchemy passgen \
+    starlette starlette-context python-json-logger
 cd byoda-python
 export PYTHONPATH=$PYTHONPATH:.
 source tools/set_env.sh

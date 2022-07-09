@@ -16,9 +16,11 @@ import os
 import sys
 import orjson
 import asyncio
+import logging
 import argparse
 from uuid import UUID, uuid4
 from typing import Dict
+
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -26,6 +28,8 @@ from requests.auth import HTTPBasicAuth
 from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
+
+from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
 
@@ -103,6 +107,11 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
 
 async def main(argv):
+    global _LOGGER
+    _LOGGER = Logger.getLogger(
+        sys.argv[0], debug=False, verbose=False, json_out=False,
+        loglevel=logging.WARNING
+    )
     await setup_network(None)
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', '-n', type=str, default='byoda.net')
