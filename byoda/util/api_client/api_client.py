@@ -118,10 +118,8 @@ class ApiClient:
             if secret:
                 if not storage:
                     # Hack: podserver and svcserver use different attributes
-                    if hasattr(server.network, 'paths'):
-                        storage = server.network.paths.storage_driver
-                    else:
-                        storage = server.network.storage_driver
+                        storage = server.storage_driver
+                        
                 key_path = secret.save_tmp_private_key()
 
                 cert_filepath = storage.local_path + secret.cert_file

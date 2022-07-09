@@ -60,7 +60,7 @@ PUBLIC_SA_ID=$( \
         --resource-group ${RG} \
     | jq -r .id)
 
-6. Create a network security group
+7. Create a network security group
 We recommend restricting SSH access to the VM to the IP address you are currently using
 ```
 MY_IP=$(curl ifconfig.co)
@@ -88,7 +88,7 @@ az network nsg rule create \
     --source-address-prefixes ${MY_IP}/32
 
 
-7. Create the VM
+8. Create the VM
 ```
 IMAGE_URN=$(az vm image list --publisher Canonical -l "${REGION}" --sku "minimal-22_04-daily-lts-gen2" --all --architecture x64 | jq -r 'last| .urn'); echo Image: ${IMAGE_URN}
 PUBLIC_IP=$( \
@@ -118,10 +118,12 @@ VM_ID=$( \
 
 
 az role assignment create --assignee ${VM_ID} --role "Storage Blob Data Contributor" --scope ${PUBLIC_SA_ID}
+```
 
 8.
 All done, just validate you can ssh to the VM:
 ```
 ssh -i ${SSH_KEY_FILE} azureuser@${PUBLIC_IP}
 ```
-If that works for you, you can continue with the remainder of the tutorial.
+
+If that works for you, you can continue with the remainder of the [tutorial](https://github.com/StevenHessing/byoda-python/blob/users/stevenh/graphql-query-generator/README.md).

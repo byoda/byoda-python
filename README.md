@@ -24,9 +24,9 @@ There are two ways to install the pod:
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Cloud-specific instructions for creating the VM to run the pod on
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
-        - [Azure]([Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md) (work-in-progress)
+        - [Azure]([Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
           - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
-        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md) (coming-real-soon)
+        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md) (coming-soon)
           - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
     - The HTTPS port for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
@@ -66,7 +66,7 @@ vi ~/docker-launch.sh
 tools/docker-launch.sh
 ```
 
-**Congratulations, you now have a running pod that is member of the byoda.net network!** <br>
+**Congratulations, you now have a running pod that is a member of the byoda.net network!** <br>
 
 
 ## Basic info about the pod

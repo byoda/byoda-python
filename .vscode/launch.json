@@ -49,7 +49,7 @@
             "env": {
                 "PYTHONPATH": "/home/steven/src/byoda-python",
                 "SERVER_NAME": "devws",
-                "CONFIG_FILE": "config-addressbook.yml"
+                "CONFIG_FILE": "config.yml"
             }
         },
         {
