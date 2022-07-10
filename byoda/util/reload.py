@@ -23,6 +23,12 @@ def reload_gunicorn() -> None:
     Reloads the gunicorn server
     '''
 
+    if not os.path.exists(PODSERVER_PIDFILE):
+        _LOGGER.debug(
+            f'Not reloading as pid file {PODSERVER_PIDFILE} does not exist'
+        )
+        return
+
     with open(PODSERVER_PIDFILE) as file_desc:
         pid = int(file_desc.read())
 
