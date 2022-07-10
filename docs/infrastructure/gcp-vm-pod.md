@@ -1,5 +1,6 @@
 # Instructions for creating a VM on GCP are to be completed
 
+1. Create an account with [Google Cloud](https://console.cloud.google.com/)
 Create GCS storage
 PREFIX=<random string of 8 characters>
 create a GCP project
