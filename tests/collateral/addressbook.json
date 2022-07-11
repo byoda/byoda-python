@@ -131,7 +131,7 @@
                     "$ref": "/schemas/asset_reaction"
                 }
             },
-            "memberlogs": {
+            "datalogs": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
@@ -139,7 +139,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/memberlog"
+                    "$ref": "/schemas/datalog"
                 }
             },
             "public_assets": {
@@ -195,7 +195,7 @@
                 "description": "links to other members who you have a social connection with, such as friend, colleague, family, etc.",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the network link was created",
                         "format": "date-time",
                         "type": "string"
@@ -210,7 +210,7 @@
                         "type": "string"
                     }
                 },
-                "required": ["timestamp", "member_id", "relation"]
+                "required": ["created_timestamp", "member_id", "relation"]
             },
             "network_invite": {
                 "$id": "/schemas/network_invite",
@@ -218,7 +218,7 @@
                 "description": "An invite to network with another member",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the network invite was created",
                         "format": "date-time",
                         "type": "string"
@@ -237,7 +237,7 @@
                         "type": "string"
                     }
                 },
-                "required": ["timestamp", "member_id", "relation"]
+                "required": ["created_timestamp", "member_id", "relation"]
             },
             "asset_link": {
                 "$id": "/schemas/asset_link",
@@ -245,7 +245,7 @@
                 "description": "links to other assets, that you have read, liked, etc.",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the network link was created",
                         "format": "date-time",
                         "type": "string"
@@ -278,7 +278,7 @@
                         "type": "string"
                     }
                 },
-                "required": ["timestamp", "member_id", "relation"]
+                "required": ["created_timestamp", "member_id", "relation"]
             },
             "asset_reaction": {
                 "$id": "/schemas/asset_reaction",
@@ -286,7 +286,7 @@
                 "description": "Reactions to assets of the member",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the reaction was created",
                         "format": "date-time",
                         "type": "string"
@@ -314,15 +314,15 @@
                         "type": "string"
                     }
                 },
-                "required": ["timestamp", "member_id", "asset_id", "relation"]
+                "required": ["created_timestamp", "member_id", "asset_id", "relation"]
             },
-            "memberlog": {
-                "$id": "/schemas/memberlog",
+            "datalog": {
+                "$id": "/schemas/datalog",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "log entries for the membership of the service",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the log entry was created",
                         "format": "date-time",
                         "type": "string"
@@ -332,8 +332,41 @@
                         "format": "ipv4",
                         "type": "string"
                     },
-                    "action": {
-                        "description": "What action was requested by the client",
+                    "remote_id": {
+                        "description": "The ID of the client originating the log entry",
+                        "type": "string"
+                    },
+                    "remote_id_type": {
+                        "description": "The type of ID used to authenticate, ie. member, service or account",
+                        "type": "string"
+                    },
+                    "operation": {
+                        "description": "What operation that was requested by the client",
+                        "type": "string"
+                    },
+                    "object": {
+                        "description": "name of the object in the GraphQL query",
+                        "type": "string"
+                    },
+                    "query_filters": {
+                        "description": "the filters specified in the GraphQL query",
+                        "type": "string"
+                    },
+                    "query_depth": {
+                        "description": "the depth specified the GraphQL query",
+                        "type": "integer"
+                    },
+                    "query_relations": {
+                        "description": "the relations specified in the GraphQL query",
+                        "type": "string"
+                    },
+                    "query_remote_member_id": {
+                        "description": "The member that was specified in the append request to proxy to",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "source": {
+                        "description": "The source of the log entry, ie. the client, a graphql query, etc.",
                         "type": "string"
                     },
                     "message": {
@@ -341,7 +374,7 @@
                         "type": "string"
                     }
                 },
-                "required": ["timestamp", "remote_addr", "action", "action"]
+                "required": ["created_timestamp", "remote_addr", "operation", "object"]
             },
             "asset": {
                 "$id": "/schemas/asset",
@@ -349,7 +382,7 @@
                 "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
                 "type": "object",
                 "properties": {
-                    "timestamp": {
+                    "created_timestamp": {
                         "description": "time the asset was created",
                         "format": "date-time",
                         "type": "string"
@@ -422,7 +455,7 @@
                         "format": "uuid"
                     }
                 },
-                "required": ["timestamp", "asset_id", "asset_type"]
+                "required": ["created_timestamp", "asset_id", "asset_type"]
             }
         }
     },

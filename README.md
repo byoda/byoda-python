@@ -165,7 +165,7 @@ cat >~/follow.json <<EOF
 {
     "member_id": "86c8c2f0-572e-4f58-a478-4037d2c9b94a",
     "relation": "follow",
-    "timestamp": "2022-07-04T03:50:26.451308+00:00"
+    "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
 EOF
 
@@ -176,7 +176,7 @@ The 'Address Book' service has unidirectional relations. So the fact that you fo
 ```
 cat >~invite.json <<EOF
 {
-    "timestamp": "2022-07-04T14:50:26.451308+00:00",
+    "created_timestamp": "2022-07-04T14:50:26.451308+00:00",
     "member_id": "a2e36bed-1bf8-4774-bc73-5f08a4bae27d",
     "relation": "follow",
     "text": "Hey, why don't you follow me!"

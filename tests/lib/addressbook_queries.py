@@ -22,7 +22,7 @@ query ($filters: networkLinkInputFilter, $first: Int, $after: String,
             cursor
             origin
             network_link {
-                timestamp
+                created_timestamp
                 member_id
                 relation
             }
@@ -39,16 +39,16 @@ GRAPHQL_STATEMENTS['network_link'] = {'query': QUERY_NETWORK_LINK}
 
 MUTATE_NETWORK_LINK = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $relation: String,
 ) {
     mutate_network_link(
-                    timestamp: $timestamp,
+                    created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     relation: $relation,
     ) {
-                    timestamp
+                    created_timestamp
                     member_id
                     relation
     }
@@ -69,7 +69,7 @@ query ($filters: networkInviteInputFilter, $first: Int, $after: String,
             cursor
             origin
             network_invite {
-                timestamp
+                created_timestamp
                 member_id
                 relation
                 text
@@ -87,18 +87,18 @@ GRAPHQL_STATEMENTS['network_invite'] = {'query': QUERY_NETWORK_INVITE}
 
 MUTATE_NETWORK_INVITE = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $relation: String,
                     $text: String,
 ) {
     mutate_network_invite(
-                    timestamp: $timestamp,
+                    created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     relation: $relation,
                     text: $text,
     ) {
-                    timestamp
+                    created_timestamp
                     member_id
                     relation
                     text
@@ -120,7 +120,7 @@ query ($filters: assetLinkInputFilter, $first: Int, $after: String,
             cursor
             origin
             asset_link {
-                timestamp
+                created_timestamp
                 member_id
                 asset_id
                 asset_url
@@ -141,7 +141,7 @@ GRAPHQL_STATEMENTS['asset_link'] = {'query': QUERY_ASSET_LINK}
 
 MUTATE_ASSET_LINK = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
                     $asset_url: String,
@@ -150,7 +150,7 @@ mutation(
                     $signature: String,
 ) {
     mutate_asset_link(
-                    timestamp: $timestamp,
+                    created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     asset_id: $asset_id,
                     asset_url: $asset_url,
@@ -158,7 +158,7 @@ mutation(
                     nonce: $nonce,
                     signature: $signature,
     ) {
-                    timestamp
+                    created_timestamp
                     member_id
                     asset_id
                     asset_url
@@ -183,7 +183,7 @@ query ($filters: assetReactionInputFilter, $first: Int, $after: String,
             cursor
             origin
             asset_reaction {
-                timestamp
+                created_timestamp
                 member_id
                 asset_id
                 relation
@@ -203,7 +203,7 @@ GRAPHQL_STATEMENTS['asset_reaction'] = {'query': QUERY_ASSET_REACTION}
 
 MUTATE_ASSET_REACTION = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
                     $relation: String,
@@ -211,14 +211,14 @@ mutation(
                     $signature: String,
 ) {
     mutate_asset_reaction(
-                    timestamp: $timestamp,
+                    created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     asset_id: $asset_id,
                     relation: $relation,
                     nonce: $nonce,
                     signature: $signature,
     ) {
-                    timestamp
+                    created_timestamp
                     member_id
                     asset_id
                     relation
@@ -231,20 +231,28 @@ mutation(
 GRAPHQL_STATEMENTS['asset_reaction']['mutate'] = MUTATE_ASSET_REACTION
 
 
-QUERY_MEMBERLOG = '''
-query ($filters: memberlogInputFilter, $first: Int, $after: String,
+QUERY_DATALOG = '''
+query ($filters: datalogInputFilter, $first: Int, $after: String,
         $depth: Int, $relations: [String!]) {
-    memberlog_connection(
+    datalog_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
             relations: $relations) {
         total_count
         edges {
             cursor
             origin
-            memberlog {
-                timestamp
+            datalog {
+                created_timestamp
                 remote_addr
-                action
+                remote_id
+                remote_id_type
+                operation
+                object
+                query_filters
+                query_depth
+                query_relations
+                query_remote_member_id
+                source
                 message
             }
         }
@@ -256,30 +264,54 @@ query ($filters: memberlogInputFilter, $first: Int, $after: String,
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlog'] = {'query': QUERY_MEMBERLOG}
+GRAPHQL_STATEMENTS['datalog'] = {'query': QUERY_DATALOG}
 
-MUTATE_MEMBERLOG = '''
+MUTATE_DATALOG = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $remote_addr: String,
-                    $action: String,
+                    $remote_id: String,
+                    $remote_id_type: String,
+                    $operation: String,
+                    $object: String,
+                    $query_filters: String,
+                    $query_depth: Int,
+                    $query_relations: String,
+                    $query_remote_member_id: UUID,
+                    $source: String,
                     $message: String,
 ) {
-    mutate_memberlog(
-                    timestamp: $timestamp,
+    mutate_datalog(
+                    created_timestamp: $created_timestamp,
                     remote_addr: $remote_addr,
-                    action: $action,
+                    remote_id: $remote_id,
+                    remote_id_type: $remote_id_type,
+                    operation: $operation,
+                    object: $object,
+                    query_filters: $query_filters,
+                    query_depth: $query_depth,
+                    query_relations: $query_relations,
+                    query_remote_member_id: $query_remote_member_id,
+                    source: $source,
                     message: $message,
     ) {
-                    timestamp
+                    created_timestamp
                     remote_addr
-                    action
+                    remote_id
+                    remote_id_type
+                    operation
+                    object
+                    query_filters
+                    query_depth
+                    query_relations
+                    query_remote_member_id
+                    source
                     message
     }
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlog']['mutate'] = MUTATE_MEMBERLOG
+GRAPHQL_STATEMENTS['datalog']['mutate'] = MUTATE_DATALOG
 
 
 QUERY_ASSET = '''
@@ -293,7 +325,7 @@ query ($filters: assetInputFilter, $first: Int, $after: String,
             cursor
             origin
             asset {
-                timestamp
+                created_timestamp
                 asset_id
                 asset_type
                 locale
@@ -322,7 +354,7 @@ GRAPHQL_STATEMENTS['asset'] = {'query': QUERY_ASSET}
 
 MUTATE_ASSET = '''
 mutation(
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
                     $locale: String,
@@ -339,7 +371,7 @@ mutation(
                     $response_to: UUID,
 ) {
     mutate_asset(
-                    timestamp: $timestamp,
+                    created_timestamp: $created_timestamp,
                     asset_id: $asset_id,
                     asset_type: $asset_type,
                     locale: $locale,
@@ -355,7 +387,7 @@ mutation(
                     forum: $forum,
                     response_to: $response_to,
     ) {
-                    timestamp
+                    created_timestamp
                     asset_id
                     asset_type
                     locale
@@ -489,7 +521,7 @@ query ($filters: networkLinkInputFilter,
             cursor
             origin
             network_link {
-                timestamp
+                created_timestamp
                 member_id
                 relation
             }
@@ -506,16 +538,16 @@ GRAPHQL_STATEMENTS['network_links'] = {'query': QUERY_NETWORK_LINKS}
 
 APPEND_NETWORK_LINKS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $member_id: UUID!,
                     $relation: String!,
 ) {
     append_network_links (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             member_id: $member_id,
             relation: $relation,
     ) {
-            timestamp
+            created_timestamp
             member_id
             relation
     }
@@ -527,17 +559,17 @@ GRAPHQL_STATEMENTS['network_links']['append'] = APPEND_NETWORK_LINKS
 UPDATE_NETWORK_LINKS = '''
 mutation (
     $filters: networkLinkInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $relation: String,
 ) {
     update_network_links(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         member_id: $member_id,
         relation: $relation,
     ) {
-        timestamp
+        created_timestamp
         member_id
         relation
     }
@@ -549,7 +581,7 @@ GRAPHQL_STATEMENTS['network_links']['update'] = UPDATE_NETWORK_LINKS
 DELETE_FROM_NETWORK_LINKS = '''
 mutation ($filters: networkLinkInputFilter!) {
     delete_from_network_links(filters: $filters) {
-        timestamp
+        created_timestamp
         member_id
         relation
     }
@@ -568,7 +600,7 @@ query ($filters: networkInviteInputFilter,
             cursor
             origin
             network_invite {
-                timestamp
+                created_timestamp
                 member_id
                 relation
                 text
@@ -586,18 +618,18 @@ GRAPHQL_STATEMENTS['network_invites'] = {'query': QUERY_NETWORK_INVITES}
 
 APPEND_NETWORK_INVITES = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $member_id: UUID!,
                     $relation: String!,
                     $text: String,
 ) {
     append_network_invites (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             member_id: $member_id,
             relation: $relation,
             text: $text,
     ) {
-            timestamp
+            created_timestamp
             member_id
             relation
             text
@@ -610,19 +642,19 @@ GRAPHQL_STATEMENTS['network_invites']['append'] = APPEND_NETWORK_INVITES
 UPDATE_NETWORK_INVITES = '''
 mutation (
     $filters: networkInviteInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $relation: String,
                     $text: String,
 ) {
     update_network_invites(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         member_id: $member_id,
         relation: $relation,
         text: $text,
     ) {
-        timestamp
+        created_timestamp
         member_id
         relation
         text
@@ -635,7 +667,7 @@ GRAPHQL_STATEMENTS['network_invites']['update'] = UPDATE_NETWORK_INVITES
 DELETE_FROM_NETWORK_INVITES = '''
 mutation ($filters: networkInviteInputFilter!) {
     delete_from_network_invites(filters: $filters) {
-        timestamp
+        created_timestamp
         member_id
         relation
         text
@@ -655,7 +687,7 @@ query ($filters: assetLinkInputFilter,
             cursor
             origin
             asset_link {
-                timestamp
+                created_timestamp
                 member_id
                 asset_id
                 asset_url
@@ -676,7 +708,7 @@ GRAPHQL_STATEMENTS['asset_links'] = {'query': QUERY_ASSET_LINKS}
 
 APPEND_ASSET_LINKS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $member_id: UUID!,
                     $asset_id: UUID,
                     $asset_url: String,
@@ -685,7 +717,7 @@ mutation (
                     $signature: String,
 ) {
     append_asset_links (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             member_id: $member_id,
             asset_id: $asset_id,
             asset_url: $asset_url,
@@ -693,7 +725,7 @@ mutation (
             nonce: $nonce,
             signature: $signature,
     ) {
-            timestamp
+            created_timestamp
             member_id
             asset_id
             asset_url
@@ -709,7 +741,7 @@ GRAPHQL_STATEMENTS['asset_links']['append'] = APPEND_ASSET_LINKS
 UPDATE_ASSET_LINKS = '''
 mutation (
     $filters: assetLinkInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
                     $asset_url: String,
@@ -719,7 +751,7 @@ mutation (
 ) {
     update_asset_links(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         member_id: $member_id,
         asset_id: $asset_id,
         asset_url: $asset_url,
@@ -727,7 +759,7 @@ mutation (
         nonce: $nonce,
         signature: $signature,
     ) {
-        timestamp
+        created_timestamp
         member_id
         asset_id
         asset_url
@@ -743,7 +775,7 @@ GRAPHQL_STATEMENTS['asset_links']['update'] = UPDATE_ASSET_LINKS
 DELETE_FROM_ASSET_LINKS = '''
 mutation ($filters: assetLinkInputFilter!) {
     delete_from_asset_links(filters: $filters) {
-        timestamp
+        created_timestamp
         member_id
         asset_id
         asset_url
@@ -766,7 +798,7 @@ query ($filters: assetReactionInputFilter,
             cursor
             origin
             asset_reaction {
-                timestamp
+                created_timestamp
                 member_id
                 asset_id
                 relation
@@ -786,7 +818,7 @@ GRAPHQL_STATEMENTS['asset_reactions_received'] = {'query': QUERY_ASSET_REACTIONS
 
 APPEND_ASSET_REACTIONS_RECEIVED = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $member_id: UUID!,
                     $asset_id: UUID!,
                     $relation: String!,
@@ -794,14 +826,14 @@ mutation (
                     $signature: String,
 ) {
     append_asset_reactions_received (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             member_id: $member_id,
             asset_id: $asset_id,
             relation: $relation,
             nonce: $nonce,
             signature: $signature,
     ) {
-            timestamp
+            created_timestamp
             member_id
             asset_id
             relation
@@ -816,7 +848,7 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['append'] = APPEND_ASSET_REACTION
 UPDATE_ASSET_REACTIONS_RECEIVED = '''
 mutation (
     $filters: assetReactionInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
                     $relation: String,
@@ -825,14 +857,14 @@ mutation (
 ) {
     update_asset_reactions_received(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         member_id: $member_id,
         asset_id: $asset_id,
         relation: $relation,
         nonce: $nonce,
         signature: $signature,
     ) {
-        timestamp
+        created_timestamp
         member_id
         asset_id
         relation
@@ -847,7 +879,7 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['update'] = UPDATE_ASSET_REACTION
 DELETE_FROM_ASSET_REACTIONS_RECEIVED = '''
 mutation ($filters: assetReactionInputFilter!) {
     delete_from_asset_reactions_received(filters: $filters) {
-        timestamp
+        created_timestamp
         member_id
         asset_id
         relation
@@ -859,19 +891,27 @@ mutation ($filters: assetReactionInputFilter!) {
 
 GRAPHQL_STATEMENTS['asset_reactions_received']['delete'] = DELETE_FROM_ASSET_REACTIONS_RECEIVED
 
-QUERY_MEMBERLOGS = '''
-query ($filters: memberlogInputFilter,
+QUERY_DATALOGS = '''
+query ($filters: datalogInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!]) {
-    memberlogs_connection(filters: $filters, first: $first, after: $after,
+    datalogs_connection(filters: $filters, first: $first, after: $after,
     depth: $depth, relations: $relations) {
         total_count
         edges {
             cursor
             origin
-            memberlog {
-                timestamp
+            datalog {
+                created_timestamp
                 remote_addr
-                action
+                remote_id
+                remote_id_type
+                operation
+                object
+                query_filters
+                query_depth
+                query_relations
+                query_remote_member_id
+                source
                 message
             }
         }
@@ -883,68 +923,124 @@ query ($filters: memberlogInputFilter,
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlogs'] = {'query': QUERY_MEMBERLOGS}
+GRAPHQL_STATEMENTS['datalogs'] = {'query': QUERY_DATALOGS}
 
-APPEND_MEMBERLOGS = '''
+APPEND_DATALOGS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $remote_addr: String!,
-                    $action: String!,
+                    $remote_id: String,
+                    $remote_id_type: String,
+                    $operation: String!,
+                    $object: String!,
+                    $query_filters: String,
+                    $query_depth: Int,
+                    $query_relations: String,
+                    $query_remote_member_id: UUID,
+                    $source: String,
                     $message: String,
 ) {
-    append_memberlogs (
-            timestamp: $timestamp,
+    append_datalogs (
+            created_timestamp: $created_timestamp,
             remote_addr: $remote_addr,
-            action: $action,
+            remote_id: $remote_id,
+            remote_id_type: $remote_id_type,
+            operation: $operation,
+            object: $object,
+            query_filters: $query_filters,
+            query_depth: $query_depth,
+            query_relations: $query_relations,
+            query_remote_member_id: $query_remote_member_id,
+            source: $source,
             message: $message,
     ) {
-            timestamp
+            created_timestamp
             remote_addr
-            action
+            remote_id
+            remote_id_type
+            operation
+            object
+            query_filters
+            query_depth
+            query_relations
+            query_remote_member_id
+            source
             message
     }
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlogs']['append'] = APPEND_MEMBERLOGS
+GRAPHQL_STATEMENTS['datalogs']['append'] = APPEND_DATALOGS
 
-UPDATE_MEMBERLOGS = '''
+UPDATE_DATALOGS = '''
 mutation (
-    $filters: memberlogInputFilter!,
-                    $timestamp: DateTime,
+    $filters: datalogInputFilter!,
+                    $created_timestamp: DateTime,
                     $remote_addr: String,
-                    $action: String,
+                    $remote_id: String,
+                    $remote_id_type: String,
+                    $operation: String,
+                    $object: String,
+                    $query_filters: String,
+                    $query_depth: Int,
+                    $query_relations: String,
+                    $query_remote_member_id: UUID,
+                    $source: String,
                     $message: String,
 ) {
-    update_memberlogs(
+    update_datalogs(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         remote_addr: $remote_addr,
-        action: $action,
+        remote_id: $remote_id,
+        remote_id_type: $remote_id_type,
+        operation: $operation,
+        object: $object,
+        query_filters: $query_filters,
+        query_depth: $query_depth,
+        query_relations: $query_relations,
+        query_remote_member_id: $query_remote_member_id,
+        source: $source,
         message: $message,
     ) {
-        timestamp
+        created_timestamp
         remote_addr
-        action
+        remote_id
+        remote_id_type
+        operation
+        object
+        query_filters
+        query_depth
+        query_relations
+        query_remote_member_id
+        source
         message
     }
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlogs']['update'] = UPDATE_MEMBERLOGS
+GRAPHQL_STATEMENTS['datalogs']['update'] = UPDATE_DATALOGS
 
-DELETE_FROM_MEMBERLOGS = '''
-mutation ($filters: memberlogInputFilter!) {
-    delete_from_memberlogs(filters: $filters) {
-        timestamp
+DELETE_FROM_DATALOGS = '''
+mutation ($filters: datalogInputFilter!) {
+    delete_from_datalogs(filters: $filters) {
+        created_timestamp
         remote_addr
-        action
+        remote_id
+        remote_id_type
+        operation
+        object
+        query_filters
+        query_depth
+        query_relations
+        query_remote_member_id
+        source
         message
     }
 }
 '''
 
-GRAPHQL_STATEMENTS['memberlogs']['delete'] = DELETE_FROM_MEMBERLOGS
+GRAPHQL_STATEMENTS['datalogs']['delete'] = DELETE_FROM_DATALOGS
 
 QUERY_PUBLIC_ASSETS = '''
 query ($filters: assetInputFilter,
@@ -956,7 +1052,7 @@ query ($filters: assetInputFilter,
             cursor
             origin
             asset {
-                timestamp
+                created_timestamp
                 asset_id
                 asset_type
                 locale
@@ -985,7 +1081,7 @@ GRAPHQL_STATEMENTS['public_assets'] = {'query': QUERY_PUBLIC_ASSETS}
 
 APPEND_PUBLIC_ASSETS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $locale: String,
@@ -1002,7 +1098,7 @@ mutation (
                     $response_to: UUID,
 ) {
     append_public_assets (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             locale: $locale,
@@ -1018,7 +1114,7 @@ mutation (
             forum: $forum,
             response_to: $response_to,
     ) {
-            timestamp
+            created_timestamp
             asset_id
             asset_type
             locale
@@ -1042,7 +1138,7 @@ GRAPHQL_STATEMENTS['public_assets']['append'] = APPEND_PUBLIC_ASSETS
 UPDATE_PUBLIC_ASSETS = '''
 mutation (
     $filters: assetInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
                     $locale: String,
@@ -1060,7 +1156,7 @@ mutation (
 ) {
     update_public_assets(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
         locale: $locale,
@@ -1076,7 +1172,7 @@ mutation (
         forum: $forum,
         response_to: $response_to,
     ) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale
@@ -1100,7 +1196,7 @@ GRAPHQL_STATEMENTS['public_assets']['update'] = UPDATE_PUBLIC_ASSETS
 DELETE_FROM_PUBLIC_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
     delete_from_public_assets(filters: $filters) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale
@@ -1131,7 +1227,7 @@ query ($filters: assetInputFilter,
             cursor
             origin
             asset {
-                timestamp
+                created_timestamp
                 asset_id
                 asset_type
                 locale
@@ -1160,7 +1256,7 @@ GRAPHQL_STATEMENTS['service_assets'] = {'query': QUERY_SERVICE_ASSETS}
 
 APPEND_SERVICE_ASSETS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $locale: String,
@@ -1177,7 +1273,7 @@ mutation (
                     $response_to: UUID,
 ) {
     append_service_assets (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             locale: $locale,
@@ -1193,7 +1289,7 @@ mutation (
             forum: $forum,
             response_to: $response_to,
     ) {
-            timestamp
+            created_timestamp
             asset_id
             asset_type
             locale
@@ -1217,7 +1313,7 @@ GRAPHQL_STATEMENTS['service_assets']['append'] = APPEND_SERVICE_ASSETS
 UPDATE_SERVICE_ASSETS = '''
 mutation (
     $filters: assetInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
                     $locale: String,
@@ -1235,7 +1331,7 @@ mutation (
 ) {
     update_service_assets(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
         locale: $locale,
@@ -1251,7 +1347,7 @@ mutation (
         forum: $forum,
         response_to: $response_to,
     ) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale
@@ -1275,7 +1371,7 @@ GRAPHQL_STATEMENTS['service_assets']['update'] = UPDATE_SERVICE_ASSETS
 DELETE_FROM_SERVICE_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
     delete_from_service_assets(filters: $filters) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale
@@ -1306,7 +1402,7 @@ query ($filters: assetInputFilter,
             cursor
             origin
             asset {
-                timestamp
+                created_timestamp
                 asset_id
                 asset_type
                 locale
@@ -1335,7 +1431,7 @@ GRAPHQL_STATEMENTS['network_assets'] = {'query': QUERY_NETWORK_ASSETS}
 
 APPEND_NETWORK_ASSETS = '''
 mutation (
-                    $timestamp: DateTime!,
+                    $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $locale: String,
@@ -1352,7 +1448,7 @@ mutation (
                     $response_to: UUID,
 ) {
     append_network_assets (
-            timestamp: $timestamp,
+            created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             locale: $locale,
@@ -1368,7 +1464,7 @@ mutation (
             forum: $forum,
             response_to: $response_to,
     ) {
-            timestamp
+            created_timestamp
             asset_id
             asset_type
             locale
@@ -1392,7 +1488,7 @@ GRAPHQL_STATEMENTS['network_assets']['append'] = APPEND_NETWORK_ASSETS
 UPDATE_NETWORK_ASSETS = '''
 mutation (
     $filters: assetInputFilter!,
-                    $timestamp: DateTime,
+                    $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
                     $locale: String,
@@ -1410,7 +1506,7 @@ mutation (
 ) {
     update_network_assets(
         filters: $filters,
-        timestamp: $timestamp,
+        created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
         locale: $locale,
@@ -1426,7 +1522,7 @@ mutation (
         forum: $forum,
         response_to: $response_to,
     ) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale
@@ -1450,7 +1546,7 @@ GRAPHQL_STATEMENTS['network_assets']['update'] = UPDATE_NETWORK_ASSETS
 DELETE_FROM_NETWORK_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
     delete_from_network_assets(filters: $filters) {
-        timestamp
+        created_timestamp
         asset_id
         asset_type
         locale

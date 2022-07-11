@@ -30,8 +30,11 @@ class DataFilter:
             )
 
         self.operator: str = operator
-
+        self.value: str = None
         self.compare_functions: Dict[str, Callable] = {}
+
+    def __str__(self):
+        return f'{self.operator} {self.value}'
 
     @staticmethod
     def create(operator: str, value: Union[str, int, float, UUID, datetime,
@@ -432,6 +435,10 @@ class DataFilterSet:
         '''
 
         self.filters = {}
+
+        if not filters:
+            return
+        
         for field, conditions in filters.__dict__.items():
             if conditions:
                 self.filters[field] = []
@@ -440,6 +447,15 @@ class DataFilterSet:
                         self.filters[field].append(
                             DataFilter.create(operator, value)
                         )
+
+    def __str__(self):
+        filter_texts: List[str] = []
+        for field in self.filters.keys():
+            for filter in self.filters[field]:
+                filter_texts.append(f'{field}{str(filter)}')
+
+        text = ', '.join(filter_texts)
+        return text
 
     @staticmethod
     def filter(filters: List, data: List) -> List:
