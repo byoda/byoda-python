@@ -863,6 +863,17 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         for key, value in data.items():
             self.assertEqual(value, vars[key])
 
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['datalogs']['query'],
+            vars=vars, timeout=5, headers=auth_header
+        )
+        body = await response.json()
+        data = body.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(body.get('errors'))
+        data = data['datalogs_connection']
+        self.assertGreater(data['total_count'], 100)
+
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
         account_id = account.account_id
