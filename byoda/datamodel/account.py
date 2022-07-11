@@ -344,7 +344,7 @@ class Account:
 
         await member.create_nginx_config()
         reload_gunicorn()
-        
+
         self.memberships[member.service_id] = member
 
         return member

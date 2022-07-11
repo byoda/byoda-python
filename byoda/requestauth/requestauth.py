@@ -204,7 +204,7 @@ class RequestAuth:
                 detail = exc.detail
 
         if self.authorization:
-            _LOGGER.debug(f'Authenticating using JWT')
+            _LOGGER.debug('Authenticating using JWT')
             await self.authenticate_authorization_header(
                 self.authorization
             )
@@ -431,6 +431,7 @@ class RequestAuth:
             )
             entity_id = members_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
+            self.id = self.member_id
             self.service_id = entity_id.service_id
 
             # The Member CA cert gets signed by the Service CA
@@ -475,6 +476,7 @@ class RequestAuth:
             )
             entity_id = service_ca_secret.review_commonname(self.client_cn)
             self.service_id = entity_id.service_id
+            self.id = self.service_id
 
             # Service CA secret gets signed by Network Services CA
             networkservices_ca_secret = NetworkServicesCaSecret(network.paths)
@@ -611,8 +613,10 @@ class RequestAuth:
             self.id_type = jwt.issuer_type
             if self.service_id is not None:
                 self.member_id = jwt.issuer_id
+                self.id = jwt.issuer_id
             else:
                 self.account_id = jwt.issuer_id
+                self.id = self.account_id
 
             self.auth_source = AuthSource.TOKEN
         except InvalidAudienceError:

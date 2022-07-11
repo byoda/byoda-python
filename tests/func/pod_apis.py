@@ -443,7 +443,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'friend',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
@@ -489,7 +489,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'family',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
 
         }
         response = await GraphQlClient.call(
@@ -515,7 +515,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # add network_link for the 'remote member'
         asset_id = uuid4()
         vars = {
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
             'asset_type': 'post',
             'asset_id': str(asset_id),
             'creator': 'Pod API Test',
@@ -573,7 +573,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         for count in range(1, 100):
             vars = {
-                'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
                 'asset_type': 'post',
                 'asset_id': str(asset_id),
                 'creator': f'test account #{count}',
@@ -668,7 +668,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             vars = {
                 'member_id': str(member.member_id),
                 'relation': 'family',
-                'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
             }
             response = await GraphQlClient.call(
                 azure_url, GRAPHQL_STATEMENTS['network_links']['append'],
@@ -714,7 +714,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         if not data['network_assets_connection']['total_count']:
             asset_id = uuid4()
             vars = {
-                'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
                 'asset_type': 'post',
                 'asset_id': str(asset_id),
                 'creator': 'Azure Pod API Test',
@@ -828,7 +828,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'member_id': str(member.member_id),
             'relation': 'friend',
             'text': 'I am my own best friend',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
 
         }
         response = await GraphQlClient.call(
@@ -846,7 +846,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(member.member_id),
             'relation': 'friend',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
             'text': 'hello, do you want to be my friend?',
             'remote_member_id': AZURE_POD_MEMBER_ID,
             'depth': 1
@@ -862,6 +862,17 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = data['append_network_invites']
         for key, value in data.items():
             self.assertEqual(value, vars[key])
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['datalogs']['query'],
+            vars=vars, timeout=5, headers=auth_header
+        )
+        body = await response.json()
+        data = body.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(body.get('errors'))
+        data = data['datalogs_connection']
+        self.assertGreater(data['total_count'], 100)
 
     async def test_graphql_addressbook_tls_cert(self):
         account = config.server.account
@@ -987,7 +998,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(get_test_uuid()),
             'relation': 'follow',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
@@ -1002,7 +1013,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(get_test_uuid()),
             'relation': 'follow',
-            'timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
@@ -1020,7 +1031,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(friend_uuid),
             'relation': 'friend',
-            'timestamp': friend_timestamp
+            'created_timestamp': friend_timestamp
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
@@ -1077,7 +1088,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(edges[0], edges[1])
 
         vars = {
-            'filters': {'timestamp': {'at': friend_timestamp}},
+            'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['query'], vars=vars,
@@ -1114,7 +1125,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         vars = {
-            'filters': {'timestamp': {'at': friend_timestamp}},
+            'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['delete'], vars=vars,
