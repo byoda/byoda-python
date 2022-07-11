@@ -63,7 +63,7 @@ PUBLIC_SA_ID=$( \
 7. Create a network security group
 We recommend restricting SSH access to the VM to the IP address you are currently using
 ```
-MY_IP=$(curl ifconfig.co)
+MY_IP=$(curl -s ifconfig.co); echo {$MY_IP}
 az network nsg create --name byoda-nsg --location ${REGION} --resource-group ${RG}
 az network nsg rule create \
     --name https \
@@ -86,7 +86,7 @@ az network nsg rule create \
     --protocol TCP \
     --destination-port-ranges 22 \
     --source-address-prefixes ${MY_IP}/32
-
+```
 
 8. Create the VM
 ```
@@ -106,7 +106,7 @@ PUBLIC_IP=$( \
         --nsg byoda-nsg \
         --storage-sku Standard_LRS \
         --output json \
-        --verbose \ | jq -r .publicIpAddress
+        --verbose \ | jq -r .publicIpAddress \
 )
 
 VM_ID=$( \
@@ -120,10 +120,10 @@ VM_ID=$( \
 az role assignment create --assignee ${VM_ID} --role "Storage Blob Data Contributor" --scope ${PUBLIC_SA_ID}
 ```
 
-8.
-All done, just validate you can ssh to the VM:
+8. Validation
+All done, just confirm that you can ssh to the VM:
 ```
 ssh -i ${SSH_KEY_FILE} azureuser@${PUBLIC_IP}
 ```
 
-If that works for you, you can continue with the remainder of the [tutorial](https://github.com/StevenHessing/byoda-python/blob/users/stevenh/graphql-query-generator/README.md).
+If that works for you, you can continue with the remainder of the [tutorial](https://github.com/StevenHessing/byoda-python/blob/master/README.md).

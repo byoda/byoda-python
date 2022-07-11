@@ -25,9 +25,7 @@ There are two ways to install the pod:
     - Cloud-specific instructions for creating the VM to run the pod on
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
         - [Azure]([Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-          - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
-        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md) (coming-soon)
-          - Use 'managed-identity'-based access to grant the VM full access to the buckets/storage-accounts.
+        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
     - The HTTPS port for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
         - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
@@ -46,16 +44,17 @@ sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
 
-- Copy and edit the docker-launch.sh script and modify the following variables at the top of the script
+- Copy and edit the tools/docker-launch.sh script and modify the following variables at the top of the script
     - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
     - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
     - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
-  - for a pod on an AWS VM, also edit the variables:
+  - if you deployed a VM on AWS, also edit the variables:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
   - Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
 
 ```
+cd byoda-python
 cp tools/docker-launch.sh ~
 vi ~/docker-launch.sh
 ```
@@ -63,7 +62,7 @@ vi ~/docker-launch.sh
 - Now run the docker-launch.sh script
 
 ```
-tools/docker-launch.sh
+~/docker-launch.sh
 ```
 
 **Congratulations, you now have a running pod that is a member of the byoda.net network!** <br>
@@ -81,8 +80,6 @@ sudo mkdir /byoda 2>/dev/null
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
     python_graphql_client certvalidator sqlalchemy passgen \
     starlette starlette-context python-json-logger
-cd byoda-python
-export PYTHONPATH=$PYTHONPATH:.
 source tools/set_env.sh
 ```
 Now that we have all the bits and pieces in place, let's first see what services are available on the byoda.net network:
@@ -101,7 +98,7 @@ curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
      --pass $PASSPHRASE \
     https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
-The pod returns amongst others the cert & key that you can use to call the APIs on the pod for that specific membershp. In addition to using cert-based authentication, the pod also has an API that accepts HTTP Basic Authentication and returns a JWT.
+The pod returns amongst others the cert & key that you can use to call the APIs on the pod for that specific membershp.
 
 We can confirm that our pod has joined the service with:
 ```
@@ -112,9 +109,8 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPH
 We quickly now update our environment variables to pick up the new membership:
 ```
 source tools/set_env.sh
-echo $MEMBER_ID
 ```
-You will need that member ID later on in this introduction. When the pod becomes a member of a service, it creates a namespace for that service so that data from different services is isolated and one service can not access the data of the other service, unless you explicitly allow it to.
+You will need the Member ID later on in this introduction. When the pod becomes a member of a service, it creates a namespace for that service so that data from different services is isolated and one service can not access the data of the other service, unless you explicitly allow it to.
 
 Querying and sumitting data to the pod uses the [GraphQL language](https://graphql.org/). As the GraphQL language has a learning curve, we provide the 'call-graphql.py' tool to initially interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
 
@@ -127,7 +123,7 @@ cat >~/person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object person --action mutate --data-file ~/person.json 2>/dev/null
+tools/call_graphql.py --object person --action mutate --data-file ~/person.json
 ```
 
 If you want to see your details again, you can run
@@ -176,12 +172,12 @@ EOF
 tools/call_graphql.py --object network_links --action append --data-file ~/follow.json
 ```
 
-The address book has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
+The 'Address Book' service has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
 ```
 cat >~invite.json <<EOF
 {
     "timestamp": "2022-07-04T14:50:26.451308+00:00",
-    "member_id": "89936493-ec56-4c38-971d-cab1179d1a01",
+    "member_id": "a2e36bed-1bf8-4774-bc73-5f08a4bae27d",
     "relation": "follow",
     "text": "Hey, why don't you follow me!"
 }
@@ -192,7 +188,7 @@ tools/call_graphql.py --object network_invites --action append --remote-member-i
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
 
-The reason that your pod is allowed to add data to my pod is because of the [data definitions of the 'address book' service](https://github.com/StevenHessing/byoda-python/blob/master/tests/collateral/addressbook.json). In there, you can find:
+The reason that your pod is allowed to add data to my pod is because of the ['data contract' of the 'address book' service](https://github.com/StevenHessing/byoda-python/blob/master/tests/collateral/addressbook.json). In there, you can find:
 ```
     "network_invites": {
         "#accesscontrol": {
@@ -245,12 +241,12 @@ As you have seen in the GraphQL queries, the pod implements the data model of th
 ```
 https://proxy.byoda.net/4294929430/$MEMBER_ID/api/v1/data/service-4294929430
 ```
-(don't forget to replace $MEMBER_ID with your member ID in the above URL)
+(don't forget to replace $MEMBER_ID in the above URL with your member ID as shown by the 'source tools/set_env.sh command)
 
-While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its datamodel in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data model it will automatically generate the GraphQL APIs for that datamodel. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data model. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
+While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
 
 ## Access security
-When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because the web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
+When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
 To acquire a JWT for managing the pod, you get an 'account JWT':
 ```
 export ACCOUNT_JWT=$(curl -s --basic --cacert $ROOT_CA -u $ACCOUNT_USERNAME:$ACCOUNT_PASSWORD https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token); echo $ACCOUNT_JWT
@@ -274,7 +270,7 @@ curl -s -X POST -H 'content-type: application/json' \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
 
-You can also use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of namespaces and APIs on pods. A service also has to host an API server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/steven@byoda.org  | jq .

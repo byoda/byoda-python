@@ -11,6 +11,7 @@ if [[ $_ == $0 ]]; then
     exit 1
 fi
 
+export PYTHONPATH=$PYTHONPATH:$(pwd):~/byoda-python:~/src/byoda-python:/root/byoda-python:/root/src/byoda-python
 export NETWORK="byoda.net"
 
 export ROOT_CA=/byoda/network-$NETWORK/network-$NETWORK-root-ca-cert.pem

@@ -594,7 +594,7 @@ class Schema:
     @property
     def cors_origins(self):
         '''
-        Gets the email address for getting support for the service
+        Gets the permitted CORS Origins
         '''
 
         if not self.json_schema:
@@ -605,7 +605,7 @@ class Schema:
     @cors_origins.setter
     def cors_origins(self, values: list[str]):
         '''
-        Sets the email address for getting support for the service
+        Sets the permitted CORS Origins
         '''
 
         if values and not isinstance(values, list):

@@ -97,3 +97,10 @@ aws s3api create-bucket --bucket ${BUCKET_PREFIX}-public --acl public-read --reg
 
 ```
 
+## Validate you have remote access to the VM
+All done, just confirm that you can ssh to the VM:
+```
+ssh -i ${SSH_KEY_FILE} azureuser@${PUBLIC_IP}
+```
+
+If that works for you, you can continue with the remainder of the [tutorial](https://github.com/StevenHessing/byoda-python/blob/master/README.md).
