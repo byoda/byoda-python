@@ -237,7 +237,7 @@ class MemberData(Dict):
 
         self['datalogs'].append(
             {
-                'created_timestamp': datetime.now(timezone.utc).isoformat(),
+                'created_timestamp': datetime.now(timezone.utc),
                 'remote_addr': request.client.host,
                 'remote_id': auth.id,
                 'remote_id_type': auth.id_type.value.rstrip('s-'),
