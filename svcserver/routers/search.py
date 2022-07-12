@@ -12,6 +12,7 @@ This is the REST /service/search API for the addressbook service
 
 import logging
 from uuid import UUID
+from typing import Optional
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -29,8 +30,8 @@ class PersonResponseModel(BaseModel):
     given_name: str
     family_name: str
     email: str
-    homepage_url: str
-    member_id: UUID
+    homepage_url: Optional[str]
+    avatar_url: Optional[str]
 
     def __repr__(self):
         return(
