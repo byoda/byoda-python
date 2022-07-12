@@ -32,6 +32,7 @@ class PersonResponseModel(BaseModel):
     email: str
     homepage_url: Optional[str]
     avatar_url: Optional[str]
+    member_id: UUID
 
     def __repr__(self):
         return(
