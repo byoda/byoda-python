@@ -22,7 +22,7 @@ There are two ways to install the pod:
     - Create two buckets (AWS/GCP) or storage accounts (Azure).
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public').
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
-    - Cloud-specific instructions for creating the VM to run the pod on
+    - Follow the cloud-specific instructions for creating the VM to run the pod on
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
         - [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
         -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
