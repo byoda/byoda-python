@@ -515,7 +515,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # add network_link for the 'remote member'
         asset_id = uuid4()
         vars = {
-            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'created_timestamp': str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
             'asset_type': 'post',
             'asset_id': str(asset_id),
             'creator': 'Pod API Test',
@@ -573,7 +575,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         for count in range(1, 100):
             vars = {
-                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'created_timestamp': str(
+                    datetime.now(tz=timezone.utc).isoformat()
+                ),
                 'asset_type': 'post',
                 'asset_id': str(asset_id),
                 'creator': f'test account #{count}',
@@ -668,7 +672,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             vars = {
                 'member_id': str(member.member_id),
                 'relation': 'family',
-                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+                'created_timestamp': str(
+                    datetime.now(tz=timezone.utc).isoformat()
+                )
             }
             response = await GraphQlClient.call(
                 azure_url, GRAPHQL_STATEMENTS['network_links']['append'],
@@ -714,7 +720,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         if not data['network_assets_connection']['total_count']:
             asset_id = uuid4()
             vars = {
-                'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+                'created_timestamp': str(
+                    datetime.now(tz=timezone.utc).isoformat()
+                ),
                 'asset_type': 'post',
                 'asset_id': str(asset_id),
                 'creator': 'Azure Pod API Test',
@@ -828,8 +836,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'member_id': str(member.member_id),
             'relation': 'friend',
             'text': 'I am my own best friend',
-            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
-
+            'created_timestamp': str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_invites']['append'],
@@ -846,7 +855,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'member_id': str(member.member_id),
             'relation': 'friend',
-            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat()),
+            'created_timestamp': str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
             'text': 'hello, do you want to be my friend?',
             'remote_member_id': AZURE_POD_MEMBER_ID,
             'depth': 1

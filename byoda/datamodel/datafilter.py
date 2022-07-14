@@ -438,7 +438,7 @@ class DataFilterSet:
 
         if not filters:
             return
-        
+
         for field, conditions in filters.__dict__.items():
             if conditions:
                 self.filters[field] = []
