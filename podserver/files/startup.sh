@@ -31,6 +31,7 @@ PODWORKER_FAILURE=$?
 if [[ "$?" == "0" ]]; then
   echo "Podworker exited successfully"
   # location of pid file is used by byoda.util.reload.reload_gunicorn
+  rm -rf /var/run/podserver.pid
   pipenv run python3 -m gunicorn -p /var/run/podserver.pid --error-logfile /var/www/wwwroot/logs/gunicorn-error.log --access-logfile /var/www/wwwroot/logs/gunicorn-access.log -c gunicorn.conf.py podserver.main:app
 else
   echo "Podworker failed"
