@@ -35,7 +35,7 @@ RUN mkdir -p \
     /var/www/wwwroot/logs \
     byoda-python
 
-COPY podserver/files/index.html /var/www/wwwroot/
+COPY podserver/files/website/* /var/www/wwwroot/
 
 ###
 ### nginx bits
