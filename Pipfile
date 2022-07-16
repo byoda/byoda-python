@@ -38,6 +38,11 @@ aiohttp = {extras = ["speedups"], version = "*"}
 python-multipart = "*"
 orjson = "*"
 jinja2-strcase = "*"
+tweepy = "*"
+async-lru = "*"
+oauthlib = "*"
+cchardet = "*"
+python-dateutil = "*"
 
 [dev-packages]
 flake8 = "*"

@@ -5,7 +5,6 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 :license    : GPLv3
 '''
 
-import os
 import logging
 from enum import Enum
 from typing import Dict, TypeVar
@@ -14,7 +13,6 @@ from uuid import UUID
 import aiohttp
 import ssl
 
-from byoda.storage.filestorage import FileStorage
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
@@ -119,7 +117,7 @@ class ApiClient:
                 if not storage:
                     # Hack: podserver and svcserver use different attributes
                         storage = server.storage_driver
-                        
+
                 key_path = secret.save_tmp_private_key()
 
                 cert_filepath = storage.local_path + secret.cert_file
