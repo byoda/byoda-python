@@ -43,6 +43,8 @@ async-lru = "*"
 oauthlib = "*"
 cchardet = "*"
 python-dateutil = "*"
+scheduler = "*"
+schedule = "*"
 
 [dev-packages]
 flake8 = "*"

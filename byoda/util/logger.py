@@ -9,7 +9,7 @@ Python module for standardized logging
 import os
 import sys
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pythonjsonlogger import jsonlogger
 
@@ -144,7 +144,7 @@ class ByodaJsonFormatter(jsonlogger.JsonFormatter):
         )
         if not log_record.get('timestamp'):
             # this doesn't use record.created, so it is slightly off
-            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             log_record['timestamp'] = now
         if log_record.get('level'):
             log_record['level'] = log_record['level'].upper()

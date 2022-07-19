@@ -10,7 +10,7 @@ POD server, directory server, service server
 import logging
 
 from typing import TypeVar
-from datetime import datetime
+from datetime import datetime, timezone
 
 from byoda.util.paths import Paths
 
@@ -40,7 +40,7 @@ class Server:
         self.storage_driver: FileStorage = None
         self.cloud = None
         self.paths: Paths = None
-        self.started: datetime = datetime.utcnow()
+        self.started: datetime = datetime.now(timezone.utc)
 
     async def load_secrets(self, password: str = None):
         '''

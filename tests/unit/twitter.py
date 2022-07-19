@@ -23,10 +23,17 @@ TWIT = None
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_twitter_apis(self):
-        twit = await Twitter.async_client()
+        twit = Twitter.client()
         user = await twit.get_user()
         data = twit.extract_user_data(user)
         print(data)
+
+        all_tweets = await twit.get_tweets()
+        self.assertGreater(len(all_tweets), 10)
+        start = 8
+        since_id = all_tweets[-1 * start]['asset_id']
+        subset_tweets = await twit.get_tweets(since_id=since_id)
+        self.assertEqual(len(subset_tweets), len(all_tweets) - start)
 
 
 async def main():

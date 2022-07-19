@@ -80,7 +80,7 @@
         },
         {
             "program": "podserver/podworker.py",
-            "name": "podworker AWS",
+            "name": "podworker",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
@@ -95,7 +95,8 @@
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda",
                 "BOOTSTRAP": "BOOTSTRAP",
-                "PYTHONPATH": "/home/steven/src/byoda-python"
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "DAEMONIZE": "DAEMONIZE"
             }
         },
         {
