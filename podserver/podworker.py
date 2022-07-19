@@ -50,14 +50,14 @@ LOG_FILE = '/var/www/wwwroot/logs/podworker.log'
 ADDRESSBOOK_ID = 4294929430
 
 
-async def main():
+async def main(argv):
     # Remaining environment variables used:
     data = get_environment_vars()
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=False, debug=True,
-        loglevel='DEBUG'
+        argv[0], json_out=False, debug=True,
+        loglevel='DEBUG', logfile=LOG_FILE
     )
     _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
@@ -89,7 +89,7 @@ async def main():
         with daemon.DaemonContext():
             _LOGGER = Logger.getLogger(
                 sys.argv[0], json_out=False, debug=data['debug'],
-                loglevel=os.environ.get('loglevel', 'ERROR'),
+                loglevel=data.get('loglevel', 'DEBUG'),
                 logfile=LOG_FILE
             )
             _LOGGER.debug('Daemonizing podworker')
