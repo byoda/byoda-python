@@ -134,12 +134,15 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
         await account.create_data_secret()
         _LOGGER.info('Created account secret during bootstrap')
 
-    _LOGGER.debug('Podworker exiting normally')
+    _LOGGER.debug('Podworker bootstrap complete')
 
 
 async def run_startup_tasks(server: PodServer):
+    _LOGGER.debug('Running podworker startup tasks')
+
     account: Account = server.account
     server.twitter_client = None
+
     if (ADDRESSBOOK_ID in account.memberships
             and Twitter.twitter_integration_enabled()):
         _LOGGER.info('Enabling Twitter integration')
@@ -159,8 +162,10 @@ def log_ping_message():
 
 
 def run_tasks():
-    run_pending()
-    asyncio.sleep(15)
+    while True:
+        _LOGGER.debug('Running pending tasks')
+        run_pending()
+        asyncio.sleep(5)
 
 
 def twitter_update_task(server: PodServer):
