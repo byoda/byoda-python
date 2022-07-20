@@ -19,7 +19,6 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
-import os
 import sys
 import daemon
 import asyncio
@@ -159,6 +158,8 @@ async def run_startup_tasks(server: PodServer):
 @repeat(every(1).minutes)
 def log_ping_message():
     _LOGGER.debug('Log worker ping message')
+    with open('/tmp/podworker.log', 'a') as f:
+        f.write('ping\n')
 
 
 def run_tasks():

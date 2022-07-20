@@ -70,7 +70,7 @@
                 "CLOUD": "AWS",
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "aaaaf914-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_ID": "aaaaaaaa-904f-11eb-88ff-00155de02c92",
                 "ACCOUNT_SECRET": "supersecret",
                 "LOGLEVEL": "DEBUG",
                 "ROOT_DIR": "/tmp/byoda-tests/podworker",

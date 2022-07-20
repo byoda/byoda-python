@@ -121,7 +121,6 @@ class Twitter:
 
         self.client: TweepyAsyncClient = None
         self.bearer_token: str = None
-        self.operate_async = False
 
     @staticmethod
     def twitter_integration_enabled() -> bool:
@@ -135,44 +134,11 @@ class Twitter:
         _LOGGER.debug('Twitter integration disabled')
         return False
 
-    @staticmethod
-    async def async_client(api_key: str = None, key_secret: str = None):
-        '''
-        Factory for async Twitter instance
-        '''
-
-        raise RuntimeError(
-            'async is broken due to aiohttp < v4.0, see '
-            'https://github.com/aio-libs/aiohttp/issues/5277'
-        )
-
-        twit = Twitter(api_key=api_key, key_secret=key_secret)
-
-        twit.operate_async = True
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    'https://api.twitter.com/oauth2/token',
-                    auth=aiohttp.BasicAuth(twit.api_key, twit.key_secret),
-                    data={'grant_type': 'client_credentials'}) as response:
-                if response.status != 200:
-                    raise RuntimeError('Failed to get bearer token')
-
-                data = await response.json()
-                twit.bearer_token = data['access_token']
-
-        twit.client = TweepyAsyncClient(
-            bearer_token=twit.bearer_token, wait_on_rate_limit=True,
-        )
-
-        twit.client.user_agent = 'Byoda Twitter Client'
-
-        return twit
 
     @staticmethod
     def client(api_key: str = None, key_secret: str = None):
         '''
-        Factory for async Twitter instance
+        Factory for Twitter instance
         '''
 
         twit = Twitter(api_key=api_key, key_secret=key_secret)
@@ -197,8 +163,7 @@ class Twitter:
 
         return twit
 
-    async def get_user(self, id: str = None, username: str = None
-                       ) -> tweepy.User:
+    def get_user(self, id: str = None, username: str = None) -> tweepy.User:
         '''
         Get user data from Twitter
         '''
@@ -206,14 +171,9 @@ class Twitter:
         if not id and not username:
             username = os.environ[ENVIRON_TWITTER_USERNAME]
 
-        if self.operate_async:
-            response = await self.client.get_user(
-                id=id, username=username, user_fields=USER_FIELDS
-            )
-        else:
-            response = self.client.get_user(
-                id=id, username=username, user_fields=USER_FIELDS
-            )
+        response = self.client.get_user(
+            id=id, username=username, user_fields=USER_FIELDS
+        )
 
         user = response.data
 
@@ -256,8 +216,8 @@ class Twitter:
 
         return data
 
-    async def get_tweets(self, since_id: str = None, with_related: bool = True
-                         ) -> Tuple[Dict, Dict, Dict]:
+    def get_tweets(self, since_id: str = None, with_related: bool = True
+                   ) -> Tuple[Dict, Dict, Dict]:
         '''
         Get user's tweets from Twitter
         '''
@@ -274,22 +234,14 @@ class Twitter:
         all_media = []
         referencing_tweets = []
         while condition:
-            if self.operate_async:
-                response = await self.client.get_users_tweets(
-                    self.id, tweet_fields=TWEET_FIELDS,
-                    expansions='attachments.media_keys',
-                    media_fields=MEDIA_FIELDS,
-                    since_id=since_id, max_results=max_tweets
-                )
-            else:
-                response = self.client.get_users_tweets(
-                    self.id, tweet_fields=TWEET_FIELDS,
-                    expansions=[
-                        'attachments.media_keys', 'referenced_tweets.id'
-                    ],
-                    media_fields=MEDIA_FIELDS,
-                    since_id=since_id, max_results=max_tweets
-                )
+            response = self.client.get_users_tweets(
+                self.id, tweet_fields=TWEET_FIELDS,
+                expansions=[
+                    'attachments.media_keys', 'referenced_tweets.id'
+                ],
+                media_fields=MEDIA_FIELDS,
+                since_id=since_id, max_results=max_tweets
+            )
 
             tweets: List[Tweet] = response.data or []
             media: List[Media] = response.includes.get('media', [])
