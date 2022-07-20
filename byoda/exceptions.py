@@ -11,6 +11,15 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 
+class PodException(Exception):
+    '''
+    Base class for Byoda exceptions
+    '''
+    def __init__(self, message):
+        _LOGGER.exception(message)
+        super().__init__(message)
+
+
 class MissingAuthInfo(Exception):
     pass
 

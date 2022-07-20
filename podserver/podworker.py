@@ -41,7 +41,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 from byoda.util.logger import Logger
-
+from byoda.exceptions import PodException
 from podserver.util import get_environment_vars
 
 from byoda.data_import.twitter import Twitter
@@ -63,26 +63,29 @@ async def main(argv):
     )
     _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
 
-    config.server = PodServer()
-    server = config.server
-    await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(data['cloud']),
-        bucket_prefix=data['bucket_prefix'],
-        root_dir=data['root_dir']
-    )
+    try:
+        config.server = PodServer()
+        server = config.server
+        await server.set_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType(data['cloud']),
+            bucket_prefix=data['bucket_prefix'],
+            root_dir=data['root_dir']
+        )
 
-    network = Network(data, data)
-    await network.load_network_secrets()
+        network = Network(data, data)
+        await network.load_network_secrets()
 
-    server.network = network
-    server.paths = network.paths
+        server.network = network
+        server.paths = network.paths
 
-    account = Account(data['account_id'], network)
-    await account.paths.create_account_directory()
-    await account.load_memberships()
+        account = Account(data['account_id'], network)
+        await account.paths.create_account_directory()
+        await account.load_memberships()
 
-    server.account = account
+        server.account = account
+    except PodException:
+        raise
 
     if data['bootstrap']:
         await run_bootstrap_tasks(data['account_id'], server)
@@ -111,8 +114,11 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
             raise ValueError(error_msg)
         _LOGGER.debug('Read account TLS secret')
     except FileNotFoundError:
-        await account.create_account_secret()
-        _LOGGER.info('Created account secret during bootstrap')
+        try:
+            await account.create_account_secret()
+            _LOGGER.info('Created account secret during bootstrap')
+        except PodException:
+            raise
 
     try:
         await account.data_secret.load(
@@ -120,8 +126,11 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
         )
         _LOGGER.debug('Read account data secret')
     except FileNotFoundError:
-        await account.create_data_secret()
-        _LOGGER.info('Created account secret during bootstrap')
+        try:
+            await account.create_data_secret()
+            _LOGGER.info('Created account secret during bootstrap')
+        except PodException:
+            raise
 
     _LOGGER.debug('Podworker bootstrap complete')
 
@@ -132,17 +141,20 @@ async def run_startup_tasks(server: PodServer):
     account: Account = server.account
     server.twitter_client = None
 
-    if (ADDRESSBOOK_ID in account.memberships
-            and Twitter.twitter_integration_enabled()):
-        _LOGGER.info('Enabling Twitter integration')
-        server.twitter_client = Twitter.client()
-        user = await server.twitter_client.get_user()
-        userdata = server.twitter_client.extract_user_data(user)
+    try:
+        if (ADDRESSBOOK_ID in account.memberships
+                and Twitter.twitter_integration_enabled()):
+            _LOGGER.info('Enabling Twitter integration')
+            server.twitter_client = Twitter.client()
+            user = await server.twitter_client.get_user()
+            userdata = server.twitter_client.extract_user_data(user)
 
-        all_tweets, referencing_tweets, media = \
-            await server.twitter_client.get_tweets(
-                with_related=True
-            )
+            all_tweets, referencing_tweets, media = \
+                await server.twitter_client.get_tweets(
+                    with_related=True
+                )
+    except PodException:
+        raise
 
 
 @repeat(every(5).seconds)
@@ -172,16 +184,19 @@ def run_daemon():
 def twitter_update_task(server: PodServer):
     _LOGGER.debug('Update Twitter data')
 
-    account: Account = server.account
-    if server.twitter_client:
-        user = server.twitter_client.get_user()
-        data = server.twitter_client.extract_user_data(user)
+    try:
+        account: Account = server.account
+        if server.twitter_client:
+            user = server.twitter_client.get_user()
+            data = server.twitter_client.extract_user_data(user)
 
-    member: Member = account.memberships[ADDRESSBOOK_ID]
+        member: Member = account.memberships[ADDRESSBOOK_ID]
 
-    member.load_data()
-    member.data['twitter_person'] = data
-    member.save_data()
+        member.load_data()
+        member.data['twitter_person'] = data
+        member.save_data()
+    except PodException:
+        raise
 
 
 if __name__ == '__main__':
