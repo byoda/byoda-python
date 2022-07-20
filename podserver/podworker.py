@@ -20,9 +20,12 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 '''
 
 import sys
-import daemon
-import asyncio
+import time
 from uuid import UUID
+
+import daemon
+
+import asyncio
 
 from schedule import every, repeat, run_pending
 
@@ -84,19 +87,6 @@ async def main(argv):
     if data['bootstrap']:
         await run_bootstrap_tasks(data['account_id'], server)
 
-    if data['daemonize']:
-        with daemon.DaemonContext():
-            _LOGGER = Logger.getLogger(
-                sys.argv[0], json_out=False, debug=data['debug'],
-                loglevel=data.get('loglevel', 'DEBUG'),
-                logfile=LOG_FILE
-            )
-            _LOGGER.debug('Daemonizing podworker')
-
-            run_startup_tasks(server)
-
-            run_tasks(server)
-
 
 async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
     '''
@@ -155,18 +145,28 @@ async def run_startup_tasks(server: PodServer):
             )
 
 
-@repeat(every(1).minutes)
+@repeat(every(5).seconds)
 def log_ping_message():
     _LOGGER.debug('Log worker ping message')
-    with open('/tmp/podworker.log', 'a') as f:
-        f.write('ping\n')
 
 
-def run_tasks():
-    while True:
-        _LOGGER.debug('Running pending tasks')
-        run_pending()
-        asyncio.sleep(5)
+def run_daemon():
+    global _LOGGER
+    data = get_environment_vars()
+
+    with daemon.DaemonContext():
+        _LOGGER = Logger.getLogger(
+            sys.argv[0], json_out=False, debug=data['debug'],
+            loglevel=data.get('loglevel', 'DEBUG'),
+            logfile=LOG_FILE
+        )
+
+        run_startup_tasks(config.server)
+
+        while True:
+            _LOGGER.debug('Daemonized podworker')
+            run_pending()
+            time.sleep(3)
 
 
 def twitter_update_task(server: PodServer):
@@ -186,3 +186,4 @@ def twitter_update_task(server: PodServer):
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))
+    run_daemon()
