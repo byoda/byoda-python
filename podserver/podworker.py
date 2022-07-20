@@ -87,7 +87,10 @@ async def main(argv):
     except PodException:
         raise
 
-    if data['bootstrap']:
+    _LOGGER.info('Load of account and memberships complete')
+
+    if data.get('bootstrap'):
+        _LOGGER.info('Running bootstrap tasks')
         await run_bootstrap_tasks(data['account_id'], server)
 
 
@@ -99,7 +102,7 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
 
     account: Account = server.account
 
-    _LOGGER.debug('Running bootstrap tasks')
+    _LOGGER.debug('Starting bootstrap tasks')
     try:
         await account.tls_secret.load(
             password=account.private_key_password
@@ -132,7 +135,7 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
         except PodException:
             raise
 
-    _LOGGER.debug('Podworker bootstrap complete')
+    _LOGGER.info('Podworker completed bootstrap')
 
 
 async def run_startup_tasks(server: PodServer):
