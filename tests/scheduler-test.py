@@ -118,11 +118,11 @@ async def run_startup_tasks(server: PodServer):
             and Twitter.twitter_integration_enabled()):
         _LOGGER.info('Enabling Twitter integration')
         server.twitter_client = Twitter.client()
-        user = await server.twitter_client.get_user()
+        user = server.twitter_client.get_user()
         userdata = server.twitter_client.extract_user_data(user)
 
         all_tweets, referencing_tweets, media = \
-            await server.twitter_client.get_tweets(
+            server.twitter_client.get_tweets(
                 with_related=True
             )
 

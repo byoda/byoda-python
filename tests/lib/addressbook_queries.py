@@ -409,6 +409,192 @@ mutation(
 GRAPHQL_STATEMENTS['asset']['mutate'] = MUTATE_ASSET
 
 
+QUERY_TWITTER_MEDIA = '''
+query ($filters: twitterMediaInputFilter, $first: Int, $after: String,
+        $depth: Int, $relations: [String!]) {
+    twitter_media_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_media {
+                created_timestamp
+                height
+                width
+                alt_text
+                duration
+                media_key
+                preview_image_url
+                media_type
+                view_count
+                variants
+                url
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_media'] = {'query': QUERY_TWITTER_MEDIA}
+
+MUTATE_TWITTER_MEDIA = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    mutate_twitter_media(
+                    created_timestamp: $created_timestamp,
+                    height: $height,
+                    width: $width,
+                    alt_text: $alt_text,
+                    duration: $duration,
+                    media_key: $media_key,
+                    preview_image_url: $preview_image_url,
+                    media_type: $media_type,
+                    view_count: $view_count,
+                    variants: $variants,
+                    url: $url,
+    ) {
+                    created_timestamp
+                    height
+                    width
+                    alt_text
+                    duration
+                    media_key
+                    preview_image_url
+                    media_type
+                    view_count
+                    variants
+                    url
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_media']['mutate'] = MUTATE_TWITTER_MEDIA
+
+
+QUERY_TWEET = '''
+query ($filters: tweetInputFilter, $first: Int, $after: String,
+        $depth: Int, $relations: [String!]) {
+    tweet_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            tweet {
+                created_timestamp
+                asset_id
+                lang
+                creator
+                contents
+                response_to
+                conversation_id
+                geo
+                retweet_count
+                reply_count
+                like_count
+                quote_count
+                mentions
+                urls
+                references
+                media_ids
+                hashtags
+                assets
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweet'] = {'query': QUERY_TWEET}
+
+MUTATE_TWEET = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $asset_id: String,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    mutate_tweet(
+                    created_timestamp: $created_timestamp,
+                    asset_id: $asset_id,
+                    lang: $lang,
+                    creator: $creator,
+                    contents: $contents,
+                    response_to: $response_to,
+                    conversation_id: $conversation_id,
+                    geo: $geo,
+                    retweet_count: $retweet_count,
+                    reply_count: $reply_count,
+                    like_count: $like_count,
+                    quote_count: $quote_count,
+                    mentions: $mentions,
+                    urls: $urls,
+                    references: $references,
+                    media_ids: $media_ids,
+                    hashtags: $hashtags,
+                    assets: $assets,
+    ) {
+                    created_timestamp
+                    asset_id
+                    lang
+                    creator
+                    contents
+                    response_to
+                    conversation_id
+                    geo
+                    retweet_count
+                    reply_count
+                    like_count
+                    quote_count
+                    mentions
+                    urls
+                    references
+                    media_ids
+                    hashtags
+                    assets
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweet']['mutate'] = MUTATE_TWEET
+
+
 QUERY_MEMBER = '''
 query ($filters: memberInputFilter, $first: Int, $after: String,
         $depth: Int, $relations: [String!]) {
@@ -510,6 +696,240 @@ mutation(
 
 GRAPHQL_STATEMENTS['person']['mutate'] = MUTATE_PERSON
 
+
+QUERY_TWITTER_ACCOUNT = '''
+query ($filters: twitterAccountInputFilter, $first: Int, $after: String,
+        $depth: Int, $relations: [String!]) {
+    twitter_account_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_account {
+                twitter_id
+                created_timestamp
+                name
+                url
+                display_url
+                pinned_tweet_id
+                profile_image_url
+                followers_count
+                following_count
+                tweet_count
+                listed_count
+                handle
+                verified
+                withheld
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_account'] = {'query': QUERY_TWITTER_ACCOUNT}
+
+MUTATE_TWITTER_ACCOUNT = '''
+mutation(
+                    $twitter_id: String,
+                    $created_timestamp: DateTime,
+                    $name: String,
+                    $url: String,
+                    $display_url: String,
+                    $pinned_tweet_id: Int,
+                    $profile_image_url: String,
+                    $followers_count: Int,
+                    $following_count: Int,
+                    $tweet_count: Int,
+                    $listed_count: Int,
+                    $handle: String,
+                    $verified: Boolean,
+                    $withheld: String,
+) {
+    mutate_twitter_account(
+                    twitter_id: $twitter_id,
+                    created_timestamp: $created_timestamp,
+                    name: $name,
+                    url: $url,
+                    display_url: $display_url,
+                    pinned_tweet_id: $pinned_tweet_id,
+                    profile_image_url: $profile_image_url,
+                    followers_count: $followers_count,
+                    following_count: $following_count,
+                    tweet_count: $tweet_count,
+                    listed_count: $listed_count,
+                    handle: $handle,
+                    verified: $verified,
+                    withheld: $withheld,
+    ) {
+                    twitter_id
+                    created_timestamp
+                    name
+                    url
+                    display_url
+                    pinned_tweet_id
+                    profile_image_url
+                    followers_count
+                    following_count
+                    tweet_count
+                    listed_count
+                    handle
+                    verified
+                    withheld
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_account']['mutate'] = MUTATE_TWITTER_ACCOUNT
+
+
+QUERY_TWITTER_MEDIAS = '''
+query ($filters: twitterMediaInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+    twitter_medias_connection(filters: $filters, first: $first, after: $after,
+    depth: $depth, relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_media {
+                created_timestamp
+                height
+                width
+                alt_text
+                duration
+                media_key
+                preview_image_url
+                media_type
+                view_count
+                variants
+                url
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias'] = {'query': QUERY_TWITTER_MEDIAS}
+
+APPEND_TWITTER_MEDIAS = '''
+mutation (
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String!,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    append_twitter_medias (
+            created_timestamp: $created_timestamp,
+            height: $height,
+            width: $width,
+            alt_text: $alt_text,
+            duration: $duration,
+            media_key: $media_key,
+            preview_image_url: $preview_image_url,
+            media_type: $media_type,
+            view_count: $view_count,
+            variants: $variants,
+            url: $url,
+    ) {
+            created_timestamp
+            height
+            width
+            alt_text
+            duration
+            media_key
+            preview_image_url
+            media_type
+            view_count
+            variants
+            url
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['append'] = APPEND_TWITTER_MEDIAS
+
+UPDATE_TWITTER_MEDIAS = '''
+mutation (
+    $filters: twitterMediaInputFilter!,
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    update_twitter_medias(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        height: $height,
+        width: $width,
+        alt_text: $alt_text,
+        duration: $duration,
+        media_key: $media_key,
+        preview_image_url: $preview_image_url,
+        media_type: $media_type,
+        view_count: $view_count,
+        variants: $variants,
+        url: $url,
+    ) {
+        created_timestamp
+        height
+        width
+        alt_text
+        duration
+        media_key
+        preview_image_url
+        media_type
+        view_count
+        variants
+        url
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['update'] = UPDATE_TWITTER_MEDIAS
+
+DELETE_FROM_TWITTER_MEDIAS = '''
+mutation ($filters: twitterMediaInputFilter!) {
+    delete_from_twitter_medias(filters: $filters) {
+        created_timestamp
+        height
+        width
+        alt_text
+        duration
+        media_key
+        preview_image_url
+        media_type
+        view_count
+        variants
+        url
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['delete'] = DELETE_FROM_TWITTER_MEDIAS
 
 QUERY_NETWORK_LINKS = '''
 query ($filters: networkLinkInputFilter,
@@ -1566,3 +1986,202 @@ mutation ($filters: assetInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_assets']['delete'] = DELETE_FROM_NETWORK_ASSETS
+
+QUERY_TWEETS = '''
+query ($filters: tweetInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+    tweets_connection(filters: $filters, first: $first, after: $after,
+    depth: $depth, relations: $relations) {
+        total_count
+        edges {
+            cursor
+            origin
+            tweet {
+                created_timestamp
+                asset_id
+                lang
+                creator
+                contents
+                response_to
+                conversation_id
+                geo
+                retweet_count
+                reply_count
+                like_count
+                quote_count
+                mentions
+                urls
+                references
+                media_ids
+                hashtags
+                assets
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets'] = {'query': QUERY_TWEETS}
+
+APPEND_TWEETS = '''
+mutation (
+                    $created_timestamp: DateTime!,
+                    $asset_id: String!,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String!,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    append_tweets (
+            created_timestamp: $created_timestamp,
+            asset_id: $asset_id,
+            lang: $lang,
+            creator: $creator,
+            contents: $contents,
+            response_to: $response_to,
+            conversation_id: $conversation_id,
+            geo: $geo,
+            retweet_count: $retweet_count,
+            reply_count: $reply_count,
+            like_count: $like_count,
+            quote_count: $quote_count,
+            mentions: $mentions,
+            urls: $urls,
+            references: $references,
+            media_ids: $media_ids,
+            hashtags: $hashtags,
+            assets: $assets,
+    ) {
+            created_timestamp
+            asset_id
+            lang
+            creator
+            contents
+            response_to
+            conversation_id
+            geo
+            retweet_count
+            reply_count
+            like_count
+            quote_count
+            mentions
+            urls
+            references
+            media_ids
+            hashtags
+            assets
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['append'] = APPEND_TWEETS
+
+UPDATE_TWEETS = '''
+mutation (
+    $filters: tweetInputFilter!,
+                    $created_timestamp: DateTime,
+                    $asset_id: String,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    update_tweets(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        asset_id: $asset_id,
+        lang: $lang,
+        creator: $creator,
+        contents: $contents,
+        response_to: $response_to,
+        conversation_id: $conversation_id,
+        geo: $geo,
+        retweet_count: $retweet_count,
+        reply_count: $reply_count,
+        like_count: $like_count,
+        quote_count: $quote_count,
+        mentions: $mentions,
+        urls: $urls,
+        references: $references,
+        media_ids: $media_ids,
+        hashtags: $hashtags,
+        assets: $assets,
+    ) {
+        created_timestamp
+        asset_id
+        lang
+        creator
+        contents
+        response_to
+        conversation_id
+        geo
+        retweet_count
+        reply_count
+        like_count
+        quote_count
+        mentions
+        urls
+        references
+        media_ids
+        hashtags
+        assets
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['update'] = UPDATE_TWEETS
+
+DELETE_FROM_TWEETS = '''
+mutation ($filters: tweetInputFilter!) {
+    delete_from_tweets(filters: $filters) {
+        created_timestamp
+        asset_id
+        lang
+        creator
+        contents
+        response_to
+        conversation_id
+        geo
+        retweet_count
+        reply_count
+        like_count
+        quote_count
+        mentions
+        urls
+        references
+        media_ids
+        hashtags
+        assets
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['delete'] = DELETE_FROM_TWEETS

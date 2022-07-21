@@ -163,6 +163,25 @@
                 "type": "object",
                 "required": ["twitter_id", "name", "username"]
             },
+            "twitter_medias": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    },
+                    "service": {
+                        "permissions": ["read"]
+                    }
+
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/twitter_media"
+                }
+
+            },
             "network_links": {
                 "#accesscontrol": {
                     "member": {

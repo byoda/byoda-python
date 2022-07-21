@@ -23,6 +23,7 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
+from byoda.datatypes import GRAPHQL_API_URL_PREFIX
 from byoda.util.paths import Paths
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
@@ -35,8 +36,8 @@ MAX_WAIT = 15 * 60
 MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
 
 BASE_URL = (
-    'https://{member_id}.members-{service_id}.{network}'
-    '/api/v1/data/service-{service_id}'
+    'https://{member_id}.members-{service_id}.{network}' +
+    GRAPHQL_API_URL_PREFIX
 )
 
 

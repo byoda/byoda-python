@@ -15,12 +15,10 @@ TWITTER_KEY_SECRET
 
 import os
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 from datetime import datetime, timezone
 import requests
 from requests.auth import HTTPBasicAuth
-
-import aiohttp
 
 from dateutil.parser import parse as dateutil_parse
 
@@ -270,7 +268,7 @@ class Twitter:
 
 def _translate_tweet_to_asset(tweet: Tweet) -> Dict:
     '''
-    Translates a Tweet instance of a dict included in the 'includes'
+    Translates a Tweet instance or a dict included in the 'includes'
     of a Tweepy Response object into an asset dict
     '''
 

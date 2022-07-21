@@ -24,6 +24,7 @@ import time
 from uuid import UUID
 
 import daemon
+import requests
 
 import asyncio
 
@@ -33,7 +34,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
-from byoda.datatypes import CloudType
+from byoda.datatypes import GRAPHQL_API_URL_PREFIX, CloudType
 
 from byoda.datastore.document_store import DocumentStoreType
 
@@ -41,10 +42,17 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 from byoda.util.logger import Logger
+
 from byoda.exceptions import PodException
+
 from podserver.util import get_environment_vars
 
 from byoda.data_import.twitter import Twitter
+
+from byoda.util.api_client.graphql_client import GraphQlClient
+
+from tests.lib.addressbook_queries import APPEND_TWEETS
+from tests.lib.addressbook_queries import APPEND_TWITTER_MEDIAS
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/podworker.log'
@@ -150,12 +158,9 @@ async def run_startup_tasks(server: PodServer):
             _LOGGER.info('Enabling Twitter integration')
             server.twitter_client = Twitter.client()
             user = await server.twitter_client.get_user()
-            userdata = server.twitter_client.extract_user_data(user)
+            server.twitter_client.extract_user_data(user)
 
-            all_tweets, referencing_tweets, media = \
-                await server.twitter_client.get_tweets(
-                    with_related=True
-                )
+            fetch_tweets(server.twitter_client)
     except PodException:
         raise
 
@@ -185,21 +190,54 @@ def run_daemon():
 
 
 def twitter_update_task(server: PodServer):
-    _LOGGER.debug('Update Twitter data')
 
     try:
-        account: Account = server.account
+        _LOGGER.debug('Update Twitter data')
         if server.twitter_client:
-            user = server.twitter_client.get_user()
-            data = server.twitter_client.extract_user_data(user)
+            fetch_tweets(server.twitter_client)
 
-        member: Member = account.memberships[ADDRESSBOOK_ID]
-
-        member.load_data()
-        member.data['twitter_person'] = data
-        member.save_data()
     except PodException:
         raise
+
+
+def fetch_tweets(twitter_client: Twitter):
+    _LOGGER.debug('Fetching tweets')
+    all_tweets, referencing_tweets, media = \
+        twitter_client.get_tweets(with_related=True)
+
+    member: Member = config.server.account.memberships.get(ADDRESSBOOK_ID)
+
+    for tweet in all_tweets + referencing_tweets:
+        _LOGGER.debug(f'Processing tweet {tweet["asset_id"]}')
+        body = GraphQlClient.get_tweet_body(APPEND_TWEETS, tweet)
+        try:
+            url = f'https://{member.tls_secret.common_name}'
+            url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
+            requests.post(
+                url, data=body, secret=member.tls_secret, timeout=10
+            )
+        except Exception as exc:
+            _LOGGER.info(
+                f'Failed to call GraphQL API for {tweet["asset_id"]}: {exc}, '
+                'will try again in the next run of this task'
+            )
+            return
+
+    for asset in media:
+        _LOGGER.debug(f'Processing Twitter media ID {asset["media_key"]}')
+        body = GraphQlClient.get_media_body(APPEND_TWITTER_MEDIAS, asset)
+        try:
+            url = f'https://{member.tls_secret.common_name}'
+            url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
+            requests.post(
+                url, data=body, secret=member.tls_secret, timeout=10
+            )
+        except Exception as exc:
+            _LOGGER.info(
+                f'Failed to call GraphQL API for {asset["asset_id"]}: {exc}, '
+                'will try again in the next run of this task'
+            )
+            return
 
 
 if __name__ == '__main__':

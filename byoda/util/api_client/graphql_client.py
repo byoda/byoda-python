@@ -30,6 +30,21 @@ class GraphQlClient:
                    headers: Dict = None, vars: Dict = None,
                    timeout: int = 10) -> aiohttp.ClientResponse:
 
+        body = GraphQlClient.prep_query(query, vars)
+        
+        response: aiohttp.ClientResponse = await ApiClient.call(
+            url, HttpMethod.POST, secret=secret, data=body, headers=headers,
+            timeout=timeout
+        )
+
+        return response
+
+    @staticmethod
+    def prep_query(query: str, vars: Dict) -> str:
+        '''
+        Generates the GraphQL query to be used in a HTTP POST call
+        '''
+
         if isinstance(query, bytes):
             query = query.decode('utf-8')
 
@@ -38,9 +53,4 @@ class GraphQlClient:
         if vars:
             body["variables"] = vars
 
-        response: aiohttp.ClientResponse = await ApiClient.call(
-            url, HttpMethod.POST, secret=secret, data=body, headers=headers,
-            timeout=timeout
-        )
-
-        return response
+        return body
