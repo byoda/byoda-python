@@ -292,7 +292,7 @@ class Account:
             )
 
         member = Member(service_id, self)
-        await member.setup()
+        await member.setup(new_membership=False)
 
         await member.load_secrets()
         member.data = MemberData(

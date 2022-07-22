@@ -42,7 +42,7 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.servers.pod_server import PodServer
 
 from byoda import config
-from byoda.util.logger import Logger
+from byoda.util.logger import LOGFILE, Logger
 
 from byoda.exceptions import PodException
 
@@ -65,12 +65,20 @@ async def main(argv):
     # Remaining environment variables used:
     data = get_environment_vars()
 
+    if data['daemonize']:
+        logfile = LOGFILE
+    else:
+        logfile = None
+
     global _LOGGER
     _LOGGER = Logger.getLogger(
         argv[0], json_out=False, debug=True,
-        loglevel='DEBUG', logfile=LOG_FILE
+        loglevel='DEBUG', logfile=logfile
     )
-    _LOGGER.debug(f'Starting podworker {data["bootstrap"]}')
+    _LOGGER.debug(
+        f'Starting podworker {data["bootstrap"]}: '
+        f'daemonize: {data["daemonize"]}'
+    )
 
     try:
         config.server = PodServer()
@@ -140,14 +148,14 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
     except FileNotFoundError:
         try:
             await account.create_data_secret()
-            _LOGGER.info('Created account secret during bootstrap')
+            _LOGGER.info('Created account data secret during bootstrap')
         except PodException:
             raise
 
     _LOGGER.info('Podworker completed bootstrap')
 
 
-async def run_startup_tasks(server: PodServer):
+def run_startup_tasks(server: PodServer):
     _LOGGER.debug('Running podworker startup tasks')
 
     account: Account = server.account
@@ -158,7 +166,7 @@ async def run_startup_tasks(server: PodServer):
                 and Twitter.twitter_integration_enabled()):
             _LOGGER.info('Enabling Twitter integration')
             server.twitter_client = Twitter.client()
-            user = await server.twitter_client.get_user()
+            user = server.twitter_client.get_user()
             server.twitter_client.extract_user_data(user)
 
             fetch_tweets(server.twitter_client)
@@ -166,32 +174,43 @@ async def run_startup_tasks(server: PodServer):
         raise
 
 
+def run_daemon():
+    global _LOGGER
+    data = get_environment_vars()
+
+    _LOGGER.info(f'Daermonizing podworker: {data["daemonize"]}')
+    if data['daemonize']:
+        with daemon.DaemonContext():
+            _LOGGER = Logger.getLogger(
+                sys.argv[0], json_out=False, debug=data['debug'],
+                loglevel=data.get('loglevel', 'DEBUG'),
+                logfile=LOG_FILE
+            )
+
+            run_startup_tasks(config.server)
+
+            while True:
+                _LOGGER.debug('Daemonized podworker')
+                run_pending()
+                time.sleep(3)
+    else:
+        run_startup_tasks(config.server)
+
+        while True:
+            _LOGGER.debug('Podworker not daemonized')
+            run_pending()
+            time.sleep(3)
+
+
 @repeat(every(5).seconds)
 def log_ping_message():
     _LOGGER.debug('Log worker ping message')
 
 
-def run_daemon():
-    global _LOGGER
-    data = get_environment_vars()
-
-    with daemon.DaemonContext():
-        _LOGGER = Logger.getLogger(
-            sys.argv[0], json_out=False, debug=data['debug'],
-            loglevel=data.get('loglevel', 'DEBUG'),
-            logfile=LOG_FILE
-        )
-
-        run_startup_tasks(config.server)
-
-        while True:
-            _LOGGER.debug('Daemonized podworker')
-            run_pending()
-            time.sleep(3)
-
-
 @repeat(every(30).seconds)
-def twitter_update_task(server: PodServer):
+def twitter_update_task():
+
+    server: PodServer = config.server
 
     try:
         _LOGGER.debug('Update Twitter data')
@@ -206,10 +225,13 @@ def fetch_tweets(twitter_client: Twitter):
     _LOGGER.debug('Fetching tweets')
     account: Account = config.server.account
     local_path: str = account.document_store.backend.local_path
-    newest_tweet_file = local_path + '/newest_tweet.txt'
+    newest_tweet_file = local_path + 'newest_tweet.txt'
     try:
         with open(newest_tweet_file, 'r') as file_desc:
             newest_tweet = file_desc.read().strip()
+            _LOGGER.debug(
+                f'Read newest tweet_id {newest_tweet} from {newest_tweet_file}'
+            )
     except OSError:
         newest_tweet = None
 
@@ -218,14 +240,23 @@ def fetch_tweets(twitter_client: Twitter):
     url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
 
     if not newest_tweet:
+        _LOGGER.debug(f'Newest tweet not read from {newest_tweet_file}')
         resp = GraphQlClient.call_sync(
-            url, QUERY_TWEETS, secret=member.secret
+            url, QUERY_TWEETS, secret=member.tls_secret
         )
         data = resp.json()
         edges = data['data']['tweets_connection']['edges']
-        tweet_ids = set([edge['tweet']['asset_id'] for edge in edges])
-        sorted_tweet_ids = sorted(tweet_ids, reverse=True)[0]
-        newest_tweet = sorted_tweet_ids[0]
+        if len(edges):
+            _LOGGER.debug(
+                f'Discovering newest tweet ID from {len(edges)} tweets from '
+                'the pod'
+            )
+            tweet_ids = set([edge['tweet']['asset_id'] for edge in edges])
+            sorted_tweet_ids = sorted(tweet_ids, reverse=True)
+            newest_tweet = sorted_tweet_ids[0]
+            _LOGGER.debug(f'Newest tweet ID in the pod is {newest_tweet}')
+        else:
+            _LOGGER.debug('No tweets found in the pod')
 
     all_tweets, referencing_tweets, media = \
         twitter_client.get_tweets(since_id=newest_tweet, with_related=True)
@@ -262,12 +293,19 @@ def fetch_tweets(twitter_client: Twitter):
 
     # Now we have persisted tweets in the pod, we can store
     # the ID of the newest tweet
-    newest_tweet = all_tweets[0]['asset_id']
-    try:
-        with open(newest_tweet_file, 'w') as file_desc:
-            newest_tweet = file_desc.write()
-    except OSError:
-        pass
+    if len(all_tweets):
+        newest_tweet = all_tweets[0]['asset_id']
+        try:
+            with open(newest_tweet_file, 'w') as file_desc:
+                newest_tweet = file_desc.write()
+                _LOGGER.debug(
+                    f'Read newest tweet_id {newest_tweet} '
+                    f'from {newest_tweet_file}'
+                )
+        except OSError:
+            pass
+    else:
+        _LOGGER.debug('There were no newer tweets available from Twitter')
 
     for asset in media:
         _LOGGER.debug(f'Processing Twitter media ID {asset["media_key"]}')

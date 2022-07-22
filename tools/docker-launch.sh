@@ -46,11 +46,20 @@ export NETWORK="byoda.net"
 export AWS_ACCESS_KEY_ID="changeme"
 export AWS_SECRET_ACCESS_KEY="changeme"
 
+# To import your Twitter public tweets, sign up for Twitter Developer program
+# at https://developer.twitter.com/
+# and set the following three environment variables
+export TWITTER_API_KEY=
+export TWITTER_KEY_SECRET=
+export TWITTER_USERNAME=
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
+
+# Set DAEMONIZE to FALSE to debug the podworker
+export DAEMONIZE=TRUE
 
 ACCOUNT_FILE=~/.byoda-account_id
 

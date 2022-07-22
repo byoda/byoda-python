@@ -122,14 +122,17 @@ class Twitter:
 
     @staticmethod
     def twitter_integration_enabled() -> bool:
-        if (os.environ.get('ENVIRON_TWITTER_API_KEY')
-                and os.environ.get('ENVIRON_TWITTER_KEY_SECRET')
-                and os.environ.get('ENVIRON_TWITTER_USERNAME')):
+        if (os.environ.get(ENVIRON_TWITTER_API_KEY)
+                and os.environ.get(ENVIRON_TWITTER_KEY_SECRET)
+                and os.environ.get(ENVIRON_TWITTER_USERNAME)):
             _LOGGER.debug('Enabling Twitter integration')
 
             return True
 
-        _LOGGER.debug('Twitter integration disabled')
+        _LOGGER.debug(
+            f'Twitter integration disabled: '
+            f'TWITTER_USERNAME: {os.environ.get(ENVIRON_TWITTER_USERNAME)} '
+        )
         return False
 
     @staticmethod
@@ -244,7 +247,9 @@ class Twitter:
             media: List[Media] = response.includes.get('media', [])
             referencing_tweets = response.includes.get('tweets', [])
 
-            since_id = tweets[-1].id
+            since_id = None
+            if len(tweets):
+                since_id = tweets[-1].id
 
             for media_asset in media:
                 asset = _translate_media_to_asset(media_asset)
