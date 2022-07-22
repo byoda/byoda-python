@@ -6,12 +6,16 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 '''
 
 import logging
-from enum import Enum
-from typing import Dict, TypeVar
 from uuid import UUID
+from enum import Enum
+from copy import deepcopy
+from typing import Dict, TypeVar
 
+import orjson
 import aiohttp
 import ssl
+
+import requests
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -148,14 +152,25 @@ class ApiClient:
         the headers need to include an Authentication header with a valid JWT
         '''
 
+        server: Server = config.server
+
         # This is used by the bootstrap of the pod, when the global variable is not yet
         # set
         if not network_name:
-            network = config.server.network
+            network = server.network
             network_name = network.name
 
         if isinstance(method, HttpMethod):
             method = method.value
+
+        if type(data) not in [str, bytes]:
+            # orjson can serialize datetimes, UUIDs
+            processed_data = orjson.dumps(data)
+            if headers:
+                updated_headers = deepcopy(headers)
+            else:
+                updated_headers = {}
+            updated_headers['Content-Type'] = 'application/json'
 
         client = ApiClient(api, secret=secret, service_id=service_id)
 
@@ -169,8 +184,8 @@ class ApiClient:
         )
         try:
             response: aiohttp.ClientResponse = await client.session.request(
-                method, api, params=params, json=data, headers=headers,
-                ssl=client.ssl_context, timeout=timeout
+                method, api, params=params, data=processed_data,
+                headers=updated_headers, ssl=client.ssl_context, timeout=timeout
             )
         except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
             raise RuntimeError(exc)
@@ -181,5 +196,67 @@ class ApiClient:
             raise RuntimeError(
                 f'Failure to call API {api}: {response.status}'
             )
+
+        return response
+
+    @staticmethod
+    def call_sync(api: str, method: str = 'GET', secret:Secret = None,
+                  params: Dict = None, data: Dict = None, headers: Dict = None,
+                  service_id: int = None, member_id: UUID = None,
+                  account_id: UUID = None, network_name: str = None,
+                  port: int = 443, timeout: int = 10) -> requests.Response:
+
+        server: Server = config.server
+
+        if hasattr(server, 'local_storage'):
+            storage = server.local_storage
+        else:
+            storage = None
+
+        if not network_name:
+            network = server.network
+            network_name = network.name
+
+        cert = None
+        if secret:
+            if not storage:
+                storage = server.storage_driver
+
+            key_path = secret.save_tmp_private_key()
+
+            cert_filepath = storage.local_path + secret.cert_file
+
+            _LOGGER.debug(
+                f'Setting client cert/key to {cert_filepath}, {key_path}'
+            )
+            cert = (cert_filepath, key_path)
+
+        if api.startswith('https://dir') or api.startswith('https://proxy'):
+            verify=True
+        else:
+            verify = storage.local_path + server.network.root_ca.cert_file
+
+        if type(data) not in [str, bytes]:
+            # orjson can serialize datetimes, UUIDs
+            processed_data = orjson.dumps(data)
+            if headers:
+                updated_headers = deepcopy(headers)
+            else:
+                updated_headers = {}
+
+            updated_headers['Content-Type'] = 'application/json'
+
+        if isinstance(method, HttpMethod):
+            method = method.value
+
+        api = Paths.resolve(
+            api, network_name, service_id=service_id, member_id=member_id,
+            account_id=account_id
+        )
+
+        response = requests.request(
+            method, api, params=params, data=processed_data, cert=cert,
+            headers=updated_headers, timeout=timeout, verify=verify
+        )
 
         return response

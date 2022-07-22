@@ -119,7 +119,7 @@
                     },
                     "pinned_tweet_id": {
                         "description": "ID of the pinned tweet",
-                        "type": "integer"
+                        "type": "string"
                     },
                     "profile_image_url": {
                         "description": "URL for the profile image",

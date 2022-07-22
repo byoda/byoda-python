@@ -82,8 +82,17 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     sudo rm -rf ${ROOT_DIR}/*
     sudo mkdir -p ${ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        which az > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "azure-cli not found, please install it with 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'"
+            exit 1
+        fi
         echo "Wiping all data of the pod"
         az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
+        if [ $? -ne 0 ]; then
+            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            exit 1
+        fi
     fi
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP

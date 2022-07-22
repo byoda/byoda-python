@@ -34,7 +34,8 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
-from byoda.datatypes import GRAPHQL_API_URL_PREFIX, CloudType
+from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType
 
@@ -51,12 +52,12 @@ from byoda.data_import.twitter import Twitter
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
+from tests.lib.addressbook_queries import QUERY_TWEETS
 from tests.lib.addressbook_queries import APPEND_TWEETS
 from tests.lib.addressbook_queries import APPEND_TWITTER_MEDIAS
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/podworker.log'
-
 ADDRESSBOOK_ID = 4294929430
 
 
@@ -199,43 +200,102 @@ def twitter_update_task(server: PodServer):
     except PodException:
         raise
 
-
+@repeat(every(30).seconds)
 def fetch_tweets(twitter_client: Twitter):
     _LOGGER.debug('Fetching tweets')
-    all_tweets, referencing_tweets, media = \
-        twitter_client.get_tweets(with_related=True)
+    account: Account = config.server.account
+    local_path: str = account.document_store.backend.local_path
+    newest_tweet_file = local_path + '/newest_tweet.txt'
+    try:
+        with open(newest_tweet_file, 'r') as file_desc:
+            newest_tweet = file_desc.read().strip()
+    except OSError:
+        newest_tweet = None
 
     member: Member = config.server.account.memberships.get(ADDRESSBOOK_ID)
+    url = f'https://{member.tls_secret.common_name}'
+    url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
+
+    if not newest_tweet:
+        resp = GraphQlClient.call_sync(
+            url, QUERY_TWEETS, secret=member.secret
+        )
+        data = resp.json()
+        edges = data['data']['tweets_connection']['edges']
+        tweet_ids = set([edge['tweet']['asset_id'] for edge in edges])
+        sorted_tweet_ids = sorted(tweet_ids, reverse=True)[0]
+        newest_tweet = sorted_tweet_ids[0]
+
+    all_tweets, referencing_tweets, media = \
+        twitter_client.get_tweets(since_id=newest_tweet, with_related=True)
 
     for tweet in all_tweets + referencing_tweets:
         _LOGGER.debug(f'Processing tweet {tweet["asset_id"]}')
-        body = GraphQlClient.get_tweet_body(APPEND_TWEETS, tweet)
         try:
-            url = f'https://{member.tls_secret.common_name}'
-            url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
-            requests.post(
-                url, data=body, secret=member.tls_secret, timeout=10
+            resp: requests.Response = GraphQlClient.call_sync(
+                url, APPEND_TWEETS, vars=tweet, secret=member.tls_secret
             )
         except Exception as exc:
             _LOGGER.info(
-                f'Failed to call GraphQL API for {tweet["asset_id"]}: {exc}, '
-                'will try again in the next run of this task'
+                f'Failed to call GraphQL API for tweet {tweet["asset_id"]}: '
+                f'{exc}, will try again in the next run of this task'
             )
             return
 
+        if resp.status_code != 200:
+            _LOGGER.info(
+                f'Failed to call GraphQL API for tweet {tweet["asset_id"]}: '
+                f'{resp.status_code}, will try again in the next run of this '
+                'task'
+            )
+            return
+
+        data = resp.json()
+        if data.get('errors'):
+            _LOGGER.info(
+                f'GraphQL API for {tweet["asset_id"]} returned errors: '
+                f'{data["errors"]}, will try again in the next run of this '
+                'task'
+            )
+            return
+
+    # Now we have persisted tweets in the pod, we can store
+    # the ID of the newest tweet
+    newest_tweet = all_tweets[0]['asset_id']
+    try:
+        with open(newest_tweet_file, 'w') as file_desc:
+            newest_tweet = file_desc.write()
+    except OSError:
+        pass
+
     for asset in media:
         _LOGGER.debug(f'Processing Twitter media ID {asset["media_key"]}')
-        body = GraphQlClient.get_media_body(APPEND_TWITTER_MEDIAS, asset)
         try:
-            url = f'https://{member.tls_secret.common_name}'
-            url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
-            requests.post(
-                url, data=body, secret=member.tls_secret, timeout=10
+            resp: requests.Response = GraphQlClient.call_sync(
+                url, APPEND_TWITTER_MEDIAS, vars=asset,
+                secret=member.tls_secret
             )
         except Exception as exc:
             _LOGGER.info(
-                f'Failed to call GraphQL API for {asset["asset_id"]}: {exc}, '
-                'will try again in the next run of this task'
+                f'Failed to call GraphQL API for media {asset["media_key"]}: '
+                f'{exc}, will try again in the next run of this task'
+            )
+            return
+
+        if resp.status_code != 200:
+            _LOGGER.info(
+                f'Failed to call GraphQL API for media {tweet["media_key"]}: '
+                f'{resp.status_code}, will try again in the next run of this '
+                'task'
+            )
+            return
+
+        data = resp.json()
+        if data.get('errors'):
+            _LOGGER.info(
+                f'GraphQL API for media {tweet["media_key"]} returned errors: '
+                f'{data["errors"]}, will try again in the next run of this '
+                'task'
             )
             return
 

@@ -10,7 +10,8 @@ import logging
 from typing import Dict
 
 import aiohttp
-
+import requests
+import orjson
 
 from byoda.secrets import Secret
 from byoda.util.api_client.restapi_client import HttpMethod
@@ -31,10 +32,25 @@ class GraphQlClient:
                    timeout: int = 10) -> aiohttp.ClientResponse:
 
         body = GraphQlClient.prep_query(query, vars)
-        
+
         response: aiohttp.ClientResponse = await ApiClient.call(
             url, HttpMethod.POST, secret=secret, data=body, headers=headers,
             timeout=timeout
+        )
+
+        return response
+
+    @staticmethod
+    def call_sync(url: str, query: bytes,
+                  vars: Dict = None, headers: Dict = None,
+                  secret: Secret = None, timeout: int = 10
+                  ) -> requests.Response:
+
+        body = GraphQlClient.prep_query(query, vars)
+
+        response = ApiClient.call_sync(
+            url, HttpMethod.POST, data=body, headers=headers,
+            secret=secret, timeout=timeout
         )
 
         return response

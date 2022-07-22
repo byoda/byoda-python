@@ -212,7 +212,7 @@ if [ ! -f $BYODA_HOME/byoda-python/config.yml ]; then
 fi
 
 mkdir -p ${SERVICE_DIR}
-cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
+sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 # Delete any existing unencrypted private key for the service
 sudo rm -f /tmp/service-${SERVICE_ID}.key
 
@@ -231,11 +231,15 @@ if [ -f /tmp/service-${SERVICE_ID}.key ]; then
     sudo chown ${NGINX_USER}:${NGINX_USER} /tmp/service-${SERVICE_ID}.key
 fi
 
-sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
-sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/default/svcserver-${SERVICE_ID}
+if [ ! -f /etc/default/svcserver-${SERVICE_ID} ]; then
+    sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
+    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/default/svcserver-${SERVICE_ID}
+fi
 
-sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
-sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service
+if [ ! -f /etc/systemd/system/svcserver-${SERVICE_ID}.service ]; then
+    sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
+    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service
+fi
 
 sudo systemctl daemon-reload
 sudo systemctl start svcserver-${SERVICE_ID}

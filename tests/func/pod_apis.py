@@ -434,11 +434,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
         self.assertIsNotNone(result.get('errors'))
 
-        #
-        # JWT for the 'Azure POD' member.
-        # Test is obsolete as remote JWTs are no longer accepted
-        #
-
         # add network_link for the 'remote member'
         vars = {
             'member_id': AZURE_POD_MEMBER_ID,

@@ -132,7 +132,6 @@ class Twitter:
         _LOGGER.debug('Twitter integration disabled')
         return False
 
-
     @staticmethod
     def client(api_key: str = None, key_secret: str = None):
         '''
@@ -230,7 +229,7 @@ class Twitter:
         condition = True
         all_tweets = []
         all_media = []
-        referencing_tweets = []
+        all_referencing_tweets = []
         while condition:
             response = self.client.get_users_tweets(
                 self.id, tweet_fields=TWEET_FIELDS,
@@ -259,11 +258,11 @@ class Twitter:
                 for tweet in referencing_tweets:
                     asset = _translate_tweet_to_asset(tweet)
                     if asset:
-                        referencing_tweets.append(asset)
+                        all_referencing_tweets.append(asset)
 
             condition = len(tweets) >= max_tweets
 
-        return all_tweets, referencing_tweets, all_media
+        return all_tweets, all_referencing_tweets, all_media
 
 
 def _translate_tweet_to_asset(tweet: Tweet) -> Dict:

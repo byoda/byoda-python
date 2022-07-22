@@ -741,7 +741,7 @@ mutation(
                     $name: String,
                     $url: String,
                     $display_url: String,
-                    $pinned_tweet_id: Int,
+                    $pinned_tweet_id: String,
                     $profile_image_url: String,
                     $followers_count: Int,
                     $following_count: Int,
