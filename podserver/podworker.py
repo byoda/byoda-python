@@ -190,9 +190,8 @@ def run_daemon():
             run_startup_tasks(config.server)
 
             while True:
-                _LOGGER.debug('Daemonized podworker')
                 run_pending()
-                time.sleep(3)
+                time.sleep(60)
     else:
         run_startup_tasks(config.server)
 
