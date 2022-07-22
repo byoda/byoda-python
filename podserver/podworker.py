@@ -294,6 +294,10 @@ def fetch_tweets(twitter_client: Twitter):
     # the ID of the newest tweet
     if len(all_tweets):
         newest_tweet = all_tweets[0]['asset_id']
+    else:
+        _LOGGER.debug('There were no newer tweets available from Twitter')
+
+    if newest_tweet:
         try:
             with open(newest_tweet_file, 'w') as file_desc:
                 newest_tweet = file_desc.write()
@@ -303,8 +307,6 @@ def fetch_tweets(twitter_client: Twitter):
                 )
         except OSError:
             pass
-    else:
-        _LOGGER.debug('There were no newer tweets available from Twitter')
 
     for asset in media:
         _LOGGER.debug(f'Processing Twitter media ID {asset["media_key"]}')
