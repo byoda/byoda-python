@@ -194,6 +194,9 @@ sudo docker run -d \
     -e "ROOT_DIR=${ROOT_DIR}" \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
+    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
+    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
@@ -213,6 +216,9 @@ sudo docker run -d \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=${ROOT_DIR}" \
+    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
+    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
+    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
