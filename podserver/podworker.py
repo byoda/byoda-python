@@ -202,12 +202,12 @@ def run_daemon():
             time.sleep(3)
 
 
-@repeat(every(5).seconds)
+@repeat(every(60).seconds)
 def log_ping_message():
     _LOGGER.debug('Log worker ping message')
 
 
-@repeat(every(30).seconds)
+@repeat(every(180).seconds)
 def twitter_update_task():
 
     server: PodServer = config.server
