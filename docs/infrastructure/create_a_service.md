@@ -211,6 +211,7 @@ if [ ! -f $BYODA_HOME/byoda-python/config.yml ]; then
         sed "s|BYODA_HOME|${BYODA_HOME}|" > config.yml
 fi
 
+cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
 sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 # Delete any existing unencrypted private key for the service

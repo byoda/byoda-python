@@ -190,6 +190,7 @@ def run_daemon():
             time.sleep(3)
 
 
+@repeat(every(30).seconds)
 def twitter_update_task(server: PodServer):
 
     try:
@@ -200,7 +201,7 @@ def twitter_update_task(server: PodServer):
     except PodException:
         raise
 
-@repeat(every(30).seconds)
+
 def fetch_tweets(twitter_client: Twitter):
     _LOGGER.debug('Fetching tweets')
     account: Account = config.server.account
