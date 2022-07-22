@@ -300,10 +300,10 @@ def fetch_tweets(twitter_client: Twitter):
     if newest_tweet:
         try:
             with open(newest_tweet_file, 'w') as file_desc:
-                newest_tweet = file_desc.write()
+                file_desc.write(newest_tweet)
                 _LOGGER.debug(
-                    f'Read newest tweet_id {newest_tweet} '
-                    f'from {newest_tweet_file}'
+                    f'Write newest tweet_id {newest_tweet} '
+                    f'to {newest_tweet_file}'
                 )
         except OSError:
             pass
