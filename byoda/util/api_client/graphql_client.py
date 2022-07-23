@@ -11,7 +11,6 @@ from typing import Dict
 
 import aiohttp
 import requests
-import orjson
 
 from byoda.secrets import Secret
 from byoda.util.api_client.restapi_client import HttpMethod

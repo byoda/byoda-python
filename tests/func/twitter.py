@@ -15,7 +15,6 @@ import sys
 import unittest
 import asyncio
 
-import orjson
 import requests
 from requests.auth import HTTPBasicAuth
 
