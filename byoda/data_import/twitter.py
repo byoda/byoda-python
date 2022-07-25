@@ -23,7 +23,6 @@ from requests.auth import HTTPBasicAuth
 from dateutil.parser import parse as dateutil_parse
 
 import tweepy
-from tweepy.asynchronous import AsyncClient as TweepyAsyncClient
 from tweepy.tweet import Tweet
 from tweepy.media import Media
 
@@ -117,7 +116,7 @@ class Twitter:
         self.username: str = os.environ.get(ENVIRON_TWITTER_USERNAME)
         self.id: str = None
 
-        self.client: TweepyAsyncClient = None
+        self.client = None
         self.bearer_token: str = None
 
     @staticmethod
