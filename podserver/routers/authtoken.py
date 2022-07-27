@@ -11,131 +11,52 @@ import logging
 
 from fastapi import APIRouter, Request, HTTPException, Depends
 
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
+
+from byoda.models import AuthRequestModel
 from byoda.models import AuthTokenResponseModel
 
 from byoda import config
+
+from ..dependencies.pod_api_request_auth import PodApiRequestAuth
 
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
-security = HTTPBasic()
 
-
-@router.get(
-    '/authtoken/service_id/{service_id}',
-    response_model=AuthTokenResponseModel
-)
-async def get_member_authtoken(request: Request, service_id: int,
-                               credentials: HTTPBasicCredentials
-                               = Depends(security)):
+@router.post('/authtoken', response_model=AuthTokenResponseModel)
+async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     '''
-    Get an authentication token for the membership
-
-    :param service_id: service_id of the service
-    :raises: HTTPException 404
+    Get JWT for either a pod account or a pod member, if the service_id
+    parameter was specified
     '''
 
-    _LOGGER.debug(f'GET authtoken API called from {request.client.host}')
-
-    account: Account = config.server.account
-    await account.load_memberships()
-
-    member: Member = account.memberships.get(service_id)
-
-    if not account.password:
-        raise HTTPException(
-            status_code=403,
-            detail='Basic Auth disabled as no password was set'
-        )
-
-    if (credentials.username != str(member.member_id)[:8]
-            or credentials.password != account.password):
-        _LOGGER.warning(
-            'Basic auth with invalid password for '
-            f'username {credentials.username}'
-        )
-        raise HTTPException(
-            status_code=401, detail='Invalid username/password'
-        )
-
-    # Make sure we have the latest updates of memberships
-    if not member:
-        # We want to hide that te pod does not have a membership for the
-        # specified service
-        _LOGGER.warning(
-            f'Basic auth attempted with username {credentials.username}'
-            f'for service ID {service_id}'
-        )
-        raise HTTPException(
-            status_code=401,
-            detail='Invalid username/password'
-        )
-
-    jwt = member.create_jwt()
-    _LOGGER.debug('Returning JWT')
-
-    return {'auth_token': jwt.encoded}
-
-
-@router.get(
-    '/authtoken', response_model=AuthTokenResponseModel
-)
-async def get_account_authtoken(request: Request,
-                                credentials: HTTPBasicCredentials =
-                                Depends(security)):
-    '''
-    Get an authentication token for the account
-
-    :raises: HTTPException 401, 403
-    '''
-
+    _LOGGER.debug(f'POST Authtoken API called from {request.client.host}')
     account: Account = config.server.account
 
     if not account.password:
         raise HTTPException(
             status_code=403,
-            detail='Basic Auth disabled as no password was set'
+            detail='Login using username/password disabled as no password '
+            'was set'
         )
 
-    if (credentials.username != str(account.account_id)[:8]
-            or credentials.password != account.password):
-        _LOGGER.warning(
-            'Basic auth with invalid password for '
-            f'username {credentials.username}'
-        )
-        raise HTTPException(
-            status_code=401, detail='Invalid username/password'
-        )
+    if auth_request.service_id:
+        await account.load_memberships()
+        member: Member = account.memberships.get(auth_request.service_id)
+        if not member:
+            raise HTTPException(
+                status_code=401, detail='Invalid username/password'
+            )
+        username = str(member.member_id)[:8]
+    else:
+        username = str(account.account_id)[:8]
 
-    jwt = account.create_jwt()
-    return {'auth_token': jwt.encoded}
-
-
-@router.post('/authtoken/login', response_model=AuthTokenResponseModel)
-async def post_account_login(request: Request, username: str, password: str):
-    '''
-    Get data for the pod account.
-    The data request is evaluated using the identify specified in the
-    client cert.
-    '''
-
-    _LOGGER.debug(f'POST Authtoken login API called from {request.client.host}')
-    account: Account = config.server.account
-
-    if not account.password:
-        raise HTTPException(
-            status_code=403,
-            detail='Basic Auth disabled as no password was set'
-        )
-
-    if (username != str(account.account_id)[:8]
-            or password != account.password):
+    if (auth_request.username != username
+            or auth_request.password != account.password):
         _LOGGER.warning(
             'Login with invalid password for '
             f'username {username}'
@@ -144,5 +65,38 @@ async def post_account_login(request: Request, username: str, password: str):
             status_code=401, detail='Invalid username/password'
         )
 
-    jwt = account.create_jwt()
+    if auth_request.service_id:
+        jwt = member.create_jwt()
+    else:
+        jwt = account.create_jwt()
+
+    return {'auth_token': jwt.encoded}
+
+
+@router.post('/authtoken/service_id/{service_id}',
+             response_model=AuthTokenResponseModel)
+async def post_member_auth_token(request: Request, service_id: int,
+                                 auth: PodApiRequestAuth =
+                                 Depends(PodApiRequestAuth)):
+    '''
+    Get data for the pod account.
+    The data request is evaluated using the identify specified in the
+    client cert.
+    '''
+
+    _LOGGER.debug(
+        f'POST Authtoken/Memberr API called from {request.client.host}'
+    )
+
+    await auth.authenticate()
+
+    # Authorization: handled by PodApiRequestAuth, which checks account
+    # cert / JWT was used and it matches the account ID of the pod
+
+    account: Account = config.server.account
+    await account.load_memberships()
+    member: Member = account.memberships.get(service_id)
+
+    jwt = member.create_jwt()
+
     return {'auth_token': jwt.encoded}
