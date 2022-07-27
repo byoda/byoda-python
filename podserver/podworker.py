@@ -101,7 +101,8 @@ async def main(argv):
         await account.load_memberships()
 
         server.account = account
-    except PodException:
+    except Exception:
+        _LOGGER.exception('Exception during startup')
         raise
 
     _LOGGER.info('Load of account and memberships complete')
@@ -137,8 +138,12 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
         try:
             await account.create_account_secret()
             _LOGGER.info('Created account secret during bootstrap')
-        except PodException:
+        except Exception:
+            _LOGGER.exception('Exception during startup')
             raise
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
 
     try:
         await account.data_secret.load(
@@ -149,8 +154,11 @@ async def run_bootstrap_tasks(account_id: UUID, server: PodServer):
         try:
             await account.create_data_secret()
             _LOGGER.info('Created account data secret during bootstrap')
-        except PodException:
+        except Exception:
             raise
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
 
     _LOGGER.info('Podworker completed bootstrap')
 
@@ -170,7 +178,8 @@ def run_startup_tasks(server: PodServer):
             server.twitter_client.extract_user_data(user)
 
             fetch_tweets(server.twitter_client)
-    except PodException:
+    except Exception:
+        _LOGGER.exception('Exception during startup')
         raise
 
 
@@ -190,7 +199,11 @@ def run_daemon():
             run_startup_tasks(config.server)
 
             while True:
-                run_pending()
+                try:
+                    run_pending()
+                except Exception:
+                    _LOGGER.exception('Exception during run_pending')
+
                 time.sleep(60)
     else:
         run_startup_tasks(config.server)
@@ -216,7 +229,8 @@ def twitter_update_task():
         if server.twitter_client:
             fetch_tweets(server.twitter_client)
 
-    except PodException:
+    except Exception:
+        _LOGGER.exception('Exception during twitter update')
         raise
 
 

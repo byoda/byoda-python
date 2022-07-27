@@ -200,6 +200,71 @@ class ApiClient:
         return response
 
     @staticmethod
+    def _get_sync_session(api: str, secret: Secret, service_id: int,
+                          timeout: int):
+        sessions = Dict[str, requests.Session]
+
+        server: Server = config.server
+        if hasattr(server, 'local_storage'):
+            storage = server.local_storage
+        else:
+            storage = None
+
+        if not secret:
+            if api.startswith('http://'):
+                pool = 'noauth-http'
+            else:
+                pool = 'noauth-https'
+        elif isinstance(secret, ServiceSecret):
+            if service_id is None:
+                raise ValueError(
+                    'Can not use service secret for M-TLS if service_id is '
+                    'not specified'
+                )
+            pool = f'service-{service_id}'
+        elif isinstance(secret, MemberSecret):
+            pool = 'member'
+        elif isinstance(secret, AccountSecret):
+            pool = 'account'
+        else:
+            raise ValueError(
+                'Secret must be either an account-, member- or '
+                f'service-secret, not {type(secret)}'
+            )
+
+        if pool not in config.sync_client_pools:
+            session = requests.Session()
+            session.timeout = timeout
+
+            if not (api.startswith('https://dir')
+                    or api.startswith('https://proxy')):
+                session.verify = (
+                    storage.local_path + server.network.root_ca.cert_file
+                )
+                _LOGGER.debug(f'Set server cert validation to {session.verify}')
+
+            if secret:
+                if not storage:
+                    # Hack: podserver and svcserver use different attributes
+                        storage = server.storage_driver
+
+                key_path = secret.save_tmp_private_key()
+
+                cert_filepath = storage.local_path + secret.cert_file
+
+                _LOGGER.debug(
+                    f'Setting client cert/key to {cert_filepath}, {key_path}'
+                )
+                session.cert = (cert_filepath, key_path)
+
+
+            config.sync_client_pools[pool] = session
+        else:
+            session = config.sync_client_pools[pool]
+
+        return session
+
+    @staticmethod
     def call_sync(api: str, method: str = 'GET', secret:Secret = None,
                   params: Dict = None, data: Dict = None, headers: Dict = None,
                   service_id: int = None, member_id: UUID = None,
@@ -208,33 +273,11 @@ class ApiClient:
 
         server: Server = config.server
 
-        if hasattr(server, 'local_storage'):
-            storage = server.local_storage
-        else:
-            storage = None
+        session = ApiClient._get_sync_session(api, secret, service_id, timeout)
 
         if not network_name:
             network = server.network
             network_name = network.name
-
-        cert = None
-        if secret:
-            if not storage:
-                storage = server.storage_driver
-
-            key_path = secret.save_tmp_private_key()
-
-            cert_filepath = storage.local_path + secret.cert_file
-
-            _LOGGER.debug(
-                f'Setting client cert/key to {cert_filepath}, {key_path}'
-            )
-            cert = (cert_filepath, key_path)
-
-        if api.startswith('https://dir') or api.startswith('https://proxy'):
-            verify=True
-        else:
-            verify = storage.local_path + server.network.root_ca.cert_file
 
         if type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs
@@ -254,9 +297,9 @@ class ApiClient:
             account_id=account_id
         )
 
-        response = requests.request(
-            method, api, params=params, data=processed_data, cert=cert,
-            headers=updated_headers, timeout=timeout, verify=verify
+        response = session.request(
+            method, api, params=params, data=processed_data,
+            headers=updated_headers,
         )
 
         return response

@@ -115,3 +115,34 @@ async def get_account_authtoken(request: Request,
 
     jwt = account.create_jwt()
     return {'auth_token': jwt.encoded}
+
+
+@router.post('/authtoken/login', response_model=AuthTokenResponseModel)
+async def post_account_login(request: Request, username: str, password: str):
+    '''
+    Get data for the pod account.
+    The data request is evaluated using the identify specified in the
+    client cert.
+    '''
+
+    _LOGGER.debug(f'POST Authtoken login API called from {request.client.host}')
+    account: Account = config.server.account
+
+    if not account.password:
+        raise HTTPException(
+            status_code=403,
+            detail='Basic Auth disabled as no password was set'
+        )
+
+    if (username != str(account.account_id)[:8]
+            or password != account.password):
+        _LOGGER.warning(
+            'Login with invalid password for '
+            f'username {username}'
+        )
+        raise HTTPException(
+            status_code=401, detail='Invalid username/password'
+        )
+
+    jwt = account.create_jwt()
+    return {'auth_token': jwt.encoded}

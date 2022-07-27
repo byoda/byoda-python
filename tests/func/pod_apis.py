@@ -221,10 +221,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_id = ADDRESSBOOK_SERVICE_ID
         member: Member = account.memberships.get(service_id)
 
-        #
-        # This test fails because a member-JWT can't be used for REST APIs,
-        # only for GraphQL APIs
-        #
         response = requests.get(
             f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
             auth=HTTPBasicAuth(
@@ -241,13 +237,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 403)
 
         #
-        # Now we get an account-JWT
+        # Now we get an account-JWT with basic auth
         #
-        response = requests.get(
-            BASE_URL + '/v1/pod/authtoken',
-            auth=HTTPBasicAuth(
-                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
-            )
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken/login',
+            json={
+                'username': str(member.member_id)[:8],
+                'password': os.environ['ACCOUNT_SECRET']
+            }
         )
         data = response.json()
         account_auth_header = {

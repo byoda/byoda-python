@@ -107,7 +107,9 @@ async def search_hashtag(request: Request, search: AssetSearchRequestModel,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'Search API called for assets from {request.client.host}')
+    _LOGGER.debug(
+        f'GET Search API called for assets from {request.client.host}'
+    )
     await auth.authenticate()
 
     # Authorization: not required as called is a member
@@ -141,11 +143,10 @@ async def asset_data(request: Request, asset_data: AssetSearchRequestModel,
                      auth: MemberRequestAuthFast = Depends(
                             MemberRequestAuthFast)):
     '''
-    Submit  it needs to be rate
-    limited by the reverse proxy (TODO: security)
+    Submit asset data to the search service
     '''
 
-    _LOGGER.debug(f'Search API called for {hashtag} from {request.client.host}')
+    _LOGGER.debug(f'POST Search asset API called from {request.client.host}')
     await auth.authenticate()
 
     # Authorization: not required as caller is a member
