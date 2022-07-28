@@ -12,8 +12,6 @@ import requests
 from uuid import UUID
 from typing import Tuple
 
-from requests.auth import HTTPBasicAuth
-
 from byoda.datatypes import IdType
 
 from byoda.datamodel.account import Account

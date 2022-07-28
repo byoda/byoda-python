@@ -16,7 +16,6 @@ import unittest
 import asyncio
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 from multiprocessing import Process
 import uvicorn

@@ -35,7 +35,12 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     parameter was specified
     '''
 
-    _LOGGER.debug(f'POST Authtoken API called from {request.client.host}')
+    _LOGGER.debug(
+        f'POST Authtoken API called from {request.client.host} with '
+        f'username {auth_request.username}, '
+        f'with password {auth_request.password is not None}'
+        f'and service_id {auth_request.service_id}'
+    )
     account: Account = config.server.account
 
     if not account.password:
@@ -87,7 +92,9 @@ async def post_member_auth_token(request: Request, service_id: int,
     '''
 
     _LOGGER.debug(
-        f'POST Authtoken member API called from {request.client.host}'
+        f'POST Authtoken member API called from {request.client.host} '
+        f'for service_id {service_id} and '
+        f'with JWT: {auth.authorization is not None}'
     )
 
     await auth.authenticate()

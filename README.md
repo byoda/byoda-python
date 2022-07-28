@@ -258,6 +258,16 @@ export ACCOUNT_JWT=$( \
 ); echo $ACCOUNT_JWT
 ```
 
+or, via the proxy:
+```
+export ACCOUNT_JWT=$( \
+    curl -s --cacert $ROOT_CA \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -H "Content-Type: application/json" \
+    https://proxy.byoda.net/$/api/v1/pod/authtoken | jq -r .auth_token
+); echo $ACCOUNT_JWT
+```
+
 You can use the 'account' JWT to call REST APIs on the POD, ie.:
 ```
 curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
@@ -270,6 +280,15 @@ export MEMBER_JWT=$( \
     -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
     -H "Content-Type: application/json" \
      https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
+```
+
+or, via the proxy:
+```
+export MEMBER_JWT=$( \
+    curl -s   \
+    -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
+    -H "Content-Type: application/json" \
+     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
 ```
 
 You can use the member JWT to query GraphQL API on the pod:
