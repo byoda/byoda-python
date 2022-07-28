@@ -23,7 +23,6 @@ from typing import Dict
 
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -47,7 +46,8 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 
 async def setup_network(test_dir: str) -> Dict[str, str]:
-    os.environ['ROOT_DIR'] = '/byoda'
+    if not os.environ.get('ROOT_DIR'):
+        os.environ['ROOT_DIR'] = '/byoda'
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
@@ -91,18 +91,19 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
     if member_token:
         service_id = ADDRESSBOOK_SERVICE_ID
-        url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
     else:
-        url = base_url + '/v1/pod/authtoken'
+        service_id = None
 
-    response = requests.post(
-        url,
-        json={
-            'account': str(id)[:8],
-            'password': secret
-        }
-    )
+    url = base_url + '/v1/pod/authtoken'
+
+    data = {
+        'username': str(id)[:8],
+        'password': secret,
+        'service_id': service_id,
+    }
+    response = requests.post(url, json=data)
     result = response.json()
+    print(f'Auth token for data {data}:', response.status_code)
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }

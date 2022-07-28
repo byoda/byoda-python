@@ -265,7 +265,11 @@ curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOU
 
 If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
-export MEMBER_JWT=$(curl -s --basic --cacert $ROOT_CA -u $MEMBER_USERNAME:$ACCOUNT_PASSWORD https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
+export MEMBER_JWT=$( \
+    curl -s --cacert $ROOT_CA  \
+    -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
+    -H "Content-Type: application/json" \
+     https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
 ```
 
 You can use the member JWT to query GraphQL API on the pod:

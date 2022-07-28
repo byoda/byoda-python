@@ -28,7 +28,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
 @router.post('/authtoken', response_model=AuthTokenResponseModel,
-             status_code=201)
+             status_code=200)
 async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     '''
     Get JWT for either a pod account or a pod member, if the service_id
@@ -76,7 +76,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
 
 @router.post('/authtoken/service_id/{service_id}',
              response_model=AuthTokenResponseModel,
-             status_code=201)
+             status_code=200)
 async def post_member_auth_token(request: Request, service_id: int,
                                  auth: PodApiRequestAuth =
                                  Depends(PodApiRequestAuth)):
@@ -87,7 +87,7 @@ async def post_member_auth_token(request: Request, service_id: int,
     '''
 
     _LOGGER.debug(
-        f'POST Authtoken/Memberr API called from {request.client.host}'
+        f'POST Authtoken member API called from {request.client.host}'
     )
 
     await auth.authenticate()

@@ -358,6 +358,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(account_member.member_id)[:8],
                 'password': password,
+                'service_id': ADDRESSBOOK_SERVICE_ID
             }
         )
         self.assertEqual(response.status_code, 200)

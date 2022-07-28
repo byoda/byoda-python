@@ -53,53 +53,6 @@
             }
         },
         {
-            "name": "podserver AWS",
-            "type": "python",
-            "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "podserver.main:app",
-                "--host", "0.0.0.0",
-                "--port", "8000",
-                "--proxy-headers"
-            ],
-            "console": "integratedTerminal",
-            "jinja": true,
-            "justMyCode": true,
-            "env": {
-                "CLOUD": "AWS",
-                "BUCKET_PREFIX": "byoda",
-                "NETWORK": "byoda.net",
-                "ACCOUNT_ID": "aaaaaaaa-904f-11eb-88ff-00155de02c92",
-                "ACCOUNT_SECRET": "supersecret",
-                "LOGLEVEL": "DEBUG",
-                "ROOT_DIR": "/tmp/byoda-tests/podworker",
-                "PRIVATE_KEY_SECRET": "byoda",
-                "BOOTSTRAP": "BOOTSTRAP"
-            }
-        },
-        {
-            "program": "podserver/podworker.py",
-            "name": "podworker",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "env": {
-                "CLOUD": "AWS",
-                "BUCKET_PREFIX": "byoda",
-                "NETWORK": "byoda.net",
-                "ROOT_DIR": "/tmp/byoda-tests/podworker",
-                "ACCOUNT_ID": "aaaaaa14-904f-11eb-88ff-00155de02c92",
-                "ACCOUNT_SECRET": "supersecret",
-                "LOGLEVEL": "DEBUG",
-                "PRIVATE_KEY_SECRET": "byoda",
-                "BOOTSTRAP": "BOOTSTRAP",
-                "PYTHONPATH": "/home/steven/src/byoda-python",
-                "DAEMONIZE": "DAEMONIZE"
-            }
-        },
-        {
             "program": "svcserver/svcworker.py",
             "name": "svcworker: addressbook",
             "type": "python",
@@ -128,7 +81,21 @@
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "env": {
+                "CLOUD": "LOCAL",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ROOT_DIR": "/tmp/byoda-tests/call_graphql",
+                "ACCOUNT_ID": "aaaaaa14-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_SECRET": "byoda",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda",
+                "BOOTSTRAP": "BOOTSTRAP",
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "DAEMONIZE": "DAEMONIZE"
+            },
             "args": [
+                "--member_id", "dd8dfb20-7c22-4ea0-9341-ae997b242e12"
             ]
         },
         {
