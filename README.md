@@ -242,7 +242,7 @@ As you have seen in the GraphQL queries, the pod implements the data model of th
 ```
 https://proxy.byoda.net/4294929430/$MEMBER_ID/api/v1/data/service-4294929430
 ```
-(don't forget to replace $MEMBER_ID in the above URL with your member ID as shown by the 'source tools/set_env.sh command)
+
 
 While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
 
@@ -250,7 +250,12 @@ While the initial test service is the 'address book', your pod is not restricted
 When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
 To acquire a JWT for managing the pod, you get an 'account JWT':
 ```
-export ACCOUNT_JWT=$(curl -s --basic --cacert $ROOT_CA -u $ACCOUNT_USERNAME:$ACCOUNT_PASSWORD https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token); echo $ACCOUNT_JWT
+export ACCOUNT_JWT=$( \
+    curl -s --cacert $ROOT_CA \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -H "Content-Type: application/json" \
+    https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token
+); echo $ACCOUNT_JWT
 ```
 
 You can use the 'account' JWT to call REST APIs on the POD, ie.:

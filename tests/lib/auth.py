@@ -43,8 +43,12 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     else:
         url = base_url + '/v1/pod/authtoken'
 
-    response = requests.get(
-        url, auth=HTTPBasicAuth(str(id)[:8], secret)
+    response = requests.post(
+        url,
+        json={
+            'account': str(id)[:8],
+            'password': secret
+        }
     )
     result = response.json()
     auth_header = {

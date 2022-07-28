@@ -11,8 +11,6 @@ AZURE_POD_MEMBER_ID = 'dd8dfb20-7c22-4ea0-9341-ae997b242e12'
 AZURE_POD_SECRET_FILE = \
     'tests/collateral/local/azure-pod-account-secret.passwd'
 
-ADDRESSBOOK_SERVICE_ID = 4294929430
-
 BASE_URL = 'http://localhost:{PORT}/api'
 
 ADDRESSBOOK_SERVICE_ID = 4294929430
