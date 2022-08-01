@@ -18,11 +18,32 @@ _LOGGER = logging.getLogger(__name__)
 
 class AssetSearchRequestModel(BaseModel):
     hashtags: Optional[List[str]]
+    mentions: Optional[List[str]]
     handle: Optional[str]
     text: Optional[str]
+    asset_id: Optional[str]
 
     def __repr__(self):
         return ('<AssetSearch=(hashtag: str, handle: str, text: str)>')
+
+    def as_dict(self):
+        return {
+            'hashtag': self.hashtag,
+        }
+
+
+class AssetSubmitRequestModel(BaseModel):
+    hashtags: Optional[List[str]]
+    mentions: Optional[List[str]]
+    handle: Optional[str]
+    text: Optional[str]
+    asset_id: str
+
+    def __repr__(self):
+        return (
+            '<AssetSubmit=(hashtag: str, handle: str, text: str, handle: str, '
+            'asset_id: str)>'
+        )
 
     def as_dict(self):
         return {

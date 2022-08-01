@@ -43,6 +43,8 @@ class KVRedis(KVCache):
             if not self.password:
                 self.password = None
 
+        self.default_cache_expiration = DEFAULT_CACHE_EXPIRATION
+
         if not self.host:
             raise ValueError(
                 'A Redis host must be specified in the connection_string'
@@ -65,7 +67,7 @@ class KVRedis(KVCache):
 
         exists = ret != 0
 
-        _LOGGER.debug(f'Does key {key} exist: {exists}')
+        _LOGGER.debug(f'Key {key} exist: {exists}')
 
         return exists
 
@@ -85,6 +87,7 @@ class KVRedis(KVCache):
         if isinstance(value, bytes):
             data = value.decode('utf-8')
             _LOGGER.debug(f'Converted data to string: {data}')
+
             if len(data) > 1 and data[0] == '{' and data[-1] == '}':
                 try:
                     _LOGGER.debug('Attempting to deserialize JSON data')
@@ -135,12 +138,12 @@ class KVRedis(KVCache):
             expiration=DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
         Sets a key to the specified value. If the value is a dict
-        then it gets converted to a JSON string
+        or a list then it gets converted to a JSON string
         '''
 
         key = self.get_annotated_key(key)
 
-        if isinstance(value, dict):
+        if type(value) in (list, dict):
             value = orjson.dumps(value)
 
         ret = self.driver.set(key, value, ex=expiration)
@@ -196,6 +199,21 @@ class KVRedis(KVCache):
 
         return ret
 
+    def remove_from_list(self, key: str, value: str):
+        '''
+        Removes the first occurrence of a value from a list.
+
+        :returns: number of occurrences removed
+        '''
+
+        key = self.get_annotated_key(key)
+
+        result = self.driver.lrem(key, 1, value)
+
+        _LOGGER.debug(f'Removed {result} items from list for key {key}')
+
+        return result
+
     def shift(self, key: str) -> object:
         '''
         Removes the first item from the list and
@@ -235,3 +253,37 @@ class KVRedis(KVCache):
         _LOGGER.debug(f'Popped value {val} from end of list for key {key}')
 
         return val
+
+    def incr(self, key: str, amount: int = 1,
+             expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+        '''
+        Increments a counter, creates the counter is it doesn't exist already
+        '''
+
+        key = self.get_annotated_key(key)
+
+        if not self.exists(key):
+            self.set(key, 0, expiration=expiration)
+
+        value = self.driver.incr(key, amount)
+
+        return int(value)
+
+    def decr(self, key: str, amount: int = 1,
+             expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+        '''
+        Decrements a counter, sets it to 0 if it does not exist
+        or goes below 0
+        '''
+
+        key = self.get_annotated_key(key)
+
+        if not self.exists(key):
+            self.set(key, 0, expiration=expiration)
+
+        value = self.driver.decr(key, amount)
+        if int(value) < 0:
+            self.driver.set(key, 0)
+            value = 0
+
+        return int(value)

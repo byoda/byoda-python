@@ -251,20 +251,10 @@ When pods communicate with each other, they use Mutual-TLS with certificates sig
 To acquire a JWT for managing the pod, you get an 'account JWT':
 ```
 export ACCOUNT_JWT=$( \
-    curl -s --cacert $ROOT_CA \
+    curl -s \
     -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
     -H "Content-Type: application/json" \
-    https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token
-); echo $ACCOUNT_JWT
-```
-
-or, via the proxy:
-```
-export ACCOUNT_JWT=$( \
-    curl -s --cacert $ROOT_CA \
-    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
-    -H "Content-Type: application/json" \
-    https://proxy.byoda.net/$/api/v1/pod/authtoken | jq -r .auth_token
+    https://proxy.byoda.net/$ACCOUNT_ID/api/v1/pod/authtoken | jq -r .auth_token
 ); echo $ACCOUNT_JWT
 ```
 
@@ -276,29 +266,19 @@ curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOU
 If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
 export MEMBER_JWT=$( \
-    curl -s --cacert $ROOT_CA  \
-    -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
-    -H "Content-Type: application/json" \
-     https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
-```
-
-or, via the proxy:
-```
-export MEMBER_JWT=$( \
     curl -s   \
     -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
     -H "Content-Type: application/json" \
-     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
+     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken | jq -r .auth_token); echo $MEMBER_JWT
 ```
 
 You can use the member JWT to query GraphQL API on the pod:
 ```
 curl -s -X POST -H 'content-type: application/json' \
-    --cacert $ROOT_CA -H "Authorization: bearer $MEMBER_JWT" \
-    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    -H "Authorization: bearer $MEMBER_JWT" \
+    https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-
 A BYODA service doesn't just consist of namespaces and APIs on pods. A service also has to host an API server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \

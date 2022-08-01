@@ -38,7 +38,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     _LOGGER.debug(
         f'POST Authtoken API called from {request.client.host} with '
         f'username {auth_request.username}, '
-        f'with password {auth_request.password is not None}'
+        f'with password: {auth_request.password is not None} '
         f'and service_id {auth_request.service_id}'
     )
     account: Account = config.server.account
