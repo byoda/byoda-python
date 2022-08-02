@@ -41,8 +41,12 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
-from byoda import config
 from byoda.util.logger import LOGFILE, Logger
+
+from byoda import config
+
+from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 from podserver.util import get_environment_vars
 
@@ -58,6 +62,7 @@ _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/podworker.log'
 ADDRESSBOOK_ID = 4294929430
 NEWEST_TWEET_FILE = 'newest_tweet.txt'
+
 
 async def main(argv):
     # Remaining environment variables used:
@@ -223,9 +228,11 @@ def twitter_update_task():
     server: PodServer = config.server
 
     try:
-        _LOGGER.debug('Update Twitter data')
         if server.twitter_client:
+            _LOGGER.debug('Update Twitter data')
             fetch_tweets(server.twitter_client)
+        else:
+            _LOGGER.debug('Skipping Twitter update as it is not enabled')
 
     except Exception:
         _LOGGER.exception('Exception during twitter update')
@@ -341,6 +348,21 @@ def fetch_tweets(twitter_client: Twitter):
             )
             return
 
+        _LOGGER.debug(f'Successfully appended tweet {tweet["asset_id"]}')
+
+        if tweet.get('mentions') or tweet.get('hashtags'):
+            resp = RestApiClient.call_sync(
+                account.paths.SERVICEASSETSEARCH_API,
+                HttpMethod.POST, secret=member.tls_secret,
+                service_id=member.service_id, data={
+                    'mentions': tweet.get('mentions'),
+                    'hashtags': tweet.get('hashtags'),
+                    'asset_id': tweet['asset_id']
+                }
+            )
+            _LOGGER.debug(
+                'Asset search POST API response: %s', resp.status_code
+            )
     # Now we have persisted tweets in the pod, we can store
     # the ID of the newest tweet
     if len(all_tweets):
