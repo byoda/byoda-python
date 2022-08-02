@@ -103,7 +103,9 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     }
     response = requests.post(url, json=data)
     result = response.json()
-    print(f'Auth token for data {data}:', response.status_code)
+    if response.status_code != 200:
+        raise PermissionError(f'Failed to get auth token: {result}')
+
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
@@ -181,7 +183,7 @@ async def main(argv):
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
-        if action != 'query':
+        if action not in ('query', 'delete'):
             raise
 
     if action in ('query', 'append'):
@@ -204,7 +206,7 @@ async def main(argv):
 
     response = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS[object][action],
-        vars=vars, timeout=10, headers=auth_header
+        vars=vars, headers=auth_header, timeout=30
     )
     result = await response.json()
 
