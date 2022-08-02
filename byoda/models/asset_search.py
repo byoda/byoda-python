@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 class AssetSearchRequestModel(BaseModel):
     hashtags: Optional[List[str]]
     mentions: Optional[List[str]]
-    handle: Optional[str]
+    nickname: Optional[str]
     text: Optional[str]
     asset_id: Optional[str]
 
@@ -35,7 +35,7 @@ class AssetSearchRequestModel(BaseModel):
 class AssetSubmitRequestModel(BaseModel):
     hashtags: Optional[List[str]]
     mentions: Optional[List[str]]
-    handle: Optional[str]
+    nickname: Optional[str]
     text: Optional[str]
     asset_id: str
 

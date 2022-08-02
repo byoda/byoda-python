@@ -123,12 +123,13 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
         account_member: Member = \
             pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
+        data = {
+            'username': str(account_member.member_id)[:8],
+            'password': os.environ['ACCOUNT_SECRET'],
+            'service_id': ADDRESSBOOK_SERVICE_ID
+        }
         response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            json={
-                'account': str(account_member.member_id)[:8],
-                'password': os.environ['ACCOUNT_SECRET']
-            }
+            f'{BASE_URL}/v1/pod/authtoken', json=data
         )
         data = response.json()
         member_auth_header = {
