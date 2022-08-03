@@ -239,8 +239,8 @@ def twitter_update_task():
         raise
 
 
-def determine_newest_tweet(account: Account, member: Member,
-                           graphql_url: str) -> str:
+def find_newest_tweet(account: Account, member: Member, graphql_url: str
+                      ) -> str:
     '''
     This function first looks for a local file under /byoda to see if
     the ID of the newest tweet is stored there. If it is, it returns
@@ -312,7 +312,7 @@ def fetch_tweets(twitter_client: Twitter):
     graphql_url = f'https://{member.tls_secret.common_name}'
     graphql_url += GRAPHQL_API_URL_PREFIX.format(service_id=member.service_id)
 
-    newest_tweet = determine_newest_tweet(account, member, graphql_url)
+    newest_tweet = find_newest_tweet(account, member, graphql_url)
 
     all_tweets, referencing_tweets, media = \
         twitter_client.get_tweets(since_id=newest_tweet, with_related=True)
@@ -363,6 +363,11 @@ def fetch_tweets(twitter_client: Twitter):
             _LOGGER.debug(
                 'Asset search POST API response: %s', resp.status_code
             )
+        else:
+            _LOGGER.debug(
+                f'Asset {tweet["asset_id"]} has no mentions or hashtags'
+            )
+
     # Now we have persisted tweets in the pod, we can store
     # the ID of the newest tweet
     if len(all_tweets):
