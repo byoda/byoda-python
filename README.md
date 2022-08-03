@@ -300,6 +300,40 @@ In the address book schema, services are allowed to send requests to pods and co
 
 When services are allowed by their service contract to collect data from pods, they have to commit to not persist the data on their systems. They may cache the data in-memory for 48 hours but after that it must be automatically removed from the cache and the service will have to request the data from the pod again. This will allow people to keep control over their data while enabling people to discover other people using the service.
 
+## Twitter integration
+To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
+```
+# Set this to the API key you generated on the Twitter Dev portal
+export TWITTER_API_KEY=
+
+# Set this to the secret you generated on the Twitter Dev portal
+export TWITTER_KEY_SECRET=
+
+# Select your own handle or, if you don't tweet much,
+# set it to a handle of someone you like. Sample value: 'byoda_org'
+export TWITTER_USERNAME=
+```
+
+You can confirm that the tweets have been imported using the call-graphql tool:
+```
+cd byoda-python
+export PYTHONPATH=.
+source tools/set_env.sh
+tools/call_graphql.py --object tweets --action query
+```
+
+The centralized server for the 'address book' service hosts a search API. At this time, you can call it to look for mentions or hashtags.
+```
+sudo chmod a+rwx /byoda
+cd byoda-python
+source tools/set_env.sh
+curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+    --data '{"mentions": ["glynmoody"]}' \
+    -H "Content-Type: application/json" \
+	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .
+```
+
+The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.
 
 ## TODO:
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.
