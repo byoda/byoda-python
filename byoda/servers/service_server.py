@@ -14,6 +14,7 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 
 from byoda.datastore.memberdb import MemberDb
+from byoda.datastore.searchdb import SearchDB
 
 from byoda.secrets.member_secret import MemberSecret
 
@@ -49,13 +50,16 @@ class ServiceServer(Server):
         self.server_type = ServerType.SERVICE
 
         self.local_storage = network.paths.storage_driver
-        
+
         self.service = Service(
             network=self.network,
             service_id=app_config['svcserver']['service_id']
         )
 
         self.member_db: MemberDb = MemberDb(app_config['svcserver']['cache'])
+        self.search_db: SearchDB = SearchDB(
+            app_config['svcserver']['cache'], self.service
+        )
         self.member_db.service_id = self.service.service_id
 
         self.dns_resolver = DnsResolver(network.name)

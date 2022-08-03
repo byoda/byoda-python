@@ -23,8 +23,6 @@ from uuid import UUID, uuid4
 from multiprocessing import Process
 import uvicorn
 
-from requests.auth import HTTPBasicAuth
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
@@ -104,9 +102,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         TestDirectoryApis.PROCESS.terminate()
 
     def test_pod_rest_api_tls_client_cert(self):
-        account = config.server.account
-        account_id = account.account_id
-        network = account.network
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        network = pod_account.network
 
         account_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -188,8 +186,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         the TLS client secret of the Service
         '''
 
-        account: Account = config.server.account
-        network: Network = account.network
+        pod_account: Account = config.server.account
+        network: Network = pod_account.network
 
         service_id = ADDRESSBOOK_SERVICE_ID
         service_headers = {
@@ -215,22 +213,22 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     async def test_pod_rest_api_jwt(self):
 
-        account = config.server.account
-        account_id = account.account_id
-        await account.load_memberships()
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        await pod_account.load_memberships()
         service_id = ADDRESSBOOK_SERVICE_ID
-        member: Member = account.memberships.get(service_id)
+        account_member: Member = pod_account.memberships.get(service_id)
 
-        #
-        # This test fails because a member-JWT can't be used for REST APIs,
-        # only for GraphQL APIs
-        #
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                str(member.member_id)[:8], os.environ['ACCOUNT_SECRET']
-            )
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': os.environ['ACCOUNT_SECRET'],
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
         )
+
+        self.assertEqual(response.status_code, 200)
         data = response.json()
         member_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
@@ -238,17 +236,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         API = BASE_URL + '/v1/pod/account'
         response = requests.get(API, timeout=120, headers=member_auth_header)
+        # Test fails because account APIs can not be called with JWT
         self.assertEqual(response.status_code, 403)
 
         #
-        # Now we get an account-JWT
+        # Now we get an account-JWT with basic auth
         #
-        response = requests.get(
-            BASE_URL + '/v1/pod/authtoken',
-            auth=HTTPBasicAuth(
-                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
-            )
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(pod_account.account_id)[:8],
+                'password': os.environ['ACCOUNT_SECRET']
+            }
         )
+        self.assertEqual(response.status_code, 200)
         data = response.json()
         account_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
@@ -321,76 +322,119 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             data['location'], 'http://localhost/public/ls.bin'
         )
 
-    def test_auth_token_request(self):
-        account = config.server.account
-        account_id = account.account_id
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
-            )
+    async def test_auth_token_request(self):
+        pod_account = config.server.account
+        await pod_account.load_memberships()
+        account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        password = os.environ['ACCOUNT_SECRET']
+
+        # First we get an account JWT
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(pod_account.account_id)[:8],
+                'password': password,
+            }
         )
-        data = response.json()
         self.assertEqual(response.status_code, 200)
+        data = response.json()
+        account_jwt = data.get('auth_token')
+        self.assertTrue(isinstance(account_jwt, str))
+        auth_header = {
+            'Authorization': f'bearer {account_jwt}'
+        }
+        # Now we get a member JWT by using the account JWT
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
+            headers=auth_header
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
         self.assertTrue(isinstance(data.get("auth_token"), str))
 
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}'
+        # and then we get a member JWT using username/password
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': password,
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        account_jwt = data.get('auth_token')
+        self.assertTrue(isinstance(account_jwt, str))
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={'username': '', 'password': ''}
+        )
+        self.assertEqual(response.status_code, 401)
+        data = response.json()
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': 'wrong',
+                'password': os.environ['ACCOUNT_SECRET'],
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
+        )
+        self.assertEqual(response.status_code, 401)
+        data = response.json()
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': 'wrong',
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
+        )
+        self.assertEqual(response.status_code, 401)
+        data = response.json()
+        self.assertTrue('auth_token' not in data)
+
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': 'wrong',
+                'password': 'wrong',
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
         )
         data = response.json()
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                'wrong', os.environ['ACCOUNT_SECRET']
-            )
-        )
-        data = response.json()
-        self.assertEqual(response.status_code, 401)
-        self.assertTrue('auth_token' not in data)
-
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                str(account_id)[:8], 'wrong'
-            )
-        )
-        data = response.json()
-        self.assertEqual(response.status_code, 401)
-        self.assertTrue('auth_token' not in data)
-
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                'wrong', 'wrong'
-            )
-        )
-        data = response.json()
-        self.assertEqual(response.status_code, 401)
-        self.assertTrue('auth_token' not in data)
-
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            auth=HTTPBasicAuth(
-                '', ''
-            )
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': '',
+                'password': '',
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
         )
         data = response.json()
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
 
     async def test_graphql_addressbook_jwt(self):
-        account = config.server.account
-        account_id = account.account_id
+        pod_account = config.server.account
+        await pod_account.load_memberships()
+        account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
         service_id = ADDRESSBOOK_SERVICE_ID
-        response = requests.get(
-            BASE_URL + f'/v1/pod/authtoken/service_id/{service_id}',
-            auth=HTTPBasicAuth(
-                str(account_id)[:8], os.environ['ACCOUNT_SECRET']
-            )
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': os.environ['ACCOUNT_SECRET'],
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            }
         )
+        self.assertEqual(response.status_code, 200)
         result = response.json()
         auth_header = {
             'Authorization': f'bearer {result["auth_token"]}'
@@ -433,11 +477,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         result = await response.json()
         self.assertIsNotNone(result.get('errors'))
-
-        #
-        # JWT for the 'Azure POD' member.
-        # Test is obsolete as remote JWTs are no longer accepted
-        #
 
         # add network_link for the 'remote member'
         vars = {
@@ -650,7 +689,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Confirm we are not already in the network_links of the Azure pod
         azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
-        member = account.memberships[ADDRESSBOOK_SERVICE_ID]
+        account_member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
@@ -662,7 +701,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         edges = data['network_links_connection']['edges']
         filtered_edges = [
             edge for edge in edges
-            if edge['network_link']['member_id'] == member.member_id
+            if edge['network_link']['member_id'] == account_member.member_id
         ]
         link_to_us = None
         if filtered_edges:
@@ -670,7 +709,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         if not link_to_us:
             vars = {
-                'member_id': str(member.member_id),
+                'member_id': str(account_member.member_id),
                 'relation': 'family',
                 'created_timestamp': str(
                     datetime.now(tz=timezone.utc).isoformat()
@@ -698,7 +737,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(len(edges), 1)
             filtered_edges = [
                 edge for edge in edges
-                if edge['network_link']['member_id'] == str(member.member_id)
+                if edge['network_link']['member_id'] == str(
+                    account_member.member_id
+                )
             ]
             link_to_us = None
             if filtered_edges:
@@ -833,7 +874,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # and then we invite the Azure pod
         #
         vars = {
-            'member_id': str(member.member_id),
+            'member_id': str(account_member.member_id),
             'relation': 'friend',
             'text': 'I am my own best friend',
             'created_timestamp': str(
@@ -853,7 +894,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(value, vars[key])
 
         vars = {
-            'member_id': str(member.member_id),
+            'member_id': str(account_member.member_id),
             'relation': 'friend',
             'created_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
@@ -886,9 +927,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(data['total_count'], 100)
 
     async def test_graphql_addressbook_tls_cert(self):
-        account = config.server.account
-        account_id = account.account_id
-        network = account.network
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        network = pod_account.network
         url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
         service_id = ADDRESSBOOK_SERVICE_ID

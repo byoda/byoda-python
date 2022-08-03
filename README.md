@@ -157,13 +157,14 @@ and you'll see a bit more info than what you put in person.json as we only suppl
   }
 }
 ```
+
 As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a'
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "86c8c2f0-572e-4f58-a478-4037d2c9b94a",
+    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -183,7 +184,7 @@ cat >~invite.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object network_invites --action append --remote-member-id 86c8c2f0-572e-4f58-a478-4037d2c9b94a  --data-file ~invite.json --depth 1
+tools/call_graphql.py --object network_invites --action append --remote-member-id dd8dfb20-7c22-4ea0-9341-ae997b242e1278 --data-file ~invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
@@ -241,7 +242,7 @@ As you have seen in the GraphQL queries, the pod implements the data model of th
 ```
 https://proxy.byoda.net/4294929430/$MEMBER_ID/api/v1/data/service-4294929430
 ```
-(don't forget to replace $MEMBER_ID in the above URL with your member ID as shown by the 'source tools/set_env.sh command)
+
 
 While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
 
@@ -249,7 +250,12 @@ While the initial test service is the 'address book', your pod is not restricted
 When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
 To acquire a JWT for managing the pod, you get an 'account JWT':
 ```
-export ACCOUNT_JWT=$(curl -s --basic --cacert $ROOT_CA -u $ACCOUNT_USERNAME:$ACCOUNT_PASSWORD https://$ACCOUNT_FQDN/api/v1/pod/authtoken | jq -r .auth_token); echo $ACCOUNT_JWT
+export ACCOUNT_JWT=$( \
+    curl -s \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -H "Content-Type: application/json" \
+    https://proxy.byoda.net/$ACCOUNT_ID/api/v1/pod/authtoken | jq -r .auth_token
+); echo $ACCOUNT_JWT
 ```
 
 You can use the 'account' JWT to call REST APIs on the POD, ie.:
@@ -259,21 +265,24 @@ curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOU
 
 If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
-export MEMBER_JWT=$(curl -s --basic --cacert $ROOT_CA -u $MEMBER_USERNAME:$ACCOUNT_PASSWORD https://$MEMBER_ADDR_FQDN/api/v1/pod/authtoken/service_id/$SERVICE_ADDR_ID | jq -r .auth_token); echo $MEMBER_JWT
+export MEMBER_JWT=$( \
+    curl -s   \
+    -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
+    -H "Content-Type: application/json" \
+     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken | jq -r .auth_token); echo $MEMBER_JWT
 ```
 
 You can use the member JWT to query GraphQL API on the pod:
 ```
 curl -s -X POST -H 'content-type: application/json' \
-    --cacert $ROOT_CA -H "Authorization: bearer $MEMBER_JWT" \
-    https://$MEMBER_ADDR_FQDN/api/v1/data/service-$SERVICE_ADDR_ID \
+    -H "Authorization: bearer $MEMBER_JWT" \
+    https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-
 A BYODA service doesn't just consist of namespaces and APIs on pods. A service also has to host an API server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
-	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/steven@byoda.org  | jq .
+	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
 ```
 
 In the address book schema, services are allowed to send requests to pods and collect their member ID and e-mail address because for the 'email' property of the 'person' object, we have:
@@ -291,6 +300,40 @@ In the address book schema, services are allowed to send requests to pods and co
 
 When services are allowed by their service contract to collect data from pods, they have to commit to not persist the data on their systems. They may cache the data in-memory for 48 hours but after that it must be automatically removed from the cache and the service will have to request the data from the pod again. This will allow people to keep control over their data while enabling people to discover other people using the service.
 
+## Twitter integration
+To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
+```
+# Set this to the API key you generated on the Twitter Dev portal
+export TWITTER_API_KEY=
+
+# Set this to the secret you generated on the Twitter Dev portal
+export TWITTER_KEY_SECRET=
+
+# Select your own handle or, if you don't tweet much,
+# set it to a handle of someone you like. Sample value: 'byoda_org'
+export TWITTER_USERNAME=
+```
+
+You can confirm that the tweets have been imported using the call-graphql tool:
+```
+cd byoda-python
+export PYTHONPATH=.
+source tools/set_env.sh
+tools/call_graphql.py --object tweets --action query
+```
+
+The centralized server for the 'address book' service hosts a search API. At this time, you can call it to look for mentions or hashtags.
+```
+sudo chmod a+rwx /byoda
+cd byoda-python
+source tools/set_env.sh
+curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+    --data '{"mentions": ["glynmoody"]}' \
+    -H "Content-Type: application/json" \
+	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .
+```
+
+The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.
 
 ## TODO:
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.

@@ -246,7 +246,7 @@ server {
         add_header X-XSS-Protection "1; mode=block";
     }
 
-    # example: curl https://86c8c2f0:<password>@proxy.byoda.net/4294929430/86c8c2f0-572e-4f58-a478-4037d2c9b94a/api/v1/pod/authtoken/service_id/4294929430
+    # example: curl https://86c8c2f0:<password>@proxy.byoda.net/4294929430/86c8c2f0-572e-4f58-a478-4037d2c9b94a/api/v1/pod/authtoken
     location ~ ^\/(?<service>\d+)\/(?<memberid>[\da-fA-F\-]+)\/(?<api>.*)$ {
         proxy_pass https://$memberid.members-$service.byoda.net/$api;
     }

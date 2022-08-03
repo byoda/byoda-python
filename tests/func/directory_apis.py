@@ -28,7 +28,6 @@ from cryptography.hazmat.primitives import serialization
 from multiprocessing import Process
 import uvicorn
 
-# from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 

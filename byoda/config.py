@@ -8,6 +8,9 @@ provides global variables
 :license    : GPLv3
 '''
 
+from typing import Dict
+
+import aiohttp
 import requests
 
 DEFAULT_NETWORK = 'byoda.net'
@@ -36,3 +39,8 @@ request = requests.Session()
 # it is running as part of a test case to accept function parameters
 test_case: bool = False
 
+# Pool of aiohttp sessions, used by pods and service- and directory server:
+client_pools: Dict[str, aiohttp.ClientSession] = {}
+
+# Pool of requests sessions, used by podworker as it can't use asyncio.
+sync_client_pools: Dict[str, requests.Session] = {}

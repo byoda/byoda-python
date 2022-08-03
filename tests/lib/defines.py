@@ -6,12 +6,10 @@ Static variable definitions used in various test cases
 :license
 '''
 
-AZURE_POD_ACCOUNT_ID = '5890cede-6799-46f4-9357-986cd45f6909'
-AZURE_POD_MEMBER_ID = '86c8c2f0-572e-4f58-a478-4037d2c9b94a'
+AZURE_POD_ACCOUNT_ID = '7ea17e0e-19ae-4911-ab83-a165213810c4'
+AZURE_POD_MEMBER_ID = 'dd8dfb20-7c22-4ea0-9341-ae997b242e12'
 AZURE_POD_SECRET_FILE = \
     'tests/collateral/local/azure-pod-account-secret.passwd'
-
-ADDRESSBOOK_SERVICE_ID = 4294929430
 
 BASE_URL = 'http://localhost:{PORT}/api'
 

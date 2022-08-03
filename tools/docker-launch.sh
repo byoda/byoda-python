@@ -46,11 +46,20 @@ export NETWORK="byoda.net"
 export AWS_ACCESS_KEY_ID="changeme"
 export AWS_SECRET_ACCESS_KEY="changeme"
 
+# To import your Twitter public tweets, sign up for Twitter Developer program
+# at https://developer.twitter.com/
+# and set the following three environment variables
+export TWITTER_API_KEY=
+export TWITTER_KEY_SECRET=
+export TWITTER_USERNAME=
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
+
+# Set DAEMONIZE to FALSE to debug the podworker
+export DAEMONIZE=TRUE
 
 ACCOUNT_FILE=~/.byoda-account_id
 
@@ -82,8 +91,17 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     sudo rm -rf ${ROOT_DIR}/*
     sudo mkdir -p ${ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        which az > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "azure-cli not found, please install it with 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'"
+            exit 1
+        fi
         echo "Wiping all data of the pod"
         az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
+        if [ $? -ne 0 ]; then
+            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            exit 1
+        fi
     fi
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
@@ -176,6 +194,9 @@ sudo docker run -d \
     -e "ROOT_DIR=${ROOT_DIR}" \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
+    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
+    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
@@ -195,6 +216,9 @@ sudo docker run -d \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=${ROOT_DIR}" \
+    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
+    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
+    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest

@@ -106,7 +106,8 @@ class Member:
         self.data_secret: MemberDataSecret = None
         self.service_data_secret: ServiceDataSecret = None
 
-    async def setup(self, local_service_contract: str = None):
+    async def setup(self, local_service_contract: str = None,
+                    new_membership: bool = True):
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -120,7 +121,11 @@ class Member:
                 filepath = local_service_contract
                 verify_signatures = False
             else:
-                filepath = self.paths.service_file(self.service_id)
+                if new_membership:
+                    filepath = self.paths.service_file(self.service_id)
+                else:
+                    filepath = self.paths.member_service_file(self.service_id)
+
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
                 verify_signatures = True
 

@@ -185,7 +185,6 @@ class Account:
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
-                # TODO: Refactor to use RestClientApi
                 _LOGGER.debug(f'Getting CSR signed from {url}')
                 resp = await RestApiClient.call(
                     url, method=HttpMethod.POST, data=payload
@@ -293,7 +292,7 @@ class Account:
             )
 
         member = Member(service_id, self)
-        await member.setup()
+        await member.setup(new_membership=False)
 
         await member.load_secrets()
         member.data = MemberData(

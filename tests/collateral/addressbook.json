@@ -18,6 +18,11 @@
                         "type": "string"
                     },
                     "member_id": {
+                        "#accesscontrol": {
+                            "service": {
+                                "permissions": ["read"]
+                            }
+                        },
                         "description": "Membership UUID",
                         "format": "uuid",
                         "type": "string"
@@ -71,6 +76,111 @@
                 },
                 "type": "object",
                 "required": ["given_name", "family_name", "email"]
+            },
+            "twitter_account": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete"]
+                    },
+                    "service": {
+                        "permissions": ["read"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    }
+                },
+                "properties": {
+                    "twitter_id": {
+                        "description": "Twitter ID for the person",
+                        "type": "string"
+                    },
+                    "created_timestamp": {
+                        "description": "Date & time when the Twitter account was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "#accesscontrol": {
+                            "service": {
+                                "permissions": ["search:exact-caseinsensitive"]
+                            }
+                        },
+                        "description": "Twitter name of the person",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL for the person",
+                        "type": "string",
+                        "format": "iri"
+                    },
+                    "display_url": {
+                        "description": "Text to display for the URL for the person",
+                        "type": "string"
+                    },
+                    "pinned_tweet_id": {
+                        "description": "ID of the pinned tweet",
+                        "type": "string"
+                    },
+                    "profile_image_url": {
+                        "description": "URL for the profile image",
+                        "type": "string",
+                        "format": "iri"
+                    },
+                    "followers_count": {
+                        "description": "Number of followers",
+                        "type": "integer"
+                    },
+                    "following_count": {
+                        "description": "Number of people the person is following",
+                        "type": "integer"
+                    },
+                    "tweet_count": {
+                        "description": "Number of tweets",
+                        "type": "integer"
+                    },
+                    "listed_count": {
+                        "description": "Number of times the person has been listed",
+                        "type": "integer"
+                    },
+                    "handle": {
+                        "#accesscontrol": {
+                            "service": {
+                                "permissions": ["search:exact-caseinsensitive"]
+                            }
+                        },
+                        "description": "Twitter handle of the person",
+                        "type": "string"
+                    },
+                    "verified": {
+                        "description": "Whether the person is verified",
+                        "type": "boolean"
+                    },
+                    "withheld": {
+                        "description": "Twitter User.withheld field",
+                        "type": "string"
+                    }
+                },
+                "type": "object",
+                "required": ["twitter_id", "name", "username"]
+            },
+            "twitter_medias": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    },
+                    "service": {
+                        "permissions": ["read"]
+                    }
+
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/twitter_media"
+                }
+
             },
             "network_links": {
                 "#accesscontrol": {
@@ -183,6 +293,23 @@
                 "type": "array",
                 "items": {
                     "$ref": "/schemas/asset"
+                }
+            },
+            "tweets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    },
+                    "service": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/tweet"
                 }
             }
         },
@@ -383,12 +510,12 @@
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
-                        "description": "time the asset was created",
+                        "description": "time the asset was added to the pod",
                         "format": "date-time",
                         "type": "string"
                     },
                     "asset_id": {
-                            "description": "The UUID of the member that reacted to our asset",
+                            "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid"
                     },
@@ -405,7 +532,7 @@
                         "type": "string"
                     },
                     "created": {
-                        "description": "data of creation of this asset",
+                        "description": "date of creation of the content",
                         "type": "string",
                         "format": "date-time"
                     },
@@ -456,6 +583,163 @@
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
+            },
+            "twitter_media": {
+                "$id": "/schemas/twitter_media",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a Twitter tweet",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the asset was added to the pod",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "height": {
+                        "description": "height of the media",
+                        "type": "integer"
+                    },
+                    "width": {
+                        "description": "width of the media",
+                        "type": "integer"
+                    },
+                    "alt_text": {
+                        "description": "alernative text for the media if it can't be displayed",
+                        "type": "string"
+                    },
+                    "duration": {
+                        "description": "duration of the media",
+                        "type": "integer"
+                    },
+                    "media_key": {
+                        "description": "Twitter media key",
+                        "type": "string"
+                    },
+                    "preview_image_url": {
+                        "description": "URL of a preview image for the media",
+                        "type": "string"
+                    },
+                    "media_type": {
+                        "description": "type of media",
+                        "type": "string"
+                    },
+                    "view_count": {
+                        "description": "number of times the media has been viewed",
+                        "type": "integer"
+                    },
+                    "variants": {
+                        "description": "list of variants for the media",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "url": {
+                        "description": "URL of the media",
+                        "type": "string"
+                    }
+                },
+                "required": ["media_key"]
+            },
+            "tweet": {
+                "$id": "/schemas/asset",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a Twitter tweet",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the asset was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "asset_id": {
+                        "description": "The Twitter ID of the asset",
+                        "type": "string"
+                    },
+                    "lang": {
+                        "description": "language the contents of the tweet is in",
+                        "type": "string"
+                    },
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string"
+                    },
+                    "contents": {
+                        "description": "text for the asset",
+                        "type": "string"
+                    },
+                    "response_to": {
+                        "description": "Twitter ID of person who created the tweet this is a response to",
+                        "type": "string"
+                    },
+                    "conversation_id": {
+                        "description": "ID of the conversation this asset is part of",
+                        "type": "string"
+                    },
+                    "geo": {
+                        "description": "geographic location of the tweet",
+                        "type": "string"
+                    },
+                    "retweet_count": {
+                        "description": "number of times the tweet has been retweeted",
+                        "type": "integer"
+                    },
+                    "reply_count": {
+                        "description": "number of times the tweet has been replied to",
+                        "type": "integer"
+                    },
+                    "like_count": {
+                        "description": "number of times the tweet has been liked",
+                        "type": "integer"
+                    },
+                    "quote_count": {
+                        "description": "number of times the tweet has been quoted",
+                        "type": "integer"
+                    },
+                    "mentions": {
+                        "description": "list of Twitter IDs of people mentioned in the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "urls": {
+                        "description": "list of URLs in the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "references": {
+                        "description": "list of Twitter IDs of people who quoted or replied to the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "media_ids": {
+                        "description": "list of media uuids for attachments in the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hashtags": {
+                        "description": "list of hashtags in the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "assets": {
+                        "description": "list of assets in the tweet",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["created_timestamp", "asset_id", "contents"]
             }
         }
     },

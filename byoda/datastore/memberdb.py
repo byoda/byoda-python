@@ -27,7 +27,7 @@ MEMBER_ID_META_FORMAT = '{member_id}-meta'
 MEMBER_ID_DATA_FORMAT = '{member_id}-data'
 
 
-class MemberDb():
+class MemberDb:
     '''
     Store for registered members
 

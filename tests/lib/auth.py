@@ -12,8 +12,6 @@ import requests
 from uuid import UUID
 from typing import Tuple
 
-from requests.auth import HTTPBasicAuth
-
 from byoda.datatypes import IdType
 
 from byoda.datamodel.account import Account
@@ -37,15 +35,17 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
 
-    if member_token:
-        service_id = ADDRESSBOOK_SERVICE_ID
-        url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
-    else:
-        url = base_url + '/v1/pod/authtoken'
+    url = base_url + '/v1/pod/authtoken'
 
-    response = requests.get(
-        url, auth=HTTPBasicAuth(str(id)[:8], secret)
-    )
+    data = {
+        'account': str(id)[:8],
+        'password': secret
+    }
+    if member_token:
+        data['service_id'] = ADDRESSBOOK_SERVICE_ID
+
+    response = requests.post(url, json=data)
+
     result = response.json()
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'

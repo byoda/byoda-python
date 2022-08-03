@@ -23,7 +23,6 @@ from typing import Dict
 
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -47,7 +46,8 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 
 async def setup_network(test_dir: str) -> Dict[str, str]:
-    os.environ['ROOT_DIR'] = '/byoda'
+    if not os.environ.get('ROOT_DIR'):
+        os.environ['ROOT_DIR'] = '/byoda'
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
@@ -91,14 +91,21 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
     if member_token:
         service_id = ADDRESSBOOK_SERVICE_ID
-        url = base_url + f'/v1/pod/authtoken/service_id/{service_id}'
     else:
-        url = base_url + '/v1/pod/authtoken'
+        service_id = None
 
-    response = requests.get(
-        url, auth=HTTPBasicAuth(str(id)[:8], secret)
-    )
+    url = base_url + '/v1/pod/authtoken'
+
+    data = {
+        'username': str(id)[:8],
+        'password': secret,
+        'service_id': service_id,
+    }
+    response = requests.post(url, json=data)
     result = response.json()
+    if response.status_code != 200:
+        raise PermissionError(f'Failed to get auth token: {result}')
+
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
@@ -176,7 +183,7 @@ async def main(argv):
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
-        if action != 'query':
+        if action not in ('query', 'delete'):
             raise
 
     if action in ('query', 'append'):
@@ -199,7 +206,7 @@ async def main(argv):
 
     response = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS[object][action],
-        vars=vars, timeout=10, headers=auth_header
+        vars=vars, headers=auth_header, timeout=30
     )
     result = await response.json()
 

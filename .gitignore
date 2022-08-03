@@ -1,3 +1,5 @@
+.vscode/
+
 config.yml
 config-dnsdb-test.yml
 config-addressbook.yml

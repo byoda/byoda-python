@@ -41,8 +41,12 @@ from byoda import config
 
 from byoda.util.fastapi import setup_api
 
-from svcserver.routers import service
-from svcserver.routers import member
+from svcserver.routers import service as service_router
+from svcserver.routers import member as member_router
+from svcserver.routers import search as search_router
+from svcserver.routers import status as status_router
+
+from tests.lib.util import get_test_uuid
 
 # Settings must match config.yml used by directory server
 TEST_DIR = '/tmp/byoda-test/svc-apis'
@@ -121,13 +125,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
-            'v0.0.1', [], [service, member]
+            'v0.0.1', [], [
+                service_router, member_router, search_router, status_router
+            ]
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
             kwargs={
-                'host': '127.0.0.1',
+                'host': '0.0.0.0',
                 'port': TEST_PORT,
                 'log_level': 'debug'
             },
@@ -216,6 +222,58 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
         self.assertEqual(data['ipv6_address'], None)
+
+        asset_id = str(get_test_uuid())
+        API = BASE_URL + '/v1/service/search/asset'
+        response = requests.post(
+            API, headers=headers, json={
+                'mentions': ['blah'],
+                'asset_id': asset_id
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertTrue(
+            membersecret_commonname.startswith(data[0]['member_id'])
+        )
+        self.assertEqual(asset_id, data[0]['asset_id'])
+
+        response = requests.get(
+            API, headers=headers, json={
+                'mentions': ['blah']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertTrue(
+            membersecret_commonname.startswith(data[0]['member_id'])
+        )
+        self.assertEqual(asset_id, data[0]['asset_id'])
+
+        response = requests.delete(
+            API, headers=headers, json={
+                'mentions': ['blah'],
+                'asset_id': asset_id
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertTrue(
+            membersecret_commonname.startswith(data[0]['member_id'])
+        )
+        self.assertEqual(asset_id, data[0]['asset_id'])
+
+        response = requests.get(
+            API, headers=headers, json={
+                'mentions': ['blah']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 0)
 
 
 if __name__ == '__main__':

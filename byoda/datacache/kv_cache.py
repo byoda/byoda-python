@@ -35,16 +35,21 @@ class KVCache(ABC):
         # have been set yet at this stage of the initialization of the server
         self.namespace = None
 
-        if identifier:
+        if identifier is not None:
             self.identifier = identifier
         else:
             self.identifier = ''
 
     @staticmethod
-    def create(connection_string: str,
+    def create(connection_string: str, identifier: str = None,
                cache_tech: CacheTech = CacheTech.REDIS):
         '''
         Factory for a KV Cache
+
+        :param connection_string: connection string for Redis server
+        :param identifier: string to include in the key annotation
+        :param chache_tech: the cache technology to use, only Redis is
+        supported at this time
         '''
 
         if not connection_string:
@@ -52,7 +57,7 @@ class KVCache(ABC):
 
         if cache_tech == CacheTech.REDIS:
             from .kv_redis import KVRedis
-            kvr = KVRedis(connection_string)
+            kvr = KVRedis(connection_string, identifier)
             return kvr
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')

@@ -107,7 +107,7 @@ class MemberData(Dict):
         ie. for UUIDs and datetime
         '''
 
-        schema: Schema = self.member.schema
+        schema: Schema = self.member.service.schema
 
         if not schema:
             raise ValueError('Schema has not yet been loaded')
