@@ -60,13 +60,13 @@ def add_cors(app: FastAPI, cors_origins: List[str], allow_proxy: bool = True):
 
     network: Network = config.server.network
 
+    proxy_url = f'https://proxy.{network.name}'
+    if allow_proxy and proxy_url not in cors_origins:
+        cors_origins.append(proxy_url)
+
     _LOGGER.debug(
         f'Adding CORS middleware for origins {", ".join(cors_origins)}'
     )
-
-    proxy_url = f'https://proxy.{network.name}'
-    if proxy_url not in cors_origins:
-        cors_origins.append(proxy_url)
 
     app.add_middleware(
         CORSMiddleware,
