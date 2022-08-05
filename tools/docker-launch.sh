@@ -34,29 +34,56 @@ while [ $# -ge 1 ]; do
     shift
 done
 
+###
+### Start of variables that you can configure
+###
+
 # Set to "IGNORE" when not using cloud storage
 export BUCKET_PREFIX="changeme"
 # Set the following two variables to long random strings
 export ACCOUNT_SECRET="changeme"
 export PRIVATE_KEY_SECRET="changeme"
 
-export NETWORK="byoda.net"
-
-# These variables need to be set for pods on AWS:
+# These variables need to be set only for pods on AWS:
 export AWS_ACCESS_KEY_ID="changeme"
 export AWS_SECRET_ACCESS_KEY="changeme"
 
-# To import your Twitter public tweets, sign up for Twitter Developer program
-# at https://developer.twitter.com/
-# and set the following three environment variables
+# To impport your Twitter public tweets, sign up for Twitter Developer
+# program at https://developer.twitter.com/ and set the following three
+# environment variables (more instructions in
+# https://github.com/StevenHessing/byoda-python/README.md)
 export TWITTER_API_KEY=
 export TWITTER_KEY_SECRET=
 export TWITTER_USERNAME=
+
+# To use a custom domain, follow the instructions in the section
+# 'Certificates and browsers' in the README.md file.
+export CUSTOM_DOMAIN=
+export MANAGE_CUSTOM_DOMAIN_CERT=1
+
+###
+### No changes needed below this line
+###
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
+
+export PORTEIGHTY=
+if [ ! -z "${CUSTOM_DOMAIN}" ]; then
+    echo "Using custom domain: ${CUSTOM_DOMAIN}"
+    PUBLICIP=$(curl -s https://ifconfig.co)
+    DNSIP=$(host -t A ${CUSTOM_DOMAIN} | awk '{print $NF}')
+    if [ "${DNSIP}" != "${PUBLICIP}" ]; then
+        echo "Custom domain ${CUSTOM_DOMAIN} does not resolve to ${PUBLICIP}"
+        echo "Please update the DNS record or unset the CUSTOM_DOMAIN variable"
+        exit 1
+    fi
+    export PORTEIGHTY="-p 80:80"
+fie
+
+export NETWORK="byoda.net"
 
 # Set DAEMONIZE to FALSE to debug the podworker
 export DAEMONIZE=TRUE
@@ -179,7 +206,7 @@ sudo docker pull byoda/byoda-pod:latest
 if [[ "${CLOUD}" == "AWS" ]]; then
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
-    -p 443:443 \
+    -p 443:443 ${PORTEIGHTY} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
@@ -197,13 +224,14 @@ sudo docker run -d \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
     -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
+    -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest
 else
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
-    -p 443:443 \
+    -p 443:443 ${PORTEIGHTY} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
@@ -219,6 +247,7 @@ sudo docker run -d \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
     -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
+    -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     byoda/byoda-pod:latest

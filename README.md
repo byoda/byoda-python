@@ -158,13 +158,13 @@ and you'll see a bit more info than what you put in person.json as we only suppl
 }
 ```
 
-As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
+As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested information. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278'
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a",
+    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -236,7 +236,7 @@ With the 'distance: 1' parameter, only people that I have entries for in my 'net
     }
 ```
 and any member of the address book service will be able to query entries from that array. The 'network_links' array of objects is a special case in any datamodel as the pod will use the data in that array to evaluate the definition for 'network' access in the "#accesscontrol" clauses.
-Today, the max distance for network queries is '1' so you can only query the pods that have a network_link with you. In the future we'll explore increasing the distance while maintaining security and keeping the network scalable.
+Today, the max distance for network queries is '1' so you can only query the pods that have a network_link with you. In the future we'll explore increasing the distance while maintaining security and keeping the network scalable and performant.
 
 As you have seen in the GraphQL queries, the pod implements the data model of the address book and provides a GraphQL interface for it. You can browse to the GraphQL web-interface directly by pointing your browser the URL listed in the last line of the output of 'source tools/set-env.sh', ie.:
 ```
@@ -260,7 +260,8 @@ export ACCOUNT_JWT=$( \
 
 You can use the 'account' JWT to call REST APIs on the POD, ie.:
 ```
-curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" \
+    https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
 ```
 
 If you need to call the GraphQL API, you need to have a 'member' JWT:
@@ -279,7 +280,7 @@ curl -s -X POST -H 'content-type: application/json' \
     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-A BYODA service doesn't just consist of namespaces and APIs on pods. A service also has to host an API server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
@@ -334,6 +335,26 @@ curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY
 ```
 
 The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.
+
+## Certificates and browsers
+
+In the setup described above, browsers do not know about the Certificate Authority (CA) used by byoda.net and will throw a security warning when they connect directly to a pod. There are a couple of solutions for this problem, each with their own pros and cons:
+- [Download the CA root certificate](https://dir.byoda.net/network-byoda.net-root-ca-cert.pem) and install it in your browser. This solves the connection problem but it may cause your browser to trust any certificate signed by the byoda.net CA. The byoda.net CA server does not have the same security in place as CAs that are known by browsers and is therefor at higher risk
+of being compromised. If that were to happen and you would go to, for example, a banking website, your traffic is at risk of being intercepted and routed to a bogus website with
+a certificate signed by the hacked CA. For this reason, we do not recommend this solution and will not provide instructions on how to do this.
+- Point your browser to https://proxy.byoda.net/<service-id>/<member-id> and https://proxy.byoda.net/<account-id> and it will proxy your requests to your pod. The downside of this solution is that the proxy decrypts and re-encrypts all traffic. This includes the username/password you use to get a security token and the security token itself. Even if you trust us not to intercept that traffic, the proxy could be compromised and hackers could then configure it to intercept the traffic. As we are still in the early development cycles of Byoda, we believe this is a acceptable risk. After all, you also send your username and password to websites when you log in to those websites so it is a similar security risk.
+Use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
+- Request a 'wildcard-SSL' TLS certificate from Let's Encrypt for the specified domain
+- Create a virtual webserver for the domain
+- Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
+
+The procedure to use a custom domain is
+0: Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet.
+1: Register a domain with a domain registry, here we'll use 'example.org'
+2: Update the DNS data for your domain so that 'example.org' has an 'A' record for the public IP address of your pod
+3: Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
+4: Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+
 
 ## TODO:
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.

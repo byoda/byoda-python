@@ -17,6 +17,10 @@ from starlette_context.middleware import RawContextMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from byoda.datamodel.network import Network
+
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -38,17 +42,7 @@ def setup_api(title: str, description: str, version: str,
     )
 
     if cors_origins:
-        _LOGGER.debug(
-            f'Adding CORS middleware for origins {", ".join(cors_origins)}'
-        )
-
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=cors_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        add_cors(app, cors_origins)
 
     # FastAPIInstrumentor.instrument_app(app)
     # PrometheusInstrumentator().instrument(app).expose(app)
@@ -57,3 +51,27 @@ def setup_api(title: str, description: str, version: str,
         app.include_router(router.router)
 
     return app
+
+
+def add_cors(app: FastAPI, cors_origins: List[str], allow_proxy: bool = True):
+    '''
+    Add CORS headers to the app
+    '''
+
+    network: Network = config.server.network
+
+    _LOGGER.debug(
+        f'Adding CORS middleware for origins {", ".join(cors_origins)}'
+    )
+
+    proxy_url = f'https://proxy.{network.name}'
+    if proxy_url not in cors_origins:
+        cors_origins.append(proxy_url)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=['*'],
+        allow_headers=['*'],
+    )

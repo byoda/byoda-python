@@ -32,7 +32,7 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
 
-from byoda.util.fastapi import setup_api
+from byoda.util.fastapi import setup_api, add_cors
 
 from .util import get_environment_vars
 
@@ -151,6 +151,14 @@ async def setup():
     nginx_config.create(htaccess_password=pod_account.password)
     nginx_config.reload()
 
+    cors_origins = [
+        f'https://proxy.{network.name}',
+        f'https://{pod_account.tls_secret.common_name}'
+    ]
+
     for account_member in pod_account.memberships.values():
         account_member.enable_graphql_api(app)
         await account_member.update_registration()
+        cors_origins.append(f'https://{account_member.tls_secret.common_name}')
+
+    add_cors(app, cors_origins)
