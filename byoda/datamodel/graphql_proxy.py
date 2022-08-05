@@ -162,7 +162,7 @@ class GraphQlProxy:
 
         response = await GraphQlClient.call(
             url, query_string, vars=query_data['variables'],
-            secret=self.member.tls_secret, timeout=3
+            secret=self.member.tls_secret, timeout=10
         )
 
         body = await response.json()
