@@ -46,6 +46,7 @@ python-dateutil = "*"
 scheduler = "*"
 schedule = "*"
 typing-extensions = "*"
+certbot = "*"
 
 [dev-packages]
 flake8 = "*"
