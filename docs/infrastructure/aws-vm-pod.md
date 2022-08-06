@@ -65,7 +65,6 @@ if [ ! -f ~/.ssh/id_ed25519-${SSH_KEY} ]; then
 fi
 ```
 
-
 Create the VM:
 ```
 TAGS='ResourceType=instance,Tags=[{Key=Name,Value=byoda-pod-aws}]'
@@ -85,8 +84,10 @@ VPC_ID=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reserva
 SG_ID=$(aws ec2 describe-security-groups --region $REGION | jq -r '.SecurityGroups | . [] | .GroupId'); echo "Security Group ID: ${SG_ID}"
 
 MY_IP=$(curl -s ifconfig.co)
-aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr ${MY_IP}/32 --region ${REGION}
 aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 443 --cidr 0.0.0.0/0 --region ${REGION}
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 80 --cidr 0.0.0.0/0 --region ${REGION}
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr ${MY_IP}/32 --region ${REGION}
+
 ```
 
 ## Create the S3 storage bucket
