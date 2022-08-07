@@ -301,6 +301,26 @@ In the address book schema, services are allowed to send requests to pods and co
 
 When services are allowed by their service contract to collect data from pods, they have to commit to not persist the data on their systems. They may cache the data in-memory for 48 hours but after that it must be automatically removed from the cache and the service will have to request the data from the pod again. This will allow people to keep control over their data while enabling people to discover other people using the service.
 
+## Certificates and browsers
+
+In the setup described above, browsers do not know about the Certificate Authority (CA) used by byoda.net and will throw a security warning when they connect directly to a pod. There are a couple of solutions for this problem, each with their own pros and cons:
+### Use a Byoda proxy
+Point your browser to https://proxy.byoda.net/<service-id>/<member-id> and https://proxy.byoda.net/<account-id> and it will proxy your requests to your pod. The downside of this solution is that the proxy decrypts and re-encrypts all traffic. This includes the username/password you use to get a security token and the security token itself. Even if you trust us not to intercept that traffic, the proxy could be compromised and hackers could then configure it to intercept the traffic. As we are still in the early development cycles of Byoda, we believe this is a acceptable risk. After all, you also send your username and password to websites when you log in to those websites so it is a similar security risk.
+
+### Custom domain
+ You can use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
+- Request a TLS certificate from Let's Encrypt for the specified domain
+- Create a virtual webserver for the domain
+- Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
+The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
+
+The procedure to use a custom domain is:
+0. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
+1. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+2. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
+3. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
+4. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+
 ## Twitter integration
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
 ```
@@ -315,7 +335,7 @@ export TWITTER_KEY_SECRET=
 export TWITTER_USERNAME=
 ```
 
-You can confirm that the tweets have been imported using the call-graphql tool:
+When you launch the pod with these settings. A worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call-graphql tool:
 ```
 cd byoda-python
 export PYTHONPATH=.
@@ -323,7 +343,7 @@ source tools/set_env.sh
 tools/call_graphql.py --object tweets --action query
 ```
 
-The centralized server for the 'address book' service hosts a search API. At this time, you can call it to look for mentions or hashtags.
+When it is importing tweets, the worker in the pod will call a backend server of the 'address book' service to upload metadata about the tweets. This provides the data for a search API. At this time, you can call it to look for mentions or hashtags.
 ```
 sudo chmod a+rwx /byoda
 cd byoda-python
@@ -335,25 +355,6 @@ curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY
 ```
 
 The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.
-
-## Certificates and browsers
-
-In the setup described above, browsers do not know about the Certificate Authority (CA) used by byoda.net and will throw a security warning when they connect directly to a pod. There are a couple of solutions for this problem, each with their own pros and cons:
-- Point your browser to https://proxy.byoda.net/<service-id>/<member-id> and https://proxy.byoda.net/<account-id> and it will proxy your requests to your pod. The downside of this solution is that the proxy decrypts and re-encrypts all traffic. This includes the username/password you use to get a security token and the security token itself. Even if you trust us not to intercept that traffic, the proxy could be compromised and hackers could then configure it to intercept the traffic. As we are still in the early development cycles of Byoda, we believe this is a acceptable risk. After all, you also send your username and password to websites when you log in to those websites so it is a similar security risk.
-- Use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
-  - Request a TLS certificate from Let's Encrypt for the specified domain
-  - Create a virtual webserver for the domain
-  - Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
-The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
-
-The procedure to use a custom domain is
-  0. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
-  1. Register a domain with a domain registry, here we'll use 'byoda.example.org'
-  2. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
-  3. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
-  4. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
-
-- [Download the CA root certificate](https://dir.byoda.net/network-byoda.net-root-ca-cert.pem) and install it in your browser. This solves the connection problem but it may cause your browser to trust any certificate signed by the byoda.net CA. The byoda.net CA server does not have the same security in place as CAs that are known by browsers and is therefor at higher risk of being compromised. If that were to happen and you would go to, for example, a banking website, your traffic is at risk of being intercepted and routed to a bogus website with a certificate signed by the hacked CA. For this reason, we do not recommend this solution and will not provide instructions on how to do this.
 
 ## TODO:
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.
