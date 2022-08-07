@@ -20,7 +20,7 @@ There are two ways to install the pod:
     - Create an account with the cloud provider of choice
     - Create a VM with a public IP address, The VM should have at least 1GB of memory and 8GB of disk space.
     - Create two buckets (AWS/GCP) or storage accounts (Azure).
-        - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public').
+        - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public'). The bucket names have to be globally unique so you may have to try different strings.
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Follow the cloud-specific instructions for creating the VM to run the pod on
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
@@ -34,13 +34,14 @@ There are two ways to install the pod:
 2. Install the pod as a docker container in a server in your home.
     - Ports 443 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
+    - Detailed instructions are available for running the pod on your [server](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/server-pod.md)
 
 To launch the pod:
 - Log in to your VM or server.
-- Clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
+- Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
 
 ```
-sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip
+sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
 

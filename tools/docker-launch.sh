@@ -59,7 +59,16 @@ export TWITTER_USERNAME=
 # To use a custom domain, follow the instructions in the section
 # 'Certificates and browsers' in the README.md file.
 export CUSTOM_DOMAIN=
-export MANAGE_CUSTOM_DOMAIN_CERT=1
+export LETSENCRYPT_DIRECTORY="/var/www/letsencrypt"
+
+# To install the pod on a (physical) server that already has nginx running,
+# set the SHARED_WEBSERVER variable to 'SHARED_WEBSERVER'
+export SHARED_WEBSERVER=
+
+# To install the pod on a (physical) server that already has nginx running,
+# and listens to port 80, and you want to use a CUSTOM_DOMAIN, unset the
+# MANAGE_CUSTOM_DOMAIN_CERT variable
+export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
 
 ###
 ### No changes needed below this line
@@ -70,11 +79,23 @@ if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "
     exit 1
 fi
 
+export PORT_MAPPINGS="-p 443:443 -p 444:444"
+if [[ "${SHARED_WEBSERVER}" == "SHARED_WEBSERVER" ]]; then
+    echo "Running on a shared webserver"
+    if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
+        echo "Using custom domain: ${CUSTOM_DOMAIN}"
+        export PORT_MAPPINGS="-p 8000:8000 -p 80:80"
+    else
+        export PORT_MAPPINGS="-p 8000:8000"
+    fi
+fi
+
 export PORTEIGHTY=
+export LETSENCRYPT_VOLUME_MOUNT=
 if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     echo "Using custom domain: ${CUSTOM_DOMAIN}"
     PUBLICIP=$(curl -s https://ifconfig.co)
-    DNSIP=$(host -t A ${CUSTOM_DOMAIN} | awk '{print $NF}')
+    DNSIP=$(host -t A ${CUSTOM_DOMAIN} | tail -1 | awk '{print $NF}')
     if [ "${DNSIP}" != "${PUBLICIP}" ]; then
         echo "Custom domain ${CUSTOM_DOMAIN} does not resolve to ${PUBLICIP}"
         echo "Please update the DNS record or unset the CUSTOM_DOMAIN variable"
@@ -82,6 +103,18 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     fi
     # This variable is used when creating the docker container
     export PORTEIGHTY="-p 80:80"
+
+    if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
+        if [ ! -d "${LETSENCRYPT_DIRECTORY}" ]; then
+            mkdir =p ${LETSENCRYPT_DIRECTORY}
+        fi
+        export LETSENCRYPT_VOLUME_MOUNT="-v ${LETSENCRYPT_DIRECTORY}:/etc/letsencrypt"
+    fi
+fi
+
+export AWS_CREDENTIALS=
+if [ ! -z "${AWS_ACCESS_KEY_ID}" ]; then
+    export AWS_CREDENTIALS="-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
 fi
 
 export NETWORK="byoda.net"
@@ -171,6 +204,10 @@ if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
     rm ${ACCOUNT_FILE}
     sudo rm /var/www/wwwroot/logs/*
+    if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
+        echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
+        sudo rm -rf ${LETSENCRYPT_DIRECTORY}/*
+    fi
 fi
 
 if [ -f "${ACCOUNT_FILE}" ]; then
@@ -204,32 +241,6 @@ fi
 echo "Creating container for account_id ${ACCOUNT_ID}"
 sudo docker pull byoda/byoda-pod:latest
 
-if [[ "${CLOUD}" == "AWS" ]]; then
-sudo docker run -d \
-    --name byoda --restart=unless-stopped \
-    -p 443:443 -p 444:444 ${PORTEIGHTY} \
-    -e "WORKERS=1" \
-    -e "CLOUD=${CLOUD}" \
-    -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
-    -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
-    -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
-    -e "NETWORK=${NETWORK}" \
-    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
-    -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
-    -e "LOGLEVEL=${LOGLEVEL}" \
-    -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
-    -e "BOOTSTRAP=BOOTSTRAP" \
-    -e "ROOT_DIR=${ROOT_DIR}" \
-    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
-    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
-    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
-    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
-    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
-    -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
-    -v ${ROOT_DIR}:${ROOT_DIR} \
-    -v ${LOGDIR}:${LOGDIR} \
-    byoda/byoda-pod:latest
-else
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
     -p 443:443 -p 444:444 ${PORTEIGHTY} \
@@ -248,8 +259,9 @@ sudo docker run -d \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
     -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
+    ${AWS_CREDENTIALS} \
     -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
+    ${LETSENCRYPT_VOLUME_MOUNT} \
     byoda/byoda-pod:latest
-fi
