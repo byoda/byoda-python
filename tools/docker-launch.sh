@@ -70,6 +70,10 @@ export SHARED_WEBSERVER=
 # MANAGE_CUSTOM_DOMAIN_CERT variable
 export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
 
+# set DEBUG if you are interested in debug logs and troubleshooting the
+# processes in the pod
+export DEBUG=
+
 ###
 ### No changes needed below this line
 ###
@@ -79,19 +83,6 @@ if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "
     exit 1
 fi
 
-export PORT_MAPPINGS="-p 443:443 -p 444:444"
-if [[ "${SHARED_WEBSERVER}" == "SHARED_WEBSERVER" ]]; then
-    echo "Running on a shared webserver"
-    if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
-        echo "Using custom domain: ${CUSTOM_DOMAIN}"
-        export PORT_MAPPINGS="-p 8000:8000 -p 80:80"
-    else
-        export PORT_MAPPINGS="-p 8000:8000"
-    fi
-fi
-
-export PORTEIGHTY=
-export LETSENCRYPT_VOLUME_MOUNT=
 if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     echo "Using custom domain: ${CUSTOM_DOMAIN}"
     PUBLICIP=$(curl -s https://ifconfig.co)
@@ -101,14 +92,29 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
         echo "Please update the DNS record or unset the CUSTOM_DOMAIN variable"
         exit 1
     fi
-    # This variable is used when creating the docker container
-    export PORTEIGHTY="-p 80:80"
 
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
         if [ ! -d "${LETSENCRYPT_DIRECTORY}" ]; then
             mkdir =p ${LETSENCRYPT_DIRECTORY}
         fi
         export LETSENCRYPT_VOLUME_MOUNT="-v ${LETSENCRYPT_DIRECTORY}:/etc/letsencrypt"
+    fi
+fi
+
+if [[ "${SHARED_WEBSERVER}" == "SHARED_WEBSERVER" ]]; then
+    echo "Running on a shared webserver"
+    if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
+        echo "Using custom domain: ${CUSTOM_DOMAIN}"
+        export PORT_MAPPINGS="-p 8000:8000 -p 80:80"
+    else
+        export PORT_MAPPINGS="-p 8000:8000"
+    fi
+else
+    export PORT_MAPPINGS="-p 443:443 -p 444:444"
+
+    if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
+        echo "Using custom domain: ${CUSTOM_DOMAIN}"
+        export PORT_MAPPINGS="-p 443:443 -p 444:444 -p 80:80"
     fi
 fi
 
@@ -243,7 +249,7 @@ sudo docker pull byoda/byoda-pod:latest
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
-    -p 443:443 -p 444:444 ${PORTEIGHTY} \
+    ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
@@ -261,6 +267,8 @@ sudo docker run -d \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
     ${AWS_CREDENTIALS} \
     -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
+    -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
+    -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
     -v ${LOGDIR}:${LOGDIR} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
