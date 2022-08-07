@@ -315,11 +315,11 @@ Point your browser to https://proxy.byoda.net/[service-id]/[member-id] and https
 The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
 
 The procedure to use a custom domain is:
-0. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
-1. Register a domain with a domain registry, here we'll use 'byoda.example.org'
-2. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
-3. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
-4. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
+2. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+3. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
+4. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
+5. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
 
 ## Twitter integration
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
