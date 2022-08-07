@@ -25,7 +25,7 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 _LOGGER = logging.getLogger(__name__)
 
-POD_TO_POD_PORT = 443
+POD_TO_POD_PORT = 444
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')

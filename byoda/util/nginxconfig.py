@@ -52,8 +52,8 @@ class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
                  alias: str, network: str, public_cloud_endpoint: str,
-                 private_cloud_endpoint: str,
-                 port: int, service_id: int = None, root_dir: str = '/byoda'):
+                 private_cloud_endpoint: str, port: int, service_id: int = None,
+                 root_dir: str = '/byoda', custom_domain: str = None):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -72,6 +72,7 @@ class NginxConfig(TargetConfig):
         :param private_cloud_endpoint: FQDN for the endpoint of the
         private bucket
         :param service_id: service ID for the membership, if applicable
+        :param custom_domain: a custom domain to use for the virtual server
         '''
 
         self.identifier: str = str(identifier)
@@ -87,6 +88,7 @@ class NginxConfig(TargetConfig):
         self.filename: str = filename
         self.root_dir: str = root_dir
         self.port: int = port
+        self.custom_domain: str = custom_domain
 
         if self.subdomain == IdType.ACCOUNT.value:
             self.config_filepath = f'{directory}/account.conf'
@@ -131,7 +133,8 @@ class NginxConfig(TargetConfig):
             private_cloud_endpoint=self.private_cloud_endpoint,
             root_dir=self.root_dir,
             service_id=self.service_id,
-            port=self.port
+            port=self.port,
+            custom_domain=self.custom_domain,
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)

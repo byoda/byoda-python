@@ -22,9 +22,20 @@ echo "ACCOUNT_ID: $ACCOUNT_ID"
 echo "ACCOUNT_SECRET $ACCOUNT_SECRET"
 echo "PRIVATE_KEY_SECRET: $PRIVATE_KEY_SECRET"
 echo "BOOTSTRAP: $BOOTSTRAP"
+echo "CUSTOM_DOMAIN: ${CUSTOM_DOMAIN}"
 echo "FastAPI workers: ${WORKERS}"
 
 cd /podserver/byoda-python
+
+if [[ -n "${CUSTOM_DOMAIN}" ]]; then
+    if [[ -f "/etc/letsencrypt/live/${CUSTOM_DOMAIN}/privkey.pem" ]]; then
+        # Certbot will only call Let's Encrypt APIs if cert is due for renewal
+        pipenv run certbot renew
+    else
+        pipenv run certbot certonly --webroot -w /var/www/wwwroot/ -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN}
+    fi
+fi
+
 pipenv run podserver/podworker.py
 
 PODWORKER_FAILURE=$?

@@ -54,6 +54,7 @@ def get_environment_vars() -> Dict:
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
         'root_dir': os.environ.get('ROOT_DIR'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
+        'custom_domain': os.environ.get('CUSTOM_DOMAIN'),
         'roles': ['pod'],
     }
 

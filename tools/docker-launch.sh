@@ -80,8 +80,9 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
         echo "Please update the DNS record or unset the CUSTOM_DOMAIN variable"
         exit 1
     fi
+    # This variable is used when creating the docker container
     export PORTEIGHTY="-p 80:80"
-fie
+fi
 
 export NETWORK="byoda.net"
 
@@ -206,7 +207,7 @@ sudo docker pull byoda/byoda-pod:latest
 if [[ "${CLOUD}" == "AWS" ]]; then
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
-    -p 443:443 ${PORTEIGHTY} \
+    -p 443:443 -p 444:444 ${PORTEIGHTY} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
@@ -231,7 +232,7 @@ sudo docker run -d \
 else
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
-    -p 443:443 ${PORTEIGHTY} \
+    -p 443:443 -p 444:444 ${PORTEIGHTY} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
     -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \

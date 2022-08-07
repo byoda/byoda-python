@@ -6,7 +6,9 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
+import os
 import logging
+import subprocess
 
 from uuid import uuid4, UUID
 from copy import copy
@@ -53,6 +55,8 @@ from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)
+
+LETSENCRYPT_ROOT_DIR = '/etc/letsencrypt/live'
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
@@ -301,6 +305,76 @@ class Member:
 
         return member
 
+    def get_custom_domain_cert_directory(self) -> str:
+        '''
+        Gets the Let's Encrypt directory for the custom domain
+        '''
+
+        server = config.server
+
+        cert_subdir = f'{self.member_id}.{server.custom_domain}'
+        cert_dir = f'{LETSENCRYPT_ROOT_DIR}/{cert_subdir}'
+        return cert_dir
+
+    def manage_custom_domain_cert(self) -> bool:
+        '''
+        Checks whether a certificate from Let's Encrypt exists for the
+        membership. If it doesn't exist then it attempts to get it. Otherwise
+        it will attempt to renew it.
+
+        :returns: whether a certificate is available for using it in the
+        nginx configuration
+        '''
+
+        server: PodServer = config.server
+        if not server.custom_domain:
+            raise ValueError('There is no custom domain configured')
+
+        cert_dir = self.get_custom_domain_cert_directory()
+
+        certchain_file = f'{cert_dir}/fullchain.pem'
+        if not os.path.exists(certchain_file):
+            _LOGGER.debug(
+                f'Certificate for {self.member_id} for '
+                f'service {self.service_id} does not exist'
+            )
+            created = self.create_custom_domain_cert()
+            return created
+        else:
+            return True
+
+    def create_custom_domain_cert(self) -> bool:
+        '''
+        Creates / requests an SSL certificate for the membership
+        in the custom domain
+
+        :returns: whether the cert was successfully created
+        '''
+
+        server: PodServer = config.server
+        custom_domain: str = server.custom_domain
+
+        _LOGGER(f'Creating a Lets Encrypt certificate for {self.service_id}')
+        try:
+            result = subprocess.run(
+                [
+                    'pipenv' 'run' 'certbot' 'certonly',
+                    '--webroot', '-w', '/var/www/wwwroot'
+                    '-n', '--agree-tos', '--email',
+                    f'postmaster@{custom_domain}',
+                    '-d', f'{self.member_id}.{custom_domain}'
+                ],
+                cwd='/podserver/byoda-python', timeout=120, shell=False
+            )
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError
+                ) as exc:
+            _LOGGER.warning(
+                f'Failed to get certificate from Lets Encrypt: {exc}'
+            )
+            return False
+
+        return True
+
     async def create_nginx_config(self):
         '''
         Generates the Nginx virtual server configuration for
@@ -335,7 +409,8 @@ class Member:
             ),
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,
-            root_dir=config.server.network.paths.root_directory
+            root_dir=config.server.network.paths.root_directory,
+            custom_domain=None,         # TODO: do we need custom_domain for memberships?
         )
 
         nginx_config.create()

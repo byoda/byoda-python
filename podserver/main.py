@@ -61,6 +61,7 @@ async def setup():
 
     # Remaining environment variables used:
     network_data = get_environment_vars()
+    server.custom_domain = network_data['custom_domain']
 
     if str(network_data['debug']).lower() == 'true':
         config.debug = True
@@ -145,7 +146,8 @@ async def setup():
             storage_type=StorageType.PRIVATE
         ),
         port=PodServer.HTTP_PORT,
-        root_dir=server.network.paths.root_directory
+        root_dir=server.network.paths.root_directory,
+        custom_domain=server.custom_domain
     )
 
     nginx_config.create(htaccess_password=pod_account.password)
