@@ -158,13 +158,13 @@ async def setup():
         f'https://{pod_account.tls_secret.common_name}'
     ]
 
+    if server.custom_domain:
+        cors_origins.append(server.custom_domain)
+
     for account_member in pod_account.memberships.values():
         account_member.enable_graphql_api(app)
         await account_member.update_registration()
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
-
-    if server.custom_domain:
-        cors_origins.append(server.custom_domain)
 
     _LOGGER.debug('Going to add CORS Origins')
     add_cors(app, cors_origins)

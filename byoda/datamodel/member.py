@@ -340,7 +340,7 @@ class Member:
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,
             root_dir=config.server.network.paths.root_directory,
-            custom_domain=None,  # TODO: need custom_domain for memberships?
+            custom_domain=None,
         )
 
         nginx_config.create()

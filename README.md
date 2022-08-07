@@ -315,7 +315,7 @@ Point your browser to https://proxy.byoda.net/[service-id]/[member-id] and https
 The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
 
 The procedure to use a custom domain is:
-1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
+1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate, port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
 2. Register a domain with a domain registry, here we'll use 'byoda.example.org'
 3. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
 4. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
@@ -335,7 +335,7 @@ export TWITTER_KEY_SECRET=
 export TWITTER_USERNAME=
 ```
 
-When you launch the pod with these settings. A worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call-graphql tool:
+When you launch the pod with these settings, a worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call-graphql tool:
 ```
 cd byoda-python
 export PYTHONPATH=.

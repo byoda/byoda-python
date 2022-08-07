@@ -78,7 +78,7 @@ az network nsg rule create \
     --source-address-prefixes Internet
 
 az network nsg rule create \
-    --name https \
+    --name https-alt \
     --nsg-name byoda-nsg \
     --resource-group ${RG} \
     --priority 1002 \
