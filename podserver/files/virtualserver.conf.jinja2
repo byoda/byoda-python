@@ -9,13 +9,13 @@ server {
 {%     if subdomain == 'accounts' or True %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
-    ssl_certificate_key {{ '/etc/letsencrypt/live/' + custom_domain + '/fullchain.pem' }};
-    ssl_certificate {{ '/etc/letsencrypt/live/' + custom_domain + '/privkey.pem' }};
+    ssl_certificate_key {{ '/etc/letsencrypt/live/' + custom_domain + '/privkey.pem' }};
+    ssl_certificate {{ '/etc/letsencrypt/live/' + custom_domain + '/fullchain.pem' }};
 {%     else %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ identifier }}.{{ custom_domain }};
 
-    ssl_certificate_key {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/fullchain.pem' }};
-    ssl_certificate {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/privkey.pem' }};
+    ssl_certificate_key {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/privkey.pem' }};
+    ssl_certificate {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/fullchain.pem' }};
 {%     endif %}
 {% else %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
