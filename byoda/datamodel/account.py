@@ -300,8 +300,6 @@ class Account:
         )
 
         if member.member_id not in self.memberships:
-            # if config.server.custom_domain:
-            #     member.manage_custom_domain_cert()
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
