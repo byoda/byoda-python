@@ -49,7 +49,7 @@ To create an Ubuntu 22.04 VM, browse to the [Ubuntu AWS marketplace](https://aws
 
 Now find the AWS image for Ubuntu 22.04:
 ```
-REGION="us-east2"
+REGION="us-east-2"
 IMAGE_FILTER="Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server*"
 IMAGE_SORT='sort_by(Images, &CreationDate)[-1].{Name: Name, ImageId: ImageId, CreationDate: CreationDate, Owner:OwnerId}'
 AMI_ID=$(aws ec2 describe-images --output json --region $REGION --filters ${IMAGE_FILTER} --query "${IMAGE_SORT}" | jq -r .ImageId)
@@ -85,6 +85,7 @@ SG_ID=$(aws ec2 describe-security-groups --region $REGION | jq -r '.SecurityGrou
 
 MY_IP=$(curl -s ifconfig.co)
 aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 443 --cidr 0.0.0.0/0 --region ${REGION}
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 444 --cidr 0.0.0.0/0 --region ${REGION}
 aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 80 --cidr 0.0.0.0/0 --region ${REGION}
 aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr ${MY_IP}/32 --region ${REGION}
 

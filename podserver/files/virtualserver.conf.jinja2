@@ -34,6 +34,13 @@ server {
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
+    }
+
+    location /logs {
+        root   /var/www/wwwroot/;
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
 
         auth_basic  "Log Area";
         # Location of auth file defined in byoda-python:/podserver/bootstrap/nginxconfig.py

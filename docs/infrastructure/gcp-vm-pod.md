@@ -61,6 +61,10 @@ gcloud compute firewall-rules create allow-https \
     --allow TCP:443 \
     --priority 2000
 
+gcloud compute firewall-rules create allow-https-alt \
+    --allow TCP:444 \
+    --priority 2002
+
 gcloud compute firewall-rules create allow-http \
     --allow TCP:80 \
     --priority 2005

@@ -78,6 +78,17 @@ az network nsg rule create \
     --source-address-prefixes Internet
 
 az network nsg rule create \
+    --name https \
+    --nsg-name byoda-nsg \
+    --resource-group ${RG} \
+    --priority 1002 \
+    --access Allow \
+    --direction Inbound \
+    --protocol TCP \
+    --destination-port-ranges 444 \
+    --source-address-prefixes Internet
+
+az network nsg rule create \
     --name http \
     --nsg-name byoda-nsg \
     --resource-group ${RG} \
