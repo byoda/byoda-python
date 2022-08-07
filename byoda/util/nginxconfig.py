@@ -52,8 +52,9 @@ class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
                  alias: str, network: str, public_cloud_endpoint: str,
-                 private_cloud_endpoint: str, port: int, service_id: int = None,
-                 root_dir: str = '/byoda', custom_domain: str = None):
+                 private_cloud_endpoint: str, port: int,
+                 service_id: int = None, root_dir: str = '/byoda',
+                 custom_domain: str = None):
         '''
         Manages nginx configuration files for virtual servers
 
