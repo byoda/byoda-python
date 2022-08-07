@@ -25,7 +25,7 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 _LOGGER = logging.getLogger(__name__)
 
-POD_TO_POD_PORT = 443
+POD_TO_POD_PORT = 444
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -162,7 +162,7 @@ class GraphQlProxy:
 
         response = await GraphQlClient.call(
             url, query_string, vars=query_data['variables'],
-            secret=self.member.tls_secret, timeout=3
+            secret=self.member.tls_secret, timeout=10
         )
 
         body = await response.json()

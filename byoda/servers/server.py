@@ -42,6 +42,11 @@ class Server:
         self.paths: Paths = None
         self.started: datetime = datetime.now(timezone.utc)
 
+        # The POD will get its own TLS certificate and private key
+        # for this custom domain so people can connect to it with
+        # their browsers
+        self.custom_domain: str = None
+
     async def load_secrets(self, password: str = None):
         '''
         Loads the secrets of the server

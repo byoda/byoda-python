@@ -5,29 +5,38 @@ server {
     listen       443 ssl;
 {% endif %}
 
+{% if custom_domain %}
+{%     if subdomain == 'accounts' or True %}
+    server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
+
+    ssl_certificate_key {{ '/etc/letsencrypt/live/' + custom_domain + '/privkey.pem' }};
+    ssl_certificate {{ '/etc/letsencrypt/live/' + custom_domain + '/fullchain.pem' }};
+{%     else %}
+    server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ identifier }}.{{ custom_domain }};
+
+    ssl_certificate_key {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/privkey.pem' }};
+    ssl_certificate {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/fullchain.pem' }};
+{%     endif %}
+{% else %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 
     # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
     ssl_certificate_key {{ key_filepath }};
     ssl_certificate {{ cert_filepath }};
+{% endif %}
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
-    ssl_verify_client optional;
-
-{% if subdomain == 'accounts' %}
-    ssl_verify_depth 2;
-{% else %}
-    ssl_verify_depth 4;
-{% endif -%}
-
-    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
-    ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
-
-    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
-    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+    ssl_verify_client off;
 
 {% if subdomain == 'accounts' %}
     location / {
+        root   /var/www/wwwroot/;
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+
+    location /logs {
         root   /var/www/wwwroot/;
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
@@ -107,3 +116,57 @@ server {
         proxy_pass {{ public_cloud_endpoint }};
     }
 }
+
+
+{% if subdomain != 'accounts' %}
+
+# Server listens on port 444 for traffic coming from other pods. These
+# connections will use M-TLS authentication
+
+server {
+    listen       444 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
+    server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
+
+    # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
+    ssl_certificate_key {{ key_filepath }};
+    ssl_certificate {{ cert_filepath }};
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
+    ssl_verify_client on;
+
+    ssl_verify_depth 4;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
+    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+
+    location = /member-cert.pem {
+        alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
+    }
+
+    location = /member-data-cert.pem {
+        alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:{{ port }};
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
+        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
+        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+    }
+
+    location /public/ {
+        proxy_pass {{ public_cloud_endpoint }};
+    }
+}
+
+{% endif %}

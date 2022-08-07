@@ -52,20 +52,28 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 
 gsutil iam ch allUsers:legacyObjectReader gs://${STRAGE_PREFIX}-public
 
-gs
 ```
 9. Create the VM
 Let's create an Ubuntu 22.04 VM
 ```
 MY_IP=$(curl -s ifconfig.co)
+gcloud compute firewall-rules create allow-https \
+    --allow TCP:443 \
+    --priority 2000
+
+gcloud compute firewall-rules create allow-https-alt \
+    --allow TCP:444 \
+    --priority 2002
+
+gcloud compute firewall-rules create allow-http \
+    --allow TCP:80 \
+    --priority 2005
+
 gcloud compute firewall-rules create allow-remote-ssh \
     --allow TCP:22 \
     --priority 2010 \
     --source-ranges="${MY_IP}/32"
 
-gcloud compute firewall-rules create allow-https \
-    --allow TCP:443 \
-    --priority 2000
 
 VM_IP=$(gcloud compute instances create ${VM_NAME} \
     --image-family=ubuntu-minimal-2204-lts \

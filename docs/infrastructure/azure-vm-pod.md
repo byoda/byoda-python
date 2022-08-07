@@ -40,6 +40,7 @@ az storage account create \
     --sku Standard_LRS \
     --allow-blob-public-access False \
     --min-tls-version TLS1_2
+
 PRIVATE_SA_ID=$( \
     az storage account show \
         --name "${STORAGE_PREFIX}private" \
@@ -74,6 +75,28 @@ az network nsg rule create \
     --direction Inbound \
     --protocol TCP \
     --destination-port-ranges 443 \
+    --source-address-prefixes Internet
+
+az network nsg rule create \
+    --name https-alt \
+    --nsg-name byoda-nsg \
+    --resource-group ${RG} \
+    --priority 1002 \
+    --access Allow \
+    --direction Inbound \
+    --protocol TCP \
+    --destination-port-ranges 444 \
+    --source-address-prefixes Internet
+
+az network nsg rule create \
+    --name http \
+    --nsg-name byoda-nsg \
+    --resource-group ${RG} \
+    --priority 1005 \
+    --access Allow \
+    --direction Inbound \
+    --protocol TCP \
+    --destination-port-ranges 80 \
     --source-address-prefixes Internet
 
 az network nsg rule create \

@@ -217,7 +217,7 @@ async def put_member(request: Request, service_id: int, version: int,
         member.upgrade()
 
 
-@router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',
+@router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',      # noqa: E501
              response_model=UploadResponseModel)
 async def post_member_upload(request: Request, file: UploadFile,
                              service_id: int, visibility: VisibilityType,

@@ -158,13 +158,13 @@ and you'll see a bit more info than what you put in person.json as we only suppl
 }
 ```
 
-As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested informaiton. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
+As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested information. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278'
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278-4037d2c9b94a",
+    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -236,7 +236,7 @@ With the 'distance: 1' parameter, only people that I have entries for in my 'net
     }
 ```
 and any member of the address book service will be able to query entries from that array. The 'network_links' array of objects is a special case in any datamodel as the pod will use the data in that array to evaluate the definition for 'network' access in the "#accesscontrol" clauses.
-Today, the max distance for network queries is '1' so you can only query the pods that have a network_link with you. In the future we'll explore increasing the distance while maintaining security and keeping the network scalable.
+Today, the max distance for network queries is '1' so you can only query the pods that have a network_link with you. In the future we'll explore increasing the distance while maintaining security and keeping the network scalable and performant.
 
 As you have seen in the GraphQL queries, the pod implements the data model of the address book and provides a GraphQL interface for it. You can browse to the GraphQL web-interface directly by pointing your browser the URL listed in the last line of the output of 'source tools/set-env.sh', ie.:
 ```
@@ -260,7 +260,8 @@ export ACCOUNT_JWT=$( \
 
 You can use the 'account' JWT to call REST APIs on the POD, ie.:
 ```
-curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" \
+    https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
 ```
 
 If you need to call the GraphQL API, you need to have a 'member' JWT:
@@ -279,7 +280,7 @@ curl -s -X POST -H 'content-type: application/json' \
     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-A BYODA service doesn't just consist of namespaces and APIs on pods. A service also has to host an API server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
@@ -300,6 +301,26 @@ In the address book schema, services are allowed to send requests to pods and co
 
 When services are allowed by their service contract to collect data from pods, they have to commit to not persist the data on their systems. They may cache the data in-memory for 48 hours but after that it must be automatically removed from the cache and the service will have to request the data from the pod again. This will allow people to keep control over their data while enabling people to discover other people using the service.
 
+## Certificates and browsers
+
+In the setup described above, browsers do not know about the Certificate Authority (CA) used by byoda.net and will throw a security warning when they connect directly to a pod. There are a couple of solutions for this problem, each with their own pros and cons:
+### Use a Byoda proxy
+Point your browser to https://proxy.byoda.net/[service-id]/[member-id] and https://proxy.byoda.net/[account-id] and it will proxy your requests to your pod. The downside of this solution is that the proxy decrypts and re-encrypts all traffic. This includes the username/password you use to get a security token and the security token itself. Even if you trust us not to intercept that traffic, the proxy could be compromised and hackers could then configure it to intercept the traffic. As we are still in the early development cycles of Byoda, we believe this is a acceptable risk. After all, you also send your username and password to websites when you log in to those websites so it is a similar security risk.
+
+### Custom domain
+ You can use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
+- Request a TLS certificate from Let's Encrypt for the specified domain
+- Create a virtual webserver for the domain
+- Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
+The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
+
+The procedure to use a custom domain is:
+1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate, port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
+2. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+3. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
+4. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
+5. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+
 ## Twitter integration
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
 ```
@@ -314,7 +335,7 @@ export TWITTER_KEY_SECRET=
 export TWITTER_USERNAME=
 ```
 
-You can confirm that the tweets have been imported using the call-graphql tool:
+When you launch the pod with these settings, a worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call-graphql tool:
 ```
 cd byoda-python
 export PYTHONPATH=.
@@ -322,7 +343,7 @@ source tools/set_env.sh
 tools/call_graphql.py --object tweets --action query
 ```
 
-The centralized server for the 'address book' service hosts a search API. At this time, you can call it to look for mentions or hashtags.
+When it is importing tweets, the worker in the pod will call a backend server of the 'address book' service to upload metadata about the tweets. This provides the data for a search API. At this time, you can call it to look for mentions or hashtags.
 ```
 sudo chmod a+rwx /byoda
 cd byoda-python

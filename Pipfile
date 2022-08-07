@@ -45,9 +45,11 @@ cchardet = "*"
 python-dateutil = "*"
 scheduler = "*"
 schedule = "*"
+typing-extensions = "*"
+certbot = "*"
 
 [dev-packages]
 flake8 = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.10"

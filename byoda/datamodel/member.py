@@ -6,7 +6,9 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
+import os
 import logging
+import subprocess
 
 from uuid import uuid4, UUID
 from copy import copy
@@ -53,6 +55,8 @@ from byoda.util.api_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)
+
+LETSENCRYPT_ROOT_DIR = '/etc/letsencrypt/live'
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
@@ -335,7 +339,8 @@ class Member:
             ),
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,
-            root_dir=config.server.network.paths.root_directory
+            root_dir=config.server.network.paths.root_directory,
+            custom_domain=None,
         )
 
         nginx_config.create()
