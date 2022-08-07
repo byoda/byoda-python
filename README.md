@@ -339,22 +339,21 @@ The search API does not return the content but returns the member_id and asset_i
 ## Certificates and browsers
 
 In the setup described above, browsers do not know about the Certificate Authority (CA) used by byoda.net and will throw a security warning when they connect directly to a pod. There are a couple of solutions for this problem, each with their own pros and cons:
-- [Download the CA root certificate](https://dir.byoda.net/network-byoda.net-root-ca-cert.pem) and install it in your browser. This solves the connection problem but it may cause your browser to trust any certificate signed by the byoda.net CA. The byoda.net CA server does not have the same security in place as CAs that are known by browsers and is therefor at higher risk
-of being compromised. If that were to happen and you would go to, for example, a banking website, your traffic is at risk of being intercepted and routed to a bogus website with
-a certificate signed by the hacked CA. For this reason, we do not recommend this solution and will not provide instructions on how to do this.
 - Point your browser to https://proxy.byoda.net/<service-id>/<member-id> and https://proxy.byoda.net/<account-id> and it will proxy your requests to your pod. The downside of this solution is that the proxy decrypts and re-encrypts all traffic. This includes the username/password you use to get a security token and the security token itself. Even if you trust us not to intercept that traffic, the proxy could be compromised and hackers could then configure it to intercept the traffic. As we are still in the early development cycles of Byoda, we believe this is a acceptable risk. After all, you also send your username and password to websites when you log in to those websites so it is a similar security risk.
-Use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
-- Request a 'wildcard-SSL' TLS certificate from Let's Encrypt for the specified domain
-- Create a virtual webserver for the domain
-- Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
+- Use a custom domain with your pod. When you provide a custom domain using the CUSTOM_DOMAIN environment variable to your pod, the pod will:
+  - Request a TLS certificate from Let's Encrypt for the specified domain
+  - Create a virtual webserver for the domain
+  - Periodically renew the certificate (Let's Encrypt sets expiration to 90 days)
+The benefit is that you can connect with your browser directly to your pod but you'll need to register and manage a domain with a domain registrar.
 
 The procedure to use a custom domain is
-0: Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet.
-1: Register a domain with a domain registry, here we'll use 'example.org'
-2: Update the DNS data for your domain so that 'example.org' has an 'A' record for the public IP address of your pod
-3: Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
-4: Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+  0. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate. Port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
+  1. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+  2. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
+  3. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
+  4. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
 
+- [Download the CA root certificate](https://dir.byoda.net/network-byoda.net-root-ca-cert.pem) and install it in your browser. This solves the connection problem but it may cause your browser to trust any certificate signed by the byoda.net CA. The byoda.net CA server does not have the same security in place as CAs that are known by browsers and is therefor at higher risk of being compromised. If that were to happen and you would go to, for example, a banking website, your traffic is at risk of being intercepted and routed to a bogus website with a certificate signed by the hacked CA. For this reason, we do not recommend this solution and will not provide instructions on how to do this.
 
 ## TODO:
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-graphql' are currently the only user interface.
