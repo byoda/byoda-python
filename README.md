@@ -280,7 +280,7 @@ curl -s -X POST -H 'content-type: application/json' \
     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can  use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
