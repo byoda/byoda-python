@@ -1,22 +1,15 @@
 server {
-{% if subdomain == 'accounts' %}
+{% if subdomain == 'accounts' and not shared_webserver %}
     listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
 {% else %}
-    listen       443 ssl;
+    listen       443 ssl http2;
 {% endif %}
 
-{% if custom_domain %}
-{%     if subdomain == 'accounts' or True %}
+{% if subdomain == 'accounts' and custom_domain %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
     ssl_certificate_key {{ '/etc/letsencrypt/live/' + custom_domain + '/privkey.pem' }};
     ssl_certificate {{ '/etc/letsencrypt/live/' + custom_domain + '/fullchain.pem' }};
-{%     else %}
-    server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ identifier }}.{{ custom_domain }};
-
-    ssl_certificate_key {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/privkey.pem' }};
-    ssl_certificate {{ '/etc/letsencrypt/live/' + identifier + '.' + custom_domain + '/fullchain.pem' }};
-{%     endif %}
 {% else %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 
@@ -118,18 +111,28 @@ server {
 }
 
 
-{% if subdomain != 'accounts' %}
-
 # Server listens on port 444 for traffic coming from other pods. These
 # connections will use M-TLS authentication
 
 server {
+{% if subdomain == 'accounts' and not shared_webserver %}
     listen       444 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
+{% else %}
+    listen       444 ssl http2;
+{% endif %}
+
+{% if subdomain == 'accounts' and custom_domain %}
+    server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
+
+    ssl_certificate_key {{ '/etc/letsencrypt/live/' + custom_domain + '/privkey.pem' }};
+    ssl_certificate {{ '/etc/letsencrypt/live/' + custom_domain + '/fullchain.pem' }};
+{% else %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 
     # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
     ssl_certificate_key {{ key_filepath }};
     ssl_certificate {{ cert_filepath }};
+{% endif %}
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
     ssl_verify_client on;
@@ -168,5 +171,3 @@ server {
         proxy_pass {{ public_cloud_endpoint }};
     }
 }
-
-{% endif %}

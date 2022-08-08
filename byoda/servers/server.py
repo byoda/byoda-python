@@ -47,6 +47,10 @@ class Server:
         # their browsers
         self.custom_domain: str = None
 
+        # The POD will manage the nginx process if it is not running
+        # on a shared webserver
+        self.shared_webserver: bool = False
+
     async def load_secrets(self, password: str = None):
         '''
         Loads the secrets of the server

@@ -20,7 +20,7 @@ There are two ways to install the pod:
     - Create an account with the cloud provider of choice
     - Create a VM with a public IP address, The VM should have at least 1GB of memory and 8GB of disk space.
     - Create two buckets (AWS/GCP) or storage accounts (Azure).
-        - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public').
+        - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public'). The bucket names have to be globally unique so you may have to try different strings.
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Follow the cloud-specific instructions for creating the VM to run the pod on
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
@@ -32,26 +32,37 @@ There are two ways to install the pod:
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
-    - Ports 443 on your server must be available for the pod to use and must be accessible from the Internet
+    - TCP ports 443 and port 444 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
+    - Detailed instructions are available for running the pod on your [server](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/server-pod.md)
 
 To launch the pod:
 - Log in to your VM or server.
-- Clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
+- Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
 
 ```
-sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip
+sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
+
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
 
-- Copy and edit the tools/docker-launch.sh script and modify the following variables at the top of the script
-    - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
+If (and only if) you created a new VM in a public cloud for your pod then create a swap file:
+```
+SWAP=$(free | grep -i swap | awk '{ print $4;}')
+if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
+    sudo fallocate -l 512m /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
+fi
+```
+
+- Copy and edit the tools/docker-launch.sh script and modify the following variables starting at line 42 of the script
+    - BUCKET_PREFIX
     - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
     - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
   - if you deployed a VM on AWS, also edit the variables:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
   - Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
+  - You can ignore the other variables that can be set in this file. They'll be discussed in other sections of the documentation
 
 ```
 cd byoda-python
@@ -89,21 +100,21 @@ curl -s https://dir.byoda.net/api/v1/network/services | jq .
 Currently there is only a test service called 'address book'. We can use curl to confirm that the pod has discovered this service in the network:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
-    --pass $PASSPHRASE https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+    --pass $PASSPHRASE https://$ACCOUNT_FQDN:444/api/v1/pod/account | jq .
 ```
 
 We can make our pod join the address book service:
 ```
 curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
      --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
+    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
 The pod returns amongst others the cert & key that you can use to call the APIs on the pod for that specific membershp.
 
 We can confirm that our pod has joined the service with:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
+    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
 We quickly now update our environment variables to pick up the new membership:
@@ -164,7 +175,7 @@ Now suppose you want to follow me. The member ID of the Address Book service of 
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278",
+    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e12",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -267,7 +278,7 @@ curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" \
 If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
 export MEMBER_JWT=$( \
-    curl -s   \
+    curl -s \
     -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
     -H "Content-Type: application/json" \
      https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken | jq -r .auth_token); echo $MEMBER_JWT
@@ -280,7 +291,7 @@ curl -s -X POST -H 'content-type: application/json' \
     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host a server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
@@ -316,10 +327,12 @@ The benefit is that you can connect with your browser directly to your pod but y
 
 The procedure to use a custom domain is:
 1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate, port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
-2. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+2. Register a domain with a domain registry, here we'll use 'example.org'
 3. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
 4. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
 5. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+
+You can now point your browser to your pod: https://byoda.example.org (or the dns record you actually created.)
 
 ## Twitter integration
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
