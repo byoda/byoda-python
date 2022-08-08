@@ -11,7 +11,9 @@ On the networking side, the requirements are:
     - 444/TCP. Other pods send queries to your port using this port
 2. The pod must be able to connect out to Internet for the above ports and must be able to perform DNS queries. If you have a NAT function on your home router then you'll need to create mappings on your home router to forward traffic for these ports to your server.
 
-If you already have an nginx webserver then you still may be able to use it together with your pod by volume mounting the /etc/nginx/conf.d directory in your pod and by setting the 'SHARED_WEBSERVER' environment variable in the docker-launch.sh script. The pod will add the following configuration files in the directory:
+If you already have an nginx webserver then you still may be able to use it together with your pod by volume mounting the /etc/nginx/conf.d directory in your pod and by setting the 'SHARED_WEBSERVER' environment variable in the docker-launch.sh script. Consider that running on a shared webserver lowers the security of the pod as anyone with shell access to your server will be able to bypass the cert-based authentication on your pod and, with root privileges, will be able to sniff the unencrypted data exchange between nginx and the application server.
+
+The pod will add the following configuration files in the /etc/nginx/conf.d directory:
 - account.conf: this is the virtual server that hosts the management page of the pod
 - virtualserver.conf.jinja2: this is a template used for generating a virtual server for each service that you join. Nginx ignores configuration files that do not have the '.conf' extension.
 - member-[uuid].conf: this is the virtual server for your membership of a service.
