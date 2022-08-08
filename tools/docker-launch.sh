@@ -181,7 +181,7 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     PRIVATE_BUCKET=${BUCKET_PREFIX}private
     PUBLIC_BUCKET=${BUCKET_PREFIX}public
     echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         which az > /dev/null 2>&1
@@ -200,7 +200,7 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
     echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
@@ -214,7 +214,7 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         exit 1
     fi
     echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
@@ -226,7 +226,7 @@ else
     echo "Not running in a public cloud"
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
-        sudo rm -rf ${BYODA_ROOT_DIR} 2>/dev/null
+        sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
         sudo mkdir -p ${BYODA_ROOT_DIR}
         rm ${ACCOUNT_FILE}
     fi
@@ -235,11 +235,11 @@ fi
 if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
     rm ${ACCOUNT_FILE}
-    sudo rm /var/www/wwwroot/logs/*
+    sudo rm -f -I --preserve-root=all /var/www/wwwroot/logs/*
     sudo rm ${BYODA_ROOT_DIR}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
         echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
-        sudo rm -rf ${LETSENCRYPT_DIRECTORY}/*
+        sudo rm -rf -I --preserve-root=all ${LETSENCRYPT_DIRECTORY}/*
     fi
 fi
 
@@ -267,7 +267,7 @@ sudo docker rm byoda  2>/dev/null
 
 if [[ "${CLOUD}" != "LOCAL" ]]; then
     # Wipe the cache directory
-    sudo rm -rf ${BYODA_ROOT_DIR} 2>/dev/null
+    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
     sudo mkdir -p ${BYODA_ROOT_DIR}
 fi
 
