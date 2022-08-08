@@ -42,7 +42,10 @@ To launch the pod:
 
 ```
 sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
-sudo fallocate -l 512m /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
+SWAP=$(free | grep -i swap | awk '{ print $4;}')
+if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
+    sudo fallocate -l 512m /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
+fi
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
 
