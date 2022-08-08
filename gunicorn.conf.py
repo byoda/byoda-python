@@ -18,9 +18,16 @@ import multiprocessing
 # Sample config file:
 # https://gist.github.com/HacKanCuBa/275bfca09d614ee9370727f5f40dab9e
 
-# BIND parameter is set in systemd file
 
 forwarded_allow_ips = os.environ.get('TRUSTED_IP', '127.0.0.1')
+
+# BIND parameter is set in systemd file for the dirserver and svcserver
+# but we set it here for the podserver.
+if os.environ.get('SHARED_WEBSERVER'):
+    bind = '0.0.0.0:8000'
+else:
+    bind = '127.0.0.1:8000'
+
 
 workers = int(os.environ.get('WORKERS', 2))
 

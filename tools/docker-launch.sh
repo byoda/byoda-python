@@ -72,7 +72,7 @@ export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
 
 # With this option set to a directory, you can access the logs from the pod
 # on the host VM or server as it will be volume mounted in the pod.
-export LOCAL_LOG_DIRECTORY=
+export LOCAL_WWWROOT_DIRECTORY=
 
 # If you are not running in a cloud VM then you can change this to the
 # directory where all data of the pod should be stored
@@ -109,10 +109,10 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     fi
 fi
 
-export LOG_VOLUME_MOUNT=
-if [[ -n "${LOCAL_LOG_DIRECTORY}" ]]; then
-    echo "Volume mounting log directory: ${LOCAL_LOG_DIRECTORY}"
-    export LOG_VOLUME_MOUNT="-v ${LOCAL_LOG_DIRECTORY}:/var/www/wwwroot/logs"
+export WWWROOT_VOLUME_MOUNT=
+if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
+    echo "Volume mounting log directory: ${LOCAL_WWWROOT_DIRECTORY}"
+    export WWWROOT_VOLUME_MOUNT="-v ${LOCAL_WWWROOT_DIRECTORY}:/var/www/wwwroot"
 fi
 
 export NGINXCONF_VOLUME_MOUNT=""
@@ -286,7 +286,7 @@ sudo docker run -d \
     -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
     -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
     -v ${BYODA_ROOT_DIR}:/byoda \
-    ${LOG_VOLUME_MOUNT} \
+    ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \
     byoda/byoda-pod:latest
