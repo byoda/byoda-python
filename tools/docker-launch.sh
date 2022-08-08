@@ -91,6 +91,11 @@ if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "
     exit 1
 fi
 
+if [[ -z "${BYODA_ROOT_DIR}" || "${BYODA_ROOT_DIR}" == "/" ]]; then
+    echo "Set the BYODA_ROOT_DIR variable in this script"
+    exit 1
+fi
+
 if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     echo "Using custom domain: ${CUSTOM_DOMAIN}"
     PUBLICIP=$(curl -s https://ifconfig.co)
@@ -101,7 +106,7 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
         exit 1
     fi
 
-    if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
+    if [ -n "${LETSENCRYPT_DIRECTORY}" ]; then
         if [ ! -d "${LETSENCRYPT_DIRECTORY}" ]; then
             mkdir =p ${LETSENCRYPT_DIRECTORY}
         fi
@@ -226,6 +231,7 @@ if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
     rm ${ACCOUNT_FILE}
     sudo rm /var/www/wwwroot/logs/*
+    sudo rm ${BYODA_ROOT_DIR}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
         echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
         sudo rm -rf ${LETSENCRYPT_DIRECTORY}/*
