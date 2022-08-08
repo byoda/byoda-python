@@ -55,6 +55,9 @@ def get_environment_vars() -> Dict:
         'root_dir': os.environ.get('ROOT_DIR'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
         'custom_domain': os.environ.get('CUSTOM_DOMAIN'),
+        'shared_webserver': os.environ.get('SHARED_WEBSERVER') is not None,
+        'manage_custom_domain_cert':
+            os.environ.get('MANAGE_CUSTOM_DOMAIN_CERT') is not None,
         'roles': ['pod'],
     }
 

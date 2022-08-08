@@ -19,6 +19,9 @@ import htpasswd
 
 from byoda.datatypes import IdType
 
+from byoda.servers.pod_server import PodServer
+
+from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +57,7 @@ class NginxConfig(TargetConfig):
                  alias: str, network: str, public_cloud_endpoint: str,
                  private_cloud_endpoint: str, port: int,
                  service_id: int = None, root_dir: str = '/byoda',
-                 custom_domain: str = None):
+                 custom_domain: str = None, shared_webserver: bool = False):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -74,6 +77,9 @@ class NginxConfig(TargetConfig):
         private bucket
         :param service_id: service ID for the membership, if applicable
         :param custom_domain: a custom domain to use for the virtual server
+        :param shared_webserver: set to False if the nginx service is only
+        used for the podserver, set to True if an nginx server outside
+        of the pod is used.
         '''
 
         self.identifier: str = str(identifier)
@@ -90,6 +96,7 @@ class NginxConfig(TargetConfig):
         self.root_dir: str = root_dir
         self.port: int = port
         self.custom_domain: str = custom_domain
+        self.shared_webserver: bool = shared_webserver
 
         if self.subdomain == IdType.ACCOUNT.value:
             self.config_filepath = f'{directory}/account.conf'
@@ -136,6 +143,7 @@ class NginxConfig(TargetConfig):
             service_id=self.service_id,
             port=self.port,
             custom_domain=self.custom_domain,
+            shared_webserver=self.shared_webserver
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
@@ -159,6 +167,8 @@ class NginxConfig(TargetConfig):
         Reload the nginx process, if it is running
         '''
 
+        server: PodServer = config.server
+
         try:
             with open(NGINX_PID_FILE) as file_desc:
                 try:
@@ -173,4 +183,12 @@ class NginxConfig(TargetConfig):
                     _LOGGER.warning('Could not find pid of nginx process')
 
         except FileNotFoundError:
-            _LOGGER.debug('Unable to read NGINX pid file: %s', NGINX_PID_FILE)
+            if not server.shared_webserver:
+                _LOGGER.debug(
+                    'Unable to read NGINX pid file: %s', NGINX_PID_FILE
+                )
+            else:
+                _LOGGER.debug(
+                    'Not reloading nginx because we are behind a shared '
+                    'webserver'
+                )

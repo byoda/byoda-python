@@ -1,15 +1,15 @@
 # Running the Byoda pod on your own server.
 
-Most of the testing of the Byoda pod occurs on VMs in AWS, Azure, and GCP but it is possible to run the Byoda pod on a server in your home. The hardware requirements are minimal: the CPU requirements are very low and one 1GB of DRAM is required. The docker image is less than 1.5GB. When DEBUG logging is enabled, the pod emits a lot of logs so do make sure to manage the size of those logfiles.
+Most of the testing of the Byoda pod occurs on VMs in AWS, Azure, and GCP but it is possible to run the Byoda pod on a server in your home. In this setup, you use the local disk of the server to store your data. If you accidently delete that data, or the pod, or the disk in the server fails, you lose access to all your data in the pod!
+
+The hardware requirements for the pod are minimal: the CPU requirements are very low and 1GB of DRAM is required. The docker image is less than 1GB. When LOGLEVEL=DEBUG, the pod emits a lot of logs so do make sure to manage the size of the logfiles stored under /var/www/wwwroot.
 
 On the networking side, the requirements are:
 1. The pod must be able to listen to and receive traffic from the Internet on the following ports:
     - 80/TCP: only needed if you set the 'CUSTOM_DOMAIN' variable to use a certificate from Let's Encrypt
     - 443/TCP: When you use a web browser to manage your pod or use the services that you are a member of
     - 444/TCP. Other pods send queries to your port using this port
-2. The pod must be able to connect out to Internet for the above ports and must be able to perform DNS queries
-
-If you have a NAT function on your home router then you'll need to create mappings on your home router to forward traffic for these ports to your server.
+2. The pod must be able to connect out to Internet for the above ports and must be able to perform DNS queries. If you have a NAT function on your home router then you'll need to create mappings on your home router to forward traffic for these ports to your server.
 
 If you already have an nginx webserver then you still may be able to use it together with your pod by volume mounting the /etc/nginx/conf.d directory in your pod and by setting the 'SHARED_WEBSERVER' environment variable in the docker-launch.sh script. The pod will add the following configuration files in the directory:
 - account.conf: this is the virtual server that hosts the management page of the pod

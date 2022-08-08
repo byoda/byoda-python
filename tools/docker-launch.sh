@@ -70,6 +70,10 @@ export SHARED_WEBSERVER=
 # MANAGE_CUSTOM_DOMAIN_CERT variable
 export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
 
+# With this option set to a directory, you can access the logs from the pod
+# on the host VM or server as it will be volume mounted in the pod.
+export LOCAL_LOG_DIRECTORY=
+
 # set DEBUG if you are interested in debug logs and troubleshooting the
 # processes in the pod
 export DEBUG=
@@ -101,8 +105,16 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     fi
 fi
 
+export LOG_VOLUME_MOUNT=
+if [[ -n "${LOCAL_LOG_DIRECTORY}" ]]; then
+    echo "Volume mounting log directory: ${LOCAL_LOG_DIRECTORY}"
+    export LOG_VOLUME_MOUNT="-v ${LOCAL_LOG_DIRECTORY}:/var/www/wwwroot"
+fi
+
+export NGINXCONF_VOLUME_MOUNT=""
 if [[ "${SHARED_WEBSERVER}" == "SHARED_WEBSERVER" ]]; then
     echo "Running on a shared webserver"
+    export NGINXCONF_VOLUME_MOUNT="-v /etc/nginx/conf.d:/etc/nginx/conf.d -v /tmp:/tmp"
     if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
         echo "Using custom domain: ${CUSTOM_DOMAIN}"
         export PORT_MAPPINGS="-p 8000:8000 -p 80:80"
@@ -270,6 +282,7 @@ sudo docker run -d \
     -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
     -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
     -v ${ROOT_DIR}:${ROOT_DIR} \
-    -v ${LOGDIR}:${LOGDIR} \
+    ${LOG_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
+    ${NGINXCONF_VOLUME_MOUNT} \
     byoda/byoda-pod:latest

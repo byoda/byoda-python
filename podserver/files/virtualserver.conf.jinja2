@@ -1,8 +1,8 @@
 server {
-{% if subdomain == 'accounts' %}
+{% if subdomain == 'accounts' and not shared_webserver %}
     listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
 {% else %}
-    listen       443 ssl;
+    listen       443 ssl http2;
 {% endif %}
 
 {% if custom_domain %}

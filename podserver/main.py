@@ -62,8 +62,9 @@ async def setup():
     # Remaining environment variables used:
     network_data = get_environment_vars()
     server.custom_domain = network_data['custom_domain']
+    server.shared_webserver = network_data['shared_webserver']
 
-    if str(network_data['debug']).lower() == 'true':
+    if str(network_data['debug']).lower() in ('true', 'debug'):
         config.debug = True
         # Make our files readable by everyone, so we can
         # use tools like call_graphql.py to debug the server
@@ -147,7 +148,8 @@ async def setup():
         ),
         port=PodServer.HTTP_PORT,
         root_dir=server.network.paths.root_directory,
-        custom_domain=server.custom_domain
+        custom_domain=server.custom_domain,
+        shared_webserver=server.shared_webserver
     )
 
     nginx_config.create(htaccess_password=pod_account.password)

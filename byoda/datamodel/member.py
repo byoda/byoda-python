@@ -341,6 +341,7 @@ class Member:
             service_id=self.service_id,
             root_dir=config.server.network.paths.root_directory,
             custom_domain=None,
+            shared_webserver=config.server.shared_webserver,
         )
 
         nginx_config.create()
