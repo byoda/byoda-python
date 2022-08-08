@@ -175,7 +175,7 @@ Now suppose you want to follow me. The member ID of the Address Book service of 
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e1278",
+    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e12",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -278,7 +278,7 @@ curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" \
 If you need to call the GraphQL API, you need to have a 'member' JWT:
 ```
 export MEMBER_JWT=$( \
-    curl -s   \
+    curl -s \
     -d "{\"username\": \"${MEMBER_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"service_id\":\"${SERVICE_ADDR_ID}\"}" \
     -H "Content-Type: application/json" \
      https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken | jq -r .auth_token); echo $MEMBER_JWT
@@ -291,7 +291,7 @@ curl -s -X POST -H 'content-type: application/json' \
     https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
     --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
 ```
-A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host an server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
+A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host a server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
 	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
@@ -327,10 +327,12 @@ The benefit is that you can connect with your browser directly to your pod but y
 
 The procedure to use a custom domain is:
 1. Create the VM to run the pod on, note down its public IP address (ie. with ```curl ifconfig.co``` on the vm). As Let's Encrypt uses port 80 to validate the request for a certificate, port 80 of your pod must be accessible from the Internet. If you followed the procedure to create a VM from the documentation then port 80 is already accessible from the Internet
-2. Register a domain with a domain registry, here we'll use 'byoda.example.org'
+2. Register a domain with a domain registry, here we'll use 'example.org'
 3. Update the DNS records for your domain so that 'byoda.example.org' has an 'A' record for the public IP address of your pod
 4. Update the 'docker-launch.sh' script to set the CUSTOM_DOMAIN variable
 5. Run the 'docker-launch.sh' script to (re-)start your pod. This script will check your DNS setup and will not start the pod if the CUSTOM_DOMAIN variable is set but the DNS record for the domain does not point to the public IP of the pod.
+
+You can now point your browser to your pod: https://byoda.example.org (or the dns record you actually created.)
 
 ## Twitter integration
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:

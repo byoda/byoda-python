@@ -15,7 +15,6 @@ If you already have an nginx webserver then you still may be able to use it toge
 
 The pod will add the following configuration files in the /etc/nginx/conf.d directory:
 - account.conf: this is the virtual server that hosts the management page of the pod
-- virtualserver.conf.jinja2: this is a template used for generating a virtual server for each service that you join. Nginx ignores configuration files that do not have the '.conf' extension.
 - member-[uuid].conf: this is the virtual server for your membership of a service.
 By setting the 'SHARED_WEBSERVER' environment variable, you stop the pod from running the nginx webserver in the pod and the script will make a port mapping for TCP port 8000 instead of ports 80, 443, and 444. Normally, the pod will reload the nginx process whenever it joins a service but that is not possible on a shared webserver. You'll have to remember to manually reload the nginx configuration (with ```sudo nginx -s reload```) everytime you join a service.
 
