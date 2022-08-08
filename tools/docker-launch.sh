@@ -74,6 +74,10 @@ export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
 # on the host VM or server as it will be volume mounted in the pod.
 export LOCAL_LOG_DIRECTORY=
 
+# If you are not running in a cloud VM then you can change this to the
+# directory where all data of the pod should be stored
+export BYODA_ROOT_DIR=/byoda
+
 # set DEBUG if you are interested in debug logs and troubleshooting the
 # processes in the pod
 export DEBUG=
@@ -108,7 +112,7 @@ fi
 export LOG_VOLUME_MOUNT=
 if [[ -n "${LOCAL_LOG_DIRECTORY}" ]]; then
     echo "Volume mounting log directory: ${LOCAL_LOG_DIRECTORY}"
-    export LOG_VOLUME_MOUNT="-v ${LOCAL_LOG_DIRECTORY}:/var/www/wwwroot"
+    export LOG_VOLUME_MOUNT="-v ${LOCAL_LOG_DIRECTORY}:/var/www/wwwroot/logs"
 fi
 
 export NGINXCONF_VOLUME_MOUNT=""
@@ -158,7 +162,7 @@ echo "    ${SYSTEM_VERSION}"
 PRIVATE_BUCKET="${BUCKET_PREFIX}-private"
 PUBLIC_BUCKET="${BUCKET_PREFIX}-public"
 
-export ROOT_DIR=/byoda
+
 
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
@@ -166,9 +170,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     # In Azure we don't have the '-' between prefix and private/public
     PRIVATE_BUCKET=${BUCKET_PREFIX}private
     PUBLIC_BUCKET=${BUCKET_PREFIX}public
-    echo "Wiping ${ROOT_DIR}"
-    sudo rm -rf ${ROOT_DIR}/*
-    sudo mkdir -p ${ROOT_DIR}
+    echo "Wiping ${BYODA_ROOT_DIR}"
+    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         which az > /dev/null 2>&1
         if [ $? -ne 0 ]; then
@@ -185,9 +189,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
-    echo "Wiping ${ROOT_DIR}"
-    sudo rm -rf ${ROOT_DIR}/*
-    sudo mkdir -p ${ROOT_DIR}
+    echo "Wiping ${BYODA_ROOT_DIR}"
+    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
@@ -199,9 +203,9 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         echo "Set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables in this script"
         exit 1
     fi
-    echo "Wiping ${ROOT_DIR}"
-    sudo rm -rf ${ROOT_DIR}/*
-    sudo mkdir -p ${ROOT_DIR}
+    echo "Wiping ${BYODA_ROOT_DIR}"
+    sudo rm -rf ${BYODA_ROOT_DIR}/*
+    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
         aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
@@ -212,8 +216,8 @@ else
     echo "Not running in a public cloud"
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
-        sudo rm -rf ${ROOT_DIR} 2>/dev/null
-        sudo mkdir -p ${ROOT_DIR}
+        sudo rm -rf ${BYODA_ROOT_DIR} 2>/dev/null
+        sudo mkdir -p ${BYODA_ROOT_DIR}
         rm ${ACCOUNT_FILE}
     fi
 fi
@@ -252,8 +256,8 @@ sudo docker rm byoda  2>/dev/null
 
 if [[ "${CLOUD}" != "LOCAL" ]]; then
     # Wipe the cache directory
-    sudo rm -rf ${ROOT_DIR} 2>/dev/null
-    sudo mkdir -p ${ROOT_DIR}
+    sudo rm -rf ${BYODA_ROOT_DIR} 2>/dev/null
+    sudo mkdir -p ${BYODA_ROOT_DIR}
 fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
@@ -273,7 +277,7 @@ sudo docker run -d \
     -e "LOGLEVEL=${LOGLEVEL}" \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
-    -e "ROOT_DIR=${ROOT_DIR}" \
+    -e "ROOT_DIR=/byoda" \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
     -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
@@ -281,7 +285,7 @@ sudo docker run -d \
     -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
     -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
     -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
-    -v ${ROOT_DIR}:${ROOT_DIR} \
+    -v ${BYODA_ROOT_DIR}:/byoda \
     ${LOG_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \
