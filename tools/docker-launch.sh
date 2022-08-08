@@ -59,7 +59,6 @@ export TWITTER_USERNAME=
 # To use a custom domain, follow the instructions in the section
 # 'Certificates and browsers' in the README.md file.
 export CUSTOM_DOMAIN=
-export LETSENCRYPT_DIRECTORY="/var/www/letsencrypt"
 
 # To install the pod on a (physical) server that already has nginx running,
 # set the SHARED_WEBSERVER variable to 'SHARED_WEBSERVER'
@@ -69,6 +68,12 @@ export SHARED_WEBSERVER=
 # and listens to port 80, and you want to use a CUSTOM_DOMAIN, unset the
 # MANAGE_CUSTOM_DOMAIN_CERT variable
 export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
+
+# If you are running on a shared webserver with a custom domain and can't
+# make port 80 avaible then you'll have to generate the SSL cert yourself
+# and store it in a directory that follows the Let's Encrypt directory
+# lay-out and set the below variable to that directory
+export LETSENCRYPT_DIRECTORY="/var/www/letsencrypt"
 
 # With this option set to a directory, you can access the logs from the pod
 # on the host VM or server as it will be volume mounted in the pod.

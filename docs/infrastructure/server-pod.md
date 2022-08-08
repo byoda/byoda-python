@@ -23,5 +23,4 @@ If you are already running an nginx service on your server -and- it listens to p
 ```
 pipenv run certbot certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN}
 ```
-
-You should then also install a cronjob that runs once a month to renew the cert, if it needs to be renewed.
+You'll need to set the LETSENCRYPT_DIRECTORY variable in the docker-launch.sh script so that the pod can volume mount the directory with the Let's Encrypt cert in it. You should also install a cronjob that runs once a month to renew the cert, if it needs to be renewed.
