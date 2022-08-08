@@ -1,6 +1,6 @@
 # Running the Byoda pod on your own server.
 
-Most of the testing of the Byoda pod occurs on VMs in AWS, Azure, and GCP but it is also possible to run the Byoda pod on a server in your home. In this setup, you use the local disk of the server to store your data. If you accidently delete that data, or the pod, or the disk in the server fails, you lose all your data in the pod!
+Most of the testing of the Byoda pod occurs on VMs in AWS, Azure, and GCP but it is also possible to run the Byoda pod on a server in your home. In this setup, you use the local disk of the server to store your data. If you accidently delete that data, or the pod, or the disk in the server fails, you lose all your data in the pod! Keep in mind that running the pod on your own server can be a bit more complex to set up than running it on a newly created VM with no other software or services installed.
 
 The hardware requirements for the pod are minimal: the CPU requirements are very low and just one 1GB of DRAM is required. The docker image is less than 1GB. When LOGLEVEL=DEBUG, the pod emits a lot of logs so do make sure to manage the size of the logfiles stored under /var/www/wwwroot when you run at this log level.
 

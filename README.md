@@ -32,7 +32,7 @@ There are two ways to install the pod:
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
-    - Ports 443 on your server must be available for the pod to use and must be accessible from the Internet
+    - TCP ports 443 and port 444 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
     - Detailed instructions are available for running the pod on your [server](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/server-pod.md)
 
@@ -42,6 +42,7 @@ To launch the pod:
 
 ```
 sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
+sudo fallocate -l 512m /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
 
