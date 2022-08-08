@@ -42,21 +42,27 @@ To launch the pod:
 
 ```
 sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
+
+git clone https://github.com/StevenHessing/byoda-python.git
+```
+
+If (and only if) you created a new VM in a public cloud for your pod then create a swap file:
+```
 SWAP=$(free | grep -i swap | awk '{ print $4;}')
 if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
     sudo fallocate -l 512m /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
 fi
-git clone https://github.com/StevenHessing/byoda-python.git
 ```
 
-- Copy and edit the tools/docker-launch.sh script and modify the following variables at the top of the script
-    - BUCKET_PREFIX: in the above example, that would be 'mybyoda'
+- Copy and edit the tools/docker-launch.sh script and modify the following variables starting at line 42 of the script
+    - BUCKET_PREFIX
     - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
     - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
   - if you deployed a VM on AWS, also edit the variables:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
   - Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
+  - You can ignore the other variables that can be set in this file. They'll be discussed in other sections of the documentation
 
 ```
 cd byoda-python
