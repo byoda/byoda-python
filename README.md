@@ -100,21 +100,21 @@ curl -s https://dir.byoda.net/api/v1/network/services | jq .
 Currently there is only a test service called 'address book'. We can use curl to confirm that the pod has discovered this service in the network:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
-    --pass $PASSPHRASE https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+    --pass $PASSPHRASE https://$ACCOUNT_FQDN:444/api/v1/pod/account | jq .
 ```
 
 We can make our pod join the address book service:
 ```
 curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
      --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
+    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
 The pod returns amongst others the cert & key that you can use to call the APIs on the pod for that specific membershp.
 
 We can confirm that our pod has joined the service with:
 ```
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
-    https://$ACCOUNT_FQDN/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
+    https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
 We quickly now update our environment variables to pick up the new membership:
