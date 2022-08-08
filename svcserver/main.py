@@ -10,7 +10,7 @@ import os
 import sys
 import yaml
 
-from byoda.util.fastapi import setup_api
+from byoda.util.fastapi import setup_api, add_cors
 
 from byoda.util.logger import Logger
 from byoda import config
@@ -32,8 +32,7 @@ with open(config_file) as file_desc:
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
-    'network', 'v0.0.1',
-    app_config['svcserver']['cors_origins'], [service, member, search, status]
+    'network', 'v0.0.1', [], [service, member, search, status]
 )
 
 
@@ -60,6 +59,7 @@ async def setup():
         os.environ['SERVER_NAME'] = config.server.network.name
 
     config.server = ServiceServer(network, app_config)
+
     await config.server.load_network_secrets()
 
     await config.server.load_secrets(
@@ -68,3 +68,5 @@ async def setup():
     await config.server.load_schema()
 
     await config.server.service.register_service()
+
+    add_cors(app, app_config['svcserver']['cors_origins'])
