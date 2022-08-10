@@ -47,9 +47,9 @@ from byoda import config
 
 from byoda.util.fastapi import setup_api
 
-from dirserver.routers import account
-from dirserver.routers import service
-from dirserver.routers import member
+from dirserver.routers import account as AccountRouter
+from dirserver.routers import service as ServiceRouter
+from dirserver.routers import member as MemberRouter
 
 # Settings must match config.yml used by directory server
 NETWORK = 'test.net'
@@ -101,7 +101,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', [], [account, service, member]
+            'v0.0.1', [], [AccountRouter, ServiceRouter, MemberRouter]
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,

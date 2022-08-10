@@ -21,3 +21,4 @@ from .member import UploadResponseModel
 from .account import AccountResponseModel
 from .authtoken import AuthRequestModel
 from .authtoken import AuthTokenResponseModel
+from .accountdata import AccountDataDownloadResponseModel

@@ -19,16 +19,17 @@ from byoda.servers.directory_server import DirectoryServer
 
 from byoda.datamodel.network import Network
 
-from .routers import account
-from .routers import service
-from .routers import member
-from .routers import status
+from .routers import account as AccountRouter
+from .routers import service as ServiceRouter
+from .routers import member as MemberRouter
+from .routers import status as StatusRouter
 
 _LOGGER = None
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', [], [account, service, member, status]
+    'v0.0.1', [],
+    [AccountRouter, ServiceRouter, MemberRouter, StatusRouter]
 )
 
 

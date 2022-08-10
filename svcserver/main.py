@@ -19,10 +19,10 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
-from .routers import service
-from .routers import member
-from .routers import search
-from .routers import status
+from .routers import service as ServiceRouter
+from .routers import member as MemberRouter
+from .routers import search as SearchRouter
+from .routers import status as StatusRouter
 
 _LOGGER = None
 
@@ -32,7 +32,8 @@ with open(config_file) as file_desc:
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
-    'network', 'v0.0.1', [], [service, member, search, status]
+    'network', 'v0.0.1', [],
+    [ServiceRouter, MemberRouter, SearchRouter, StatusRouter]
 )
 
 

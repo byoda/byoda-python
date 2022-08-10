@@ -6,9 +6,7 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-import os
 import logging
-import subprocess
 
 from uuid import uuid4, UUID
 from copy import copy

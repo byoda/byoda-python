@@ -41,10 +41,10 @@ from byoda import config
 
 from byoda.util.fastapi import setup_api
 
-from svcserver.routers import service as service_router
-from svcserver.routers import member as member_router
-from svcserver.routers import search as search_router
-from svcserver.routers import status as status_router
+from svcserver.routers import service as ServiceRouter
+from svcserver.routers import member as MemberRouter
+from svcserver.routers import search as SearchRouter
+from svcserver.routers import status as StatusRouter
 
 from tests.lib.util import get_test_uuid
 
@@ -125,9 +125,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
-            'v0.0.1', [], [
-                service_router, member_router, search_router, status_router
-            ]
+            'v0.0.1', [],
+            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter]
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
