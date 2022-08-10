@@ -38,10 +38,9 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
 
-
-from podserver.routers import account
-from podserver.routers import member
-from podserver.routers import authtoken
+from podserver.routers import account as AccountRouter
+from podserver.routers import member as MemberRouter
+from podserver.routers import authtoken as AuthTokenRouter
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
@@ -74,7 +73,7 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', [pod_account.tls_secret.common_name],
-            [account, member, authtoken]
+            [AccountRouter, MemberRouter, AuthTokenRouter]
         )
 
         for account_member in pod_account.memberships.values():

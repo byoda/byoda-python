@@ -34,10 +34,10 @@ from byoda.util.fastapi import setup_api
 
 from byoda import config
 
-from podserver.routers import account
-from podserver.routers import member
-from podserver.routers import authtoken
-
+from podserver.routers import account as AccountRouter
+from podserver.routers import member as MemberRouter
+from podserver.routers import authtoken as AuthTokenRouter
+from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
@@ -74,8 +74,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [pod_account.tls_secret.common_name],
-            [account, member, authtoken]
+            'v0.0.1', [pod_account.tls_secret.common_name], [
+                AccountRouter, MemberRouter, AuthTokenRouter,
+                AccountDataRouter
+            ]
         )
 
         for account_member in pod_account.memberships.values():
@@ -495,7 +497,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         azure_member_auth_header, azure_fqdn = await get_azure_pod_jwt(
-            account, TEST_DIR
+            pod_account, TEST_DIR
         )
 
         response = await GraphQlClient.call(
@@ -1179,6 +1181,22 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
+
+        # Test account data export API for the service
+        service_id = ADDRESSBOOK_SERVICE_ID
+        response = requests.get(
+            f'{BASE_URL}/v1/pod/account/data/service_id/{service_id}',
+            headers=account_headers
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        data = data['data']
+        self.assertTrue('member' in data)
+        self.assertTrue('datalogs' in data)
+        self.assertTrue('person' in data)
+        self.assertTrue('network_links' in data)
+
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['delete'], vars=vars,
             timeout=120, headers=member_headers

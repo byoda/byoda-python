@@ -36,10 +36,11 @@ from byoda.util.fastapi import setup_api, add_cors
 
 from .util import get_environment_vars
 
-from .routers import account
-from .routers import member
-from .routers import authtoken
-from .routers import status
+from .routers import account as AccountRouter
+from .routers import member as MemberRouter
+from .routers import authtoken as AuthTokenRouter
+from .routers import status as StatusRouter
+from .routers import accountdata as AccountDataRouter
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -50,7 +51,10 @@ DIR_API_BASE_URL = 'https://dir.{network}/api'
 # pod_account.tls_secret.common_name
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', [], [account, member, authtoken, status]
+    'v0.0.1', [], [
+        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
+        AccountDataRouter
+    ]
 )
 
 
