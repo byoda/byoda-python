@@ -101,5 +101,5 @@ class AccountSecret(Secret):
         requests module can use it.
         '''
         return super().save_tmp_private_key(
-            filepath='/tmp/private-account.key'
+            filepath='/var/tmp/private-account.key'
         )

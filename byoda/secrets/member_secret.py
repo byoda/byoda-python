@@ -111,5 +111,5 @@ class MemberSecret(Secret):
         requests module can use it.
         '''
         return super().save_tmp_private_key(
-            filepath=f'/tmp/private-member-{self.member_id}.key'
+            filepath=f'/var/tmp/private-member-{self.member_id}.key'
         )

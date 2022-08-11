@@ -128,5 +128,5 @@ class ServiceSecret(Secret):
         requests module can use it.
         '''
         return super().save_tmp_private_key(
-            filepath=f'/tmp/service-{self.service_id}.key'
+            filepath=f'/var/tmp/service-{self.service_id}.key'
         )
