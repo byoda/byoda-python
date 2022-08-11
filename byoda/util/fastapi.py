@@ -61,7 +61,7 @@ def add_cors(app: FastAPI, cors_origins: List[str], allow_proxy: bool = True):
     network: Network = config.server.network
 
     # SECURITY: remove this when in production
-    test_url = 'https://byoda-pod-manger.web.app:
+    test_url = 'https://byoda-pod-manger.web.app'
     cors_origins.append(test_url)
 
     proxy_url = f'https://proxy.{network.name}'
