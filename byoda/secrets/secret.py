@@ -683,7 +683,8 @@ class Secret:
 
         return data.decode('utf-8')
 
-    def save_tmp_private_key(self, filepath: str = '/tmp/private.key') -> str:
+    def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
+                             ) -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
         so both the requests library and nginx can read it

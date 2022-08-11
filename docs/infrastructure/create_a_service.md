@@ -215,7 +215,7 @@ cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
 sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 # Delete any existing unencrypted private key for the service
-sudo rm -f /tmp/service-${SERVICE_ID}.key
+sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
@@ -228,8 +228,8 @@ These instructions are assuming you've installed the service server on an distri
 NGINX_USER=www-data
 mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
 sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
-if [ -f /tmp/service-${SERVICE_ID}.key ]; then
-    sudo chown ${NGINX_USER}:${NGINX_USER} /tmp/service-${SERVICE_ID}.key
+if [ -f /var/tmp/service-${SERVICE_ID}.key ]; then
+    sudo chown ${NGINX_USER}:${NGINX_USER} /var/tmp/service-${SERVICE_ID}.key
 fi
 
 if [ ! -f /etc/default/svcserver-${SERVICE_ID} ]; then
