@@ -40,9 +40,17 @@
                         "permissions": ["read"]
                     },
                     "network": {
-                        "distance": 1,
-                        "relation": ["friend", "family"],
-                        "permissions": ["read"]
+                        "permissions": [
+                            {
+                                "permission": "read",
+                                "distance": 1,
+                                "relation": ["friend", "family"],
+                                "signature_required": true,
+                                "anonimized_responses": true
+                            }
+                        ],
+                        "signature": true,
+                        "anonimized_responses": true
                     }
                 },
                 "properties": {
