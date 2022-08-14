@@ -16,7 +16,6 @@ Azure rights to assign:
 '''
 
 import logging
-from typing import Set, Dict
 from tempfile import TemporaryFile
 
 from google.cloud import storage
@@ -57,7 +56,7 @@ class GcpFileStorage(FileStorage):
         self._client = storage.Client()
 
         self.domain = 'storage.cloud.google.com'
-        self.buckets: Dict[str:str] = {
+        self.buckets: dict[str:str] = {
             StorageType.PRIVATE.value:
                 f'{bucket_prefix}-{StorageType.PRIVATE.value}',
             StorageType.PUBLIC.value:
@@ -65,7 +64,7 @@ class GcpFileStorage(FileStorage):
         }
         # We keep a cache of Buckets. We call them 'clients' to
         # remain consistent with the implementations for AWS and Azure
-        self.clients: Dict[StorageType, Dict[str, Bucket]] = {
+        self.clients: dict[StorageType, dict[str, Bucket]] = {
             StorageType.PRIVATE.value: Bucket(
                 self._client, self.buckets[StorageType.PRIVATE.value]
             ),
@@ -290,7 +289,7 @@ class GcpFileStorage(FileStorage):
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE
-                          ) -> Set[str]:
+                          ) -> set[str]:
         '''
         Azure Storage let's you walk through blobs whose name start
         with a prefix

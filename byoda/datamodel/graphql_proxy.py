@@ -10,7 +10,7 @@ import re
 import asyncio
 import logging
 from uuid import UUID
-from typing import TypeVar, List, Dict, Tuple
+from typing import TypeVar
 
 import orjson
 
@@ -46,8 +46,8 @@ class GraphQlProxy:
         self.schema: Schema = member.schema
 
     async def proxy_request(self, class_name: str, query: bytes,
-                            depth: int, relations: List[str],
-                            remote_member_id: UUID = None) -> List[Dict]:
+                            depth: int, relations: list[str],
+                            remote_member_id: UUID = None) -> list[dict]:
         '''
         Manipulates the original request to decrement the query depth by 1,
         sends the updated request to all network links that have one of the
@@ -105,8 +105,8 @@ class GraphQlProxy:
 
         return updated_query
 
-    async def _proxy_request(self, query: bytes, relations: List[str],
-                             remote_member_id: UUID) -> List[Dict]:
+    async def _proxy_request(self, query: bytes, relations: list[str],
+                             remote_member_id: UUID) -> list[dict]:
         '''
         Sends the GraphQL query to remote pods. If remote_member_id is
         specified then the request will only be proxied to that member.
@@ -141,7 +141,7 @@ class GraphQlProxy:
         return network_data
 
     async def _exec_graphql_query(self, target: UUID, query: bytes
-                                  ) -> Tuple[UUID, List[Dict]]:
+                                  ) -> tuple[UUID, list[dict]]:
         '''
         Execute the GraphQL query
 
@@ -177,7 +177,7 @@ class GraphQlProxy:
         return (target, data)
 
     def _process_network_query_data(self, class_name: str,
-                                    network_data: List[Dict]) -> List[Dict]:
+                                    network_data: list[dict]) -> list[dict]:
         '''
         Processes the data collected from all the queried pods
 
@@ -215,7 +215,7 @@ class GraphQlProxy:
         return cleaned_data
 
     def _process_network_append_data(self, class_name: str,
-                                     network_data: List[Dict]) -> Dict:
+                                     network_data: list[dict]) -> dict:
         '''
         Processes the data collected from all the queried pods
 

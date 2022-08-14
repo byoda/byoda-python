@@ -7,7 +7,6 @@ Cert manipulation
 '''
 
 import logging
-from typing import List
 
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
@@ -19,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class CertChain:
     def __init__(self, signed_cert: Certificate,
-                 cert_chain: List[Certificate]):
+                 cert_chain: list[Certificate]):
         '''
         Represents a signed cert and the list of certs of issuing CAs
         that signed the cert. Does not include the root cert. This class
@@ -34,7 +33,7 @@ class CertChain:
         '''
 
         self.signed_cert: Certificate = signed_cert
-        self.cert_chain: List[Certificate] = cert_chain
+        self.cert_chain: list[Certificate] = cert_chain
 
     def __str__(self) -> str:
         '''

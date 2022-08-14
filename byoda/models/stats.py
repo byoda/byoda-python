@@ -8,7 +8,7 @@ Schema for server to server APIs
 
 import logging
 from uuid import UUID
-from typing import Optional
+
 
 from pydantic import BaseModel
 
@@ -47,4 +47,4 @@ class StatsResponseModel(BaseModel):
     services: int
     dns_update: bool
     remote_addr: IPv4Address
-    uuid: Optional[UUID] = None
+    uuid: UUID | None = None

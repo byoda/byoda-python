@@ -8,7 +8,6 @@ Helper functions to set up tests
 
 import os
 import shutil
-from typing import Dict
 
 from byoda import config
 
@@ -25,7 +24,7 @@ from podserver.util import get_environment_vars
 from tests.lib.util import get_test_uuid
 
 
-async def setup_network(test_dir: str) -> Dict[str, str]:
+async def setup_network(test_dir: str) -> dict[str, str]:
     config.debug = True
 
     if test_dir:
@@ -72,7 +71,7 @@ async def setup_network(test_dir: str) -> Dict[str, str]:
     return network_data
 
 
-async def setup_account(network_data: Dict[str, str]) -> Account:
+async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,

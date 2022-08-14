@@ -10,7 +10,6 @@ The profile server uses noSQL storage for profile data
 '''
 
 import logging
-from typing import Set
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 import boto3
@@ -251,7 +250,7 @@ class AwsFileStorage(FileStorage):
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE
-                          ) -> Set[str]:
+                          ) -> set[str]:
         '''
         AWS S3 supports emulated folders through keys that end with a '/'
         '''

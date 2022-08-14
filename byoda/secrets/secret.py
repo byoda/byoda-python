@@ -14,7 +14,7 @@ import tempfile
 import subprocess
 from uuid import UUID
 from copy import copy
-from typing import TypeVar, List
+from typing import TypeVar
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -107,7 +107,7 @@ class Secret:
         # Certchains never include the root cert!
         # Certs higher in the certchain hierarchy come after
         # certs signed by those certs.
-        self.cert_chain: List[Certificate] = []
+        self.cert_chain: list[Certificate] = []
 
         # Is this a self-signed cert?
         self.is_root_cert: bool = False

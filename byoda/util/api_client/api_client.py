@@ -9,7 +9,7 @@ import logging
 from uuid import UUID
 from enum import Enum
 from copy import deepcopy
-from typing import Dict, TypeVar
+from typing import TypeVar
 
 import orjson
 import aiohttp
@@ -140,7 +140,7 @@ class ApiClient:
 
     @staticmethod
     async def call(api: str, method: str = 'GET', secret:Secret = None,
-                   params: Dict = None, data: Dict = None, headers: Dict = None,
+                   params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
                    port: int = None, timeout: int = 10) -> aiohttp.ClientResponse:
@@ -202,7 +202,7 @@ class ApiClient:
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,
                           timeout: int):
-        sessions = Dict[str, requests.Session]
+        sessions = dict[str, requests.Session]
 
         server: Server = config.server
         if hasattr(server, 'local_storage'):
@@ -266,7 +266,7 @@ class ApiClient:
 
     @staticmethod
     def call_sync(api: str, method: str = 'GET', secret:Secret = None,
-                  params: Dict = None, data: Dict = None, headers: Dict = None,
+                  params: dict = None, data: dict = None, headers: dict = None,
                   service_id: int = None, member_id: UUID = None,
                   account_id: UUID = None, network_name: str = None,
                   port: int = 443, timeout: int = 10) -> requests.Response:

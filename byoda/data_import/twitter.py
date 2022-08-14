@@ -15,7 +15,6 @@ TWITTER_KEY_SECRET
 
 import os
 import logging
-from typing import Dict, List, Tuple
 from datetime import datetime, timezone
 
 import requests
@@ -181,7 +180,7 @@ class Twitter:
 
         return user
 
-    def extract_user_data(self, user: tweepy.User) -> Dict:
+    def extract_user_data(self, user: tweepy.User) -> dict:
         '''
         Updates the Byoda data for the user
 
@@ -217,7 +216,7 @@ class Twitter:
         return data
 
     def get_tweets(self, since_id: str = None, with_related: bool = True
-                   ) -> Tuple[Dict, Dict, Dict]:
+                   ) -> tuple[dict, dict, dict]:
         '''
         Get user's tweets from Twitter
         '''
@@ -243,8 +242,8 @@ class Twitter:
                 since_id=since_id, max_results=max_tweets
             )
 
-            tweets: List[Tweet] = response.data or []
-            media: List[Media] = response.includes.get('media', [])
+            tweets: list[Tweet] = response.data or []
+            media: list[Media] = response.includes.get('media', [])
             referencing_tweets = response.includes.get('tweets', [])
 
             since_id = None
@@ -270,7 +269,7 @@ class Twitter:
         return all_tweets, all_referencing_tweets, all_media
 
 
-def _translate_tweet_to_asset(tweet: Tweet) -> Dict:
+def _translate_tweet_to_asset(tweet: Tweet) -> dict:
     '''
     Translates a Tweet instance or a dict included in the 'includes'
     of a Tweepy Response object into an asset dict
@@ -329,7 +328,7 @@ def _translate_tweet_to_asset(tweet: Tweet) -> Dict:
     return asset
 
 
-def _translate_media_to_asset(media: Media) -> Dict:
+def _translate_media_to_asset(media: Media) -> dict:
     asset = {}
     for field, twitter_field in MEDIA_FIELDS_MAPPINGS.items():
         if not twitter_field:

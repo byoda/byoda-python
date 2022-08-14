@@ -13,9 +13,9 @@ import logging
 from enum import Enum
 from copy import copy
 from uuid import UUID
-from urllib.parse import urlparse
+from urllib.parse import urlparse, ParseResult
 from datetime import datetime
-from typing import Dict, List, Set, Union, TypeVar, Tuple
+from typing import TypeVar
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
@@ -67,15 +67,15 @@ class SchemaDataItem:
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
 
-        self.name: Union[str, None] = class_name
-        self.schema: Dict = schema
+        self.name: str | None = class_name
+        self.schema: dict = schema
         self.description: str = schema.get('description')
         self.item_id: str = schema.get('$id')
         self.schema_id: str = schema_id
-        self.schema_url = urlparse(schema_id)
-        self.enabled_apis: Set = set()
+        self.schema_url: ParseResult = urlparse(schema_id)
+        self.enabled_apis: set = set()
 
         self.type: DataType = DataType(schema['type'])
 
@@ -87,12 +87,13 @@ class SchemaDataItem:
             class_name, self.schema
         )
 
-        self.access_controls: Dict[RightsEntityType,Set[DataOperationType]] = {}
+        self.access_controls: dict[RightsEntityType, set[DataOperationType]] =\
+            {}
 
         self.parse_access_controls()
 
-    def get_types(self, data_name: str, data_schema: Dict
-                       ) -> Tuple[str, str]:
+    def get_types(self, data_name: str, data_schema: dict
+                       ) -> tuple[str, str]:
         '''
         Returns translation of the jsonschema -> python typing string
         and of the jsonschema -> graphql typing string
@@ -161,8 +162,8 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema: Dict, schema_id: str,
-               classes: Dict = None):
+    def create(class_name: str, schema: dict, schema_id: str,
+               classes: dict = None):
         '''
         Factory for instances of classes derived from SchemaDataItem
         '''
@@ -182,8 +183,7 @@ class SchemaDataItem:
 
         return item
 
-    def normalize(self, value: Union[str, int, float]
-                  ) -> Union[str, int, float]:
+    def normalize(self, value: str | int | float) -> str | int | float:
         '''
         Normalizes the value to the correct data type for the item
         '''
@@ -321,7 +321,7 @@ class SchemaDataItem:
         return None
 
 class SchemaDataScalar(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
         if self.type == DataType.STRING:
@@ -337,8 +337,7 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-    def normalize(self, value: Union[str, int, float]
-                  ) -> Union[str, int, float]:
+    def normalize(self, value: str | int | float) -> str | int | float:
         '''
         Normalizes the value to the correct data type for the item
         '''
@@ -355,7 +354,7 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
         # 'Defined' classes are objects under the '$defs' object
@@ -365,8 +364,8 @@ class SchemaDataObject(SchemaDataItem):
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
-        self.fields: Dict[str:SchemaDataItem] = {}
-        self.required_fields: List[str] = schema.get('required')
+        self.fields: dict[str:SchemaDataItem] = {}
+        self.required_fields: list[str] = schema.get('required')
         self.defined_class: bool = False
 
         if self.item_id:
@@ -394,7 +393,7 @@ class SchemaDataObject(SchemaDataItem):
 
             self.fields[field] = item
 
-    def normalize(self, value: Dict) -> Dict:
+    def normalize(self, value: dict) -> dict:
         '''
         Normalizes the values in a dict
         '''
@@ -423,7 +422,7 @@ class SchemaDataObject(SchemaDataItem):
         :returns: None if no determination was made, otherwise True or False
         '''
 
-        access_allowed: Union(bool, None) = await super().authorize_access(
+        access_allowed: bool | None = await super().authorize_access(
             operation, auth, service_id
         )
 
@@ -449,8 +448,8 @@ class SchemaDataObject(SchemaDataItem):
 
 
 class SchemaDataArray(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str,
-                 classes: Dict) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str,
+                 classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
 
         items = schema.get('items')
@@ -487,7 +486,7 @@ class SchemaDataArray(SchemaDataItem):
                 f'Array {class_name} must have "type" or "$ref" defined'
             )
 
-    def normalize(self, value: List) -> List:
+    def normalize(self, value: list) -> list:
         '''
         Normalizes the data structure in the array to the types defined in
         the service contract
@@ -514,7 +513,7 @@ class SchemaDataArray(SchemaDataItem):
         :returns: None if no determination was made, otherwise True or False
         '''
 
-        access_allowed: Union(bool, None) = await super().authorize_access(
+        access_allowed: bool | None = await super().authorize_access(
             operation, auth, service_id
         )
 
@@ -542,13 +541,13 @@ class SchemaDataArray(SchemaDataItem):
 
 
 class DataAccessPermission:
-    def __init__(self, entity_type: str, right: Dict) -> None:
+    def __init__(self, entity_type: str, right: dict) -> None:
         self.entity_type: RightsEntityType = RightsEntityType(entity_type)
-        self.permitted_actions: Set[str] = set()
+        self.permitted_actions: set[str|dict] = set()
 
-        self.relations: Union[List[str], None] = None
-        self.distance: Union[int, None] = None
-        self.search_condition: Union[str, None] = None
+        self.relations: list[str] | None = None
+        self.distance: int |None = None
+        self.search_condition: str | None = None
 
         if self.entity_type == RightsEntityType.NETWORK:
             self.relations = right.get('relation')
@@ -568,17 +567,20 @@ class DataAccessPermission:
         for action in right['permissions']:
             # Hack: with this, only one search expression can be specified
             # per access control block
-            if action.startswith('search:'):
-                if self.search_condition:
-                    raise ValueError(
-                        'Multiple search conditions specified for access right'
-                    )
+            if isinstance(action, str):
+                if action.startswith('search:'):
+                    if self.search_condition:
+                        raise ValueError(
+                            'Multiple search conditions specified for access '
+                            'right'
+                        )
 
-                self.search_condition = action[len('search:'):]
-                action = 'search'
+                    self.search_condition = action[len('search:'):]
+                    action = 'search'
 
-            self.permitted_actions.add(DataOperationType(action))
-
+                self.permitted_actions.add(DataOperationType(action))
+            else:
+                self.permitted_actions.add(DataOperationType('read'))
 
 
 def authorize_member(service_id: int, auth: RequestAuth) -> bool:
@@ -642,7 +644,7 @@ def authorize_service(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
-async def authorize_network(service_id: int, relations: List[str], distance: int,
+async def authorize_network(service_id: int, relations: list[str], distance: int,
                             auth: RequestAuth) -> bool:
     '''
     Authorizes GraphQL API requests by people that are in your network

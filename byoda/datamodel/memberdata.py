@@ -9,7 +9,7 @@ import logging
 import orjson
 from uuid import UUID
 from copy import copy, deepcopy
-from typing import Dict, TypeVar, List, Optional
+from typing import TypeVar
 from datetime import datetime, timezone
 
 from fastapi import Request
@@ -43,7 +43,7 @@ MAX_FILE_SIZE = 65536
 Member = TypeVar('Member')
 
 
-class MemberData(Dict):
+class MemberData(dict):
     '''
     Generic data object for the storing data as defined
     by the schema of services
@@ -52,7 +52,7 @@ class MemberData(Dict):
     def __init__(self, member: Member, paths: Paths,
                  doc_store: DocumentStore):
         self.member: Member = member
-        self.unvalidated_data: Dict = None
+        self.unvalidated_data: dict = None
 
         self.paths: Paths = paths
 
@@ -112,7 +112,7 @@ class MemberData(Dict):
         if not schema:
             raise ValueError('Schema has not yet been loaded')
 
-        data_classes: Dict[str, SchemaDataItem] = schema.data_classes
+        data_classes: dict[str, SchemaDataItem] = schema.data_classes
         for field, value in self.items():
             if field not in data_classes:
                 raise ValueError(
@@ -218,8 +218,8 @@ class MemberData(Dict):
 
     async def add_log_entry(self, request: Request, auth: RequestAuth,
                             operation: str, source: str, object: str,
-                            filters: List[str] = None,
-                            relations: List[str] = None,
+                            filters: list[str] = None,
+                            relations: list[str] = None,
                             depth: int = None, message: str = None,
                             remote_member_id: UUID = None,
                             load_data=False, save_data: bool = True):
@@ -257,8 +257,8 @@ class MemberData(Dict):
 
     @staticmethod
     async def get_data(service_id: int, info: Info, depth: int = 0,
-                       relations: List[str] = None,
-                       filters: List[str] = None) -> Dict[str, dict]:
+                       relations: list[str] = None,
+                       filters: list[str] = None) -> dict[str, dict]:
         '''
         Extracts the requested data object.
 
@@ -388,7 +388,7 @@ class MemberData(Dict):
         )
 
         # Gets the data included in the mutation
-        mutate_data: Dict = info.selected_fields[0].arguments
+        mutate_data: dict = info.selected_fields[0].arguments
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
@@ -428,7 +428,7 @@ class MemberData(Dict):
         return member.data
 
     @staticmethod
-    async def update_data(service_id: int, filters, info: Info) -> Dict:
+    async def update_data(service_id: int, filters, info: Info) -> dict:
         '''
         Updates a dict in an array
 
@@ -498,7 +498,7 @@ class MemberData(Dict):
         elif len(removed) > 1:
             raise ValueError('filters match more than one record')
 
-        update_data: Dict = info.selected_fields[0].arguments
+        update_data: dict = info.selected_fields[0].arguments
 
         # 'filters' is a keyword that can't be used as the name of a field
         # in a schema
@@ -525,8 +525,8 @@ class MemberData(Dict):
         return removed[0]
 
     async def append_data(service_id, info: Info,
-                          remote_member_id: Optional[UUID] = None,
-                          depth: int = 0) -> Dict:
+                          remote_member_id: UUID | None = None,
+                          depth: int = 0) -> dict:
         '''
         Appends the provided data
 
@@ -589,7 +589,7 @@ class MemberData(Dict):
             data = copy(member.data)
 
             # Gets the data included in the mutation
-            mutate_data: Dict = info.selected_fields[0].arguments
+            mutate_data: dict = info.selected_fields[0].arguments
 
             # The query may be for an array for which we do not yet have
             # any data
@@ -607,7 +607,7 @@ class MemberData(Dict):
             return mutate_data
 
     @staticmethod
-    async def delete_array_data(service_id: int, info: Info, filters) -> Dict:
+    async def delete_array_data(service_id: int, info: Info, filters) -> dict:
         '''
         Deletes one or more objects from an array.
 

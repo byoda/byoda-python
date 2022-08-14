@@ -10,7 +10,6 @@ import logging
 import base64
 from enum import Enum
 from datetime import datetime
-from typing import Dict
 
 from byoda.secrets import DataSecret
 from byoda.secrets import ServiceDataSecret
@@ -51,7 +50,7 @@ class MessageSignature:
 
         self.verified: bool = False
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         if self.secret:
             common_name = self.secret.common_name
         else:
@@ -66,7 +65,7 @@ class MessageSignature:
         return data
 
     @staticmethod
-    def from_dict(data: Dict[str, str], data_secret=None):
+    def from_dict(data: dict[str, str], data_secret=None):
         '''
         Factory, parse the data from the JSON Schema
         '''

@@ -8,7 +8,6 @@ RestApiClient, derived from ApiClient for calling REST APIs
 
 
 import logging
-from typing import Dict
 from uuid import UUID
 
 import requests
@@ -32,8 +31,8 @@ class RestApiClient:
 
     @staticmethod
     async def call(api: str, method: HttpMethod = HttpMethod.GET,
-                   secret: Secret = None, params: Dict = None,
-                   data: Dict = None, service_id: int = None,
+                   secret: Secret = None, params: dict = None,
+                   data: dict = None, service_id: int = None,
                    member_id: UUID = None, account_id: UUID = None
                    ) -> aiohttp.ClientResponse:
 
@@ -80,8 +79,8 @@ class RestApiClient:
 
     @staticmethod
     def call_sync(api: str, method: HttpMethod = HttpMethod.GET,
-                  secret: Secret = None, params: Dict = None,
-                  data: Dict = None, service_id: int = None,
+                  secret: Secret = None, params: dict = None,
+                  data: dict = None, service_id: int = None,
                   member_id: UUID = None, account_id: UUID = None
                   ) -> requests.Response:
 

@@ -10,7 +10,7 @@ Authentication function for GraphQL requests
 
 import re
 import logging
-from typing import List, TypeVar
+from typing import TypeVar
 
 from strawberry.types import Info
 
@@ -98,7 +98,7 @@ async def authorize_graphql_request(operation: DataOperationType,
     return access_allowed
 
 
-def get_query_key(path: List[str]) -> str:
+def get_query_key(path: list[str]) -> str:
     '''
     Gets the name of the data element from the service contract that is
     requested in the GraphQL query.

@@ -11,8 +11,8 @@ Azure rights to assign:
   Storage Blob Data Contributor
 
 Azure SDK documentation
-container_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.containerclient?view=azure-python
-blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python
+container_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.containerclient?view=azure-python       # noqa: E501
+blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python                 # noqa: E501
 
 :maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2021, 2022
@@ -20,7 +20,6 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 '''
 
 import logging
-from typing import Set, Dict
 from tempfile import TemporaryFile
 
 from azure.identity.aio import DefaultAzureCredential
@@ -59,14 +58,14 @@ class AzureFileStorage(FileStorage):
         super().__init__(root_dir, cloud_type=CloudType.AZURE)
 
         domain = 'blob.core.windows.net'
-        self.buckets: Dict[str:str] = {
+        self.buckets: dict[str:str] = {
             StorageType.PRIVATE.value:
                 f'{bucket_prefix}{StorageType.PRIVATE.value}.{domain}',
             StorageType.PUBLIC.value:
                 f'{bucket_prefix}{StorageType.PUBLIC.value}.{domain}'
         }
         # We pre-authenticate for the byoda container on each storage account
-        self.clients: Dict[StorageType, ContainerClient] = {
+        self.clients: dict[StorageType, ContainerClient] = {
             StorageType.PRIVATE.value: ContainerClient(
                 self.buckets[StorageType.PRIVATE.value], 'byoda',
                 credential=self.credential
@@ -329,7 +328,7 @@ class AzureFileStorage(FileStorage):
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE
-                          ) -> Set[str]:
+                          ) -> set[str]:
         '''
         Azure Storage let's you walk through blobs whose name start
         with a prefix

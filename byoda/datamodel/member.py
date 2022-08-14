@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, TypeVar, Callable
+from typing import TypeVar
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -186,7 +186,7 @@ class Member:
                 'service contract'
             )
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         '''
         Returns the metdata for the membership, complying with the
         MemberResponseModel
@@ -393,7 +393,7 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
-    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
                              ) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid

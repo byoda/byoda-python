@@ -12,7 +12,6 @@ This is the REST /service/search API for the addressbook service
 
 import logging
 from uuid import UUID
-from typing import Optional, List
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -35,12 +34,12 @@ class PersonResponseModel(BaseModel):
     given_name: str
     family_name: str
     email: str
-    homepage_url: Optional[str]
-    avatar_url: Optional[str]
+    homepage_url: str | None
+    avatar_url: str | None
     member_id: UUID
 
     def __repr__(self):
-        return(
+        return (
             '<PersonResponseModel={given_name: str, family_name: str, '
             'email: str, homepage_url: str, member_id: UUID}>'
         )
@@ -99,7 +98,7 @@ async def search_email(request: Request, email: str,
 
 
 @router.get('/search/asset',
-            response_model=List[AssetSearchResultsResponseModel])
+            response_model=list[AssetSearchResultsResponseModel])
 async def get_asset(request: Request, search: AssetSearchRequestModel,
                     auth: MemberRequestAuthFast = Depends(
                         MemberRequestAuthFast)):
@@ -124,7 +123,7 @@ async def get_asset(request: Request, search: AssetSearchRequestModel,
 
     search_db: SearchDB = config.server.search_db
 
-    assets: List[AssetSearchResultsResponseModel] = []
+    assets: list[AssetSearchResultsResponseModel] = []
 
     for hashtag in search.hashtags or []:
         results = search_db.get_list(hashtag, Tracker.HASHTAG)
@@ -142,7 +141,7 @@ async def get_asset(request: Request, search: AssetSearchRequestModel,
 
 
 @router.post('/search/asset',
-             response_model=List[AssetSearchResultsResponseModel])
+             response_model=list[AssetSearchResultsResponseModel])
 async def post_asset(request: Request, search: AssetSubmitRequestModel,
                      auth: MemberRequestAuthFast = Depends(
                         MemberRequestAuthFast)):
@@ -181,7 +180,7 @@ async def post_asset(request: Request, search: AssetSubmitRequestModel,
 
 
 @router.delete('/search/asset',
-               response_model=List[AssetSearchResultsResponseModel])
+               response_model=list[AssetSearchResultsResponseModel])
 async def delete_asset(request: Request, search: AssetSubmitRequestModel,
                        auth: MemberRequestAuthFast = Depends(
                            MemberRequestAuthFast)):

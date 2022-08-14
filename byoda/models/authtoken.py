@@ -7,7 +7,6 @@ Schema for server to server APIs
 '''
 
 import logging
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -17,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 class AuthRequestModel(BaseModel):
     username: str
     password: str
-    service_id: Optional[int] = None
+    service_id: int | None = None
 
     def __repr__(self):
         return ('<Auth=(username: str, password: str, service_id: int)>')

@@ -9,7 +9,6 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from typing import Optional
 
 from fastapi import Header, HTTPException, Request
 
@@ -28,9 +27,9 @@ _LOGGER = logging.getLogger(__name__)
 
 class MemberRequestAuthOptionalFast(RequestAuth):
     def __init__(self, request: Request,
-                 x_client_ssl_verify: Optional[TlsStatus] = Header(None),
-                 x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None)):
+                 x_client_ssl_verify: TlsStatus | None = Header(None),
+                 x_client_ssl_subject: str | None = Header(None),
+                 x_client_ssl_issuing_ca: str | None = Header(None)):
         '''
         Get the optional authentication info for the client that made the API
         call.
@@ -79,9 +78,9 @@ class MemberRequestAuthOptionalFast(RequestAuth):
 
 class MemberRequestAuthFast(RequestAuth):
     def __init__(self, request: Request,
-                 x_client_ssl_verify: Optional[TlsStatus] = Header(None),
-                 x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None)):
+                 x_client_ssl_verify: TlsStatus | None = Header(None),
+                 x_client_ssl_subject: str | None = Header(None),
+                 x_client_ssl_issuing_ca: str | None = Header(None)):
         '''
         Get the optional authentication info for the client that made the API
         call.

@@ -45,7 +45,7 @@
                                 "permission": "read",
                                 "distance": 1,
                                 "relation": ["friend", "family"],
-                                "signature_required": true,
+                                "source_signature_required": true,
                                 "anonimized_responses": true
                             }
                         ],

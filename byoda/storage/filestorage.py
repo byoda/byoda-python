@@ -13,7 +13,7 @@ import os
 import shutil
 import logging
 from enum import Enum
-from typing import List, Tuple, BinaryIO
+from typing import BinaryIO
 
 from byoda.datatypes import CloudType, StorageType
 
@@ -113,7 +113,7 @@ class FileStorage:
 
     def get_full_path(self, filepath: str, create_dir: bool = True,
                       storage_type: StorageType = StorageType.PRIVATE
-                      ) -> Tuple[str, str]:
+                      ) -> tuple[str, str]:
         '''
         Returns the absolute path for the file path relative
         to the local directory
@@ -406,7 +406,7 @@ class FileStorage:
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE
-                          ) -> List[str]:
+                          ) -> list[str]:
         '''
         Gets the folders/directories for a directory on the a filesystem
         '''

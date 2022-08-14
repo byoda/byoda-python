@@ -8,8 +8,6 @@ Class for modeling a social network
 
 import os
 import logging
-from typing import Dict, Set, Union
-from typing import Callable
 
 import passgen
 
@@ -82,8 +80,8 @@ class Network:
         self.services_ca: NetworkServicesCaSecret = None
         self.tls_secret: Secret = None
 
-        self.services: Dict[int: Service] = dict()
-        self.service_summaries: Dict[int:Dict] = dict()
+        self.services: dict[int: Service] = dict()
+        self.service_summaries: dict[int:dict] = dict()
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.services_ca: ServiceCaSecret = None
@@ -102,11 +100,11 @@ class Network:
         self.dnsdb = None
         self.paths: Paths = None
 
-        roles: Set[str] = server.get('roles', [])
+        roles: set[str] = server.get('roles', [])
         if roles and type(roles) not in (set, list):
             roles = [roles]
 
-        self.roles: Set = set()
+        self.roles: set = set()
         for role in roles:
             try:
                 role_type = ServerRole(role)
@@ -119,11 +117,11 @@ class Network:
         self.private_key_password: str = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            self.bucket_prefix: Union[str, None] = server['bucket_prefix']
-            self.account: Union[str, None] = 'pod'
+            self.bucket_prefix: str | None = server['bucket_prefix']
+            self.account: str | None = 'pod'
         else:
-            self.bucket_prefix: Union[str, None] = None
-            self.account: Union[str, None] = None
+            self.bucket_prefix: str | None = None
+            self.account: str | None = None
 
         self.cloud: str = server.get('cloud', 'LOCAL')
 
@@ -195,7 +193,7 @@ class Network:
         return network
 
     @staticmethod
-    async def _create_secret(network: str, secret_cls: Callable,
+    async def _create_secret(network: str, secret_cls: callable,
                              issuing_ca: Secret, paths: Paths, password: str):
         '''
         Abstraction helper for creating secrets for a Network to avoid

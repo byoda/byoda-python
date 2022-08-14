@@ -8,7 +8,6 @@ and pod servers and the functional test cases
 '''
 
 import logging
-from typing import List
 
 from starlette.middleware import Middleware
 from starlette_context import plugins
@@ -25,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def setup_api(title: str, description: str, version: str,
-              cors_origins: List[str], routers: List):
+              cors_origins: list[str], routers: list):
     middleware = [
         Middleware(
             RawContextMiddleware,
@@ -53,7 +52,7 @@ def setup_api(title: str, description: str, version: str,
     return app
 
 
-def add_cors(app: FastAPI, cors_origins: List[str], allow_proxy: bool = True):
+def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True):
     '''
     Add CORS headers to the app
     '''

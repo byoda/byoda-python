@@ -10,7 +10,6 @@ import os
 import shutil
 import requests
 from uuid import UUID
-from typing import Tuple
 
 from byoda.datatypes import IdType
 
@@ -55,7 +54,7 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
 
 async def get_azure_pod_jwt(account: Account, test_dir: str
-                            ) -> Tuple[str, str]:
+                            ) -> tuple[str, str]:
     '''
     Gets a JWT as would be created by the Azure Pod.
 

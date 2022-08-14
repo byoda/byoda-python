@@ -14,7 +14,6 @@ can be extended by for NoSQL storage to improve scalability.
 import logging
 import orjson
 from enum import Enum
-from typing import Dict, List
 
 from byoda.secrets import DataSecret
 
@@ -57,7 +56,7 @@ class DocumentStore:
 
         return storage
 
-    async def read(self, filepath: str, data_secret: DataSecret) -> Dict:
+    async def read(self, filepath: str, data_secret: DataSecret) -> dict:
         '''
         Reads, decrypts and deserializes a JSON document
         '''
@@ -77,7 +76,7 @@ class DocumentStore:
 
         return data
 
-    async def write(self, filepath: str, data: Dict, data_secret: DataSecret):
+    async def write(self, filepath: str, data: dict, data_secret: DataSecret):
         '''
         Encrypts the data, serializes it to JSON and writes the data to storage
         '''
@@ -95,7 +94,7 @@ class DocumentStore:
         )
 
     async def get_folders(self, folder_path: str, prefix: str = None
-                          ) -> List[str]:
+                          ) -> list[str]:
         '''
         Get the sub-directories in a directory. With some storage backends,
         this functionality will be emulated as it doesn't support directories

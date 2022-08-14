@@ -8,8 +8,6 @@ provides global variables
 :license    : GPLv3
 '''
 
-from typing import Dict
-
 import aiohttp
 import requests
 
@@ -40,7 +38,7 @@ request = requests.Session()
 test_case: bool = False
 
 # Pool of aiohttp sessions, used by pods and service- and directory server:
-client_pools: Dict[str, aiohttp.ClientSession] = {}
+client_pools: dict[str, aiohttp.ClientSession] = {}
 
 # Pool of requests sessions, used by podworker as it can't use asyncio.
-sync_client_pools: Dict[str, requests.Session] = {}
+sync_client_pools: dict[str, requests.Session] = {}
