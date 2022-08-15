@@ -20,7 +20,10 @@
                     "member_id": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["read"]
+                                "permissions": ["persist"]
+                            },
+                            "network": {
+                                "permissions": ["persist"]
                             }
                         },
                         "description": "Membership UUID",
@@ -48,9 +51,7 @@
                                 "source_signature_required": true,
                                 "anonimized_responses": true
                             }
-                        ],
-                        "signature": true,
-                        "anonimized_responses": true
+                        ]
                     }
                 },
                 "properties": {
@@ -66,7 +67,13 @@
                         "type": "string",
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": false
+                                    }
+                                ]
                             }
                         }
                     },
@@ -110,7 +117,13 @@
                     "name": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": false
+                                    }
+                                ]
                             }
                         },
                         "description": "Twitter name of the person",
@@ -153,7 +166,13 @@
                     "handle": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": true
+                                    }
+                                ]
                             }
                         },
                         "description": "Twitter handle of the person",

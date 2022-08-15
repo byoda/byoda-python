@@ -17,10 +17,13 @@ from urllib.parse import urlparse, ParseResult
 from datetime import datetime
 from typing import TypeVar
 
+
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import IdType
 from byoda.datatypes import DataType
+
+from .dataaccessright import DataAccessRight
 
 from byoda import config
 
@@ -87,8 +90,7 @@ class SchemaDataItem:
             class_name, self.schema
         )
 
-        self.access_controls: dict[RightsEntityType, set[DataOperationType]] =\
-            {}
+        self.access_controls: list[DataAccessRight] = {}
 
         self.parse_access_controls()
 
@@ -204,25 +206,30 @@ class SchemaDataItem:
                 f'Access controls must be an object for class {self.name}'
             )
 
-        for entity_type, accessright in rights.items():
-            permissions = DataAccessPermission(entity_type, accessright)
+        self.access_rights: dict[RightsEntityType, list[DataAccessRight]] = {}
 
-            for action in permissions.permitted_actions:
-                if action in (
+        for entity_type_data, access_rights_data in rights.items():
+            access_rights = DataAccessRight.get_access_rights(
+                entity_type_data, access_rights_data
+            )
+            self.access_controls[entity_type] = access_rights
+
+            permitted_actions = [
+                 access_right.data_operation_type
+                 for access_right in access_rights
+            ]
+
+            for action in permitted_actions:
+                if action.data_operation_type in (
                         DataOperationType.CREATE,
                         DataOperationType.UPDATE):
                     self.enabled_apis.add(GraphQlAPI.MUTATE)
-                if action == DataOperationType.APPEND:
+                if action.data_operation_type == DataOperationType.APPEND:
                     self.enabled_apis.add(GraphQlAPI.APPEND)
-                if action == DataOperationType.DELETE:
+                if action.data_operation_type == DataOperationType.DELETE:
                     self.enabled_apis.add(GraphQlAPI.DELETE)
-                if action == DataOperationType.SEARCH:
+                if action.data_operation_type == DataOperationType.SEARCH:
                     self.enabled_apis.add(GraphQlAPI.SEARCH)
-
-                if not self.access_controls.get(permissions.entity_type):
-                    self.access_controls[permissions.entity_type] = set()
-
-                self.access_controls[permissions.entity_type] = permissions
 
     async def authorize_access(self, operation: DataOperationType,
                                auth: RequestAuth, service_id: int):
@@ -252,23 +259,14 @@ class SchemaDataItem:
             )
             return None
 
-        for entity, permissions in self.access_controls.items():
-            # Check if the GraphQL operation is allowed per the permissions
-            # before matching the entity for the controls with the caller
-            if operation not in permissions.permitted_actions:
-                perms = [perm.value for perm in permissions.permitted_actions]
-                _LOGGER.debug(
-                    f'Operation {operation} not matching permitted actions: '
-                    f'{", ".join(perms)} for data item {self.name}'
-                )
-                continue
-
-            # Now check whether the requestor matches the entity of the
-            # access control
-
+        for entity, access_right in self.access_controls.items():
+            permitted_actions = [
+                access_right
+            ]
+            # Let's find the access rights that apply to the requestor
             # Anyone is allowed to
             if entity == RightsEntityType.ANONYMOUS:
-                if operation in permissions.permitted_actions:
+                if operation in access_right.permitted_actions:
                     _LOGGER.debug(
                         f'Authorizing anonymous access for data item {self.name}'
                     )
@@ -310,10 +308,7 @@ class SchemaDataItem:
                         service_id, permissions.relations,
                         permissions.distance, auth):
                     if operation in permissions.permitted_actions:
-                        _LOGGER.debug(
-                            'Authorizing network access for data item '
-                            f'{self.name}'
-                        )
+
                         return True
 
         _LOGGER.debug(f'No access controls matched for data item {self.name}')
@@ -540,68 +535,6 @@ class SchemaDataArray(SchemaDataItem):
         return access_allowed
 
 
-class DataAccessPermission:
-    def __init__(self, entity_type: str, right: dict) -> None:
-        self.entity_type: RightsEntityType = RightsEntityType(entity_type)
-        self.permitted_actions: set[str|dict] = set()
-
-        self.relations: list[str] | None = None
-        self.distance: int |None = None
-        self.search_condition: str | None = None
-
-        if self.entity_type == RightsEntityType.NETWORK:
-            self.relations = right.get('relation')
-            self.distance = right.get('distance', 1)
-        else:
-            if 'relation' in right:
-                raise ValueError(
-                    f'EntityType {self.entity_type} does not support '
-                    '"relation" keyword in access controls'
-                )
-            if 'distance' in right:
-                raise ValueError(
-                    f'EntityType {self.entity_type} does not support '
-                    '"distance" keyword in access controls'
-                )
-
-        for action in right['permissions']:
-            # Hack: with this, only one search expression can be specified
-            # per access control block
-            if isinstance(action, str):
-                if action.startswith('search:'):
-                    if self.search_condition:
-                        raise ValueError(
-                            'Multiple search conditions specified for access '
-                            'right'
-                        )
-
-                    self.search_condition = action[len('search:'):]
-                    action = 'search'
-
-                self.permitted_actions.add(DataOperationType(action))
-            else:
-                self.permitted_actions.add(DataOperationType('read'))
-
-
-def authorize_member(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorize ourselves
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-    member = config.server.account.memberships.get(service_id)
-
-    if auth.member_id and member and auth.member_id == member.member_id:
-        _LOGGER.debug(f'Authorization success for ourselves: {auth.member_id}')
-        return True
-
-    _LOGGER.debug(f'Authorization failed for ourselves: {auth.member_id}')
-    return False
-
-
 def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
     '''
     Authorizes any member of the service, regardless of whether the client
@@ -644,57 +577,3 @@ def authorize_service(service_id: int, auth: RequestAuth) -> bool:
     return False
 
 
-async def authorize_network(service_id: int, relations: list[str], distance: int,
-                            auth: RequestAuth) -> bool:
-    '''
-    Authorizes GraphQL API requests by people that are in your network
-
-    :param service_id: service membership that received the GraphQL API request
-    :param relations: what relations should be allowed acces to the data
-    :param distance: the maximmimum number of network links
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    if distance < 0 or distance > 1:
-        raise ValueError('Only network distance 0 and 1 are supported')
-
-    if relations is None:
-        _LOGGER.debug(f'No relations defined for service {service_id}')
-        relations = []
-
-    if not isinstance(relations, list):
-        relations = list(relations)
-
-    if relations:
-        _LOGGER.debug(
-            f'Relation of network links must be one of {",".join(relations)}'
-        )
-    else:
-        _LOGGER.debug('Network links with any relation are acceptable')
-
-    member: Member = config.server.account.memberships.get(service_id)
-
-    if not member:
-        _LOGGER.debug(f'No membership found for service {service_id}')
-        return False
-
-    if auth.member_id:
-        await member.load_data()
-        network_links = member.data.get('network_links') or []
-        _LOGGER.debug(f'Found total of {len(network_links)} network links')
-        network = [
-            link for link in network_links
-            if link['member_id'] == auth.member_id
-                 and (not relations or
-                    link['relation'].lower() in relations
-                 )
-        ]
-        _LOGGER.debug(f'Found {len(network)} applicable network links')
-        if len(network):
-            _LOGGER.debug('Network authorization successful')
-            return True
-
-    _LOGGER.debug('Network authorization rejected')
-    return False
