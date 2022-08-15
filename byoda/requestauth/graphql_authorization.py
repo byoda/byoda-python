@@ -73,7 +73,7 @@ async def authorize_graphql_request(operation: DataOperationType,
 
     data_class: SchemaDataItem = data_classes[key]
     access_allowed = await data_class.authorize_access(
-        operation, auth, service_id
+        operation, auth, service_id, depth
     )
 
     if access_allowed is None:

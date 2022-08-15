@@ -97,25 +97,40 @@ class DataAccessRight:
 
         return entity_type, permissions
 
-    def authorize(self, service_id: int, operation: DataOperationType
-                  ) -> Member | None:
+    def authorize(self, service_id: int, operation: DataOperationType,
+                  depth: int) -> tuple[bool | None, Member | None]:
         '''
         Returns our membership for the service if the operation matches
         this access right
 
-        :returns: instance of Member if we have a membership for the service
-        and the operation is permitted, None otherwise
+        :param service_id: the requested ID of the service
+        :param operation: the requested operation to authorize
+        :param depth: the requested depth of recursion
+        :returns: tuple of bool and Member. the bool may be None if the
+        requested operation does not match this instance of the class
+        derived from DataAccessRight. bool will be Fals if the requested
+        recursion depth exceeds to 'distance' for the access right.
         '''
 
         if self.data_operation != operation:
-            return None
+            return None, None
 
-        return config.server.account.memberships.get(service_id)
+        if self.distance and depth > self.distance:
+            _LOGGER.debug(
+                f'Requested recursion depth of {depth} exceeds the max '
+                f'distance of {self.distance} for {operation} on {service_id}')
+            return False, None
+
+        member: Member = config.server.account.memberships.get(service_id)
+        if not member:
+            _LOGGER.debug(f'No membership found for service {service_id}')
+
+        return True, member
 
 
 class MemberDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
-                        operation: DataOperationType) -> bool:
+                        operation: DataOperationType, depth: int) -> bool:
         '''
         Authorizes GraphQL API requests by ourselves
 
@@ -132,7 +147,10 @@ class MemberDataAccessRight(DataAccessRight):
 
         _LOGGER.debug('Authorizing member access for data item {self.name}')
 
-        member = super().authorize(service_id, operation)
+        allowed, member = super().authorize(service_id, operation, depth)
+        if allowed is False:
+            _LOGGER.debug('Request not authorized')
+
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -149,7 +167,7 @@ class MemberDataAccessRight(DataAccessRight):
 
 class AnyMemberDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
-                        operation: DataOperationType) -> bool:
+                        operation: DataOperationType, depth: int) -> bool:
         '''
         Authorizes GraphQL API requests by any member of the service
 
@@ -166,7 +184,10 @@ class AnyMemberDataAccessRight(DataAccessRight):
 
         _LOGGER.debug('Authorizing member access for data item {self.name}')
 
-        member = super().authorize(service_id, operation)
+        allowed, member = super().authorize(service_id, operation, depth)
+        if allowed is False:
+            _LOGGER.debug('Request not authorized')
+
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -188,7 +209,7 @@ class AnyMemberDataAccessRight(DataAccessRight):
 
 class NetworkDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
-                        operation: DataOperationType) -> bool:
+                        operation: DataOperationType, depth: int) -> bool:
         '''
         Authorizes GraphQL API requests by people that are in your network
 
@@ -210,7 +231,10 @@ class NetworkDataAccessRight(DataAccessRight):
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
 
-        member = super().authorize(service_id, operation)
+        allowed, member = super().authorize(service_id, operation, depth)
+        if allowed is False:
+            _LOGGER.debug('Request not authorized')
+
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -238,7 +262,7 @@ class NetworkDataAccessRight(DataAccessRight):
 
 class ServiceDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
-                        operation: DataOperationType) -> bool:
+                        operation: DataOperationType, depth: int) -> bool:
         '''
         Authorizes GraphQL API requests by the service itself
 
@@ -257,7 +281,10 @@ class ServiceDataAccessRight(DataAccessRight):
             'Authorizing access by the service for data item {self.name}'
         )
 
-        member = super().authorize(service_id, operation)
+        allowed, member = super().authorize(service_id, operation, depth)
+        if allowed is False:
+            _LOGGER.debug('Request not authorized')
+
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -278,7 +305,7 @@ class ServiceDataAccessRight(DataAccessRight):
 
 class AnonymousDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth | None, service_id: int,
-                        operation: DataOperationType) -> bool:
+                        operation: DataOperationType, depth: int) -> bool:
         '''
         Authorizes GraphQL API requests by the service itself
 
@@ -297,7 +324,10 @@ class AnonymousDataAccessRight(DataAccessRight):
             'Authorizing access by the service for data item {self.name}'
         )
 
-        member = await super().authorize(service_id, operation)
+        allowed, member = super().authorize(service_id, operation, depth)
+        if allowed is False:
+            _LOGGER.debug('Request not authorized')
+
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False

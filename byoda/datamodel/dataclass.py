@@ -230,7 +230,8 @@ class SchemaDataItem:
                     self.enabled_apis.add(GraphQlAPI.SEARCH)
 
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int):
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for
         the requested operation to the data item
@@ -259,7 +260,9 @@ class SchemaDataItem:
 
         for access_rights in self.access_rights.values():
             for access_right in access_rights:
-                result = await access_right.authorize(auth, service_id, operation)
+                result = await access_right.authorize(
+                    auth, service_id, operation, depth
+                )
                 if result:
                     return True
 
@@ -359,7 +362,8 @@ class SchemaDataObject(SchemaDataItem):
         return data
 
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int) -> bool:
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for the
         requested operation to the data item
@@ -370,7 +374,7 @@ class SchemaDataObject(SchemaDataItem):
         '''
 
         access_allowed: bool | None = await super().authorize_access(
-            operation, auth, service_id
+            operation, auth, service_id, depth
         )
 
         if access_allowed is False:
@@ -378,7 +382,7 @@ class SchemaDataObject(SchemaDataItem):
 
         for data_class in self.fields.values():
             child_access_allowed = await data_class.authorize_access(
-                operation, auth, service_id
+                operation, auth, service_id, depth
             )
             _LOGGER.debug(
                 f'Object child data access authorized: {child_access_allowed}'
@@ -450,7 +454,8 @@ class SchemaDataArray(SchemaDataItem):
         return result
 
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int) -> bool:
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for the
         requested operation to the data item
@@ -461,7 +466,7 @@ class SchemaDataArray(SchemaDataItem):
         '''
 
         access_allowed: bool | None = await super().authorize_access(
-            operation, auth, service_id
+            operation, auth, service_id, depth
         )
 
         if access_allowed is False:
@@ -470,7 +475,7 @@ class SchemaDataArray(SchemaDataItem):
         child_access_allowed = None
         if self.referenced_class:
             child_access_allowed = await self.referenced_class.authorize_access(
-                operation, auth, service_id
+                operation, auth, service_id, depth
             )
             _LOGGER.debug(
                 f'Child of array data access authorized: '
