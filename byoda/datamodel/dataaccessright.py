@@ -14,13 +14,12 @@ from typing import TypeVar
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 
-from byoda.datamodel.member import Member
-
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
 RequestAuth = TypeVar('RequestAuth')
+Member = TypeVar('Member')
 
 
 class DataAccessRight:
@@ -39,11 +38,11 @@ class DataAccessRight:
         self.search_casesensitive: bool | None = None
 
         if isinstance(permission_data, str):
-            self.data_operation_type: DataOperationType = \
+            self.data_operation: DataOperationType = \
                 DataOperationType(permission_data)
             return
 
-        self.data_operation_type: DataOperationType = \
+        self.data_operation: DataOperationType = \
             DataOperationType(permission_data['permission'])
 
         self.distance = permission_data.get('distance', 0)
@@ -54,14 +53,14 @@ class DataAccessRight:
             self.relations = set(relations.lower())
         else:
             self.relations = [
-                relation.lower() for relation in relations
+                relation.lower() for relation in relations or []
             ]
 
         self.source_signature_required = \
             permission_data.get('source_signature_required')
         self.anonimized_responses = permission_data.get('anonimized_responses')
 
-        if self.data_operation_type == DataOperationType.SEARCH:
+        if self.data_operation == DataOperationType.SEARCH:
             if (self.distance or self.relations or
                     self.source_signature_required or
                     self.anonimized_responses):
@@ -83,16 +82,40 @@ class DataAccessRight:
 
         permissions = list()
         for action in permission_data['permissions']:
-            if entity_type == RightsEntityType.NETWORK:
+            if entity_type == RightsEntityType.MEMBER:
+                permission = MemberDataAccessRight(action)
+            elif entity_type == RightsEntityType.NETWORK:
                 permission = NetworkDataAccessRight(action)
+            elif entity_type == RightsEntityType.SERVICE:
+                permission = ServiceDataAccessRight(action)
+            elif entity_type == RightsEntityType.ANY_MEMBER:
+                permission = AnyMemberDataAccessRight(action)
+            elif entity_type == RightsEntityType.ANONYMOUS:
+                permission = AnonymousDataAccessRight(action)
 
             permissions.append(permission)
 
-        return permissions
+        return entity_type, permissions
+
+    def authorize(self, service_id: int, operation: DataOperationType
+                  ) -> Member | None:
+        '''
+        Returns our membership for the service if the operation matches
+        this access right
+
+        :returns: instance of Member if we have a membership for the service
+        and the operation is permitted, None otherwise
+        '''
+
+        if self.data_operation != operation:
+            return None
+
+        return config.server.account.memberships.get(service_id)
 
 
 class MemberDataAccessRight(DataAccessRight):
-    async def authorize(self, auth: RequestAuth, service_id: int) -> bool:
+    async def authorize(self, auth: RequestAuth, service_id: int,
+                        operation: DataOperationType) -> bool:
         '''
         Authorizes GraphQL API requests by ourselves
 
@@ -100,13 +123,16 @@ class MemberDataAccessRight(DataAccessRight):
         client
         :param service_id: service membership that received the GraphQL API
         request
-        :returns: whether the client is authorized to perform the requested
-        operation
+        :param operation: the requested operation
+        :returns: whether this access right authorizes the requested
+        operation. A False return does not mean that the operation is not
+        authorized, it just means that this access right does not authorize
+        it
         '''
 
-        _LOGGER.debug('Authorizing network access for data item {self.name}')
+        _LOGGER.debug('Authorizing member access for data item {self.name}')
 
-        member = config.server.account.memberships.get(service_id)
+        member = super().authorize(service_id, operation)
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -121,8 +147,48 @@ class MemberDataAccessRight(DataAccessRight):
         return False
 
 
+class AnyMemberDataAccessRight(DataAccessRight):
+    async def authorize(self, auth: RequestAuth, service_id: int,
+                        operation: DataOperationType) -> bool:
+        '''
+        Authorizes GraphQL API requests by any member of the service
+
+        :param auth: the object with info about the authentication of the
+        client
+        :param service_id: service membership that received the GraphQL API
+        request
+        :param operation: the requested operation
+        :returns: whether this access right authorizes the requested
+        operation. A False return does not mean that the operation is not
+        authorized, it just means that this access right does not authorize
+        it
+        '''
+
+        _LOGGER.debug('Authorizing member access for data item {self.name}')
+
+        member = super().authorize(service_id, operation)
+        if not member:
+            _LOGGER.debug(f'No membership found for service {service_id}')
+            return False
+
+        if auth.member_id and auth.service_id == service_id:
+            _LOGGER.debug(
+                'Authorization success for any member of the service: '
+                f'{auth.member_id}'
+            )
+            return True
+
+        _LOGGER.debug(
+            'Authorization failed for any member of the service: '
+            f'{auth.member_id}'
+        )
+
+        return False
+
+
 class NetworkDataAccessRight(DataAccessRight):
-    async def authorize(self, auth: RequestAuth, service_id: int) -> bool:
+    async def authorize(self, auth: RequestAuth, service_id: int,
+                        operation: DataOperationType) -> bool:
         '''
         Authorizes GraphQL API requests by people that are in your network
 
@@ -134,8 +200,8 @@ class NetworkDataAccessRight(DataAccessRight):
         operation
         '''
 
-        _LOGGER.debug('Authorizing network access for data item {self.name}'
-                      )
+        _LOGGER.debug('Authorizing network access for data item {self.name}')
+
         if self.relations:
             _LOGGER.debug(
                'Relation of network links must be one of '
@@ -144,7 +210,7 @@ class NetworkDataAccessRight(DataAccessRight):
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
 
-        member: Member = config.server.account.memberships.get(service_id)
+        member = super().authorize(service_id, operation)
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
@@ -159,6 +225,7 @@ class NetworkDataAccessRight(DataAccessRight):
                     and (not self.relations or
                     link['relation'].lower() in self.relations))
             ]
+
         _LOGGER.debug(f'Found {len(network)} applicable network links')
 
         if len(network):
@@ -166,4 +233,83 @@ class NetworkDataAccessRight(DataAccessRight):
             return True
 
         _LOGGER.debug('Network authorization rejected')
+        return False
+
+
+class ServiceDataAccessRight(DataAccessRight):
+    async def authorize(self, auth: RequestAuth, service_id: int,
+                        operation: DataOperationType) -> bool:
+        '''
+        Authorizes GraphQL API requests by the service itself
+
+        :param auth: the object with info about the authentication of the
+        client
+        :param service_id: service membership that received the GraphQL API
+        request
+        :param operation: the requested operation
+        :returns: whether this access right authorizes the requested
+        operation. A False return does not mean that the operation is not
+        authorized, it just means that this access right does not authorize
+        it
+        '''
+
+        _LOGGER.debug(
+            'Authorizing access by the service for data item {self.name}'
+        )
+
+        member = super().authorize(service_id, operation)
+        if not member:
+            _LOGGER.debug(f'No membership found for service {service_id}')
+            return False
+
+        if service_id == auth.service_id:
+            _LOGGER.debug(
+                'Authorization success for request from the service: '
+                f'{auth.service_id}'
+            )
+            return True
+
+        _LOGGER.debug(
+            'Authorization failed for request from the service: '
+            f'{auth.service_id}'
+        )
+        return False
+
+
+class AnonymousDataAccessRight(DataAccessRight):
+    async def authorize(self, auth: RequestAuth | None, service_id: int,
+                        operation: DataOperationType) -> bool:
+        '''
+        Authorizes GraphQL API requests by the service itself
+
+        :param auth: the object with info about the authentication of the
+        client
+        :param service_id: service membership that received the GraphQL API
+        request
+        :param operation: the requested operation
+        :returns: whether this access right authorizes the requested
+        operation. A False return does not mean that the operation is not
+        authorized, it just means that this access right does not authorize
+        it
+        '''
+
+        _LOGGER.debug(
+            'Authorizing access by the service for data item {self.name}'
+        )
+
+        member = await super().authorize(service_id, operation)
+        if not member:
+            _LOGGER.debug(f'No membership found for service {service_id}')
+            return False
+
+        if service_id == auth.service_id:
+            _LOGGER.debug(
+                'Authorization success for request by an anonymous client to '
+                f'service {service_id}'
+            )
+            return True
+
+        _LOGGER.debug(
+            f'Authorization failed for the service: {auth.service_id}'
+        )
         return False

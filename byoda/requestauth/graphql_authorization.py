@@ -71,13 +71,6 @@ async def authorize_graphql_request(operation: DataOperationType,
 
     auth: RequestAuth = info.context['auth']
 
-    if depth and member.member_id != auth.member_id:
-        _LOGGER.debug(
-            'Attempt to perform recursive request by someone else '
-            f'than the owner of the pod: {auth.member_id}'
-        )
-        raise ValueError('Only owner of pod can submit recursive queries')
-
     data_class: SchemaDataItem = data_classes[key]
     access_allowed = await data_class.authorize_access(
         operation, auth, service_id

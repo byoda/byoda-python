@@ -20,12 +20,10 @@ from typing import TypeVar
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
-from byoda.datatypes import IdType
 from byoda.datatypes import DataType
 
 from .dataaccessright import DataAccessRight
 
-from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +88,7 @@ class SchemaDataItem:
             class_name, self.schema
         )
 
-        self.access_controls: list[DataAccessRight] = {}
+        self.access_rights: list[DataAccessRight] = {}
 
         self.parse_access_controls()
 
@@ -209,26 +207,26 @@ class SchemaDataItem:
         self.access_rights: dict[RightsEntityType, list[DataAccessRight]] = {}
 
         for entity_type_data, access_rights_data in rights.items():
-            access_rights = DataAccessRight.get_access_rights(
+            entity_type, access_rights = DataAccessRight.get_access_rights(
                 entity_type_data, access_rights_data
             )
-            self.access_controls[entity_type] = access_rights
+            self.access_rights[entity_type] = access_rights
 
             permitted_actions = [
-                 access_right.data_operation_type
+                 access_right.data_operation
                  for access_right in access_rights
             ]
 
-            for action in permitted_actions:
-                if action.data_operation_type in (
+            for data_operation in permitted_actions:
+                if data_operation in (
                         DataOperationType.CREATE,
                         DataOperationType.UPDATE):
                     self.enabled_apis.add(GraphQlAPI.MUTATE)
-                if action.data_operation_type == DataOperationType.APPEND:
+                if data_operation == DataOperationType.APPEND:
                     self.enabled_apis.add(GraphQlAPI.APPEND)
-                if action.data_operation_type == DataOperationType.DELETE:
+                if data_operation == DataOperationType.DELETE:
                     self.enabled_apis.add(GraphQlAPI.DELETE)
-                if action.data_operation_type == DataOperationType.SEARCH:
+                if data_operation == DataOperationType.SEARCH:
                     self.enabled_apis.add(GraphQlAPI.SEARCH)
 
     async def authorize_access(self, operation: DataOperationType,
@@ -251,7 +249,7 @@ class SchemaDataItem:
             )
             return False
 
-        if not self.access_controls:
+        if not self.access_rights:
             # No access rights for the data element so can't decide
             # whether access is allowed or not
             _LOGGER.debug(
@@ -259,57 +257,11 @@ class SchemaDataItem:
             )
             return None
 
-        for entity, access_right in self.access_controls.items():
-            permitted_actions = [
-                access_right
-            ]
-            # Let's find the access rights that apply to the requestor
-            # Anyone is allowed to
-            if entity == RightsEntityType.ANONYMOUS:
-                if operation in access_right.permitted_actions:
-                    _LOGGER.debug(
-                        f'Authorizing anonymous access for data item {self.name}'
-                    )
+        for access_rights in self.access_rights.values():
+            for access_right in access_rights:
+                result = await access_right.authorize(auth, service_id, operation)
+                if result:
                     return True
-
-            # Are we querying the GraphQL API ourselves?
-            if entity == RightsEntityType.MEMBER:
-                if auth.id_type == IdType.MEMBER:
-                    if authorize_member(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing member access for data '
-                                f'item {self.name}'
-                            )
-                            return True
-
-            # Did the service server call our GraphQL API?
-            if entity == RightsEntityType.SERVICE:
-                if auth.id_type == IdType.SERVICE:
-                    if authorize_service(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing service access for data item '
-                                f'{self.name}')
-                            return True
-
-            if entity == RightsEntityType.ANY_MEMBER:
-                if auth.id_type == IdType.MEMBER:
-                    if authorize_any_member(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing any member access for data item '
-                                f'{self.name}'
-                            )
-                            return True
-
-            if entity == RightsEntityType.NETWORK:
-                if await authorize_network(
-                        service_id, permissions.relations,
-                        permissions.distance, auth):
-                    if operation in permissions.permitted_actions:
-
-                        return True
 
         _LOGGER.debug(f'No access controls matched for data item {self.name}')
 
@@ -533,47 +485,3 @@ class SchemaDataArray(SchemaDataItem):
         )
 
         return access_allowed
-
-
-def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorizes any member of the service, regardless of whether the client
-    is in our network
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    member = config.server.account.memberships.get(service_id)
-
-    if member and auth.member_id and auth.service_id == service_id:
-        _LOGGER.debug(f'Authorization success for any member {auth.member_id}')
-        return True
-
-    _LOGGER.debug(f'Authorization rejected for any member {auth.member_id}')
-    return False
-
-
-def authorize_service(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorizes requests made with the TLS cert of the service
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    member = config.server.account.memberships.get(service_id)
-
-    if (member and auth.service_id is not None
-            and auth.service_id == service_id):
-        _LOGGER.debug(f'Authorization success for service {service_id}')
-        return True
-
-    _LOGGER.debug('Authorization rejected for service {service_id}')
-    return False
-
-
