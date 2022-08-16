@@ -277,7 +277,7 @@ class Member:
         )
 
         member.data_secret = MemberDataSecret(
-            member.member_id, member.service_id, member.account
+            member.member_id, member.service_id
         )
 
         await member.create_secrets(members_ca=members_ca)
@@ -413,7 +413,7 @@ class Member:
             )
 
         secret = secret_cls(
-            self.member_id, self.service_id, account=self.account
+            self.member_id, self.service_id, self.account
         )
 
         if await secret.cert_file_exists():
@@ -461,9 +461,7 @@ class Member:
         )
         self.member_id = self.tls_secret.member_id
 
-        self.data_secret = MemberDataSecret(
-            self.member_id, self.service_id, self.account
-        )
+        self.data_secret = MemberDataSecret(self.member_id, self.service_id)
         await self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )

@@ -13,7 +13,7 @@ import logging
 from fastapi import HTTPException
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
@@ -50,7 +50,7 @@ class ServiceRequestAuth(RequestAuth):
             await super().authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization,
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )
@@ -101,4 +101,4 @@ class ServiceRequestAuth(RequestAuth):
             # TODO: get service_id from token
             raise NotImplementedError
         else:
-            raise MissingAuthInfo
+            raise ByodaMissingAuthInfo

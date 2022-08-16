@@ -38,7 +38,7 @@ from byoda.secrets import NetworkServicesCaSecret
 
 from byoda.datatypes import TlsStatus
 
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
@@ -157,7 +157,7 @@ class RequestAuth:
         :param issuing_ca_dn: designated name of the issuing CA for the
         presented TLS client cert
         :returns: (none)
-        :raises: MissingAuthInfo if the no authentication, AuthFailure if
+        :raises: ByodaMissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
         status code 400 or 401 if malformed authentication info was provided
 
@@ -187,7 +187,7 @@ class RequestAuth:
             )
 
         if self.tls_status == TlsStatus.NONE and not self.authorization:
-            raise MissingAuthInfo
+            raise ByodaMissingAuthInfo
 
         if client_dn:
             try:

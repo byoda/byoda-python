@@ -15,6 +15,8 @@ from cryptography.fernet import Fernet
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.api_client import ApiClient, HttpMethod
+
 from .secret import Secret
 
 _LOGGER = logging.getLogger(__name__)
@@ -153,3 +155,19 @@ class DataSecret(Secret):
             'Initializing new Fernet instance from decrypted shared secret'
         )
         self.fernet = Fernet(self.shared_key)
+
+    async def download(self, url: str):
+        '''
+        Downloads the data secret of a remote member
+
+        :returns MemberSecret : the downloaded data secret
+        :raises: (none)
+        '''
+
+        _LOGGER.debug(f'Downloading data secret from {url}')
+        resp = await ApiClient.call(url, HttpMethod.GET)
+
+        if resp.status == 200:
+            cert_data = await resp.text()
+
+        return cert_data

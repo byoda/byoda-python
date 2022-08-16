@@ -17,7 +17,7 @@ from fastapi import Header, HTTPException, Request
 from byoda.datatypes import IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class ServiceRequestAuthFast(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )
@@ -127,7 +127,7 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             return
 
         if self.id_type != IdType.SERVICE:

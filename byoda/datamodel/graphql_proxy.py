@@ -127,7 +127,7 @@ class GraphQlProxy:
 
             targets = [
                 target['member_id'] for target in network_links
-                if not relations or target['relation'] in relations
+                if not relations or target['relation'].lower() in relations
             ]
 
         tasks = set()

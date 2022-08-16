@@ -17,17 +17,17 @@ import ssl
 
 import requests
 
-from byoda.secrets import Secret
-from byoda.secrets import AccountSecret
-from byoda.secrets import MemberSecret
-from byoda.secrets import ServiceSecret
-from byoda.servers.server import Server
+from byoda.secrets.secret import Secret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
+Server = TypeVar('Server')
 Network = TypeVar('Network')
 
 class ClientAuthType(Enum):

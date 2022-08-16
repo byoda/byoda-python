@@ -25,6 +25,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
 
+
+# Imports that enable code to import from this module
+from cryptography.exceptions import InvalidSignature        # noqa: F401
+
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
 from certvalidator import ValidationError, PathBuildingError
@@ -561,7 +565,7 @@ class Secret:
         of the string of the cert or can be provided as a separate parameter
 
         :param cert: the base64-encoded cert
-        :param certchain: the
+        :param certchain: the base64-encoded certchain
         :returns: (none)
         :raises: (none)
         '''

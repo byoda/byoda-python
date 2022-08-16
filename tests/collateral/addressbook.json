@@ -494,6 +494,16 @@
                         "description": "The type of ID used to authenticate, ie. member, service or account",
                         "type": "string"
                     },
+                    "origin_member_id": {
+                        "description": "The UUID of the member that originated the recurise query",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "origin_timestamp": {
+                        "description": "The time the query was created by the origin member of the recursive query",
+                        "format": "date-time",
+                        "type": "string"
+                    },
                     "operation": {
                         "description": "What operation that was requested by the client",
                         "type": "string"

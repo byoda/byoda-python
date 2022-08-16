@@ -133,7 +133,7 @@ The following actions are supported:
 - update, no specifiers
 - delete: delete the records matching the value of the specified filters
 - append: add an entry to an array
-- persist: allow the client to persist this data. This action is only supported for the 'service' entity. This action must only be used for data that the service needs to reach out to members when there is a problem with the service or with someones membership of the service, ie. the email address and the member_id of the membership.
+- persist: allow the client to persist this data. This action must only be used for data that the service  needs to reach out to members when there is a problem with the service or with someones membership of the service, ie. the email address and the member_id of the membership. In addition, pods and services are allowed to store the member_id of a member of a service
 - search: special case to allow services to provide a search function
 
 The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section

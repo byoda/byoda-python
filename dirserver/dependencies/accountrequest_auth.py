@@ -19,7 +19,7 @@ from byoda.requestauth.requestauth import TlsStatus
 
 from byoda.datatypes import IdType
 
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class AccountRequestAuthFast(RequestAuth):
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca, None
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401,
                 detail=(
@@ -121,7 +121,7 @@ class AccountRequestOptionalAuthFast(RequestAuth):
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca, None
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             # This class does not require authentication so we just return
             return
 

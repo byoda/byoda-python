@@ -21,18 +21,24 @@ from byoda import config
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
+from byoda.secrets.member_data_secret import MemberDataSecret
+
 from byoda.datatypes import ORIGIN_KEY
 
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.requestauth.requestauth import RequestAuth
 
+from byoda.secrets.secret import InvalidSignature
+
 from byoda.storage import FileMode
 
 from byoda.util.paths import Paths
 
+from byoda.exceptions import ByodaValueError
 
 # These imports are only used for typing
+from .network import Network
 from .schema import Schema
 from .dataclass import SchemaDataItem
 
@@ -221,6 +227,8 @@ class MemberData(dict):
                             filters: list[str] = None,
                             relations: list[str] = None,
                             depth: int = None, message: str = None,
+                            timestamp: datetime | None = None,
+                            origin_member_id: UUID | None = None,
                             remote_member_id: UUID = None,
                             load_data=False, save_data: bool = True):
         '''
@@ -247,6 +255,8 @@ class MemberData(dict):
                 'query_depth': depth,
                 'query_relations': ', '.join(relations or []),
                 'query_remote_member_id': remote_member_id,
+                'origin_member_id': origin_member_id,
+                'origin_timestamp': timestamp,
                 'source': source,
                 'message': message,
             }
@@ -258,7 +268,11 @@ class MemberData(dict):
     @staticmethod
     async def get_data(service_id: int, info: Info, depth: int = 0,
                        relations: list[str] = None,
-                       filters: list[str] = None) -> dict[str, dict]:
+                       filters: list[str] = None,
+                       timestamp: datetime | None = None,
+                       origin_member_id: UUID | None = None,
+                       origin_signature: bytes | None = None
+                       ) -> dict[str, dict]:
         '''
         Extracts the requested data object.
 
@@ -296,10 +310,22 @@ class MemberData(dict):
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
 
+        if depth > 1:
+            try:
+                await _verify_signature(
+                    service_id, relations, filters, timestamp,
+                    origin_member_id, origin_signature
+                )
+            except InvalidSignature:
+                raise ByodaValueError(
+                    'Failed verification of signature for recursive query'
+                )
+
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
             'graphql', key, relations=relations, filters=filters,
-            depth=depth, save_data=True
+            depth=depth, timestamp=timestamp,
+            origin_member_id=origin_member_id, save_data=True
         )
 
         all_data = []
@@ -676,3 +702,27 @@ class MemberData(dict):
         await member.save_data(member.data)
 
         return removed
+
+
+async def _verify_signature(service_id: int, relations: list[str] | None,
+                            filters: dict[str, str] | None,
+                            timestamp: datetime,
+                            origin_member_id: UUID, origin_signature):
+
+    network: Network = config.server.network
+
+    plaintext = f'{service_id}'
+
+    if relations:
+        plaintext += f'{" ".join(relations)}{timestamp.isoformat()}'
+
+    plaintext += f'{origin_member_id}'
+
+    for key in sorted(vars(filters)):
+        plaintext += f'{key}{filters[key]}'
+
+    secret = await MemberDataSecret.download(
+        origin_member_id, service_id, network.name
+    )
+
+    secret.verify_message_signature(plaintext, origin_signature)

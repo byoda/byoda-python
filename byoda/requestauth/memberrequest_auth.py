@@ -15,7 +15,7 @@ from fastapi import Header, HTTPException, Request
 from byoda import config
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class MemberRequestAuth(RequestAuth):
             await super().authenticate(
                 tls_status, client_dn, issuing_ca_dn, authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='Authentication failed'
             )

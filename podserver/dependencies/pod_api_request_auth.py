@@ -17,7 +17,7 @@ from byoda.datamodel.member import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import AuthSource, IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
@@ -86,7 +86,7 @@ class PodApiRequestAuth(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='No authentication provided'
             )

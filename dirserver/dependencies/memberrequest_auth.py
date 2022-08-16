@@ -20,7 +20,7 @@ from byoda.servers.server import Server
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class MemberRequestAuthOptionalFast(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             return
 
         if self.id_type != IdType.MEMBER:
@@ -116,7 +116,7 @@ class MemberRequestAuthFast(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=403, detail='Authentication failed'
             )
