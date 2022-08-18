@@ -44,7 +44,7 @@ Schema = TypeVar('Schema')
 
 
 class GraphQlProxy:
-    RX_RECURSIVE_QUERY = re.compile(b'''^(\{\"query\"\:\".*?query.*?\(.*?\).*?\"variables\"\:\{.*?).*?\s*,?\s*\"depth\"\s*?\:\s*(\d)(,?)(.*?\}\})\s*$''')   # noqa
+    RX_RECURSIVE_QUERY = re.compile(b'''^({"query"\:".*?query.*?\(.*?\).*?"variables"\:{.*?).*?\s*,?\s*"depth"\s*?\:\s*(\d)(,?)(.*?}})\s*$''')   # noqa
 
     def __init__(self, member: Member):
         self.member: Member = member
