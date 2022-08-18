@@ -8,8 +8,8 @@ Class for modeling an element of data of a member
 import logging
 import orjson
 from uuid import UUID
-from copy import copy, deepcopy
 from typing import TypeVar
+from copy import copy, deepcopy
 from datetime import datetime, timezone
 
 from fastapi import Request
@@ -21,9 +21,8 @@ from byoda import config
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
-from byoda.secrets.member_data_secret import MemberDataSecret
-
 from byoda.datatypes import ORIGIN_KEY
+from byoda.datatypes import IdType
 
 from byoda.datastore.document_store import DocumentStore
 
@@ -38,7 +37,6 @@ from byoda.util.paths import Paths
 from byoda.exceptions import ByodaValueError
 
 # These imports are only used for typing
-from .network import Network
 from .schema import Schema
 from .dataclass import SchemaDataItem
 
@@ -286,10 +284,10 @@ class MemberData(dict):
         '''
 
         if not info.path:
-            raise ValueError('Did not get value for path parameter')
+            raise ByodaValueError('Did not get value for path parameter')
 
         if info.path.typename != 'Query':
-            raise ValueError(
+            raise ByodaValueError(
                 f'Got graphql invocation for "{info.path.typename}" '
                 f'instead of "Query"'
             )
@@ -300,7 +298,7 @@ class MemberData(dict):
         )
 
         server = config.server
-        member = server.account.memberships[service_id]
+        member: Member = server.account.memberships[service_id]
         await member.load_data()
 
         # For queries for objects we implement pagination and identify
@@ -310,15 +308,28 @@ class MemberData(dict):
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
 
-        if depth > 1:
+        # If an origin_member_id has been provided then we check
+        # the signature
+        auth: RequestAuth = info.context['auth']
+        if origin_member_id or origin_signature or timestamp:
             try:
-                await _verify_signature(
+                await GraphQlProxy.verify_signature(
                     service_id, relations, filters, timestamp,
                     origin_member_id, origin_signature
                 )
             except InvalidSignature:
                 raise ByodaValueError(
-                    'Failed verification of signature for recursive query'
+                    'Failed verification of signature for recursive query '
+                    f'received from {auth.id} with IP {auth.remote_addr} '
+                )
+        elif depth > 0:
+            # If no origin_member_id has been provided then the request
+            # must come from our own membership
+            if (auth.id_type != IdType.MEMBER or
+                    auth.member_id != member.member_id):
+                raise ByodaValueError(
+                    'Received a recursive query without signture '
+                    'submitted by someone else than ourselves'
                 )
 
         await member.data.add_log_entry(
@@ -329,13 +340,37 @@ class MemberData(dict):
         )
 
         all_data = []
+
         if depth:
             request: Request = info.context['request']
             query = await request.body()
+
             proxy = GraphQlProxy(member)
-            all_data = await proxy.proxy_request(
-                key, query, depth, relations
-            )
+            if not origin_member_id:
+                # Our membership submitted the query so let's
+                # add needed data and sign the request
+                origin_member_id = member.member_id
+                timestamp = datetime.now(timezone.utc)
+
+                origin_signature = proxy.create_signature(
+                    service_id, relations, filters, timestamp,
+                    origin_member_id
+                )
+                # We need to insert origin_member_id, origin_signature
+                # and timestamp in the received query
+                all_data = await proxy.proxy_request(
+                    key, query, info, depth, relations,
+                    origin_member_id=origin_member_id,
+                    origin_signature=origin_signature,
+                    timestamp=timestamp
+                )
+            else:
+                # origin_member_id, origin_signature and timestamp must
+                # already be set
+                all_data = await proxy.proxy_request(
+                    key, query, info, depth, relations
+                )
+
             _LOGGER.debug(
                 f'Collected {len(all_data)} items from the network'
             )
@@ -702,27 +737,3 @@ class MemberData(dict):
         await member.save_data(member.data)
 
         return removed
-
-
-async def _verify_signature(service_id: int, relations: list[str] | None,
-                            filters: dict[str, str] | None,
-                            timestamp: datetime,
-                            origin_member_id: UUID, origin_signature):
-
-    network: Network = config.server.network
-
-    plaintext = f'{service_id}'
-
-    if relations:
-        plaintext += f'{" ".join(relations)}{timestamp.isoformat()}'
-
-    plaintext += f'{origin_member_id}'
-
-    for key in sorted(vars(filters)):
-        plaintext += f'{key}{filters[key]}'
-
-    secret = await MemberDataSecret.download(
-        origin_member_id, service_id, network.name
-    )
-
-    secret.verify_message_signature(plaintext, origin_signature)

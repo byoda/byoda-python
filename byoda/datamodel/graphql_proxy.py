@@ -7,32 +7,44 @@ Class for modeling GraphQL requests that are proxied by a pod to other pods
 '''
 
 import re
+import base64
 import asyncio
 import logging
 from uuid import UUID
 from typing import TypeVar
+from datetime import datetime
 
 import orjson
+
+from strawberry.types import Info
 
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import ORIGIN_KEY
 
 from byoda.datamodel.dataclass import SchemaDataArray, SchemaDataItem
+from ..exceptions import ByodaValueError
 
-from byoda.secrets import MemberSecret
+
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.util.api_client.graphql_client import GraphQlClient
+
+
+from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
 POD_TO_POD_PORT = 444
 
+Network = TypeVar('Network')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
 
 
 class GraphQlProxy:
-    RX_RECURSIVE_QUERY = re.compile(b'''^(.*?"?depth"?:\\s*?)(\\d+)(.*)$''')
+    RX_RECURSIVE_QUERY = re.compile(b'''^(\{\"query\"\:\".*?query.*?\(.*?\).*?\"variables\"\:\{.*?).*?\s*,?\s*\"depth\"\s*?\:\s*(\d)(,?)(.*?\}\})\s*$''')   # noqa
 
     def __init__(self, member: Member):
         self.member: Member = member
@@ -45,26 +57,42 @@ class GraphQlProxy:
 
         self.schema: Schema = member.schema
 
-    async def proxy_request(self, class_name: str, query: bytes,
+    async def proxy_request(self, class_name: str, query: bytes, info: Info,
                             depth: int, relations: list[str],
-                            remote_member_id: UUID = None) -> list[dict]:
+                            remote_member_id: UUID = None,
+                            origin_member_id: UUID | None = None,
+                            origin_signature: str | None = None,
+                            timestamp: datetime or None = None) -> list[dict]:
         '''
         Manipulates the original request to decrement the query depth by 1,
         sends the updated request to all network links that have one of the
         provided relations
 
+        :param class_name: the object requested in the query
         :param query: the original query string received by the pod
+        :param info: The GraphQL.Info object that was received by the pod
         :param depth: the level of requested recursion
         :param relations: requests should only be proxied to network links with
         one of the provided relations. If no relations are listed, the
         request will be proxied to all network links
+        :param origin_member_id: only specificy a value for this parameter if
+        the query currently doesn't specify origin_member_id and it needs to be
+        added to the query
+        :param origin_signature: only specificy a value for this parameter if
+        the query currently doesn't specify origin_signature and it needs to be
+        added to the query
+        :param timestamp: only specifiy a value for this parameter if the query
+        currently doesn't specifiy a timestamp and it needs to be added to the
+        query
         :returns: the results
         '''
 
         if depth < 1:
             raise ValueError('Requests with depth < 1 are not proxied')
 
-        updated_query = self._update_query(query)
+        updated_query = self._update_query(
+            query, info, origin_member_id, origin_signature, timestamp
+        )
 
         network_data = await self._proxy_request(
             updated_query, relations, remote_member_id
@@ -81,27 +109,58 @@ class GraphQlProxy:
 
         return cleaned_data
 
-    def _update_query(self, query: bytes) -> bytes:
+    def _update_query(self, query: bytes, info: Info,
+                      origin_member_id: UUID | None,
+                      origin_signature: str | None,
+                      timestamp: datetime | None = None) -> bytes:
         '''
         Manipulates the incoming GraphQL query so it can be used to query
         other pods
 
         :param query: the original GraphQL request that was received
+        :param info: the GraphQL.Info object for the incoming request
+        :param origin_memberid: if defined, it will be inserted into the query
+        :param origin_signature: if defined, it will be inserted into the query
+        :param timestamp: if defined, it will be inserted into the query
         :returns: the updated query
         '''
 
+        if ((origin_member_id or origin_signature or timestamp)
+                and not (origin_member_id and origin_signature and timestamp)):
+            raise ByodaValueError(
+                'If origin_member_id is specified, origin_signature is also '
+                'required and vice versa'
+            )
+
+        if origin_member_id and 'origin_member_id' in info.variable_values:
+            raise NotImplementedError(
+                'Updating existing values of "origin_member_id" in the query '
+                'is not implemented'
+            )
+
         # HACK: we update the query we received using a regex to decrement
-        # the query depth by 1
+        # the query depth by 1 and add needed fields to the query
         match = GraphQlProxy.RX_RECURSIVE_QUERY.match(query)
         if not match:
-            _LOGGER.exception(
+            raise ByodaValueError(
                 f'Could not parse value for "depth" from request: {query}'
             )
-            raise ValueError('Could not parse value for "depth" from request')
 
         previous_depth = int(match.group(2))
-        new_depth = str(previous_depth - 1).encode('utf-8')
-        updated_query = match.group(1) + new_depth + match.group(3)
+        new_depth = str(previous_depth - 1)
+
+        updated_query = (
+            match.group(1) + f'"depth": {new_depth}'.encode('utf-8')
+        )
+
+        if origin_member_id:
+            updated_query += (
+                f', "origin_member_id": "{origin_member_id}"'
+                f', "origin_signature": "{origin_signature}"'
+                f', "timestamp": "{timestamp}"'
+            ).encode('utf-8')
+
+        updated_query += match.group(3) + match.group(4)
 
         return updated_query
 
@@ -239,3 +298,64 @@ class GraphQlProxy:
         target_data[key][ORIGIN_KEY] = target_id
 
         return target_data[key]
+
+    @staticmethod
+    async def verify_signature(service_id: int, relations: list[str] | None,
+                               filters: dict[str, str] | None,
+                               timestamp: datetime,
+                               origin_member_id: UUID, origin_signature: str
+                               ) -> None:
+        '''
+        Verifies the signature of the recursive request
+        :raises: byoda.secrets.secret.InvalidSignature if the verification of
+        the signature fails
+        '''
+
+        network: Network = config.server.network
+
+        plaintext = GraphQlProxy._create_plaintext(
+            service_id, relations, filters, timestamp, origin_member_id
+        )
+        secret = await MemberDataSecret.download(
+            origin_member_id, service_id, network.name
+        )
+
+        origin_signature_decoded = base64.b64decode(origin_signature)
+
+        secret.verify_message_signature(plaintext, origin_signature_decoded)
+
+    @staticmethod
+    def _create_plaintext(service_id: int, relations: list[str] | None,
+                          filters: dict[str, str] | None, timestamp: datetime,
+                          origin_member_id: UUID) -> str:
+
+        plaintext: str = f'{service_id}'
+
+        if relations:
+            plaintext += f'{" ".join(relations)}{timestamp.isoformat()}'
+
+        plaintext += f'{origin_member_id}'
+
+        if filters:
+            for key in sorted(vars(filters)):
+                plaintext += f'{key}{filters[key]}'
+
+        return plaintext
+
+    def create_signature(self, service_id: int, relations: list[str] | None,
+                         filters: dict[str, str] | None,
+                         timestamp: datetime,
+                         origin_member_id: UUID) -> str:
+        '''
+        Creates a signature for a recurisve request
+        '''
+
+        plaintext = GraphQlProxy._create_plaintext(
+            service_id, relations, filters, timestamp, origin_member_id
+        )
+
+        secret: MemberDataSecret = self.member.data_secret
+        signature = secret.sign_message(plaintext)
+        signature_encoded = base64.b64encode(signature).decode('utf-8')
+
+        return signature_encoded

@@ -259,7 +259,7 @@ While the initial test service is the 'address book', your pod is not restricted
 
 ## Access security
 When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
-To acquire a JWT for managing the pod, you get an 'account JWT':
+To acquire a JWT for managing the pod, you get an 'account JWT'. If you do not use a custom domain then use:
 ```
 export ACCOUNT_JWT=$( \
     curl -s \
@@ -269,10 +269,26 @@ export ACCOUNT_JWT=$( \
 ); echo $ACCOUNT_JWT
 ```
 
+If you do use a custom domain, you can not use the proxy and have to use the custom domain for calling account APIs:
+```
+CUSTOM_DOMAIN=<changeme>
+export ACCOUNT_JWT=$( \
+    curl -s \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -H "Content-Type: application/json" \
+    https://${CUSTOM_DOMAIN}/api/v1/pod/authtoken | jq -r .auth_token
+); echo $ACCOUNT_JWT
+```
+
 You can use the 'account' JWT to call REST APIs on the POD, ie.:
 ```
 curl -s --cacert $ROOT_CA -H "Authorization: bearer $ACCOUNT_JWT" \
     https://$ACCOUNT_FQDN/api/v1/pod/account | jq .
+```
+
+or, if you use a custom domain:
+curl -s -H "Authorization: bearer $ACCOUNT_JWT" \
+    https://${CUSTOM_DOMAIN}/api/v1/pod/account | jq .
 ```
 
 If you need to call the GraphQL API, you need to have a 'member' JWT:
