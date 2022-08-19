@@ -28,8 +28,7 @@ class ByodaValueError(ByodaException, ValueError):
 
 class ByodaMissingAuthInfo(ByodaException):
     def __init__(self, message, loglevel=logging.DEBUG):
-        super(ByodaException, self).__init__(message, loglevel)
-        super(ValueError, self).__init__(message)
+        super().__init__(message, loglevel)
 
 
 class PodInvalidAuthInfo(BaseException):
