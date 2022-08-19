@@ -26,6 +26,7 @@ import uvicorn
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
+from byoda.datamodel.graphql_proxy import GraphQlProxy
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -927,6 +928,36 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(body.get('errors'))
         data = data['datalogs_connection']
         self.assertGreater(data['total_count'], 100)
+
+        #
+        # Recursive query test
+        #
+        relations = ['family']
+        depth = 1
+        filters = None
+        timestamp = datetime.now(timezone.utc).isoformat()
+        origin_member_id = str(account_member.member_id)
+        origin_signature = GraphQlProxy.create_signature(
+            ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
+            origin_member_id
+        )
+        vars = {
+            'depth': depth,
+            'relations': relations,
+            'filters': filters,
+            'timestamp': timestamp,
+            'origin_member_id': origin_member_id,
+            'origin_signature': origin_signature,
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['network_assets']['query'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['network_assets_connection']['edges']
+        self.assertEqual(len(data), 100)
 
     async def test_graphql_addressbook_tls_cert(self):
         pod_account = config.server.account

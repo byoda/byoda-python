@@ -10,7 +10,9 @@ import orjson
 from uuid import UUID
 from typing import TypeVar
 from copy import copy, deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
+from datetime import timedelta
 
 from fastapi import Request
 
@@ -40,11 +42,13 @@ from byoda.exceptions import ByodaValueError
 from .schema import Schema
 from .dataclass import SchemaDataItem
 
+Member = TypeVar('Member')
+
 _LOGGER = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 65536
 
-Member = TypeVar('Member')
+RECURSIVE_QUERY_TTL = 300
 
 
 class MemberData(dict):
@@ -322,6 +326,15 @@ class MemberData(dict):
                     'Failed verification of signature for recursive query '
                     f'received from {auth.id} with IP {auth.remote_addr} '
                 )
+
+            delta = timedelta(seconds=RECURSIVE_QUERY_TTL)
+            if timestamp - datetime.utcnow() > delta:
+                _LOGGER.debug(
+                    'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
+                    'not proxying this request'
+                )
+                depth = 0
+
         elif depth > 0:
             # If no origin_member_id has been provided then the request
             # must come from our own membership
