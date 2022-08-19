@@ -101,4 +101,4 @@ class ServiceRequestAuth(RequestAuth):
             # TODO: get service_id from token
             raise NotImplementedError
         else:
-            raise ByodaMissingAuthInfo
+            raise ByodaMissingAuthInfo('Missing common name')

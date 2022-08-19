@@ -187,7 +187,7 @@ class RequestAuth:
             )
 
         if self.tls_status == TlsStatus.NONE and not self.authorization:
-            raise ByodaMissingAuthInfo
+            raise ByodaMissingAuthInfo('Missing authentication info')
 
         if client_dn:
             try:
