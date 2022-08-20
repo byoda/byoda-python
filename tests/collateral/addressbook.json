@@ -430,12 +430,8 @@
                         "description": "What relation you have with asset, such as read, liked, etc.",
                         "type": "string"
                     },
-                    "nonce": {
-                        "description": "The nonce prefixed to the asset_link representation as a string used to generate the value for the signature field",
-                        "type": "string"
-                    },
                     "signature": {
-                        "description": "the digital signature using our data cert of the concatenation of nonce, member_id, asset_id, asset_url, and relation",
+                        "description": "the digital signature using our data cert of the concatenation of member_id, asset_id, asset_url, and relation",
                         "type": "string"
                     }
                 },
@@ -466,12 +462,8 @@
                         "description": "What relation the other member has with our asset, for example liked",
                         "type": "string"
                     },
-                    "nonce": {
-                        "description": "A nonce prefixed to the reaction text, used to generate the signature",
-                        "type": "string"
-                    },
                     "signature": {
-                        "description": "The digital signature created using the data cert of the member of the string of concatenating the nonce, member_id, asset_id, and relation",
+                        "description": "The digital signature created using the data cert of the member of the string of concatenating the member_id, asset_id, and relation",
                         "type": "string"
                     }
                 },
@@ -510,6 +502,19 @@
                         "description": "The time the query was created by the origin member of the recursive query",
                         "format": "date-time",
                         "type": "string"
+                    },
+                    "query_id": {
+                        "description": "Unique identifier for queries so pods can drop duplicate recursive queries",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "origin_signature": {
+                        "description": "base64 encoded signature of a recursive query",
+                        "type": "string"
+                    },
+                    "signature_format_version": {
+                        "description": "The version of the signature format used",
+                        "type": "number"
                     },
                     "operation": {
                         "description": "What operation that was requested by the client",

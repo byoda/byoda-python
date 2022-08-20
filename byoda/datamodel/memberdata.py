@@ -228,10 +228,13 @@ class MemberData(dict):
                             operation: str, source: str, object: str,
                             filters: list[str] = None,
                             relations: list[str] = None,
+                            remote_member_id: UUID | None = None,
                             depth: int = None, message: str = None,
                             timestamp: datetime | None = None,
                             origin_member_id: UUID | None = None,
-                            remote_member_id: UUID = None,
+                            origin_signature: str | None = None,
+                            query_id: UUID = None,
+                            signature_format_version: int | None = None,
                             load_data=False, save_data: bool = True):
         '''
         Adds an entry to data log
@@ -256,9 +259,12 @@ class MemberData(dict):
                 'query_filters': str(filter_set),
                 'query_depth': depth,
                 'query_relations': ', '.join(relations or []),
+                'query_id': query_id,
                 'query_remote_member_id': remote_member_id,
                 'origin_member_id': origin_member_id,
                 'origin_timestamp': timestamp,
+                'origin_signature': origin_signature,
+                'signature_format_version': signature_format_version,
                 'source': source,
                 'message': message,
             }
@@ -272,8 +278,11 @@ class MemberData(dict):
                        relations: list[str] = None,
                        filters: list[str] = None,
                        timestamp: datetime | None = None,
+                       remote_member_id: UUID | None = None,
+                       query_id: UUID | None = None,
                        origin_member_id: UUID | None = None,
-                       origin_signature: bytes | None = None
+                       origin_signature: bytes | None = None,
+                       signature_format_version: int = 1,
                        ) -> dict[str, dict]:
         '''
         Extracts the requested data object.
@@ -349,7 +358,12 @@ class MemberData(dict):
             info.context['request'], info.context['auth'], 'get',
             'graphql', key, relations=relations, filters=filters,
             depth=depth, timestamp=timestamp,
-            origin_member_id=origin_member_id, save_data=True
+            remote_member_id=remote_member_id,
+            origin_member_id=origin_member_id,
+            origin_signature=origin_signature,
+            signature_format_version=signature_format_version,
+            query_id=query_id,
+            save_data=True
         )
 
         all_data = []

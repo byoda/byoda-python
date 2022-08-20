@@ -13,10 +13,14 @@ GRAPHQL_STATEMENTS = {}
 
 QUERY_NETWORK_LINK = '''
 query ($filters: networkLinkInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     network_link_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -60,10 +64,14 @@ GRAPHQL_STATEMENTS['network_link']['mutate'] = MUTATE_NETWORK_LINK
 
 QUERY_NETWORK_INVITE = '''
 query ($filters: networkInviteInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     network_invite_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -111,10 +119,14 @@ GRAPHQL_STATEMENTS['network_invite']['mutate'] = MUTATE_NETWORK_INVITE
 
 QUERY_ASSET_LINK = '''
 query ($filters: assetLinkInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     asset_link_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -125,7 +137,6 @@ query ($filters: assetLinkInputFilter, $first: Int, $after: String,
                 asset_id
                 asset_url
                 relation
-                nonce
                 signature
             }
         }
@@ -146,7 +157,6 @@ mutation(
                     $asset_id: UUID,
                     $asset_url: String,
                     $relation: String,
-                    $nonce: String,
                     $signature: String,
 ) {
     mutate_asset_link(
@@ -155,7 +165,6 @@ mutation(
                     asset_id: $asset_id,
                     asset_url: $asset_url,
                     relation: $relation,
-                    nonce: $nonce,
                     signature: $signature,
     ) {
                     created_timestamp
@@ -163,7 +172,6 @@ mutation(
                     asset_id
                     asset_url
                     relation
-                    nonce
                     signature
     }
 }
@@ -174,10 +182,14 @@ GRAPHQL_STATEMENTS['asset_link']['mutate'] = MUTATE_ASSET_LINK
 
 QUERY_ASSET_REACTION = '''
 query ($filters: assetReactionInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     asset_reaction_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -187,7 +199,6 @@ query ($filters: assetReactionInputFilter, $first: Int, $after: String,
                 member_id
                 asset_id
                 relation
-                nonce
                 signature
             }
         }
@@ -207,7 +218,6 @@ mutation(
                     $member_id: UUID,
                     $asset_id: UUID,
                     $relation: String,
-                    $nonce: String,
                     $signature: String,
 ) {
     mutate_asset_reaction(
@@ -215,14 +225,12 @@ mutation(
                     member_id: $member_id,
                     asset_id: $asset_id,
                     relation: $relation,
-                    nonce: $nonce,
                     signature: $signature,
     ) {
                     created_timestamp
                     member_id
                     asset_id
                     relation
-                    nonce
                     signature
     }
 }
@@ -233,10 +241,14 @@ GRAPHQL_STATEMENTS['asset_reaction']['mutate'] = MUTATE_ASSET_REACTION
 
 QUERY_DATALOG = '''
 query ($filters: datalogInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     datalog_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -248,6 +260,9 @@ query ($filters: datalogInputFilter, $first: Int, $after: String,
                 remote_id_type
                 origin_member_id
                 origin_timestamp
+                query_id
+                origin_signature
+                signature_format_version
                 operation
                 object
                 query_filters
@@ -276,6 +291,9 @@ mutation(
                     $remote_id_type: String,
                     $origin_member_id: UUID,
                     $origin_timestamp: DateTime,
+                    $query_id: UUID,
+                    $origin_signature: String,
+                    $signature_format_version: Float,
                     $operation: String,
                     $object: String,
                     $query_filters: String,
@@ -292,6 +310,9 @@ mutation(
                     remote_id_type: $remote_id_type,
                     origin_member_id: $origin_member_id,
                     origin_timestamp: $origin_timestamp,
+                    query_id: $query_id,
+                    origin_signature: $origin_signature,
+                    signature_format_version: $signature_format_version,
                     operation: $operation,
                     object: $object,
                     query_filters: $query_filters,
@@ -307,6 +328,9 @@ mutation(
                     remote_id_type
                     origin_member_id
                     origin_timestamp
+                    query_id
+                    origin_signature
+                    signature_format_version
                     operation
                     object
                     query_filters
@@ -324,10 +348,14 @@ GRAPHQL_STATEMENTS['datalog']['mutate'] = MUTATE_DATALOG
 
 QUERY_ASSET = '''
 query ($filters: assetInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     asset_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -419,10 +447,14 @@ GRAPHQL_STATEMENTS['asset']['mutate'] = MUTATE_ASSET
 
 QUERY_TWITTER_MEDIA = '''
 query ($filters: twitterMediaInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     twitter_media_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -498,10 +530,14 @@ GRAPHQL_STATEMENTS['twitter_media']['mutate'] = MUTATE_TWITTER_MEDIA
 
 QUERY_TWEET = '''
 query ($filters: tweetInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     tweet_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -605,10 +641,14 @@ GRAPHQL_STATEMENTS['tweet']['mutate'] = MUTATE_TWEET
 
 QUERY_MEMBER = '''
 query ($filters: memberInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     member_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -648,10 +688,14 @@ GRAPHQL_STATEMENTS['member']['mutate'] = MUTATE_MEMBER
 
 QUERY_PERSON = '''
 query ($filters: personInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     person_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -707,10 +751,14 @@ GRAPHQL_STATEMENTS['person']['mutate'] = MUTATE_PERSON
 
 QUERY_TWITTER_ACCOUNT = '''
 query ($filters: twitterAccountInputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     twitter_account_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -798,9 +846,13 @@ GRAPHQL_STATEMENTS['twitter_account']['mutate'] = MUTATE_TWITTER_ACCOUNT
 
 QUERY_TWITTER_MEDIAS = '''
 query ($filters: twitterMediaInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     twitter_medias_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -941,9 +993,13 @@ GRAPHQL_STATEMENTS['twitter_medias']['delete'] = DELETE_FROM_TWITTER_MEDIAS
 
 QUERY_NETWORK_LINKS = '''
 query ($filters: networkLinkInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     network_links_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1020,9 +1076,13 @@ GRAPHQL_STATEMENTS['network_links']['delete'] = DELETE_FROM_NETWORK_LINKS
 
 QUERY_NETWORK_INVITES = '''
 query ($filters: networkInviteInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     network_invites_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1107,9 +1167,13 @@ GRAPHQL_STATEMENTS['network_invites']['delete'] = DELETE_FROM_NETWORK_INVITES
 
 QUERY_ASSET_LINKS = '''
 query ($filters: assetLinkInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     asset_links_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1120,7 +1184,6 @@ query ($filters: assetLinkInputFilter,
                 asset_id
                 asset_url
                 relation
-                nonce
                 signature
             }
         }
@@ -1141,7 +1204,6 @@ mutation (
                     $asset_id: UUID,
                     $asset_url: String,
                     $relation: String!,
-                    $nonce: String,
                     $signature: String,
 ) {
     append_asset_links (
@@ -1150,7 +1212,6 @@ mutation (
             asset_id: $asset_id,
             asset_url: $asset_url,
             relation: $relation,
-            nonce: $nonce,
             signature: $signature,
     ) {
             created_timestamp
@@ -1158,7 +1219,6 @@ mutation (
             asset_id
             asset_url
             relation
-            nonce
             signature
     }
 }
@@ -1174,7 +1234,6 @@ mutation (
                     $asset_id: UUID,
                     $asset_url: String,
                     $relation: String,
-                    $nonce: String,
                     $signature: String,
 ) {
     update_asset_links(
@@ -1184,7 +1243,6 @@ mutation (
         asset_id: $asset_id,
         asset_url: $asset_url,
         relation: $relation,
-        nonce: $nonce,
         signature: $signature,
     ) {
         created_timestamp
@@ -1192,7 +1250,6 @@ mutation (
         asset_id
         asset_url
         relation
-        nonce
         signature
     }
 }
@@ -1208,7 +1265,6 @@ mutation ($filters: assetLinkInputFilter!) {
         asset_id
         asset_url
         relation
-        nonce
         signature
     }
 }
@@ -1218,9 +1274,13 @@ GRAPHQL_STATEMENTS['asset_links']['delete'] = DELETE_FROM_ASSET_LINKS
 
 QUERY_ASSET_REACTIONS_RECEIVED = '''
 query ($filters: assetReactionInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     asset_reactions_received_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1230,7 +1290,6 @@ query ($filters: assetReactionInputFilter,
                 member_id
                 asset_id
                 relation
-                nonce
                 signature
             }
         }
@@ -1250,7 +1309,6 @@ mutation (
                     $member_id: UUID!,
                     $asset_id: UUID!,
                     $relation: String!,
-                    $nonce: String,
                     $signature: String,
 ) {
     append_asset_reactions_received (
@@ -1258,14 +1316,12 @@ mutation (
             member_id: $member_id,
             asset_id: $asset_id,
             relation: $relation,
-            nonce: $nonce,
             signature: $signature,
     ) {
             created_timestamp
             member_id
             asset_id
             relation
-            nonce
             signature
     }
 }
@@ -1280,7 +1336,6 @@ mutation (
                     $member_id: UUID,
                     $asset_id: UUID,
                     $relation: String,
-                    $nonce: String,
                     $signature: String,
 ) {
     update_asset_reactions_received(
@@ -1289,14 +1344,12 @@ mutation (
         member_id: $member_id,
         asset_id: $asset_id,
         relation: $relation,
-        nonce: $nonce,
         signature: $signature,
     ) {
         created_timestamp
         member_id
         asset_id
         relation
-        nonce
         signature
     }
 }
@@ -1311,7 +1364,6 @@ mutation ($filters: assetReactionInputFilter!) {
         member_id
         asset_id
         relation
-        nonce
         signature
     }
 }
@@ -1321,9 +1373,13 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['delete'] = DELETE_FROM_ASSET_REA
 
 QUERY_DATALOGS = '''
 query ($filters: datalogInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     datalogs_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1335,6 +1391,9 @@ query ($filters: datalogInputFilter,
                 remote_id_type
                 origin_member_id
                 origin_timestamp
+                query_id
+                origin_signature
+                signature_format_version
                 operation
                 object
                 query_filters
@@ -1363,6 +1422,9 @@ mutation (
                     $remote_id_type: String,
                     $origin_member_id: UUID,
                     $origin_timestamp: DateTime,
+                    $query_id: UUID,
+                    $origin_signature: String,
+                    $signature_format_version: Float,
                     $operation: String!,
                     $object: String!,
                     $query_filters: String,
@@ -1379,6 +1441,9 @@ mutation (
             remote_id_type: $remote_id_type,
             origin_member_id: $origin_member_id,
             origin_timestamp: $origin_timestamp,
+            query_id: $query_id,
+            origin_signature: $origin_signature,
+            signature_format_version: $signature_format_version,
             operation: $operation,
             object: $object,
             query_filters: $query_filters,
@@ -1394,6 +1459,9 @@ mutation (
             remote_id_type
             origin_member_id
             origin_timestamp
+            query_id
+            origin_signature
+            signature_format_version
             operation
             object
             query_filters
@@ -1417,6 +1485,9 @@ mutation (
                     $remote_id_type: String,
                     $origin_member_id: UUID,
                     $origin_timestamp: DateTime,
+                    $query_id: UUID,
+                    $origin_signature: String,
+                    $signature_format_version: Float,
                     $operation: String,
                     $object: String,
                     $query_filters: String,
@@ -1434,6 +1505,9 @@ mutation (
         remote_id_type: $remote_id_type,
         origin_member_id: $origin_member_id,
         origin_timestamp: $origin_timestamp,
+        query_id: $query_id,
+        origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version,
         operation: $operation,
         object: $object,
         query_filters: $query_filters,
@@ -1449,6 +1523,9 @@ mutation (
         remote_id_type
         origin_member_id
         origin_timestamp
+        query_id
+        origin_signature
+        signature_format_version
         operation
         object
         query_filters
@@ -1472,6 +1549,9 @@ mutation ($filters: datalogInputFilter!) {
         remote_id_type
         origin_member_id
         origin_timestamp
+        query_id
+        origin_signature
+        signature_format_version
         operation
         object
         query_filters
@@ -1488,9 +1568,13 @@ GRAPHQL_STATEMENTS['datalogs']['delete'] = DELETE_FROM_DATALOGS
 
 QUERY_PUBLIC_ASSETS = '''
 query ($filters: assetInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     public_assets_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1663,9 +1747,13 @@ GRAPHQL_STATEMENTS['public_assets']['delete'] = DELETE_FROM_PUBLIC_ASSETS
 
 QUERY_SERVICE_ASSETS = '''
 query ($filters: assetInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     service_assets_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -1838,9 +1926,13 @@ GRAPHQL_STATEMENTS['service_assets']['delete'] = DELETE_FROM_SERVICE_ASSETS
 
 QUERY_NETWORK_ASSETS = '''
 query ($filters: assetInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     network_assets_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -2013,9 +2105,13 @@ GRAPHQL_STATEMENTS['network_assets']['delete'] = DELETE_FROM_NETWORK_ASSETS
 
 QUERY_TWEETS = '''
 query ($filters: tweetInputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     tweets_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
