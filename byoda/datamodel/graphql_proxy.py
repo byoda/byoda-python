@@ -347,7 +347,9 @@ class GraphQlProxy:
                          timestamp: datetime,
                          origin_member_id: UUID) -> str:
         '''
-        Creates a signature for a recurisve request
+        Creates a signature for a recurisve request. This function returns
+        the signature as a base64 encoded string so it can be included in
+        a GraphQL query
         '''
 
         plaintext = GraphQlProxy._create_plaintext(

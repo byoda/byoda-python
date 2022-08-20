@@ -215,9 +215,16 @@
                         "permissions": ["read", "update", "delete", "append"]
                     },
                     "network": {
-                        "permissions": ["read"]
+                        "permissions": [
+                            {
+                                "permission": "read",
+                                "distance": 3,
+                                "relation": ["friend", "family"],
+                                "source_signature_required": true,
+                                "anonimized_responses": true
+                            }
+                        ]
                     }
-
                 },
                 "type": "array",
                 "items": {

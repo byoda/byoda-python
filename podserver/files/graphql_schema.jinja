@@ -293,7 +293,7 @@ class Query:
 
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None, timestamp: datetime | None = None, origin_member_id: UUID | None = None, origin_signature: str | None = None) -> {{ root_class.name }}_page:
         _LOGGER.debug(
             f'Resolving {{ root_class.name }} array with depth {depth}'
         )
@@ -311,7 +311,8 @@ class Query:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberDataClassByoda.get_data(
-            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
+            timestamp=timestamp, origin_member_id=origin_member_id, origin_signature=origin_signature
         )
 
         if after:

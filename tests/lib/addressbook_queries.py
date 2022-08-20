@@ -246,6 +246,8 @@ query ($filters: datalogInputFilter, $first: Int, $after: String,
                 remote_addr
                 remote_id
                 remote_id_type
+                origin_member_id
+                origin_timestamp
                 operation
                 object
                 query_filters
@@ -272,6 +274,8 @@ mutation(
                     $remote_addr: String,
                     $remote_id: String,
                     $remote_id_type: String,
+                    $origin_member_id: UUID,
+                    $origin_timestamp: DateTime,
                     $operation: String,
                     $object: String,
                     $query_filters: String,
@@ -286,6 +290,8 @@ mutation(
                     remote_addr: $remote_addr,
                     remote_id: $remote_id,
                     remote_id_type: $remote_id_type,
+                    origin_member_id: $origin_member_id,
+                    origin_timestamp: $origin_timestamp,
                     operation: $operation,
                     object: $object,
                     query_filters: $query_filters,
@@ -299,6 +305,8 @@ mutation(
                     remote_addr
                     remote_id
                     remote_id_type
+                    origin_member_id
+                    origin_timestamp
                     operation
                     object
                     query_filters
@@ -1325,6 +1333,8 @@ query ($filters: datalogInputFilter,
                 remote_addr
                 remote_id
                 remote_id_type
+                origin_member_id
+                origin_timestamp
                 operation
                 object
                 query_filters
@@ -1351,6 +1361,8 @@ mutation (
                     $remote_addr: String!,
                     $remote_id: String,
                     $remote_id_type: String,
+                    $origin_member_id: UUID,
+                    $origin_timestamp: DateTime,
                     $operation: String!,
                     $object: String!,
                     $query_filters: String,
@@ -1365,6 +1377,8 @@ mutation (
             remote_addr: $remote_addr,
             remote_id: $remote_id,
             remote_id_type: $remote_id_type,
+            origin_member_id: $origin_member_id,
+            origin_timestamp: $origin_timestamp,
             operation: $operation,
             object: $object,
             query_filters: $query_filters,
@@ -1378,6 +1392,8 @@ mutation (
             remote_addr
             remote_id
             remote_id_type
+            origin_member_id
+            origin_timestamp
             operation
             object
             query_filters
@@ -1399,6 +1415,8 @@ mutation (
                     $remote_addr: String,
                     $remote_id: String,
                     $remote_id_type: String,
+                    $origin_member_id: UUID,
+                    $origin_timestamp: DateTime,
                     $operation: String,
                     $object: String,
                     $query_filters: String,
@@ -1414,6 +1432,8 @@ mutation (
         remote_addr: $remote_addr,
         remote_id: $remote_id,
         remote_id_type: $remote_id_type,
+        origin_member_id: $origin_member_id,
+        origin_timestamp: $origin_timestamp,
         operation: $operation,
         object: $object,
         query_filters: $query_filters,
@@ -1427,6 +1447,8 @@ mutation (
         remote_addr
         remote_id
         remote_id_type
+        origin_member_id
+        origin_timestamp
         operation
         object
         query_filters
@@ -1448,6 +1470,8 @@ mutation ($filters: datalogInputFilter!) {
         remote_addr
         remote_id
         remote_id_type
+        origin_member_id
+        origin_timestamp
         operation
         object
         query_filters

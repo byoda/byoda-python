@@ -932,12 +932,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Recursive query test
         #
+        graphql_proxy = GraphQlProxy(account_member)
         relations = ['family']
-        depth = 1
+        depth = 2
         filters = None
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(timezone.utc)
         origin_member_id = str(account_member.member_id)
-        origin_signature = GraphQlProxy.create_signature(
+        origin_signature = graphql_proxy.create_signature(
             ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
             origin_member_id
         )
@@ -949,15 +950,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'origin_member_id': origin_member_id,
             'origin_signature': origin_signature,
         }
+        query = GRAPHQL_STATEMENTS['network_links']['query']
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_assets']['query'],
+            url, query,
             vars=vars, timeout=120, headers=auth_header
         )
         result = await response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 100)
+        self.assertEqual(len(data), 101)
 
     async def test_graphql_addressbook_tls_cert(self):
         pod_account = config.server.account
