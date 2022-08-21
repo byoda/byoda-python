@@ -26,7 +26,7 @@ There are two ways to install the pod:
         - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
         - [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
         -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
-    - The HTTPS port for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
+    - The 443 and 444 ports for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
         - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.

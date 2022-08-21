@@ -60,8 +60,6 @@ COPY podserver/files/virtualserver.conf.jinja2 /etc/nginx/conf.d/
 # Location of htaccess file defined in byoda-python:podserver/bootstrap/nginxconfig.py
 RUN touch /etc/nginx/htaccess.db
 
-EXPOSE 443/tcp 444/tcp
-
 COPY ./Pipfile ./Pipfile.lock byoda-python/
 RUN cd /podserver/byoda-python && pipenv install --deploy --ignore-pipfile && pipenv clean
 
