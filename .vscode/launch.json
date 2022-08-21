@@ -65,8 +65,8 @@
             }
         },
         {
-            "program": "tests/func/pod_apis.py",
-            "name": "pod API tests",
+            "program": "tests/func/pod_graphql_apis.py",
+            "name": "pod GraphQL API tests",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
@@ -75,6 +75,15 @@
             ]
         },
         {
+            "program": "tests/func/pod_rest_apis.py",
+            "name": "pod REST API tests",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+            ]
+        },        {
             "program": "tools/call_graphql.py",
             "name": "call graphql",
             "type": "python",
