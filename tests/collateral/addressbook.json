@@ -213,17 +213,6 @@
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "network": {
-                        "permissions": [
-                            {
-                                "permission": "read",
-                                "distance": 3,
-                                "relation": ["friend", "family"],
-                                "source_signature_required": true,
-                                "anonimized_responses": true
-                            }
-                        ]
                     }
                 },
                 "type": "array",
@@ -320,8 +309,15 @@
                         "permissions": ["read", "delete", "append"]
                     },
                     "network": {
-                        "permissions": ["read"],
-                        "distance": 1
+                        "permissions": [
+                            {
+                                "permission": "read",
+                                "distance": 3,
+                                "relation": ["friend", "family"],
+                                "source_signature_required": true,
+                                "anonimized_responses": true
+                            }
+                        ]
                     }
                 },
                 "type": "array",

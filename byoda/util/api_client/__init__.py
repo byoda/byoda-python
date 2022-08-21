@@ -4,4 +4,3 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 :copyright  : Copyright 2021, 2022
 :license    : GPLv3
 '''
-
