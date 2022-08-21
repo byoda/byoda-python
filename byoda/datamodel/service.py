@@ -28,7 +28,7 @@ from byoda.datatypes import ServerType
 
 from byoda.datamodel.schema import Schema
 
-from byoda.util.api_client import ApiClient
+from byoda.util.api_client.api_client import ApiClient
 
 from byoda.util.message_signature import SignatureType
 from byoda.util.paths import Paths

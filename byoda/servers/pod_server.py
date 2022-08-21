@@ -10,7 +10,7 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType

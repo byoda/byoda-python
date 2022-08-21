@@ -30,7 +30,7 @@ from byoda.secrets import ServiceCaSecret
 from byoda.secrets import MembersCaSecret
 from byoda.secrets import ServiceSecret
 
-from byoda.util.api_client import ApiClient
+from byoda.util.api_client.api_client import ApiClient
 
 from .service import Service
 

@@ -25,7 +25,7 @@ from byoda.secrets import MembersCaSecret
 
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.requestauth.jwt import JWT

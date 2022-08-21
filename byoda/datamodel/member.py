@@ -49,7 +49,7 @@ from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
 from byoda import config
 
 from byoda.util.api_client.api_client import ApiClient
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)

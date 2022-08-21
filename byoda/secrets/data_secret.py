@@ -15,7 +15,7 @@ from cryptography.fernet import Fernet
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.api_client import ApiClient, HttpMethod
+from byoda.util.api_client.api_client import ApiClient, HttpMethod
 
 from .secret import Secret
 
