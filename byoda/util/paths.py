@@ -70,10 +70,12 @@ class Paths:
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
     # Downloads
-    NETWORK_CERT_DOWNLOAD      = 'https://dir.{network}/root-ca.pem'                                                                      # noqa
-    NETWORK_DATACERT_DOWNLOAD  = 'https://dir.{network}/root-data.pem'                                                                    # noqa
-    SERVICE_DATACERT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'    # noqa
-    SERVICE_CONTRACT_DOWNLOAD  = 'https://service.service-{service_id}.{network}/service-contract.json'                                   # noqa
+    NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                               # noqa
+    NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                             # noqa
+    SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
+    SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-data-certs/network-{network}-{member_id}-data-cert.pem'    # noqa
+    SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                            # noqa
+    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member_data_cert.pem'                                         # noqa
 
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa

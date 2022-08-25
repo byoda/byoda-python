@@ -132,15 +132,25 @@ class MemberDataSecret(DataSecret):
         if not isinstance(network, str):
             network = network.name
 
-        commonname = MemberDataSecret.create_common_name(
-            member_id, service_id, network
-        )
-
-        url = f'{commonname}/member_data_cert.pem'
-
         member_data_secret = MemberDataSecret(member_id, service_id)
 
-        cert_data = await DataSecret.download(member_data_secret, url)
+        try:
+            url = Paths.resolve(
+                Paths.MEMBER_DATACERT_DOWNLOAD, network=network,
+                service_id=service_id, member_id=member_id
+            )
+            cert_data = await DataSecret.download(member_data_secret, url)
+        except RuntimeError:
+            # Pod may be down or disconnected, let's try the service server
+            url = Paths.resolve(
+                Paths.SERVICE_MEMBER_DATACERT_DOWNLOAD, network=network,
+                service_id=service_id, member_id=member_id
+            )
+            _LOGGER.debug(
+                'Falling back to downloading member data secret from service '
+                'server'
+            )
+            cert_data = await DataSecret.download(member_data_secret, url)
 
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '

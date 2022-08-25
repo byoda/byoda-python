@@ -169,5 +169,6 @@ class DataSecret(Secret):
 
         if resp.status == 200:
             cert_data = await resp.text()
-
-        return cert_data
+            return cert_data
+        else:
+            raise RuntimeError(f'Could not download data secret via {url}')
