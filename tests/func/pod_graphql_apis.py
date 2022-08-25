@@ -24,7 +24,6 @@ from multiprocessing import Process
 import uvicorn
 
 from byoda.datamodel.account import Account
-from byoda.datamodel.member import Member
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
 from byoda.util.api_client.graphql_client import GraphQlClient
@@ -46,7 +45,6 @@ from tests.lib.util import get_test_uuid
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import ADDRESSBOOK_VERSION
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
@@ -494,7 +492,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 101)
+        self.assertEqual(len(data), 103)
 
         #
         # Now we make sure the local pod and the Azure pod have data for

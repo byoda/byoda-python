@@ -75,6 +75,16 @@
             ]
         },
         {
+            "program": "tests/integration/recursive_graphql_apis.py",
+            "name": "pod Recursive GraphQL API tests",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+            ]
+        },
+        {
             "program": "tests/func/pod_rest_apis.py",
             "name": "pod REST API tests",
             "type": "python",

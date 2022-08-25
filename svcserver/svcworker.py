@@ -57,7 +57,7 @@ async def main():
 
     if debug:
         global MAX_WAIT
-        MAX_WAIT = 10
+        MAX_WAIT = 300
 
     network = Network(
         app_config['svcserver'], app_config['application']

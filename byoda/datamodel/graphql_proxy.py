@@ -182,10 +182,10 @@ class GraphQlProxy:
         if remote_member_id:
             targets = [remote_member_id]
         else:
-            network_links = self.member.data['network_links']
+            network_links = self.member.data.get('network_links')
 
             targets = [
-                target['member_id'] for target in network_links
+                target['member_id'] for target in network_links or []
                 if not relations or target['relation'].lower() in relations
             ]
 

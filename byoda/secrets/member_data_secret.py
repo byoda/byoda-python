@@ -7,6 +7,7 @@ Cert manipulation for data of an account
 '''
 
 import logging
+from operator import ne
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
@@ -117,12 +118,16 @@ class MemberDataSecret(DataSecret):
         return f'{member_id}.{IdType.MEMBER_DATA.value}{service_id}.{network}'
 
     @staticmethod
-    async def download(member_id: UUID, service_id: int, network: Network):
+    async def download(member_id: UUID, service_id: int,
+                       network: Network | str):
         '''
         Downloads the member-data secret from the remote member
 
         :returns: MemberDataSecret
         '''
+
+        if not isinstance(network, str):
+            network = network.name
 
         commonname = MemberDataSecret.create_common_name(
             member_id, service_id, network.name
