@@ -187,7 +187,8 @@ class ApiClient:
                 method, api, params=params, data=processed_data,
                 headers=updated_headers, ssl=client.ssl_context, timeout=timeout
             )
-        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
+        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
+                aiohttp.client_exceptions.ClientConnectorCertificateError) as exc:
             raise RuntimeError(exc)
 
         await client.session.close()

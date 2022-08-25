@@ -18,13 +18,12 @@ import unittest
 import requests
 
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from multiprocessing import Process
 import uvicorn
 
 from byoda.datamodel.account import Account
-from byoda.datamodel.member import Member
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
 from byoda.util.api_client.graphql_client import GraphQlClient
@@ -41,7 +40,6 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
-from tests.lib.util import get_test_uuid
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL

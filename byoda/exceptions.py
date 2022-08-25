@@ -26,6 +26,12 @@ class ByodaValueError(ByodaException, ValueError):
         super(ValueError, self).__init__(message)
 
 
+class ByodaRuntimeError(ByodaException, RuntimeError):
+    def __init__(self, message, loglevel=logging.DEBUG):
+        super(ByodaException, self).__init__(message, loglevel)
+        super(RuntimeError, self).__init__(message)
+
+
 class ByodaMissingAuthInfo(ByodaException):
     def __init__(self, message, loglevel=logging.DEBUG):
         super().__init__(message, loglevel)

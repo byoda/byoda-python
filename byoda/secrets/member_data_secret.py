@@ -7,7 +7,6 @@ Cert manipulation for data of an account
 '''
 
 import logging
-from operator import ne
 from uuid import UUID
 from copy import copy
 from typing import TypeVar

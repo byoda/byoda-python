@@ -156,11 +156,11 @@ class DataSecret(Secret):
         )
         self.fernet = Fernet(self.shared_key)
 
-    async def download(self, url: str):
+    async def download(self, url: str) -> str | None:
         '''
         Downloads the data secret of a remote member
 
-        :returns MemberSecret : the downloaded data secret
+        :returns MemberSecret : the downloaded data secret as a string
         :raises: (none)
         '''
 
@@ -171,4 +171,4 @@ class DataSecret(Secret):
             cert_data = await resp.text()
             return cert_data
         else:
-            raise RuntimeError(f'Could not download data secret via {url}')
+            return None
