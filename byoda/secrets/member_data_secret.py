@@ -104,8 +104,8 @@ class MemberDataSecret(DataSecret):
         return super().create_csr(common_name, key_size=4096, ca=False)
 
     @staticmethod
-    def create_common_name(member_id: UUID, service_id: int, network: str
-                           ) -> str:
+    def create_common_name(member_id: UUID, service_id: int,
+                           network: Network | str) -> str:
         '''
         Creates a common name for a member-data secret
         :param member_id: identifier for the member
@@ -114,6 +114,9 @@ class MemberDataSecret(DataSecret):
         :returns: common name
         :raises: (none)
         '''
+
+        if not isinstance(network, str):
+            network = network.name
 
         return f'{member_id}.{IdType.MEMBER_DATA.value}{service_id}.{network}'
 
@@ -130,7 +133,7 @@ class MemberDataSecret(DataSecret):
             network = network.name
 
         commonname = MemberDataSecret.create_common_name(
-            member_id, service_id, network.name
+            member_id, service_id, network
         )
 
         url = f'{commonname}/member_data_cert.pem'
