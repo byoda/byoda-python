@@ -22,6 +22,8 @@ from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
 
+from byoda.exceptions import ByodaRuntimeError
+
 from byoda.util.paths import Paths
 from byoda import config
 
@@ -188,13 +190,14 @@ class ApiClient:
                 headers=updated_headers, ssl=client.ssl_context, timeout=timeout
             )
         except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
-                aiohttp.client_exceptions.ClientConnectorCertificateError) as exc:
-            raise RuntimeError(exc)
+                aiohttp.client_exceptions.ClientConnectorCertificateError,
+                aiohttp.client_exceptions.ClientConnectorError) as exc:
+            raise ByodaRuntimeError(exc)
 
         await client.session.close()
 
         if response.status >= 400:
-            raise RuntimeError(
+            raise ByodaRuntimeError(
                 f'Failure to call API {api}: {response.status}'
             )
 
