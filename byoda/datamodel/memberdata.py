@@ -337,7 +337,7 @@ class MemberData(dict):
                 )
 
             delta = timedelta(seconds=RECURSIVE_QUERY_TTL)
-            timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
             if timestamp - datetime.utcnow() > delta:
                 _LOGGER.debug(
                     'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
