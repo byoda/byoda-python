@@ -138,13 +138,14 @@ class MemberDataSecret(DataSecret):
 
         url = f'{commonname}/member_data_cert.pem'
 
-        cert_data = await DataSecret.download(url)
+        member_data_secret = MemberDataSecret(member_id, service_id)
+
+        cert_data = await member_data_secret.download(url)
 
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '
             f'service {service_id} in network {network}'
         )
-        member_data_secret = MemberDataSecret(member_id, service_id)
 
         member_data_secret.from_string(cert_data)
 
