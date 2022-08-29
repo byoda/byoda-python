@@ -6,3 +6,5 @@ The VS Code definition for the 'file_storage_test' test case defines:
 Required for the pod-api functional test cases are the below files, with their content copied from a running pod joined to the addressbook service. Also set the REMOTE_MEMBER_ID on line 65 of tests/func/pod_apis.py to the UUID of the membership of the service.
 tests/collateral/local/azure-pod-member-cert.pem
 tests/collateral/local/azure-pod-member.key
+tests/collateral/local/azure-pod-member-data-cert.pem
+tests/collateral/local/azure-pod-member-data.key

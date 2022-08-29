@@ -52,9 +52,6 @@ class GraphQlProxy:
         if not member.schema:
             raise ValueError('Schema has not yet been loaded')
 
-        if not member.data:
-            raise ValueError('Data for member has not been loaded')
-
         self.schema: Schema = member.schema
 
     async def proxy_request(self, class_name: str, query: bytes, info: Info,
@@ -327,7 +324,7 @@ class GraphQlProxy:
     @staticmethod
     def _create_plaintext(service_id: int, relations: list[str] | None,
                           filters: dict[str, str] | None, timestamp: datetime,
-                          origin_member_id: UUID) -> str:
+                          origin_member_id: UUID | str) -> str:
 
         plaintext: str = f'{service_id}'
 
@@ -344,8 +341,8 @@ class GraphQlProxy:
 
     def create_signature(self, service_id: int, relations: list[str] | None,
                          filters: dict[str, str] | None,
-                         timestamp: datetime,
-                         origin_member_id: UUID) -> str:
+                         timestamp: datetime, origin_member_id: UUID | str,
+                         member_data_secret: MemberDataSecret = None) -> str:
         '''
         Creates a signature for a recurisve request. This function returns
         the signature as a base64 encoded string so it can be included in
@@ -356,8 +353,10 @@ class GraphQlProxy:
             service_id, relations, filters, timestamp, origin_member_id
         )
 
-        secret: MemberDataSecret = self.member.data_secret
-        signature = secret.sign_message(plaintext)
+        if not member_data_secret:
+            member_data_secret: MemberDataSecret = self.member.data_secret
+
+        signature = member_data_secret.sign_message(plaintext)
         signature_encoded = base64.b64encode(signature).decode('utf-8')
 
         return signature_encoded

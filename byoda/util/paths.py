@@ -75,7 +75,7 @@ class Paths:
     SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
     SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-data-certs/network-{network}-{member_id}-data-cert.pem'    # noqa
     SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                            # noqa
-    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member_data_cert.pem'                                         # noqa
+    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                         # noqa
 
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa

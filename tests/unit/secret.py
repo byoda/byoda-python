@@ -20,6 +20,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
 
+from byoda.servers.pod_server import PodServer
 from byoda.servers.directory_server import DirectoryServer
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -138,6 +139,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         passwords = target_account.data_secret.decrypt(ciphertext)
 
         self.assertEqual(data, passwords)
+
+    async def test_message_signature(self):
+        # Test creation of the CA hierarchy
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+
+        config.server = PodServer(network)
+        config.server.network = network
+        await config.server.set_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
+        )
+        
+
 
 
 if __name__ == '__main__':

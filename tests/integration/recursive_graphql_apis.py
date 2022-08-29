@@ -13,6 +13,7 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import shutil
 import asyncio
 import unittest
 import requests
@@ -24,7 +25,12 @@ from multiprocessing import Process
 import uvicorn
 
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
+from byoda.util.message_signature import MessageSignature
+
 from byoda.datamodel.graphql_proxy import GraphQlProxy
+
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 
@@ -41,6 +47,7 @@ from podserver.routers import accountdata as AccountDataRouter
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 
+from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
@@ -80,6 +87,23 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         for account_member in pod_account.memberships.values():
             account_member.enable_graphql_api(app)
             await account_member.update_registration()
+
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member-cert.pem',
+            TEST_DIR
+        )
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member.key',
+            TEST_DIR
+        )
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member-data-cert.pem',
+            TEST_DIR
+        )
+        shutil.copy(
+            'tests/collateral/local/azure-pod-member-data.key',
+            TEST_DIR
+        )
 
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
@@ -259,6 +283,79 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(edges), 1)
 
         #
+        # Here we generate a request as coming from the Azure pod
+        # to the test pod to confirm the member data secret of the
+        # Azure pod can be downloaded by the test pod to verify the
+        # parameters of the request
+        #
+        azure_account = Account(
+            AZURE_POD_ACCOUNT_ID, network=pod_account.network
+        )
+        azure_member = Member(
+            ADDRESSBOOK_SERVICE_ID, azure_account
+        )
+        azure_member.member_id = AZURE_POD_MEMBER_ID
+
+        data_secret = MemberDataSecret(
+            azure_member.member_id, azure_member.service_id
+        )
+
+        data_secret.cert_file = 'azure-pod-member-data-cert.pem'
+        data_secret.key_file = 'azure-pod-member-data.key'
+        with open('tests/collateral/local/azure-pod-private-key-password'
+                  ) as file_desc:
+            private_key_password = file_desc.read().strip()
+
+        await data_secret.load(
+            with_private_key=True, password=private_key_password
+        )
+
+        plaintext = 'ik ben toch niet gek!'
+
+        msg_sig = MessageSignature(data_secret)
+        signature = msg_sig.sign_message(plaintext)
+        msg_sig.verify_message(plaintext)
+        signature = data_secret.sign_message(plaintext)
+        data_secret.verify_message_signature(plaintext, signature)
+
+        azure_member.schema = account_member.schema
+        graphql_proxy = GraphQlProxy(azure_member)
+        relations = ['friend']
+        depth = 2
+        filters = None
+        timestamp = datetime.now(timezone.utc)
+        origin_member_id = AZURE_POD_MEMBER_ID
+
+        origin_signature = graphql_proxy.create_signature(
+            ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
+            origin_member_id, member_data_secret=data_secret
+        )
+
+        await graphql_proxy.verify_signature(
+            ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
+            origin_member_id, origin_signature
+        )
+
+        vars = {
+            'depth': depth,
+            'relations': relations,
+            'filters': filters,
+            'timestamp': timestamp,
+            'origin_member_id': origin_member_id,
+            'origin_signature': origin_signature
+        }
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['network_assets']['query'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        self.assertIsNone(result.get('errors'))
+        data = result['data']['network_assets_connection']['edges']
+        self.assertGreaterEqual(len(data), 3)
+
+        #
         # Now we do the query for network assets to our pod with depth=1
         vars = {
             'depth': 1,
@@ -277,6 +374,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Recursive query test
         #
+        azure_account = Account(AZURE_POD_ACCOUNT_ID, pod_account.network)
         graphql_proxy = GraphQlProxy(account_member)
         relations = ['friend']
         depth = 2

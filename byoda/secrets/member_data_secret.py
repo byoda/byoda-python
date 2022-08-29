@@ -48,6 +48,10 @@ class MemberDataSecret(DataSecret):
 
         self.service_id = int(service_id)
 
+        account_id = None
+        if account:
+            account_id = account.account_id
+
         network: Network = config.server.network
         self.paths = copy(network.paths)
         self.paths.service_id = self.service_id
@@ -59,10 +63,12 @@ class MemberDataSecret(DataSecret):
             cert_file=self.paths.get(
                 Paths.MEMBER_DATA_CERT_FILE,
                 service_id=service_id, member_id=self.member_id,
+                account_id=account_id
             ),
             key_file=self.paths.get(
                 Paths.MEMBER_DATA_KEY_FILE,
                 service_id=service_id, member_id=self.member_id,
+                account_id=account_id
             ),
             storage_driver=self.paths.storage_driver
         )
