@@ -12,7 +12,16 @@ import sys
 import os
 import shutil
 import unittest
+from copy import copy
 from uuid import uuid4
+from datetime import datetime, timedelta
+
+from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography.hazmat.primitives import hashes
 
 from byoda.util.logger import Logger
 
@@ -152,8 +161,72 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             bucket_prefix='byoda',
             root_dir=TEST_DIR
         )
-        
 
+        key = rsa.generate_private_key(
+           public_exponent=65537,
+           key_size=4096,
+        )
+
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
+                x509.NameAttribute(
+                    NameOID.STATE_OR_PROVINCE_NAME, u"California"
+                ),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, u"Los Gatos"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"byoda"),
+                x509.NameAttribute(NameOID.COMMON_NAME, u"byoda.org"),
+            ]
+        )
+
+        cert = x509.CertificateBuilder().subject_name(
+            subject
+        ).issuer_name(
+            issuer
+        ).public_key(
+            key.public_key()
+        ).serial_number(
+            x509.random_serial_number()
+        ).not_valid_before(
+            datetime.utcnow()
+        ).not_valid_after(
+            datetime.utcnow() + timedelta(days=1)
+        ).add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(u"localhost")]),
+            critical=False,
+        ).sign(key, hashes.SHA256())
+
+        _RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
+        message = 'ik ben toch niet gek!'.encode('utf-8')
+        chosen_hash = hashes.SHA256()
+        hasher = hashes.Hash(chosen_hash)
+        message = copy(message)
+        while message:
+            if len(message) > _RSA_SIGN_MAX_MESSAGE_LENGTH:
+                hasher.update(message[:_RSA_SIGN_MAX_MESSAGE_LENGTH])
+                message = message[_RSA_SIGN_MAX_MESSAGE_LENGTH:]
+            else:
+                hasher.update(message)
+                message = None
+        digest = hasher.finalize()
+        signature = key.sign(
+            digest,
+            padding.PSS(
+                mgf=padding.MGF1(chosen_hash),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            utils.Prehashed(chosen_hash)
+            )
+
+        cert.public_key().verify(
+            signature,
+            digest,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            utils.Prehashed(chosen_hash)
+        )
 
 
 if __name__ == '__main__':
