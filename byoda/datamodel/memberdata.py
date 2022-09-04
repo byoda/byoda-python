@@ -338,7 +338,7 @@ class MemberData(dict):
 
             delta = timedelta(seconds=RECURSIVE_QUERY_TTL)
             timestamp = timestamp.replace(tzinfo=timezone.utc)
-            if timestamp - datetime.utcnow() > delta:
+            if timestamp - datetime.now(timezone.utc) > delta:
                 _LOGGER.debug(
                     'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
                     'not proxying this request'

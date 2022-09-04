@@ -32,11 +32,18 @@ from byoda.datamodel.account import Account
 from byoda.servers.pod_server import PodServer
 from byoda.servers.directory_server import DirectoryServer
 
+from byoda.secrets.secret import Secret
+from byoda.secrets.data_secret import DataSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
+
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType, ServerRole
 
 from byoda import config
+
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
 
 TEST_DIR = '/tmp/byoda-tests/secrets'
 NETWORK = 'test.net'
@@ -227,6 +234,33 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             ),
             utils.Prehashed(chosen_hash)
         )
+
+        account = Account(uuid4(), network)
+        message = 'ik ben toch niet gek!'
+
+        data_secret = MemberDataSecret(
+            uuid4(), ADDRESSBOOK_SERVICE_ID, account
+        )
+
+        data_secret.cert_file = 'azure-pod-member-data-cert.pem'
+        data_secret.private_key_file = 'azure-pod-member-data.key'
+        shutil.copy(
+            f'tests/collateral/local/{data_secret.cert_file}',
+            TEST_DIR
+        )
+        shutil.copy(
+            f'tests/collateral/local/{data_secret.private_key_file}',
+            TEST_DIR
+        )
+        with open('tests/collateral/local/azure-pod-private-key-password'
+                  ) as file_desc:
+            private_key_password = file_desc.read().strip()
+
+        await data_secret.load(
+            with_private_key=True, password=private_key_password
+        )
+        signature = data_secret.sign_message(message)
+        data_secret.verify_message_signature(message, signature)
 
 
 if __name__ == '__main__':

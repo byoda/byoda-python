@@ -189,7 +189,7 @@ class Secret:
         ).not_valid_before(
             datetime.datetime.utcnow()
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(expire)
+            datetime.datetime.utcnow() + datetime.timedelta(days=expire)
         ).add_extension(
             x509.SubjectAlternativeName(
                 [x509.DNSName(self.common_name)]

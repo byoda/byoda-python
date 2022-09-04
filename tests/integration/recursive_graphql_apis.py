@@ -301,7 +301,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         data_secret.cert_file = 'azure-pod-member-data-cert.pem'
-        data_secret.key_file = 'azure-pod-member-data.key'
+        data_secret.private_key_file = 'azure-pod-member-data.key'
         with open('tests/collateral/local/azure-pod-private-key-password'
                   ) as file_desc:
             private_key_password = file_desc.read().strip()
