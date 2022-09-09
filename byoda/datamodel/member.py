@@ -296,7 +296,7 @@ class Member:
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save(member.private_key_password)
+        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)

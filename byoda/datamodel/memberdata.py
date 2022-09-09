@@ -101,11 +101,11 @@ class MemberData(dict):
             _LOGGER.debug(f'Loaded {len(self or [])} items')
 
         except FileNotFoundError:
-            _LOGGER.error(
+            _LOGGER.warning(
                 'Unable to read data file for service '
                 f'{self.member.service_id} from {filepath}'
             )
-            return
+            return {}
 
         return self.normalize()
 
@@ -146,6 +146,9 @@ class MemberData(dict):
         try:
             if data:
                 self.unvalidated_data = data
+            else:
+                data = {}
+                self.unvalidated_data = data
 
             self.validate()
 
@@ -155,10 +158,16 @@ class MemberData(dict):
                     self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
                 ),
-                self,
+                data,
                 self.member.data_secret
             )
             _LOGGER.debug(f'Saved {len(self.keys() or [])} items')
+
+            # We need to update our dict with the data passed to this
+            # method
+            if self.unvalidated_data:
+                for key, value in data.items():
+                    self[key] = value
 
         except OSError:
             _LOGGER.error(
