@@ -137,7 +137,7 @@ class MemberData(dict):
         '''
 
         # MemberData inherits from dict so has a length
-        if not len(self):
+        if not len(self) and not data:
             raise ValueError(
                 'No member data for service %s available to save',
                 self.member.service_id

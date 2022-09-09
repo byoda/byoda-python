@@ -22,8 +22,6 @@ from byoda.datatypes import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import ORIGIN_KEY
 
 from byoda.datamodel.dataclass import SchemaDataArray, SchemaDataItem
-from ..exceptions import ByodaValueError
-
 
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
@@ -33,6 +31,7 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
 
+from ..exceptions import ByodaValueError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -191,10 +190,16 @@ class GraphQlProxy:
             task = asyncio.create_task(self._exec_graphql_query(target, query))
             tasks.add(task)
 
-        network_data = await asyncio.gather(*tasks, return_exceptions=True)
-        _LOGGER.debug(f'Collected data from {len(network_data)} pods in total')
+        if targets:
+            network_data = await asyncio.gather(*tasks, return_exceptions=True)
+            _LOGGER.debug(
+                f'Collected data from {len(network_data or [])} pods in total'
+            )
 
-        return network_data
+            return network_data
+        else:
+            _LOGGER.debug(f'No targets for relation {",".join(relations)}')
+            return {}
 
     async def _exec_graphql_query(self, target: UUID, query: bytes
                                   ) -> tuple[UUID, list[dict]]:
@@ -247,6 +252,10 @@ class GraphQlProxy:
 
         cleaned_data = []
         for target in network_data:
+            # Do not process errors returned via asyncio.gather
+            if isinstance(target, Exception):
+                continue
+
             target_id, target_data = target
             if not target_data:
                 _LOGGER.debug(f'POD {target_id} returned no data')
