@@ -165,7 +165,7 @@ async def setup():
     ]
 
     if server.custom_domain:
-        cors_origins.append(server.custom_domain)
+        cors_origins.append(f'https://{server.custom_domain}')
 
     for account_member in pod_account.memberships.values():
         account_member.enable_graphql_api(app)
