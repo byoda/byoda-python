@@ -151,7 +151,7 @@ async def main(argv):
 
     relations = None
     if args.relations:
-        relations = args.relation.split(',')
+        relations = args.relations.split(',')
 
     if args.object not in GRAPHQL_STATEMENTS:
         raise ValueError(
