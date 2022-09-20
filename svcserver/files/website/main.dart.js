@@ -82324,7 +82324,7 @@ return A.Z(A.ui(),$async$hW)
 case 3:d=b
 p=5
 s=8
-return A.Z(n.a.nF(0,A.aK(["Content-Type","application/json","Authorization",d],t.N,t.z),"https://service.service-4294929430.byoda.net/service-contract.json"),$async$hW)
+return A.Z(n.a.nF(0,A.aK(["Content-Type","application/json","Authorization",d],t.N,t.z),"https://addressbook.byoda.org/service-contract.json"),$async$hW)
 case 8:m=b
 f.b="getSchemaJson  Done"
 f.c="getSchemaJson successful"
