@@ -231,6 +231,7 @@ class GraphQlProxy:
         data = body.get('data')
 
         if not data:
+            _LOGGER.debug(f'Did not get data back from target {target}')
             return (target, None)
 
         _LOGGER.debug(f'GraphQL query returned {len(data)} data class')
