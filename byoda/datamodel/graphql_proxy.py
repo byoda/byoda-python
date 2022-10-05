@@ -265,6 +265,9 @@ class GraphQlProxy:
             edges = target_data[key]['edges']
 
             cleaned_data = []
+            _LOGGER.debug(
+                f'Got {len(edges)} items from remote pod {target_id}'
+            )
             for edge in edges:
                 data_item = edge[class_name]
                 if data_item and isinstance(data_item, dict):
@@ -272,6 +275,8 @@ class GraphQlProxy:
 
                     data_item[ORIGIN_KEY] = target_id
                     cleaned_data.append(data_item)
+                else:
+                    _LOGGER.debug(f'Type for data_item: {type(data_item)}')
 
         _LOGGER.debug(
             f'Collected {len(cleaned_data)} items after cleaning up the '
