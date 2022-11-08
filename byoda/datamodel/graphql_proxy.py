@@ -207,11 +207,10 @@ class GraphQlProxy:
                 )
                 return []
             else:
-                if not isinstance(network_data, ByodaRuntimeError):
-                    _LOGGER.debug(
-                        f'Got data from upstream pod: '
-                        f'{orjson.dumps(network_data)}'
-                    )
+                _LOGGER.debug(
+                    f'Got data from upstream pod: '
+                    f'{orjson.dumps(network_data)}'
+                )
                 _LOGGER.debug(
                     f'Collected data from {len(network_data or [])} pods in '
                     f'total: {orjson.dumps(network_data).decode("utf-8")}'
