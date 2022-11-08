@@ -269,6 +269,10 @@ class RequestAuth:
         :returns: An instance of RequestAuth
         '''
 
+        _LOGGER.debug(
+            f'Authenticating GraphQL request from IP: {request.client.host}'
+        )
+
         auth = await RequestAuth.authenticate_graphql(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
@@ -308,8 +312,7 @@ class RequestAuth:
         if client_dn and issuing_ca_dn:
             client_cn = RequestAuth.get_commonname(client_dn)
             id_type = RequestAuth.get_cert_idtype(client_cn)
-
-        if authorization:
+        elif authorization:
             # Watch out, the JWT signature does not get verified here.
             jwt = await JWT.decode(
                 authorization, None, network.name, download_remote_cert=False
@@ -323,6 +326,12 @@ class RequestAuth:
                     )
                 )
             id_type = jwt.issuer_type
+        else:
+            _LOGGER.debug('No client-cert or JWT provided')
+            raise HTTPException(
+                status_code=401,
+                detail='No authentication provided'
+            )
 
         if id_type == IdType.ACCOUNT:
             raise HTTPException(

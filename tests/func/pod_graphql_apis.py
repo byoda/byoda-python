@@ -492,7 +492,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 101)
+        self.assertGreaterEqual(len(data), 101)
 
         #
         # Now we make sure the local pod and the Azure pod have data for
@@ -627,7 +627,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'origin_member_id': origin_member_id,
             'origin_signature': origin_signature,
         }
-        query = GRAPHQL_STATEMENTS['network_links']['query']
+        query = GRAPHQL_STATEMENTS['network_assets']['query']
         response = await GraphQlClient.call(
             url, query,
             vars=vars, timeout=120, headers=auth_header
@@ -635,8 +635,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
 
         self.assertIsNone(result.get('errors'))
-        data = result['data']['network_links_connection']['edges']
-        self.assertGreaterEqual(len(data), 1)
+        data = result['data']['network_assets_connection']['edges']
+        self.assertGreaterEqual(len(data), 101)
 
     async def test_graphql_addressbook_tls_cert(self):
         pod_account = config.server.account

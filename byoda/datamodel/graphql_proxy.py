@@ -31,7 +31,7 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
 
-from ..exceptions import ByodaValueError
+from ..exceptions import ByodaRuntimeError, ByodaValueError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -180,21 +180,42 @@ class GraphQlProxy:
         else:
             network_links = self.member.data.get('network_links')
 
+            _LOGGER.debug(
+                f'Filtering {len(network_links or [])} network links on '
+                f'relations: {relations}'
+            )
             targets = [
                 target['member_id'] for target in network_links or []
                 if not relations or target['relation'].lower() in relations
             ]
+            _LOGGER.debug(
+                f'Filtered result: {",".join([str(t) for t in targets])}'
+            )
 
         tasks = set()
         for target in targets:
+            _LOGGER.debug(f'Creating task to proxy request to {target}')
             task = asyncio.create_task(self._exec_graphql_query(target, query))
             tasks.add(task)
 
         if targets:
             network_data = await asyncio.gather(*tasks, return_exceptions=True)
-            _LOGGER.debug(
-                f'Collected data from {len(network_data or [])} pods in total'
-            )
+            # TODO: remove orjson.dumps
+            if isinstance(network_data, ByodaRuntimeError):
+                _LOGGER.debug(
+                    f'Got error from upstream pod: {str(network_data)}'
+                )
+                return []
+            else:
+                if not isinstance(network_data, ByodaRuntimeError):
+                    _LOGGER.debug(
+                        f'Got data from upstream pod: '
+                        f'{orjson.dumps(network_data)}'
+                    )
+                _LOGGER.debug(
+                    f'Collected data from {len(network_data or [])} pods in '
+                    f'total: {orjson.dumps(network_data).decode("utf-8")}'
+                )
 
             return network_data
         else:
@@ -234,7 +255,7 @@ class GraphQlProxy:
             _LOGGER.debug(f'Did not get data back from target {target}')
             return (target, None)
 
-        _LOGGER.debug(f'GraphQL query returned {len(data)} data class')
+        _LOGGER.debug(f'GraphQL query returned {len(data)} data class: {data}')
 
         return (target, data)
 
