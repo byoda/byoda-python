@@ -201,19 +201,25 @@ class GraphQlProxy:
         if targets:
             network_data = await asyncio.gather(*tasks, return_exceptions=True)
             # TODO: remove orjson.dumps
-            if isinstance(network_data, ByodaRuntimeError):
+            _LOGGER.debug(f'REMOVE ME: type network_data: {type(network_data)}')
+            if (isinstance(network_data, ByodaRuntimeError) or
+                network_data == [ByodaRuntimeError] or
+                (
+                    isinstance(network_data, str) and
+                    network_data == 'ByodaRuntimeError')):
                 _LOGGER.debug(
                     f'Got error from upstream pod: {str(network_data)}'
                 )
                 return []
             else:
-                _LOGGER.debug(
-                    f'Got data from upstream pod: '
-                    f'{orjson.dumps(network_data)}'
-                )
+                if not isinstance(network_data, ByodaRuntimeError):
+                    _LOGGER.debug(
+                        f'REMOVE ME: Got data from upstream pod: '
+                        f'{network_data}'
+                    )
                 _LOGGER.debug(
                     f'Collected data from {len(network_data or [])} pods in '
-                    f'total: {orjson.dumps(network_data).decode("utf-8")}'
+                    f'total: {network_data}'
                 )
 
             return network_data
