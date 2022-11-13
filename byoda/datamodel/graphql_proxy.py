@@ -161,7 +161,8 @@ class GraphQlProxy:
         return updated_query
 
     async def _proxy_request(self, query: bytes, relations: list[str],
-                             remote_member_id: UUID) -> list[dict]:
+                             remote_member_id: UUID) -> list[
+                                 tuple[UUID, dict | None | Exception]]:
         '''
         Sends the GraphQL query to remote pods. If remote_member_id is
         specified then the request will only be proxied to that member.
@@ -193,39 +194,34 @@ class GraphQlProxy:
             )
 
         tasks = set()
+
+        if not targets:
+            return []
+
         for target in targets:
             _LOGGER.debug(f'Creating task to proxy request to {target}')
             task = asyncio.create_task(self._exec_graphql_query(target, query))
             tasks.add(task)
 
-        if targets:
-            network_data = await asyncio.gather(*tasks, return_exceptions=True)
-            # TODO: remove orjson.dumps
-            _LOGGER.debug(f'REMOVE ME: type network_data: {type(network_data)}')
-            if (isinstance(network_data, ByodaRuntimeError) or
-                network_data == [ByodaRuntimeError] or
-                (
-                    isinstance(network_data, str) and
-                    network_data == 'ByodaRuntimeError')):
+        network_data = await asyncio.gather(*tasks, return_exceptions=True)
+        processed_data: list[tuple[UUID, dict | None | Exception]] = []
+        for target_data in network_data:
+            if isinstance(target_data, ByodaRuntimeError):
                 _LOGGER.debug(
                     f'Got error from upstream pod: {str(network_data)}'
                 )
-                return []
+                processed_data.append((target, target_data))
             else:
-                if not isinstance(network_data, ByodaRuntimeError):
-                    _LOGGER.debug(
-                        f'REMOVE ME: Got data from upstream pod: '
-                        f'{network_data}'
-                    )
-                _LOGGER.debug(
-                    f'Collected data from {len(network_data or [])} pods in '
-                    f'total: {network_data}'
-                )
+                target, data = target_data
+                processed_data.append((target, data))
+                _LOGGER.debug(f'Target {target} returned {data}')
 
-            return network_data
-        else:
-            _LOGGER.debug(f'No targets for relation {",".join(relations)}')
-            return {}
+        _LOGGER.debug(
+            f'Collected data from {len(processed_data or [])} pods '
+            f'in total: {processed_data}'
+        )
+
+        return processed_data
 
     async def _exec_graphql_query(self, target: UUID, query: bytes
                                   ) -> tuple[UUID, list[dict]]:
@@ -265,7 +261,9 @@ class GraphQlProxy:
         return (target, data)
 
     def _process_network_query_data(self, class_name: str,
-                                    network_data: list[dict]) -> list[dict]:
+                                    network_data: list[
+                                        tuple[UUID, dict | None | Exception]
+                                    ]) -> list[dict]:
         '''
         Processes the data collected from all the queried pods
 
@@ -277,14 +275,14 @@ class GraphQlProxy:
             data_class = data_class.referenced_class
             class_name = data_class.name
 
-        cleaned_data = []
-        for target in network_data:
+        proxied_query_exceptions: int = 0
+        cleaned_data: list = []
+        for target_id, target_data in network_data:
             # Do not process errors returned via asyncio.gather
-            if isinstance(target, Exception):
+            if isinstance(target_data, Exception):
+                proxied_query_exceptions += 1
                 continue
-
-            target_id, target_data = target
-            if not target_data:
+            elif not target_data:
                 _LOGGER.debug(f'POD {target_id} returned no data')
                 continue
 
@@ -307,12 +305,14 @@ class GraphQlProxy:
 
         _LOGGER.debug(
             f'Collected {len(cleaned_data)} items after cleaning up the '
-            'results'
+            f'results. Got {proxied_query_exceptions} exceptions'
         )
         return cleaned_data
 
     def _process_network_append_data(self, class_name: str,
-                                     network_data: list[dict]) -> dict:
+                                     network_data: list[
+                                         tuple[UUID, dict | None | Exception]
+                                     ]) -> dict:
         '''
         Processes the data collected from all the queried pods
 

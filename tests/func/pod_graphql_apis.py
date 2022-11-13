@@ -636,7 +636,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertGreaterEqual(len(data), 101)
+        self.assertGreaterEqual(len(data), 104)
 
     async def test_graphql_addressbook_tls_cert(self):
         pod_account = config.server.account
