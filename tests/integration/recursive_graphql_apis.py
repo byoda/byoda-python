@@ -310,8 +310,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             with_private_key=True, password=private_key_password
         )
 
+        # Test to validate message signatures, which are used for recursive
+        # queries
         plaintext = 'ik ben toch niet gek!'
-
         msg_sig = MessageSignature(data_secret)
         signature = msg_sig.sign_message(plaintext)
         msg_sig.verify_message(plaintext)
@@ -369,7 +370,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertGreaterEqual(len(data), 3)
+        self.assertGreaterEqual(len(data), 2)
 
         #
         # Recursive query test
@@ -401,8 +402,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
 
         self.assertIsNone(result.get('errors'))
-        data = result['data']['network_links_connection']['edges']
-        self.assertEqual(len(data), 1)
+        data = result['data']['network_assets_connection']['edges']
+        self.assertGreaterEqual(len(data), 4)
 
 
 if __name__ == '__main__':
