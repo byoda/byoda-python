@@ -681,6 +681,7 @@ class Member:
         Saves the data for the membership
         '''
 
+        _LOGGER.debug(f'Saving member data of {len(data)} bytes')
         await self.data.save(data)
 
     async def download_secret(self, member_id: UUID = None):

@@ -49,6 +49,7 @@ _LOGGER = logging.getLogger(__name__)
 MAX_FILE_SIZE = 65536
 
 RECURSIVE_QUERY_TTL = 300
+QUERY_EXPIRATION = timedelta(seconds=RECURSIVE_QUERY_TTL)
 
 
 class MemberData(dict):
@@ -145,13 +146,18 @@ class MemberData(dict):
 
         try:
             if data:
+                _LOGGER.debug(f'Using {len(data)} bytes of data from argument')
                 self.unvalidated_data = data
             else:
+                _LOGGER.debug(
+                    f'Using {len(self.unvalidated_data)} data from class '
+                    'instance'
+                )
                 data = {}
                 self.unvalidated_data = data
 
             self.validate()
-
+            _LOGGER.debug(f'After data validation, data is {len(data)} bytes')
             # TODO: properly serialize data
             await self.document_store.write(
                 self.paths.get(
@@ -192,7 +198,12 @@ class MemberData(dict):
 
         try:
             if self.unvalidated_data:
+                _LOGGER.debug(
+                    f'Validating {len(self.unvalidated_data)} bytes of data'
+                )
                 self.member.schema.validator.is_valid(self.unvalidated_data)
+            else:
+                _LOGGER.debug('No unvalidated data to validate')
         except Exception as exc:
             _LOGGER.warning(
                 'Failed to validate data for service_id '
@@ -345,15 +356,13 @@ class MemberData(dict):
                     f'received from {auth.id} with IP {auth.remote_addr} '
                 )
 
-            delta = timedelta(seconds=RECURSIVE_QUERY_TTL)
             timestamp = timestamp.replace(tzinfo=timezone.utc)
-            if timestamp - datetime.now(timezone.utc) > delta:
+            if timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
                 _LOGGER.debug(
                     'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
                     'not proxying this request'
                 )
                 depth = 0
-
         elif depth > 0:
             # If no origin_member_id has been provided then the request
             # must come from our own membership

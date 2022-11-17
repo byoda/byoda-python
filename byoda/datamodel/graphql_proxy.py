@@ -53,6 +53,21 @@ class GraphQlProxy:
 
         self.schema: Schema = member.schema
 
+        self.clear()
+
+    def clear(self):
+        '''
+        Clear state from previous queries
+        '''
+
+        self.incoming_depth: int = None
+        self.updated_depth: int = None
+
+        self.incoming_query: bytes = None
+        self.updated_query: bytes = None
+
+        self.class_name: str | None = None
+
     async def proxy_request(self, class_name: str, query: bytes, info: Info,
                             depth: int, relations: list[str],
                             remote_member_id: UUID = None,
@@ -86,39 +101,32 @@ class GraphQlProxy:
         if depth < 1:
             raise ValueError('Requests with depth < 1 are not proxied')
 
-        updated_query = self._update_query(
-            query, info, origin_member_id, origin_signature, timestamp
-        )
+        self.clear()
+        self.class_name = class_name
 
-        network_data = await self._proxy_request(
-            updated_query, relations, remote_member_id
-        )
+        self.incoming_query = query
+        self._update_query(info, origin_member_id, origin_signature, timestamp)
+
+        network_data = await self._proxy_request(relations, remote_member_id)
 
         if not remote_member_id:
-            cleaned_data = self._process_network_query_data(
-                class_name, network_data
-            )
+            cleaned_data = self._process_network_query_data(network_data)
         else:
-            cleaned_data = self._process_network_append_data(
-                class_name, network_data
-            )
+            cleaned_data = self._process_network_append_data(network_data)
 
         return cleaned_data
 
-    def _update_query(self, query: bytes, info: Info,
-                      origin_member_id: UUID | None,
+    def _update_query(self, info: Info, origin_member_id: UUID | None,
                       origin_signature: str | None,
-                      timestamp: datetime | None = None) -> bytes:
+                      timestamp: datetime | None = None) -> None:
         '''
         Manipulates the incoming GraphQL query so it can be used to query
         other pods
 
-        :param query: the original GraphQL request that was received
         :param info: the GraphQL.Info object for the incoming request
         :param origin_memberid: if defined, it will be inserted into the query
         :param origin_signature: if defined, it will be inserted into the query
         :param timestamp: if defined, it will be inserted into the query
-        :returns: the updated query
         '''
 
         if ((origin_member_id or origin_signature or timestamp)
@@ -136,33 +144,32 @@ class GraphQlProxy:
 
         # HACK: we update the query we received using a regex to decrement
         # the query depth by 1 and add needed fields to the query
-        match = GraphQlProxy.RX_RECURSIVE_QUERY.match(query)
+        match = GraphQlProxy.RX_RECURSIVE_QUERY.match(self.incoming_query)
         if not match:
             raise ByodaValueError(
-                f'Could not parse value for "depth" from request: {query}'
+                'Could not parse value for "depth" from '
+                f'request: {self.incoming_query}'
             )
 
-        previous_depth = int(match.group(2))
-        new_depth = str(previous_depth - 1)
+        self.incoming_depth = int(match.group(2))
+        self.updated_depth = str(self.incoming_depth - 1)
 
-        updated_query = (
-            match.group(1) + f'"depth": {new_depth}'.encode('utf-8')
+        self.updated_query = (
+            match.group(1) + f'"depth": {self.updated_depth}'.encode('utf-8')
         )
 
         if origin_member_id:
-            updated_query += (
+            self.updated_query += (
                 f', "origin_member_id": "{origin_member_id}"'
                 f', "origin_signature": "{origin_signature}"'
                 f', "timestamp": "{timestamp}"'
             ).encode('utf-8')
 
-        updated_query += match.group(3) + match.group(4)
+        self.updated_query += match.group(3) + match.group(4)
 
-        return updated_query
-
-    async def _proxy_request(self, query: bytes, relations: list[str],
-                             remote_member_id: UUID) -> list[
-                                 tuple[UUID, dict | None | Exception]]:
+    async def _proxy_request(self, relations: list[str],
+                             remote_member_id: UUID
+                             ) -> list[tuple[UUID, dict | None | Exception]]:
         '''
         Sends the GraphQL query to remote pods. If remote_member_id is
         specified then the request will only be proxied to that member.
@@ -200,10 +207,13 @@ class GraphQlProxy:
 
         for target in targets:
             _LOGGER.debug(f'Creating task to proxy request to {target}')
-            task = asyncio.create_task(self._exec_graphql_query(target, query))
+            task = asyncio.create_task(
+                self._exec_graphql_query(target)
+            )
             tasks.add(task)
 
         network_data = await asyncio.gather(*tasks, return_exceptions=True)
+
         processed_data: list[tuple[UUID, dict | None | Exception]] = []
         for target_data in network_data:
             if isinstance(target_data, ByodaRuntimeError):
@@ -223,7 +233,7 @@ class GraphQlProxy:
 
         return processed_data
 
-    async def _exec_graphql_query(self, target: UUID, query: bytes
+    async def _exec_graphql_query(self, target: UUID
                                   ) -> tuple[UUID, list[dict]]:
         '''
         Execute the GraphQL query
@@ -240,7 +250,7 @@ class GraphQlProxy:
             GRAPHQL_API_URL_PREFIX.format(service_id=self.member.service_id)
         )
 
-        query_data = orjson.loads(query)
+        query_data = orjson.loads(self.updated_query)
         query_string = query_data['query']
 
         response = await GraphQlClient.call(
@@ -260,8 +270,7 @@ class GraphQlProxy:
 
         return (target, data)
 
-    def _process_network_query_data(self, class_name: str,
-                                    network_data: list[
+    def _process_network_query_data(self, network_data: list[
                                         tuple[UUID, dict | None | Exception]
                                     ]) -> list[dict]:
         '''
@@ -270,10 +279,10 @@ class GraphQlProxy:
         :param class_name: The name of the object class requested in the query
         :param network_data: the data collected from the remote pods
         '''
-        data_class: SchemaDataItem = self.schema.data_classes[class_name]
+        data_class: SchemaDataItem = self.schema.data_classes[self.class_name]
         if data_class.referenced_class:
             data_class = data_class.referenced_class
-            class_name = data_class.name
+            self.class_name = data_class.name
 
         proxied_query_exceptions: int = 0
         cleaned_data: list = []
@@ -294,7 +303,7 @@ class GraphQlProxy:
                 f'Got {len(edges)} items from remote pod {target_id}'
             )
             for edge in edges:
-                data_item = edge[class_name]
+                data_item = edge[self.class_name]
                 if data_item and isinstance(data_item, dict):
                     data_item = data_class.normalize(data_item)
 
@@ -309,8 +318,7 @@ class GraphQlProxy:
         )
         return cleaned_data
 
-    def _process_network_append_data(self, class_name: str,
-                                     network_data: list[
+    def _process_network_append_data(self, network_data: list[
                                          tuple[UUID, dict | None | Exception]
                                      ]) -> dict:
         '''
@@ -320,7 +328,7 @@ class GraphQlProxy:
         :param network_data: the data collected from the remote pods
         '''
 
-        data_class: SchemaDataArray = self.schema.data_classes[class_name]
+        data_class: SchemaDataArray = self.schema.data_classes[self.class_name]
         if data_class.referenced_class:
             data_class = data_class.referenced_class
 

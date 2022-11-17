@@ -187,11 +187,13 @@ class AzureFileStorage(FileStorage):
                 f'storage {self.buckets[storage_type.value]}: {exc}'
             )
 
-        _LOGGER.debug(f'Read {len(data or [])} bytes from Azure')
+        _LOGGER.debug(
+            f'Read {len(data or [])} bytes of type {type(data)} from Azure'
+        )
 
         return data
 
-    async def write(self, filepath: str, data: str = None,
+    async def write(self, filepath: str, data: str | bytes = None,
                     file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
