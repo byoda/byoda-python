@@ -531,7 +531,10 @@ class MemberData(dict):
             _LOGGER.debug(f'Setting key {key} for data object {class_object}')
             member.data[class_object][key] = mutate_data[key]
 
-        _LOGGER.debug(f'Saving data after mutation of {class_object}')
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after mutation of '
+            f'{class_object}'
+        )
         await member.save_data(data)
 
         return member.data
@@ -629,6 +632,11 @@ class MemberData(dict):
 
         member.data[class_object] = data
 
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after mutation of '
+            f'{class_object}'
+        )
+
         await member.save_data(member.data)
 
         return removed[0]
@@ -711,6 +719,11 @@ class MemberData(dict):
 
             member.data[key].append(mutate_data)
 
+            _LOGGER.debug(
+                f'Saving {len(data or [])} bytes of data after appending to '
+                f'{key}'
+            )
+
             await member.save_data(data)
 
             return mutate_data
@@ -781,6 +794,11 @@ class MemberData(dict):
         )
 
         member.data[class_object] = data
+
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after appending '
+            f'to {class_object}'
+        )
 
         await member.save_data(member.data)
 

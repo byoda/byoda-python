@@ -137,7 +137,7 @@ async def get_service(request: Request, service_id: int):
         # So this worker process does not know about the service. Let's
         # see if a CSR for the service secret has previously been signed
         # and the resulting cert saved
-        if not Service.is_registered(service_id):
+        if not await Service.is_registered(service_id):
             raise ValueError(f'Request for unknown service: {service_id}')
 
         service = network.add_service(service_id)
@@ -315,7 +315,7 @@ async def put_service(request: Request, service_id: int,
         # So this worker process does not know about the service. Let's
         # see if a CSR for the service secret has previously been signed
         # and the resulting cert saved
-        if not Service.is_registered(service_id):
+        if not await Service.is_registered(service_id):
             raise ValueError(f'Registration for unknown service: {service_id}')
 
         service = Service(network, service_id=service_id)
@@ -413,7 +413,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
             # So this worker process does not know about the service. Let's
             # see if a CSR for the service secret has previously been signed
             # and the resulting cert saved
-            if not Service.is_registered(service_id):
+            if not await Service.is_registered(service_id):
                 service = None
             else:
                 service = Service(network, service_id=service_id)

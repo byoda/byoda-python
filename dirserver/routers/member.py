@@ -55,7 +55,7 @@ async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
     # Authorization
     # End of authorization
 
-    if not Service.is_registered(auth.service_id):
+    if not await Service.is_registered(auth.service_id):
         raise HTTPException(
             404, f'Registration for unknown service: {auth.service_id}'
         )
