@@ -145,7 +145,7 @@ class MemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug('Authorizing member access for data item {self.name}')
+        _LOGGER.debug(f'Authorizing member access for data item {self.name}')
 
         allowed, member = super().authorize(service_id, operation, depth)
         if allowed is False:
@@ -182,7 +182,7 @@ class AnyMemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug('Authorizing member access for data item {self.name}')
+        _LOGGER.debug(f'Authorizing member access for data item {self.name}')
 
         allowed, member = super().authorize(service_id, operation, depth)
         if allowed is False:

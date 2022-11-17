@@ -679,6 +679,10 @@ class MemberData(dict):
         )
 
         if remote_member_id and remote_member_id != member.member_id:
+            _LOGGER.debug(
+               'Received append request with remote member ID: '
+               f'{remote_member_id}'
+            )
             if depth != 1:
                 raise ValueError(
                     'Must specify depth of 1 for appending to another '
@@ -692,6 +696,8 @@ class MemberData(dict):
             )
             return all_data
         else:
+            _LOGGER.debug('Received append request with no remote member ID')
+
             if depth != 0:
                 raise ValueError(
                     'Must specify depth = 0 for appending locally'
@@ -704,6 +710,7 @@ class MemberData(dict):
             # We do not modify existing data as it will need to be validated
             # by JSON Schema before it can be accepted.
             data = copy(member.data)
+            _LOGGER.debug(f'Appending to {len(data or [])} bytes of data')
 
             # Gets the data included in the mutation
             mutate_data: dict = info.selected_fields[0].arguments
@@ -717,6 +724,7 @@ class MemberData(dict):
             # Strawberry passes us data that we can just copy as-is
             _LOGGER.debug(f'Appending item to array {key}')
 
+            _LOGGER.debug(f'Appended {len(mutate_data or [])} bytes of data')
             member.data[key].append(mutate_data)
 
             _LOGGER.debug(
