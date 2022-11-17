@@ -150,14 +150,16 @@ class MemberData(dict):
                 self.unvalidated_data = data
             else:
                 _LOGGER.debug(
-                    f'Using {len(self.unvalidated_data)} data from class '
+                    f'Using {len(self.unvalidated_data or [])} data from class '
                     'instance'
                 )
                 data = {}
                 self.unvalidated_data = data
 
             self.validate()
-            _LOGGER.debug(f'After data validation, data is {len(data)} bytes')
+            _LOGGER.debug(
+                f'After data validation, data is {len(data or [])} bytes'
+            )
             # TODO: properly serialize data
             await self.document_store.write(
                 self.paths.get(
