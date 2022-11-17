@@ -145,7 +145,7 @@ class MemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug(f'Authorizing member access for data item {self.name}')
+        _LOGGER.debug('Authorizing member access for data item')
 
         allowed, member = super().authorize(service_id, operation, depth)
         if allowed is False:
@@ -182,7 +182,7 @@ class AnyMemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug(f'Authorizing member access for data item {self.name}')
+        _LOGGER.debug('Authorizing any member access for data item')
 
         allowed, member = super().authorize(service_id, operation, depth)
         if allowed is False:
@@ -221,7 +221,7 @@ class NetworkDataAccessRight(DataAccessRight):
         operation
         '''
 
-        _LOGGER.debug('Authorizing network access for data item {self.name}')
+        _LOGGER.debug('Authorizing network access for data item')
 
         if self.relations:
             _LOGGER.debug(
@@ -277,9 +277,7 @@ class ServiceDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug(
-            'Authorizing access by the service for data item {self.name}'
-        )
+        _LOGGER.debug('Authorizing access by the service for data item')
 
         allowed, member = super().authorize(service_id, operation, depth)
         if allowed is False:
