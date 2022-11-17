@@ -99,7 +99,7 @@ class MemberData(dict):
             for key, value in data.items():
                 self[key] = value
 
-            _LOGGER.debug(f'Loaded {len(self or [])} items')
+            _LOGGER.debug(f'Loaded {len(self.keys() or [])} items')
 
         except FileNotFoundError:
             _LOGGER.warning(
