@@ -150,8 +150,8 @@ class MemberData(dict):
                 self.unvalidated_data = data
             else:
                 _LOGGER.debug(
-                    f'Using {len(self.unvalidated_data or [])} data from class '
-                    'instance'
+                    f'Using {len(self.unvalidated_data or [])} data from '
+                    'class instance'
                 )
                 data = {}
                 self.unvalidated_data = data
