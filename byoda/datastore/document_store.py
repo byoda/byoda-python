@@ -67,7 +67,7 @@ class DocumentStore:
         if data_secret:
             data = data_secret.decrypt(data)
 
-        _LOGGER.debug(f'Read {data.encode("utf-8")} from {filepath}')
+        _LOGGER.debug(f'Read {data.decode("utf-8")} from {filepath}')
         if data:
             data = orjson.loads(data)
         else:
