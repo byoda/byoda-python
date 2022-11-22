@@ -7,7 +7,6 @@ GraphQlClient, for performing GraphQL queries
 '''
 
 import logging
-from typing import Dict
 
 import aiohttp
 import requests
@@ -27,7 +26,7 @@ class GraphQlClient:
 
     @staticmethod
     async def call(url: str, query: bytes, secret: Secret = None,
-                   headers: Dict = None, vars: Dict = None,
+                   headers: dict = None, vars: dict = None,
                    timeout: int = 10) -> aiohttp.ClientResponse:
 
         body = GraphQlClient.prep_query(query, vars)
@@ -41,7 +40,7 @@ class GraphQlClient:
 
     @staticmethod
     def call_sync(url: str, query: bytes,
-                  vars: Dict = None, headers: Dict = None,
+                  vars: dict = None, headers: dict = None,
                   secret: Secret = None, timeout: int = 10
                   ) -> requests.Response:
 
@@ -55,7 +54,7 @@ class GraphQlClient:
         return response
 
     @staticmethod
-    def prep_query(query: str, vars: Dict) -> str:
+    def prep_query(query: str, vars: dict) -> str:
         '''
         Generates the GraphQL query to be used in a HTTP POST call
         '''

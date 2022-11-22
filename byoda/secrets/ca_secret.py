@@ -9,7 +9,6 @@ Cert manipulation
 import os
 import datetime
 import logging
-from typing import List
 
 from copy import deepcopy
 
@@ -212,7 +211,7 @@ class CaSecret(Secret):
 
     @staticmethod
     def review_commonname_by_parameters(
-            commonname: str, network: str, accepted_csrs: List[str],
+            commonname: str, network: str, accepted_csrs: list[str],
             service_id: int = None, uuid_identifier: bool = True,
             check_service_id: bool = True) -> EntityId:
         '''

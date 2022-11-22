@@ -9,7 +9,6 @@ API models for service schema aka. data contracts
 import logging
 
 from pydantic import BaseModel
-from typing import Dict, List
 
 from byoda.datatypes import ReviewStatusType
 
@@ -25,13 +24,13 @@ class SchemaModel(BaseModel):
     website: str
     supportemail: str
     cors_origins: list[str]
-    signatures: Dict
+    signatures: dict
     # Can't use 'schema' as property as it conflicts with a property
     # of the pydantic.BaseModel class
-    jsonschema: Dict
+    jsonschema: dict
 
     def __repr__(self):
-        return('<SchemaModel)={ServiceId: str}>')
+        return ('<SchemaModel)={ServiceId: str}>')
 
     def as_dict(self):
         return {
@@ -50,15 +49,15 @@ class SchemaModel(BaseModel):
 
 class SchemaResponseModel(BaseModel):
     status: ReviewStatusType
-    errors: List[str]
+    errors: list[str]
     timestamp: str
 
     class Config:
         use_enum_values = True
 
     def __repr__(self):
-        return(
-            '<SchemaResponseModel={status: str, errors: List[str],'
+        return (
+            '<SchemaResponseModel={status: str, errors: list[str],'
             ' timestamp: str}>'
         )
 

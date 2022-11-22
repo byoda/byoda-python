@@ -16,7 +16,6 @@ import logging
 import time
 from enum import Enum
 from uuid import UUID
-from typing import Optional, Tuple
 from ipaddress import ip_address, IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
@@ -25,7 +24,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
 from sqlalchemy import create_engine
 
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
 from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
 
@@ -130,7 +128,7 @@ class DnsDb:
         return dnsdb
 
     def compose_fqdn(self, uuid: UUID, id_type: IdType,
-                     service_id: Optional[int] = None) -> str:
+                     service_id: int | None = None) -> str:
         '''
         Generate the FQDN for an id of the specified type
 
@@ -154,7 +152,7 @@ class DnsDb:
         elif id_type == IdType.SERVICE:
             return ServiceSecret.create_commonname(service_id, self.domain)
 
-    def decompose_fqdn(self, fqdn: str) -> Tuple[UUID, IdType, int]:
+    def decompose_fqdn(self, fqdn: str) -> tuple[UUID, IdType, int]:
         '''
         Get the uuid, the id type and, if applicable the service id from the
         FQDN
@@ -492,7 +490,7 @@ class DnsDb:
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
                              ip_addr: ip_address = None,
-                             service_id: Optional[int] = None):
+                             service_id: int | None = None):
         '''
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate

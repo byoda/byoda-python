@@ -25,6 +25,7 @@ import uvicorn
 
 from cryptography.hazmat.primitives import serialization
 
+from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 from byoda.servers.service_server import ServiceServer
@@ -159,7 +160,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # self.assertEqual(len(data['signatures']), 2)
         schema = Schema(data)           # noqa: F841
 
-    def test_member_putpost(self):
+    async def test_member_putpost(self):
         API = BASE_URL + '/v1/service/member'
 
         service = config.server.service
@@ -200,7 +201,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # PUT, with auth
         # In the PUT body we put the member data secret as a service may
         # have use for it in the future.
-        member_data_secret = MemberDataSecret(member_id, SERVICE_ID, service)
+        pod_account = Account(uuid4(), service.network)
+        member_data_secret = MemberDataSecret(
+            member_id, SERVICE_ID, pod_account
+        )
         csr = member_data_secret.create_csr()
         cert_chain = service.members_ca.sign_csr(csr)
         member_data_secret.from_signed_cert(cert_chain)

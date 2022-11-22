@@ -8,9 +8,9 @@ a server that hosts a BYODA Service
 '''
 
 import logging
-from typing import TypeVar, Dict
+from typing import TypeVar
 
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
@@ -46,7 +46,7 @@ class PodServer(Server):
         super().__init__(network)
 
         self.server_type = ServerType.POD
-        self.service_summaries: Dict[int:Dict] = None
+        self.service_summaries: dict[int:dict] = None
         self.account_unencrypted_private_key_file: str = None
 
     async def load_secrets(self, password: str = None):

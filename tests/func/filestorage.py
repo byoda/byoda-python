@@ -16,7 +16,7 @@ import sys
 import requests
 import shutil
 import unittest
-from typing import Type
+
 from byoda.storage.aws import AwsFileStorage
 from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
@@ -58,7 +58,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await run_file_tests(self, storage)
 
 
-async def run_file_tests(test: Type[TestFileStorage], storage: FileStorage):
+async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
 
     # Prep the test by putting the file in the directory used by the
     # FileStorage instance

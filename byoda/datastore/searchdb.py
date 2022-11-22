@@ -10,7 +10,6 @@ searchs using APIs exposed by the service
 import logging
 from uuid import UUID
 from enum import Enum
-from typing import Tuple, List
 
 from byoda.datamodel.service import Service
 
@@ -59,7 +58,8 @@ class SearchDB:
     def exists(self, keyword: str, tracker: Tracker) -> bool:
         return self.kvcache.exists(self.get_key(keyword, tracker))
 
-    def get_list(self, keyword: str, tracker: Tracker) -> List[Tuple[UUID, str]]:
+    def get_list(self, keyword: str, tracker: Tracker
+                 ) -> list[tuple[UUID, str]]:
         key = self.get_key(keyword, tracker)
         data = self.kvcache.get_list(key)
 

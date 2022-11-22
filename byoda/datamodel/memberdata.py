@@ -8,9 +8,11 @@ Class for modeling an element of data of a member
 import logging
 import orjson
 from uuid import UUID
+from typing import TypeVar
 from copy import copy, deepcopy
-from typing import Dict, TypeVar, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
+from datetime import timedelta
 
 from fastapi import Request
 
@@ -22,28 +24,35 @@ from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
 from byoda.datatypes import ORIGIN_KEY
+from byoda.datatypes import IdType
 
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.requestauth.requestauth import RequestAuth
 
+from byoda.secrets.secret import InvalidSignature
+
 from byoda.storage import FileMode
 
 from byoda.util.paths import Paths
 
+from byoda.exceptions import ByodaValueError
 
 # These imports are only used for typing
 from .schema import Schema
 from .dataclass import SchemaDataItem
 
+Member = TypeVar('Member')
+
 _LOGGER = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 65536
 
-Member = TypeVar('Member')
+RECURSIVE_QUERY_TTL = 300
+QUERY_EXPIRATION = timedelta(seconds=RECURSIVE_QUERY_TTL)
 
 
-class MemberData(Dict):
+class MemberData(dict):
     '''
     Generic data object for the storing data as defined
     by the schema of services
@@ -52,7 +61,7 @@ class MemberData(Dict):
     def __init__(self, member: Member, paths: Paths,
                  doc_store: DocumentStore):
         self.member: Member = member
-        self.unvalidated_data: Dict = None
+        self.unvalidated_data: dict = None
 
         self.paths: Paths = paths
 
@@ -90,14 +99,14 @@ class MemberData(Dict):
             for key, value in data.items():
                 self[key] = value
 
-            _LOGGER.debug(f'Loaded {len(self or [])} items')
+            _LOGGER.debug(f'Loaded {len(self.keys() or [])} items')
 
         except FileNotFoundError:
-            _LOGGER.error(
+            _LOGGER.warning(
                 'Unable to read data file for service '
                 f'{self.member.service_id} from {filepath}'
             )
-            return
+            return {}
 
         return self.normalize()
 
@@ -112,7 +121,7 @@ class MemberData(Dict):
         if not schema:
             raise ValueError('Schema has not yet been loaded')
 
-        data_classes: Dict[str, SchemaDataItem] = schema.data_classes
+        data_classes: dict[str, SchemaDataItem] = schema.data_classes
         for field, value in self.items():
             if field not in data_classes:
                 raise ValueError(
@@ -129,7 +138,7 @@ class MemberData(Dict):
         '''
 
         # MemberData inherits from dict so has a length
-        if not len(self):
+        if not len(self) and not data:
             raise ValueError(
                 'No member data for service %s available to save',
                 self.member.service_id
@@ -137,20 +146,36 @@ class MemberData(Dict):
 
         try:
             if data:
+                _LOGGER.debug(f'Using {len(data)} bytes of data from argument')
+                self.unvalidated_data = data
+            else:
+                _LOGGER.debug(
+                    f'Using {len(self.unvalidated_data or [])} data from '
+                    'class instance'
+                )
+                data = {}
                 self.unvalidated_data = data
 
             self.validate()
-
+            _LOGGER.debug(
+                f'After data validation, data is {len(data or [])} bytes'
+            )
             # TODO: properly serialize data
             await self.document_store.write(
                 self.paths.get(
                     self.paths.MEMBER_DATA_PROTECTED_FILE,
                     service_id=self.member.service_id
                 ),
-                self,
+                data,
                 self.member.data_secret
             )
             _LOGGER.debug(f'Saved {len(self.keys() or [])} items')
+
+            # We need to update our dict with the data passed to this
+            # method
+            if self.unvalidated_data:
+                for key, value in data.items():
+                    self[key] = value
 
         except OSError:
             _LOGGER.error(
@@ -175,7 +200,12 @@ class MemberData(Dict):
 
         try:
             if self.unvalidated_data:
+                _LOGGER.debug(
+                    f'Validating {len(self.unvalidated_data)} bytes of data'
+                )
                 self.member.schema.validator.is_valid(self.unvalidated_data)
+            else:
+                _LOGGER.debug('No unvalidated data to validate')
         except Exception as exc:
             _LOGGER.warning(
                 'Failed to validate data for service_id '
@@ -218,10 +248,15 @@ class MemberData(Dict):
 
     async def add_log_entry(self, request: Request, auth: RequestAuth,
                             operation: str, source: str, object: str,
-                            filters: List[str] = None,
-                            relations: List[str] = None,
+                            filters: list[str] = None,
+                            relations: list[str] = None,
+                            remote_member_id: UUID | None = None,
                             depth: int = None, message: str = None,
-                            remote_member_id: UUID = None,
+                            timestamp: datetime | None = None,
+                            origin_member_id: UUID | None = None,
+                            origin_signature: str | None = None,
+                            query_id: UUID = None,
+                            signature_format_version: int | None = None,
                             load_data=False, save_data: bool = True):
         '''
         Adds an entry to data log
@@ -246,7 +281,12 @@ class MemberData(Dict):
                 'query_filters': str(filter_set),
                 'query_depth': depth,
                 'query_relations': ', '.join(relations or []),
+                'query_id': query_id,
                 'query_remote_member_id': remote_member_id,
+                'origin_member_id': origin_member_id,
+                'origin_timestamp': timestamp,
+                'origin_signature': origin_signature,
+                'signature_format_version': signature_format_version,
                 'source': source,
                 'message': message,
             }
@@ -257,8 +297,15 @@ class MemberData(Dict):
 
     @staticmethod
     async def get_data(service_id: int, info: Info, depth: int = 0,
-                       relations: List[str] = None,
-                       filters: List[str] = None) -> Dict[str, dict]:
+                       relations: list[str] = None,
+                       filters: list[str] = None,
+                       timestamp: datetime | None = None,
+                       remote_member_id: UUID | None = None,
+                       query_id: UUID | None = None,
+                       origin_member_id: UUID | None = None,
+                       origin_signature: bytes | None = None,
+                       signature_format_version: int = 1,
+                       ) -> dict[str, dict]:
         '''
         Extracts the requested data object.
 
@@ -272,10 +319,10 @@ class MemberData(Dict):
         '''
 
         if not info.path:
-            raise ValueError('Did not get value for path parameter')
+            raise ByodaValueError('Did not get value for path parameter')
 
         if info.path.typename != 'Query':
-            raise ValueError(
+            raise ByodaValueError(
                 f'Got graphql invocation for "{info.path.typename}" '
                 f'instead of "Query"'
             )
@@ -286,7 +333,7 @@ class MemberData(Dict):
         )
 
         server = config.server
-        member = server.account.memberships[service_id]
+        member: Member = server.account.memberships[service_id]
         await member.load_data()
 
         # For queries for objects we implement pagination and identify
@@ -296,20 +343,82 @@ class MemberData(Dict):
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
 
+        # If an origin_member_id has been provided then we check
+        # the signature
+        auth: RequestAuth = info.context['auth']
+        if origin_member_id or origin_signature or timestamp:
+            try:
+                await GraphQlProxy.verify_signature(
+                    service_id, relations, filters, timestamp,
+                    origin_member_id, origin_signature
+                )
+            except InvalidSignature:
+                raise ByodaValueError(
+                    'Failed verification of signature for recursive query '
+                    f'received from {auth.id} with IP {auth.remote_addr} '
+                )
+
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+            if timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
+                _LOGGER.debug(
+                    'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
+                    'not proxying this request'
+                )
+                depth = 0
+        elif depth > 0:
+            # If no origin_member_id has been provided then the request
+            # must come from our own membership
+            if (auth.id_type != IdType.MEMBER or
+                    auth.member_id != member.member_id):
+                raise ByodaValueError(
+                    'Received a recursive query without signture '
+                    'submitted by someone else than ourselves'
+                )
+
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
             'graphql', key, relations=relations, filters=filters,
-            depth=depth, save_data=True
+            depth=depth, timestamp=timestamp,
+            remote_member_id=remote_member_id,
+            origin_member_id=origin_member_id,
+            origin_signature=origin_signature,
+            signature_format_version=signature_format_version,
+            query_id=query_id,
+            save_data=True
         )
 
         all_data = []
+
         if depth:
             request: Request = info.context['request']
             query = await request.body()
+
             proxy = GraphQlProxy(member)
-            all_data = await proxy.proxy_request(
-                key, query, depth, relations
-            )
+            if not origin_member_id:
+                # Our membership submitted the query so let's
+                # add needed data and sign the request
+                origin_member_id = member.member_id
+                timestamp = datetime.now(timezone.utc)
+
+                origin_signature = proxy.create_signature(
+                    service_id, relations, filters, timestamp,
+                    origin_member_id
+                )
+                # We need to insert origin_member_id, origin_signature
+                # and timestamp in the received query
+                all_data = await proxy.proxy_request(
+                    key, query, info, depth, relations,
+                    origin_member_id=origin_member_id,
+                    origin_signature=origin_signature,
+                    timestamp=timestamp
+                )
+            else:
+                # origin_member_id, origin_signature and timestamp must
+                # already be set
+                all_data = await proxy.proxy_request(
+                    key, query, info, depth, relations
+                )
+
             _LOGGER.debug(
                 f'Collected {len(all_data)} items from the network'
             )
@@ -388,7 +497,7 @@ class MemberData(Dict):
         )
 
         # Gets the data included in the mutation
-        mutate_data: Dict = info.selected_fields[0].arguments
+        mutate_data: dict = info.selected_fields[0].arguments
 
         # Get the properties of the JSON Schema, we don't support
         # nested objects just yet
@@ -422,13 +531,16 @@ class MemberData(Dict):
             _LOGGER.debug(f'Setting key {key} for data object {class_object}')
             member.data[class_object][key] = mutate_data[key]
 
-        _LOGGER.debug(f'Saving data after mutation of {class_object}')
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after mutation of '
+            f'{class_object}'
+        )
         await member.save_data(data)
 
         return member.data
 
     @staticmethod
-    async def update_data(service_id: int, filters, info: Info) -> Dict:
+    async def update_data(service_id: int, filters, info: Info) -> dict:
         '''
         Updates a dict in an array
 
@@ -498,7 +610,7 @@ class MemberData(Dict):
         elif len(removed) > 1:
             raise ValueError('filters match more than one record')
 
-        update_data: Dict = info.selected_fields[0].arguments
+        update_data: dict = info.selected_fields[0].arguments
 
         # 'filters' is a keyword that can't be used as the name of a field
         # in a schema
@@ -520,13 +632,18 @@ class MemberData(Dict):
 
         member.data[class_object] = data
 
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after mutation of '
+            f'{class_object}'
+        )
+
         await member.save_data(member.data)
 
         return removed[0]
 
     async def append_data(service_id, info: Info,
-                          remote_member_id: Optional[UUID] = None,
-                          depth: int = 0) -> Dict:
+                          remote_member_id: UUID | None = None,
+                          depth: int = 0) -> dict:
         '''
         Appends the provided data
 
@@ -562,6 +679,10 @@ class MemberData(Dict):
         )
 
         if remote_member_id and remote_member_id != member.member_id:
+            _LOGGER.debug(
+               'Received append request with remote member ID: '
+               f'{remote_member_id}'
+            )
             if depth != 1:
                 raise ValueError(
                     'Must specify depth of 1 for appending to another '
@@ -575,6 +696,8 @@ class MemberData(Dict):
             )
             return all_data
         else:
+            _LOGGER.debug('Received append request with no remote member ID')
+
             if depth != 0:
                 raise ValueError(
                     'Must specify depth = 0 for appending locally'
@@ -587,9 +710,10 @@ class MemberData(Dict):
             # We do not modify existing data as it will need to be validated
             # by JSON Schema before it can be accepted.
             data = copy(member.data)
+            _LOGGER.debug(f'Appending to {len(data or [])} bytes of data')
 
             # Gets the data included in the mutation
-            mutate_data: Dict = info.selected_fields[0].arguments
+            mutate_data: dict = info.selected_fields[0].arguments
 
             # The query may be for an array for which we do not yet have
             # any data
@@ -600,14 +724,20 @@ class MemberData(Dict):
             # Strawberry passes us data that we can just copy as-is
             _LOGGER.debug(f'Appending item to array {key}')
 
+            _LOGGER.debug(f'Appended {len(mutate_data or [])} bytes of data')
             member.data[key].append(mutate_data)
+
+            _LOGGER.debug(
+                f'Saving {len(data or [])} bytes of data after appending to '
+                f'{key}'
+            )
 
             await member.save_data(data)
 
             return mutate_data
 
     @staticmethod
-    async def delete_array_data(service_id: int, info: Info, filters) -> Dict:
+    async def delete_array_data(service_id: int, info: Info, filters) -> dict:
         '''
         Deletes one or more objects from an array.
 
@@ -672,6 +802,11 @@ class MemberData(Dict):
         )
 
         member.data[class_object] = data
+
+        _LOGGER.debug(
+            f'Saving {len(data or [])} bytes of data after appending '
+            f'to {class_object}'
+        )
 
         await member.save_data(member.data)
 

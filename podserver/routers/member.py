@@ -225,7 +225,7 @@ async def post_member_upload(request: Request, file: UploadFile,
                              auth: PodApiRequestAuth =
                              Depends(PodApiRequestAuth)):
     '''
-    Become a member of a service.
+    Upload a file so it can be used as media for a post or tweet..
     :param service_id: service_id of the service
     :param version: version of the service schema
     :raises: HTTPException 409

@@ -14,8 +14,6 @@ from datetime import datetime, date, time
 
 from dateutil import parser as iso8601_parser
 
-from typing import List, Dict, Callable, Union, Tuple
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -31,14 +29,14 @@ class DataFilter:
 
         self.operator: str = operator
         self.value: str = None
-        self.compare_functions: Dict[str, Callable] = {}
+        self.compare_functions: dict[str, callable] = {}
 
     def __str__(self):
         return f'{self.operator} {self.value}'
 
     @staticmethod
-    def create(operator: str, value: Union[str, int, float, UUID, datetime,
-               date, time]):
+    def create(operator: str, value: str | int | float | UUID | datetime |
+               date | time):
         '''
         Factory for classes derived from DataFilter
         '''
@@ -57,7 +55,7 @@ class DataFilter:
 
         raise ValueError(f'Value has type {type(value)}')
 
-    def compare(self, data: Union[str, int, float, UUID, datetime, date, time]
+    def compare(self, data: str | int | float | UUID | datetime | date | time
                 ) -> bool:
         '''
         Compares the data against the value for the filter
@@ -85,7 +83,7 @@ class StringDataFilter(DataFilter):
             'glob': self.glob,
         }
 
-    def eq(self, data: str):
+    def eq(self, data: str) -> bool:
         '''
         equal operator
         '''
@@ -95,7 +93,7 @@ class StringDataFilter(DataFilter):
 
         return data == self.value
 
-    def ne(self, data: str):
+    def ne(self, data: str) -> bool:
         '''
         not-equal operator
         '''
@@ -105,7 +103,7 @@ class StringDataFilter(DataFilter):
 
         return data != self.value
 
-    def vin(self, data: str):
+    def vin(self, data: str) -> bool:
         '''
         value-in operator ('in' can not be used as it is a Python keyword)
         '''
@@ -115,7 +113,7 @@ class StringDataFilter(DataFilter):
 
         return self.value in data
 
-    def nin(self, data: str):
+    def nin(self, data: str) -> bool:
         '''
         not-in operator
         '''
@@ -124,7 +122,7 @@ class StringDataFilter(DataFilter):
 
         return self.value not in data
 
-    def regex(self, data: str):
+    def regex(self, data: str) -> bool:
         '''
         regex operator
         '''
@@ -134,7 +132,7 @@ class StringDataFilter(DataFilter):
 
         return re.match(self.value, data)
 
-    def glob(self, data: str):
+    def glob(self, data: str) -> bool:
         '''
         Glob matching TODO: find python module for it that doesn't just
         work on files in a directory
@@ -148,12 +146,12 @@ class NumberDataFilter(DataFilter):
     '''
     Class for filters for numbers as ints or floats
     '''
-    def __init__(self, operator: str, value: Union[int, float]):
+    def __init__(self, operator: str, value: int | float):
         super().__init__(operator)
 
-        self.value: Union[int, float] = value
+        self.value: int | float = value
 
-    def eq(self, data: Union[int, float]):
+    def eq(self, data: int | float) -> bool:
         '''
         equal operator
         '''
@@ -163,7 +161,7 @@ class NumberDataFilter(DataFilter):
 
         return data == self.value
 
-    def ne(self, data: Union[int, float]):
+    def ne(self, data: int | float) -> bool:
         '''
         not-equal operator
         '''
@@ -173,7 +171,7 @@ class NumberDataFilter(DataFilter):
 
         return data != self.value
 
-    def gt(self, data: Union[int, float]):
+    def gt(self, data: int | float) -> bool:
         '''
         greater-than operator
         '''
@@ -183,7 +181,7 @@ class NumberDataFilter(DataFilter):
 
         return data > self.value
 
-    def lt(self, data: Union[int, float]):
+    def lt(self, data: int | float) -> bool:
         '''
         less-than operator
         '''
@@ -193,7 +191,7 @@ class NumberDataFilter(DataFilter):
 
         return data < self.value
 
-    def egt(self, data: Union[int, float]):
+    def egt(self, data: int | float) -> bool:
         '''
         equal-or-greater operator
         '''
@@ -203,7 +201,7 @@ class NumberDataFilter(DataFilter):
 
         return data >= self.value
 
-    def elt(self, data: Union[int, float]):
+    def elt(self, data: int | float) -> bool:
         '''
         equal or lesser operator
         '''
@@ -229,7 +227,7 @@ class UuidDataFilter(DataFilter):
             'ne': self.ne,
         }
 
-    def eq(self, data: UUID):
+    def eq(self, data: UUID) -> bool:
         '''
         equal operator
         '''
@@ -242,7 +240,7 @@ class UuidDataFilter(DataFilter):
 
         return data == self.value
 
-    def ne(self, data: UUID):
+    def ne(self, data: UUID) -> bool:
         '''
         not-equal operator
         '''
@@ -254,7 +252,7 @@ class UuidDataFilter(DataFilter):
 
 
 class DateTimeDataFilter(DataFilter):
-    def __init__(self, operator: str, value: Union[datetime, date, time]):
+    def __init__(self, operator: str, value: datetime | date | time):
         super().__init__(operator)
 
         if isinstance(value, str):
@@ -265,7 +263,7 @@ class DateTimeDataFilter(DataFilter):
                 f'Value {value} is a {type(value)} instead of a datetime, '
                 'date or time'
             )
-        self.value: Union[datetime, date, time] = value
+        self.value: datetime | date | time = value
 
         self.compare_functions = {
             'at': self.at,
@@ -276,7 +274,7 @@ class DateTimeDataFilter(DataFilter):
             'atbefore': self.atbefore,
         }
 
-    def at(self, data: Union[str, datetime, date, time]):
+    def at(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time at comparison
         '''
@@ -298,7 +296,7 @@ class DateTimeDataFilter(DataFilter):
 
         return data == self.value
 
-    def nat(self, data: Union[str, datetime, date, time]):
+    def nat(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time not-at comparison
         '''
@@ -320,7 +318,7 @@ class DateTimeDataFilter(DataFilter):
 
         return data != self.value
 
-    def after(self, data: Union[str, datetime, date, time]):
+    def after(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time after comparison
         '''
@@ -342,7 +340,7 @@ class DateTimeDataFilter(DataFilter):
 
         return data > self.value
 
-    def before(self, data: Union[str, datetime, date, time]):
+    def before(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time before comparison
         '''
@@ -364,7 +362,7 @@ class DateTimeDataFilter(DataFilter):
 
         return data < self.value
 
-    def atafter(self, data: Union[str, datetime, date, time]):
+    def atafter(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time at-or-after comparison
         '''
@@ -386,7 +384,7 @@ class DateTimeDataFilter(DataFilter):
 
         return data >= self.value
 
-    def atbefore(self, data: Union[str, datetime, date, time]):
+    def atbefore(self, data: str | datetime | date | time) -> bool:
         '''
         Datetime/date/time at or before comparison
         '''
@@ -449,7 +447,7 @@ class DataFilterSet:
                         )
 
     def __str__(self):
-        filter_texts: List[str] = []
+        filter_texts: list[str] = []
         for field in self.filters.keys():
             for filter in self.filters[field]:
                 filter_texts.append(f'{field}{str(filter)}')
@@ -458,7 +456,7 @@ class DataFilterSet:
         return text
 
     @staticmethod
-    def filter(filters: List, data: List) -> List:
+    def filter(filters: list, data: list) -> list:
         '''
         Filters the data against the list of filters to include the matching
         data
@@ -481,7 +479,7 @@ class DataFilterSet:
         return results
 
     @staticmethod
-    def filter_exclude(filters: List, data: List) -> Tuple[List, List]:
+    def filter_exclude(filters: list, data: list) -> tuple[list, list]:
         '''
         Filters the data against the list of filters to exclude the matching
         data

@@ -10,7 +10,6 @@ import logging
 import base64
 from enum import Enum
 from datetime import datetime
-from typing import Dict
 
 from byoda.secrets import DataSecret
 from byoda.secrets import ServiceDataSecret
@@ -45,15 +44,15 @@ class MessageSignature:
         self.timestamp: datetime = None
 
         self.hash_algorithm: str = hash_algorithm
-        self.secret: DataSecret = data_secret
-        if data_secret:
-            self.certificate_cn: str = data_secret.common_name
+        self.data_secret: DataSecret = data_secret
+        if self.data_secret:
+            self.certificate_cn: str = self.data_secret.common_name
 
         self.verified: bool = False
 
-    def as_dict(self) -> Dict:
-        if self.secret:
-            common_name = self.secret.common_name
+    def as_dict(self) -> dict:
+        if self.data_secret:
+            common_name = self.data_secret.common_name
         else:
             common_name = 'unknown'
 
@@ -66,7 +65,7 @@ class MessageSignature:
         return data
 
     @staticmethod
-    def from_dict(data: Dict[str, str], data_secret=None):
+    def from_dict(data: dict[str, str], data_secret=None):
         '''
         Factory, parse the data from the JSON Schema
         '''
@@ -87,12 +86,12 @@ class MessageSignature:
         Sign a message with an assymetric secret
         '''
 
-        if not self.secret:
+        if not self.data_secret:
             raise ValueError('secret is not defined')
 
         self.message = message
 
-        self.signature = self.secret.sign_message(
+        self.signature = self.data_secret.sign_message(
             message, hash_algorithm=self.hash_algorithm
         )
 
@@ -103,25 +102,32 @@ class MessageSignature:
         self.verified = True
         return self.signature
 
-    def verify_message(self, message: str, secret: DataSecret,
-                       hash_algo: str = 'SHA256'):
+    def verify_message(self, message: str, data_secret: DataSecret = None,
+                       signature: bytes = None, hash_algo: str = 'SHA256'):
         '''
         Verify the digest for the message
         '''
 
-        if not self.secret:
-            raise ValueError('secret is not defined')
+        if data_secret:
+            self.data_secret: DataSecret = data_secret
+            self.certificate_cn: str = data_secret.common_name
 
-        self.data_secret: DataSecret = secret
-        self.certificate_cn: str = secret.common_name
+        if not self.data_secret:
+            raise ValueError('secret is not defined')
 
         if not self.certificate_cn == self.data_secret.common_name:
             raise ValueError(
                 'The signing cert {} does not match the cert {}'
                 'used for verfication'.format(
-                    self.certificate_cn, self.secret.common_name
+                    self.certificate_cn, self.data_secret.common_name
                 )
             )
+
+        if signature:
+            self.signature = signature
+
+        if not self.signature:
+            raise ValueError('no signature available to verify')
 
         self.data_secret.verify_message_signature(
             message, self.signature, hash_algorithm=hash_algo

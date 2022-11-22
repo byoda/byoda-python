@@ -9,7 +9,7 @@ import logging
 from uuid import UUID
 from enum import Enum
 from copy import deepcopy
-from typing import Dict, TypeVar
+from typing import TypeVar
 
 import orjson
 import aiohttp
@@ -17,17 +17,19 @@ import ssl
 
 import requests
 
-from byoda.secrets import Secret
-from byoda.secrets import AccountSecret
-from byoda.secrets import MemberSecret
-from byoda.secrets import ServiceSecret
-from byoda.servers.server import Server
+from byoda.secrets.secret import Secret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.service_secret import ServiceSecret
+
+from byoda.exceptions import ByodaRuntimeError
 
 from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
+Server = TypeVar('Server')
 Network = TypeVar('Network')
 
 class ClientAuthType(Enum):
@@ -140,7 +142,7 @@ class ApiClient:
 
     @staticmethod
     async def call(api: str, method: str = 'GET', secret:Secret = None,
-                   params: Dict = None, data: Dict = None, headers: Dict = None,
+                   params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
                    port: int = None, timeout: int = 10) -> aiohttp.ClientResponse:
@@ -187,13 +189,15 @@ class ApiClient:
                 method, api, params=params, data=processed_data,
                 headers=updated_headers, ssl=client.ssl_context, timeout=timeout
             )
-        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError) as exc:
-            raise RuntimeError(exc)
+        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
+                aiohttp.client_exceptions.ClientConnectorCertificateError,
+                aiohttp.client_exceptions.ClientConnectorError) as exc:
+            raise ByodaRuntimeError(exc)
 
         await client.session.close()
 
         if response.status >= 400:
-            raise RuntimeError(
+            raise ByodaRuntimeError(
                 f'Failure to call API {api}: {response.status}'
             )
 
@@ -202,7 +206,7 @@ class ApiClient:
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,
                           timeout: int):
-        sessions = Dict[str, requests.Session]
+        sessions = dict[str, requests.Session]
 
         server: Server = config.server
         if hasattr(server, 'local_storage'):
@@ -266,7 +270,7 @@ class ApiClient:
 
     @staticmethod
     def call_sync(api: str, method: str = 'GET', secret:Secret = None,
-                  params: Dict = None, data: Dict = None, headers: Dict = None,
+                  params: dict = None, data: dict = None, headers: dict = None,
                   service_id: int = None, member_id: UUID = None,
                   account_id: UUID = None, network_name: str = None,
                   port: int = 443, timeout: int = 10) -> requests.Response:

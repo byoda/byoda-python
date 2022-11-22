@@ -19,8 +19,6 @@ import asyncio
 import logging
 import argparse
 from uuid import UUID, uuid4
-from typing import Dict
-
 
 import requests
 
@@ -45,7 +43,7 @@ from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 
-async def setup_network(test_dir: str) -> Dict[str, str]:
+async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
         os.environ['ROOT_DIR'] = '/byoda'
     os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -153,7 +151,7 @@ async def main(argv):
 
     relations = None
     if args.relations:
-        relations = args.relation.split(',')
+        relations = args.relations.split(',')
 
     if args.object not in GRAPHQL_STATEMENTS:
         raise ValueError(

@@ -11,7 +11,7 @@ import os
 import logging
 import socket
 import orjson
-from typing import TypeVar, Callable, Dict
+from typing import TypeVar
 from copy import copy
 from enum import Enum
 
@@ -28,7 +28,7 @@ from byoda.datatypes import ServerType
 
 from byoda.datamodel.schema import Schema
 
-from byoda.util.api_client import ApiClient
+from byoda.util.api_client.api_client import ApiClient
 
 from byoda.util.message_signature import SignatureType
 from byoda.util.paths import Paths
@@ -266,7 +266,7 @@ class Service:
             'Verified network signature for service %s', self.service_id
         )
 
-    def validate(self, data: Dict):
+    def validate(self, data: dict):
         '''
         Validates the data against the json schema for the service
         '''
@@ -394,7 +394,7 @@ class Service:
             private_key_password=self.private_key_password
         )
 
-    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret,
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
                              private_key_password: str = None) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid

@@ -14,7 +14,7 @@ import tempfile
 import subprocess
 from uuid import UUID
 from copy import copy
-from typing import TypeVar, List
+from typing import TypeVar
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -24,6 +24,10 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
+
+
+# Imports that enable code to import from this module
+from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
@@ -107,7 +111,7 @@ class Secret:
         # Certchains never include the root cert!
         # Certs higher in the certchain hierarchy come after
         # certs signed by those certs.
-        self.cert_chain: List[Certificate] = []
+        self.cert_chain: list[Certificate] = []
 
         # Is this a self-signed cert?
         self.is_root_cert: bool = False
@@ -185,7 +189,7 @@ class Secret:
         ).not_valid_before(
             datetime.datetime.utcnow()
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(expire)
+            datetime.datetime.utcnow() + datetime.timedelta(days=expire)
         ).add_extension(
             x509.SubjectAlternativeName(
                 [x509.DNSName(self.common_name)]
@@ -561,7 +565,7 @@ class Secret:
         of the string of the cert or can be provided as a separate parameter
 
         :param cert: the base64-encoded cert
-        :param certchain: the
+        :param certchain: the base64-encoded certchain
         :returns: (none)
         :raises: (none)
         '''

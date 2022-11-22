@@ -9,7 +9,6 @@ API models for IP Addresses
 import logging
 
 from pydantic import BaseModel
-from typing import Optional, List
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,12 +17,12 @@ class ServiceSummaryResponseModel(BaseModel):
     service_id: int
     version: int
     name: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    supportemail: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    supportemail: str | None = None
 
     def __repr__(self):
-        return('<ServiceSummaryResponseModel)={ServiceId: str}>')
+        return ('<ServiceSummaryResponseModel)={ServiceId: str}>')
 
     def as_dict(self):
         return {
@@ -37,12 +36,12 @@ class ServiceSummaryResponseModel(BaseModel):
 
 
 class ServiceSummariesModel(BaseModel):
-    service_summaries: List[ServiceSummaryResponseModel]
+    service_summaries: list[ServiceSummaryResponseModel]
 
     def __repr__(self):
-        return(
+        return (
             '<ServiceSummariesModel='
-            '{List[ServiceSummaryResponseModel]}>'
+            '{list[ServiceSummaryResponseModel]}>'
         )
 
     def as_dict(self):

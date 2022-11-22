@@ -9,7 +9,7 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from fastapi import Header, HTTPException, Request
 
@@ -17,7 +17,7 @@ from byoda.datamodel.member import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import AuthSource, IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
@@ -30,11 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 class PodApiRequestAuth(RequestAuth):
     def __init__(self,
                  request: Request,
-                 service_id: Optional[int] = Header(None),
-                 x_client_ssl_verify: Optional[TlsStatus] = Header(None),
-                 x_client_ssl_subject: Optional[str] = Header(None),
-                 x_client_ssl_issuing_ca: Optional[str] = Header(None),
-                 authorization: Optional[str] = Header(None)):
+                 service_id: int | None = Header(None),
+                 x_client_ssl_verify: TlsStatus | None = Header(None),
+                 x_client_ssl_subject: str | None = Header(None),
+                 x_client_ssl_issuing_ca: str | None = Header(None),
+                 authorization: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
         The request can be either authenticated using a TLS Client cert
@@ -86,7 +86,7 @@ class PodApiRequestAuth(RequestAuth):
                 self.x_client_ssl_issuing_ca,
                 self.authorization
             )
-        except MissingAuthInfo:
+        except ByodaMissingAuthInfo:
             raise HTTPException(
                 status_code=401, detail='No authentication provided'
             )

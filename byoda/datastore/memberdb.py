@@ -10,7 +10,7 @@ about registered clients
 import logging
 from uuid import UUID
 from datetime import datetime, timezone
-from typing import TypeVar, Dict
+from typing import TypeVar
 from ipaddress import IPv4Address, ip_address
 
 from byoda.datamodel.schema import Schema
@@ -178,7 +178,7 @@ class MemberDb:
 
         return exists
 
-    def set_data(self, member_id: UUID, data: Dict) -> bool:
+    def set_data(self, member_id: UUID, data: dict) -> bool:
         '''
         Saves the data for a member
         '''

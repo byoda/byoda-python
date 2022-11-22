@@ -20,7 +20,10 @@
                     "member_id": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["read"]
+                                "permissions": ["persist"]
+                            },
+                            "network": {
+                                "permissions": ["persist"]
                             }
                         },
                         "description": "Membership UUID",
@@ -40,9 +43,14 @@
                         "permissions": ["read"]
                     },
                     "network": {
-                        "distance": 1,
-                        "relation": ["friend", "family"],
-                        "permissions": ["read"]
+                        "permissions": [
+                            {
+                                "permission": "read",
+                                "distance": 1,
+                                "relation": ["friend", "family"],
+                                "source_signature_required": true
+                            }
+                        ]
                     }
                 },
                 "properties": {
@@ -58,7 +66,13 @@
                         "type": "string",
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": false
+                                    }
+                                ]
                             }
                         }
                     },
@@ -102,7 +116,13 @@
                     "name": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": false
+                                    }
+                                ]
                             }
                         },
                         "description": "Twitter name of the person",
@@ -145,7 +165,13 @@
                     "handle": {
                         "#accesscontrol": {
                             "service": {
-                                "permissions": ["search:exact-caseinsensitive"]
+                                "permissions": [
+                                    {
+                                        "permission": "search",
+                                        "match": "exact",
+                                        "casesensitive": true
+                                    }
+                                ]
                             }
                         },
                         "description": "Twitter handle of the person",
@@ -186,11 +212,7 @@
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "network": {
-                        "permissions": ["read"]
                     }
-
                 },
                 "type": "array",
                 "items": {
@@ -286,8 +308,15 @@
                         "permissions": ["read", "delete", "append"]
                     },
                     "network": {
-                        "permissions": ["read"],
-                        "distance": 1
+                        "permissions": [
+                            {
+                                "permission": "read",
+                                "distance": 3,
+                                "relation": ["friend", "family"],
+                                "source_signature_required": true,
+                                "anonimized_responses": true
+                            }
+                        ]
                     }
                 },
                 "type": "array",
@@ -396,12 +425,8 @@
                         "description": "What relation you have with asset, such as read, liked, etc.",
                         "type": "string"
                     },
-                    "nonce": {
-                        "description": "The nonce prefixed to the asset_link representation as a string used to generate the value for the signature field",
-                        "type": "string"
-                    },
                     "signature": {
-                        "description": "the digital signature using our data cert of the concatenation of nonce, member_id, asset_id, asset_url, and relation",
+                        "description": "the digital signature using our data cert of the concatenation of member_id, asset_id, asset_url, and relation",
                         "type": "string"
                     }
                 },
@@ -432,12 +457,8 @@
                         "description": "What relation the other member has with our asset, for example liked",
                         "type": "string"
                     },
-                    "nonce": {
-                        "description": "A nonce prefixed to the reaction text, used to generate the signature",
-                        "type": "string"
-                    },
                     "signature": {
-                        "description": "The digital signature created using the data cert of the member of the string of concatenating the nonce, member_id, asset_id, and relation",
+                        "description": "The digital signature created using the data cert of the member of the string of concatenating the member_id, asset_id, and relation",
                         "type": "string"
                     }
                 },
@@ -466,6 +487,29 @@
                     "remote_id_type": {
                         "description": "The type of ID used to authenticate, ie. member, service or account",
                         "type": "string"
+                    },
+                    "origin_member_id": {
+                        "description": "The UUID of the member that originated the recurise query",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "origin_timestamp": {
+                        "description": "The time the query was created by the origin member of the recursive query",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "query_id": {
+                        "description": "Unique identifier for queries so pods can drop duplicate recursive queries",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "origin_signature": {
+                        "description": "base64 encoded signature of a recursive query",
+                        "type": "string"
+                    },
+                    "signature_format_version": {
+                        "description": "The version of the signature format used",
+                        "type": "number"
                     },
                     "operation": {
                         "description": "What operation that was requested by the client",
@@ -752,6 +796,6 @@
     "website": "https://www.byoda.org/",
     "cors_origins": [
         "www.byoda.net",
-        "addressbook.byoda.net"
+        "addressbook.byoda.org"
     ]
 }

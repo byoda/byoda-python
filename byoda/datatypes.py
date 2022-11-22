@@ -127,6 +127,14 @@ class DataOperationType(Enum):
     MUTATE      = 'mutate'
 
 
+class SearchType(Enum):
+    # flake8: noqa=E221
+    EXACT      = 'exact'
+    SUBSTRING  = 'substring'
+    STARTSWITH = 'startswith'
+    ENDSWITH   = 'endswith'
+    REGEX      = 'regex'
+
 class TlsStatus(str, Enum):
     '''
     TLS status as reported by nginx variable 'ssl_client_verify':

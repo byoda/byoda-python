@@ -7,7 +7,6 @@ Schema for server to server APIs
 '''
 
 import logging
-from typing import List
 from uuid import UUID
 from datetime import datetime
 
@@ -29,5 +28,5 @@ class AccountResponseModel(BaseModel):
     loglevel: str
     private_key_secret: str
     bootstrap: bool
-    services: List
+    services: list
     # TODO: provide full typing for services

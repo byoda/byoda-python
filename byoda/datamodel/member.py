@@ -10,7 +10,7 @@ import logging
 
 from uuid import uuid4, UUID
 from copy import copy
-from typing import Dict, TypeVar, Callable
+from typing import TypeVar
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,7 +49,7 @@ from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
 from byoda import config
 
 from byoda.util.api_client.api_client import ApiClient
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)
@@ -186,7 +186,7 @@ class Member:
                 'service contract'
             )
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         '''
         Returns the metdata for the membership, complying with the
         MemberResponseModel
@@ -277,7 +277,7 @@ class Member:
         )
 
         member.data_secret = MemberDataSecret(
-            member.member_id, member.service_id, member.account
+            member.member_id, member.service_id
         )
 
         await member.create_secrets(members_ca=members_ca)
@@ -296,7 +296,7 @@ class Member:
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save(member.private_key_password)
+        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
@@ -393,7 +393,7 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
-    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
                              ) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid
@@ -413,7 +413,7 @@ class Member:
             )
 
         secret = secret_cls(
-            self.member_id, self.service_id, account=self.account
+            self.member_id, self.service_id, self.account
         )
 
         if await secret.cert_file_exists():
@@ -461,9 +461,7 @@ class Member:
         )
         self.member_id = self.tls_secret.member_id
 
-        self.data_secret = MemberDataSecret(
-            self.member_id, self.service_id, self.account
-        )
+        self.data_secret = MemberDataSecret(self.member_id, self.service_id)
         await self.data_secret.load(
             with_private_key=True, password=self.private_key_password
         )
@@ -683,6 +681,7 @@ class Member:
         Saves the data for the membership
         '''
 
+        _LOGGER.debug(f'Saving member data of {len(data)} bytes')
         await self.data.save(data)
 
     async def download_secret(self, member_id: UUID = None):

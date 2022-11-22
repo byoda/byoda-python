@@ -13,16 +13,17 @@ import logging
 from enum import Enum
 from copy import copy
 from uuid import UUID
-from urllib.parse import urlparse
+from urllib.parse import urlparse, ParseResult
 from datetime import datetime
-from typing import Dict, List, Set, Union, TypeVar, Tuple
+from typing import TypeVar
+
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
-from byoda.datatypes import IdType
 from byoda.datatypes import DataType
 
-from byoda import config
+from .dataaccessright import DataAccessRight
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,15 +68,15 @@ class SchemaDataItem:
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
 
-        self.name: Union[str, None] = class_name
-        self.schema: Dict = schema
+        self.name: str | None = class_name
+        self.schema: dict = schema
         self.description: str = schema.get('description')
         self.item_id: str = schema.get('$id')
         self.schema_id: str = schema_id
-        self.schema_url = urlparse(schema_id)
-        self.enabled_apis: Set = set()
+        self.schema_url: ParseResult = urlparse(schema_id)
+        self.enabled_apis: set = set()
 
         self.type: DataType = DataType(schema['type'])
 
@@ -87,12 +88,12 @@ class SchemaDataItem:
             class_name, self.schema
         )
 
-        self.access_controls: Dict[RightsEntityType,Set[DataOperationType]] = {}
+        self.access_rights: list[DataAccessRight] = {}
 
         self.parse_access_controls()
 
-    def get_types(self, data_name: str, data_schema: Dict
-                       ) -> Tuple[str, str]:
+    def get_types(self, data_name: str, data_schema: dict
+                       ) -> tuple[str, str]:
         '''
         Returns translation of the jsonschema -> python typing string
         and of the jsonschema -> graphql typing string
@@ -161,8 +162,8 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema: Dict, schema_id: str,
-               classes: Dict = None):
+    def create(class_name: str, schema: dict, schema_id: str,
+               classes: dict = None):
         '''
         Factory for instances of classes derived from SchemaDataItem
         '''
@@ -182,8 +183,7 @@ class SchemaDataItem:
 
         return item
 
-    def normalize(self, value: Union[str, int, float]
-                  ) -> Union[str, int, float]:
+    def normalize(self, value: str | int | float) -> str | int | float:
         '''
         Normalizes the value to the correct data type for the item
         '''
@@ -204,28 +204,34 @@ class SchemaDataItem:
                 f'Access controls must be an object for class {self.name}'
             )
 
-        for entity_type, accessright in rights.items():
-            permissions = DataAccessPermission(entity_type, accessright)
+        self.access_rights: dict[RightsEntityType, list[DataAccessRight]] = {}
 
-            for action in permissions.permitted_actions:
-                if action in (
+        for entity_type_data, access_rights_data in rights.items():
+            entity_type, access_rights = DataAccessRight.get_access_rights(
+                entity_type_data, access_rights_data
+            )
+            self.access_rights[entity_type] = access_rights
+
+            permitted_actions = [
+                 access_right.data_operation
+                 for access_right in access_rights
+            ]
+
+            for data_operation in permitted_actions:
+                if data_operation in (
                         DataOperationType.CREATE,
                         DataOperationType.UPDATE):
                     self.enabled_apis.add(GraphQlAPI.MUTATE)
-                if action == DataOperationType.APPEND:
+                if data_operation == DataOperationType.APPEND:
                     self.enabled_apis.add(GraphQlAPI.APPEND)
-                if action == DataOperationType.DELETE:
+                if data_operation == DataOperationType.DELETE:
                     self.enabled_apis.add(GraphQlAPI.DELETE)
-                if action == DataOperationType.SEARCH:
+                if data_operation == DataOperationType.SEARCH:
                     self.enabled_apis.add(GraphQlAPI.SEARCH)
 
-                if not self.access_controls.get(permissions.entity_type):
-                    self.access_controls[permissions.entity_type] = set()
-
-                self.access_controls[permissions.entity_type] = permissions
-
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int):
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for
         the requested operation to the data item
@@ -244,7 +250,7 @@ class SchemaDataItem:
             )
             return False
 
-        if not self.access_controls:
+        if not self.access_rights:
             # No access rights for the data element so can't decide
             # whether access is allowed or not
             _LOGGER.debug(
@@ -252,76 +258,20 @@ class SchemaDataItem:
             )
             return None
 
-        for entity, permissions in self.access_controls.items():
-            # Check if the GraphQL operation is allowed per the permissions
-            # before matching the entity for the controls with the caller
-            if operation not in permissions.permitted_actions:
-                perms = [perm.value for perm in permissions.permitted_actions]
-                _LOGGER.debug(
-                    f'Operation {operation} not matching permitted actions: '
-                    f'{", ".join(perms)} for data item {self.name}'
+        for access_rights in self.access_rights.values():
+            for access_right in access_rights:
+                result = await access_right.authorize(
+                    auth, service_id, operation, depth
                 )
-                continue
-
-            # Now check whether the requestor matches the entity of the
-            # access control
-
-            # Anyone is allowed to
-            if entity == RightsEntityType.ANONYMOUS:
-                if operation in permissions.permitted_actions:
-                    _LOGGER.debug(
-                        f'Authorizing anonymous access for data item {self.name}'
-                    )
+                if result:
                     return True
-
-            # Are we querying the GraphQL API ourselves?
-            if entity == RightsEntityType.MEMBER:
-                if auth.id_type == IdType.MEMBER:
-                    if authorize_member(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing member access for data '
-                                f'item {self.name}'
-                            )
-                            return True
-
-            # Did the service server call our GraphQL API?
-            if entity == RightsEntityType.SERVICE:
-                if auth.id_type == IdType.SERVICE:
-                    if authorize_service(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing service access for data item '
-                                f'{self.name}')
-                            return True
-
-            if entity == RightsEntityType.ANY_MEMBER:
-                if auth.id_type == IdType.MEMBER:
-                    if authorize_any_member(service_id, auth):
-                        if operation in permissions.permitted_actions:
-                            _LOGGER.debug(
-                                'Authorizing any member access for data item '
-                                f'{self.name}'
-                            )
-                            return True
-
-            if entity == RightsEntityType.NETWORK:
-                if await authorize_network(
-                        service_id, permissions.relations,
-                        permissions.distance, auth):
-                    if operation in permissions.permitted_actions:
-                        _LOGGER.debug(
-                            'Authorizing network access for data item '
-                            f'{self.name}'
-                        )
-                        return True
 
         _LOGGER.debug(f'No access controls matched for data item {self.name}')
 
         return None
 
 class SchemaDataScalar(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
         if self.type == DataType.STRING:
@@ -337,8 +287,7 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-    def normalize(self, value: Union[str, int, float]
-                  ) -> Union[str, int, float]:
+    def normalize(self, value: str | int | float) -> str | int | float:
         '''
         Normalizes the value to the correct data type for the item
         '''
@@ -355,7 +304,7 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
         # 'Defined' classes are objects under the '$defs' object
@@ -365,8 +314,8 @@ class SchemaDataObject(SchemaDataItem):
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
-        self.fields: Dict[str:SchemaDataItem] = {}
-        self.required_fields: List[str] = schema.get('required')
+        self.fields: dict[str:SchemaDataItem] = {}
+        self.required_fields: list[str] = schema.get('required')
         self.defined_class: bool = False
 
         if self.item_id:
@@ -394,7 +343,7 @@ class SchemaDataObject(SchemaDataItem):
 
             self.fields[field] = item
 
-    def normalize(self, value: Dict) -> Dict:
+    def normalize(self, value: dict) -> dict:
         '''
         Normalizes the values in a dict
         '''
@@ -413,7 +362,8 @@ class SchemaDataObject(SchemaDataItem):
         return data
 
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int) -> bool:
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for the
         requested operation to the data item
@@ -423,8 +373,8 @@ class SchemaDataObject(SchemaDataItem):
         :returns: None if no determination was made, otherwise True or False
         '''
 
-        access_allowed: Union(bool, None) = await super().authorize_access(
-            operation, auth, service_id
+        access_allowed: bool | None = await super().authorize_access(
+            operation, auth, service_id, depth
         )
 
         if access_allowed is False:
@@ -432,7 +382,7 @@ class SchemaDataObject(SchemaDataItem):
 
         for data_class in self.fields.values():
             child_access_allowed = await data_class.authorize_access(
-                operation, auth, service_id
+                operation, auth, service_id, depth
             )
             _LOGGER.debug(
                 f'Object child data access authorized: {child_access_allowed}'
@@ -449,8 +399,8 @@ class SchemaDataObject(SchemaDataItem):
 
 
 class SchemaDataArray(SchemaDataItem):
-    def __init__(self, class_name: str, schema: Dict, schema_id: str,
-                 classes: Dict) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str,
+                 classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
 
         items = schema.get('items')
@@ -487,7 +437,7 @@ class SchemaDataArray(SchemaDataItem):
                 f'Array {class_name} must have "type" or "$ref" defined'
             )
 
-    def normalize(self, value: List) -> List:
+    def normalize(self, value: list) -> list:
         '''
         Normalizes the data structure in the array to the types defined in
         the service contract
@@ -504,7 +454,8 @@ class SchemaDataArray(SchemaDataItem):
         return result
 
     async def authorize_access(self, operation: DataOperationType,
-                               auth: RequestAuth, service_id: int) -> bool:
+                               auth: RequestAuth, service_id: int, depth: int
+                               ) -> bool | None:
         '''
         Checks whether the entity performing the request has access for the
         requested operation to the data item
@@ -514,8 +465,8 @@ class SchemaDataArray(SchemaDataItem):
         :returns: None if no determination was made, otherwise True or False
         '''
 
-        access_allowed: Union(bool, None) = await super().authorize_access(
-            operation, auth, service_id
+        access_allowed: bool | None = await super().authorize_access(
+            operation, auth, service_id, depth
         )
 
         if access_allowed is False:
@@ -524,7 +475,7 @@ class SchemaDataArray(SchemaDataItem):
         child_access_allowed = None
         if self.referenced_class:
             child_access_allowed = await self.referenced_class.authorize_access(
-                operation, auth, service_id
+                operation, auth, service_id, depth
             )
             _LOGGER.debug(
                 f'Child of array data access authorized: '
@@ -539,160 +490,3 @@ class SchemaDataArray(SchemaDataItem):
         )
 
         return access_allowed
-
-
-class DataAccessPermission:
-    def __init__(self, entity_type: str, right: Dict) -> None:
-        self.entity_type: RightsEntityType = RightsEntityType(entity_type)
-        self.permitted_actions: Set[str] = set()
-
-        self.relations: Union[List[str], None] = None
-        self.distance: Union[int, None] = None
-        self.search_condition: Union[str, None] = None
-
-        if self.entity_type == RightsEntityType.NETWORK:
-            self.relations = right.get('relation')
-            self.distance = right.get('distance', 1)
-        else:
-            if 'relation' in right:
-                raise ValueError(
-                    f'EntityType {self.entity_type} does not support '
-                    '"relation" keyword in access controls'
-                )
-            if 'distance' in right:
-                raise ValueError(
-                    f'EntityType {self.entity_type} does not support '
-                    '"distance" keyword in access controls'
-                )
-
-        for action in right['permissions']:
-            # Hack: with this, only one search expression can be specified
-            # per access control block
-            if action.startswith('search:'):
-                if self.search_condition:
-                    raise ValueError(
-                        'Multiple search conditions specified for access right'
-                    )
-
-                self.search_condition = action[len('search:'):]
-                action = 'search'
-
-            self.permitted_actions.add(DataOperationType(action))
-
-
-
-def authorize_member(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorize ourselves
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-    member = config.server.account.memberships.get(service_id)
-
-    if auth.member_id and member and auth.member_id == member.member_id:
-        _LOGGER.debug(f'Authorization success for ourselves: {auth.member_id}')
-        return True
-
-    _LOGGER.debug(f'Authorization failed for ourselves: {auth.member_id}')
-    return False
-
-
-def authorize_any_member(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorizes any member of the service, regardless of whether the client
-    is in our network
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    member = config.server.account.memberships.get(service_id)
-
-    if member and auth.member_id and auth.service_id == service_id:
-        _LOGGER.debug(f'Authorization success for any member {auth.member_id}')
-        return True
-
-    _LOGGER.debug(f'Authorization rejected for any member {auth.member_id}')
-    return False
-
-
-def authorize_service(service_id: int, auth: RequestAuth) -> bool:
-    '''
-    Authorizes requests made with the TLS cert of the service
-
-    :param service_id: service membership that received the GraphQL API request
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    member = config.server.account.memberships.get(service_id)
-
-    if (member and auth.service_id is not None
-            and auth.service_id == service_id):
-        _LOGGER.debug(f'Authorization success for service {service_id}')
-        return True
-
-    _LOGGER.debug('Authorization rejected for service {service_id}')
-    return False
-
-
-async def authorize_network(service_id: int, relations: List[str], distance: int,
-                            auth: RequestAuth) -> bool:
-    '''
-    Authorizes GraphQL API requests by people that are in your network
-
-    :param service_id: service membership that received the GraphQL API request
-    :param relations: what relations should be allowed acces to the data
-    :param distance: the maximmimum number of network links
-    :param auth: the object with info about the authentication of the client
-    :returns: whether the client is authorized to perform the requested
-    operation
-    '''
-
-    if distance < 0 or distance > 1:
-        raise ValueError('Only network distance 0 and 1 are supported')
-
-    if relations is None:
-        _LOGGER.debug(f'No relations defined for service {service_id}')
-        relations = []
-
-    if not isinstance(relations, list):
-        relations = list(relations)
-
-    if relations:
-        _LOGGER.debug(
-            f'Relation of network links must be one of {",".join(relations)}'
-        )
-    else:
-        _LOGGER.debug('Network links with any relation are acceptable')
-
-    member: Member = config.server.account.memberships.get(service_id)
-
-    if not member:
-        _LOGGER.debug(f'No membership found for service {service_id}')
-        return False
-
-    if auth.member_id:
-        await member.load_data()
-        network_links = member.data.get('network_links') or []
-        _LOGGER.debug(f'Found total of {len(network_links)} network links')
-        network = [
-            link for link in network_links
-            if link['member_id'] == auth.member_id
-                 and (not relations or
-                    link['relation'].lower() in relations
-                 )
-        ]
-        _LOGGER.debug(f'Found {len(network)} applicable network links')
-        if len(network):
-            _LOGGER.debug('Network authorization successful')
-            return True
-
-    _LOGGER.debug('Network authorization rejected')
-    return False

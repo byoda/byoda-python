@@ -10,12 +10,12 @@ import os
 import shutil
 import requests
 from uuid import UUID
-from typing import Tuple
 
 from byoda.datatypes import IdType
 
 from byoda.datamodel.account import Account
 from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 from byoda.requestauth.jwt import JWT
 
 from byoda import config
@@ -55,7 +55,7 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
 
 async def get_azure_pod_jwt(account: Account, test_dir: str
-                            ) -> Tuple[str, str]:
+                            ) -> tuple[str, str]:
     '''
     Gets a JWT as would be created by the Azure Pod.
 
@@ -88,3 +88,29 @@ async def get_azure_pod_jwt(account: Account, test_dir: str
         'Authorization': f'bearer {jwt.encoded}'
     }
     return azure_member_auth_header, secret.common_name
+
+
+async def get_azure_pod_member_data_secret(test_dir: str,
+                                           account: Account = None
+                                           ) -> MemberDataSecret:
+
+    if not account:
+        account = config.podserver.account
+
+    member_dir = account.paths.member_directory(ADDRESSBOOK_SERVICE_ID)
+    dest_dir = f'{test_dir}/{member_dir}'
+
+    shutil.copy(
+        'tests/collateral/local/azure-pod-member-data-cert.pem',
+        dest_dir
+    )
+    shutil.copy(
+        'tests/collateral/local/azure-pod-member-data.key',
+        dest_dir
+    )
+    secret = MemberSecret(
+        AZURE_POD_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
+    )
+    secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
+    secret.private_key_file = f'{member_dir}/azure-pod-member.key'
+    await secret.load()

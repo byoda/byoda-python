@@ -38,7 +38,7 @@ from byoda.secrets import NetworkServicesCaSecret
 
 from byoda.datatypes import TlsStatus
 
-from byoda.exceptions import MissingAuthInfo
+from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
@@ -157,7 +157,7 @@ class RequestAuth:
         :param issuing_ca_dn: designated name of the issuing CA for the
         presented TLS client cert
         :returns: (none)
-        :raises: MissingAuthInfo if the no authentication, AuthFailure if
+        :raises: ByodaMissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
         status code 400 or 401 if malformed authentication info was provided
 
@@ -187,7 +187,7 @@ class RequestAuth:
             )
 
         if self.tls_status == TlsStatus.NONE and not self.authorization:
-            raise MissingAuthInfo
+            raise ByodaMissingAuthInfo('Missing authentication info')
 
         if client_dn:
             try:
@@ -269,6 +269,10 @@ class RequestAuth:
         :returns: An instance of RequestAuth
         '''
 
+        _LOGGER.debug(
+            f'Authenticating GraphQL request from IP: {request.client.host}'
+        )
+
         auth = await RequestAuth.authenticate_graphql(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
@@ -308,8 +312,7 @@ class RequestAuth:
         if client_dn and issuing_ca_dn:
             client_cn = RequestAuth.get_commonname(client_dn)
             id_type = RequestAuth.get_cert_idtype(client_cn)
-
-        if authorization:
+        elif authorization:
             # Watch out, the JWT signature does not get verified here.
             jwt = await JWT.decode(
                 authorization, None, network.name, download_remote_cert=False
@@ -323,6 +326,12 @@ class RequestAuth:
                     )
                 )
             id_type = jwt.issuer_type
+        else:
+            _LOGGER.debug('No client-cert or JWT provided')
+            raise HTTPException(
+                status_code=401,
+                detail='No authentication provided'
+            )
 
         if id_type == IdType.ACCOUNT:
             raise HTTPException(

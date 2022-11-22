@@ -18,7 +18,6 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 import os
 import logging
-from typing import Dict
 
 from byoda import config
 
@@ -27,7 +26,7 @@ from byoda.datatypes import CloudType
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_environment_vars() -> Dict:
+def get_environment_vars() -> dict:
     '''
     Parses environment variables. Returns dict with:
       - cloud: CloudType

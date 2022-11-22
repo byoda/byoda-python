@@ -29,7 +29,7 @@ export ACCOUNT_ID=$( \
 )
 export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
 export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
-export ACCOUNT_PASSWORD=supersecret
+export ACCOUNT_PASSWORD=$(grep ACCOUNT_SECRET ~/docker-launch.sh | head -1 | cut -f 2 -d '=' | sed 's|"||g')
 
 echo "Setting:"
 echo "ROOT CA cert                      : $ROOT_CA"

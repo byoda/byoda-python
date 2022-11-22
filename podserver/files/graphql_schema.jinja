@@ -234,7 +234,17 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None,
+            after: Optional[str] = None,
+            filters: Optional[{{ root_class.name }}_input_filter] = None,
+            depth: Optional[int] = 0, relations: Optional[List[str]] = None,
+            remote_member_id: Optional[UUID] = None,
+            timestamp: Optional[datetime] = None,
+            query_id: Optional[UUID] = None,
+            origin_member_id: Optional[UUID] = None,
+            origin_signature: Optional[str] = None,
+            signature_format_version: Optional[int] = None
+            ) -> {{ root_class.name }}_page:
         _LOGGER.debug(f'Resolving {{ root_class.name }} object')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ)
@@ -246,9 +256,10 @@ class Query:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberDataClassByoda.get_data(
-            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
+            remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
+            origin_member_id=origin_member_id, origin_signature=origin_signature
         )
-
 
         if after:
             cursor_seen: bool = False
@@ -293,13 +304,23 @@ class Query:
 
 
 {%     else %}{# if root_class.type != DataType.ARRAY #}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None, after: Optional[str] = None, filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None, depth: int = 0, relations: List[str] = None) -> {{ root_class.name }}_page:
+    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None,
+            after: Optional[str] = None,
+            filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None,
+            depth: Optional[int] = 0, relations: Optional[List[str]] = None,
+            remote_member_id: Optional[UUID] = None,
+            timestamp: Optional[datetime] = None,
+            query_id: Optional[UUID] = None,
+            origin_member_id: Optional[UUID] = None,
+            origin_signature: Optional[str] = None,
+            signature_format_version: Optional[int] = None,
+            ) -> {{ root_class.name }}_page:
         _LOGGER.debug(
             f'Resolving {{ root_class.name }} array with depth {depth}'
         )
 
-        if depth < 0 or depth > 1:
-            raise ValueError('Recursive depth must be 0 or 1')
+        if depth < 0:
+            raise ValueError('Recursive depth must be 0 or higher')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ, depth)
         if not result:
@@ -311,7 +332,10 @@ class Query:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberDataClassByoda.get_data(
-            {{ service_id }}, info, depth=depth, relations=relations, filters=filters
+            {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
+            remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
+            origin_member_id=origin_member_id, origin_signature=origin_signature,
+            signature_format_version=signature_format_version,
         )
 
         if after:

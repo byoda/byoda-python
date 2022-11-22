@@ -8,7 +8,7 @@ Class for modeling an account on a network
 
 import logging
 from uuid import UUID
-from typing import TypeVar, Callable, Dict, Set
+from typing import TypeVar
 from copy import copy
 
 from byoda.datatypes import CsrSource
@@ -25,7 +25,7 @@ from byoda.secrets import MembersCaSecret
 
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
-from byoda.util.api_client import RestApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.requestauth.jwt import JWT
@@ -88,7 +88,7 @@ class Account:
         self.paths.account = self.account
         self.paths.account_id = self.account_id
 
-        self.memberships: Dict[int, Member] = dict()
+        self.memberships: dict[int, Member] = dict()
 
     async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None
                              ):
@@ -141,7 +141,7 @@ class Account:
                 AccountDataSecret, accounts_ca
             )
 
-    async def _create_secret(self, secret_cls: Callable, issuing_ca: Secret
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
                              ) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
@@ -247,7 +247,7 @@ class Account:
             f'Registered account with directory server: {resp.status}'
         )
 
-    async def get_memberships(self) -> Set:
+    async def get_memberships(self) -> set:
         '''
         Get a list of the service_ids that the pod has joined by looking
         at storage.

@@ -16,10 +16,14 @@ GRAPHQL_STATEMENTS = {}
 
 QUERY_{{ root_class.name|upper }} = '''
 query ($filters: {{ root_class.name|to_lower_camel }}InputFilter, $first: Int, $after: String,
-        $depth: Int, $relations: [String!]) {
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
     {{ root_class.name }}_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
-            relations: $relations) {
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
@@ -64,9 +68,13 @@ GRAPHQL_STATEMENTS['{{ root_class.name }}']['mutate'] = MUTATE_{{ root_class.nam
 
 QUERY_{{ root_class.name|upper }} = '''
 query ($filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFilter,
-        $first: Int, $after: String, $depth: Int, $relations: [String!]) {
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
     {{ root_class.name }}_connection(filters: $filters, first: $first, after: $after,
-    depth: $depth, relations: $relations) {
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
         total_count
         edges {
             cursor
