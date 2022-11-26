@@ -48,10 +48,7 @@ async def main(argv):
     config.server = PodServer()
     server = config.server
     await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(data['cloud']),
-        bucket_prefix=data['bucket_prefix'],
-        root_dir=data['root_dir']
+        DocumentStoreType.SQLITE, root_dir=data['root_dir']
     )
 
     network = Network(data, data)

@@ -69,10 +69,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server = DirectoryServer(network)
         config.server.network = network
         await config.server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType('LOCAL'),
-            bucket_prefix='byoda',
-            root_dir=TEST_DIR
+            DocumentStoreType.SQLITE, root_dir=TEST_DIR
         )
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
@@ -163,10 +160,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server = PodServer(network)
         config.server.network = network
         await config.server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType('LOCAL'),
-            bucket_prefix='byoda',
-            root_dir=TEST_DIR
+            DocumentStoreType.SQLITE, root_dir=TEST_DIR
         )
 
         key = rsa.generate_private_key(

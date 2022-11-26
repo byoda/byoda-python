@@ -106,7 +106,7 @@ async def post_member(request: Request, service_id: int, version: int,
         )
 
     _LOGGER.debug(f'Joining service {service_id}')
-    # BUG: any additional workers also need to join the service
+    # TODO: restart the gunicorn webserver when we join a service
     member = await account.join(service_id, version)
 
     _LOGGER.debug(f'Returning info about joined service {service_id}')

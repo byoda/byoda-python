@@ -43,6 +43,7 @@ class Paths:
     ACCOUNT_KEY_FILE       = 'private/network-{network}-account-{account}.key'                                   # noqa
     ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
+    ACCOUNT_DATA_DIR       = 'private/network-{network}/account-{account}/data'                                  # noqa
 
     SERVICE_DIR                  = 'network-{network}/services/service-{service_id}/'                                     # noqa
     SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-contract.json'                # noqa
@@ -65,7 +66,7 @@ class Paths:
     MEMBER_KEY_FILE                = 'private/network-{network}-account-{account}-member-{service_id}.key'                                                      # noqa
     MEMBER_DATA_CERT_FILE          = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'             # noqa
     MEMBER_DATA_KEY_FILE           = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                                                 # noqa
-    MEMBER_DATA_FILE               = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json'            # noqa
+    MEMBER_DATA_DIR                = 'private/network-{network}-member-{member_id}/data/network-{network}-member-{member_id}'                                   # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
@@ -147,6 +148,7 @@ class Paths:
             network=self._network,
             account=self._account,
             service_id=service_id,
+            member_id=member_id,
         )
 
         return path

@@ -47,6 +47,7 @@ scheduler = "*"
 schedule = "*"
 typing-extensions = "*"
 certbot = "*"
+aiosqlite = "*"
 
 [dev-packages]
 flake8 = "*"

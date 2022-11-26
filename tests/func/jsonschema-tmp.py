@@ -194,10 +194,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         await server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType.LOCAL,
-            bucket_prefix='byodatest',
-            root_dir=TEST_DIR
+            DocumentStoreType.SQLITE, root_dir=TEST_DIR
         )
 
         server.paths = network.paths

@@ -18,13 +18,15 @@ from enum import Enum
 from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
-from byoda.storage import FileStorage, FileMode
+from byoda.storage.filestorage import FileStorage, FileMode
+from byoda.storage.sqlite import Sqlite
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class DocumentStoreType(Enum):
-    OBJECT_STORE        = "objectstore"     # noqa=E221
+    OBJECT_STORE        = 'objectstore'     # noqa=E221
+    SQLITE              = 'sqlite'          # noqa=E221
 
 
 class DocumentStore:
@@ -34,7 +36,7 @@ class DocumentStore:
 
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,
-                                 cloud_type: CloudType.AWS = CloudType,
+                                 cloud_type: CloudType = None,
                                  bucket_prefix: str = None,
                                  root_dir: str = None):
         '''
@@ -43,6 +45,7 @@ class DocumentStore:
 
         storage = DocumentStore()
         if storage_type == DocumentStoreType.OBJECT_STORE:
+            raise ValueError('File storage is no longer supported')
             if not (cloud_type and bucket_prefix):
                 raise ValueError(
                     f'Must specify cloud_type and bucket_prefix for document '
@@ -51,6 +54,9 @@ class DocumentStore:
             storage.backend = await FileStorage.get_storage(
                 cloud_type, bucket_prefix, root_dir
             )
+        elif storage_type == DocumentStoreType.SQLITE:
+            storage.backend = await Sqlite.setup()
+
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 

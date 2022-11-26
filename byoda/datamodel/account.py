@@ -69,6 +69,7 @@ class Account:
                 raise ValueError(f'AccountID {account_id} is not a valid UUID')
 
         self.document_store: DocumentStore = None
+        # BUG: should not depend on 'hasattr'
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 

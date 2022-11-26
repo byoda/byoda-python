@@ -60,10 +60,7 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     config.server.network = network
 
     await config.server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+        DocumentStoreType.SQLITE, root_dir=network_data['root_dir']
     )
 
     config.server.paths = network.paths
@@ -74,10 +71,7 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
     await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+        DocumentStoreType.SQLITE, root_dir=network_data['root_dir']
     )
 
     pod_account = Account(network_data['account_id'], server.network)
