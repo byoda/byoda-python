@@ -65,11 +65,15 @@ class Server:
         self.cloud = cloud_type
 
         self.document_store = await DocumentStore.get_document_store(
-            store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,
-            root_dir=root_dir
+            store_type
         )
 
-        self.storage_driver: FileStorage = self.document_store.backend
+        doc_store = await DocumentStore.get_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=cloud_type, bucker_prefix=bucket_prefix,
+            root_dir=root_dir
+        )
+        self.storage_driver: FileStorage = doc_store.backend
 
         self.local_storage: FileStorage = None
 

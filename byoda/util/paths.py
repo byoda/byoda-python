@@ -66,7 +66,7 @@ class Paths:
     MEMBER_KEY_FILE                = 'private/network-{network}-account-{account}-member-{service_id}.key'                                                      # noqa
     MEMBER_DATA_CERT_FILE          = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'             # noqa
     MEMBER_DATA_KEY_FILE           = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                                                 # noqa
-    MEMBER_DATA_DIR                = 'private/network-{network}-member-{member_id}/data/network-{network}-member-{member_id}'                                   # noqa
+    MEMBER_DATA_DIR                = 'private/network-{network}/account-{account}/data/network-{network}-member-{member_id}'                                   # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 

@@ -19,7 +19,7 @@ from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.storage.filestorage import FileStorage, FileMode
-from byoda.storage.sqlite import Sqlite
+from byoda.storage.sqlite import SqliteStorage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class DocumentStoreType(Enum):
 
 class DocumentStore:
     def __init__(self):
-        self.backend: FileStorage = None
+        self.backend: FileStorage | SqliteStorage = None
         self.store_type: DocumentStoreType = None
 
     @staticmethod
@@ -45,7 +45,6 @@ class DocumentStore:
 
         storage = DocumentStore()
         if storage_type == DocumentStoreType.OBJECT_STORE:
-            raise ValueError('File storage is no longer supported')
             if not (cloud_type and bucket_prefix):
                 raise ValueError(
                     f'Must specify cloud_type and bucket_prefix for document '
@@ -55,7 +54,7 @@ class DocumentStore:
                 cloud_type, bucket_prefix, root_dir
             )
         elif storage_type == DocumentStoreType.SQLITE:
-            storage.backend = await Sqlite.setup()
+            storage.backend = await SqliteStorage.setup()
 
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')

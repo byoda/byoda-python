@@ -93,9 +93,7 @@ class MemberData(dict):
         )
 
         try:
-            data = await self.document_store.read(
-                filepath, self.member.data_secret
-            )
+            data = await self.document_store.read(member=self.member)
             for key, value in data.items():
                 self[key] = value
 

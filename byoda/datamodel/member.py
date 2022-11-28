@@ -582,6 +582,7 @@ class Member:
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
         )
+        self.document_store.backend.setup_membership(self.member_id, schema)
 
         return schema
 

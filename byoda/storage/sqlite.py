@@ -1,7 +1,7 @@
 '''
-There is both a generic SQL and a Sqlite class. The generic SQL class takes
-care of converting the data schema of a service to a SQL table. The Sqlite
-class takes care of persisting the data.
+There is both a generic SQL and a SqliteStorage class. The generic SQL
+class takes care of converting the data schema of a service to a SQL table.
+The SqliteStorage class takes care of persisting the data.
 
 Each membership of a service gets its own SqlLite DB file under the
 root-directory, ie.: /byoda/sqlite/<member_id>.db
@@ -12,6 +12,7 @@ root-directory, ie.: /byoda/sqlite/<member_id>.db
 '''
 
 import os
+import logging
 from uuid import UUID
 from sqlite3 import Row
 from typing import TypeVar
@@ -23,6 +24,9 @@ from byoda import config
 from byoda.util.paths import Paths
 
 Member = TypeVar('Member')
+Schema = TypeVar('Schema')
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Sql:
@@ -71,9 +75,13 @@ class Sql:
     def connection(self, member_id: UUID = None) -> aiosqlite.core.Connection:
         if not member_id:
             con: aiosqlite.core.Connection = self.account_db_conn
+            _LOGGER.debug('Using account DB connection')
         else:
             con: aiosqlite.core.Connection = self.member_db_conns.get(
                 member_id
+            )
+            _LOGGER.debug(
+                f'Using member DB connection for member_id {member_id}'
             )
             if not con:
                 raise ValueError(f'No DB for member_id {member_id}')
@@ -96,7 +104,7 @@ class Sql:
         return result
 
 
-class Sqlite(Sql):
+class SqliteStorage(Sql):
     def __init__(self):
         super().__init__()
 
@@ -112,22 +120,22 @@ class Sqlite(Sql):
 
     async def setup():
         '''
-        Factory for Sqlite class
+        Factory for SqliteStorage class
         '''
 
-        sqlite = Sqlite()
+        sqlite = SqliteStorage()
 
-        # async method must be called outside of the Sqlite.__init__()
+        # async method must be called outside of the SqliteStorage.__init__()
         sqlite.account_db_conn = await aiosqlite.connect(
             sqlite.account_db_file
         )
 
         rows = await sqlite._get_tables()
         if 'memberships' not in rows:
-            await sqlite.execute(
-                'CREATE TABLE memberships(member_id, service_id, timestamp, status)'
-            )
-
+            await sqlite.execute('''
+                CREATE TABLE memberships(member_id, service_id, timestamp, status)
+            ''')    # noqa: E501
+            _LOGGER.debug('Creating memberships table in account DB')
         return sqlite
 
     async def setup_member_db(self, member: Member):
@@ -144,6 +152,9 @@ class Sqlite(Sql):
 
         if member.member_id not in self.member_db_conns:
             if not os.path.exists(member_data_dir):
+                _LOGGER.debug(
+                    f'Created member db data directory {member_data_dir}'
+                )
                 os.makedirs(member_data_dir, exist_ok=True)
 
         member_data_file = f'{member_data_dir}/sqlite.db'
@@ -156,10 +167,32 @@ class Sqlite(Sql):
             r'''
                 SELECT name
                 FROM sqlite_schema
-                WHERE type="table"
+                WHERE type="table" AND name NOT LIKE "sqlite_%"
             ''',
             member_id
         )
         rows = await result.fetchall()
+        _LOGGER.debug(f'Round {len(rows)} tables in account DB')
 
         return rows
+
+    async def read(self, member: Member):
+        '''
+        Reads all the data for a membership
+        '''
+
+        raise NotImplementedError(
+            'No read method implemented for SqliteStorage'
+        )
+
+    async def write(self, member: Member):
+        '''
+        Writes all the data for a membership
+        '''
+
+        raise NotImplementedError(
+            'No write method implemented for SqliteStorage'
+        )
+
+    async def setup_membership(member_id: UUID, schema: Schema):
+        raise NotImplementedError
