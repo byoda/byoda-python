@@ -16,6 +16,8 @@ from byoda.datamodel.schema import Schema
 from byoda.datamodel.network import Network
 from byoda.servers.pod_server import PodServer
 
+from byoda.storage.sqlite import SqliteStorage
+
 from byoda import config
 
 from podserver.util import get_environment_vars
@@ -69,6 +71,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
+
+        sql = await SqliteStorage.setup()
+        await sql.setup_member_db(uuid, schema)
         data = {
             'person': {
                 'given_name': 'Steven',

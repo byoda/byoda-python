@@ -16,12 +16,18 @@ import logging
 from uuid import UUID
 from sqlite3 import Row
 from typing import TypeVar
+from datetime import datetime
 
 import aiosqlite
+from aiosqlite.core import Connection
 
-from byoda import config
+from byoda.datatypes import DataType
+from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.sqltable import SqlTable
 
 from byoda.util.paths import Paths
+
+from byoda import config
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -30,54 +36,18 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Sql:
-    GET_QUERY = None
-    APPEND_QUERY = None
-    UPDATE_QUERY = None
-    DELETE_QUERY = None
-
     def __init__(self):
-        self.account_db_conn: aiosqlite.core.Connection | None = None
+        self.account_db_conn: Connection | None = None
 
-        self.member_db_conns: dict[str, aiosqlite.core.Connection] = {}
+        self.member_db_conns: dict[str, Connection] = {}
 
-    @property
-    def get_query(self):
-        return self.GET_QUERY
-
-    @get_query.setter
-    def set_query(self, query: str):
-        self.GET_QUERY = query
-
-    @property
-    def update_query(self):
-        return self.UPDATE_QUERY
-
-    @update_query.setter
-    def update_query(self, query: str):
-        self.UPDATE_QUERY = query
-
-    @property
-    def append_query(self):
-        return self.APPEND_QUERY
-
-    @append_query.setter
-    def append_query(self, query: str):
-        self.APPEND_QUERY = query
-
-    @property
-    def delete_query(self):
-        return self.DELETE_QUERY
-
-    @delete_query.setter
-    def delete_query(self, query: str):
-        self.DELETE_QUERY = query
-
-    def connection(self, member_id: UUID = None) -> aiosqlite.core.Connection:
+    def connection(self, member_id: UUID = None) -> Connection:
         if not member_id:
-            con: aiosqlite.core.Connection = self.account_db_conn
+            con: Connection = self.account_db_conn
+
             _LOGGER.debug('Using account DB connection')
         else:
-            con: aiosqlite.core.Connection = self.member_db_conns.get(
+            con: Connection = self.member_db_conns.get(
                 member_id
             )
             _LOGGER.debug(
@@ -102,6 +72,53 @@ class Sql:
         con = self.connection(member_id)
         result = await con.execute(command)
         return result
+
+    def get_table_definitions(self, data_classes: dict[str, SchemaDataItem]
+                              ) -> dict[str, list[str]]:
+        '''
+        Returns the table definitions for the schema
+        '''
+
+        sql_tables: dict[str, SqlTable] = {}
+        for data_class in data_classes.values():
+            if data_class.type == DataType.OBJECT:
+                if not data_class.defined_class:
+                    sql_table = SqlTable.setup(data_class)
+                else:
+                    _LOGGER.debug(f'Skipping defined class {data_class.name}')
+                    continue
+            elif data_class.type == DataType.ARRAY:
+                sql_table = SqlTable.setup(data_class, data_classes)
+            else:
+                raise ValueError(
+                    f'Invalid top-level data class type: {data_class.name} -> '
+                    f'{data_class.type}')
+
+            sql_tables[sql_table.table_name] = {}
+            for field_name, field_type in sql_table.fields.items():
+                column_name = self.get_column_name(field_name)
+                sql_tables[sql_table.name][column_name] = field_type
+
+        return sql_tables
+
+
+#
+# Sqlite adapters and converters
+#
+def adapt_datetime_epoch(val: datetime):
+    '''
+    Adapt datetime.datetime to Unix timestamp.
+    '''
+    return int(val.timestamp())
+
+
+def convert_timestamp(val):
+    """Convert Unix epoch timestamp to datetime.datetime object."""
+    return datetime.datetime.fromtimestamp(int(val))
+
+
+aiosqlite.register_adapter(datetime, adapt_datetime_epoch)
+aiosqlite.register_converter('timestamp', convert_timestamp)
 
 
 class SqliteStorage(Sql):
@@ -129,38 +146,49 @@ class SqliteStorage(Sql):
         sqlite.account_db_conn = await aiosqlite.connect(
             sqlite.account_db_file
         )
+        sqlite.account_db_conn.row_factory = aiosqlite.Row
+        # sqlite.account_db_conn.isolation_level = None
 
-        rows = await sqlite._get_tables()
-        if 'memberships' not in rows:
-            await sqlite.execute('''
-                CREATE TABLE memberships(member_id, service_id, timestamp, status)
-            ''')    # noqa: E501
-            _LOGGER.debug('Creating memberships table in account DB')
+        await sqlite.execute('''
+            CREATE TABLE IF NOT EXISTS memberships(member_id, service_id, timestamp, status)
+        ''')    # noqa: E501
+
         return sqlite
 
-    async def setup_member_db(self, member: Member):
+    async def setup_member_db(self, member_id: UUID, schema: Schema):
         '''
         Opens the SQLite file for the membership. If the SQLlite file does not
         exist, it will be created and tables will be generated
         '''
 
         server: Paths = config.server
-        paths: Paths = server.paths
+        paths: Paths = server.network.paths
         member_data_dir = paths.get(
-            Paths.MEMBER_DATA_DIR, member_id=member.member_id
+            Paths.MEMBER_DATA_DIR, member_id=member_id
         )
 
-        if member.member_id not in self.member_db_conns:
+        if member_id not in self.member_db_conns:
             if not os.path.exists(member_data_dir):
+                os.makedirs(member_data_dir, exist_ok=True)
                 _LOGGER.debug(
                     f'Created member db data directory {member_data_dir}'
                 )
-                os.makedirs(member_data_dir, exist_ok=True)
 
         member_data_file = f'{member_data_dir}/sqlite.db'
-        member_db = await aiosqlite.connect(member_data_file)
+        member_db_conn = await aiosqlite.connect(member_data_file)
+        member_db_conn.row_factory = aiosqlite.Row
+        # member_db_conn.isolation_level = None
+        self.member_db_conns[member_id] = member_db_conn
 
-        self.member_db_conns[member.member_id] = member_db
+        table_defs = self.get_table_definitions(schema.data_classes)
+        for table_name in table_defs.keys():
+            query = (
+                f'CREATE TABLE IF NOT EXISTS {table_name}(' +
+                ', '.join(table_defs[table_name].keys()) +
+                ')'
+            )
+            _LOGGER.debug(f'Creating table: {query}')
+            await self.execute(query)
 
     async def _get_tables(self, member_id: UUID = None) -> list[Row]:
         result: aiosqlite.cursor.Cursor = await self.execute(
