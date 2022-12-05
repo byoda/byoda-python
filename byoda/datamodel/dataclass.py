@@ -314,7 +314,7 @@ class SchemaDataObject(SchemaDataItem):
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
-        self.fields: dict[str:SchemaDataItem] = {}
+        self.fields: dict[str, SchemaDataItem] = {}
         self.required_fields: list[str] = schema.get('required')
         self.defined_class: bool = False
 

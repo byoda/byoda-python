@@ -68,9 +68,25 @@ class Sql:
         cur = con.cursor()
         return cur
 
-    async def execute(self, command: str, member_id: UUID = None) -> list[Row]:
+    async def execute(self, command: str, vars: list[str] = None,
+                      member_id: UUID = None, autocommit: bool = True
+                      ) -> list[Row]:
+        '''
+        Executes the provided command over the connection for the SqLite DB
+        for the membership. If no member ID is provided, the SqLite DB for
+        the account will be used.
+
+        The list of values for the 'vars' parameter will be used to replace
+        any placeholders in the SQL command.
+        '''
+
         con = self.connection(member_id)
-        result = await con.execute(command)
+
+        result = await con.execute(command, vars)
+
+        if autocommit:
+            await con.commit()
+
         return result
 
     def get_table_definitions(self, data_classes: dict[str, SchemaDataItem]

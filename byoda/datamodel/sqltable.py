@@ -7,6 +7,7 @@ Class for SQL tables generated based on data classes
 :license    : GPLv3
 '''
 
+import orjson
 import logging
 
 from byoda.datatypes import DataType
@@ -31,7 +32,10 @@ class SqlTable:
         self.conn = conn
         self.table_name: str = SqlTable.get_table_name(data_class.name)
         self.table_fields: dict[str, DataType] = {}
-        self.type: DataType = data_class.type
+        self.data_class: SchemaDataItem = data_class
+
+        # Python sqlLite3 module does not support prepared statements?
+        # self.query_cache = dict[str, str]
 
     @staticmethod
     def setup(conn: SqlConnection, data_class: SchemaDataItem,
@@ -80,6 +84,23 @@ class SqlTable:
 
         raise NotImplementedError
 
+    def normalize(self, value: object, column: str):
+        '''
+        Normalizes the value returned by Sqlite3 to the type
+        specified in the schema of the service
+        '''
+
+        field_name = SqlTable.get_field_name(column)
+        if field_name not in self.data_class.fields:
+            raise ValueError(
+                f'Field {field_name} not found in data class '
+                f'{self.data_class.name}'
+            )
+
+        field: SchemaDataItem = self.data_class.fields[field_name]
+        result = field.normalize(value)
+        return result
+
     @staticmethod
     def get_table_name(table: str) -> str:
         return f'_{table}'
@@ -111,7 +132,14 @@ class ObjectSqlTable(SqlTable):
         super().__init__(data_class)
         for field_name, field_type in data_class.fields.items():
             column_name = SqlTable.get_column_name(field_name)
-            self.table_fields[column_name] = field_type
+            adapted_type = field_type.type
+            if adapted_type in (DataType.OBJECT, DataType.ARRAY):
+                raise ValueError(
+                    'Object and array types are not supported for '
+                    f'{field_name}'
+                )
+
+            self.table_fields[column_name] = adapted_type
 
     def query(self, data_filter_set: DataFilterSet = None
               ) -> None | dict[str, object]:
@@ -140,11 +168,12 @@ class ObjectSqlTable(SqlTable):
 
         result = {}
         for column, value in rows[0].items():
-            result[SqlTable.get_field_name(column)] = value
+            result[SqlTable.get_field_name(column)] = self.normalize(value, column)
 
         return result
 
-    def mutate(self, data: dict, data_filter_set: DataFilterSet = None):
+    def mutate(self, data: dict[str, str],
+               data_filter_set: DataFilterSet = None):
         '''
         Get the data from the table. As this is an object table,
         only 0 or 1 rows of results are expected
@@ -159,11 +188,44 @@ class ObjectSqlTable(SqlTable):
                 'parameters'
             )
 
-        data = self.query()
-        if data:
-            stmt = f'UPDATE {self.table_name} SET'
-        else:
-            stmt = f'INSERT INTO '
+        self.conn.execute(f'DELETE FROM {self.table_name}', autocommit=False)
+
+        self.append(data, autocommit=True)
+
+    def update(self, data: dict[str, str], data_filter_set: DataFilterSet):
+        '''
+        Updates a row in the table
+        '''
+
+        pass
+
+    def append(self,  data: dict[str, str], autocommit: bool = True):
+        '''
+        Adds a row to the table
+        '''
+
+        stmt = f'INSERT INTO {self.table_name} '
+        fields = list(data.keys())
+        for key in data:
+            column_name = SqlTable.get_column_name(key)
+            if column_name not in self.table_columns:
+                raise ValueError(
+                    f'Data has key {key} not present in the '
+                    f'SQL table {self.table_name}'
+                )
+
+            stmt += f'{column_name}, '
+
+        stmt = stmt.rstrip(', ') + ') VALUES ('
+        adapted_values = []
+        for key in data:
+            stmt += '?, '
+            if self.data_class[key].type in (DataType.OBJECT, DataType.ARRAY):
+                adapted_values.append(orjson.dumps(data[key]))
+        stmt = stmt.rstrip(', ') + ')'
+
+        self.conn.execute(stmt, tuple(data.values()), autocommit=autocommit)
+
 
 class ArraySqlTable(SqlTable):
     def __init__(self, data_class: SchemaDataItem,
@@ -188,4 +250,8 @@ class ArraySqlTable(SqlTable):
         fields = data_classes[referenced_class].fields
         for field_name, field_type in fields.items():
             column_name = SqlTable.get_column_name(field_name)
+            adapted_type = field_type.type
+            if adapted_type in (DataType.OBJECT, DataType.ARRAY):
+                adapted_type = DataType.STRING
+
             self.table_fields[column_name] = field_type
