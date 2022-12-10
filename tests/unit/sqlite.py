@@ -74,6 +74,33 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         sql = await SqliteStorage.setup()
         await sql.setup_member_db(uuid, schema)
+        person_table = sql.member_sql_tables[uuid]['person']
+        given_name = 'Steven'
+        family_name = 'Hessing'
+        await person_table.mutate(
+            {
+                'family_name': family_name,
+                'given_name': given_name
+            }
+        )
+
+        data = await person_table.query()
+        self.assertEqual(given_name, data['given_name'])
+        self.assertEqual(family_name, data['family_name'])
+        self.assertEqual(data['email'], '')
+
+        joined = now.isoformat()
+        member_table = sql.member_sql_tables[uuid]['member']
+        await member_table.mutate(
+            {
+                'member_id': uuid,
+                'joined': joined
+            }
+        )
+        data = await member_table.query()
+        self.assertEqual(data['member_id'], uuid)
+        self.assertEqual(data['joined'], joined)
+        
         data = {
             'person': {
                 'given_name': 'Steven',

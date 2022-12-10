@@ -78,6 +78,7 @@ The keys of properties directly under the JSON Schema (so not under $defs) must 
   - description: What the data stored in this class is used for
   - type: must be "object" or "array"
   - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
+  - the name of the object must not start with '#', '_' or 'byoda'
 
 If the type is "object" then it must have a key "properties with as value an object with the keys:
   - description: What the data stored in this property is used for

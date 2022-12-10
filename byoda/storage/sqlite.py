@@ -18,11 +18,11 @@ from sqlite3 import Row
 from typing import TypeVar
 from datetime import datetime
 
+import orjson
+
 import aiosqlite
 from aiosqlite.core import Connection
 
-from byoda.datatypes import DataType
-from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.sqltable import SqlTable
 
 from byoda.util.paths import Paths
@@ -68,73 +68,99 @@ class Sql:
         cur = con.cursor()
         return cur
 
-    async def execute(self, command: str, vars: list[str] = None,
-                      member_id: UUID = None, autocommit: bool = True
-                      ) -> list[Row]:
-        '''
-        Executes the provided command over the connection for the SqLite DB
-        for the membership. If no member ID is provided, the SqLite DB for
-        the account will be used.
-
-        The list of values for the 'vars' parameter will be used to replace
-        any placeholders in the SQL command.
-        '''
-
+    async def execute(self, command: str, member_id: UUID = None,
+                      data: list[str | int | float | bool] = None,
+                      autocommit: bool = True) -> list[Row]:
         con = self.connection(member_id)
+        _LOGGER.debug(
+            f'Executing SQL for member {member_id}: {command} '
+            f'with data {", ".join(data or {})}')
+        try:
+            result = await con.execute(command, data)
+            if autocommit:
+                await con.commit()
+            return result
+        except aiosqlite.Error as exc:
+            _LOGGER.error(
+                f'Error executing SQL: {exc.aiosqlite_errorcode}: '
+                f'{exc.sqlite_errorname}')
 
-        result = await con.execute(command, vars)
-
-        if autocommit:
-            await con.commit()
-
-        return result
-
-    def get_table_definitions(self, data_classes: dict[str, SchemaDataItem]
-                              ) -> dict[str, list[str]]:
-        '''
-        Returns the table definitions for the schema
-        '''
-
-        sql_tables: dict[str, SqlTable] = {}
-        for data_class in data_classes.values():
-            if data_class.type == DataType.OBJECT:
-                if not data_class.defined_class:
-                    sql_table = SqlTable.setup(data_class)
-                else:
-                    _LOGGER.debug(f'Skipping defined class {data_class.name}')
-                    continue
-            elif data_class.type == DataType.ARRAY:
-                sql_table = SqlTable.setup(data_class, data_classes)
-            else:
-                raise ValueError(
-                    f'Invalid top-level data class type: {data_class.name} -> '
-                    f'{data_class.type}')
-
-            sql_tables[sql_table.table_name] = {}
-            for field_name, field_type in sql_table.fields.items():
-                column_name = self.get_column_name(field_name)
-                sql_tables[sql_table.name][column_name] = field_type
-
-        return sql_tables
+            raise RuntimeError(exc.sqlite_errorname)
 
 
+# aiosqlite adapters and converters
 #
-# Sqlite adapters and converters
-#
-def adapt_datetime_epoch(val: datetime):
+def adapt_datetime_epoch(val: datetime) -> int:
     '''
     Adapt datetime.datetime to Unix timestamp.
     '''
     return int(val.timestamp())
 
 
-def convert_timestamp(val):
+def convert_timestamp(val: int) -> datetime:
     """Convert Unix epoch timestamp to datetime.datetime object."""
-    return datetime.datetime.fromtimestamp(int(val))
+    return datetime.fromtimestamp(int(val))
+
+
+def adapt_uuid(val: UUID) -> str:
+    '''
+    Adapt UUID to string
+    '''
+
+    return str(val)
+
+
+def convert_uuid(val: str) -> UUID:
+    '''
+    Convert string to UUID
+    '''
+
+    return UUID(val)
+
+
+def adapt_dict(val: dict) -> str:
+    '''
+    Adapt Dict to string
+    '''
+
+    return orjson.dumps(val)
+
+
+def convert_dict(val: str) -> dict:
+    '''
+    Convert string to dict
+    '''
+
+    return orjson.loads(val)
+
+
+def adapt_list(val: list) -> str:
+    '''
+    Adapt Lict to string
+    '''
+
+    return orjson.dumps(val)
+
+
+def convert_list(val: str) -> list:
+    '''
+    Convert string to dict
+    '''
+
+    return orjson.loads(val)
 
 
 aiosqlite.register_adapter(datetime, adapt_datetime_epoch)
 aiosqlite.register_converter('timestamp', convert_timestamp)
+
+aiosqlite.register_adapter(UUID, adapt_uuid)
+aiosqlite.register_converter('uuid', convert_uuid)
+
+aiosqlite.register_adapter(dict, adapt_dict)
+aiosqlite.register_converter('dict', convert_dict)
+
+aiosqlite.register_adapter(list, adapt_list)
+aiosqlite.register_converter('uuid', convert_list)
 
 
 class SqliteStorage(Sql):
@@ -149,6 +175,8 @@ class SqliteStorage(Sql):
         self.data_dir = data_dir
         self.account_db_file: str = f'{data_dir}/sqlite.db'
 
+        self.member_sql_tables: dict[str, dict[str, SqlTable]] = {}
+
         os.makedirs(data_dir, exist_ok=True)
 
     async def setup():
@@ -159,14 +187,21 @@ class SqliteStorage(Sql):
         sqlite = SqliteStorage()
 
         # async method must be called outside of the SqliteStorage.__init__()
+        _LOGGER.debug(
+            'Opening or creating account DB file {sqlite.account_db_file}'
+        )
         sqlite.account_db_conn = await aiosqlite.connect(
             sqlite.account_db_file
         )
         sqlite.account_db_conn.row_factory = aiosqlite.Row
-        # sqlite.account_db_conn.isolation_level = None
 
         await sqlite.execute('''
-            CREATE TABLE IF NOT EXISTS memberships(member_id, service_id, timestamp, status)
+            CREATE TABLE IF NOT EXISTS memberships(
+                member_id TEXT,
+                service_id INTEGER,
+                timestamp INTEGER,
+                status TEXT
+            ) STRICT
         ''')    # noqa: E501
 
         return sqlite
@@ -179,46 +214,34 @@ class SqliteStorage(Sql):
 
         server: Paths = config.server
         paths: Paths = server.network.paths
-        member_data_dir = paths.get(
-            Paths.MEMBER_DATA_DIR, member_id=member_id
+        member_data_dir = (
+            paths.root_directory +
+            '/' +
+            paths.get(Paths.MEMBER_DATA_DIR, member_id=member_id)
         )
 
-        if member_id not in self.member_db_conns:
-            if not os.path.exists(member_data_dir):
-                os.makedirs(member_data_dir, exist_ok=True)
-                _LOGGER.debug(
-                    f'Created member db data directory {member_data_dir}'
-                )
+        if not os.path.exists(member_data_dir):
+            os.makedirs(member_data_dir, exist_ok=True)
+            _LOGGER.debug(
+                f'Created member db data directory {member_data_dir}'
+            )
 
         member_data_file = f'{member_data_dir}/sqlite.db'
+        # this will create the DB file if it doesn't exist already
         member_db_conn = await aiosqlite.connect(member_data_file)
         member_db_conn.row_factory = aiosqlite.Row
-        # member_db_conn.isolation_level = None
+
         self.member_db_conns[member_id] = member_db_conn
+        self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
 
-        table_defs = self.get_table_definitions(schema.data_classes)
-        for table_name in table_defs.keys():
-            query = (
-                f'CREATE TABLE IF NOT EXISTS {table_name}(' +
-                ', '.join(table_defs[table_name].keys()) +
-                ')'
-            )
-            _LOGGER.debug(f'Creating table: {query}')
-            await self.execute(query)
-
-    async def _get_tables(self, member_id: UUID = None) -> list[Row]:
-        result: aiosqlite.cursor.Cursor = await self.execute(
-            r'''
-                SELECT name
-                FROM sqlite_schema
-                WHERE type="table" AND name NOT LIKE "sqlite_%"
-            ''',
-            member_id
-        )
-        rows = await result.fetchall()
-        _LOGGER.debug(f'Round {len(rows)} tables in account DB')
-
-        return rows
+        for data_class in schema.data_classes.values():
+            # defined_classes are referenced by other classes so we don't
+            # have to create tables for them here
+            if not data_class.defined_class:
+                sql_table = await SqlTable.setup(
+                    data_class, self, member_id, schema.data_classes
+                )
+                self.member_sql_tables[member_id][data_class.name] = sql_table
 
     async def read(self, member: Member):
         '''
@@ -237,6 +260,3 @@ class SqliteStorage(Sql):
         raise NotImplementedError(
             'No write method implemented for SqliteStorage'
         )
-
-    async def setup_membership(member_id: UUID, schema: Schema):
-        raise NotImplementedError

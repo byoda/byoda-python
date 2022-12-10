@@ -71,12 +71,14 @@ class SchemaDataItem:
     def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
 
         self.name: str | None = class_name
-        self.schema: dict = schema
-        self.description: str = schema.get('description')
-        self.item_id: str = schema.get('$id')
+        self.schema: dict[str, object] = schema
+        self.description: str | None = schema.get('description')
+        self.item_id: str | None = schema.get('$id')
         self.schema_id: str = schema_id
         self.schema_url: ParseResult = urlparse(schema_id)
         self.enabled_apis: set = set()
+        self.defined_class: bool | None = None
+        self.fields: list[SchemaDataItem] | None = None
 
         self.type: DataType = DataType(schema['type'])
 
@@ -87,6 +89,12 @@ class SchemaDataItem:
         self.python_type, self.graphql_type = self.get_types(
             class_name, self.schema
         )
+
+        # The class for storing data for the service sets the values
+        # for storage_name and storage_type for child data items
+        # under the root data item
+        self.storage_name: str = None
+        self.storage_type: str = None
 
         self.access_rights: list[DataAccessRight] = {}
 
@@ -274,6 +282,8 @@ class SchemaDataScalar(SchemaDataItem):
     def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
+        self.defined_class: bool = False
+
         if self.type == DataType.STRING:
             self.format: str = self.schema.get('format')
             if self.format == 'date-time':
@@ -402,6 +412,8 @@ class SchemaDataArray(SchemaDataItem):
     def __init__(self, class_name: str, schema: dict, schema_id: str,
                  classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
+
+        self.defined_class: bool = False
 
         items = schema.get('items')
         if not items:
