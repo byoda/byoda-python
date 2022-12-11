@@ -99,8 +99,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         data = await member_table.query()
         self.assertEqual(data['member_id'], uuid)
-        self.assertEqual(data['joined'], joined)
-        
+        self.assertEqual(data['joined'], datetime.fromisoformat(joined))
+
         data = {
             'person': {
                 'given_name': 'Steven',

@@ -82,10 +82,9 @@ class Sql:
             return result
         except aiosqlite.Error as exc:
             _LOGGER.error(
-                f'Error executing SQL: {exc.aiosqlite_errorcode}: '
-                f'{exc.sqlite_errorname}')
+                f'Error executing SQL: {exc}')
 
-            raise RuntimeError(exc.sqlite_errorname)
+            raise RuntimeError(exc)
 
 
 # aiosqlite adapters and converters

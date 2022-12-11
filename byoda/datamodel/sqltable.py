@@ -45,7 +45,7 @@ class SqlTable:
         self.type: DataType = data_class.type
         self.referenced_class: SchemaDataItem | None = None
 
-        self.columns: list[SchemaDataItem] | None = None
+        self.columns: dict[SchemaDataItem] | None = None
 
     @staticmethod
     async def setup(data_class: SchemaDataItem,
@@ -94,8 +94,8 @@ class SqlTable:
 
         stmt: str = f'CREATE TABLE IF NOT EXISTS {self.table_name}('
 
-        for field in self.fields:
-            stmt += f'{field.storage_name} {field.storage_type}, '
+        for column in self.columns.values():
+            stmt += f'{column.storage_name} {column.storage_type}, '
 
         stmt = stmt.rstrip(', ') + ') STRICT'
 
@@ -187,13 +187,11 @@ class ObjectSqlTable(SqlTable):
             )
 
         super().__init__(data_class, sql_store, member_id)
-        self.columns: list[SchemaDataItem] = list(
-            data_class.fields.values()
-        )
-        for field in self.fields.values():
-            field.storage_name = SqlTable.get_column_name(field.name)
-            field.storage_type = SqlTable.get_native_datatype(field.type)
+        self.columns: dict[SchemaDataItem] = data_class.fields
 
+        for column in self.columns.values():
+            column.storage_name = SqlTable.get_column_name(column.name)
+            column.storage_type = SqlTable.get_native_datatype(column.type)
 
     async def query(self, data_filter_set: DataFilterSet = None
                     ) -> None | dict[str, object]:
@@ -222,8 +220,10 @@ class ObjectSqlTable(SqlTable):
 
         # Reconcile results with the field names in the Schema
         result = {}
-        for column in rows[0].keys():
-            result[SqlTable.get_field_name(column)] = rows[0][column]
+        for column_name in rows[0].keys():
+            field_name = SqlTable.get_field_name(column_name)
+            result[field_name] = \
+                self.columns[field_name].normalize(rows[0][column_name])
 
         return result
 
@@ -257,16 +257,16 @@ class ObjectSqlTable(SqlTable):
 
         values = []
         stmt = f'INSERT INTO {self.table_name}('
-        for column in self.columns:
-            stmt += f'{column.name}, '
-            value = data.get(column.field_name)
-            if column.sql_type == 'INTEGER':
+        for column in self.columns.values():
+            stmt += f'{column.storage_name}, '
+            value = data.get(column.name)
+            if column.storage_type == 'INTEGER':
                 if value:
                     value = int(value)
-            elif column.sql_type == 'REAL':
+            elif column.storage_type == 'REAL':
                 if value:
                     value = float(value)
-            elif column.sql_type == 'TEXT':
+            elif column.storage_type == 'TEXT':
                 if value:
                     if type(value) in (list, dict):
                         value = orjson.dumps(value)
@@ -278,7 +278,7 @@ class ObjectSqlTable(SqlTable):
             values.append(value)
 
         stmt = stmt.rstrip(', ') + ') VALUES ('
-        for column in self.columns:
+        for column in self.columns.values():
             stmt += '?, '
 
         stmt.rstrip(', ') + ')'
@@ -318,17 +318,14 @@ class ArraySqlTable(SqlTable):
                 f'{self.referenced_class.name}, which does not exist'
             )
 
-        fields = data_classes[referenced_class].fields
-        for field_name, field_type in fields.items():
-            column_name = SqlTable.get_column_name(field_name)
-            adapted_type = field_type.type
+        self.columns: dict[SchemaDataItem] = \
+            data_classes[self.referenced_class.name].fields
+
+        for data_item in self.columns.values():
+            adapted_type = data_item.type
             if adapted_type in (DataType.OBJECT, DataType.ARRAY):
                 adapted_type = DataType.STRING
 
-            self.table_fields[column_name] = field_type
-        fields = list(self.referenced_class.fields.keys())
-        for field_name in fields:
-            column = TableColumn(
-                field_name, self.referenced_class.fields[field_name]
-            )
-            self.columns.append(column)
+            data_item.storage_name = SqlTable.get_column_name(data_item.name)
+            data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
+
