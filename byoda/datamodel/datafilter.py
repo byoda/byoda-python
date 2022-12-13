@@ -426,7 +426,7 @@ class DataFilterSet:
     result
     '''
 
-    def __init__(self, filters):
+    def __init__(self, filters: dict[str, str]):
         '''
         :param filter: is one of the input filters in the Strawberry code,
         generated from the Jinja2 template for the service contract
@@ -446,7 +446,7 @@ class DataFilterSet:
                             DataFilter.create(operator, value)
                         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         filter_texts: list[str] = []
         for field in self.filters.keys():
             for filter in self.filters[field]:
@@ -456,7 +456,7 @@ class DataFilterSet:
         return text
 
     @staticmethod
-    def filter(filters: list, data: list) -> list:
+    def filter(filters: list, data: list) -> list[object]:
         '''
         Filters the data against the list of filters to include the matching
         data

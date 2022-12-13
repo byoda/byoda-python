@@ -16,9 +16,6 @@ import logging
 from uuid import UUID
 from sqlite3 import Row
 from typing import TypeVar
-from datetime import datetime
-
-import orjson
 
 import aiosqlite
 from aiosqlite.core import Connection
@@ -85,81 +82,6 @@ class Sql:
                 f'Error executing SQL: {exc}')
 
             raise RuntimeError(exc)
-
-
-# aiosqlite adapters and converters
-#
-def adapt_datetime_epoch(val: datetime) -> int:
-    '''
-    Adapt datetime.datetime to Unix timestamp.
-    '''
-    return int(val.timestamp())
-
-
-def convert_timestamp(val: int) -> datetime:
-    """Convert Unix epoch timestamp to datetime.datetime object."""
-    return datetime.fromtimestamp(int(val))
-
-
-def adapt_uuid(val: UUID) -> str:
-    '''
-    Adapt UUID to string
-    '''
-
-    return str(val)
-
-
-def convert_uuid(val: str) -> UUID:
-    '''
-    Convert string to UUID
-    '''
-
-    return UUID(val)
-
-
-def adapt_dict(val: dict) -> str:
-    '''
-    Adapt Dict to string
-    '''
-
-    return orjson.dumps(val)
-
-
-def convert_dict(val: str) -> dict:
-    '''
-    Convert string to dict
-    '''
-
-    return orjson.loads(val)
-
-
-def adapt_list(val: list) -> str:
-    '''
-    Adapt Lict to string
-    '''
-
-    return orjson.dumps(val)
-
-
-def convert_list(val: str) -> list:
-    '''
-    Convert string to dict
-    '''
-
-    return orjson.loads(val)
-
-
-aiosqlite.register_adapter(datetime, adapt_datetime_epoch)
-aiosqlite.register_converter('timestamp', convert_timestamp)
-
-aiosqlite.register_adapter(UUID, adapt_uuid)
-aiosqlite.register_converter('uuid', convert_uuid)
-
-aiosqlite.register_adapter(dict, adapt_dict)
-aiosqlite.register_converter('dict', convert_dict)
-
-aiosqlite.register_adapter(list, adapt_list)
-aiosqlite.register_converter('uuid', convert_list)
 
 
 class SqliteStorage(Sql):

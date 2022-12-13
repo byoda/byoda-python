@@ -12,8 +12,6 @@ import logging
 from uuid import UUID
 from typing import TypeVar
 
-import orjson
-
 from byoda.datatypes import DataType
 
 from byoda.datamodel.dataclass import SchemaDataItem
@@ -108,21 +106,14 @@ class SqlTable:
 
         raise NotImplementedError
 
-    def mutate(self, data: dict):
+    def mutate(self, data: dict, data_filter_set: DataFilterSet = None):
         '''
         Update data matching the specified criteria
         '''
 
         raise NotImplementedError
 
-    def update(self, data_filter_set: DataFilterSet, data: dict):
-        '''
-        Update data matching the specified criteria
-        '''
-
-        raise NotImplementedError
-
-    def insert(self, data: dict):
+    def append(self, data: dict):
         '''
         Insert data into the table
         '''
@@ -329,3 +320,64 @@ class ArraySqlTable(SqlTable):
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
 
+    async def query(self, data_filters: DataFilterSet = None
+                    ) -> None | list[dict[str, object]]:
+        '''
+        Get one of more rows from the table
+        '''
+        stmt = f'SELECT * FROM {self.table_name}'
+        rows = await self.conn.execute_fetchall(stmt)
+        if len(rows) == 0:
+            return None
+
+        # Reconcile results with the field names in the Schema
+        results = []
+        for row in rows:
+            result = {}
+            for column_name in row.keys():
+                field_name = SqlTable.get_field_name(column_name)
+                result[field_name] = \
+                    self.columns[field_name].normalize(row[column_name])
+            results.append(result)
+
+        return results
+
+    async def append(self, data: dict):
+        '''
+        Append a row to the table
+        '''
+
+        values = []
+        stmt = f'INSERT INTO {self.table_name}('
+        for column in self.columns.values():
+            stmt += f'{column.storage_name}, '
+            value = data.get(column.name)
+            if column.storage_type == 'INTEGER':
+                if value:
+                    value = int(value)
+            elif column.storage_type == 'REAL':
+                if value:
+                    value = float(value)
+            elif column.storage_type == 'TEXT':
+                if value:
+                    if type(value) in (list, dict):
+                        value = orjson.dumps(value)
+                    else:
+                        value = str(value)
+                else:
+                    value = ''
+
+            values.append(value)
+
+        stmt = stmt.rstrip(', ') + ') VALUES ('
+        for column in self.columns.values():
+            stmt += '?, '
+
+        stmt.rstrip(', ') + ')'
+
+        stmt = stmt.rstrip(', ') + ')'
+
+        return await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=values,
+            autocommit=True
+        )

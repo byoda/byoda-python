@@ -101,6 +101,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['member_id'], uuid)
         self.assertEqual(data['joined'], datetime.fromisoformat(joined))
 
+        network_invites_table = sql.member_sql_tables[uuid]['network_invites']
+        created_timestamp = now.isoformat()
+        member_id = get_test_uuid()
+        relation = "friend"
+        text = "am I a friend of yours?"
+        await network_invites_table.append(
+            {
+                'created_timestamp': created_timestamp,
+                'member_id': member_id,
+                'relation': relation,
+                'text': text,
+            }
+        )
+        data = await network_invites_table.query()
+
         data = {
             'person': {
                 'given_name': 'Steven',
