@@ -670,12 +670,12 @@ class Member:
             f'Verified network signature for service {self.service_id}'
         )
 
-    async def load_data(self):
+    async def load_data(self, key: str, filters: list[str] = None):
         '''
         Loads the data stored for the membership
         '''
 
-        await self.data.load()
+        await self.data.load(key, filters)
 
     async def save_data(self, data):
         '''

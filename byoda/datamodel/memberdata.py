@@ -82,15 +82,11 @@ class MemberData(dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    async def load(self) -> None:
+    async def load(self, key: str, filters: dict[str, dict]
+                   ) -> dict[str, object]:
         '''
         Load the data from the data store
         '''
-
-        filepath = self.paths.get(
-            self.paths.MEMBER_DATA_PROTECTED_FILE,
-            service_id=self.member.service_id
-        )
 
         try:
             data = await self.document_store.read(member=self.member)
@@ -101,8 +97,8 @@ class MemberData(dict):
 
         except FileNotFoundError:
             _LOGGER.warning(
-                'Unable to read data file for service '
-                f'{self.member.service_id} from {filepath}'
+                'Unable to read data store for service '
+                f'{self.member.service_id}'
             )
             return {}
 
@@ -332,14 +328,6 @@ class MemberData(dict):
 
         server = config.server
         member: Member = server.account.memberships[service_id]
-        await member.load_data()
-
-        # For queries for objects we implement pagination and identify
-        # those APIs by appending _connection to the name for the
-        # data class
-        key = info.path.key
-        if key.endswith('_connection'):
-            key = key[:-1 * len('_connection')]
 
         # If an origin_member_id has been provided then we check
         # the signature
@@ -372,6 +360,15 @@ class MemberData(dict):
                     'Received a recursive query without signture '
                     'submitted by someone else than ourselves'
                 )
+
+        # For queries for objects we implement pagination and identify
+        # those APIs by appending _connection to the name for the
+        # data class
+        key = info.path.key
+        if key.endswith('_connection'):
+            key = key[:-1 * len('_connection')]
+
+        await member.load_data(key, filters)
 
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',

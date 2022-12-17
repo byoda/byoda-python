@@ -21,6 +21,7 @@ import aiosqlite
 from aiosqlite.core import Connection
 
 from byoda.datamodel.sqltable import SqlTable
+from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.util.paths import Paths
 
@@ -82,6 +83,41 @@ class Sql:
                 f'Error executing SQL: {exc}')
 
             raise RuntimeError(exc)
+
+    async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
+                    ) -> dict[str, object]:
+        '''
+        Execute the query on the SqlTable for the member_id and key
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        return sql_table.query(filters)
+
+    async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
+                     data_filter_set: DataFilterSet = None):
+        '''
+        Execute the mutation on the SqlTable for the member_id and key
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        return sql_table.mutate(data, data_filter_set)
+
+    async def append(self, member_id: UUID, key: str, data: dict[str, object]):
+        '''
+        Execute the append on the SqlTable for the member_id and key
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        return sql_table.append(data)
+
+    async def delete(self, member_id: UUID, key: str,
+                     data_filter_set: DataFilterSet = None):
+        '''
+        Execute the delete on the SqlTable for the member_id and key
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        return sql_table.delete(data_filter_set)
 
 
 class SqliteStorage(Sql):

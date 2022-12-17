@@ -15,6 +15,8 @@ import logging
 import orjson
 from enum import Enum
 
+from byoda.datamodel.datafilter import DataFilterSet
+
 from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
@@ -108,3 +110,18 @@ class DocumentStore:
         '''
 
         return await self.backend.get_folders(folder_path, prefix)
+
+    async def query(self, key: str, filters: dict[str, dict]
+                    ) -> dict[str, object]:
+
+        return self.backend.query(key, filters)
+
+    async def mutate(self, key: str, data: dict[str, object],
+                     data_filter_set: DataFilterSet = None):
+        return self.backend.mutate(key, data, data_filter_set)
+
+    async def append(self, key: str, data: dict[str, object]):
+        return self.backend.append(key, data)
+
+    async def delete(self, key: str, data_filter_set: DataFilterSet = None):
+        return self.backend.delete(key, data_filter_set)

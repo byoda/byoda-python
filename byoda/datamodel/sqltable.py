@@ -99,28 +99,28 @@ class SqlTable:
 
         await self.sql_store.execute(stmt, self.member_id)
 
-    def query(self, data_filter_set: DataFilterSet):
+    async def query(self, data_filter_set: DataFilterSet):
         '''
         Get data matching the specified criteria
         '''
 
         raise NotImplementedError
 
-    def mutate(self, data: dict, data_filter_set: DataFilterSet = None):
+    async def mutate(self, data: dict, data_filter_set: DataFilterSet = None):
         '''
         Update data matching the specified criteria
         '''
 
         raise NotImplementedError
 
-    def append(self, data: dict):
+    async def append(self, data: dict):
         '''
         Insert data into the table
         '''
 
         raise NotImplementedError
 
-    def delete(self, data_filter_set: DataFilterSet):
+    async def delete(self, data_filter_set: DataFilterSet):
         '''
         Delete data matching the specified criteria
         '''
