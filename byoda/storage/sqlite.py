@@ -69,14 +69,20 @@ class Sql:
     async def execute(self, command: str, member_id: UUID = None,
                       data: list[str | int | float | bool] = None,
                       autocommit: bool = True) -> list[Row]:
+        '''
+        Executes the SQL command.
+        '''
+
         con = self.connection(member_id)
-        _LOGGER.debug(
-            f'Executing SQL for member {member_id}: {command} '
-            f'with data {", ".join(data or {})}')
+
+        _LOGGER.debug(f'Executing SQL for member {member_id}: {command} '
+                      )
         try:
             result = await con.execute(command, data)
+
             if autocommit:
                 await con.commit()
+
             return result
         except aiosqlite.Error as exc:
             _LOGGER.error(
@@ -84,8 +90,8 @@ class Sql:
 
             raise RuntimeError(exc)
 
-    async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
-                    ) -> dict[str, object]:
+    async def query(self, member_id: UUID, key: str,
+                    filters: DataFilterSet = None) -> dict[str, object]:
         '''
         Execute the query on the SqlTable for the member_id and key
         '''
@@ -118,6 +124,23 @@ class Sql:
 
         sql_table: SqlTable = self.member_sql_tables[member_id][key]
         return sql_table.delete(data_filter_set)
+
+    async def read(self, member: Member, class_name: str,
+                   filters: DataFilterSet):
+        '''
+        Reads all the data for a membership
+        '''
+
+        return self.query(member.id, class_name, filters)
+
+    async def write(self, member: Member):
+        '''
+        Writes all the data for a membership
+        '''
+
+        raise NotImplementedError(
+            'No write method implemented for SqliteStorage'
+        )
 
 
 class SqliteStorage(Sql):
@@ -199,21 +222,3 @@ class SqliteStorage(Sql):
                     data_class, self, member_id, schema.data_classes
                 )
                 self.member_sql_tables[member_id][data_class.name] = sql_table
-
-    async def read(self, member: Member):
-        '''
-        Reads all the data for a membership
-        '''
-
-        raise NotImplementedError(
-            'No read method implemented for SqliteStorage'
-        )
-
-    async def write(self, member: Member):
-        '''
-        Writes all the data for a membership
-        '''
-
-        raise NotImplementedError(
-            'No write method implemented for SqliteStorage'
-        )

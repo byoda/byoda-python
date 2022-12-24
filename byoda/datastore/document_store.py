@@ -14,6 +14,7 @@ can be extended by for NoSQL storage to improve scalability.
 import logging
 import orjson
 from enum import Enum
+from typing import TypeVar
 
 from byoda.datamodel.datafilter import DataFilterSet
 
@@ -22,6 +23,8 @@ from byoda.secrets import DataSecret
 from byoda.datatypes import CloudType
 from byoda.storage.filestorage import FileStorage, FileMode
 from byoda.storage.sqlite import SqliteStorage
+
+Member = TypeVar('Member')
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,22 +66,33 @@ class DocumentStore:
 
         return storage
 
-    async def read(self, filepath: str, data_secret: DataSecret) -> dict:
+    async def read(self, member: Member = None, class_name: str = None,
+                   filepath: str = None, data_secret: DataSecret = None,
+                   filters: DataFilterSet = None) -> dict:
         '''
-        Reads, decrypts and deserializes a JSON document
+        Reads data from the backend storage
         '''
 
-        # DocumentStore only stores encrypted data, which is binary
-        data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
+        if (member or class_name or filters) and (filepath or data_secret):
+            raise ValueError(
+                'Cannot specify both member, class_name, filters and '
+                'filepath, data_secret'
+            )
 
-        if data_secret:
-            data = data_secret.decrypt(data)
+        if isinstance(self.backend, FileStorage):
+            # DocumentStore only stores encrypted data, which is binary
+            data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
 
-        _LOGGER.debug(f'Read {data.decode("utf-8")} from {filepath}')
-        if data:
-            data = orjson.loads(data)
-        else:
-            data = dict()
+            if data_secret:
+                data = data_secret.decrypt(data)
+
+            _LOGGER.debug(f'Read {data.decode("utf-8")} from {filepath}')
+            if data:
+                data = orjson.loads(data)
+            else:
+                data = dict()
+        elif isinstance(self.backend, SqliteStorage):
+            data = await self.backend.read(member, class_name, filters)
 
         _LOGGER.debug(f'Read {len(data)} items')
 

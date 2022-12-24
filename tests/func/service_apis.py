@@ -50,7 +50,7 @@ from svcserver.routers import status as StatusRouter
 from tests.lib.util import get_test_uuid
 
 # Settings must match config.yml used by directory server
-TEST_DIR = '/tmp/byoda-test/svc-apis'
+TEST_DIR = '/tmp/byoda-tests/svc-apis'
 NETWORK = 'test.net'
 DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678

@@ -14,7 +14,7 @@ from enum import Enum
 from copy import copy
 from uuid import UUID
 from urllib.parse import urlparse, ParseResult
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TypeVar
 
 
@@ -307,7 +307,10 @@ class SchemaDataScalar(SchemaDataItem):
             result = UUID(value)
         elif (self.type == DataType.DATETIME
                 and value and not isinstance(value, datetime)):
-            result = datetime.fromisoformat(value)
+            if isinstance(value, str):
+                result = datetime.fromisoformat(value, timezone.utc)
+            else:
+                result = datetime.fromtimestamp(value, timezone.utc)
         else:
             result = value
 

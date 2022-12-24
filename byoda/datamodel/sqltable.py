@@ -11,6 +11,7 @@ import orjson
 import logging
 from uuid import UUID
 from typing import TypeVar
+from datetime import datetime
 
 from byoda.datatypes import DataType
 
@@ -80,7 +81,7 @@ class SqlTable:
             'number': 'REAL',
             'boolean': 'INTEGER',
             'uuid': 'TEXT',
-            'date-time': 'TEXT',
+            'date-time': 'REAL',
             'array': 'TEXT',
             'reference': 'TEXT',
         }[val.lower()]
@@ -194,12 +195,6 @@ class ObjectSqlTable(SqlTable):
         if no data was in the table
         '''
 
-        if data_filter_set:
-            raise ValueError(
-                f'query of object {self.table_name} does not support query '
-                'parameters'
-            )
-
         stmt = f'SELECT * FROM {self.table_name}'
         rows = await self.conn.execute_fetchall(stmt)
         if len(rows) == 0:
@@ -256,7 +251,10 @@ class ObjectSqlTable(SqlTable):
                     value = int(value)
             elif column.storage_type == 'REAL':
                 if value:
-                    value = float(value)
+                    if column.format == 'date-time':
+                        value = value.timestamp()
+                    else:
+                        value = float(value)
             elif column.storage_type == 'TEXT':
                 if value:
                     if type(value) in (list, dict):
@@ -325,7 +323,17 @@ class ArraySqlTable(SqlTable):
         '''
         Get one of more rows from the table
         '''
+
+        sql_filters: list[str] = []
+        if data_filters:
+            for data_filter in data_filters.filters.values():
+                for filter in data_filter:
+                    sql_filters.append(filter.sql_filter())
+
         stmt = f'SELECT * FROM {self.table_name}'
+        if sql_filters:
+            stmt = stmt + ' WHERE ' + ' AND '.join(sql_filters)
+
         rows = await self.conn.execute_fetchall(stmt)
         if len(rows) == 0:
             return None
@@ -357,7 +365,10 @@ class ArraySqlTable(SqlTable):
                     value = int(value)
             elif column.storage_type == 'REAL':
                 if value:
-                    value = float(value)
+                    if column.format == 'date-time':
+                        value = datetime.fromisoformat(value).timestamp()
+                    else:
+                        value = float(value)
             elif column.storage_type == 'TEXT':
                 if value:
                     if type(value) in (list, dict):
@@ -381,3 +392,8 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
+
+    async def update(self, data: dict, data_filters: DataFilterSet):
+        '''
+        Updates ones or more records
+        '''

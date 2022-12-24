@@ -7,8 +7,8 @@ on the filter conditions defined in the query
 :license    : GPLv3
 '''
 
-import logging
 import re
+import logging
 from uuid import UUID
 from datetime import datetime, date, time
 
@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DataFilter:
-    def __init__(self, operator: str):
+    def __init__(self, field: str, operator: str):
         '''
         Base class for data filters for strings, UUIDs, datetimes and numbers
         '''
@@ -27,6 +27,7 @@ class DataFilter:
                 f'Operator {operator} is a {type(operator)} instead of str'
             )
 
+        self.field: str = field
         self.operator: str = operator
         self.value: str | None = None
         self.compare_functions: dict[str, callable] = {}
@@ -36,23 +37,23 @@ class DataFilter:
         return f'{self.operator} {self.value}'
 
     @staticmethod
-    def create(operator: str, value: str | int | float | UUID | datetime |
-               date | time):
+    def create(field: str, operator: str,
+               value: str | int | float | UUID | datetime | date | time):
         '''
         Factory for classes derived from DataFilter
         '''
 
         if isinstance(value, str):
-            return StringDataFilter(operator, value)
+            return StringDataFilter(field, operator, value)
 
         if isinstance(value, UUID):
-            return UuidDataFilter(operator, value)
+            return UuidDataFilter(field, operator, value)
 
         if type(value) in (int, float):
-            return NumberDataFilter(operator, value)
+            return NumberDataFilter(field, operator, value)
 
         if type(value) in (datetime, date, time):
-            return DateTimeDataFilter(operator, value)
+            return DateTimeDataFilter(field, operator, value)
 
         raise ValueError(f'Value has type {type(value)}')
 
@@ -64,29 +65,31 @@ class DataFilter:
 
         return self.compare_functions[self.operator](data)
 
-    def sql_verb(self, sql_field: str,
-                 data: str | int | float | UUID | datetime | date | time
-                 ) -> str:
+    def sql_filter(self) -> str:
         '''
         Gets the SQL verb clause for the filter
         '''
-        return self.sql_functions[self.operator](sql_field, data)
+        function: callable = self.sql_functions[self.operator]
+        return function(f'_{self.field}')
 
     @staticmethod
-    def safe_sql(value: str) -> str:
+    def safe_sql(value: str | UUID | int | float | datetime | date | time
+                 ) -> str:
         '''
         Escapes single quotes in a string for use in SQL
         '''
 
-        if ';' in value:
-            raise ValueError(f'Value {value} contains a ;')
+        if isinstance(value, str):
+            if ';' in value:
+                raise ValueError(f'String value {value} contains a ;')
+            return value.replace("'", "''")
 
-        return value.replace("'", "''")
+        return value
 
 
 class StringDataFilter(DataFilter):
-    def __init__(self, operator: str, value: str):
-        super().__init__(operator)
+    def __init__(self, field: str, operator: str, value: str):
+        super().__init__(field, operator)
 
         if not isinstance(value, str):
             raise ValueError(
@@ -170,42 +173,42 @@ class StringDataFilter(DataFilter):
         # TODO: glob text filter
         raise NotImplementedError('Glob matching is not yet supported')
 
-    def sql_eq(self, sql_field: str, data: str) -> str:
+    def sql_eq(self, sql_field: str) -> str:
         '''
         SQL code for equal operator
         '''
 
-        return f"{sql_field} = '{self.safe_sql(data)}'"
+        return f"{sql_field} = '{self.safe_sql(self.value)}'"
 
-    def sql_ne(self, sql_field: str, data: str) -> str:
+    def sql_ne(self, sql_field: str) -> str:
         '''
         SQL code for not equal operator
         '''
 
-        return f"{sql_field} != '{self.safe_sql(data)}'"
+        return f"{sql_field} != '{self.safe_sql(self.value)}'"
 
-    def sql_vin(self, sql_field: str, data: str) -> str:
+    def sql_vin(self, sql_field: str) -> str:
         '''
         SQL code for 'IN' operator
         '''
 
-        return f"{sql_field} IN '{self.safe_sql(data)}'"
+        return f"{sql_field} IN '{self.safe_sql(self.value)}'"
 
-    def sql_nin(self, sql_field: str, data: str) -> str:
+    def sql_nin(self, sql_field: str) -> str:
         '''
         SQL code for 'NOT IN' operator
         '''
 
-        return f"{sql_field} NOT IN '{self.safe_sql(data)}'"
+        return f"{sql_field} NOT IN '{self.safe_sql(self.value)}'"
 
-    def sql_regex(self, sql_field: str, data: str) -> str:
+    def sql_regex(self, sql_field: str) -> str:
         '''
         SQL code for regular expression operator
         '''
 
-        return f"{sql_field} ~ '{self.safe_sql(data)}'"
+        return f"{sql_field} ~ '{self.safe_sql(self.value)}'"
 
-    def sql_glob(self, sql_field: str, data: str) -> str:
+    def sql_glob(self, sql_field: str) -> str:
         '''
         SQL code for glob operator
         '''
@@ -217,8 +220,8 @@ class NumberDataFilter(DataFilter):
     '''
     Class for filters for numbers as ints or floats
     '''
-    def __init__(self, operator: str, value: int | float):
-        super().__init__(operator)
+    def __init__(self, field: str, operator: str, value: int | float):
+        super().__init__(field, operator)
 
         self.value: int | float = value
 
@@ -300,42 +303,42 @@ class NumberDataFilter(DataFilter):
 
         return data < self.value
 
-    def sql_eq(self, sql_field: str, data: int | float) -> str:
+    def sql_eq(self, sql_field: str) -> str:
         '''
         SQL code for equal operator
         '''
 
         return f'{sql_field} = {self.safe_sql(self.value)}'
 
-    def sql_ne(self, sql_field: str, data: int | float) -> str:
+    def sql_ne(self, sql_field: str) -> str:
         '''
         SQL code for not equal operator
         '''
 
-        return f'{sql_field} != {self.safe_sql(data)}'
+        return f'{sql_field} != {self.safe_sql(self.value)}'
 
-    def sql_gt(self, sql_field: str, data: int | float) -> str:
+    def sql_gt(self, sql_field: str) -> str:
         '''
         SQL code for greater-than operator
         '''
 
         return f'{sql_field} > {self.safe_sql(self.value)}'
 
-    def sql_lt(self, sql_field: str, data: int | float) -> str:
+    def sql_lt(self, sql_field: str) -> str:
         '''
         SQL code for less-than operator
         '''
 
         return f'{sql_field} < {self.safe_sql(self.value)}'
 
-    def sql_egt(self, sql_field: str, data: int | float) -> str:
+    def sql_egt(self, sql_field: str) -> str:
         '''
         SQL code for equal-or-greater-than operator
         '''
 
         return f'{sql_field} >= {self.safe_sql(self.value)}'
 
-    def sql_elt(self, sql_field: str, data: int | float) -> str:
+    def sql_elt(self, sql_field: str) -> str:
         '''
         SQL code for equal-or-less-than operator
         '''
@@ -344,8 +347,8 @@ class NumberDataFilter(DataFilter):
 
 
 class UuidDataFilter(DataFilter):
-    def __init__(self, operator: str, value: UUID):
-        super().__init__(operator)
+    def __init__(self, field: str,  operator: str, value: UUID):
+        super().__init__(field, operator)
 
         if not isinstance(value, UUID):
             raise ValueError(
@@ -386,24 +389,25 @@ class UuidDataFilter(DataFilter):
 
         return data != self.value
 
-    def sql_eq(self, sql_field: str, data: UUID) -> str:
+    def sql_eq(self, sql_field: str) -> str:
         '''
         SQL code for equal operator
         '''
 
-        return f'{sql_field} = {self.safe_sql(str(data))}'
+        return f'{sql_field} = {self.safe_sql(str(self.value))}'
 
-    def sql_ne(self, sql_field: str, data: UUID) -> str:
+    def sql_ne(self, sql_field: str) -> str:
         '''
         SQL code for not equal operator
         '''
 
-        return f'{sql_field} != {self.safe_sql(str(data))}'
+        return f'{sql_field} != {self.safe_sql(str(self.value))}'
 
 
 class DateTimeDataFilter(DataFilter):
-    def __init__(self, operator: str, value: datetime | date | time):
-        super().__init__(operator)
+    def __init__(self, field: str,
+                 operator: str, value: datetime | date | time):
+        super().__init__(field, operator)
 
         if isinstance(value, str):
             value = iso8601_parser(str)
@@ -565,29 +569,101 @@ class DateTimeDataFilter(DataFilter):
 
         return data <= self.value
 
-    def sql_at(self, sql_field: str, data: int | str | datetime) -> bool:
+    def sql_at(self, sql_field: str) -> bool:
         '''
         Compare date/time
         '''
 
-        if isinstance(data, str):
-            timestamp = datetime.fromisoformat(data).timestamp()
-        elif isinstance(data, datetime):
-            timestamp = data.timestamp()
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
 
         return f'{sql_field} = {self.safe_sql(timestamp)}'
 
-    def sql_nat(self, sql_field: str, data: int | str | datetime) -> bool:
+    def sql_nat(self, sql_field: str) -> bool:
         '''
         Compare date/time
         '''
 
-        if isinstance(data, str):
-            timestamp = datetime.fromisoformat(data).timestamp()
-        elif isinstance(data, datetime):
-            timestamp = data.timestamp()
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
 
         return f'{sql_field} != {self.safe_sql(timestamp)}'
+
+    def sql_after(self, sql_field: str) -> bool:
+        '''
+        Datetime/date/time after comparison
+        '''
+
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        return f'{sql_field} = {self.safe_sql(timestamp)}'
+
+    def sql_before(self, sql_field: str) -> bool:
+        '''
+        Datetime/date/time before comparison
+        '''
+
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        return f'{sql_field} < {self.safe_sql(timestamp)}'
+
+    def sql_atafter(self, sql_field: str) -> bool:
+        '''
+        Datetime/date/time at-or-after comparison
+        '''
+
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        return f'{sql_field} >= {self.safe_sql(timestamp)}'
+
+    def sql_atbefore(self, sql_field: str) -> bool:
+        '''
+        Datetime/date/time at or before comparison
+        '''
+
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        return f'{sql_field} <= {self.safe_sql(timestamp)}'
 
 
 class DataFilterSet:
@@ -620,13 +696,13 @@ class DataFilterSet:
         if not filters:
             return
 
-        for field, conditions in filters.__dict__.items():
+        for field, conditions in filters.items():
             if conditions:
                 self.filters[field] = []
-                for operator, value in conditions.__dict__.items():
+                for operator, value in conditions.items():
                     if value:
                         self.filters[field].append(
-                            DataFilter.create(operator, value)
+                            DataFilter.create(field, operator, value)
                         )
 
     def __str__(self) -> str:

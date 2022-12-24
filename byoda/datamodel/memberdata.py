@@ -88,8 +88,12 @@ class MemberData(dict):
         Load the data from the data store
         '''
 
+        filter_set = DataFilterSet(filters)
+
         try:
-            data = await self.document_store.read(member=self.member)
+            data = await self.document_store.read(
+                member=self.member, class_name=key, filters=filter_set
+            )
             for key, value in data.items():
                 self[key] = value
 
@@ -255,9 +259,6 @@ class MemberData(dict):
         '''
         Adds an entry to data log
         '''
-
-        if load_data:
-            await self.load()
 
         if 'datalogs' not in self:
             self['datalogs'] = []
