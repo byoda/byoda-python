@@ -714,6 +714,22 @@ class DataFilterSet:
         text = ', '.join(filter_texts)
         return text
 
+    def sql_where_clause(self) -> str:
+        '''
+        Returns the SQL 'WHERE' clause for the filter set
+        '''
+
+        if not self.filters:
+            return ''
+
+        filter_texts: list[str] = []
+        for field in self.filters.keys():
+            for filter in self.filters[field]:
+                filter_texts.append(filter.sql_filter())
+
+        text = 'WHERE ' + ' AND '.join(filter_texts)
+        return text
+
     @staticmethod
     def filter(filters: list, data: list) -> list[object]:
         '''

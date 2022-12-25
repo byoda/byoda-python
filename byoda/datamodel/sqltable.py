@@ -397,3 +397,42 @@ class ArraySqlTable(SqlTable):
         '''
         Updates ones or more records
         '''
+
+        values = []
+        stmt = f'UPDATE {self.table_name} SET ('
+        for column in self.columns.values():
+            value = data.get(column.name)
+            if value:
+                stmt += f'{column.storage_name}, '
+                if column.storage_type == 'INTEGER':
+                    value = int(value)
+                elif column.storage_type == 'REAL':
+                    if column.format == 'date-time':
+                        value = datetime.fromisoformat(value).timestamp()
+                    else:
+                        value = float(value)
+                elif column.storage_type == 'TEXT':
+                    if type(value) in (list, dict):
+                        value = orjson.dumps(value)
+                    else:
+                        value = str(value)
+
+                values.append(value)
+
+        stmt = stmt.rstrip(', ') + ') = ('
+        for column in self.columns.values():
+            if data.get(column.name):
+                stmt += '?, '
+
+        stmt.rstrip(', ') + ')'
+
+        stmt = stmt.rstrip(', ') + ') '
+
+        where_clause = data_filters.sql_where_clause()
+
+        stmt += where_clause
+
+        return await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=values,
+            autocommit=True
+        )

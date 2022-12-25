@@ -263,6 +263,33 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         if compare_network_invite(data, network_invites) != 1:
             raise self.assertTrue(False)
 
+        #
+        # Update network invite #1
+        #
+        time.sleep(1)
+        now = datetime.now(timezone.utc)
+
+        network_invites.append(network_invite)
+
+        await network_invites_table.update(
+            {
+                'text': 'updated text'
+            }, data_filters
+        )
+        filters = {
+            'created_timestamp': {
+                'atafter': datetime.fromisoformat(
+                    network_invites[1].created_timestamp
+                )
+            },
+            'relation': {
+                'eq': 'family'
+            }
+        }
+        data_filters = DataFilterSet(filters)
+        data = await network_invites_table.query(data_filters=data_filters)
+        print(data)
+
 
 def compare_network_invite(data: list[dict[str, str]],
                            network_invites: list[NetworkInvite]) -> int:
