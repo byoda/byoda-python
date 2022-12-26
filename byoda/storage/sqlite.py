@@ -67,7 +67,7 @@ class Sql:
         return cur
 
     async def execute(self, command: str, member_id: UUID = None,
-                      data: list[str | int | float | bool] = None,
+                      data: dict[str, str | int | float | bool] = None,
                       autocommit: bool = True) -> list[Row]:
         '''
         Executes the SQL command.
@@ -75,10 +75,10 @@ class Sql:
 
         con = self.connection(member_id)
 
-        _LOGGER.debug(f'Executing SQL for member {member_id}: {command} '
-                      )
+        _LOGGER.debug(f'Executing SQL for member {member_id}: {command}')
+
         try:
-            result = await con.execute(command, data)
+            result = await con.execute_fetchall(command, data)
 
             if autocommit:
                 await con.commit()

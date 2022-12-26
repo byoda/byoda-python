@@ -288,7 +288,33 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         }
         data_filters = DataFilterSet(filters)
         data = await network_invites_table.query(data_filters=data_filters)
-        print(data)
+
+        data = {
+            '_created_timestamp': 1671989969.329426,
+            '_relation': 'family',
+        }
+        stmt = (
+            'SELECT * FROM _network_invites '
+            'WHERE _created_timestamp >= :_created_timestamp '
+            'AND _relation = :_relation'
+        )
+        data = await network_invites_table.sql_store.execute(
+            stmt, member_id=network_invites_table.member_id, data=data,
+            autocommit=True
+        )
+
+        results = []
+        for row in data:
+            result = {}
+            for column_name in row.keys():
+                field_name = column_name.lstrip('_')
+                result[field_name] = \
+                    network_invites_table.columns[field_name].normalize(
+                        row[column_name]
+                    )
+            results.append(result)
+
+        print(results)
 
 
 def compare_network_invite(data: list[dict[str, str]],

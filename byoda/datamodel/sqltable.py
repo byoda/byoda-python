@@ -130,8 +130,8 @@ class SqlTable:
 
     def normalize(self, value: object, column: str):
         '''
-        Normalizes the value returned by Sqlite3 to the type
-        specified in the schema of the service
+        Normalizes the value returned by Sqlite3 to the python type for
+        the JSONSchema type specified in the schema of the service
         '''
 
         field_name = SqlTable.get_field_name(column)
@@ -325,16 +325,21 @@ class ArraySqlTable(SqlTable):
         '''
 
         sql_filters: list[str] = []
+        placeholders = {}
         if data_filters:
             for data_filter in data_filters.filters.values():
                 for filter in data_filter:
-                    sql_filters.append(filter.sql_filter())
+                    filter_text, sql_placeholder, value = filter.sql_filter(
+                        where=True
+                    )
+                    sql_filters.append(filter_text)
+                    placeholders[sql_placeholder] = value
 
         stmt = f'SELECT * FROM {self.table_name}'
         if sql_filters:
             stmt = stmt + ' WHERE ' + ' AND '.join(sql_filters)
 
-        rows = await self.conn.execute_fetchall(stmt)
+        rows = await self.conn.execute_fetchall(stmt, placeholders)
         if len(rows) == 0:
             return None
 
@@ -428,7 +433,8 @@ class ArraySqlTable(SqlTable):
 
         stmt = stmt.rstrip(', ') + ') '
 
-        where_clause = data_filters.sql_where_clause()
+        where_clause, filter_data = data_filters.sql_where_clause()
+        data = data | filter_data
 
         stmt += where_clause
 

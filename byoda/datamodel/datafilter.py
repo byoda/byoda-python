@@ -63,28 +63,33 @@ class DataFilter:
         Compares the data against the value for the filter
         '''
 
-        return self.compare_functions[self.operator](data)
+        compare_function = self.compare_functions[self.operator]
+        return compare_function(data)
 
-    def sql_filter(self) -> str:
+    def sql_filter(self, where: bool = False
+                   ) -> tuple[str, str, str | int | float]:
         '''
         Gets the SQL verb clause for the filter
-        '''
-        function: callable = self.sql_functions[self.operator]
-        return function(f'_{self.field}')
 
-    @staticmethod
-    def safe_sql(value: str | UUID | int | float | datetime | date | time
-                 ) -> str:
+        Returns tuple of the comparison operator annd the value
         '''
-        Escapes single quotes in a string for use in SQL
+        compare_function: callable = self.sql_functions[self.operator]
+        return compare_function(f'_{self.field}', where)
+
+    def sql_field_placeholder(self, field: str, where: bool = False) -> str:
+        '''
+        Returns string to be used for the named placeholder for SqlLite,
+        ie. '_created_timestamp' becomes ':_created_timestamp'
+
+        If the 'where' parameter is True, then ':_where_created_timestamp'
+        will be returned
+
         '''
 
-        if isinstance(value, str):
-            if ';' in value:
-                raise ValueError(f'String value {value} contains a ;')
-            return value.replace("'", "''")
-
-        return value
+        if where:
+            return f'_WHERE{field}'
+        else:
+            return f'{field}'
 
 
 class StringDataFilter(DataFilter):
@@ -173,44 +178,88 @@ class StringDataFilter(DataFilter):
         # TODO: glob text filter
         raise NotImplementedError('Glob matching is not yet supported')
 
-    def sql_eq(self, sql_field: str) -> str:
+    def sql_eq(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f"{sql_field} = '{self.safe_sql(self.value)}'"
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} = :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_ne(self, sql_field: str) -> str:
+    def sql_ne(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for not equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f"{sql_field} != '{self.safe_sql(self.value)}'"
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} != :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_vin(self, sql_field: str) -> str:
+    def sql_vin(self, sql_field: str, where: bool = False) -> str:
         '''
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         SQL code for 'IN' operator
         '''
 
-        return f"{sql_field} IN '{self.safe_sql(self.value)}'"
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} IN :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_nin(self, sql_field: str) -> str:
+    def sql_nin(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for 'NOT IN' operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f"{sql_field} NOT IN '{self.safe_sql(self.value)}'"
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} NOT IN :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_regex(self, sql_field: str) -> str:
+    def sql_regex(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for regular expression operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f"{sql_field} ~ '{self.safe_sql(self.value)}'"
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} ~ :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_glob(self, sql_field: str) -> str:
+    def sql_glob(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for glob operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
         raise NotImplementedError
@@ -303,47 +352,96 @@ class NumberDataFilter(DataFilter):
 
         return data < self.value
 
-    def sql_eq(self, sql_field: str) -> str:
+    def sql_eq(self, sql_field: str, where: bool = False
+               ) -> tuple[str, str, int | float]:
         '''
         SQL code for equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} = {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} = :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_ne(self, sql_field: str) -> str:
+    def sql_ne(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for not equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} != {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} != :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_gt(self, sql_field: str) -> str:
+    def sql_gt(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for greater-than operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} > {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} > :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_lt(self, sql_field: str) -> str:
+    def sql_lt(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for less-than operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} < {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} < :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_egt(self, sql_field: str) -> str:
+    def sql_egt(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for equal-or-greater-than operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} >= {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} >= :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
-    def sql_elt(self, sql_field: str) -> str:
+    def sql_elt(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for equal-or-less-than operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} <= {self.safe_sql(self.value)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} <= :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
 
 class UuidDataFilter(DataFilter):
@@ -389,19 +487,35 @@ class UuidDataFilter(DataFilter):
 
         return data != self.value
 
-    def sql_eq(self, sql_field: str) -> str:
+    def sql_eq(self, sql_field: str, where: bool = False) -> str:
         '''
         SQL code for equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} = {self.safe_sql(str(self.value))}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} != :{sql_field_placeholder}',
+            sql_field_placeholder, str(self.value)
+        )
 
-    def sql_ne(self, sql_field: str) -> str:
+    def sql_ne(self, sql_field: str, where: bool = False) -> tuple[str, str, str]:
         '''
         SQL code for not equal operator
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_member_id)
+                 and the normalized value for the placeholder
         '''
 
-        return f'{sql_field} != {self.safe_sql(str(self.value))}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} != :{sql_field_placeholder}',
+            sql_field_placeholder, str(self.value)
+        )
 
 
 class DateTimeDataFilter(DataFilter):
@@ -569,25 +683,14 @@ class DateTimeDataFilter(DataFilter):
 
         return data <= self.value
 
-    def sql_at(self, sql_field: str) -> bool:
+    def sql_at(self, sql_field: str, where: bool = False
+               ) -> tuple[str, str, float]:
         '''
-        Compare date/time
-        '''
+        Compare date/time.
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
-
-        return f'{sql_field} = {self.safe_sql(timestamp)}'
-
-    def sql_nat(self, sql_field: str) -> bool:
-        '''
-        Compare date/time
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
         '''
 
         if isinstance(self.value, str):
@@ -599,11 +702,20 @@ class DateTimeDataFilter(DataFilter):
         else:
             raise ValueError(f'Unexpected type for operator: {self.value}')
 
-        return f'{sql_field} != {self.safe_sql(timestamp)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} = :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
 
-    def sql_after(self, sql_field: str) -> bool:
+    def sql_nat(self, sql_field: str, where: bool = False
+                ) -> tuple[str, str, float]:
         '''
-        Datetime/date/time after comparison
+        Compare not equal date/time.
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
         '''
 
         if isinstance(self.value, str):
@@ -615,11 +727,45 @@ class DateTimeDataFilter(DataFilter):
         else:
             raise ValueError(f'Unexpected type for operator: {self.value}')
 
-        return f'{sql_field} = {self.safe_sql(timestamp)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} != :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
 
-    def sql_before(self, sql_field: str) -> bool:
+    def sql_after(self, sql_field: str, where: bool = False
+                  ) -> tuple[str, str, float]:
+        '''
+        Compare after date/time.
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
+        '''
+
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} > :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
+
+    def sql_before(self, sql_field: str, where: bool = False
+                   ) -> tuple[str, str, float]:
         '''
         Datetime/date/time before comparison
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
         '''
 
         if isinstance(self.value, str):
@@ -631,11 +777,20 @@ class DateTimeDataFilter(DataFilter):
         else:
             raise ValueError(f'Unexpected type for operator: {self.value}')
 
-        return f'{sql_field} < {self.safe_sql(timestamp)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} < :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
 
-    def sql_atafter(self, sql_field: str) -> bool:
+    def sql_atafter(self, sql_field: str, where: bool = False
+                    ) -> tuple[str, str, float]:
         '''
         Datetime/date/time at-or-after comparison
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
         '''
 
         if isinstance(self.value, str):
@@ -647,11 +802,20 @@ class DateTimeDataFilter(DataFilter):
         else:
             raise ValueError(f'Unexpected type for operator: {self.value}')
 
-        return f'{sql_field} >= {self.safe_sql(timestamp)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} >= :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
 
-    def sql_atbefore(self, sql_field: str) -> bool:
+    def sql_atbefore(self, sql_field: str, where: bool = False
+                     ) -> tuple[str, str, float]:
         '''
         Datetime/date/time at or before comparison
+
+        Returns: tuple of the SQL string with the placeholder included,
+                 the name of the placeholder (ie, :_created_timestamp)
+                 and the normalized value for the placeholder
         '''
 
         if isinstance(self.value, str):
@@ -663,7 +827,11 @@ class DateTimeDataFilter(DataFilter):
         else:
             raise ValueError(f'Unexpected type for operator: {self.value}')
 
-        return f'{sql_field} <= {self.safe_sql(timestamp)}'
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} <= :{sql_field_placeholder}',
+            sql_field_placeholder, timestamp
+        )
 
 
 class DataFilterSet:
@@ -714,21 +882,27 @@ class DataFilterSet:
         text = ', '.join(filter_texts)
         return text
 
-    def sql_where_clause(self) -> str:
+    def sql_where_clause(self) -> tuple[str, dict[str, str]]:
         '''
         Returns the SQL 'WHERE' clause for the filter set
         '''
 
         if not self.filters:
-            return ''
+            return '', {}
 
         filter_texts: list[str] = []
+        filter_values: dict[str, str | int | float] = {}
         for field in self.filters.keys():
             for filter in self.filters[field]:
-                filter_texts.append(filter.sql_filter())
+                filter_text, sql_placeholder_field, value = filter.sql_filter(
+                    where=True
+                )
+
+                filter_texts.append(filter_text)
+                filter_values[sql_placeholder_field] = value
 
         text = 'WHERE ' + ' AND '.join(filter_texts)
-        return text
+        return text, filter_values
 
     @staticmethod
     def filter(filters: list, data: list) -> list[object]:
