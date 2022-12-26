@@ -502,7 +502,8 @@ class UuidDataFilter(DataFilter):
             sql_field_placeholder, str(self.value)
         )
 
-    def sql_ne(self, sql_field: str, where: bool = False) -> tuple[str, str, str]:
+    def sql_ne(self, sql_field: str, where: bool = False
+               ) -> tuple[str, str, str]:
         '''
         SQL code for not equal operator
 

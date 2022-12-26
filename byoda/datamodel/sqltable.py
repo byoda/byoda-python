@@ -20,9 +20,11 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.sqlite import Connection as SqlConnection
 
+
 _LOGGER = logging.getLogger(__name__)
 
 Sql = TypeVar('Sql')
+SqlCursor = TypeVar('SqlCursor')
 
 
 class SqlTable:
@@ -145,6 +147,21 @@ class SqlTable:
         result = field.normalize(value)
         return result
 
+    def _normalize_row(self, row: list[dict[str, object]]
+                       ) -> dict[str, object]:
+        '''
+        Normalizes the row returned by Sqlite3 to the python type for
+        the JSONSchema type specified in the schema of the service
+        '''
+
+        result: dict[str, object] = {}
+        for column_name in row.keys():
+            field_name = SqlTable.get_field_name(column_name)
+            result[field_name] = \
+                self.columns[field_name].normalize(row[column_name])
+
+        return result
+
     @staticmethod
     def get_table_name(table: str) -> str:
         return f'_{table}'
@@ -158,6 +175,69 @@ class SqlTable:
 
     def get_field_name(column: str) -> str:
         return column.lstrip('_')
+
+    def sql_values_clause(self, data: dict, separator: str = '='
+                          ) -> tuple[str, dict[str, object]]:
+        '''
+        Gets the 'values' part of an SQL INSERT or SQL UPDATE statement
+
+        :param data: the values that will be used for the placeholders
+        in the statement
+        :param separator: the separator between the list of columns and
+        the list of placeholders
+
+        '''
+
+        stmt: str = '('
+        values: dict[str, object] = {}
+
+        for column in self.columns.values():
+            value = data.get(column.name)
+            # We only include columns for which a value is available
+            # in the 'data' dict
+            if value:
+                # Add the column to the list of columns
+                stmt += f'{column.storage_name}, '
+
+                # Normalize value to type expected by the database
+                if column.storage_type == 'INTEGER':
+                    value = int(value)
+                elif column.storage_type == 'REAL':
+                    # We store date-time values as an epoch timestamp
+                    if column.format == 'date-time':
+                        if isinstance(value, str):
+                            value = datetime.fromisoformat(value).timestamp()
+                        elif isinstance(value, datetime):
+                            value = value.timestamp()
+                        elif type(value) in (int, float):
+                            pass
+                        else:
+                            raise ValueError(
+                                f'Invalid type {type(value)} for '
+                                f'date-time value: {value}'
+                            )
+                    else:
+                        value = float(value)
+                elif column.storage_type == 'TEXT':
+                    if type(value) in (list, dict):
+                        # For nested objects or arrays, we store them as JSON
+                        value = orjson.dumps(value)
+                    else:
+                        value = str(value)
+
+                values[column.storage_name] = value
+
+        stmt = stmt.rstrip(', ') + f') {separator} ('
+        for column in self.columns.values():
+            if data.get(column.name):
+                stmt += f':{column.storage_name}, '
+
+        stmt = stmt.rstrip(', ') + ') '
+
+        return stmt, values
+
+    def sql_where_clause(self, data_filters: DataFilterSet) -> str:
+        return data_filters.sql_where_clause()
 
 
 class ObjectSqlTable(SqlTable):
@@ -185,18 +265,33 @@ class ObjectSqlTable(SqlTable):
             column.storage_name = SqlTable.get_column_name(column.name)
             column.storage_type = SqlTable.get_native_datatype(column.type)
 
-    async def query(self, data_filter_set: DataFilterSet = None
+    async def query(self, data_filter_set: DataFilterSet = None,
+                    first: int = None, after: int = None,
                     ) -> None | dict[str, object]:
         '''
         Get the data from the table. As this is an object table,
         only 0 or 1 rows of results are expected
 
+        :param data_filter_set: filters to apply to the SQL query
+        :param first: number of objects to return
+        :param after: offset to start returning objects from
+
         :returns: dict with data for the row in the table or None
         if no data was in the table
         '''
 
+        # Note: parameters data_filter_set, first & after are ignored for
+        # 'object' SQL tables as it does not make sense for SQL queries for
+        # 'objects'. However, it does make sense for recursive GraphQL queries
+        # so that's why they may have a values
+
         stmt = f'SELECT * FROM {self.table_name}'
-        rows = await self.conn.execute_fetchall(stmt)
+
+        rows = await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=None,
+            autocommit=True, fetchall=True
+        )
+
         if len(rows) == 0:
             return None
         elif len(rows) > 1:
@@ -204,16 +299,12 @@ class ObjectSqlTable(SqlTable):
                 f'Query for {self.table_name} returned more than one row'
             )
 
-        # Reconcile results with the field names in the Schema
-        result = {}
-        for column_name in rows[0].keys():
-            field_name = SqlTable.get_field_name(column_name)
-            result[field_name] = \
-                self.columns[field_name].normalize(rows[0][column_name])
+        result = self._normalize_row(rows[0])
 
         return result
 
-    async def mutate(self, data: dict, data_filter_set: DataFilterSet = None):
+    async def mutate(self, data: dict, data_filter_set: DataFilterSet = None
+                     ) -> SqlCursor:
         '''
         Sets the data for the object. If existing data is present, any value
         will be wiped if not present in the supplied data
@@ -241,38 +332,15 @@ class ObjectSqlTable(SqlTable):
             stmt, member_id=self.member_id, data=None, autocommit=False
         )
 
-        values = []
-        stmt = f'INSERT INTO {self.table_name}('
-        for column in self.columns.values():
-            stmt += f'{column.storage_name}, '
-            value = data.get(column.name)
-            if column.storage_type == 'INTEGER':
-                if value:
-                    value = int(value)
-            elif column.storage_type == 'REAL':
-                if value:
-                    if column.format == 'date-time':
-                        value = value.timestamp()
-                    else:
-                        value = float(value)
-            elif column.storage_type == 'TEXT':
-                if value:
-                    if type(value) in (list, dict):
-                        value = orjson.dumps(value)
-                    else:
-                        value = str(value)
-                else:
-                    value = ''
+        stmt = f'INSERT INTO {self.table_name} '
+        values: dict[str, object] = {}
 
-            values.append(value)
+        values_stmt, values_data = self.sql_values_clause(
+            data, separator='VALUES'
+        )
 
-        stmt = stmt.rstrip(', ') + ') VALUES ('
-        for column in self.columns.values():
-            stmt += '?, '
-
-        stmt.rstrip(', ') + ')'
-
-        stmt = stmt.rstrip(', ') + ')'
+        stmt += values_stmt
+        values |= values_data
 
         await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
@@ -318,127 +386,100 @@ class ArraySqlTable(SqlTable):
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
 
-    async def query(self, data_filters: DataFilterSet = None
+    async def query(self, data_filters: DataFilterSet = None,
+                    first: int = None, after: int = None,
                     ) -> None | list[dict[str, object]]:
         '''
         Get one of more rows from the table
+
+        :param data_filter_set: filters to apply to the SQL query
+        :param first: number of objects to return
+        :param after: offset to start returning objects from
         '''
 
-        sql_filters: list[str] = []
+        stmt = f'SELECT * FROM {self.table_name} '
+
         placeholders = {}
         if data_filters:
-            for data_filter in data_filters.filters.values():
-                for filter in data_filter:
-                    filter_text, sql_placeholder, value = filter.sql_filter(
-                        where=True
-                    )
-                    sql_filters.append(filter_text)
-                    placeholders[sql_placeholder] = value
+            where_clause, where_data = self.sql_where_clause(data_filters)
+            stmt += where_clause
+            placeholders |= where_data
 
-        stmt = f'SELECT * FROM {self.table_name}'
-        if sql_filters:
-            stmt = stmt + ' WHERE ' + ' AND '.join(sql_filters)
+        rows = await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=placeholders,
+            autocommit=True, fetchall=True
+        )
 
-        rows = await self.conn.execute_fetchall(stmt, placeholders)
         if len(rows) == 0:
             return None
 
         # Reconcile results with the field names in the Schema
         results = []
         for row in rows:
-            result = {}
-            for column_name in row.keys():
-                field_name = SqlTable.get_field_name(column_name)
-                result[field_name] = \
-                    self.columns[field_name].normalize(row[column_name])
+            result = self._normalize_row(row)
             results.append(result)
 
         return results
 
-    async def append(self, data: dict):
+    async def append(self, data: dict) -> SqlCursor:
         '''
         Append a row to the table
         '''
 
-        values = []
-        stmt = f'INSERT INTO {self.table_name}('
-        for column in self.columns.values():
-            stmt += f'{column.storage_name}, '
-            value = data.get(column.name)
-            if column.storage_type == 'INTEGER':
-                if value:
-                    value = int(value)
-            elif column.storage_type == 'REAL':
-                if value:
-                    if column.format == 'date-time':
-                        value = datetime.fromisoformat(value).timestamp()
-                    else:
-                        value = float(value)
-            elif column.storage_type == 'TEXT':
-                if value:
-                    if type(value) in (list, dict):
-                        value = orjson.dumps(value)
-                    else:
-                        value = str(value)
-                else:
-                    value = ''
+        stmt = f'INSERT INTO {self.table_name} '
+        values: dict[str, object] = {}
 
-            values.append(value)
+        values_stmt, values_data = self.sql_values_clause(
+            data, separator='VALUES'
+        )
 
-        stmt = stmt.rstrip(', ') + ') VALUES ('
-        for column in self.columns.values():
-            stmt += '?, '
+        stmt += values_stmt
+        values |= values_data
 
-        stmt.rstrip(', ') + ')'
-
-        stmt = stmt.rstrip(', ') + ')'
-
-        return await self.sql_store.execute(
+        result = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
 
-    async def update(self, data: dict, data_filters: DataFilterSet):
+        return result
+
+    async def update(self, data: dict, data_filters: DataFilterSet
+                     ) -> SqlCursor:
         '''
         Updates ones or more records
         '''
 
-        values = []
-        stmt = f'UPDATE {self.table_name} SET ('
-        for column in self.columns.values():
-            value = data.get(column.name)
-            if value:
-                stmt += f'{column.storage_name}, '
-                if column.storage_type == 'INTEGER':
-                    value = int(value)
-                elif column.storage_type == 'REAL':
-                    if column.format == 'date-time':
-                        value = datetime.fromisoformat(value).timestamp()
-                    else:
-                        value = float(value)
-                elif column.storage_type == 'TEXT':
-                    if type(value) in (list, dict):
-                        value = orjson.dumps(value)
-                    else:
-                        value = str(value)
+        stmt = f'UPDATE {self.table_name} SET '
+        values: dict[str, object] = {}
 
-                values.append(value)
+        values_clause, values_data = self.sql_values_clause(data)
+        stmt += values_clause
+        values |= values_data
 
-        stmt = stmt.rstrip(', ') + ') = ('
-        for column in self.columns.values():
-            if data.get(column.name):
-                stmt += '?, '
-
-        stmt.rstrip(', ') + ')'
-
-        stmt = stmt.rstrip(', ') + ') '
-
-        where_clause, filter_data = data_filters.sql_where_clause()
-        data = data | filter_data
-
+        where_clause, filter_data = self.sql_where_clause(data_filters)
         stmt += where_clause
+        values |= filter_data
 
         return await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
+
+    async def delete(self, data_filters: DataFilterSet) -> SqlCursor:
+        '''
+        Deletes one or more records based on the provided filters
+        '''
+
+        stmt = f'DELETE FROM {self.table_name} '
+        values: dict[str, object] = {}
+
+        if data_filters:
+            where_clause, filter_data = self.sql_where_clause(data_filters)
+            stmt += where_clause
+            values |= filter_data
+
+        return await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=values,
+            autocommit=True
+        )
+

@@ -32,6 +32,10 @@ Schema = TypeVar('Schema')
 
 _LOGGER = logging.getLogger(__name__)
 
+# Generic type for SQL cursors. The value will be set by the constructor
+# of the class for the specific SQL engine, derived from the SQL class
+Cursor: type = None
+
 
 class Sql:
     def __init__(self):
@@ -68,9 +72,18 @@ class Sql:
 
     async def execute(self, command: str, member_id: UUID = None,
                       data: dict[str, str | int | float | bool] = None,
-                      autocommit: bool = True) -> list[Row]:
+                      autocommit: bool = True, fetchall: bool = False
+                      ) -> Cursor:
         '''
         Executes the SQL command.
+
+        :param command: SQL command to execute
+        :parm member_id: member_id for the member DB to execute the command on
+        :param data: data to use for the named placeholders in the SQL command
+        :param autocommit: whether to commit the transaction after executing
+        :param fetchall: should rows be fetched and returned
+        :returns: if 'fetchall' is False, the Cursor to the result, otherwise
+        a list of rows
         '''
 
         con = self.connection(member_id)
@@ -78,7 +91,10 @@ class Sql:
         _LOGGER.debug(f'Executing SQL for member {member_id}: {command}')
 
         try:
-            result = await con.execute_fetchall(command, data)
+            if not fetchall:
+                result = await con.execute(command, data)
+            else:
+                result = await con.execute_fetchall(command, data)
 
             if autocommit:
                 await con.commit()
@@ -158,6 +174,9 @@ class SqliteStorage(Sql):
         self.member_sql_tables: dict[str, dict[str, SqlTable]] = {}
 
         os.makedirs(data_dir, exist_ok=True)
+
+        global Cursor
+        Cursor = aiosqlite.Cursor
 
     async def setup():
         '''

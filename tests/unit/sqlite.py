@@ -119,7 +119,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data = await person_table.query()
         self.assertEqual(given_name, data['given_name'])
         self.assertEqual(family_name, data['family_name'])
-        self.assertEqual(data['email'], '')
+        self.assertEqual(data['email'], None)
 
         # Populate Member object with datetime and UUID data and check the
         # result
@@ -264,6 +264,60 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             raise self.assertTrue(False)
 
         #
+        # filter 'ne' str
+        filters = {
+            'relation': {
+                'ne': 'family'
+            }
+        }
+        data_filters = DataFilterSet(filters)
+        data = await network_invites_table.query(data_filters=data_filters)
+        self.assertEqual(len(data), 2)
+        if compare_network_invite(data, network_invites) != 2:
+            raise self.assertTrue(False)
+
+        #
+        # filter 'eq' UUID
+        #
+        filters = {
+            'member_id': {
+                'eq': network_invites[2].member_id
+            }
+        }
+        data_filters = DataFilterSet(filters)
+        data = await network_invites_table.query(data_filters=data_filters)
+        self.assertEqual(len(data), 1)
+
+        if compare_network_invite(data, network_invites) != 1:
+            raise self.assertTrue(False)
+
+        self.assertEqual(
+            UUID(network_invites[2].member_id), data[0]['member_id']
+        )
+
+        #
+        # filter 'ne' UUID
+        #
+        filters = {
+            'member_id': {
+                'ne': network_invites[2].member_id
+            }
+        }
+        data_filters = DataFilterSet(filters)
+        data = await network_invites_table.query(data_filters=data_filters)
+        self.assertEqual(len(data), 2)
+
+        if compare_network_invite(data, network_invites) != 2:
+            raise self.assertTrue(False)
+
+        self.assertNotEqual(
+            UUID(network_invites[2].member_id), data[0]['member_id']
+        )
+        self.assertNotEqual(
+            UUID(network_invites[2].member_id), data[1]['member_id']
+        )
+
+        #
         # Update network invite #1
         #
         time.sleep(1)
@@ -288,6 +342,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         }
         data_filters = DataFilterSet(filters)
         data = await network_invites_table.query(data_filters=data_filters)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['text'], 'updated text')
 
         data = {
             '_created_timestamp': 1671989969.329426,
@@ -300,7 +356,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         data = await network_invites_table.sql_store.execute(
             stmt, member_id=network_invites_table.member_id, data=data,
-            autocommit=True
+            autocommit=True, fetchall=True
         )
 
         results = []
@@ -314,7 +370,32 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                     )
             results.append(result)
 
-        print(results)
+        self.assertEqual(len(results), 1)
+
+        #
+        # Delete network invites with relation = 'family'
+        #
+        filters = {
+            'relation': {
+                'eq': 'family'
+            }
+        }
+        data_filters = DataFilterSet(filters)
+        data = await network_invites_table.delete(data_filters=data_filters)
+
+        data = await network_invites_table.query(data_filters=data_filters)
+        self.assertIsNone(data)
+
+        data = await network_invites_table.query()
+        self.assertEqual(len(data), 2)
+
+        #
+        # Delete all network invites
+        #
+        data = await network_invites_table.delete(data_filters={})
+
+        data = await network_invites_table.query()
+        self.assertIsNone(data)
 
 
 def compare_network_invite(data: list[dict[str, str]],
