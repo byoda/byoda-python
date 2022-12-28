@@ -14,7 +14,6 @@ root-directory, ie.: /byoda/sqlite/<member_id>.db
 import os
 import logging
 from uuid import UUID
-from sqlite3 import Row
 from typing import TypeVar
 
 import aiosqlite

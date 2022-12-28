@@ -482,4 +482,3 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
-

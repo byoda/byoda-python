@@ -1,10 +1,10 @@
 '''
-The document store handles storing the data of a pod for a service that
-the pod is a member of. This data is stored as an encrypted JSON file.
+The document store handles storing various files of a pod, such as
+certificates, keys, and service contracts.
 
 The DocumentStore can be extended to support different backend storage. It
-currently only supports local file systems and AWS S3. In the future it
-can be extended by for NoSQL storage to improve scalability.
+currently only supports local file systems and object storage of Azure, AWS,
+and GCP.
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -31,7 +31,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class DocumentStoreType(Enum):
     OBJECT_STORE        = 'objectstore'     # noqa=E221
-    SQLITE              = 'sqlite'          # noqa=E221
 
 
 class DocumentStore:
@@ -58,9 +57,6 @@ class DocumentStore:
             storage.backend = await FileStorage.get_storage(
                 cloud_type, bucket_prefix, root_dir
             )
-        elif storage_type == DocumentStoreType.SQLITE:
-            storage.backend = await SqliteStorage.setup()
-
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 
@@ -124,18 +120,3 @@ class DocumentStore:
         '''
 
         return await self.backend.get_folders(folder_path, prefix)
-
-    async def query(self, key: str, filters: dict[str, dict]
-                    ) -> dict[str, object]:
-
-        return self.backend.query(key, filters)
-
-    async def mutate(self, key: str, data: dict[str, object],
-                     data_filter_set: DataFilterSet = None):
-        return self.backend.mutate(key, data, data_filter_set)
-
-    async def append(self, key: str, data: dict[str, object]):
-        return self.backend.append(key, data)
-
-    async def delete(self, key: str, data_filter_set: DataFilterSet = None):
-        return self.backend.delete(key, data_filter_set)
