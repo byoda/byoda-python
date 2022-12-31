@@ -13,8 +13,12 @@ from copy import copy
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
+from byoda.datatypes import MemberStatus
+
 from byoda.datastore.document_store import DocumentStore
+
 from byoda.datamodel.memberdata import MemberData
+from byoda.datastore.data_store import DataStore
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -248,36 +252,33 @@ class Account:
             f'Registered account with directory server: {resp.status}'
         )
 
-    async def get_memberships(self) -> set:
+    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
+                              ) -> dict[UUID, dict[
+                                  str, UUID | str | MemberStatus | float]]:
         '''
         Get a list of the service_ids that the pod has joined by looking
         at storage.
+
+        :returns: dict of membership UUID with as value a dict with keys
+        member_id, service_id, status, timestamp,
         '''
 
-        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = await self.document_store.get_folders(
-            memberships_dir, prefix='service-'
-        )
+        data_store = config.server.data_store
+        memberships = await data_store.backend.get_memberships(status)
 
-        service_ids = set()
-        for folder in folders:
-            # The folder name starts with 'service-'
-            service_id = int(folder[8:])
-            service_ids.add(service_id)
+        return memberships
 
-        return service_ids
-
-    async def load_memberships(self):
+    async def load_memberships(self) -> None:
         '''
-        Loads the memberships of an account by iterating through
-        a directory structure in the document store of the server.
+        Loads the memberships of an account
         '''
 
         _LOGGER.debug('Loading memberships')
 
-        service_ids = await self.get_memberships()
+        memberships = await self.get_memberships()
 
-        for service_id in service_ids or []:
+        for membership in memberships.values() or {}:
+            service_id = membership['service_id']
             if service_id not in self.memberships:
                 await self.load_membership(service_id)
 
@@ -296,15 +297,12 @@ class Account:
         await member.setup(new_membership=False)
 
         await member.load_secrets()
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
+        member.data = MemberData(member)
 
         if member.member_id not in self.memberships:
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
-        await member.load_data()
 
         self.memberships[service_id] = member
 

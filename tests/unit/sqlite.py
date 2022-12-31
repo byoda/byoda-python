@@ -103,7 +103,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         now = datetime.now(timezone.utc)
 
         sql = await SqliteStorage.setup()
-        await sql.setup_member_db(uuid, schema)
+        await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Populate Person object with string data and check the result
         person_table = sql.member_sql_tables[uuid]['person']
@@ -145,7 +145,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         now = datetime.now(timezone.utc)
 
         sql = await SqliteStorage.setup()
-        await sql.setup_member_db(uuid, schema)
+        await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Test for NetworkInvites array of objects
         network_invites_table = sql.member_sql_tables[uuid]['network_invites']

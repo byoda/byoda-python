@@ -6,7 +6,6 @@ Class for modeling an element of data of a member
 '''
 
 import logging
-import orjson
 from uuid import UUID
 from typing import TypeVar
 from copy import copy, deepcopy
@@ -27,6 +26,7 @@ from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
 
 from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
 
 from byoda.requestauth.requestauth import RequestAuth
 
@@ -82,32 +82,10 @@ class MemberData(dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    async def load(self, key: str, filters: dict[str, dict]
-                   ) -> dict[str, object]:
-        '''
-        Load the data from the data store
+    def query(self, object_name: str, filters: DataFilterSet) -> list[dict[str, object]]:
         '''
 
-        filter_set = DataFilterSet(filters)
-
-        try:
-            data = await self.document_store.read(
-                member=self.member, class_name=key, filters=filter_set
-            )
-            for key, value in data.items():
-                self[key] = value
-
-            _LOGGER.debug(f'Loaded {len(self.keys() or [])} items')
-
-        except FileNotFoundError:
-            _LOGGER.warning(
-                'Unable to read data store for service '
-                f'{self.member.service_id}'
-            )
-            return {}
-
-        return self.normalize()
-
+        '''
     def normalize(self) -> None:
         '''
         Updates data values to match data type as defined in JSON-Schema,
@@ -129,67 +107,6 @@ class MemberData(dict):
 
             normalized = data_classes[field].normalize(value)
             self[field] = normalized
-
-    async def save(self, data=None) -> None:
-        '''
-        Save the data to the data store
-        '''
-
-        # MemberData inherits from dict so has a length
-        if not len(self) and not data:
-            raise ValueError(
-                'No member data for service %s available to save',
-                self.member.service_id
-            )
-
-        try:
-            if data:
-                _LOGGER.debug(f'Using {len(data)} bytes of data from argument')
-                self.unvalidated_data = data
-            else:
-                _LOGGER.debug(
-                    f'Using {len(self.unvalidated_data or [])} data from '
-                    'class instance'
-                )
-                data = {}
-                self.unvalidated_data = data
-
-            self.validate()
-            _LOGGER.debug(
-                f'After data validation, data is {len(data or [])} bytes'
-            )
-            # TODO: properly serialize data
-            await self.document_store.write(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_PROTECTED_FILE,
-                    service_id=self.member.service_id
-                ),
-                data,
-                self.member.data_secret
-            )
-            _LOGGER.debug(f'Saved {len(self.keys() or [])} items')
-
-            # We need to update our dict with the data passed to this
-            # method
-            if self.unvalidated_data:
-                for key, value in data.items():
-                    self[key] = value
-
-        except OSError:
-            _LOGGER.error(
-                'Unable to write data file for service %s',
-                self.member.service_id
-            )
-
-    def _load_from_file(self, filename: str) -> None:
-        '''
-        This function should only be used by test cases
-        '''
-
-        with open(filename) as file_desc:
-            raw_data = file_desc.read(MAX_FILE_SIZE)
-
-        self.unvalidated_data = orjson.loads(raw_data)
 
     def validate(self):
         '''
@@ -239,13 +156,54 @@ class MemberData(dict):
         '''
 
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
+
         await self.member.storage_driver.write(
             filepath, self.member.data_secret.protected_shared_key,
             file_mode=FileMode.BINARY
         )
 
+    async def load_network_links(self, relations: str | list[str] | None
+                                 ) -> list[dict[str, str | datetime]]:
+        '''
+        Loads the network links for the membership. Used by the access
+        control logic.
+        '''
+
+        filter_set = None
+        if relations:
+            # DataFilter logic uses 'and' logic when multiple filters are
+            # specified. So we only use DataFilterSet when we have a single
+            # relation to filter on.
+            relation = relations
+            if isinstance(relations, list) and len(relations) == 1:
+                relation = relations[0]
+
+            if isinstance(relation, str):
+                link_filter = {
+                    'relation': {
+                        'eq': relation
+                    }
+                }
+                filter_set = DataFilterSet([link_filter])
+
+        data_store: DataStore = config.server.data_store
+
+        data = await data_store.query(
+            self.member.member_id, 'network_links', filters=filter_set
+        )
+
+        if relations and isinstance(relations, list) and len(relations) > 1:
+            # If more than 1 relation was provided, then we filter here
+            # ourselves instead of using DataFilterSet
+            data = [
+                network_link for network_link in data
+                if network_link['relation'] in relations
+            ]
+
+        return data
+
     async def add_log_entry(self, request: Request, auth: RequestAuth,
-                            operation: str, source: str, object: str,
+                            operation: str, source: str, class_name: str,
                             filters: list[str] = None,
                             relations: list[str] = None,
                             remote_member_id: UUID | None = None,
@@ -254,18 +212,18 @@ class MemberData(dict):
                             origin_member_id: UUID | None = None,
                             origin_signature: str | None = None,
                             query_id: UUID = None,
-                            signature_format_version: int | None = None,
-                            load_data=False, save_data: bool = True):
+                            signature_format_version: int | None = None
+                            ) -> None:
         '''
         Adds an entry to data log
         '''
 
-        if 'datalogs' not in self:
-            self['datalogs'] = []
-
         filter_set = DataFilterSet(filters)
 
-        self['datalogs'].append(
+        data_store: DataStore = config.server.data_store
+
+        data_store.append(
+            self.member.member_id, class_name,
             {
                 'created_timestamp': datetime.now(timezone.utc),
                 'remote_addr': request.client.host,
@@ -286,9 +244,6 @@ class MemberData(dict):
                 'message': message,
             }
         )
-
-        if save_data:
-            await self.save()
 
     @staticmethod
     async def get_data(service_id: int, info: Info, depth: int = 0,
@@ -328,6 +283,9 @@ class MemberData(dict):
         )
 
         server = config.server
+        data_store: DataStore = config.server.data_store
+
+        server.account.load_memberships(data_store)
         member: Member = server.account.memberships[service_id]
 
         # If an origin_member_id has been provided then we check

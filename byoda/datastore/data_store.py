@@ -12,12 +12,16 @@ currently only supports SqLite3.
 
 import logging
 from enum import Enum
+from uuid import UUID
+from typing import TypeVar
 
 from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.sqlite import SqliteStorage
 
 _LOGGER = logging.getLogger(__name__)
+
+Schema = TypeVar('Schema')
 
 
 class DataStoreType(Enum):
@@ -43,15 +47,11 @@ class DataStore:
 
         return storage
 
-    async def get_folders(self, folder_path: str, prefix: str = None
-                          ) -> list[str]:
+    async def setup_member_db(self, member_id: UUID, service_id: int,
+                              schema: Schema) -> None:
         '''
-        Get the sub-directories in a directory. With some storage backends,
-        this functionality will be emulated as it doesn't support directories
-        or folders.
         '''
-
-        return await self.backend.get_folders(folder_path, prefix)
+        self.backend.setup_member_db(member_id, service_id, schema)
 
     async def query(self, key: str, filters: dict[str, dict]
                     ) -> dict[str, object]:

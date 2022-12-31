@@ -189,6 +189,7 @@ class AuthSource(Enum):
 
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):
+    # flake8: noqa=E221
     # We don't know what is going on
     UNKNOWN         = 'UNKNOWN'
     # Client called POST service/member API
@@ -198,7 +199,9 @@ class MemberStatus(Enum):
     # Client has called DELETE service/member or network/member API
     DELETED         = 'DELETED'
     # Service (worker) was unable to query the client
-    DEAD            = 'DEAD'
+    ACTIVE      = 'active'     # Currently a member
+    PAUSED      = 'paused'     # paused without data deletion
+    REMOVED     = 'removed'    # no longer a member, data not deleted
 
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'

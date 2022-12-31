@@ -240,8 +240,7 @@ class NetworkDataAccessRight(DataAccessRight):
             return False
 
         if auth.member_id:
-            await member.load_data()
-            network_links = member.data.get('network_links') or []
+            network_links = await member.load_network_links()
             _LOGGER.debug(f'Found total of {len(network_links)} network links')
             network = [
                 link for link in network_links

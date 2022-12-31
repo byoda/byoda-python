@@ -11,6 +11,7 @@ import logging
 from uuid import uuid4, UUID
 from copy import copy
 from typing import TypeVar
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
+from byoda.datastore.data_store import DataStore
 
 from byoda.secrets import ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
@@ -98,6 +100,7 @@ class Member:
 
         self.document_store: DocumentStore = self.account.document_store
         self.storage_driver: FileStorage = self.document_store.backend
+        self.data_store: DataStore = config.server.data_store
 
         self.private_key_password: str = account.private_key_password
 
@@ -296,11 +299,14 @@ class Member:
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
 
+        data_store = config.server.data_store
+        await data_store.setup_member_db(
+            member.member_id, member.service_id, member.schema
+        )
         return member
 
     async def create_nginx_config(self):
@@ -582,7 +588,9 @@ class Member:
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
         )
-        self.document_store.backend.setup_membership(self.member_id, schema)
+        await self.data_store.backend.setup_member_db(
+            self.member_id, self.service_id, schema
+        )
 
         return schema
 
@@ -669,6 +677,13 @@ class Member:
         _LOGGER.debug(
             f'Verified network signature for service {self.service_id}'
         )
+
+    async def load_network_links(self) -> list[dict[str, str | datetime]]:
+        '''
+        Loads the network links of the membership
+        '''
+
+        return await self.data.load_network_links()
 
     async def load_data(self, key: str, filters: list[str] = None):
         '''

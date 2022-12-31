@@ -18,7 +18,7 @@ from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType, DocumentStore
-from byoda.datastore.data_store import DataStoreType, DataStore
+from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 
@@ -74,10 +74,6 @@ class Server:
         self.storage_driver: FileStorage = self.document_store.backend
 
         self.local_storage: FileStorage = None
-
-    async def set_data_store(self, store_type: DataStoreType) -> None:
-
-        self.data_store: DataStore = await DataStore.get_data_store(store_type)
 
     async def review_jwt(self, jwt: JWT):
         raise NotImplementedError
