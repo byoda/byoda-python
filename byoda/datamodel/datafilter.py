@@ -9,6 +9,7 @@ on the filter conditions defined in the query
 
 import re
 import logging
+import inspect
 from uuid import UUID
 from datetime import datetime, date, time
 
@@ -864,6 +865,15 @@ class DataFilterSet:
 
         if not filters:
             return
+
+        data_filters = {}
+        if not isinstance(filters, dict):
+            atts = inspect.getmembers(filters)
+            for (key, value) in atts:
+                if not (key.startswith('__') and key.endswith('__')):
+                    data_filters[key] = value
+        else:
+            data_filters = filters
 
         for field, conditions in filters.items():
             if conditions:

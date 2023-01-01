@@ -87,26 +87,39 @@ class Sql:
         a list of rows
         '''
 
-        con = self.connection(member_id)
+        # con = self.connection(member_id)
 
-        _LOGGER.debug(f'Executing SQL for member {member_id}: {command}')
+        if member_id:
+            _LOGGER.debug(f'Executing SQL for member {member_id}: {command}')
+            db_conn = await aiosqlite.connect(
+                self.member_data_files[member_id]
+            )
+        else:
+            _LOGGER.debug(f'Executing SQL for account: {command}')
+            db_conn = await aiosqlite.connect(self.account_db_file)
+
+        db_conn.row_factory = aiosqlite.Row
 
         try:
-            await con.commit()
             if not fetchall:
-                result = await con.execute(command, data)
+                result = await db_conn.execute(command, data)
             else:
-                result = await con.execute_fetchall(command, data)
+                result = await db_conn.execute_fetchall(command, data)
 
-            _LOGGER.debug('Blah')
-            if autocommit or True:
+            if autocommit:
                 _LOGGER.debug(
                     f'Committing transaction for SQL command: {command}'
                 )
-                await con.commit()
+                await db_conn.commit()
+            else:
+                _LOGGER.debug(f'Not SQL committing for SQL command {command}')
+
+            await db_conn.close()
 
             return result
         except aiosqlite.Error as exc:
+            await db_conn.rollback()
+            await db_conn.close()
             _LOGGER.error(
                 f'Error executing SQL: {exc}')
 
@@ -119,7 +132,7 @@ class Sql:
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return sql_table.query(filters)
+        return await sql_table.query(filters)
 
     async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
                      data_filter_set: DataFilterSet = None):
@@ -128,7 +141,7 @@ class Sql:
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return sql_table.mutate(data, data_filter_set)
+        return await sql_table.mutate(data, data_filter_set)
 
     async def append(self, member_id: UUID, key: str, data: dict[str, object]):
         '''
@@ -136,7 +149,7 @@ class Sql:
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return sql_table.append(data)
+        return await sql_table.append(data)
 
     async def delete(self, member_id: UUID, key: str,
                      data_filter_set: DataFilterSet = None):
@@ -145,7 +158,7 @@ class Sql:
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return sql_table.delete(data_filter_set)
+        return await sql_table.delete(data_filter_set)
 
     async def read(self, member: Member, class_name: str,
                    filters: DataFilterSet):
@@ -153,7 +166,7 @@ class Sql:
         Reads all the data for a membership
         '''
 
-        return self.query(member.id, class_name, filters)
+        return await self.query(member.id, class_name, filters)
 
     async def write(self, member: Member):
         '''
@@ -175,14 +188,15 @@ class SqliteStorage(Sql):
             f'{paths.root_directory}/{paths.get(Paths.ACCOUNT_DATA_DIR)}'
 
         self.data_dir = data_dir
-        self.account_db_file: str = f'{data_dir}/sqlite.db'
-
-        self.member_sql_tables: dict[str, dict[str, SqlTable]] = {}
-
         os.makedirs(data_dir, exist_ok=True)
 
+        self.account_db_file: str = f'{data_dir}/sqlite.db'
+
+        self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
+        self.member_data_files: dict[UUID, str] = {}
+
         global Cursor
-        Cursor = sqlite.Cursor
+        Cursor = aiosqlite.Cursor
 
     async def setup():
         '''
@@ -238,9 +252,12 @@ class SqliteStorage(Sql):
         member_db_conn.row_factory = aiosqlite.Row
 
         self.member_db_conns[member_id] = member_db_conn
+        self.member_data_files[member_id]: str = member_data_file
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
 
-        self.set_membership_status(member_id, service_id, 'ACTIVE')
+        await self.set_membership_status(
+            member_id, service_id, MemberStatus.ACTIVE
+        )
         for data_class in schema.data_classes.values():
             # defined_classes are referenced by other classes so we don't
             # have to create tables for them here
@@ -249,10 +266,6 @@ class SqliteStorage(Sql):
                     data_class, self, member_id, schema.data_classes
                 )
                 self.member_sql_tables[member_id][data_class.name] = sql_table
-
-        await self.set_membership_status(
-            member_id, service_id, MemberStatus.ACTIVE
-        )
 
     async def set_membership_status(self, member_id: UUID, service_id: int,
                                     status: MemberStatus):
@@ -338,6 +351,7 @@ class SqliteStorage(Sql):
 
         return memberships_status
 
+
 class AioSqliteStorage(Sql):
     def __init__(self):
         super().__init__()
@@ -364,7 +378,8 @@ class AioSqliteStorage(Sql):
 
         sqlite = AioSqliteStorage()
 
-        # async method must be called outside of the AioSqliteStorage.__init__()
+        # async method must be called outside of the
+        # AioSqliteStorage.__init__()
         _LOGGER.debug(
             'Opening or creating account DB file {sqlite.account_db_file}'
         )
@@ -413,7 +428,9 @@ class AioSqliteStorage(Sql):
         self.member_db_conns[member_id] = member_db_conn
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
 
-        self.set_membership_status(member_id, service_id, 'ACTIVE')
+        await self.set_membership_status(
+            member_id, service_id, MemberStatus.ACTIVE
+        )
         for data_class in schema.data_classes.values():
             # defined_classes are referenced by other classes so we don't
             # have to create tables for them here

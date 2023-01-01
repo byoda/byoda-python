@@ -82,10 +82,12 @@ class MemberData(dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    def query(self, object_name: str, filters: DataFilterSet) -> list[dict[str, object]]:
+    def query(self, object_name: str, filters: DataFilterSet
+              ) -> list[dict[str, object]]:
+        '''
+        Queries the data store for the given object and filters
         '''
 
-        '''
     def normalize(self) -> None:
         '''
         Updates data values to match data type as defined in JSON-Schema,
@@ -222,8 +224,8 @@ class MemberData(dict):
 
         data_store: DataStore = config.server.data_store
 
-        data_store.append(
-            self.member.member_id, class_name,
+        await data_store.append(
+            self.member.member_id, 'datalogs',
             {
                 'created_timestamp': datetime.now(timezone.utc),
                 'remote_addr': request.client.host,
@@ -283,9 +285,8 @@ class MemberData(dict):
         )
 
         server = config.server
-        data_store: DataStore = config.server.data_store
 
-        server.account.load_memberships(data_store)
+        await server.account.load_memberships()
         member: Member = server.account.memberships[service_id]
 
         # If an origin_member_id has been provided then we check
@@ -327,8 +328,6 @@ class MemberData(dict):
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
 
-        await member.load_data(key, filters)
-
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
             'graphql', key, relations=relations, filters=filters,
@@ -338,7 +337,6 @@ class MemberData(dict):
             origin_signature=origin_signature,
             signature_format_version=signature_format_version,
             query_id=query_id,
-            save_data=True
         )
 
         all_data = []
@@ -377,33 +375,12 @@ class MemberData(dict):
                 f'Collected {len(all_data)} items from the network'
             )
 
-        # DataFilterSet works on lists so we make put the object in a list
-        data = member.data.get(key)
-        if isinstance(data, dict):
-            data = [data]
+        data_store = server.data_store
+        data = await data_store.query(member.member_id, key, filters)
+        for data_item in data:
+            data_item[ORIGIN_KEY] = member.member_id
 
-        if filters:
-            if isinstance(data, list):
-                filtered_data = DataFilterSet.filter(filters, data)
-            else:
-                _LOGGER.warning(
-                    'Received query with filters for data that is not a list: '
-                    f'{member.data}'
-                )
-        else:
-            filtered_data = data
-
-        _LOGGER.debug(
-            f'Got {len(filtered_data or [])} filtered objects out '
-            f'of {len(data or [])} locally'
-        )
-
-        modified_data = deepcopy(filtered_data)
-        for item in modified_data or []:
-            item[ORIGIN_KEY] = member.member_id
-
-        all_data.extend(modified_data or [])
-
+        all_data.append(data)
         return all_data
 
     @staticmethod
@@ -432,14 +409,6 @@ class MemberData(dict):
         server = config.server
         member = server.account.memberships[service_id]
 
-        # Any data we may have in memory may be stale when we run
-        # multiple processes so we always need to load the data
-        await member.load_data()
-
-        # We do not modify existing data as it will need to be validated
-        # by JSON Schema before it can be accepted.
-        data = copy(member.data)
-
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
@@ -458,14 +427,10 @@ class MemberData(dict):
         schema = member.schema
         schema_properties = schema.json_schema['jsonschema']['properties']
 
-        # The query may be for an object for which we do not yet have
-        # any data
-        if class_object not in member.data:
-            member.data[class_object] = dict()
-
         # TODO: refactor to use dataclasses
         properties = schema_properties[class_object].get('properties', {})
 
+        data = {}
         for key in properties.keys():
             if properties[key]['type'] == 'object':
                 raise ValueError(
@@ -483,15 +448,17 @@ class MemberData(dict):
                 continue
 
             _LOGGER.debug(f'Setting key {key} for data object {class_object}')
-            member.data[class_object][key] = mutate_data[key]
+            data[key] = mutate_data[key]
 
         _LOGGER.debug(
             f'Saving {len(data or [])} bytes of data after mutation of '
             f'{class_object}'
         )
-        await member.save_data(data)
+        data_store = server.data_store
 
-        return member.data
+        await data_store.mutate(member.member_id, class_object, data)
+
+        return data
 
     @staticmethod
     async def update_data(service_id: int, filters, info: Info) -> dict:
@@ -529,40 +496,11 @@ class MemberData(dict):
 
         server = config.server
         member = server.account.memberships[service_id]
-        await member.load_data()
 
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'update',
             'graphql', class_object, filters=filters
         )
-
-        data = copy(member.data.get(class_object))
-
-        if not data:
-            _LOGGER.debug(f'No data available for {class_object}')
-            return {}
-
-        if not isinstance(data, list):
-            _LOGGER.warning(
-                'Received query with filters for data that is not a list: '
-                f'{member.data}'
-            )
-
-        # We remove the data based on the filters and then
-        # add the data back to the list
-        (data, removed) = DataFilterSet.filter_exclude(
-            filters, data
-        )
-        _LOGGER.debug(
-            f'Filtering left {len(data or [])} items and removed '
-            f'{len(removed or [])}'
-        )
-
-        # We can update only one list item per query
-        if not removed or len(removed) == 0:
-            raise ValueError('filters did not match any data')
-        elif len(removed) > 1:
-            raise ValueError('filters match more than one record')
 
         update_data: dict = info.selected_fields[0].arguments
 
@@ -580,20 +518,15 @@ class MemberData(dict):
             f'object {class_object}'
         )
 
-        removed[0].update(updates)
-
-        data.append(removed[0])
-
-        member.data[class_object] = data
-
-        _LOGGER.debug(
-            f'Saving {len(data or [])} bytes of data after mutation of '
-            f'{class_object}'
+        data_store = server.data_store
+        await data_store.mutate(
+            member.member_id, class_object, updates, filters
         )
 
-        await member.save_data(member.data)
-
-        return removed[0]
+        _LOGGER.debug(
+            f'Saving {len(updates or [])} fields of data after mutation of '
+            f'{class_object}'
+        )
 
     async def append_data(service_id, info: Info,
                           remote_member_id: UUID | None = None,
@@ -657,36 +590,12 @@ class MemberData(dict):
                     'Must specify depth = 0 for appending locally'
                 )
 
-            # Any data we may have in memory may be stale when we run
-            # multiple processes so we always need to load the data
-            await member.load_data()
-
-            # We do not modify existing data as it will need to be validated
-            # by JSON Schema before it can be accepted.
-            data = copy(member.data)
-            _LOGGER.debug(f'Appending to {len(data or [])} bytes of data')
-
             # Gets the data included in the mutation
             mutate_data: dict = info.selected_fields[0].arguments
 
-            # The query may be for an array for which we do not yet have
-            # any data
-            if key not in member.data:
-                _LOGGER.debug(f'Initiating array {key} to empty list')
-                member.data[key] = []
-
-            # Strawberry passes us data that we can just copy as-is
-            _LOGGER.debug(f'Appending item to array {key}')
-
-            _LOGGER.debug(f'Appended {len(mutate_data or [])} bytes of data')
-            member.data[key].append(mutate_data)
-
-            _LOGGER.debug(
-                f'Saving {len(data or [])} bytes of data after appending to '
-                f'{key}'
-            )
-
-            await member.save_data(data)
+            _LOGGER.debug(f'Appended {len(mutate_data or [])} items of data')
+            data_store = server.data_store
+            await data_store.append(member.member_id, key, mutate_data)
 
             return mutate_data
 
@@ -726,42 +635,15 @@ class MemberData(dict):
 
         server = config.server
         member = server.account.memberships[service_id]
-        await member.load_data()
 
+        filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'delete',
-            'graphql', object=class_object, filters=filters
+            'graphql', class_name=class_object, filters=filter_set
         )
 
-        data = copy(member.data.get(class_object))
-
-        if not data:
-            _LOGGER.debug(
-                'Can not delete items from empty array for class '
-                f'{class_object}'
-            )
-            return {}
-
-        if not isinstance(data, list):
-            _LOGGER.warning(
-                'Received query with filters for data that is not a list: '
-                f'{member.data}'
-            )
-
-        (data, removed) = DataFilterSet.filter_exclude(filters, data)
-
-        _LOGGER.debug(
-            f'Removed {len(removed or [])} items from array {class_object}, '
-            f'keeping {len(data or [])} items'
+        data_store = server.data_store
+        cur = await data_store.delete(
+            member.member_id, class_object, filter_set
         )
-
-        member.data[class_object] = data
-
-        _LOGGER.debug(
-            f'Saving {len(data or [])} bytes of data after appending '
-            f'to {class_object}'
-        )
-
-        await member.save_data(member.data)
-
-        return removed
+        print(cur)

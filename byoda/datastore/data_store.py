@@ -51,19 +51,20 @@ class DataStore:
                               schema: Schema) -> None:
         '''
         '''
-        self.backend.setup_member_db(member_id, service_id, schema)
+        await self.backend.setup_member_db(member_id, service_id, schema)
 
-    async def query(self, key: str, filters: dict[str, dict]
+    async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
                     ) -> dict[str, object]:
 
-        return self.backend.query(key, filters)
+        return await self.backend.query(member_id, key, filters)
 
-    async def mutate(self, key: str, data: dict[str, object],
+    async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
                      data_filter_set: DataFilterSet = None):
-        return self.backend.mutate(key, data, data_filter_set)
+        return await self.backend.mutate(member_id, key, data, data_filter_set)
 
-    async def append(self, key: str, data: dict[str, object]):
-        return self.backend.append(key, data)
+    async def append(self, member_id: UUID, key: str, data: dict[str, object]):
+        return await self.backend.append(member_id, key, data)
 
-    async def delete(self, key: str, data_filter_set: DataFilterSet = None):
-        return self.backend.delete(key, data_filter_set)
+    async def delete(self, member_id: UUID, key: str,
+                     data_filter_set: DataFilterSet = None):
+        return await self.backend.delete(member_id, key, data_filter_set)

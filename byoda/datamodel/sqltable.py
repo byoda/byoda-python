@@ -18,13 +18,11 @@ from byoda.datatypes import DataType
 from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.datafilter import DataFilterSet
 
-from byoda.storage.sqlite import Connection as SqlConnection
-
-
 _LOGGER = logging.getLogger(__name__)
 
 Sql = TypeVar('Sql')
 SqlCursor = TypeVar('SqlCursor')
+SqlConnection = TypeVar('SqlConnection')
 
 
 class SqlTable:
@@ -204,7 +202,7 @@ class SqlTable:
                     value = int(value)
                 elif column.storage_type == 'REAL':
                     # We store date-time values as an epoch timestamp
-                    if column.format == 'date-time':
+                    if hasattr(column, 'format') and column.format == 'date-time':
                         if isinstance(value, str):
                             value = datetime.fromisoformat(value).timestamp()
                         elif isinstance(value, datetime):
@@ -267,7 +265,7 @@ class ObjectSqlTable(SqlTable):
 
     async def query(self, data_filter_set: DataFilterSet = None,
                     first: int = None, after: int = None,
-                    ) -> None | dict[str, object]:
+                    ) -> list[dict[str, object]]:
         '''
         Get the data from the table. As this is an object table,
         only 0 or 1 rows of results are expected
@@ -276,8 +274,7 @@ class ObjectSqlTable(SqlTable):
         :param first: number of objects to return
         :param after: offset to start returning objects from
 
-        :returns: dict with data for the row in the table or None
-        if no data was in the table
+        :returns: list of dict with data for the row in the table
         '''
 
         # Note: parameters data_filter_set, first & after are ignored for
@@ -289,7 +286,7 @@ class ObjectSqlTable(SqlTable):
 
         rows = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=None,
-            autocommit=True, fetchall=True
+            autocommit=False, fetchall=True
         )
 
         if len(rows) == 0:
@@ -301,7 +298,10 @@ class ObjectSqlTable(SqlTable):
 
         result = self._normalize_row(rows[0])
 
-        return result
+        if result:
+            return [result]
+        else:
+            return []
 
     async def mutate(self, data: dict, data_filter_set: DataFilterSet = None
                      ) -> SqlCursor:
@@ -407,7 +407,7 @@ class ArraySqlTable(SqlTable):
 
         rows = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=placeholders,
-            autocommit=True, fetchall=True
+            autocommit=False, fetchall=True
         )
 
         if len(rows) == 0:
