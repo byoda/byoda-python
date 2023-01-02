@@ -866,22 +866,13 @@ class DataFilterSet:
         if not filters:
             return
 
-        data_filters = {}
-        if not isinstance(filters, dict):
-            atts = inspect.getmembers(filters)
-            for (key, value) in atts:
-                if not (key.startswith('__') and key.endswith('__')):
-                    data_filters[key] = value
-        else:
-            data_filters = filters
-
-        for field, conditions in filters.items():
+        for field, conditions in filters.__dict__.items():
             if conditions:
                 self.filters[field] = []
-                for operator, value in conditions.items():
+                for operator, value in conditions.__dict__.items():
                     if value:
                         self.filters[field].append(
-                            DataFilter.create(field, operator, value)
+                            DataFilter.create(operator, value)
                         )
 
     def __str__(self) -> str:
