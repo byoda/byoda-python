@@ -491,28 +491,18 @@ class Mutation:
         return {{ root_class.referenced_class.name }}_data
 
     @strawberry.field
-    async def delete_from_{{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter]) -> List[Optional[{{ root_class.referenced_class.name }}]]:
+    async def delete_from_{{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter]) -> int:
         _LOGGER.debug('Root mutate for delete_from_{{ root_class.name }}')
 
         if not await authenticate(self, info, DataOperationType_Byoda.DELETE):
             _LOGGER.debug(
-                'Authentication status for delete for data from array '
-                f'{{ root_class.name }}: {result}'
+                'Authentication status for delete for data from array {{ root_class.name }}'
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = await MemberDataClassByoda.delete_array_data({{ service_id }}, info, filters)
-        result = []
-        for item in data:
-            result.append(
-                {{ root_class.referenced_class.name }}(
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-                    item.get('{{ field_name }}'),
-{%       endfor %}{# for field in root_class.referenced_class.fields.values( )#}
-                )
-            )
+        count = await MemberDataClassByoda.delete_array_data({{ service_id }}, info, filters)
 
-        return result
+        return count
 {%     endif %}{# if root_class.type == DataType.OBJECT #}
 {%   endif %}
 

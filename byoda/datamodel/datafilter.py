@@ -872,7 +872,7 @@ class DataFilterSet:
                 for operator, value in conditions.__dict__.items():
                     if value:
                         self.filters[field].append(
-                            DataFilter.create(operator, value)
+                            DataFilter.create(field, operator, value)
                         )
 
     def __str__(self) -> str:

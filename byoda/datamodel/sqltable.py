@@ -478,7 +478,9 @@ class ArraySqlTable(SqlTable):
             stmt += where_clause
             values |= filter_data
 
-        return await self.sql_store.execute(
-            stmt, member_id=self.member_id, data=values,
-            autocommit=True
+        result: SqlCursor = await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=values, autocommit=True
         )
+
+        return result.rowcount
+

@@ -220,8 +220,6 @@ class MemberData(dict):
         Adds an entry to data log
         '''
 
-        filter_set = DataFilterSet(filters)
-
         data_store: DataStore = config.server.data_store
 
         await data_store.append(
@@ -233,7 +231,7 @@ class MemberData(dict):
                 'remote_id_type': auth.id_type.value.rstrip('s-'),
                 'operation': operation,
                 'object': object,
-                'query_filters': str(filter_set),
+                'query_filters': str(filters),
                 'query_depth': depth,
                 'query_relations': ', '.join(relations or []),
                 'query_id': query_id,
