@@ -32,13 +32,14 @@ from byoda.datamodel.account import Account
 from byoda.servers.pod_server import PodServer
 from byoda.servers.directory_server import DirectoryServer
 
-from byoda.secrets.secret import Secret
-from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 
-from byoda.datatypes import CloudType, ServerRole
+from byoda.datatypes import CloudType
+
+from byoda.datatypes import ServerRole
 
 from byoda import config
 
@@ -68,9 +69,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.server = DirectoryServer(network)
         config.server.network = network
+
         await config.server.set_document_store(
-            DocumentStoreType.SQLITE, root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
         )
+        await config.server.set_data_store(DataStoreType.SQLITE)
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)

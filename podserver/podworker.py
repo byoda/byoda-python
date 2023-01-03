@@ -35,9 +35,10 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType
-
+from byoda.datastore.data_store import DataStoreType
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import LOGFILE, Logger
@@ -85,9 +86,14 @@ async def main(argv):
     try:
         config.server = PodServer()
         server = config.server
+
         await server.set_document_store(
-            DocumentStoreType.SQLITE, root_dir=data['root_dir']
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType(data['cloud']),
+            bucket_prefix=data['bucket_prefix'],
+            root_dir=data['root_dir']
         )
+        await server.set_data_store(DataStoreType.SQLITE)
 
         network = Network(data, data)
         await network.load_network_secrets()

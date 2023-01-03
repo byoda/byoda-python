@@ -29,6 +29,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import IdType, StorageType, CloudType
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
 
@@ -89,9 +90,7 @@ async def setup():
         root_dir=network_data['root_dir']
     )
 
-    await server.set_data_store(
-        DocumentStoreType.SQLITE, root_dir=network_data['root_dir']
-    )
+    await server.set_data_store(DataStoreType.SQLITE)
 
     network = Network(network_data, network_data)
     await network.load_network_secrets()

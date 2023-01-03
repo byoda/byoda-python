@@ -29,13 +29,15 @@ from python_graphql_client import GraphqlClient
 from strawberry.asgi import GraphQL
 
 from byoda.datastore.document_store import DocumentStoreType
-from byoda.datatypes import CloudType
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.service import Service
+
+from byoda.datatypes import CloudType
 
 from byoda.secrets import MemberSecret, MemberDataSecret
 
@@ -194,9 +196,12 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         await server.set_document_store(
-            DocumentStoreType.SQLITE, root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType.LOCAL,
+            bucket_prefix='byodatest',
+            root_dir=TEST_DIR
         )
-
+        await server.set_data_store(DataStoreType.SQLITE)
         server.paths = network.paths
 
         account_id = uuid4()
