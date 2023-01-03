@@ -392,7 +392,7 @@ class Mutation:
 {%       for field in root_class.fields.values() %}
             {{ field.name }}: Optional[{{ field.python_type }}] = None,
 {%       endfor %}{# for field in root_class.fields.values() #}
-            ) -> {{ root_class.name }}:
+            ) -> int:
         _LOGGER.debug('Root query for mutate_{{ root_class.name }}')
 
         # TODO: Can we differentiate somehow between CREATE / UPDATE / APPEND
@@ -409,12 +409,9 @@ class Mutation:
             '{{ field.name }}': {{ field.name }},
 {%       endfor %}
         }
-        await MemberDataClassByoda.mutate_data({{ service_id }}, info)
-        return {{ root_class.name }}(
-{%       for field in root_class.fields.values()%}
-            {{ field.name }},
-{%       endfor %}
-        )
+        object_count = await MemberDataClassByoda.mutate_data({{ service_id }}, info)
+
+        return object_count
 
 {%     elif root_class.type == DataType.ARRAY %}{# if root_class.type == DataType.OBJECT #}
 {# APIs for array processing #}
@@ -423,7 +420,7 @@ class Mutation:
 {%       for field_name, field in root_class.referenced_class.fields.items()%}
         {{ field_name }}: Optional[{{ field.python_type }}] = None,
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-        ) -> {{ root_class.referenced_class.name }}:
+        ) -> int:
         _LOGGER.debug('Root query for update_{{ root_class.name }}')
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
@@ -440,15 +437,10 @@ class Mutation:
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
         }
 
-        item = await MemberDataClassByoda.update_data({{ service_id }}, filters, info)
-        if not item:
-            return
+        object_count = await MemberDataClassByoda.update_data({{ service_id }}, filters, info)
 
-        return {{ root_class.referenced_class.name }}(
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-            item.get('{{ field_name }}'),
-{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
-        )
+        return object_count
+
 
     @strawberry.field
     async def append_{{ root_class.name }}(self, info: Info,
@@ -463,7 +455,7 @@ class Mutation:
 {%          endif %}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
             remote_member_id: Optional[UUID] = None, depth: int = 0
-            ) -> {{ root_class.referenced_class.name }}:
+            ) -> int:
         _LOGGER.debug('Root query for append_{{ root_class.name }}')
 
         result = await authenticate(self, info, DataOperationType_Byoda.APPEND)
@@ -479,16 +471,11 @@ class Mutation:
             '{{ field_name }}': {{ field_name }},
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         }
-        data = await MemberDataClassByoda.append_data(
+        object_count = await MemberDataClassByoda.append_data(
             {{ service_id }}, info, remote_member_id=remote_member_id, depth=depth
         )
-        {{ root_class.referenced_class.name }}_data =  {{ root_class.referenced_class.name }}(
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-            data.get('{{ field_name }}'),
-{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-        )
 
-        return {{ root_class.referenced_class.name }}_data
+        return object_count
 
     @strawberry.field
     async def delete_from_{{ root_class.name }}(self, info: Info, filters: Optional[{{ root_class.referenced_class.name }}_input_filter]) -> int:
@@ -500,9 +487,9 @@ class Mutation:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        count = await MemberDataClassByoda.delete_array_data({{ service_id }}, info, filters)
+        object_count = await MemberDataClassByoda.delete_array_data({{ service_id }}, info, filters)
 
-        return count
+        return object_count
 {%     endif %}{# if root_class.type == DataType.OBJECT #}
 {%   endif %}
 

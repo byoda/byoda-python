@@ -9,7 +9,6 @@ on the filter conditions defined in the query
 
 import re
 import logging
-import inspect
 from uuid import UUID
 from datetime import datetime, date, time
 
@@ -855,10 +854,12 @@ class DataFilterSet:
     result
     '''
 
-    def __init__(self, filters: dict[str, str]):
+    def __init__(self, filters: object | dict):
         '''
-        :param filter: is one of the input filters in the Strawberry code,
-        generated from the Jinja2 template for the service contract
+        :param filters: is an instance of one of the input filters in the
+        Strawberry code, generated from the Jinja2 template for the service
+        contract. For test cases, we also support filters to be provided as
+        dict
         '''
 
         self.filters = {}
@@ -866,10 +867,20 @@ class DataFilterSet:
         if not filters:
             return
 
-        for field, conditions in filters.__dict__.items():
+        if isinstance(filters, dict):
+            # For test cases we support filters as dict
+            filter_items = filters.items()
+        else:
+            filter_items = filters.__dict__.items()
+
+        for field, conditions in filter_items:
             if conditions:
                 self.filters[field] = []
-                for operator, value in conditions.__dict__.items():
+                if isinstance(conditions, dict):
+                    condition_items = conditions.items()
+                else:
+                    condition_items = conditions.__dict__.items()
+                for operator, value in condition_items:
                     if value:
                         self.filters[field].append(
                             DataFilter.create(field, operator, value)

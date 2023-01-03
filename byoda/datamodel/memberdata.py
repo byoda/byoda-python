@@ -8,7 +8,6 @@ Class for modeling an element of data of a member
 import logging
 from uuid import UUID
 from typing import TypeVar
-from copy import copy, deepcopy
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -206,7 +205,7 @@ class MemberData(dict):
 
     async def add_log_entry(self, request: Request, auth: RequestAuth,
                             operation: str, source: str, class_name: str,
-                            filters: list[str] = None,
+                            filters: list[str] | DataFilterSet = None,
                             relations: list[str] = None,
                             remote_member_id: UUID | None = None,
                             depth: int = None, message: str = None,
@@ -222,6 +221,11 @@ class MemberData(dict):
 
         data_store: DataStore = config.server.data_store
 
+        if not isinstance(filters, DataFilterSet):
+            filter_set = DataFilterSet(filters)
+        else:
+            filter_set = filters
+
         await data_store.append(
             self.member.member_id, 'datalogs',
             {
@@ -231,7 +235,7 @@ class MemberData(dict):
                 'remote_id_type': auth.id_type.value.rstrip('s-'),
                 'operation': operation,
                 'object': object,
-                'query_filters': str(filters),
+                'query_filters': str(filter_set),
                 'query_depth': depth,
                 'query_relations': ', '.join(relations or []),
                 'query_id': query_id,
@@ -326,9 +330,11 @@ class MemberData(dict):
         if key.endswith('_connection'):
             key = key[:-1 * len('_connection')]
 
+        filter_set = DataFilterSet(filters)
+
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
-            'graphql', key, relations=relations, filters=filters,
+            'graphql', key, relations=relations, filters=filter_set,
             depth=depth, timestamp=timestamp,
             remote_member_id=remote_member_id,
             origin_member_id=origin_member_id,
@@ -374,11 +380,11 @@ class MemberData(dict):
             )
 
         data_store = server.data_store
-        data = await data_store.query(member.member_id, key, filters)
+        data = await data_store.query(member.member_id, key, filter_set)
         for data_item in data:
             data_item[ORIGIN_KEY] = member.member_id
+            all_data.append(data_item)
 
-        all_data.append(data)
         return all_data
 
     @staticmethod
@@ -454,12 +460,14 @@ class MemberData(dict):
         )
         data_store = server.data_store
 
-        await data_store.mutate(member.member_id, class_object, data)
+        records_affected = await data_store.mutate(
+            member.member_id, class_object, data
+        )
 
-        return data
+        return records_affected
 
     @staticmethod
-    async def update_data(service_id: int, filters, info: Info) -> dict:
+    async def update_data(service_id: int, filters, info: Info) -> int:
         '''
         Updates a dict in an array
 
@@ -495,9 +503,10 @@ class MemberData(dict):
         server = config.server
         member = server.account.memberships[service_id]
 
+        filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'update',
-            'graphql', class_object, filters=filters
+            'graphql', class_object, filters=filter_set
         )
 
         update_data: dict = info.selected_fields[0].arguments
@@ -517,8 +526,8 @@ class MemberData(dict):
         )
 
         data_store = server.data_store
-        await data_store.mutate(
-            member.member_id, class_object, updates, filters
+        object_count = await data_store.mutate(
+            member.member_id, class_object, updates, filter_set
         )
 
         _LOGGER.debug(
@@ -526,9 +535,11 @@ class MemberData(dict):
             f'{class_object}'
         )
 
+        return object_count
+
     async def append_data(service_id, info: Info,
                           remote_member_id: UUID | None = None,
-                          depth: int = 0) -> dict:
+                          depth: int = 0) -> int:
         '''
         Appends the provided data
 
@@ -593,9 +604,11 @@ class MemberData(dict):
 
             _LOGGER.debug(f'Appended {len(mutate_data or [])} items of data')
             data_store = server.data_store
-            await data_store.append(member.member_id, key, mutate_data)
+            object_count = await data_store.append(
+                member.member_id, key, mutate_data
+            )
 
-            return mutate_data
+            return object_count
 
     @staticmethod
     async def delete_array_data(service_id: int, info: Info, filters) -> dict:
@@ -641,7 +654,8 @@ class MemberData(dict):
         )
 
         data_store = server.data_store
-        cur = await data_store.delete(
+        object_count = await data_store.delete(
             member.member_id, class_object, filter_set
         )
-        print(cur)
+
+        return object_count

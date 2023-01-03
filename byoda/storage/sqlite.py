@@ -135,7 +135,7 @@ class Sql:
         return await sql_table.query(filters)
 
     async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
-                     data_filter_set: DataFilterSet = None):
+                     data_filter_set: DataFilterSet = None) -> int:
         '''
         Execute the mutation on the SqlTable for the member_id and key
         '''
@@ -152,7 +152,7 @@ class Sql:
         return await sql_table.append(data)
 
     async def delete(self, member_id: UUID, key: str,
-                     data_filter_set: DataFilterSet = None):
+                     data_filter_set: DataFilterSet = None) -> int:
         '''
         Execute the delete on the SqlTable for the member_id and key
         '''

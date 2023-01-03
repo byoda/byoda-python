@@ -117,9 +117,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         data = await person_table.query()
-        self.assertEqual(given_name, data['given_name'])
-        self.assertEqual(family_name, data['family_name'])
-        self.assertEqual(data['email'], None)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(given_name, data[0]['given_name'])
+        self.assertEqual(family_name, data[0]['family_name'])
+        self.assertEqual(data[0]['email'], None)
 
         # Populate Member object with datetime and UUID data and check the
         # result
@@ -131,8 +132,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         )
         data = await member_table.query()
-        self.assertEqual(data['member_id'], uuid)
-        self.assertEqual(data['joined'], now)
+        self.assertEqual(data[0]['member_id'], uuid)
+        self.assertEqual(data[0]['joined'], now)
 
     async def test_array(self):
         schema = await Schema.get_schema(
@@ -166,6 +167,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         )
         data = await network_invites_table.query()
+        self.assertEqual(len(data), 1)
         if not compare_network_invite(data, network_invites):
             raise self.assertTrue(False)
 
@@ -212,6 +214,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(data), 3)
 
         data = await network_invites_table.query()
+        self.assertEqual(len(data), 3)
         if compare_network_invite(data, network_invites) != 3:
             raise self.assertTrue(False)
 

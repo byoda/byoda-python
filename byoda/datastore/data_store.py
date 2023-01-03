@@ -59,12 +59,12 @@ class DataStore:
         return await self.backend.query(member_id, key, filters)
 
     async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
-                     data_filter_set: DataFilterSet = None):
+                     data_filter_set: DataFilterSet = None) -> int:
         return await self.backend.mutate(member_id, key, data, data_filter_set)
 
     async def append(self, member_id: UUID, key: str, data: dict[str, object]):
         return await self.backend.append(member_id, key, data)
 
     async def delete(self, member_id: UUID, key: str,
-                     data_filter_set: DataFilterSet = None):
+                     data_filter_set: DataFilterSet = None) -> int:
         return await self.backend.delete(member_id, key, data_filter_set)

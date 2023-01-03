@@ -82,7 +82,7 @@ class SqlTable:
             'boolean': 'INTEGER',
             'uuid': 'TEXT',
             'date-time': 'REAL',
-            'array': 'TEXT',
+            'array': 'BLOB',
             'reference': 'TEXT',
         }[val.lower()]
 
@@ -202,7 +202,8 @@ class SqlTable:
                     value = int(value)
                 elif column.storage_type == 'REAL':
                     # We store date-time values as an epoch timestamp
-                    if hasattr(column, 'format') and column.format == 'date-time':
+                    if (hasattr(column, 'format')
+                            and column.format == 'date-time'):
                         if isinstance(value, str):
                             value = datetime.fromisoformat(value).timestamp()
                         elif isinstance(value, datetime):
@@ -219,7 +220,7 @@ class SqlTable:
                 elif column.storage_type == 'TEXT':
                     if type(value) in (list, dict):
                         # For nested objects or arrays, we store them as JSON
-                        value = orjson.dumps(value)
+                        value = orjson.dumps(value).decode('utf-8')
                     else:
                         value = str(value)
 
@@ -304,7 +305,7 @@ class ObjectSqlTable(SqlTable):
             return []
 
     async def mutate(self, data: dict, data_filter_set: DataFilterSet = None
-                     ) -> SqlCursor:
+                     ) -> int:
         '''
         Sets the data for the object. If existing data is present, any value
         will be wiped if not present in the supplied data
@@ -342,10 +343,12 @@ class ObjectSqlTable(SqlTable):
         stmt += values_stmt
         values |= values_data
 
-        await self.sql_store.execute(
+        result = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
+
+        return result.rowcount
 
 
 class ArraySqlTable(SqlTable):
@@ -421,7 +424,7 @@ class ArraySqlTable(SqlTable):
 
         return results
 
-    async def append(self, data: dict) -> SqlCursor:
+    async def append(self, data: dict) -> int:
         '''
         Append a row to the table
         '''
@@ -441,12 +444,21 @@ class ArraySqlTable(SqlTable):
             autocommit=True
         )
 
-        return result
+        return result.rowcount
+
+    async def mutate(self, data: dict, data_filters: DataFilterSet
+                     ) -> int:
+        '''
+        Mutates ones or more records. For SQL Arrays, mutation is
+        implemented using SQL UPDATE
+        '''
+
+        return await self.update(data, data_filters)
 
     async def update(self, data: dict, data_filters: DataFilterSet
-                     ) -> SqlCursor:
+                     ) -> int:
         '''
-        Updates ones or more records
+        updates ones or more records
         '''
 
         stmt = f'UPDATE {self.table_name} SET '
@@ -460,12 +472,13 @@ class ArraySqlTable(SqlTable):
         stmt += where_clause
         values |= filter_data
 
-        return await self.sql_store.execute(
+        result: SqlCursor = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
+        return result.rowcount
 
-    async def delete(self, data_filters: DataFilterSet) -> SqlCursor:
+    async def delete(self, data_filters: DataFilterSet) -> int:
         '''
         Deletes one or more records based on the provided filters
         '''
@@ -483,4 +496,3 @@ class ArraySqlTable(SqlTable):
         )
 
         return result.rowcount
-
