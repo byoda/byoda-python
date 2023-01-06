@@ -48,6 +48,7 @@ schedule = "*"
 typing-extensions = "*"
 certbot = "*"
 aiosqlite = "*"
+fastjsonschema = "*"
 
 [dev-packages]
 flake8 = "*"

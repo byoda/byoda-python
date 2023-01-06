@@ -113,6 +113,9 @@ class Member:
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
+        '''
+        Loads the schema and the service for this membership
+        '''
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -241,7 +244,9 @@ class Member:
             service.service_id, account,
             local_service_contract=local_service_contract
         )
-        await member.setup(local_service_contract=local_service_contract)
+        await member.setup(
+            local_service_contract=local_service_contract, new_membership=True
+        )
 
         if member_id:
             if isinstance(member_id, str):

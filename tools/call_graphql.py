@@ -47,6 +47,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
         os.environ['ROOT_DIR'] = '/byoda'
+
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
@@ -73,9 +74,9 @@ async def setup_network(test_dir: str) -> dict[str, str]:
         root_dir=network_data['root_dir']
     )
 
-    await config.server.set_data_store(DataStoreType.SQLITE)
-
     config.server.paths = network.paths
+
+    await config.server.set_data_store(DataStoreType.SQLITE)
 
     return network_data
 
@@ -158,7 +159,7 @@ async def main(argv):
 
     if args.object not in GRAPHQL_STATEMENTS:
         raise ValueError(
-            f'{args.object} not in available objects: ' +
+            f'{args.object} not in list of available objects for the service: '
             ', '.join(GRAPHQL_STATEMENTS.keys())
         )
 

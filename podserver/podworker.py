@@ -93,13 +93,13 @@ async def main(argv):
             bucket_prefix=data['bucket_prefix'],
             root_dir=data['root_dir']
         )
-        await server.set_data_store(DataStoreType.SQLITE)
-
         network = Network(data, data)
         await network.load_network_secrets()
 
         server.network = network
         server.paths = network.paths
+
+        await server.set_data_store(DataStoreType.SQLITE)
 
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()

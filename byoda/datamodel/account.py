@@ -278,11 +278,16 @@ class Account:
         memberships = await self.get_memberships()
 
         for membership in memberships.values() or {}:
-            service_id = membership['service_id']
+            member_id: UUID = membership['member_id']
+            service_id: int = membership['service_id']
             if service_id not in self.memberships:
-                await self.load_membership(service_id)
+                _LOGGER.debug(
+                    f'Loading membership for service {service_id}: {member_id}'
+                )
+                await self.load_membership(service_id, member_id)
 
-    async def load_membership(self, service_id: int) -> Member:
+    async def load_membership(self, service_id: int, member_id: UUID
+                              ) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -294,12 +299,12 @@ class Account:
             )
 
         member = Member(service_id, self)
-        await member.setup(new_membership=False)
+        await member.setup(member_id=member_id)
 
         await member.load_secrets()
         member.data = MemberData(member)
 
-        if member.member_id not in self.memberships:
+        if service_id not in self.memberships:
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
@@ -343,6 +348,6 @@ class Account:
         await member.create_nginx_config()
         reload_gunicorn()
 
-        self.memberships[member.service_id] = member
+        self.memberships[service_id] = member
 
         return member

@@ -190,7 +190,7 @@ class SqliteStorage(Sql):
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
-        self.account_db_file: str = f'{data_dir}/sqlite.db'
+        self.account_db_file: str = f'{data_dir}/sqlite-account.db'
 
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
         self.member_data_files: dict[UUID, str] = {}
@@ -246,7 +246,9 @@ class SqliteStorage(Sql):
                 f'Created member db data directory {member_data_dir}'
             )
 
-        member_data_file = f'{member_data_dir}/sqlite.db'
+        member_data_file = \
+            f'{member_data_dir}/sqlite-{service_id}-{member_id}.db'
+
         # this will create the DB file if it doesn't exist already
         member_db_conn = await aiosqlite.connect(member_data_file)
         member_db_conn.row_factory = aiosqlite.Row
@@ -348,6 +350,11 @@ class SqliteStorage(Sql):
             key: value for key, value in memberships.items()
             if status is None or value['status'] == status.value
         }
+
+        _LOGGER.debug(
+            f'Found {len(memberships_status)} memberships '
+            'in Sqlite Account DB'
+        )
 
         return memberships_status
 

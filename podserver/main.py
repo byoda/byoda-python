@@ -90,8 +90,6 @@ async def setup():
         root_dir=network_data['root_dir']
     )
 
-    await server.set_data_store(DataStoreType.SQLITE)
-
     network = Network(network_data, network_data)
     await network.load_network_secrets()
     try:
@@ -103,6 +101,8 @@ async def setup():
 
     server.network = network
     server.paths = network.paths
+
+    await server.set_data_store(DataStoreType.SQLITE)
 
     await server.get_registered_services()
 

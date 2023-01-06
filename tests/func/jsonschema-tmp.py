@@ -201,8 +201,9 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
             bucket_prefix='byodatest',
             root_dir=TEST_DIR
         )
-        await server.set_data_store(DataStoreType.SQLITE)
         server.paths = network.paths
+
+        await server.set_data_store(DataStoreType.SQLITE)
 
         account_id = uuid4()
         pod_account = Account(account_id, network)

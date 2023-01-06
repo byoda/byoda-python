@@ -41,7 +41,7 @@ To launch the pod:
 - Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
 
 ```
-sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host
+sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host sqlite3
 
 git clone https://github.com/StevenHessing/byoda-python.git
 ```
@@ -90,7 +90,8 @@ The 'Address Book' service is a proof of concept on how a service in the BYODA n
 sudo mkdir /byoda 2>/dev/null
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
     python_graphql_client certvalidator sqlalchemy passgen \
-    starlette starlette-context python-json-logger
+    starlette starlette-context python-json-logger \
+    python-dateutils aiosqlite
 source tools/set_env.sh
 ```
 Now that we have all the bits and pieces in place, let's first see what services are available on the byoda.net network:
