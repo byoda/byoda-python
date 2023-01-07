@@ -457,6 +457,11 @@ class AioSqliteStorage(Sql):
         Sets the status of a membership
         '''
 
+        _LOGGER.debug(
+            f'Setting membership status for member {member_id} '
+            f'for service {service_id} to {status.value}'
+        )
+
         # Can't use data dict parameter with 'member_id' key as the
         # SqlTable.execute() method will try to update the SQL tables for
         # the membership
