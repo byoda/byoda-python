@@ -329,7 +329,6 @@ class SqliteStorage(Sql):
         query = (
             'SELECT member_id, service_id, status, timestamp '
             'FROM memberships '
-            'ORDER BY timestamp ASC '
         )
         if status:
             query += f'WHERE status = "{status.value}" '
