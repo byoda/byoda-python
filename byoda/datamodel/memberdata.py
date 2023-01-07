@@ -63,8 +63,6 @@ class MemberData(dict):
 
         self.paths: Paths = member.paths
 
-        self.document_store: DocumentStore = member.doc_store
-
     def initalize(self) -> None:
         '''
         Initializes the data for a new membership. Every service
