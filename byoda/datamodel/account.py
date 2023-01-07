@@ -18,7 +18,6 @@ from byoda.datatypes import MemberStatus
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.datamodel.memberdata import MemberData
-from byoda.datastore.data_store import DataStore
 
 from byoda.secrets import Secret
 from byoda.secrets import AccountSecret
@@ -252,6 +251,24 @@ class Account:
             f'Registered account with directory server: {resp.status}'
         )
 
+    async def load_memberships(self) -> None:
+        '''
+        Loads the memberships of an account
+        '''
+
+        _LOGGER.debug('Loading memberships')
+
+        memberships = await self.get_memberships()
+
+        for membership in memberships.values() or {}:
+            member_id: UUID = membership['member_id']
+            service_id: int = membership['service_id']
+            if service_id not in self.memberships:
+                _LOGGER.debug(
+                    f'Loading membership for service {service_id}: {member_id}'
+                )
+                await self.load_membership(service_id, member_id)
+
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
                               ) -> dict[UUID, dict[
                                   str, UUID | str | MemberStatus | float]]:
@@ -271,24 +288,6 @@ class Account:
         )
 
         return memberships
-
-    async def load_memberships(self) -> None:
-        '''
-        Loads the memberships of an account
-        '''
-
-        _LOGGER.debug('Loading memberships')
-
-        memberships = await self.get_memberships()
-
-        for membership in memberships.values() or {}:
-            member_id: UUID = membership['member_id']
-            service_id: int = membership['service_id']
-            if service_id not in self.memberships:
-                _LOGGER.debug(
-                    f'Loading membership for service {service_id}: {member_id}'
-                )
-                await self.load_membership(service_id, member_id)
 
     async def load_membership(self, service_id: int, member_id: UUID
                               ) -> Member:

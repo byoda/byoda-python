@@ -333,8 +333,7 @@ class SqliteStorage(Sql):
         if status:
             query += f'WHERE status = "{status.value}" '
 
-        rows = await self.execute(
-            fetchall=True
+        rows = await self.execute(query, fetchall=True
         )
 
         memberships: dict[str, object] = {}

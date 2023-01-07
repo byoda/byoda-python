@@ -24,7 +24,6 @@ from byoda.datamodel.graphql_proxy import GraphQlProxy
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
 
-from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
 from byoda.requestauth.requestauth import RequestAuth
