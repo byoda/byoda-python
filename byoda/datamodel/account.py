@@ -265,6 +265,10 @@ class Account:
 
         data_store = config.server.data_store
         memberships = await data_store.backend.get_memberships(status)
+        _LOGGER.debug(
+            f'Got {len(memberships)} memberships with '
+            f'status {status} from account DB'
+        )
 
         return memberships
 

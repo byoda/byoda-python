@@ -321,18 +321,20 @@ class SqliteStorage(Sql):
         '''
         Get the latest status of all memberships
 
-        :param status: The status of the membership to return. If 'None' is
-        set, the latest membership status for all memberships will be
+        :param status: The status of the membership to return. If its value is
+        'None' the latest membership status for all memberships will be
         returned
         '''
 
+        query = (
+            'SELECT member_id, service_id, status, timestamp '
+            'FROM memberships '
+            'ORDER BY timestamp ASC '
+        )
+        if status:
+            query += f'WHERE status = "{status.value}" '
+
         rows = await self.execute(
-            (
-                'SELECT member_id, service_id, status, timestamp '
-                'FROM memberships '
-                'ORDER BY timestamp ASC '
-                'LIMIT 1'
-            ),
             fetchall=True
         )
 
@@ -340,12 +342,18 @@ class SqliteStorage(Sql):
         for row in rows:
             try:
                 member_id = UUID(row['member_id'])
-                memberships[member_id] = {
+                membership: dict[str, UUID | int | MemberStatus | float] = {
                     'member_id': member_id,
                     'service_id': int(row['service_id']),
                     'status': MemberStatus(row['status']),
                     'timestamp': float(row['timestamp']),
                 }
+                if status or member_id not in memberships:
+                    memberships[member_id] = membership
+                else:
+                    existing_timestamp = memberships[member_id]['timestamp']
+                    if membership['timestamp'] >= existing_timestamp:
+                        memberships[member_id] = membership
             except ValueError as exc:
                 _LOGGER.warning(
                     f'Row with invalid data in account DB: {exc}'
