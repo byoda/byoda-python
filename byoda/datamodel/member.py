@@ -71,7 +71,8 @@ class Member:
     '''
 
     def __init__(self, service_id: int, account: Account,
-                 local_service_contract: str = None) -> None:
+                 local_service_contract: str = None, member_id: UUID = None
+                 ) -> None:
         '''
         Constructor
 
@@ -85,7 +86,7 @@ class Member:
                 'storage_driver and filepath parameters can only be used by '
                 'test cases'
             )
-        self.member_id: UUID = None
+        self.member_id: UUID = member_id
         self.service_id: int = int(service_id)
 
         self.account: Account = account
@@ -249,6 +250,7 @@ class Member:
         )
 
         if member_id:
+            _LOGGER.debug(f'Reviewing existing member_id: {member_id}')
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
             elif isinstance(member_id, UUID):
@@ -256,6 +258,7 @@ class Member:
             else:
                 raise ValueError(f'member_id {member_id} must have type UUID')
         else:
+            _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
 
         if not await member.paths.exists(member.paths.SERVICE_FILE):
@@ -590,9 +593,6 @@ class Member:
 
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
-        )
-        await self.data_store.backend.setup_member_db(
-            self.member_id, self.service_id, schema
         )
 
         return schema

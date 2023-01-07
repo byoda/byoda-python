@@ -298,8 +298,13 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        member = Member(service_id, self)
+        member = Member(service_id, self, member_id=member_id)
+
         await member.setup(new_membership=False)
+
+        await self.data_store.backend.setup_member_db(
+                member.member_id, member.service_id, member.schema
+        )
 
         await member.load_secrets()
         member.data = MemberData(member)
