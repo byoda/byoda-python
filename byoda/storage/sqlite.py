@@ -338,13 +338,18 @@ class SqliteStorage(Sql):
 
         memberships: dict[str, object] = {}
         for row in rows:
-            member_id = UUID(row['member_id'])
-            memberships[member_id] = {
-                'member_id': member_id,
-                'service_id': int(row['service_id']),
-                'status': row['status'],
-                'timestamp': row['timestamp'],
-            }
+            try:
+                member_id = UUID(row['member_id'])
+                memberships[member_id] = {
+                    'member_id': member_id,
+                    'service_id': int(row['service_id']),
+                    'status': MemberStatus(row['status']),
+                    'timestamp': float(row['timestamp']),
+                }
+            except ValueError as exc:
+                _LOGGER.warning(
+                    f'Row with invalid data in account DB: {exc}'
+                )
 
         memberships_status = {
             key: value for key, value in memberships.items()
