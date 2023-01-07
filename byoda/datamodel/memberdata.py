@@ -57,14 +57,13 @@ class MemberData(dict):
     by the schema of services
     '''
 
-    def __init__(self, member: Member, paths: Paths,
-                 doc_store: DocumentStore):
+    def __init__(self, member: Member):
         self.member: Member = member
         self.unvalidated_data: dict = None
 
-        self.paths: Paths = paths
+        self.paths: Paths = member.paths
 
-        self.document_store: DocumentStore = doc_store
+        self.document_store: DocumentStore = member.doc_store
 
     def initalize(self) -> None:
         '''

@@ -244,9 +244,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
             verify_signatures=False
         )
 
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
+        member.data = MemberData(member)
         await member.data.save_protected_shared_key()
         member.data.initalize()
         await member.data.save()

@@ -298,9 +298,7 @@ class Member:
              storage_driver=server.local_storage
         )
 
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
+        member.data = MemberData(member)
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
