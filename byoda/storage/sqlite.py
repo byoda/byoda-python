@@ -90,12 +90,18 @@ class Sql:
         # con = self.connection(member_id)
 
         if member_id:
-            _LOGGER.debug(f'Executing SQL for member {member_id}: {command}')
+            _LOGGER.debug(
+                f'Executing SQL for member {member_id}: {command} using '
+                f'SQL data file {self.member_data_files[member_id]}'
+            )
             db_conn = await aiosqlite.connect(
                 self.member_data_files[member_id]
             )
         else:
-            _LOGGER.debug(f'Executing SQL for account: {command}')
+            _LOGGER.debug(
+                f'Executing SQL for account: {command} using '
+                f'SQL data file {self.account_db_conn}'
+            )
             db_conn = await aiosqlite.connect(self.account_db_file)
 
         db_conn.row_factory = aiosqlite.Row
@@ -289,7 +295,7 @@ class SqliteStorage(Sql):
             fetchall=True
         )
 
-        if len(rows) and rows[0]['status'] == status:
+        if len(rows) and rows[0]['status'] == status.value:
             _LOGGER.debug('No need to change membership status')
             return
 
@@ -322,7 +328,8 @@ class SqliteStorage(Sql):
         Get the latest status of all memberships
 
         :param status: The status of the membership to return. If its value is
-        'None' the latest membership status for all memberships will be
+        'None' the latest membership status for all memberships will be. If the
+        status parameter has a value, only the memberships with that status are
         returned
         '''
 
@@ -333,8 +340,7 @@ class SqliteStorage(Sql):
         if status:
             query += f'WHERE status = "{status.value}" '
 
-        rows = await self.execute(query, fetchall=True
-        )
+        rows = await self.execute(query, fetchall=True)
 
         memberships: dict[str, object] = {}
         for row in rows:
@@ -359,7 +365,7 @@ class SqliteStorage(Sql):
 
         memberships_status = {
             key: value for key, value in memberships.items()
-            if status is None or value['status'] == status.value
+            if status is None or value['status'] == status
         }
 
         _LOGGER.debug(

@@ -166,12 +166,19 @@ class SqlTable:
 
     @staticmethod
     def get_column_name(field: str) -> str:
+        '''
+        Returns the name of the SQL column for a JSONSchema field
+        '''
+
         if field.startswith('_'):
             return field
         else:
             return f'_{field}'
 
     def get_field_name(column: str) -> str:
+        '''
+        Returns the name of the JSONSchema field for an SQL column
+        '''
         return column.lstrip('_')
 
     def sql_values_clause(self, data: dict, separator: str = '='

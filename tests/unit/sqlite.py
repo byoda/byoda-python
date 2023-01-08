@@ -20,9 +20,12 @@ from byoda.datamodel.schema import Schema
 from byoda.datamodel.network import Network
 from byoda.datamodel.datafilter import DataFilterSet
 
+from byoda.datatypes import MemberStatus
+
 from byoda.servers.pod_server import PodServer
 
 from byoda.storage.sqlite import SqliteStorage
+
 
 from byoda import config
 
@@ -399,6 +402,44 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         data = await network_invites_table.query()
         self.assertIsNone(data)
+
+    async def test_member_db(self):
+        schema = await Schema.get_schema(
+            'addressbook.json', config.server.network.paths.storage_driver,
+            None, None, verify_contract_signatures=False
+        )
+        schema.get_graphql_classes()
+
+        uuid = get_test_uuid()
+
+        sql = await SqliteStorage.setup()
+        await sql.setup_member_db(uuid, schema.service_id, schema)
+        await sql.set_membership_status(
+            uuid, schema.service_id, MemberStatus.ACTIVE
+        )
+        memberships = await sql.get_memberships()
+        self.assertEqual(len(memberships), 1)
+
+        await sql.set_membership_status(
+            uuid, schema.service_id, MemberStatus.PAUSED
+        )
+        memberships = await sql.get_memberships()
+        self.assertEqual(len(memberships), 1)
+
+        memberships = await sql.get_memberships(status=MemberStatus.PAUSED)
+        self.assertEqual(len(memberships), 1)
+
+        await sql.set_membership_status(
+            uuid, schema.service_id, MemberStatus.ACTIVE
+        )
+        memberships = await sql.get_memberships(status=MemberStatus.PAUSED)
+        self.assertEqual(len(memberships), 1)
+
+        memberships = await sql.get_memberships(status=MemberStatus.ACTIVE)
+        self.assertEqual(len(memberships), 1)
+
+        memberships = await sql.get_memberships()
+        self.assertEqual(len(memberships), 1)
 
 
 def compare_network_invite(data: list[dict[str, str]],
