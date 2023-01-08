@@ -16,6 +16,7 @@ from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
 
 from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
 
 from byoda.datamodel.memberdata import MemberData
 
@@ -280,7 +281,7 @@ class Account:
         member_id, service_id, status, timestamp,
         '''
 
-        data_store = config.server.data_store
+        data_store: DataStore = config.server.data_store
         memberships = await data_store.backend.get_memberships(status)
         _LOGGER.debug(
             f'Got {len(memberships)} memberships with '
@@ -305,7 +306,8 @@ class Account:
 
         await member.setup(new_membership=False)
 
-        await self.data_store.backend.setup_member_db(
+        data_store: DataStore = config.server.data_store
+        await data_store.backend.setup_member_db(
                 member.member_id, member.service_id, member.schema
         )
 
