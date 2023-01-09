@@ -7,7 +7,7 @@ Static variable definitions used in various test cases
 '''
 
 AZURE_POD_ACCOUNT_ID = '7ea17e0e-19ae-4911-ab83-a165213810c4'
-AZURE_POD_MEMBER_ID = '3eb0b195-3ce5-4e67-8f1b-3a29ce4ecd5e'
+AZURE_POD_MEMBER_ID = 'daf2148e-0e52-42b0-a4fa-05a07cf8d7ba'
 AZURE_POD_SECRET_FILE = \
     'tests/collateral/local/azure-pod-account-secret.passwd'
 
@@ -23,4 +23,4 @@ AWS_POD_ACCOUNT_ID = '71776c5d-872d-4569-9d77-b9dca201f916'
 AWS_POD_MEMBER_ID = ''
 
 HOME_POD_ACCOUNT_ID = '10948fcf-7270-4c13-bfa6-016e7df8d49b'
-HOME_POD_MEMBER_ID = None
+HOME_POD_MEMBER_ID = '183e073e-28e6-4acf-8063-bcada692767d'

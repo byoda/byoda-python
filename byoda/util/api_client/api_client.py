@@ -109,7 +109,7 @@ class ApiClient:
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
                 _LOGGER.debug(
-                    'No using byoda certchain for server cert '
+                    'Not using byoda certchain for server cert '
                     f'verification of {api}'
                 )
                 self.ssl_context = ssl.create_default_context()
