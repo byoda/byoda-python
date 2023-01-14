@@ -47,10 +47,6 @@ sudo docker run -d --restart unless-stopped \
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client
 
-echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
-echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
-chmod 600 ~/.pgpass
-
 export DIRSERVER=$(curl http://ifconfig.co)
 
 if [ ! -f ~/.secrets/sql_powerdns.password ]; then
@@ -58,6 +54,11 @@ if [ ! -f ~/.secrets/sql_powerdns.password ]; then
 fi
 
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
+
+echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
+echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
+chmod 600 ~/.pgpass
+
 
 cat >/tmp/byodadns.sql <<EOF
 CREATE DATABASE byodadns;
@@ -92,6 +93,7 @@ API_KEY=$(cat ~/.secrets/powerdns-api.key)
 sudo -i
 
 cat >/etc/powerdns/pdns.conf <<EOF
+launch=
 launch+=gpgsql
 gpgsql-host=${SERVER_IP}
 gpgsql-port=5432
