@@ -377,7 +377,7 @@ class MemberData(dict):
 
         data_store = server.data_store
         data = await data_store.query(member.member_id, key, filter_set)
-        for data_item in data:
+        for data_item in data or []:
             data_item[ORIGIN_KEY] = member.member_id
             all_data.append(data_item)
 
