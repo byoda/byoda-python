@@ -171,10 +171,10 @@ scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_
 
 This is the public server that exposes the APIs
 
-Byoda code requires python 3.9 or later, ie. for Ubuntu:
+Byoda code requires python 3.10 or later, ie. for Ubuntu:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get -y install python3.9 pipenv
+sudo apt-get -y install python3.10 pipenv
 ```
 or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
 
