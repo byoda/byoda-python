@@ -8,11 +8,15 @@ Cert manipulation for service secrets: Service CA
 
 import logging
 from typing import TypeVar
+from datetime import datetime, timedelta
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType
+from byoda.datatypes import EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 
@@ -22,6 +26,18 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceCaSecret(CaSecret):
+    # When should the Network Services CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+            IdType.MEMBERS_CA: 5 * 365,
+            IdType.APPS_CA: 5 * 365,
+            IdType.SERVICE: 2 * 365,
+            IdType.SERVICE_DATA: 5 * 365,
+    }
+
     def __init__(self, service: str, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network
@@ -61,12 +77,9 @@ class ServiceCaSecret(CaSecret):
         self.signs_ca_certs: bool = True
         self.max_path_length: int = 1
 
-        self.accepted_csrs = (
-            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
-            IdType.SERVICE_DATA,
-        )
+        self.accepted_csrs = self.ACCEPTED_CSRS
 
-    def create_csr(self, source=CsrSource.LOCAL) -> CertificateSigningRequest:
+    def create_csr(self) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR for the Service issuing CA
 

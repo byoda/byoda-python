@@ -8,10 +8,12 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 
 import logging
 from copy import copy
+from datetime import datetime, timedelta
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 from .secret import CSR
@@ -20,7 +22,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkAccountsCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
+    # When should the Network Accounts CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.ACCOUNT: 365,
+        IdType.ACCOUNT_DATA: 365
+    }
 
     def __init__(self, paths: Paths = None, network: str = None):
         '''

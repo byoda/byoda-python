@@ -1,5 +1,5 @@
 '''
-Cert manipulation for accounts and members
+Cert manipulation for apps
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -8,8 +8,9 @@ Cert manipulation for accounts and members
 
 import logging
 from copy import copy
-
 from uuid import UUID
+from datetime import datetime, timedelta
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
@@ -21,7 +22,16 @@ from . import Secret
 _LOGGER = logging.getLogger(__name__)
 
 
-class MemberSecret(Secret):
+class AppSecret(Secret):
+    '''
+    The account secret is used as TLS secret on the Account API endpoint
+    of the pod
+    '''
+
+    # When should the secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+
     def __init__(self, service_id: int, paths: Paths):
         '''
         Class for the member secret of an account for a service

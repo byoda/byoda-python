@@ -95,19 +95,19 @@ class Account:
 
         self.memberships: dict[int, Member] = dict()
 
-    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None
-                             ):
+    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None,
+                             renew: bool = False):
         '''
         Creates the account secret and data secret if they do not already
         exist
         '''
 
-        await self.create_account_secret(accounts_ca)
-        await self.create_data_secret(accounts_ca)
+        await self.create_account_secret(accounts_ca, renew=renew)
+        await self.create_data_secret(accounts_ca, renew=renew)
 
     async def create_account_secret(self,
                                     accounts_ca: NetworkAccountsCaSecret
-                                    = None):
+                                    = None, renew: bool = False):
         '''
         Creates the TLS secret for an account. TODO: create Let's Encrypt
         cert
@@ -118,16 +118,17 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not await self.tls_secret.cert_file_exists():
+        if not await self.tls_secret.cert_file_exists() or renew:
             _LOGGER.info(
                 f'Creating account secret {self.tls_secret.cert_file}'
             )
             self.tls_secret = await self._create_secret(
-                AccountSecret, accounts_ca
+                AccountSecret, accounts_ca, renew=renew
             )
 
     async def create_data_secret(self,
-                                 accounts_ca: NetworkAccountsCaSecret = None):
+                                 accounts_ca: NetworkAccountsCaSecret = None,
+                                 renew: bool = False):
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -137,17 +138,17 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if (not await self.data_secret.cert_file_exists()
-                or not self.data_secret.cert):
+        if ((not await self.data_secret.cert_file_exists()
+                or not self.data_secret.cert) or renew):
             _LOGGER.info(
                 f'Creating account data secret {self.data_secret.cert_file}'
             )
             self.data_secret = await self._create_secret(
-                AccountDataSecret, accounts_ca
+                AccountDataSecret, accounts_ca, renew=renew
             )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
-                             ) -> Secret:
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+                             renew: bool = False) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -163,21 +164,26 @@ class Account:
                 'Account_id for the account has not been defined'
             )
 
-        secret = secret_cls(
+        secret: Secret = secret_cls(
             self.account, self.account_id, network=self.network
         )
 
         if await secret.cert_file_exists():
-            raise ValueError(
-                f'Cert for {type(secret)} for account_id {self.account_id} '
-                'already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    f'Cert for {type(secret)} for account_id '
+                    f'{self.account_id} already exists'
+                )
+            else:
+                _LOGGER.info('Renewing certificate {secret.cert_file}}')
 
         if await secret.private_key_file_exists():
-            raise ValueError(
-                f'Private key for {type(secret)} for account_id '
-                f'{self.account_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    'Not creating new private key for secret because '
+                    f'the renew flag is not set for {type(secret)}'
+                )
+            secret.load(with_private_key=True)
 
         if not issuing_ca:
             if secret_cls != AccountSecret and secret_cls != AccountDataSecret:

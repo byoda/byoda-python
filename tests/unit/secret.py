@@ -35,7 +35,6 @@ from byoda.servers.directory_server import DirectoryServer
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.datastore.document_store import DocumentStoreType
-from byoda.datastore.data_store import DataStoreType
 
 from byoda.datatypes import CloudType
 
@@ -76,7 +75,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             bucket_prefix='byoda',
             root_dir=TEST_DIR
         )
-        await config.server.set_data_store(DataStoreType.SQLITE)
+        # await config.server.set_data_store(DataStoreType.SQLITE)
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)
@@ -101,7 +100,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account_id = uuid4()
         account = Account(account_id, network)
         await account.paths.create_account_directory()
-        await account.load_memberships()
+        # await account.load_memberships()
         await account.create_secrets(network.accounts_ca)
 
         account.tls_secret.validate(network.root_ca, with_openssl=True)
@@ -137,7 +136,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         target_account_id = uuid4()
         target_account = Account(target_account_id, network, account='test')
         await target_account.paths.create_account_directory()
-        await target_account.load_memberships()
+        # await target_account.load_memberships()
         await target_account.create_secrets(network.accounts_ca)
 
         account.data_secret.create_shared_key(target_account.data_secret)
@@ -159,6 +158,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(data, passwords)
 
+        await account.create_secrets(network.accounts_ca, renew=True)
+
     async def test_message_signature(self):
         # Test creation of the CA hierarchy
         network = await Network.create(NETWORK, TEST_DIR, 'byoda')
@@ -166,7 +167,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server = PodServer(network)
         config.server.network = network
         await config.server.set_document_store(
-            DocumentStoreType.SQLITE, root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
         )
 
         key = rsa.generate_private_key(

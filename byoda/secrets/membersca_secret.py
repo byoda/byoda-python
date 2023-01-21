@@ -10,12 +10,13 @@ Service secret
 import logging
 from copy import copy
 from typing import TypeVar
-
+from datetime import datetime, timedelta
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 
@@ -25,7 +26,15 @@ Network = TypeVar('Network', bound='Network')
 
 
 class MembersCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.MEMBER, IdType.MEMBER_DATA]
+    # When should the Members CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.MEMBER: 365,
+        IdType.MEMBER_DATA: 365
+    }
 
     def __init__(self, service: str, service_id: int, network: Network):
         '''

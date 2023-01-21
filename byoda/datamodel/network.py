@@ -194,7 +194,8 @@ class Network:
 
     @staticmethod
     async def _create_secret(network: str, secret_cls: callable,
-                             issuing_ca: Secret, paths: Paths, password: str):
+                             issuing_ca: Secret, paths: Paths, password: str,
+                             renew: bool = False):
         '''
         Abstraction helper for creating secrets for a Network to avoid
         repetition of code for creating the various member secrets of the
@@ -218,7 +219,13 @@ class Network:
 
         secret = secret_cls(paths=paths)
 
-        if await secret.cert_file_exists():
+        if (await secret.cert_file_exists()
+                or await secret.private_key_file_exists()):
+            if not renew:
+                raise ValueError(
+                    f'Secret already exists: {secret.cert_file}, '
+                    f'{secret.private_key_file}'
+                )
             await secret.load(password=password)
             return secret
 

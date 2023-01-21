@@ -8,6 +8,7 @@ Cert manipulation
 
 import os
 import logging
+from datetime import datetime, timedelta
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -40,6 +41,10 @@ class DataSecret(Secret):
     - protected_shared_key : protected shared secret used by Fernet
     - fernet               : instance of cryptography.fernet.Fernet
     '''
+
+    # When should the secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
 
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None):

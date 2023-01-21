@@ -1,5 +1,5 @@
 '''
-Cert manipulation of network secrets: root CA, accounts CA and services CA
+Cert manipulation of network secrets: root CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022
@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives import serialization
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import CsrSource, EntityId
+from byoda.datatypes import CsrSource
+from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 
 from byoda.storage.filestorage import FileStorage
@@ -27,9 +28,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkRootCaSecret(CaSecret):
-    ACCEPTED_CSRS = [
-        IdType.ACCOUNTS_CA, IdType.SERVICES_CA, IdType.NETWORK_DATA
-    ]
+    # When should the Member CA secret be renewed
+    RENEW_WANTED = None
+    RENEW_NEEDED = None
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.ACCOUNTS_CA: 2 * 365,
+        IdType.SERVICES_CA: 2 * 365,
+        IdType.NETWORK_DATA: 2 * 365
+    }
 
     def __init__(self, paths: Paths = None, network: str = None):
         '''

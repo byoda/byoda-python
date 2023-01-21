@@ -405,8 +405,8 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
-                             ) -> Secret:
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+                             renew: bool = False) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid
         repetition of code for creating the various member secrets of the
@@ -429,16 +429,19 @@ class Member:
         )
 
         if await secret.cert_file_exists():
-            raise ValueError(
-                f'Cert for {type(secret)} for service {self.service_id} and '
-                f'member {self.member_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    f'Cert for {type(secret)} for account_id '
+                    f'{self.account_id} already exists'
+                )
 
         if await secret.private_key_file_exists():
-            raise ValueError(
-                f'Private key for {type(secret)} for service {self.service_id}'
-                f' and member {self.member_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    'Not creating new private key for secret because '
+                    f'the renew flag is not set for {type(secret)}'
+                )
+            secret.load(with_private_key=True)
 
         if not issuing_ca:
             if secret_cls != MemberSecret and secret_cls != MemberDataSecret:

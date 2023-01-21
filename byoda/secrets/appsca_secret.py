@@ -7,8 +7,9 @@ Cert manipulation for service secrets: Apps CA
 '''
 
 import logging
-from typing import TypeVar
 from copy import copy
+from typing import TypeVar
+from datetime import datetime, timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -23,7 +24,12 @@ Network = TypeVar('Network', bound='Network')
 
 
 class AppsCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.APP]
+    # When should a CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign
+    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365}
 
     def __init__(self, service: str, service_id: int,
                  network: Network):
@@ -62,7 +68,7 @@ class AppsCaSecret(CaSecret):
         self.max_path_length = 0
 
         self.signs_ca_certs = False
-        self.accepted_csrs = AppsCaSecret.ACCEPTED_CSRS
+        self.accepted_csrs: dict[IdType, int] = AppsCaSecret.ACCEPTED_CSRS
 
     def create_csr(self) -> CertificateSigningRequest:
         '''

@@ -8,8 +8,9 @@ Cert manipulation for accounts and members
 
 import logging
 from uuid import UUID
-from typing import TypeVar
 from copy import copy
+from typing import TypeVar
+from datetime import datetime, timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -24,6 +25,15 @@ Network = TypeVar('Network', bound='Network')
 
 
 class AccountSecret(Secret):
+    '''
+    The account secret is used as TLS secret on the Account API endpoint
+    of the pod
+    '''
+
+    # When should the secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None):
         '''
