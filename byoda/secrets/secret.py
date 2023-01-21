@@ -128,9 +128,9 @@ class Secret:
         self.ca: bool = False
         self.max_path_length: int = None
 
-    def create(self, common_name: str, issuing_ca: CaSecret = None,
-               expire: int = None, key_size: int = _RSA_KEYSIZE,
-               private_key: rsa.RSAPrivateKey = None, ca: bool = False):
+    async def create(self, common_name: str, issuing_ca: CaSecret = None,
+                     expire: int = None, key_size: int = _RSA_KEYSIZE,
+                     private_key: rsa.RSAPrivateKey = None, ca: bool = False):
         '''
         Creates an RSA private key and either a self-signed X.509 cert
         or a cert signed by the issuing_ca. The latter is a one-step
@@ -172,7 +172,7 @@ class Secret:
 
         if issuing_ca:
             # TODO: SECURITY: add constraints
-            csr = self.create_csr(ca)
+            csr = await self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
@@ -236,8 +236,8 @@ class Secret:
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-    def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
-                   ca: bool = False, renew: bool = False) -> CSR:
+    async def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
+                         ca: bool = False, renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
@@ -247,13 +247,13 @@ class Secret:
         :param key_size: length of the key in bits
         :param ca: create a secret for an CA
         :param renew: should any existing private key be used to
-                      renew an existing certificate
+        renew an existing certificate
         :returns: the Certificate Signature Request
         :raises: ValueError if the Secret instance already has a private key
                  or set
         '''
 
-        if self.private_key or self.cert:
+        if (self.private_key or self.cert) and not renew:
             raise ValueError('Secret already has a cert or private key')
 
         # TODO: SECURITY: add constraints
@@ -265,7 +265,8 @@ class Secret:
         )
 
         if renew:
-            self.private_key = self.load_private_key()
+            if not self.private_key:
+                await self.load(with_private_key=True)
         else:
             self.private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=_RSA_KEYSIZE,
@@ -529,7 +530,7 @@ class Secret:
         :returns: bool
         '''
 
-        await self.storage_driver.exists(self.private_key_file)
+        return await self.storage_driver.exists(self.private_key_file)
 
     async def load(self, with_private_key: bool = True,
                    password: str = 'byoda'):

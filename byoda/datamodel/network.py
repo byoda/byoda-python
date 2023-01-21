@@ -157,7 +157,7 @@ class Network:
         if await root_ca.cert_file_exists():
             await root_ca.load(with_private_key=True, password=password)
         else:
-            root_ca.create(expire=100*365)
+            await root_ca.create(expire=100*365)
             root_ca_password = passgen.passgen(length=48)
             await root_ca.save(password=root_ca_password)
             _LOGGER.info(
@@ -230,7 +230,7 @@ class Network:
             return secret
 
         # TODO: SECURITY: add constraints
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
         secret.from_signed_cert(certchain)

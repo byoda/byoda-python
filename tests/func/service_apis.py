@@ -171,7 +171,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # we use a Service instance instead
         service.paths.account = 'pod'
         secret = MemberSecret(member_id, SERVICE_ID, service)
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = requests.post(
@@ -205,7 +205,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         member_data_secret = MemberDataSecret(
             member_id, SERVICE_ID, pod_account
         )
-        csr = member_data_secret.create_csr()
+        csr = await member_data_secret.create_csr()
         cert_chain = service.members_ca.sign_csr(csr)
         member_data_secret.from_signed_cert(cert_chain)
         member_data_certchain = member_data_secret.certchain_as_pem()

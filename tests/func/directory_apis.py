@@ -152,7 +152,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         secret = AccountSecret(
             account='dir_api_test', account_id=uuid, network=network
         )
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
         fqdn = AccountSecret.create_commonname(uuid, network.name)
         headers = {
@@ -211,7 +211,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         serviceca_secret = ServiceCaSecret(
             service='dir_api_test', service_id=service_id, network=network
         )
-        csr = serviceca_secret.create_csr()
+        csr = await serviceca_secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = requests.post(
@@ -241,7 +241,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await testsecret.load(with_private_key=False)
 
         service_secret = ServiceSecret('dir_api_test', service_id, network)
-        service_csr = service_secret.create_csr()
+        service_csr = await service_secret.create_csr()
         certchain = serviceca_secret.sign_csr(service_csr)
         service_secret.from_signed_cert(certchain)
         await service_secret.save()
@@ -255,7 +255,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_data_secret = ServiceDataSecret(
             'dir_api_test', service_id, network
         )
-        service_data_csr = service_data_secret.create_csr()
+        service_data_csr = await service_data_secret.create_csr()
         data_certchain = serviceca_secret.sign_csr(service_data_csr)
         service_data_secret.from_signed_cert(data_certchain)
         await service_data_secret.save()

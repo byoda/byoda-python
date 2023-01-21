@@ -80,7 +80,7 @@ class NetworkRootCaSecret(CaSecret):
         self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
-    def create(self, expire: int = 10950):
+    async def create(self, expire: int = 10950):
         '''
         Creates an RSA private key and X.509 cert
 
@@ -92,9 +92,11 @@ class NetworkRootCaSecret(CaSecret):
         '''
 
         common_name = f'root-ca.{self.network}'
-        super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
+        await super().create(
+            common_name, expire=expire, key_size=4096, ca=self.ca
+        )
 
-    def create_csr(self):
+    async def create_csr(self, renew: bool = False):
         raise NotImplementedError
 
     def review_commonname(self, commonname: str) -> str:

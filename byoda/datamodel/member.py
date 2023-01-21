@@ -455,7 +455,7 @@ class Member:
                 await self.register(secret)
 
         else:
-            csr = secret.create_csr()
+            csr = await secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
@@ -504,7 +504,7 @@ class Member:
         '''
 
         # Register with the service to get our CSR signed
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
 
         payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
         resp = await RestApiClient.call(

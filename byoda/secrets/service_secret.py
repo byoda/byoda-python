@@ -52,11 +52,13 @@ class ServiceSecret(Secret):
         )
         self.id_type = IdType.SERVICE
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
@@ -67,7 +69,7 @@ class ServiceSecret(Secret):
             self.service_id, self.network
         )
 
-        return super().create_csr(common_name, ca=self.ca)
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''

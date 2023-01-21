@@ -64,11 +64,14 @@ class AccountSecret(Secret):
         self.network = network
         self.id_type = IdType.ACCOUNT
 
-    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
+    async def create_csr(self, account_id: UUID = None, renew: bool = False
+                   ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param account_id: account_id
+        :param account_id: identifier for the account to be used in the CSR
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
@@ -85,7 +88,7 @@ class AccountSecret(Secret):
             self.account_id, self.network.name
         )
 
-        return super().create_csr(common_name, ca=self.ca)
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
     def create_commonname(account_id: UUID, network: str):

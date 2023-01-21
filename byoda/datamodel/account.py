@@ -183,7 +183,7 @@ class Account:
                     'Not creating new private key for secret because '
                     f'the renew flag is not set for {type(secret)}'
                 )
-            secret.load(with_private_key=True)
+            await secret.load(with_private_key=True)
 
         if not issuing_ca:
             if secret_cls != AccountSecret and secret_cls != AccountDataSecret:
@@ -192,7 +192,7 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
-                csr = secret.create_csr(self.account_id)
+                csr = await secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
@@ -208,12 +208,12 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
-            csr = secret.create_csr()
+            csr = await secret.create_csr(renew=renew)
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
 
-        await secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password, overwrite=renew)
 
         return secret
 

@@ -45,11 +45,14 @@ class ServiceDataSecret(DataSecret):
 
         self.accepted_csrs = ()
 
-    def create_csr(self, service_id: int = None) -> CertificateSigningRequest:
+    async def create_csr(self, service_id: int = None, renew: bool = False
+                   ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
         :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
@@ -63,4 +66,6 @@ class ServiceDataSecret(DataSecret):
             f'data.{self.id_type.value}{self.service_id}.{self.network}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=self.ca)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=self.ca, renew=renew
+        )

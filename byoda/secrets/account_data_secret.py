@@ -60,11 +60,14 @@ class AccountDataSecret(DataSecret):
         self.network = network
         self.id_type = IdType.ACCOUNT_DATA
 
-    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
+    async def create_csr(self, account_id: UUID = None, renew: bool = False
+                   ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param account_id: identifier for the account to be used in the CSR
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
@@ -81,4 +84,6 @@ class AccountDataSecret(DataSecret):
             f'{self.account_id}.{self.id_type.value}.{self.network.name}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=self.ca)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=self.ca, renew=renew
+        )

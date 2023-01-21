@@ -71,10 +71,12 @@ class NetworkAccountsCaSecret(CaSecret):
         self.signs_ca_certs = False
         self.accepted_csrs = NetworkAccountsCaSecret.ACCEPTED_CSRS
 
-    def create_csr(self) -> CSR:
+    async def create_csr(self, renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and X.509 cert signature request
 
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a cert or a
                  private key
@@ -86,7 +88,9 @@ class NetworkAccountsCaSecret(CaSecret):
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )
 
-        return super().create_csr(commonname, key_size=4096, ca=self.ca)
+        return await super().create_csr(
+            commonname, key_size=4096, ca=self.ca, renew=renew
+        )
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''

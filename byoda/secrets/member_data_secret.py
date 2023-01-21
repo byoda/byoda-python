@@ -75,7 +75,7 @@ class MemberDataSecret(DataSecret):
 
         self.id_type = IdType.MEMBER_DATA
 
-    def create(self, expire: int = 109500):
+    async def create(self, expire: int = 109500):
         '''
         Creates an RSA private key and X.509 cert
 
@@ -89,13 +89,17 @@ class MemberDataSecret(DataSecret):
         common_name = MemberDataSecret.create_common_name(
             self.member_id, self.service_id, self.network
         )
-        super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
+        await super().create(
+            common_name, expire=expire, key_size=4096, ca=self.ca
+        )
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
@@ -106,7 +110,9 @@ class MemberDataSecret(DataSecret):
         )
 
         # TODO: SECURITY: add constraints
-        return super().create_csr(common_name, key_size=4096, ca=False)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=False, renew=renew
+        )
 
     @staticmethod
     def create_common_name(member_id: UUID, service_id: int,
