@@ -58,8 +58,9 @@ class DirectoryServer(Server):
             network.paths.root_directory + '/' + Paths.SERVICES_DIR
         )
 
-        os.makedirs(service_dir, exist_ok=True)
-        
+        if not os.path.exists(service_dir):
+            os.makedirs(service_dir, exist_ok=True)
+
         services_dirs = [
             svcdir for svcdir in os.listdir(service_dir)
             if svcdir.startswith('service-')
