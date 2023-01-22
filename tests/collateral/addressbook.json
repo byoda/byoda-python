@@ -233,6 +233,24 @@
                     "$ref": "/schemas/network_invite"
                 }
             },
+            "network_inbound": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "network": {
+                        "permissions": ["append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/network_inbound"
+                }
+
+            },
             "asset_links": {
                 "#accesscontrol": {
                     "member": {
@@ -390,6 +408,38 @@
                     },
                     "text": {
                         "description": "The text of the invitation provded by the other member",
+                        "type": "string"
+                    }
+                },
+                "required": ["created_timestamp", "member_id", "relation"]
+            },
+            "network_inbound": {
+                "$id": "/schemas/network_inbound",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "The relation another member has with you",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the network relation was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "member_id": {
+                        "description": "The UUID of the other member",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "relation": {
+                        "description": "The relation the other member has with you",
+                        "type": "string"
+                    },
+                    "signature": {
+                        "description": "The text of the invitation provded by the other member",
+                        "type": "string"
+                    },
+                    "signature_expiration": {
+                        "description": "The expiration date/time for the certificate used to generate the signature",
+                        "format": "date-time",
                         "type": "string"
                     }
                 },
