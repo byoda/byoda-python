@@ -176,14 +176,14 @@ Byoda code requires python 3.10 or later, ie. for Ubuntu:
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt-get -y install python3.10 pipenv
 ```
-or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
+or run a distribution (like Ubuntu 22.04 or later) that includes python3.10
 
 
 There is currently an issue with 'pipenv' to install the modules so we install
-python modules globally:
+python modules system-wide:
 
 ```
-sudo pip install -r requirements.txt
+sudo pipenv install --system
 ```
 
 Clone the repo:
