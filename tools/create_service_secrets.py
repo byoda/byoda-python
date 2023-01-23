@@ -75,9 +75,9 @@ async def main(argv):
         os.makedirs(network_dir, exist_ok=True)
         resp = requests.get(f'https://dir.{args.network}/root-ca.pem')
         with open(network_cert_filepath, 'w') as file_desc:
-            file_desc.write(await resp.text())
+            file_desc.write(resp.text)
 
-    network = load_network(args, network_data)
+    network = await load_network(args, network_data)
 
     service = Service(network=network)
     if args.schema:

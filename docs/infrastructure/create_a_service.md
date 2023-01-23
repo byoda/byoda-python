@@ -130,7 +130,7 @@ permitted. Each of the actions may support some specifiers that provide addition
 
 The following actions are supported:
 - read with specifier:
-  - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 14400 seconds): how long may the requesting entity cache the data
+  - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 1 week, which is 604800 seconds): how long may the requesting entity cache the data
 - update, no specifiers
 - delete: delete the records matching the value of the specified filters
 - append: add an entry to an array

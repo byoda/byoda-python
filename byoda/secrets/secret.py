@@ -574,6 +574,7 @@ class Secret:
             self.ca = False
 
         if self.cert.not_valid_after < self.RENEW_WANTED:
+            # TODO: add logic to recreate the signed cert
             if self.cert.not_valid_after < self.RENEW_NEEDED:
                 _LOGGER.warning(
                     f'Certificate {self.cert_file} expires in 30 days'
