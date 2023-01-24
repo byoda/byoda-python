@@ -211,6 +211,15 @@ sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-nginx-virtualserver.conf
 sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/nginx/conf.d/default.conf
 sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/nginx/conf.d/default.conf
 ```
+Now nginx is installed we can set the file permissions to user 'www-data'
+
+```
+sudo chmod 555 ${ROOT_DIR}/private
+sudo chmod 444 ${ROOT_DIR}/private/*
+sudo mkdir -p ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
+sudo chown -R www-data ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
+sudo chmod 755 ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
+```
 
 You can't start NGINX just yet as the directory server must have a trusted TLS cert/key. Set up a [Let's Encrypt](https://www.letsencrypt.org) install on the directory server. Please follow the instructions from Let's Encrypt on how to do this. I recommend adding a virtual server to nginx for HTTP on port 80 for web-based verification of ownership of your domain and installing a cronjob to renew the cert/key periodically.
 

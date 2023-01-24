@@ -201,7 +201,7 @@ export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=addressbook.json
 
-export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
+export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT}); echo "Service ID ${SERVICE_ID}"
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
 if [ ! -f $BYODA_HOME/byoda-python/config.yml ]; then
