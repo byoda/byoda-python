@@ -49,6 +49,19 @@ class ServiceCaSecret(CaSecret):
         :raises: (none)
         '''
 
+        self.paths = network.paths
+        self.paths.service_id = service_id
+
+        super().__init__(
+            cert_file=self.paths.get(
+                Paths.SERVICE_CA_CERT_FILE, service_id=service_id
+            ),
+            key_file=self.paths.get(
+                Paths.SERVICE_CA_KEY_FILE, service_id=service_id
+            ),
+            storage_driver=self.paths.storage_driver
+        )
+
         self.service = str(service)
         self.service_id = int(service_id)
 
@@ -57,19 +70,12 @@ class ServiceCaSecret(CaSecret):
                 f'Service ID must be 0 or greater: {self.service_id}'
             )
 
-        self.paths = network.paths
-        self.paths.service_id = self.service_id
+        _LOGGER.debug(
+            'Instantiating Service CA secret for service ID: '
+            f'{self.service_id}'
+        )
 
         self.network = network.name
-        super().__init__(
-            cert_file=self.paths.get(
-                Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
-            ),
-            key_file=self.paths.get(
-                Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
-            ),
-            storage_driver=self.paths.storage_driver
-        )
 
         self.id_type = IdType.SERVICE_CA
 
@@ -79,7 +85,8 @@ class ServiceCaSecret(CaSecret):
 
         self.accepted_csrs = self.ACCEPTED_CSRS
 
-    async def create_csr(self, renew: bool = False) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR for the Service issuing CA
 

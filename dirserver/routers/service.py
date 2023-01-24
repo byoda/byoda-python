@@ -200,6 +200,11 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
             )
         )
 
+    _LOGGER.debug(
+        'POST service API called with CSR for service ID: '
+        f'{entity_id.service_id}'
+    )
+
     try:
         await dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
         dns_exists = True

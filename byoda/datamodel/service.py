@@ -136,9 +136,12 @@ class Service:
         Extracts the name and the service ID from the service contract
         '''
 
+        _LOGGER.debug(f'Reviewing schema in {filepath}')
         raw_data = await self.storage_driver.read(filepath)
         data = orjson.loads(raw_data)
-        self.service_id = int(data['service_id'])
+        service_id = data['service_id']
+        _LOGGER.debug(f'Found service_ID {service_id}')
+        self.service_id = int(service_id)
         self.name = data['name']
 
     @classmethod
@@ -310,7 +313,9 @@ class Service:
         if not await self.paths.secrets_directory_exists():
             await self.paths.create_secrets_directory()
 
-        await self.create_service_ca(network_services_ca, local=True)
+        _LOGGER.debug(f'Creating secrets for service ID {self.service_id}')
+
+        await self.create_service_ca(network_services_ca, local=local)
         await self.create_apps_ca()
         await self.create_members_ca()
         await self.create_tls_secret()
@@ -332,6 +337,7 @@ class Service:
 
         private_key_password = passgen.passgen(length=48)
 
+        _LOGGER.debug(f'Creating service CA for service ID {self.service_id}')
         if local:
             self.service_ca = await self._create_secret(
                 ServiceCaSecret, network_services_ca,
@@ -412,6 +418,10 @@ class Service:
                 'Name and service_id of the service have not been defined'
             )
 
+        _LOGGER.debug(
+            f'Initiating secret creation for service ID {self.service_id}'
+        )
+        
         secret = secret_cls(
             self.name, self.service_id, network=self.network
         )

@@ -83,8 +83,9 @@ async def main(argv):
     if args.schema:
         await service.examine_servicecontract(args.schema)
 
+    _LOGGER.debug(f'Creating secrets for service ID {service.service_id}')
     await service.create_secrets(
-        network.services_ca, password=args.password, local=False
+        network.services_ca, password=args.password
     )
 
 
@@ -101,7 +102,7 @@ async def load_network(args: argparse.ArgumentParser,
 
     config.server = Server(network)
 
-    if not network.paths.network_directory_exists():
+    if not await network.paths.network_directory_exists():
         raise ValueError(f'Network {args.network} not found')
 
     network.root_ca = NetworkRootCaSecret(network.paths)
