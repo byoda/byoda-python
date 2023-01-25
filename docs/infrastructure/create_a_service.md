@@ -215,12 +215,17 @@ fi
 cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
 sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
-# Delete any existing unencrypted private key for the service
+# Delete any existing unencrypted private key for the service to avoid
+# permissions/ownership issues with the 'create_service_secrets' tool
 sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
+
+# Delete the unencrypted private key to avoid permissions/ownership issues
+# when the service server starts
+sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 ## 6: Get the service up and running
 These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu

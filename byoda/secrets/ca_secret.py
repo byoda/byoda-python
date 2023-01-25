@@ -84,9 +84,7 @@ class CaSecret(Secret):
         self.ca: bool = True
         self.max_path_length: int = 0
 
-        self.service_id = None
-
-        self.signs_ca_certs = False
+        self.signs_ca_certs: bool = False
 
         # These are the different identity types of the
         # certificates for which this secret will sign

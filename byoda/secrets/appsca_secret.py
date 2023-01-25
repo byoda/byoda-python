@@ -44,12 +44,8 @@ class AppsCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.name)
-        self.service_id = int(service_id)
-        self.service = str(service)
-
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -61,16 +57,21 @@ class AppsCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.APPS_CA
+        self.network: str = str(network.name)
+        self.service_id: int = int(service_id)
+        self.service: str = str(service)
+
+        self.id_type: IdType = IdType.APPS_CA
 
         # X.509 constraints
-        self.ca = True
-        self.max_path_length = 0
+        self.ca: bool = True
+        self.max_path_length: int = 0
 
-        self.signs_ca_certs = False
+        self.signs_ca_certs: bool = False
         self.accepted_csrs: dict[IdType, int] = AppsCaSecret.ACCEPTED_CSRS
 
-    async def create_csr(self, renew: bool = False) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -82,7 +83,7 @@ class AppsCaSecret(CaSecret):
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'apps-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )

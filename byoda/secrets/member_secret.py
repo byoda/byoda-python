@@ -36,15 +36,13 @@ class MemberSecret(Secret):
 
         self.member_id = None
         if member_id:
-            self.member_id = member_id
+            self.member_id: UUID = member_id
 
-        self.service_id = int(service_id)
-
-        self.paths = copy(account.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(account.paths)
+        self.paths.service_id: int = service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network = account.network.name
+        self.network: str = account.network.name
 
         super().__init__(
             cert_file=self.paths.get(
@@ -58,7 +56,8 @@ class MemberSecret(Secret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBER
+        self.service_id: int = int(service_id)
+        self.id_type: IdType = IdType.MEMBER
 
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
@@ -73,7 +72,7 @@ class MemberSecret(Secret):
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = MemberSecret.create_commonname(
+        common_name: str = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )
         return await super().create_csr(common_name, ca=self.ca, renew=renew)

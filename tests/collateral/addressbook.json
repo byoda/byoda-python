@@ -233,7 +233,7 @@
                     "$ref": "/schemas/network_invite"
                 }
             },
-            "network_inbound": {
+            "network_inbounds": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append"]

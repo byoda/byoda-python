@@ -40,8 +40,8 @@ class AppSecret(Secret):
         :raises: (none)
         '''
 
-        self.paths = copy(paths)
-        self.paths.service_id = service_id
+        self.paths: Paths = copy(paths)
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=paths.get(
@@ -52,12 +52,12 @@ class AppSecret(Secret):
             ),
             storage_driver=paths.storage_driver
         )
-        self.service_id = service_id
-        self.ca = False
-        self.id_type = IdType.MEMBER
+        self.service_id: int = int(service_id)
+        self.ca: bool = False
+        self.id_type: IdType = IdType.MEMBER
 
-    async def create_csr(self, network: str, member_id: UUID, renew: bool = False
-                   ) -> CertificateSigningRequest:
+    async def create_csr(self, network: str, member_id: UUID,
+                         renew: bool = False) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 

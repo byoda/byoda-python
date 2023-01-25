@@ -44,17 +44,15 @@ class MemberDataSecret(DataSecret):
 
         if not isinstance(member_id, UUID):
             member_id = UUID(member_id)
-        self.member_id = member_id
+        self.member_id: UUID = member_id
 
-        self.service_id = int(service_id)
-
-        account_id = None
+        account_id: UUID | None = None
         if account:
-            account_id = account.account_id
+            account_id: UUID = account.account_id
 
         network: Network = config.server.network
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         # secret.review_commonname requires self.network to be string
         self.network: str = config.server.network.name
@@ -73,7 +71,8 @@ class MemberDataSecret(DataSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBER_DATA
+        self.service_id: int = int(service_id)
+        self.id_type: IdType = IdType.MEMBER_DATA
 
     async def create(self, expire: int = 109500):
         '''

@@ -30,23 +30,24 @@ class ServiceDataSecret(DataSecret):
         :raises: (none)
         '''
 
-        self.paths = copy(network.paths)
-        self.service = str(service)
-        self.service_id = int(service_id)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = self.service_id
 
         super().__init__(
             cert_file=self.paths.get(Paths.SERVICE_DATA_CERT_FILE),
             key_file=self.paths.get(Paths.SERVICE_DATA_KEY_FILE),
             storage_driver=self.paths.storage_driver
         )
-        self.network = self.paths.network
-        self.id_type = IdType.SERVICE_DATA
 
-        self.accepted_csrs = ()
+        self.service: str = str(service)
+        self.service_id: int = int(service_id)
+        self.network: str = self.paths.network
+        self.id_type: IdType = IdType.SERVICE_DATA
+
+        self.accepted_csrs: dict[IdType, int] = ()
 
     async def create_csr(self, service_id: int = None, renew: bool = False
-                   ) -> CertificateSigningRequest:
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 

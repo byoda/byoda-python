@@ -54,11 +54,10 @@ class MembersCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.name)
-        self.service_id = int(service_id)
+        self.network: str = str(network.name)
 
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -70,14 +69,15 @@ class MembersCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBERS_CA
+        self.service_id: int = int(service_id)
+        self.id_type: IdType = IdType.MEMBERS_CA
 
         # X.509 constraints
-        self.ca = True
-        self.max_path_length = 0
+        self.ca: bool = True
+        self.max_path_length: int = 0
 
-        self.signs_ca_certs = False
-        self.accepted_csrs = MembersCaSecret.ACCEPTED_CSRS
+        self.signs_ca_certs: bool = False
+        self.accepted_csrs: dict[IdType, int] = MembersCaSecret.ACCEPTED_CSRS
 
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
@@ -92,8 +92,8 @@ class MembersCaSecret(CaSecret):
         '''
 
         # TODO: SECURITY: add constraints
-        name = self.id_type.value.rstrip('-')
-        common_name = (
+        name: str = self.id_type.value.rstrip('-')
+        common_name: str = (
             f'{name}.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )

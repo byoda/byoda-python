@@ -111,6 +111,7 @@ class Secret:
         self.password: str = None
 
         self.common_name: str = None
+        self.service_id: str | None = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver

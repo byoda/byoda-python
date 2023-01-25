@@ -28,10 +28,12 @@ echo "FastAPI workers: ${WORKERS}"
 if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
     if [[ -f "/etc/letsencrypt/live/${CUSTOM_DOMAIN}/privkey.pem" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
+        # With the '--standalone' option, certbot will run its own HTTP webserver
         echo "Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}"
         pipenv run certbot renew --standalone
     else
         echo "Generating a Let's Encrypt certificate for custom domain ${CUSTOM_DOMAIN}"
+        # With the '--standalone' option, certbot will run its own HTTP webserver
         pipenv run certbot certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN}
     fi
 fi

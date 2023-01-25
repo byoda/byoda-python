@@ -36,21 +36,21 @@ class ServiceSecret(Secret):
         :raises: (none)
         '''
 
-        self.paths = copy(network.paths)
-        self.network = network.name
-        self.service = str(service)
-        self.service_id = int(service_id)
+        self.paths: Paths = copy(network.paths)
+        self.network: str = network.name
 
         super().__init__(
             cert_file=self.paths.get(
-                Paths.SERVICE_CERT_FILE, service_id=self.service_id
+                Paths.SERVICE_CERT_FILE, service_id=service_id
             ),
             key_file=self.paths.get(
-                Paths.SERVICE_KEY_FILE, service_id=self.service_id
+                Paths.SERVICE_KEY_FILE, service_id=service_id
             ),
             storage_driver=self.paths.storage_driver
         )
-        self.id_type = IdType.SERVICE
+        self.service: str = str(service)
+        self.service_id: int = int(service_id)
+        self.id_type: IdType = IdType.SERVICE
 
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:

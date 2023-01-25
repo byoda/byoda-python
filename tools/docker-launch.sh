@@ -103,7 +103,7 @@ fi
 
 if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     echo "Using custom domain: ${CUSTOM_DOMAIN}"
-    PUBLICIP=$(curl -s https://ifconfig.co)
+    PUBLICIP=$(curl -s https://ifconfig.me)
     DNSIP=$(host -t A ${CUSTOM_DOMAIN} | tail -1 | awk '{print $NF}')
     if [ "${DNSIP}" != "${PUBLICIP}" ]; then
         echo "Custom domain ${CUSTOM_DOMAIN} does not resolve to ${PUBLICIP}"
@@ -218,8 +218,8 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod"
-        aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
-        aws s3 rm s3://${BUCKET_PREFIX}-private/network-byoda.net --recursive
+        aws s3 rm -f s3://${BUCKET_PREFIX}-private/private --recursive
+        aws s3 rm -f s3://${BUCKET_PREFIX}-private/network-byoda.net --recursive
     fi
 else
     export CLOUD=LOCAL
@@ -276,6 +276,7 @@ sudo docker pull byoda/byoda-pod:latest
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
+    -e "LOGLEVEL=${LOGLEVEL}" \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
@@ -285,7 +286,6 @@ sudo docker run -d \
     -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
-    -e "LOGLEVEL=${LOGLEVEL}" \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=/byoda" \
