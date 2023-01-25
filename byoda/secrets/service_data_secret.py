@@ -31,7 +31,7 @@ class ServiceDataSecret(DataSecret):
         '''
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = self.service_id
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=self.paths.get(Paths.SERVICE_DATA_CERT_FILE),
