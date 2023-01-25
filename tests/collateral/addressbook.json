@@ -452,7 +452,7 @@
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
-                        "description": "time the network link was created",
+                        "description": "time the asset link was created",
                         "format": "date-time",
                         "type": "string"
                     },

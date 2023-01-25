@@ -108,6 +108,59 @@ mutation(
 GRAPHQL_STATEMENTS['network_invite']['mutate'] = MUTATE_NETWORK_INVITE
 
 
+QUERY_NETWORK_INBOUND = '''
+query ($filters: networkInboundInputFilter, $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $query_id: UUID, $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    network_inbound_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            network_inbound {
+                created_timestamp
+                member_id
+                relation
+                signature
+                signature_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbound'] = {'query': QUERY_NETWORK_INBOUND}
+
+MUTATE_NETWORK_INBOUND = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $member_id: UUID,
+                    $relation: String,
+                    $signature: String,
+                    $signature_expiration: DateTime,
+) {
+    mutate_network_inbound(
+                    created_timestamp: $created_timestamp,
+                    member_id: $member_id,
+                    relation: $relation,
+                    signature: $signature,
+                    signature_expiration: $signature_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbound']['mutate'] = MUTATE_NETWORK_INBOUND
+
+
 QUERY_ASSET_LINK = '''
 query ($filters: assetLinkInputFilter, $first: Int, $after: String,
         $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
@@ -989,6 +1042,87 @@ mutation ($filters: networkInviteInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_invites']['delete'] = DELETE_FROM_NETWORK_INVITES
+
+QUERY_NETWORK_INBOUNDS = '''
+query ($filters: networkInboundInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime, $query_id: UUID,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    network_inbounds_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            network_inbound {
+                created_timestamp
+                member_id
+                relation
+                signature
+                signature_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbounds'] = {'query': QUERY_NETWORK_INBOUNDS}
+
+APPEND_NETWORK_INBOUNDS = '''
+mutation (
+                    $created_timestamp: DateTime!,
+                    $member_id: UUID!,
+                    $relation: String!,
+                    $signature: String,
+                    $signature_expiration: DateTime,
+) {
+    append_network_inbounds (
+            created_timestamp: $created_timestamp,
+            member_id: $member_id,
+            relation: $relation,
+            signature: $signature,
+            signature_expiration: $signature_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbounds']['append'] = APPEND_NETWORK_INBOUNDS
+
+UPDATE_NETWORK_INBOUNDS = '''
+mutation (
+    $filters: networkInboundInputFilter!,
+                    $created_timestamp: DateTime,
+                    $member_id: UUID,
+                    $relation: String,
+                    $signature: String,
+                    $signature_expiration: DateTime,
+) {
+    update_network_inbounds(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        member_id: $member_id,
+        relation: $relation,
+        signature: $signature,
+        signature_expiration: $signature_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbounds']['update'] = UPDATE_NETWORK_INBOUNDS
+
+DELETE_FROM_NETWORK_INBOUNDS = '''
+mutation ($filters: networkInboundInputFilter!) {
+    delete_from_network_inbounds(filters: $filters) 
+}
+'''
+
+GRAPHQL_STATEMENTS['network_inbounds']['delete'] = DELETE_FROM_NETWORK_INBOUNDS
 
 QUERY_ASSET_LINKS = '''
 query ($filters: assetLinkInputFilter,
