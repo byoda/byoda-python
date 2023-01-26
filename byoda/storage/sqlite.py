@@ -218,6 +218,9 @@ class SqliteStorage(Sql):
         sqlite.account_db_conn = await aiosqlite.connect(
             sqlite.account_db_file
         )
+        import sys
+        sys.exit(0)
+
         sqlite.account_db_conn.row_factory = aiosqlite.Row
 
         await sqlite.execute('''
@@ -230,6 +233,18 @@ class SqliteStorage(Sql):
         ''')    # noqa: E501
 
         return sqlite
+
+    async def close(self):
+        '''
+        Close all connections to Sqlite files. This method must
+        be called upon shutdown of the server as otherwise the
+        'asyncio' event loop will not exit
+        '''
+
+        await self.account_db_conn.close()
+
+        for conn in self.member_db_conns.values():
+            await conn.close()
 
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:

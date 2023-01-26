@@ -574,16 +574,20 @@ class Secret:
         except x509.ExtensionNotFound:
             self.ca = False
 
-        if self.cert.not_valid_after < self.RENEW_WANTED:
-            # TODO: add logic to recreate the signed cert
-            if self.cert.not_valid_after < self.RENEW_NEEDED:
-                _LOGGER.warning(
-                    f'Certificate {self.cert_file} expires in 30 days'
-                )
-            else:
-                _LOGGER.info(
-                    f'Certificate {self.cert_file} expires in 90 days'
-                )
+        if with_private_key:
+            # Only croak about expiration of cert if we own the private key
+            if self.cert.not_valid_after < self.RENEW_WANTED:
+                # TODO: add logic to recreate the signed cert
+                if self.cert.not_valid_after < self.RENEW_NEEDED:
+                    _LOGGER.warning(
+                        f'Certificate {self.cert_file} expires in 30 days: '
+                        f'{self.RENEW_NEEDED}'
+                    )
+                else:
+                    _LOGGER.info(
+                        f'Certificate {self.cert_file} expires in 90 days: '
+                        f'{self.RENEW_WANTED}'
+                    )
 
         self.common_name = None
         for rdns in self.cert.subject.rdns:

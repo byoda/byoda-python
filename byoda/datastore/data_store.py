@@ -68,3 +68,6 @@ class DataStore:
     async def delete(self, member_id: UUID, key: str,
                      data_filter_set: DataFilterSet = None) -> int:
         return await self.backend.delete(member_id, key, data_filter_set)
+
+    async def close(self):
+        await self.backend.close()
