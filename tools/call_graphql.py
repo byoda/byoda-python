@@ -240,7 +240,7 @@ async def main(argv):
     else:
         print(f'GraphQL error: {result.get("errors")}')
 
-    config.server.shutdown()
-    
+    await config.server.shutdown()
+
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))

@@ -218,8 +218,6 @@ class SqliteStorage(Sql):
         sqlite.account_db_conn = await aiosqlite.connect(
             sqlite.account_db_file
         )
-        import sys
-        sys.exit(0)
 
         sqlite.account_db_conn.row_factory = aiosqlite.Row
 
