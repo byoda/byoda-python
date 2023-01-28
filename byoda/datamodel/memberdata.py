@@ -161,7 +161,7 @@ class MemberData(dict):
             file_mode=FileMode.BINARY
         )
 
-    async def load_network_links(self, relations: str | list[str] | None
+    async def load_network_links(self, relations: str | list[str] | None = None
                                  ) -> list[dict[str, str | datetime]]:
         '''
         Loads the network links for the membership. Used by the access
