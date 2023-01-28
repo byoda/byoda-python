@@ -308,9 +308,9 @@ class SchemaDataScalar(SchemaDataItem):
         elif (self.type == DataType.DATETIME
                 and value and not isinstance(value, datetime)):
             if isinstance(value, str):
-                result = datetime.fromisoformat(value, timezone.utc)
+                result = datetime.fromisoformat(value)
             else:
-                result = datetime.fromtimestamp(value, timezone.utc)
+                result = datetime.fromtimestamp(value)
         else:
             result = value
 
