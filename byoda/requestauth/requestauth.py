@@ -198,6 +198,7 @@ class RequestAuth:
                     self.client_dn, self.issuing_ca_dn
                 )
                 self.auth_source = AuthSource.CERT
+
                 return
             except HTTPException as exc:
                 error = exc.status
@@ -238,6 +239,10 @@ class RequestAuth:
                     f'{client_dn}'
                 )
             )
+
+        # SECURITY: we need to check the intermediate CA CN
+        # as currently any Member CA can sign certs for other
+        # services!
 
         self.id, subdomain = self.client_cn.split('.')[0:2]
         self.domain = self.client_cn.split('.', 3)[-2]

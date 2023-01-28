@@ -182,8 +182,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
 
         self.assertIsNone(result.get('errors'))
-        data = result['data']['append_network_links']
-        self.assertEqual(len(data), 3)
+        self.assertEqual(result['data']['append_network_links'], 1)
 
         #
         # Add ourselves as a friend in the Azure pod

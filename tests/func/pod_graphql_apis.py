@@ -101,6 +101,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
 
         TestDirectoryApis.PROCESS.terminate()
+        config.server.shutdown()
 
     async def test_graphql_addressbook_jwt(self):
         pod_account = config.server.account
@@ -501,7 +502,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
         self.assertTrue('mutate_person' in data)
-        self.assertEqual(data['mutate_person']['given_name'], 'Steven')
+        self.assertEqual(data['mutate_person'], 1)
 
         # Then the Azure pod
         vars = {
@@ -520,7 +521,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
-        self.assertEqual(data['mutate_person']['given_name'], 'Stefke')
+        self.assertEqual(data['mutate_person'], 1)
 
         vars = {
             'depth': 1
@@ -553,9 +554,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = body.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(body.get('errors'))
-        data = data['append_network_invites']
-        for key, value in data.items():
-            self.assertEqual(value, vars[key])
+        self.assertEqual(data['append_network_invites'], 1)
 
         vars = {
             'member_id': str(account_member.member_id),
@@ -575,9 +574,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = body.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(body.get('errors'))
-        data = data['append_network_invites']
-        for key, value in data.items():
-            self.assertEqual(value, vars[key])
+        self.assertEqual(data['append_network_invites'], 1)
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['datalogs']['query'],
@@ -897,5 +894,5 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
-unittest.main()
+    unittest.main()
+    print('All done!')
