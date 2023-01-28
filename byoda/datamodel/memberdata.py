@@ -83,6 +83,8 @@ class MemberData(dict):
         Queries the data store for the given object and filters
         '''
 
+        raise NotImplementedError
+
     def normalize(self) -> None:
         '''
         Updates data values to match data type as defined in JSON-Schema,
@@ -181,7 +183,7 @@ class MemberData(dict):
                         'eq': relation
                     }
                 }
-                filter_set = DataFilterSet([link_filter])
+                filter_set = DataFilterSet(link_filter)
 
         data_store: DataStore = config.server.data_store
 

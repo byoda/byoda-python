@@ -172,11 +172,11 @@ and you'll see a bit more info than what you put in person.json as we only suppl
 
 As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested information. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'dd8dfb20-7c22-4ea0-9341-ae997b242e1278'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'b8dc1bd4-fd92-443c-877b-66cc2e93086a'
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "dd8dfb20-7c22-4ea0-9341-ae997b242e12",
+    "member_id": "b8dc1bd4-fd92-443c-877b-66cc2e93086a",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -196,7 +196,7 @@ cat >~invite.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object network_invites --action append --remote-member-id dd8dfb20-7c22-4ea0-9341-ae997b242e1278 --data-file ~invite.json --depth 1
+tools/call_graphql.py --object network_invites --action append --remote-member-id b8dc1bd4-fd92-443c-877b-66cc2e93086a --data-file ~invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.

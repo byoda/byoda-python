@@ -186,7 +186,9 @@ class GraphQlProxy:
         if remote_member_id:
             targets = [remote_member_id]
         else:
-            network_links = self.member.data.get('network_links')
+            network_links = await self.member.data.load_network_links(
+                relations
+            )
 
             _LOGGER.debug(
                 f'Filtering {len(network_links or [])} network links on '
