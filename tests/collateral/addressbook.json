@@ -736,7 +736,7 @@
                 "required": ["media_key"]
             },
             "tweet": {
-                "$id": "/schemas/asset",
+                "$id": "/schemas/tweet",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "a Twitter tweet",
                 "type": "object",

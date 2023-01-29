@@ -122,6 +122,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'Authorization': f'bearer {result["auth_token"]}'
         }
 
+        # Test an object
         url = BASE_URL + f'/v1/data/service-{service_id}'
 
         vars = {
@@ -160,6 +161,42 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         result = await response.json()
         self.assertEqual(result['data']['mutate_person'], 1)
+
+        # Try an array of objects that contain an array
+        asset_id = uuid4()
+        vars = {
+            "asset_id": asset_id,
+            "asset_type": "text",
+            "created_timestamp": str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
+            "contents": "this is a test asset",
+            "keywords": ["just", "a", "test", "asset"],
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['network_assets']['append'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertEqual(data.get('append_network_assets'), 1)
+
+        vars = {
+            'filters': {'asset_id': {'eq': str(asset_id)}},
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['network_assets']['query'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertEqual(data['network_assets_connection']['total_count'], 1)
+        network_asset = data['network_assets_connection']['edges'][0]['asset']
+        self.assertEqual(len(network_asset['keywords']), 4)
 
         # add network_link for the 'remote member'
         vars = {
@@ -273,8 +310,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(data['update_network_assets'])
 
-        # BUG: resulting value should be 1, but is 0
-        self.assertEqual(result['data']['update_network_assets'], 0)
+        self.assertEqual(result['data']['update_network_assets'], 1)
 
         for count in range(1, 100):
             vars = {
@@ -307,7 +343,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
 
-        self.assertEqual(len(data), 100)
+        self.assertEqual(len(data), 101)
+
 
         cursor = ''
         for looper in range(0, 7):
@@ -327,9 +364,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             if looper < 6:
                 self.assertEqual(len(more_data), 15)
                 self.assertEqual(data[looper * 15], more_data[0])
-                self.assertEqual(data[looper * 15+14], more_data[14])
+                self.assertEqual(data[looper * 15 + 14], more_data[14])
 
-        self.assertEqual(len(more_data), 10)
+        self.assertEqual(len(more_data), 11)
 
         #
         # First query with depth = 1 shows only local results
@@ -348,7 +385,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 100)
+        self.assertEqual(len(data), 101)
 
         #
         # Confirm we are not already in the network_links of the Azure pod
@@ -859,7 +896,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
-        self.assertEqual(data['update_network_links'], 2)
+        self.assertEqual(data['update_network_links'], 1)
 
         vars = {
             'filters': {'created_timestamp': {'at': friend_timestamp}},

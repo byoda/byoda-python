@@ -498,7 +498,7 @@ class UuidDataFilter(DataFilter):
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
-            f'{sql_field} != :{sql_field_placeholder}',
+            f'{sql_field} = :{sql_field_placeholder}',
             sql_field_placeholder, str(self.value)
         )
 

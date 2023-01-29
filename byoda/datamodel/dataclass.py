@@ -9,6 +9,7 @@ templates
 :license    : GPLv3
 '''
 
+import orjson
 import logging
 from enum import Enum
 from copy import copy
@@ -461,11 +462,18 @@ class SchemaDataArray(SchemaDataItem):
         data = copy(value)
 
         result = []
-        for item in data or []:
+        if self.referenced_class and type(self.referenced_class) == SchemaDataObject:
+            # We need to normalize an array of objects
+            items = data
+        else:
+            # We need to normalize an array of scalars, which are represented
+            # in storage as a string of JSON
+            items = orjson.loads(value or '[]')
+
+        for item in items or []:
             if self.referenced_class:
                 normalized_item = self.referenced_class.normalize(item)
             result.append(normalized_item)
-
         return result
 
     async def authorize_access(self, operation: DataOperationType,
