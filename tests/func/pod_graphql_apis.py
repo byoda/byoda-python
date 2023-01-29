@@ -100,8 +100,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def asyncTearDown(self):
 
+        await config.server.shutdown()
         TestDirectoryApis.PROCESS.terminate()
-        config.server.shutdown()
 
     async def test_graphql_addressbook_jwt(self):
         pod_account = config.server.account
