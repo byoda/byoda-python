@@ -345,7 +345,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(data), 101)
 
-
         cursor = ''
         for looper in range(0, 7):
             vars = {

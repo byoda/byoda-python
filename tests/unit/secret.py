@@ -57,13 +57,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         shutil.rmtree(TEST_DIR)
         os.mkdir(TEST_DIR)
 
-    async def test_secrets(self):
-        '''
-        Create a network CA hierarchy
-        '''
-
-        #
-        # Test creation of the CA hierarchy
+    async def test_ca_certchaisn(self):
         network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = DirectoryServer(network)
@@ -96,6 +90,48 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         service.apps_ca.validate(network.root_ca, with_openssl=True)
         service.tls_secret.validate(network.root_ca, with_openssl=True)
         service.data_secret.validate(network.root_ca, with_openssl=True)
+
+        account_id = uuid4()
+        account = Account(account_id, network)
+        await account.paths.create_account_directory()
+        # await account.load_memberships()
+        await account.create_secrets(network.accounts_ca)
+
+    async def test_secrets(self):
+        '''
+        Create a network CA hierarchy
+        '''
+
+        #
+        # Test creation of the CA hierarchy
+        #
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+
+        config.server = DirectoryServer(network)
+        config.server.network = network
+
+        await config.server.set_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
+        )
+        # await config.server.set_data_store(DataStoreType.SQLITE)
+
+        network.services_ca.validate(network.root_ca, with_openssl=True)
+        network.accounts_ca.validate(network.root_ca, with_openssl=True)
+
+        # Need to set role to allow loading of unsigned services
+        network.roles = [ServerRole.Pod]
+
+        target_dir = \
+            f'/network-{NETWORK}/services/service-{SERVICE_ID}'
+        os.makedirs(TEST_DIR + target_dir)
+        target_schema = target_dir + '/service-contract.json'
+        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
+        service = Service(network=network)
+        await service.examine_servicecontract(target_schema)
+        await service.create_secrets(network.services_ca, local=True)
 
         account_id = uuid4()
         account = Account(account_id, network)
