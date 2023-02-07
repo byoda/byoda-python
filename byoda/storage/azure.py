@@ -165,10 +165,7 @@ class AzureFileStorage(FileStorage):
     async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
                    storage_type=StorageType.PRIVATE) -> str:
         '''
-        Reads a file from Azure Object storage. If a locally cached copy is
-        available it uses that instead of reading from S3 storage. If a
-        locally cached copy is not available then the file is fetched from
-        object storage and written to the local cache
+        Reads a file from Azure Object storage.
 
         :param filepath: container + path + filename
         :param file_mode: is the data in the file text or binary

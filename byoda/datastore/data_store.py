@@ -15,6 +15,8 @@ from enum import Enum
 from uuid import UUID
 from typing import TypeVar
 
+from byoda.datatypes import MemberStatus
+
 from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.sqlite import SqliteStorage
@@ -50,8 +52,22 @@ class DataStore:
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:
         '''
+        Sets up the member database, creating it if it does not exist
         '''
         await self.backend.setup_member_db(member_id, service_id, schema)
+
+    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
+                              ) -> dict[str, object]:
+        '''
+        Get the latest status of all memberships
+
+        :param status: The status of the membership to return. If its value is
+        'None' the latest membership status for all memberships will be. If the
+        status parameter has a value, only the memberships with that status are
+        returned
+        '''
+
+        return await self.backend.get_memberships()
 
     async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
                     ) -> dict[str, object]:

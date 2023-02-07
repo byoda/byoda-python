@@ -23,9 +23,9 @@ There are two ways to install the pod:
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public'). The bucket names have to be globally unique so you may have to try different strings.
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Follow the cloud-specific instructions for creating the VM to run the pod on
-        - [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
-        - [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-        -  [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
+        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+        - [Azure](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
+        -  [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
     - The 443 and 444 ports for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
         - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
@@ -34,16 +34,16 @@ There are two ways to install the pod:
 2. Install the pod as a docker container in a server in your home.
     - TCP ports 443 and port 444 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
-    - Detailed instructions are available for running the pod on your [server](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/server-pod.md)
+    - Detailed instructions are available for running the pod on your [server](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/server-pod.md)
 
 To launch the pod:
 - Log in to your VM or server.
-- Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/StevenHessing/byoda-python.git)
+- Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/byoda/byoda-python.git)
 
 ```
 sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host sqlite3
 
-git clone https://github.com/StevenHessing/byoda-python.git
+git clone https://github.com/byoda/byoda-python.git
 ```
 
 If (and only if) you created a new VM in a public cloud for your pod then create a swap file:
@@ -85,7 +85,7 @@ vi ~/docker-launch.sh
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it a.o. to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/StevenHessing/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/byoda/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo mkdir /byoda 2>/dev/null
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
@@ -201,7 +201,7 @@ tools/call_graphql.py --object network_invites --action append --remote-member-i
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
 
-The reason that your pod is allowed to add data to my pod is because of the ['data contract' of the 'address book' service](https://github.com/StevenHessing/byoda-python/blob/master/tests/collateral/addressbook.json). In there, you can find:
+The reason that your pod is allowed to add data to my pod is because of the ['data contract' of the 'address book' service](https://github.com/byoda/byoda-python/blob/master/tests/collateral/addressbook.json). In there, you can find:
 ```
     "network_invites": {
         "#accesscontrol": {
@@ -256,7 +256,7 @@ https://proxy.byoda.net/4294929430/$MEMBER_ID/api/v1/data/service-4294929430
 ```
 
 
-While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
+While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/byoda/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
 
 ## Access security
 When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.

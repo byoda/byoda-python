@@ -1,7 +1,7 @@
 '''
-There is both a generic SQL and a AioSqliteStorage class. The generic SQL
+There is both a generic SQL and a SqliteStorage class. The generic SQL
 class takes care of converting the data schema of a service to a SQL table.
-The AioSqliteStorage class takes care of persisting the data.
+The SqliteStorage class takes care of persisting the data.
 
 Each membership of a service gets its own SqlLite DB file under the
 root-directory, ie.: /byoda/sqlite/<member_id>.db
@@ -180,7 +180,7 @@ class Sql:
         '''
 
         raise NotImplementedError(
-            'No write method implemented for AioSqliteStorage'
+            'No write method implemented for Sql storage'
         )
 
 
@@ -253,20 +253,16 @@ class SqliteStorage(Sql):
 
         server: Paths = config.server
         paths: Paths = server.network.paths
-        member_data_dir = (
-            paths.root_directory +
-            '/' +
-            paths.get(Paths.MEMBER_DATA_DIR, member_id=member_id)
-        )
+        member_data_file = self.get_member_data_filepath(
+            self, member_id, service_id, paths, local=True)
+
+        member_data_dir = os.path.dirname(member_data_file)
 
         if not os.path.exists(member_data_dir):
             os.makedirs(member_data_dir, exist_ok=True)
             _LOGGER.debug(
                 f'Created member db data directory {member_data_dir}'
             )
-
-        member_data_file = \
-            f'{member_data_dir}/sqlite-{service_id}-{member_id}.db'
 
         # this will create the DB file if it doesn't exist already
         member_db_conn = await aiosqlite.connect(member_data_file)
@@ -287,6 +283,34 @@ class SqliteStorage(Sql):
                     data_class, self, member_id, schema.data_classes
                 )
                 self.member_sql_tables[member_id][data_class.name] = sql_table
+
+    def get_member_data_filepath(self, member_id: UUID, service_id: int,
+                                 paths: Paths = None, local: bool = True
+                                 ) -> str:
+        '''
+        Returns the filepath for the member data file
+
+        :param member_id: The member ID
+        :param service_id: The service ID
+        :param paths: The Paths object, if None then the path to the file will
+        not be included in the returned result
+        :param local: should we return a relative path or an absolute path.
+        The latter can be used when using the local file system.
+        :returns: file name (optionally including the full path to it)
+        '''
+
+        path = ''
+        if paths:
+            if local:
+                path = paths.root_directory + '/'
+
+            path += paths.get(Paths.MEMBER_DATA_DIR, member_id=member_id) + '/'
+
+        path += paths.get(
+            Paths.MEMBER_DATA_FILE, member_id=member_id, service_id=service_id
+        )
+
+        return path
 
     async def set_membership_status(self, member_id: UUID, service_id: int,
                                     status: MemberStatus):
@@ -399,7 +423,7 @@ class AioSqliteStorage(Sql):
             f'{paths.root_directory}/{paths.get(Paths.ACCOUNT_DATA_DIR)}'
 
         self.data_dir = data_dir
-        self.account_db_file: str = f'{data_dir}/sqlite.db'
+        self.account_db_file: str = f'{data_dir}/account.db'
 
         self.member_sql_tables: dict[str, dict[str, SqlTable]] = {}
 

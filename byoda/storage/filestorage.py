@@ -64,7 +64,7 @@ class FileStorage:
     @staticmethod
     async def setup(root_dir: str):
         '''
-        Factory for AwsFileStorage
+        Factory for FileStorage
 
         :param bucket_prefix: prefix of the storage account, to which
         'private' and 'public' will be appended
