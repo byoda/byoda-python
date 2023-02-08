@@ -33,9 +33,7 @@ from byoda.datamodel.account import Account
 
 from byoda.datatypes import CloudType
 
-from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.document_store import DocumentStoreType
-from byoda.datastore.data_store import DataStore
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.servers.pod_server import PodServer
@@ -47,7 +45,10 @@ from byoda import config
 from byoda.data_import.twitter import Twitter
 
 from podserver.util import get_environment_vars
-from byoda.util.podworker.sync_datastore import sync_datastore_from_cloud
+
+from byoda.util.podworker.backup_datastore import \
+    backup_datastore  # noqa: F401
+
 from byoda.util.podworker.twitter import fetch_tweets
 
 _LOGGER = None
@@ -76,12 +77,12 @@ async def main(argv):
     )
 
     try:
-        config.server = PodServer()
+        config.server = PodServer(cloud_type=CloudType(data['cloud']))
         server = config.server
 
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType(data['cloud']),
+            server.cloud,
             bucket_prefix=data['bucket_prefix'],
             root_dir=data['root_dir']
         )
@@ -100,8 +101,6 @@ async def main(argv):
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
-
-    _LOGGER.info('Load of account and memberships complete')
 
     if data.get('bootstrap'):
         _LOGGER.info('Running bootstrap tasks')
@@ -209,7 +208,7 @@ async def run_daemon(server: PodServer):
 
         while True:
             _LOGGER.debug('Podworker not daemonized')
-            run_pending()
+            await run_pending()
             time.sleep(3)
 
 

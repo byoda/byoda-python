@@ -32,7 +32,8 @@ JWT = TypeVar('JWT')
 
 
 class Server:
-    def __init__(self, network: Network):
+    def __init__(self, network: Network,
+                 cloud_type: CloudType = CloudType.LOCAL):
         self.server_type: ServerType = None
         self.network: Network = network
         self.account: Account = None
@@ -40,7 +41,7 @@ class Server:
         self.document_store: DocumentStore = None
         self.data_store: DataStore = None
         self.storage_driver: FileStorage = None
-        self.cloud = None
+        self.cloud: CloudType = cloud_type
         self.paths: Paths = None
         self.started: datetime = datetime.now(timezone.utc)
 

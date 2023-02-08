@@ -129,7 +129,10 @@ class FileStorage:
         relative_path = relative_path.rstrip('/')
 
         if storage_type == StorageType.PRIVATE:
-            dirpath = self.local_path + relative_path
+            if relative_path.startswith(self.local_path):
+                dirpath = relative_path
+            else:
+                dirpath = self.local_path + relative_path
         else:
             dirpath = (
                 self.local_path.rstrip('/') + PUBLIC_POSTFIX + relative_path

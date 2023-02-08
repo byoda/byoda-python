@@ -21,6 +21,8 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.sqlite import SqliteStorage
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 Schema = TypeVar('Schema')
@@ -43,7 +45,7 @@ class DataStore:
 
         storage = DataStore()
         if storage_type == DataStoreType.SQLITE:
-            storage.backend = await SqliteStorage.setup()
+            storage.backend = await SqliteStorage.setup(config.server)
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 
