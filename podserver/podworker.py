@@ -211,21 +211,26 @@ async def run_daemon_tasks(server: PodServer, daemonized: bool):
     '''
 
     # This is a separate function to work-around an issue with running
+    # aioschedule in a daemon context
+    _LOGGER.debug('Schedling ping message task')
     every(60).seconds.do(log_ping_message)
 
+    _LOGGER.debug('Scheduling twitter update task')
     every(180).seconds.do(twitter_update_task, server)
 
     if server.cloud != CloudType.LOCAL:
+        _LOGGER.debug('Scheduling backups of the datastore')
         every(1).minute.do(backup_datastore, server)
 
     await run_startup_tasks(server)
 
     while True:
         try:
-            await run_pending()
             if daemonized:
+                asyncio.run(run_pending())
                 asyncio.sleep(60)
             else:
+                await run_pending()
                 time.sleep(3)
         except Exception:
             _LOGGER.exception('Exception during run_pending')
