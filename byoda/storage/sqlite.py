@@ -235,7 +235,7 @@ class SqliteStorage(Sql):
             )
             if await cloud_file_store.exists(cloud_filepath):
                 sqlite.restore_db_file(
-                    sqlite.account_db_cfile, cloud_filepath, cloud_file_store
+                    sqlite.account_db_file, cloud_filepath, cloud_file_store
                 )
 
         _LOGGER.debug(
