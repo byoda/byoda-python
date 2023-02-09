@@ -234,7 +234,7 @@ class SqliteStorage(Sql):
                 os.path.basename(sqlite.account_db_file)
             )
             if await cloud_file_store.exists(cloud_filepath):
-                sqlite.restore_db_file(
+                await sqlite.restore_db_file(
                     sqlite.account_db_file, cloud_filepath, cloud_file_store
                 )
 

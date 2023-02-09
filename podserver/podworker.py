@@ -186,13 +186,6 @@ async def run_daemon(server: PodServer):
     global _LOGGER
     data = get_environment_vars()
 
-    every(60).seconds.do(log_ping_message)
-
-    every(180).seconds.do(twitter_update_task, server)
-
-    if server.cloud != CloudType.LOCAL:
-        every(1).minute.do(backup_datastore, server)
-
     if data['daemonize']:
         _LOGGER.info(f'Daermonizing podworker: {data["daemonize"]}')
         with daemon.DaemonContext():
@@ -202,25 +195,40 @@ async def run_daemon(server: PodServer):
                 logfile=LOG_FILE
             )
 
-            await run_startup_tasks(server)
+            # Need to execute run_pending() in a separate async
+            # function to work-around an issue with running
+            # aioschedule in a daemon context
+            asyncio.run(run_daemon_tasks(server, daemonized=True))
 
-            while True:
-                try:
-                    await run_pending()
-                except Exception:
-                    _LOGGER.exception('Exception during run_pending')
-
-                asyncio.sleep(60)
     else:
         _LOGGER.debug(f'Not daemonizing podworker: {data["daemonize"]}')
-        await run_startup_tasks(server)
+        await run_daemon_tasks(server, daemonized=False)
 
-        while True:
-            try:
-                await run_pending()
+
+async def run_daemon_tasks(server: PodServer, daemonized: bool):
+    '''
+    Run the tasks defined for the podworker
+    '''
+
+    # This is a separate function to work-around an issue with running
+    every(60).seconds.do(log_ping_message)
+
+    every(180).seconds.do(twitter_update_task, server)
+
+    if server.cloud != CloudType.LOCAL:
+        every(1).minute.do(backup_datastore, server)
+
+    await run_startup_tasks(server)
+
+    while True:
+        try:
+            await run_pending()
+            if daemonized:
+                asyncio.sleep(60)
+            else:
                 time.sleep(3)
-            except Exception:
-                _LOGGER.exception('Exception during run_pending')
+        except Exception:
+            _LOGGER.exception('Exception during run_pending')
 
 
 async def log_ping_message():

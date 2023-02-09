@@ -93,7 +93,8 @@
             "justMyCode": true,
             "args": [
             ]
-        },        {
+        },
+        {
             "program": "tools/call_graphql.py",
             "name": "call graphql",
             "type": "python",
@@ -105,7 +106,7 @@
                 "BUCKET_PREFIX": "byoda",
                 "NETWORK": "byoda.net",
                 "ROOT_DIR": "/tmp/byoda-tests/call_graphql",
-                "ACCOUNT_ID": "aaaaaa14-904f-11eb-88ff-00155de02c92",
+                "ACCOUNT_ID": "6e31dd43-fc13-426f-a689-a401915c29cd",
                 "ACCOUNT_SECRET": "byoda",
                 "LOGLEVEL": "DEBUG",
                 "PRIVATE_KEY_SECRET": "byoda",
@@ -118,6 +119,29 @@
             ]
         },
         {
+            "program": "podserver/podworker.py",
+            "name": "podworker",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CLOUD": "Azure",
+                "BUCKET_PREFIX": "byoda",
+                "NETWORK": "byoda.net",
+                "ROOT_DIR": "/tmp/byoda-tests/podworker",
+                "ACCOUNT_ID": "6e31dd43-fc13-426f-a689-a401915c29cd",
+                "ACCOUNT_SECRET": "byoda",
+                "LOGLEVEL": "DEBUG",
+                "PRIVATE_KEY_SECRET": "byoda",
+                "BOOTSTRAP": "BOOTSTRAP",
+                "PYTHONPATH": "/home/steven/src/byoda-python",
+                "DAEMONIZE": "False"
+            },
+            "args": [
+                "--member_id", "dd8dfb20-7c22-4ea0-9341-ae997b242e12"
+            ]
+        },{
             "name": "create_service_secrets",
             "type": "python",
             "request": "launch",
