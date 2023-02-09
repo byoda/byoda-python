@@ -360,6 +360,8 @@ class SqliteStorage(Sql):
                 )
             return
 
+        _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
+
         if conn:
             # If conn paraneter is passed, we use the connection
             local_conn = conn

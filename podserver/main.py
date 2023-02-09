@@ -69,7 +69,7 @@ async def setup():
     server.custom_domain = network_data['custom_domain']
     server.shared_webserver = network_data['shared_webserver']
 
-    if str(network_data['debug']).lower() in ('true', 'debug'):
+    if str(network_data['debug']).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
         # use tools like call_graphql.py to debug the server
@@ -111,6 +111,11 @@ async def setup():
     pod_account = Account(network_data['account_id'], network)
     await pod_account.paths.create_account_directory()
     pod_account.password = network_data.get('account_secret')
+
+    if network_data.get('bootstrap'):
+        _LOGGER.info('Running bootstrap tasks')
+        await run_bootstrap_tasks(server, pod_account)
+
     await pod_account.tls_secret.load(
         password=pod_account.private_key_password
     )
@@ -118,7 +123,7 @@ async def setup():
         password=pod_account.private_key_password
     )
     try:
-        # Needed for nginx and aiohttp
+        # Unencrypted private key is needed for nginx and aiohttp
         await pod_account.tls_secret.save(
             password=network_data['private_key_password'], overwrite=True,
             storage_driver=server.local_storage
@@ -177,3 +182,54 @@ async def setup():
 
     _LOGGER.debug('Going to add CORS Origins')
     add_cors(app, cors_origins)
+
+
+async def run_bootstrap_tasks(server: PodServer, account: Account):
+    '''
+    When we are bootstrapping, we create any data that is missing from
+    the data store.
+    '''
+
+    account_id = account.account_id
+
+    _LOGGER.debug('Starting bootstrap tasks')
+    try:
+        await account.tls_secret.load(
+            password=account.private_key_password
+        )
+        common_name = account.tls_secret.common_name
+        if not common_name.startswith(str(account.account_id)):
+            error_msg = (
+                f'Common name of existing account secret {common_name} '
+                f'does not match ACCOUNT_ID environment variable {account_id}'
+            )
+            _LOGGER.exception(error_msg)
+            raise ValueError(error_msg)
+        _LOGGER.debug('Read account TLS secret')
+    except FileNotFoundError:
+        try:
+            await account.create_account_secret()
+            _LOGGER.info('Created account secret during bootstrap')
+        except Exception:
+            _LOGGER.exception('Exception during startup')
+            raise
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
+
+    try:
+        await account.data_secret.load(
+            password=account.private_key_password
+        )
+        _LOGGER.debug('Read account data secret')
+    except FileNotFoundError:
+        try:
+            await account.create_data_secret()
+            _LOGGER.info('Created account data secret during bootstrap')
+        except Exception:
+            raise
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
+
+    _LOGGER.info('Podworker completed bootstrap')
