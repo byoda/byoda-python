@@ -285,7 +285,7 @@ class SqliteStorage(Sql):
         '''
 
         if server.cloud == CloudType.LOCAL:
-            raise ValueError('Cannot backup to local cloud')
+            raise ValueError('Cannot backup to local storage')
 
         data_store: DataStore = server.data_store
         cloud_file_store: FileStorage = server.document_store.backend
