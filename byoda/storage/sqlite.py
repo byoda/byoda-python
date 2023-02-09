@@ -223,6 +223,7 @@ class SqliteStorage(Sql):
         if (server.cloud != CloudType.LOCAL
                 and
                 not await server.local_storage.exists(sqlite.account_db_file)):
+            _LOGGER.debug('Account DB file does not exist locally')
             db_downloaded = True
 
             doc_store: DocumentStore = server.document_store
@@ -234,6 +235,7 @@ class SqliteStorage(Sql):
                 os.path.basename(sqlite.account_db_file)
             )
             if await cloud_file_store.exists(cloud_filepath):
+                _LOGGER.info('Restoring account DB file from cloud')
                 await sqlite.restore_db_file(
                     sqlite.account_db_file, cloud_filepath, cloud_file_store
                 )
