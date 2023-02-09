@@ -437,7 +437,7 @@ class SqliteStorage(Sql):
             )
 
             try:
-                self.restore_db_file(
+                await self.restore_db_file(
                     local_member_data_file, cloud_member_data_file,
                     cloud_file_store
                 )
