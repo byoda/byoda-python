@@ -94,17 +94,17 @@ async def main(argv):
         _LOGGER.exception('Exception during startup')
         raise
 
-    await run_daemon_tasks(server, daemonized=False)
+    await run_daemon_tasks(server)
 
 
-async def run_daemon_tasks(server: PodServer, daemonized: bool):
+async def run_daemon_tasks(server: PodServer):
     '''
     Run the tasks defined for the podworker
     '''
 
     # This is a separate function to work-around an issue with running
     # aioschedule in a daemon context
-    _LOGGER.debug('Schedling ping message task')
+    _LOGGER.debug('Scheduling ping message task')
     every(60).seconds.do(log_ping_message)
 
     _LOGGER.debug('Scheduling twitter update task')
@@ -112,7 +112,7 @@ async def run_daemon_tasks(server: PodServer, daemonized: bool):
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
-        every(1).minute.do(backup_datastore, server)
+        every(60).minute.do(backup_datastore, server)
 
     await run_startup_tasks(server)
 

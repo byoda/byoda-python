@@ -115,13 +115,14 @@ async def setup():
     if network_data.get('bootstrap'):
         _LOGGER.info('Running bootstrap tasks')
         await run_bootstrap_tasks(server, pod_account)
+    else:
+        await pod_account.tls_secret.load(
+            password=pod_account.private_key_password
+        )
+        await pod_account.data_secret.load(
+            password=pod_account.private_key_password
+        )
 
-    await pod_account.tls_secret.load(
-        password=pod_account.private_key_password
-    )
-    await pod_account.data_secret.load(
-        password=pod_account.private_key_password
-    )
     try:
         # Unencrypted private key is needed for nginx and aiohttp
         await pod_account.tls_secret.save(
