@@ -273,7 +273,7 @@ class SqliteStorage(Sql):
         for conn in self.member_db_conns.values():
             await conn.close()
 
-    async def backup(self, server: PodServer):
+    async def backup_datastore(self, server: PodServer):
         '''
         Backs up the account DB and the membership DB files
         to the cloud. If a DB file has not changed since
@@ -286,7 +286,7 @@ class SqliteStorage(Sql):
             raise ValueError('Cannot backup to local cloud')
 
         data_store: DataStore = server.data_store
-        cloud_file_store: FileStorage = server.doc_store.backend
+        cloud_file_store: FileStorage = server.document_store.backend
 
         # First we back up the account DB
         try:
@@ -304,12 +304,14 @@ class SqliteStorage(Sql):
                 f'Not restoring account DB as local copy exists: {local_file}'
             )
 
+        await self.backup_member_db_files(server)
+
     async def backup_member_db_files(self, server: PodServer):
         '''
         Backs up the database files for all memberships
         '''
 
-        cloud_file_store: FileStorage = server.doc_store.backend
+        cloud_file_store: FileStorage = server.document_store.backend
 
         memberships: list[dict[str, object]] = await self.get_memberships()
         for membership in memberships.values():
@@ -323,11 +325,9 @@ class SqliteStorage(Sql):
             )
 
             try:
-                self.backup_db_file(
-                    local_member_data_file,
-                    cloud_member_data_file,
-                    cloud_file_store,
-                    self.member_db_conns[membership['member_id']]
+                await self.backup_db_file(
+                    local_member_data_file, cloud_member_data_file,
+                    cloud_file_store
                 )
             except FileNotFoundError:
                 _LOGGER.warning(
@@ -336,7 +336,7 @@ class SqliteStorage(Sql):
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
                              cloud_file_store: FileStorage,
-                             conn: aiosqlite.Connection):
+                             conn: aiosqlite.Connection = None):
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -360,11 +360,23 @@ class SqliteStorage(Sql):
                 )
             return
 
+        if conn:
+            # If conn paraneter is passed, we use the connection
+            local_conn = conn
+        else:
+            # If conn paraneter is not passed, we open a new connection
+            # and we'll close it as well.
+            local_conn = await aiosqlite.connect(local_file)
+
         backup_conn = await aiosqlite.connect(backup_file)
-        await conn.backup(backup_conn)
+        await local_conn.backup(backup_conn)
         await backup_conn.close()
+
+        if not conn:
+            await local_conn.close()
+
         with open(backup_file, 'rb') as file_desc:
-            cloud_file_store.write(cloud_file, file_descriptor=file_desc)
+            await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
 
     async def restore_db_file(self, local_file: str, cloud_file: str,
                               cloud_file_store: FileStorage):

@@ -10,8 +10,6 @@ import logging
 
 import requests
 
-from schedule import every, repeat
-
 from byoda.servers.pod_server import PodServer
 
 from byoda.datamodel.account import Account
@@ -37,10 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 NEWEST_TWEET_FILE = 'newest_tweet.txt'
 
 
-@repeat(every(180).seconds)
-def twitter_update_task():
-
-    server: PodServer = config.server
+async def twitter_update_task(server: PodServer):
 
     try:
         if server.twitter_client:

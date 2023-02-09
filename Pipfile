@@ -49,6 +49,7 @@ typing-extensions = "*"
 certbot = "*"
 aiosqlite = "*"
 fastjsonschema = "*"
+aioschedule = {git = "https://github.com/AleksHeller/python-aioschedule"}
 
 [dev-packages]
 flake8 = "*"

@@ -8,22 +8,16 @@ Various utility classes, variables and functions
 
 import logging
 
-from schedule import every, repeat
-
 from byoda.servers.pod_server import PodServer
-
-from util import config
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@repeat(every(180).seconds)
-async def backup_datastore():
+async def backup_datastore(server: PodServer):
     '''
     Backs up the account DB and membership DBs to the cloud
     '''
 
     _LOGGER.info('Backing up datastore')
-    server: PodServer = config.server
 
-    await server.backend.backup_datastore(server)
+    await server.data_store.backend.backup_datastore(server)

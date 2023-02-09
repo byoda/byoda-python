@@ -26,7 +26,7 @@ import daemon
 
 import asyncio
 
-from schedule import every, repeat, run_pending
+from aioschedule import every, run_pending
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -50,6 +50,7 @@ from byoda.util.podworker.backup_datastore import \
     backup_datastore  # noqa: F401
 
 from byoda.util.podworker.twitter import fetch_tweets
+from byoda.util.podworker.twitter import twitter_update_task
 
 _LOGGER = None
 
@@ -185,8 +186,15 @@ async def run_daemon(server: PodServer):
     global _LOGGER
     data = get_environment_vars()
 
-    _LOGGER.info(f'Daermonizing podworker: {data["daemonize"]}')
+    every(60).seconds.do(log_ping_message)
+
+    every(180).seconds.do(twitter_update_task, server)
+
+    if server.cloud != CloudType.LOCAL:
+        every(1).minute.do(backup_datastore, server)
+
     if data['daemonize']:
+        _LOGGER.info(f'Daermonizing podworker: {data["daemonize"]}')
         with daemon.DaemonContext():
             _LOGGER = Logger.getLogger(
                 sys.argv[0], json_out=False, debug=data['debug'],
@@ -194,26 +202,28 @@ async def run_daemon(server: PodServer):
                 logfile=LOG_FILE
             )
 
-            await run_startup_tasks(config.server)
+            await run_startup_tasks(server)
 
             while True:
                 try:
-                    run_pending()
+                    await run_pending()
                 except Exception:
                     _LOGGER.exception('Exception during run_pending')
 
-                time.sleep(60)
+                asyncio.sleep(60)
     else:
-        await run_startup_tasks(config.server)
+        _LOGGER.debug(f'Not daemonizing podworker: {data["daemonize"]}')
+        await run_startup_tasks(server)
 
         while True:
-            _LOGGER.debug('Podworker not daemonized')
-            await run_pending()
-            time.sleep(3)
+            try:
+                await run_pending()
+                time.sleep(3)
+            except Exception:
+                _LOGGER.exception('Exception during run_pending')
 
 
-@repeat(every(60).seconds)
-def log_ping_message():
+async def log_ping_message():
     _LOGGER.debug('Log worker ping message')
 
 

@@ -229,7 +229,7 @@ class AzureFileStorage(FileStorage):
         await blob_client.upload_blob(file_descriptor, overwrite=True)
 
         _LOGGER.debug(
-            f'wrote {len(data or [])} bytes to blob "byoda/{filepath}" for '
+            f'wrote to blob "byoda/{filepath}" for '
             f'bucket {self.buckets[storage_type.value]}'
         )
 
