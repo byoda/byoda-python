@@ -227,7 +227,7 @@ async def run_daemon_tasks(server: PodServer, daemonized: bool):
     while True:
         try:
             if daemonized:
-                asyncio.run(run_pending())
+                await run_pending()
                 asyncio.sleep(60)
             else:
                 await run_pending()
