@@ -29,7 +29,8 @@ class AccountRequestAuthFast(RequestAuth):
                  request: Request,
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
-                 x_client_ssl_issuing_ca: str | None = Header(None)):
+                 x_client_ssl_issuing_ca: str | None = Header(None),
+                 x_client_ssl_cert: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
@@ -45,10 +46,11 @@ class AccountRequestAuthFast(RequestAuth):
 
         super().__init__(request.client.host, request.method)
 
-        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
-        self.x_client_ssl_subject: str = x_client_ssl_subject
-        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
-        self.authorization = None
+        self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
+        self.x_client_ssl_subject: str | None = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
+        self.x_client_ssl_cert: str | None = x_client_ssl_cert
+        self.authorization: str | None = None
 
     async def authenticate(self):
         server = config.server
@@ -56,7 +58,7 @@ class AccountRequestAuthFast(RequestAuth):
         try:
             await super().authenticate(
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
-                self.x_client_ssl_issuing_ca, None
+                self.x_client_ssl_issuing_ca, self.x_client_ssl_cert, None
             )
         except ByodaMissingAuthInfo:
             raise HTTPException(
@@ -88,7 +90,8 @@ class AccountRequestOptionalAuthFast(RequestAuth):
                  request: Request,
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
-                 x_client_ssl_issuing_ca: str | None = Header(None)):
+                 x_client_ssl_issuing_ca: str | None = Header(None),
+                 x_client_ssl_cert: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
         In this class, authentication is optional, so if no TLS client cert
@@ -108,9 +111,10 @@ class AccountRequestOptionalAuthFast(RequestAuth):
 
         super().__init__(request.client.host, request.method)
 
-        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
-        self.x_client_ssl_subject: str = x_client_ssl_subject
-        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
+        self.x_client_ssl_subject: str | None = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
+        self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization = None
 
     async def authenticate(self):
@@ -119,7 +123,7 @@ class AccountRequestOptionalAuthFast(RequestAuth):
         try:
             await super().authenticate(
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
-                self.x_client_ssl_issuing_ca, None
+                self.x_client_ssl_issuing_ca, self.x_client_ssl_cert, None
             )
         except ByodaMissingAuthInfo:
             # This class does not require authentication so we just return

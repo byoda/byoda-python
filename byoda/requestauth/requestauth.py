@@ -90,6 +90,7 @@ class RequestAuth:
         X-Client-SSL-Verify
         X-Client-SSL-Subject
         X-Client-SSL-Issuing-Ca
+        X-Client-SSL-Cert
         X-Forwarded-For
 
     With nginx this can be achieved by:
@@ -140,7 +141,8 @@ class RequestAuth:
         self.authorization: str = None
 
     async def authenticate(self, tls_status: TlsStatus, client_dn: str,
-                           issuing_ca_dn: str, authorization: str):
+                           issuing_ca_dn: str, client_cert: str,
+                           authorization: str):
         '''
         Get the authentication info for the client that made the API call.
         As long as either the TLS client cert or the JWT from the
@@ -156,6 +158,7 @@ class RequestAuth:
         :param client_dn: designated name of the presented client TLS cert
         :param issuing_ca_dn: designated name of the issuing CA for the
         presented TLS client cert
+        :param client_cert: PEM url-encoded client TLS cert
         :returns: (none)
         :raises: ByodaMissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
@@ -168,10 +171,11 @@ class RequestAuth:
         information in the request for authentication
         '''
 
-        self.tls_status: TlsStatus = tls_status
-        self.client_dn: str = client_dn
-        self.issuing_ca_dn: str = issuing_ca_dn
-        self.authorization: str = authorization
+        self.tls_status: TlsStatus | None = tls_status
+        self.client_dn: str | None = client_dn
+        self.issuing_ca_dn: str | None = issuing_ca_dn
+        self.client_cert: str | None = client_cert
+        self.authorization: str | None = authorization
 
         error = 401
         detail = 'Missing authentication info'
@@ -282,6 +286,7 @@ class RequestAuth:
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
+            request.headers.get('X-Client-SSL-Cert'),
             request.headers.get('Authorization'),
             request.client.host, HttpRequestMethod(request.method)
         )
@@ -297,7 +302,8 @@ class RequestAuth:
     @staticmethod
     async def authenticate_graphql(tls_status: TlsStatus,
                                    client_dn: str, issuing_ca_dn: str,
-                                   authorization: str, remote_addr: IpAddress,
+                                   ssl_cert, authorization: str,
+                                   remote_addr: IpAddress,
                                    method: HttpRequestMethod):
         '''
         Authenticate a request based on incoming TLS headers or JWT
@@ -355,7 +361,7 @@ class RequestAuth:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(remote_addr, method)
             await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, authorization
+                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
             )
 
             _LOGGER.debug(

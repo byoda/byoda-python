@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 class ServiceRequestAuth(RequestAuth):
     async def authenticate(self, tls_status: TlsStatus,
                            client_dn: str, issuing_ca_dn: str,
-                           authorization: str) -> bool:
+                           client_cert: str, authorization: str) -> bool:
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
@@ -48,7 +48,8 @@ class ServiceRequestAuth(RequestAuth):
                 f'Authenticating request by a service: {client_dn}'
             )
             await super().authenticate(
-                tls_status, client_dn, issuing_ca_dn, authorization,
+                tls_status, client_dn, issuing_ca_dn,
+                client_cert, authorization,
             )
         except ByodaMissingAuthInfo:
             raise HTTPException(
