@@ -321,6 +321,7 @@ class Account:
         member.data = MemberData(member)
 
         if service_id not in self.memberships:
+            await member.load_service_cacert()
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
@@ -360,6 +361,8 @@ class Account:
             members_ca=members_ca,
             local_service_contract=local_service_contract
         )
+
+        await member.load_service_cacert()
 
         await member.create_nginx_config()
         reload_gunicorn()

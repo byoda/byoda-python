@@ -209,7 +209,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         service_id = SERVICE_ID
         serviceca_secret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id, network=network
+            service_id=service_id, network=network
         )
         csr = await serviceca_secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
@@ -235,8 +235,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Check that the service CA public cert was written to the network
         # directory of the dirserver
         testsecret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id,
-            network=config.server.network
+            service_id=service_id, network=config.server.network
         )
         await testsecret.load(with_private_key=False)
 

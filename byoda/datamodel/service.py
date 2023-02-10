@@ -421,7 +421,7 @@ class Service:
         _LOGGER.debug(
             f'Initiating secret creation for service ID {self.service_id}'
         )
-        
+
         secret = secret_cls(
             self.name, self.service_id, network=self.network
         )
@@ -592,7 +592,7 @@ class Service:
                 _LOGGER.debug(f'DNS lookup of {fqdn} failed')
 
         if not self.service_ca:
-            self.service_ca = ServiceCaSecret(None, self.service_id, server.network)
+            self.service_ca = ServiceCaSecret(self.service_id, server.network)
             if await self.service_ca.cert_file_exists():
                 if await self.service_ca.private_key_file_exists():
                     # We must be running on a ServiceServer
@@ -681,7 +681,7 @@ class Service:
 
         if not self.service_ca:
             self.service_ca = ServiceCaSecret(
-                self.name, self.service_id, self.network
+                self.service_id, self.network
             )
             if service_ca_password:
                 await self.service_ca.load(

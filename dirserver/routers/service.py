@@ -264,7 +264,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # if we actually need to do this as we can check any cert of the service
     # and its members through the cert chain that is chained to the network
     # root CA
-    service.service_ca = ServiceCaSecret(None, service.service_id, network)
+    service.service_ca = ServiceCaSecret(service.service_id, network)
     service.service_ca.cert = certchain.signed_cert
     service.service_ca.cert_chain = certchain.cert_chain
 

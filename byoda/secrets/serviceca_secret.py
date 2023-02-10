@@ -38,12 +38,13 @@ class ServiceCaSecret(CaSecret):
             IdType.SERVICE_DATA: 5 * 365,
     }
 
-    def __init__(self, service: str, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
+
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
@@ -64,7 +65,6 @@ class ServiceCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.service = str(service)
         self.service_id = int(service_id)
 
         if self.service_id < 0:

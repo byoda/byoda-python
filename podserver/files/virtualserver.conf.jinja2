@@ -132,13 +132,13 @@ server {
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
     ssl_verify_client on;
 
-    ssl_verify_depth 4;
+    ssl_verify_depth 2;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
-    ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
-    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
 
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;

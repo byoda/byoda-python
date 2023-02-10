@@ -34,10 +34,9 @@ from byoda.datastore.document_store import DocumentStore
 from byoda.storage import FileStorage
 from byoda.datastore.data_store import DataStore
 
-from byoda.secrets import ServiceDataSecret
+from byoda.secrets import ServiceCaSecret, ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
-
 
 from byoda.requestauth.jwt import JWT
 
@@ -95,9 +94,9 @@ class Member:
         self.data: MemberData = None
 
         self.paths: Paths = copy(self.network.paths)
-        self.paths.account_id = account.account_id
-        self.paths.account = account.account
-        self.paths.service_id = self.service_id
+        self.paths.account_id: UUID = account.account_id
+        self.paths.account: Account = account.account
+        self.paths.service_id: int = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
         self.storage_driver: FileStorage = self.document_store.backend
@@ -106,11 +105,12 @@ class Member:
         self.private_key_password: str = account.private_key_password
 
         # The FastAPI app. We store this value to support upgrades of schema
-        self.app: FastAPI = None
+        self.app: FastAPI | None = None
 
-        self.tls_secret: MemberSecret = None
-        self.data_secret: MemberDataSecret = None
-        self.service_data_secret: ServiceDataSecret = None
+        self.tls_secret: MemberSecret | None = None
+        self.data_secret: MemberDataSecret | None = None
+        self.service_data_secret: ServiceDataSecret | None = None
+        self.service_ca_secret: ServiceCaSecret | None = None
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
@@ -567,6 +567,30 @@ class Member:
             f'Member {self.member_id} registered service {self.service_id} '
             f' with network {self.network.name}'
         )
+
+    async def load_service_cacert(self) -> None:
+        self.service_ca_secret = ServiceCaSecret(self.service_id, self.network)
+        try:
+            await self.service_ca_secret.load(with_private_key=False)
+            return
+        except FileNotFoundError:
+            _LOGGER.debug(
+                'Did not find local Service CA cert so will download it'
+            )
+
+        resp = await ApiClient.call(
+            Paths.SERVICE_CACERT_DOWNLOAD,
+            service_id=self.service_id,
+            network_name=self.network.name
+        )
+        if resp.status != 200:
+            raise ValueError(
+                'No service CA cert available locally or from the '
+                'service'
+            )
+
+        self.service_ca_secret.from_string(await resp.text())
+        await self.service_ca_secret.save()
 
     async def load_schema(self, filepath: str = None,
                           verify_signatures: bool = True) -> Schema:

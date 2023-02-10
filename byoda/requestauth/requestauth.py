@@ -455,9 +455,7 @@ class RequestAuth:
             self.service_id = entity_id.service_id
 
             # The Member CA cert gets signed by the Service CA
-            service_ca_secret = ServiceCaSecret(
-                None, service_id, network=network
-            )
+            service_ca_secret = ServiceCaSecret(service_id, network=network)
             service_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
             raise HTTPException(
@@ -492,7 +490,7 @@ class RequestAuth:
         try:
             # Service secret gets signed by Service CA
             service_ca_secret = ServiceCaSecret(
-                None, entity_id.service_id, network=network
+                entity_id.service_id, network=network
             )
             entity_id = service_ca_secret.review_commonname(self.client_cn)
             self.service_id = entity_id.service_id
