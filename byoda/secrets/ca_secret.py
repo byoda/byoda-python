@@ -204,6 +204,12 @@ class CaSecret(Secret):
         if not self.ca:
             raise NotImplementedError('Only CAs need to review CNs')
 
+        if check_service_id and self.service_id is None:
+            raise ValueError(
+                'No service_id set, while we want to check the service_id '
+                f'in the commonname: {commonname}'
+            )
+
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname,
             self.network,
@@ -224,6 +230,9 @@ class CaSecret(Secret):
         Reviews a common name without requiring an instance of the CA class to
         be created
         '''
+
+        if service_id:
+            service_id = int(service_id)
 
         entity_id = Secret.review_commonname_by_parameters(
             commonname, network, service_id=service_id,

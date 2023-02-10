@@ -33,11 +33,10 @@ class NetworkRootCaSecret(CaSecret):
     RENEW_WANTED = datetime.now() + timedelta(days=100 * 365)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=100 * 365)
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.ACCOUNTS_CA: 2 * 365,
-        IdType.SERVICES_CA: 2 * 365,
+        IdType.SERVICES_CA: 16 * 365,
         IdType.NETWORK_DATA: 2 * 365
     }
 

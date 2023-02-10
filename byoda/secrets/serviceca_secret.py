@@ -49,6 +49,8 @@ class ServiceCaSecret(CaSecret):
         :raises: (none)
         '''
 
+        service_id = int(service_id)
+
         self.paths = network.paths
         self.paths.service_id = service_id
 

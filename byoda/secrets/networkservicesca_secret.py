@@ -27,7 +27,7 @@ class NetworkServicesCaSecret(CaSecret):
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 2 * 365}
+    ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 15 * 365}
 
     def __init__(self, paths=None):
         '''

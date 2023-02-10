@@ -19,7 +19,7 @@ from .data_secret import DataSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class ServiceDataSecret(DataSecret):
@@ -31,7 +31,7 @@ class ServiceDataSecret(DataSecret):
         '''
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = service_id
+        self.paths.service_id: int = int(service_id)
 
         super().__init__(
             cert_file=self.paths.get(Paths.SERVICE_DATA_CERT_FILE),
@@ -60,7 +60,7 @@ class ServiceDataSecret(DataSecret):
         '''
 
         if service_id:
-            self.service_id = service_id
+            self.service_id = int(service_id)
 
         # TODO: SECURITY: add constraints
         common_name = (

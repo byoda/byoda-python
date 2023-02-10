@@ -44,7 +44,10 @@ class MemberDataSecret(DataSecret):
 
         if not isinstance(member_id, UUID):
             member_id = UUID(member_id)
+
         self.member_id: UUID = member_id
+
+        service_id = int(service_id)
 
         account_id: UUID | None = None
         if account:
@@ -71,7 +74,7 @@ class MemberDataSecret(DataSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.service_id: int = int(service_id)
+        self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBER_DATA
 
     async def create(self, expire: int = 109500):
@@ -128,6 +131,8 @@ class MemberDataSecret(DataSecret):
         if not isinstance(network, str):
             network = network.name
 
+        service_id = int(service_id)
+
         return f'{member_id}.{IdType.MEMBER_DATA.value}{service_id}.{network}'
 
     @staticmethod
@@ -142,6 +147,7 @@ class MemberDataSecret(DataSecret):
         if not isinstance(network, str):
             network = network.name
 
+        service_id = int(service_id)
         member_data_secret = MemberDataSecret(member_id, service_id)
 
         try:

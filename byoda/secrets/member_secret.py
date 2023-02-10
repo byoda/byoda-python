@@ -38,6 +38,8 @@ class MemberSecret(Secret):
         if member_id:
             self.member_id: UUID = member_id
 
+        service_id = int(service_id)
+
         self.paths: Paths = copy(account.paths)
         self.paths.service_id: int = service_id
 
@@ -56,7 +58,7 @@ class MemberSecret(Secret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.service_id: int = int(service_id)
+        self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBER
 
     async def create_csr(self, renew: bool = False

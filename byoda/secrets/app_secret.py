@@ -40,6 +40,8 @@ class AppSecret(Secret):
         :raises: (none)
         '''
 
+        service_id = int(service_id)
+
         self.paths: Paths = copy(paths)
         self.paths.service_id: int = service_id
 
@@ -52,7 +54,7 @@ class AppSecret(Secret):
             ),
             storage_driver=paths.storage_driver
         )
-        self.service_id: int = int(service_id)
+        self.service_id: int = service_id
         self.ca: bool = False
         self.id_type: IdType = IdType.MEMBER
 

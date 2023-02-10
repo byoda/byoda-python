@@ -55,6 +55,7 @@ class MembersCaSecret(CaSecret):
         '''
 
         self.network: str = str(network.name)
+        service_id = int(service_id)
 
         self.paths: Paths = copy(network.paths)
         self.paths.service_id: int = service_id
@@ -69,7 +70,7 @@ class MembersCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.service_id: int = int(service_id)
+        self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBERS_CA
 
         # X.509 constraints
@@ -130,7 +131,8 @@ class MembersCaSecret(CaSecret):
 
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname, network, MembersCaSecret.ACCEPTED_CSRS,
-            service_id=service_id, uuid_identifier=True, check_service_id=True
+            service_id=int(service_id), uuid_identifier=True,
+            check_service_id=True
         )
 
         return entity_id

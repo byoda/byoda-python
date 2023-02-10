@@ -20,7 +20,7 @@ from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class AppsCaSecret(CaSecret):
@@ -44,6 +44,8 @@ class AppsCaSecret(CaSecret):
         :raises: (none)
         '''
 
+        service_id = int(service_id)
+
         self.paths: Paths = copy(network.paths)
         self.paths.service_id: int = service_id
 
@@ -58,7 +60,7 @@ class AppsCaSecret(CaSecret):
         )
 
         self.network: str = str(network.name)
-        self.service_id: int = int(service_id)
+        self.service_id: int = service_id
         self.service: str = str(service)
 
         self.id_type: IdType = IdType.APPS_CA
@@ -124,7 +126,7 @@ class AppsCaSecret(CaSecret):
 
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname, network, AppsCaSecret.ACCEPTED_CSRS,
-            service_id=service_id,
+            service_id=int(service_id),
             uuid_identifier=True, check_service_id=True
         )
 
