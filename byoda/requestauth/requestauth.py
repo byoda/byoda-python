@@ -353,7 +353,7 @@ class RequestAuth:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(remote_addr, method)
             await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, authorization
+                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
             )
 
             _LOGGER.debug('Authentication for member %s', auth.member_id)
