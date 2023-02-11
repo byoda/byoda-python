@@ -134,11 +134,19 @@ server {
 
     ssl_verify_depth 2;
 
+{% if subdomain == 'accounts' %}
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
+    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+{% else %}
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
     ssl_client_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
     # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
+{% endif %}
 
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
