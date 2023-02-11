@@ -367,6 +367,7 @@ class FileStorage:
         dirpath, filename = self.get_full_path(
             directory, create_dir=False, storage_type=storage_type
         )
+        _LOGGER.debug(f'Creating directory: {dirpath}')
         return os.makedirs(dirpath, exist_ok=exist_ok)
 
     def getmtime(self, filepath: str,

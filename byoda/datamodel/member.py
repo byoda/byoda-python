@@ -569,9 +569,18 @@ class Member:
         )
 
     async def load_service_cacert(self) -> None:
+        '''
+        Downloads the Service CA cert and writes it to local
+        storage for us by the nginx configuration for the membership
+        '''
+
+        server: Server = config.server
+
         self.service_ca_secret = ServiceCaSecret(self.service_id, self.network)
         try:
-            await self.service_ca_secret.load(with_private_key=False)
+            await self.service_ca_secret.load(
+                with_private_key=False, storage_driver=server.local_storage
+            )
             return
         except FileNotFoundError:
             _LOGGER.debug(
@@ -591,7 +600,6 @@ class Member:
 
         self.service_ca_secret.from_string(await resp.text())
 
-        server: Server = config.server
         await self.service_ca_secret.save(
             storage_driver=server.local_storage, overwrite=True
         )

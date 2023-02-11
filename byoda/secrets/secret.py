@@ -534,7 +534,7 @@ class Secret:
         return await self.storage_driver.exists(self.private_key_file)
 
     async def load(self, with_private_key: bool = True,
-                   password: str = 'byoda'):
+                   password: str = 'byoda', storage_driver: FileStorage = None):
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -547,6 +547,9 @@ class Secret:
                 available in the secret FileNotFoundError if the certificate
                 file or the file with the private key do not exist
         '''
+
+        if not storage_driver:
+            storage_driver = self.storage_driver
 
         # We allow (re-)loading an existing secret if we do not have
         # the private key and we need to read the private key.
