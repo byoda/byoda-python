@@ -704,8 +704,7 @@ class Secret:
         _LOGGER.debug('Saving cert to %s', self.cert_file)
         data = self.certchain_as_pem()
 
-        directory = os.path.dirname(self.cert_file)
-        await storage_driver.create_directory(directory)
+        await storage_driver.create_directory(self.cert_file)
 
         await storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
