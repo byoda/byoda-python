@@ -590,7 +590,11 @@ class Member:
             )
 
         self.service_ca_secret.from_string(await resp.text())
-        await self.service_ca_secret.save()
+
+        server: Server = config.server
+        await self.service_ca_secret.save(
+            storage_driver=server.local_storage, overwrite=True
+        )
 
     async def load_schema(self, filepath: str = None,
                           verify_signatures: bool = True) -> Schema:
