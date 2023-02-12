@@ -132,7 +132,7 @@ server {
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
     ssl_verify_client on;
 
-    ssl_verify_depth 2;
+    ssl_verify_depth 5;
 
 {% if subdomain == 'accounts' %}
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate

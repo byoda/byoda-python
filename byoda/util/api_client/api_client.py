@@ -114,7 +114,7 @@ class ApiClient:
                 )
                 self.ssl_context = ssl.create_default_context()
             else:
-                ca_filepath = 'tests/collateral/local/network-byoda.net-service-4294929430-ca-cert.pem'
+                ca_filepath = storage.local_path + server.network.root_ca.cert_file
 
                 self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
                 _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
