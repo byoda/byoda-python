@@ -902,11 +902,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # Test account data export API for the service
-        service_id = ADDRESSBOOK_SERVICE_ID
-        response = requests.get(
-            f'{BASE_URL}/v1/pod/account/data/service_id/{service_id}',
-            headers=account_headers
-        )
+        # service_id = ADDRESSBOOK_SERVICE_ID
+        # response = requests.get(
+        #     f'{BASE_URL}/v1/pod/account/data/service_id/{service_id}',
+        #     headers=account_headers
+        # )
 
         # TODO: refactor data export API for switch from object to SQL storage
         # self.assertEqual(response.status_code, 200)

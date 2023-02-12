@@ -587,6 +587,10 @@ class Member:
                 'Did not find local Service CA cert so will download it'
             )
 
+        # The downloaded cert downloaded here is the complete certchain from
+        # the Service CA to the root CA, including the self-signed root CA
+        # cert. The file is hosted by the nginx configuration for the
+        # Service server, in the 'ssl_client_certificate' directive.
         resp = await ApiClient.call(
             Paths.SERVICE_CACERT_DOWNLOAD,
             service_id=self.service_id,

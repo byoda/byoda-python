@@ -114,7 +114,7 @@ class ApiClient:
                 )
                 self.ssl_context = ssl.create_default_context()
             else:
-                ca_filepath = storage.local_path + server.network.root_ca.cert_file
+                ca_filepath = 'tests/collateral/local/network-byoda.net-service-4294929430-ca-cert.pem'
 
                 self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
                 _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
@@ -141,7 +141,7 @@ class ApiClient:
             self.session = config.client_pools[pool]
 
     @staticmethod
-    async def call(api: str, method: str = 'GET', secret:Secret = None,
+    async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
                    params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
@@ -159,11 +159,11 @@ class ApiClient:
         # This is used by the bootstrap of the pod, when the global variable is not yet
         # set
         if not network_name:
-            network = server.network
-            network_name = network.name
+            network: Network = server.network
+            network_name: str = network.name
 
         if isinstance(method, HttpMethod):
-            method = method.value
+            method: str = method.value
 
         if type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs

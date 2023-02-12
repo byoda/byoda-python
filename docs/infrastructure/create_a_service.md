@@ -175,7 +175,11 @@ sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
 tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
+```
 
+Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
+```
+cat ${BYODA_HOME}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${BYODA_HOME}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
