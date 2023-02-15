@@ -23,7 +23,7 @@ Network = TypeVar('Network')
 
 
 class ServiceDataSecret(DataSecret):
-    def __init__(self, service: str, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the account-data secret. This secret is used to encrypt
         account data.
@@ -39,7 +39,6 @@ class ServiceDataSecret(DataSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.service: str = str(service)
         self.service_id: int = int(service_id)
         self.network: str = self.paths.network
         self.id_type: IdType = IdType.SERVICE_DATA

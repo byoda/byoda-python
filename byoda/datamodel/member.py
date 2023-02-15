@@ -93,9 +93,9 @@ class Member:
 
         self.data: MemberData = None
 
-        self.paths: Paths = copy(self.network.paths)
+        self.paths: Paths = copy(account.paths)
         self.paths.account_id: UUID = account.account_id
-        self.paths.account: Account = account.account
+        self.paths.account: str = account.account
         self.paths.service_id: int = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
@@ -117,6 +117,12 @@ class Member:
         '''
         Loads the schema and the service for this membership
         '''
+
+        if local_service_contract:
+            verify_signatures = False
+        else:
+            verify_signatures = True
+
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -128,7 +134,6 @@ class Member:
                         'test cases'
                     )
                 filepath = local_service_contract
-                verify_signatures = False
             else:
                 if new_membership:
                     filepath = self.paths.service_file(self.service_id)
@@ -136,7 +141,6 @@ class Member:
                     filepath = self.paths.member_service_file(self.service_id)
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
-                verify_signatures = True
 
             try:
                 _LOGGER.debug(
@@ -171,7 +175,9 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
-            self.schema: Schema = await self.load_schema()
+            self.schema: Schema = await self.load_schema(
+                verify_signatures=verify_signatures
+            )
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
@@ -180,7 +186,7 @@ class Member:
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
-            None, self.service_id, self.network
+            self.service_id, self.network
         )
         if await self.service_data_secret.cert_file_exists():
             await self.service_data_secret.load(with_private_key=False)
@@ -284,11 +290,11 @@ class Member:
             )
 
         member.tls_secret = MemberSecret(
-            member.member_id, member.service_id, member.account
+            member.member_id, member.service_id, account=member.account
         )
 
         member.data_secret = MemberDataSecret(
-            member.member_id, member.service_id
+            member.member_id, member.service_id, account=member.account
         )
 
         await member.create_secrets(members_ca=members_ca)

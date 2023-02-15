@@ -26,7 +26,7 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceSecret(Secret):
-    def __init__(self, service: str, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the service secret
 
@@ -48,7 +48,6 @@ class ServiceSecret(Secret):
             ),
             storage_driver=self.paths.storage_driver
         )
-        self.service: str = str(service)
         self.service_id: int = int(service_id)
         self.id_type: IdType = IdType.SERVICE
 

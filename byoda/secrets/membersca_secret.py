@@ -36,7 +36,7 @@ class MembersCaSecret(CaSecret):
         IdType.MEMBER_DATA: 365
     }
 
-    def __init__(self, service: str, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the Service Members CA secret.
 

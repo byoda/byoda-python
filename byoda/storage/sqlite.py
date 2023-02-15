@@ -196,7 +196,7 @@ class SqliteStorage(Sql):
         super().__init__()
 
         server = config.server
-        self.paths: Paths = server.network.paths
+        self.paths: Paths = server.account.paths
         data_dir = (
             self.paths.root_directory + '/' +
             self.paths.get(Paths.ACCOUNT_DATA_DIR)
@@ -458,7 +458,7 @@ class SqliteStorage(Sql):
         '''
 
         server: Paths = config.server
-        paths: Paths = server.network.paths
+        paths: Paths = server.account.paths
         member_data_file = self.get_member_data_filepath(
             member_id, service_id, paths, local=True)
 

@@ -133,7 +133,7 @@ class Service:
 
     async def examine_servicecontract(self, filepath: str) -> None:
         '''
-        Extracts the name and the service ID from the service contract
+        Extracts the name and the service ID from the service contract.
         '''
 
         _LOGGER.debug(f'Reviewing schema in {filepath}')
@@ -249,7 +249,7 @@ class Service:
             raise ValueError('Schema does not contain a network signature')
         if not self.data_secret or not self.data_secret.cert:
             # Let's see if we can read the data secret ourselves
-            self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
+            self.data_secret = ServiceDataSecret(self.service_id, self.network)
             await self.data_secret.load(with_private_key=False)
         if not self.network.data_secret or not self.network.data_secret.cert:
             self.network.data_secret = NetworkDataSecret(self.network.paths)
@@ -423,7 +423,7 @@ class Service:
         )
 
         secret = secret_cls(
-            self.name, self.service_id, network=self.network
+            self.service_id, network=self.network
         )
 
         if await secret.cert_file_exists():
@@ -700,7 +700,7 @@ class Service:
 
         if not self.members_ca:
             self.members_ca = MembersCaSecret(
-                None, self.service_id, self.network
+                self.service_id, self.network
             )
             await self.members_ca.load(
                 with_private_key=with_private_key, password=password
@@ -778,7 +778,7 @@ class Service:
 
         if resp.status == 200:
             if save:
-                self.data_secret = ServiceDataSecret(None, self.service_id, self.network)
+                self.data_secret = ServiceDataSecret(self.service_id, self.network)
                 self.data_secret.from_string(await resp.text())
                 await self.data_secret.save(overwrite=(not failhard))
 
