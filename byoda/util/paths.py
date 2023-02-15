@@ -52,6 +52,7 @@ class Paths:
     SERVICE_APPS_CA_CERT_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-apps-ca-cert.pem'    # noqa
     SERVICE_DATA_CERT_FILE       = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-data-cert.pem'       # noqa
     SERVICE_CERT_FILE            = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-cert.pem'            # noqa
+    SERVICE_CA_CERTCHAIN_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-ca-certchain.pem'    # noqa
     SERVICE_CA_KEY_FILE          = 'private/network-{network}-service-{service_id}-ca.key'                                # noqa
     SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                         # noqa
     SERVICE_APPS_CA_KEY_FILE     = 'private/network-{network}-service-{service_id}-apps-ca.key'                           # noqa

@@ -142,7 +142,7 @@ server {
     # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
 {% else %}
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
-    ssl_client_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-certchain.pem;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
     # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;

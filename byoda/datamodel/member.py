@@ -582,9 +582,14 @@ class Member:
 
         server: Server = config.server
 
-        self.service_ca_secret = ServiceCaSecret(self.service_id, self.network)
+        self.service_ca_certchain = ServiceCaSecret(
+            self.service_id, self.network
+        )
+        self.service_ca_certchain.cert_file = self.paths.get(
+            Paths.SERVICE_CA_CERTCHAIN_FILE
+        )
         try:
-            await self.service_ca_secret.load(
+            await self.service_ca_certchain.load(
                 with_private_key=False, storage_driver=server.local_storage
             )
             return
@@ -608,9 +613,9 @@ class Member:
                 'service'
             )
 
-        self.service_ca_secret.from_string(await resp.text())
+        self.service_ca_certchain.from_string(await resp.text())
 
-        await self.service_ca_secret.save(
+        await self.service_ca_certchain.save(
             storage_driver=server.local_storage, overwrite=True
         )
 
