@@ -192,15 +192,26 @@ class GraphQlProxy:
 
             _LOGGER.debug(
                 f'Filtering {len(network_links or [])} network links on '
-                f'relations: {relations}'
+                f'relations: {", ".join(relations)}'
             )
-            targets = [
-                target['member_id'] for target in network_links or []
-                if not relations or target['relation'].lower() in relations
-            ]
-            _LOGGER.debug(
-                f'Filtered result: {",".join([str(t) for t in targets])}'
-            )
+            if not relations:
+                targets = [target['member_id'] for target in network_links]
+                _LOGGER.debug(
+                    f'Adding all {len(network_links)} network_links as targets'
+                )
+            else:
+                targets = []
+                for target in network_links or []:
+                    if target['relation'].lower() in relations:
+                        targets.append(target['member_id'])
+                        _LOGGER.debug(
+                            f'Adding target {target["member_id"]} with '
+                            f'relation {target["relation"]} to list of targets'
+                        )
+
+        _LOGGER.debug(
+            f'Pods to proxy request to: {",".join([str(t) for t in targets])}'
+        )
 
         tasks = set()
 
