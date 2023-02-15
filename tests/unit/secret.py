@@ -117,6 +117,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.server = PodServer(network)
         config.server.network = network
+        config.server.network.account = 'pod'
 
         await config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE,

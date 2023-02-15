@@ -143,7 +143,7 @@ class Paths:
             raise ValueError('No network specified')
         if '{service_id}' in path_template and service_id is None:
             raise ValueError('No service specified')
-        if '{account}' in path_template and not account_id:
+        if '{account_id}' in path_template and not account_id:
             raise ValueError('No account specified')
 
         path = path_template.format(
