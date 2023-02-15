@@ -735,9 +735,7 @@ class Service:
             raise ValueError('Can not read data secret private key without password')
 
         if not self.data_secret:
-            self.data_secret = ServiceDataSecret(
-                self.name, self.service_id, self.network
-            )
+            self.data_secret = ServiceDataSecret(self.service_id, self.network)
 
             if not await self.data_secret.cert_file_exists():
                 if download:
