@@ -192,7 +192,7 @@ class GraphQlProxy:
 
             _LOGGER.debug(
                 f'Filtering {len(network_links or [])} network links on '
-                f'relations: {", ".join(relations)}'
+                f'relations: {", ".join(relations or [])}'
             )
             if not relations:
                 targets = [target['member_id'] for target in network_links]
