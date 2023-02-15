@@ -203,11 +203,17 @@ class GraphQlProxy:
                 targets = []
                 for target in network_links or []:
                     if target['relation'].lower() in relations:
-                        targets.append(target['member_id'])
-                        _LOGGER.debug(
-                            f'Adding target {target["member_id"]} with '
-                            f'relation {target["relation"]} to list of targets'
-                        )
+                        if str(target['member_id']).startswith('aaaaaaaa'):
+                            _LOGGER.debug(
+                                'We do not proxy to test UUIDs: '
+                                f'{target["member_id"]}'
+                            )
+                        else:
+                            _LOGGER.debug(
+                                f'Adding target {target["member_id"]} as a '
+                                f'{target["relation"]}'
+                            )
+                            targets.append(target['member_id'])
 
         _LOGGER.debug(
             f'Pods to proxy request to: {",".join([str(t) for t in targets])}'
