@@ -1,7 +1,0 @@
-{
-    "python.pythonPath": "/home/steven/.local/share/virtualenvs/byoda-python-XGPnGlwV/bin/python3.9",
-    "python.linting.flake8Enabled": true,
-    "python.linting.mypyEnabled": false,
-    "python.linting.enabled": true,
-    "python.linting.pycodestyleEnabled": false
-}
