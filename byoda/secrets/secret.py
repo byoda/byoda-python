@@ -372,8 +372,8 @@ class Secret:
 
         pem_signed_cert = self.cert_as_pem()
         pem_cert_chain = [
-            x.public_bytes(serialization.Encoding.PEM)
-            for x in self.cert_chain
+            cert.public_bytes(serialization.Encoding.PEM)
+            for cert in self.cert_chain
         ]
         context = ValidationContext(
             trust_roots=[root_ca.cert_as_pem()]
