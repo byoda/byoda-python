@@ -311,7 +311,7 @@ class SchemaDataScalar(SchemaDataItem):
             if isinstance(value, str):
                 result = datetime.fromisoformat(value)
             else:
-                result = datetime.fromtimestamp(value)
+                result = datetime.fromtimestamp(value, tz=timezone.utc)
         else:
             result = value
 

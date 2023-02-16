@@ -4,6 +4,9 @@
 Verify that the POD sends out CORS headers when presented
 with an allowed origin header
 
+TODO: fix test case so it doesn't use the proxy when connecting to a pod
+with a custom domain
+
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license

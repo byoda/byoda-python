@@ -105,7 +105,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup()
+        sql = await SqliteStorage.setup(config.server)
         await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Populate Person object with string data and check the result
@@ -148,7 +148,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup()
+        sql = await SqliteStorage.setup(config.server)
         await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Test for NetworkInvites array of objects
@@ -412,7 +412,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         uuid = get_test_uuid()
 
-        sql = await SqliteStorage.setup()
+        sql = await SqliteStorage.setup(config.server)
         await sql.setup_member_db(uuid, schema.service_id, schema)
         await sql.set_membership_status(
             uuid, schema.service_id, MemberStatus.ACTIVE
