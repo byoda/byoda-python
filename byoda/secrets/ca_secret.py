@@ -2,20 +2,21 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import os
-import datetime
 import logging
-
 from copy import deepcopy
+from datetime import datetime, timedelta
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 
-from byoda.datatypes import CsrSource, EntityId
+from byoda.datatypes import EntityId
+from byoda.datatypes import IdType
+from byoda.datatypes import CsrSource
 
 from byoda.storage.filestorage import FileStorage
 
@@ -44,6 +45,13 @@ CSR = x509.CertificateSigningRequest
 
 
 class CaSecret(Secret):
+    # When should a CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {}
+
     '''
     Interface class for the various types of secrets BYODA uses
 
@@ -76,12 +84,12 @@ class CaSecret(Secret):
         self.ca: bool = True
         self.max_path_length: int = 0
 
-        self.signs_ca_certs = False
+        self.signs_ca_certs: bool = False
 
         # These are the different identity types of the
         # certificates for which this secret will sign
         # CSRs
-        self.accepted_csrs = []
+        self.accepted_csrs: dict[IdType, int] = self.ACCEPTED_CSRS
 
     def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
@@ -196,13 +204,17 @@ class CaSecret(Secret):
         if not self.ca:
             raise NotImplementedError('Only CAs need to review CNs')
 
-        service_id = getattr(self, 'service_id', None)
+        if check_service_id and self.service_id is None:
+            raise ValueError(
+                'No service_id set, while we want to check the service_id '
+                f'in the commonname: {commonname}'
+            )
 
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname,
             self.network,
             self.accepted_csrs,
-            service_id=service_id,
+            service_id=self.service_id,
             uuid_identifier=uuid_identifier,
             check_service_id=check_service_id
         )
@@ -211,13 +223,16 @@ class CaSecret(Secret):
 
     @staticmethod
     def review_commonname_by_parameters(
-            commonname: str, network: str, accepted_csrs: list[str],
+            commonname: str, network: str, accepted_csrs: dict[IdType, int],
             service_id: int = None, uuid_identifier: bool = True,
             check_service_id: bool = True) -> EntityId:
         '''
         Reviews a common name without requiring an instance of the CA class to
         be created
         '''
+
+        if service_id:
+            service_id = int(service_id)
 
         entity_id = Secret.review_commonname_by_parameters(
             commonname, network, service_id=service_id,
@@ -233,7 +248,8 @@ class CaSecret(Secret):
 
         return entity_id
 
-    def sign_csr(self, csr: CSR, expire: int = 365) -> CertChain:
+    def sign_csr(self, csr: CSR, expire: int | timedelta | datetime = None
+                 ) -> CertChain:
         '''
         Sign a csr with our private key
 
@@ -248,6 +264,31 @@ class CaSecret(Secret):
 
         if not self.private_key:
             raise KeyError('Private key not loaded')
+
+        if expire:
+            if isinstance(expire, int):
+                expiration: datetime = datetime.utcnow() + timedelta(
+                    days=expire
+                )
+            elif isinstance(expire, datetime):
+                expiration = expire
+            elif isinstance(expire, timedelta):
+                expiration: datetime = datetime.utcnow() + expire
+            else:
+                raise ValueError(
+                    'expire must be an int, datetime or timedelta, not: '
+                    f'{type(expire)}'
+                )
+        else:
+            entity_id = self.review_csr(csr, source=CsrSource.LOCAL)
+            if entity_id.id_type not in self.accepted_csrs:
+                raise ValueError(
+                    f'We do not sign CSRs for entity type: {entity_id.id_type}'
+                )
+            expiration_days = self.accepted_csrs[entity_id.id_type]
+
+            expiration: datetime = \
+                datetime.utcnow() + timedelta(days=expiration_days)
 
         try:
             extension = csr.extensions.get_extension_for_class(
@@ -269,9 +310,9 @@ class CaSecret(Secret):
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.datetime.utcnow()
+            datetime.utcnow()
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=expire)
+            expiration
         ).add_extension(
             x509.SubjectAlternativeName(
                 [x509.DNSName(dnsname)]

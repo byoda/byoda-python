@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -50,7 +50,7 @@ from svcserver.routers import status as StatusRouter
 from tests.lib.util import get_test_uuid
 
 # Settings must match config.yml used by directory server
-TEST_DIR = '/tmp/byoda-test/svc-apis'
+TEST_DIR = '/tmp/byoda-tests/svc-apis'
 NETWORK = 'test.net'
 DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
@@ -171,7 +171,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # we use a Service instance instead
         service.paths.account = 'pod'
         secret = MemberSecret(member_id, SERVICE_ID, service)
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = requests.post(
@@ -205,7 +205,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         member_data_secret = MemberDataSecret(
             member_id, SERVICE_ID, pod_account
         )
-        csr = member_data_secret.create_csr()
+        csr = await member_data_secret.create_csr()
         cert_chain = service.members_ca.sign_csr(csr)
         member_data_secret.from_signed_cert(cert_chain)
         member_data_certchain = member_data_secret.certchain_as_pem()

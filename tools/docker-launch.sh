@@ -77,7 +77,7 @@ export LETSENCRYPT_DIRECTORY="/var/www/letsencrypt"
 
 # With this option set to a directory, you can access the logs from the pod
 # on the host VM or server as it will be volume mounted in the pod.
-export LOCAL_WWWROOT_DIRECTORY=
+export LOCAL_WWWROOT_DIRECTORY=/var/www/wwwroot
 
 # If you are not running in a cloud VM then you can change this to the
 # directory where all data of the pod should be stored
@@ -103,7 +103,7 @@ fi
 
 if [ ! -z "${CUSTOM_DOMAIN}" ]; then
     echo "Using custom domain: ${CUSTOM_DOMAIN}"
-    PUBLICIP=$(curl -s https://ifconfig.co)
+    PUBLICIP=$(curl -s https://ifconfig.me)
     DNSIP=$(host -t A ${CUSTOM_DOMAIN} | tail -1 | awk '{print $NF}')
     if [ "${DNSIP}" != "${PUBLICIP}" ]; then
         echo "Custom domain ${CUSTOM_DOMAIN} does not resolve to ${PUBLICIP}"
@@ -113,7 +113,7 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
 
     if [ -n "${LETSENCRYPT_DIRECTORY}" ]; then
         if [ ! -d "${LETSENCRYPT_DIRECTORY}" ]; then
-            mkdir =p ${LETSENCRYPT_DIRECTORY}
+            mkdir -p ${LETSENCRYPT_DIRECTORY}
         fi
         export LETSENCRYPT_VOLUME_MOUNT="-v ${LETSENCRYPT_DIRECTORY}:/etc/letsencrypt"
     fi
@@ -203,6 +203,11 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        which gcloud > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "gcloud-cli not found, please install it"
+            exit 1
+        fi
         echo "Wiping all data of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
     fi
@@ -217,9 +222,14 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        which aws > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "aws-cli-v2 not found, please install it"
+            exit 1
+        fi
         echo "Wiping all data of the pod"
-        aws s3 rm s3://${BUCKET_PREFIX}-private/private --recursive
-        aws s3 rm s3://${BUCKET_PREFIX}-private/network-byoda.net --recursive
+        aws s3 rm -f s3://${BUCKET_PREFIX}-private/private --recursive
+        aws s3 rm -f s3://${BUCKET_PREFIX}-private/network-byoda.net --recursive
     fi
 else
     export CLOUD=LOCAL
@@ -259,9 +269,6 @@ fi
 export LOGLEVEL=DEBUG
 export BOOTSTRAP=BOOTSTRAP
 
-export LOGDIR=/var/www/wwwroot/logs
-sudo mkdir -p ${LOGDIR}
-
 sudo docker stop byoda 2>/dev/null
 sudo docker rm byoda  2>/dev/null
 
@@ -276,6 +283,7 @@ sudo docker pull byoda/byoda-pod:latest
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
+    -e "LOGLEVEL=${LOGLEVEL}" \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
     -e "CLOUD=${CLOUD}" \
@@ -285,7 +293,6 @@ sudo docker run -d \
     -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
-    -e "LOGLEVEL=${LOGLEVEL}" \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=/byoda" \

@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -182,8 +182,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
 
         self.assertIsNone(result.get('errors'))
-        data = result['data']['append_network_links']
-        self.assertEqual(len(data), 3)
+        self.assertEqual(result['data']['append_network_links'], 1)
 
         #
         # Add ourselves as a friend in the Azure pod

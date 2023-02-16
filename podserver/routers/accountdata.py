@@ -2,7 +2,7 @@
 memberdata API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -68,9 +68,13 @@ async def get_accountdata(request: Request, service_id: int,
         )
 
     #
-    # Eend of authorization
+    # End of authorization
     #
 
-    await member.load_data()
+    # TODO: refactor account data export now that we've migrated from
+    # object storage to SQL storage
 
-    return {'data': member.data}
+    # await member.load_data()
+
+    # return {'data': member.data}
+    return {'data': {}}

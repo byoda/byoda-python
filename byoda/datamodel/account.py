@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -13,7 +13,11 @@ from copy import copy
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
+from byoda.datatypes import MemberStatus
+
 from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
+
 from byoda.datamodel.memberdata import MemberData
 
 from byoda.secrets import Secret
@@ -69,6 +73,7 @@ class Account:
                 raise ValueError(f'AccountID {account_id} is not a valid UUID')
 
         self.document_store: DocumentStore = None
+        # BUG: should not depend on 'hasattr'
         if hasattr(config.server, 'document_store'):
             self.document_store = config.server.document_store
 
@@ -90,19 +95,19 @@ class Account:
 
         self.memberships: dict[int, Member] = dict()
 
-    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None
-                             ):
+    async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None,
+                             renew: bool = False):
         '''
         Creates the account secret and data secret if they do not already
         exist
         '''
 
-        await self.create_account_secret(accounts_ca)
-        await self.create_data_secret(accounts_ca)
+        await self.create_account_secret(accounts_ca, renew=renew)
+        await self.create_data_secret(accounts_ca, renew=renew)
 
     async def create_account_secret(self,
                                     accounts_ca: NetworkAccountsCaSecret
-                                    = None):
+                                    = None, renew: bool = False):
         '''
         Creates the TLS secret for an account. TODO: create Let's Encrypt
         cert
@@ -113,16 +118,17 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if not await self.tls_secret.cert_file_exists():
+        if not await self.tls_secret.cert_file_exists() or renew:
             _LOGGER.info(
                 f'Creating account secret {self.tls_secret.cert_file}'
             )
             self.tls_secret = await self._create_secret(
-                AccountSecret, accounts_ca
+                AccountSecret, accounts_ca, renew=renew
             )
 
     async def create_data_secret(self,
-                                 accounts_ca: NetworkAccountsCaSecret = None):
+                                 accounts_ca: NetworkAccountsCaSecret = None,
+                                 renew: bool = False):
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -132,17 +138,17 @@ class Account:
                 self.account, self.account_id, self.network
             )
 
-        if (not await self.data_secret.cert_file_exists()
-                or not self.data_secret.cert):
+        if ((not await self.data_secret.cert_file_exists()
+                or not self.data_secret.cert) or renew):
             _LOGGER.info(
                 f'Creating account data secret {self.data_secret.cert_file}'
             )
             self.data_secret = await self._create_secret(
-                AccountDataSecret, accounts_ca
+                AccountDataSecret, accounts_ca, renew=renew
             )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
-                             ) -> Secret:
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+                             renew: bool = False) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -158,21 +164,26 @@ class Account:
                 'Account_id for the account has not been defined'
             )
 
-        secret = secret_cls(
+        secret: Secret = secret_cls(
             self.account, self.account_id, network=self.network
         )
 
         if await secret.cert_file_exists():
-            raise ValueError(
-                f'Cert for {type(secret)} for account_id {self.account_id} '
-                'already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    f'Cert for {type(secret)} for account_id '
+                    f'{self.account_id} already exists'
+                )
+            else:
+                _LOGGER.info('Renewing certificate {secret.cert_file}}')
 
         if await secret.private_key_file_exists():
-            raise ValueError(
-                f'Private key for {type(secret)} for account_id '
-                f'{self.account_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    'Not creating new private key for secret because '
+                    f'the renew flag is not set for {type(secret)}'
+                )
+            await secret.load(with_private_key=True)
 
         if not issuing_ca:
             if secret_cls != AccountSecret and secret_cls != AccountDataSecret:
@@ -181,7 +192,7 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
-                csr = secret.create_csr(self.account_id)
+                csr = await secret.create_csr(self.account_id)
                 payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
@@ -197,12 +208,12 @@ class Account:
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
         else:
-            csr = secret.create_csr()
+            csr = await secret.create_csr(renew=renew)
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
 
-        await secret.save(password=self.private_key_password)
+        await secret.save(password=self.private_key_password, overwrite=renew)
 
         return secret
 
@@ -247,40 +258,46 @@ class Account:
             f'Registered account with directory server: {resp.status}'
         )
 
-    async def get_memberships(self) -> set:
+    async def load_memberships(self) -> None:
         '''
-        Get a list of the service_ids that the pod has joined by looking
-        at storage.
-        '''
-
-        memberships_dir = self.paths.get(self.paths.ACCOUNT_DIR)
-        folders = await self.document_store.get_folders(
-            memberships_dir, prefix='service-'
-        )
-
-        service_ids = set()
-        for folder in folders:
-            # The folder name starts with 'service-'
-            service_id = int(folder[8:])
-            service_ids.add(service_id)
-
-        return service_ids
-
-    async def load_memberships(self):
-        '''
-        Loads the memberships of an account by iterating through
-        a directory structure in the document store of the server.
+        Loads the memberships of an account
         '''
 
         _LOGGER.debug('Loading memberships')
 
-        service_ids = await self.get_memberships()
+        memberships = await self.get_memberships()
 
-        for service_id in service_ids or []:
+        for membership in memberships.values() or {}:
+            member_id: UUID = membership['member_id']
+            service_id: int = membership['service_id']
             if service_id not in self.memberships:
-                await self.load_membership(service_id)
+                _LOGGER.debug(
+                    f'Loading membership for service {service_id}: {member_id}'
+                )
+                await self.load_membership(service_id, member_id)
 
-    async def load_membership(self, service_id: int) -> Member:
+    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
+                              ) -> dict[UUID, dict[
+                                  str, UUID | str | MemberStatus | float]]:
+        '''
+        Get a list of the service_ids that the pod has joined by looking
+        at storage.
+
+        :returns: dict of membership UUID with as value a dict with keys
+        member_id, service_id, status, timestamp,
+        '''
+
+        data_store: DataStore = config.server.data_store
+        memberships = await data_store.backend.get_memberships(status)
+        _LOGGER.debug(
+            f'Got {len(memberships)} memberships with '
+            f'status {status} from account DB'
+        )
+
+        return memberships
+
+    async def load_membership(self, service_id: int, member_id: UUID
+                              ) -> Member:
         '''
         Load the data for a membership of a service
         '''
@@ -291,19 +308,23 @@ class Account:
                 f'Already a member of service {service_id}'
             )
 
-        member = Member(service_id, self)
+        member = Member(service_id, self, member_id=member_id)
+
         await member.setup(new_membership=False)
 
-        await member.load_secrets()
-        member.data = MemberData(
-            member, member.paths, member.document_store
+        data_store: DataStore = config.server.data_store
+        await data_store.backend.setup_member_db(
+                member.member_id, member.service_id, member.schema
         )
 
-        if member.member_id not in self.memberships:
+        await member.load_secrets()
+        member.data = MemberData(member)
+
+        if service_id not in self.memberships:
+            await member.load_service_cacert()
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
-        await member.load_data()
 
         self.memberships[service_id] = member
 
@@ -341,9 +362,11 @@ class Account:
             local_service_contract=local_service_contract
         )
 
+        await member.load_service_cacert()
+
         await member.create_nginx_config()
         reload_gunicorn()
 
-        self.memberships[member.service_id] = member
+        self.memberships[service_id] = member
 
         return member

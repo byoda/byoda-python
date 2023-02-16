@@ -3,7 +3,7 @@
 # Sets environment variables to facilitate using curl to tell the pod to do things
 
 # maintainer : Steven Hessing <steven@byoda.org>
-# copyright  : Copyright 2021, 2022
+# copyright  : Copyright 2021, 2022, 2023
 # license    : GPLv3
 
 if [[ $_ == $0 ]]; then

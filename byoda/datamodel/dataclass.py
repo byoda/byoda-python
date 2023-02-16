@@ -5,16 +5,17 @@ templates
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
+import orjson
 import logging
 from enum import Enum
 from copy import copy
 from uuid import UUID
 from urllib.parse import urlparse, ParseResult
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TypeVar
 
 
@@ -71,12 +72,14 @@ class SchemaDataItem:
     def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
 
         self.name: str | None = class_name
-        self.schema: dict = schema
-        self.description: str = schema.get('description')
-        self.item_id: str = schema.get('$id')
+        self.schema: dict[str, object] = schema
+        self.description: str | None = schema.get('description')
+        self.item_id: str | None = schema.get('$id')
         self.schema_id: str = schema_id
         self.schema_url: ParseResult = urlparse(schema_id)
         self.enabled_apis: set = set()
+        self.defined_class: bool | None = None
+        self.fields: list[SchemaDataItem] | None = None
 
         self.type: DataType = DataType(schema['type'])
 
@@ -87,6 +90,12 @@ class SchemaDataItem:
         self.python_type, self.graphql_type = self.get_types(
             class_name, self.schema
         )
+
+        # The class for storing data for the service sets the values
+        # for storage_name and storage_type for child data items
+        # under the root data item
+        self.storage_name: str = None
+        self.storage_type: str = None
 
         self.access_rights: list[DataAccessRight] = {}
 
@@ -274,6 +283,8 @@ class SchemaDataScalar(SchemaDataItem):
     def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
         super().__init__(class_name, schema, schema_id)
 
+        self.defined_class: bool = False
+
         if self.type == DataType.STRING:
             self.format: str = self.schema.get('format')
             if self.format == 'date-time':
@@ -297,7 +308,10 @@ class SchemaDataScalar(SchemaDataItem):
             result = UUID(value)
         elif (self.type == DataType.DATETIME
                 and value and not isinstance(value, datetime)):
-            result = datetime.fromisoformat(value)
+            if isinstance(value, str):
+                result = datetime.fromisoformat(value)
+            else:
+                result = datetime.fromtimestamp(value, tz=timezone.utc)
         else:
             result = value
 
@@ -314,8 +328,8 @@ class SchemaDataObject(SchemaDataItem):
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
-        self.fields: dict[str:SchemaDataItem] = {}
-        self.required_fields: list[str] = schema.get('required')
+        self.fields: dict[str, SchemaDataItem] = {}
+        self.required_fields: list[str] = schema.get('required', [])
         self.defined_class: bool = False
 
         if self.item_id:
@@ -403,6 +417,8 @@ class SchemaDataArray(SchemaDataItem):
                  classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
 
+        self.defined_class: bool = False
+
         items = schema.get('items')
         if not items:
             raise ValueError(
@@ -446,11 +462,18 @@ class SchemaDataArray(SchemaDataItem):
         data = copy(value)
 
         result = []
-        for item in data or []:
+        if self.referenced_class and type(self.referenced_class) == SchemaDataObject:
+            # We need to normalize an array of objects
+            items = data
+        else:
+            # We need to normalize an array of scalars, which are represented
+            # in storage as a string of JSON
+            items = orjson.loads(value or '[]')
+
+        for item in items or []:
             if self.referenced_class:
                 normalized_item = self.referenced_class.normalize(item)
             result.append(normalized_item)
-
         return result
 
     async def authorize_access(self, operation: DataOperationType,

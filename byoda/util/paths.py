@@ -43,6 +43,7 @@ class Paths:
     ACCOUNT_KEY_FILE       = 'private/network-{network}-account-{account}.key'                                   # noqa
     ACCOUNT_DATA_CERT_FILE = 'network-{network}/account-{account}/{account}-data-cert.pem'                       # noqa
     ACCOUNT_DATA_KEY_FILE  = 'private/network-{network}-account-{account}-data.key'                              # noqa
+    ACCOUNT_DATA_DIR       = 'private/network-{network}/account-{account}/data'                                  # noqa
 
     SERVICE_DIR                  = 'network-{network}/services/service-{service_id}/'                                     # noqa
     SERVICE_FILE                 = 'network-{network}/services/service-{service_id}/service-contract.json'                # noqa
@@ -51,6 +52,7 @@ class Paths:
     SERVICE_APPS_CA_CERT_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-apps-ca-cert.pem'    # noqa
     SERVICE_DATA_CERT_FILE       = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-data-cert.pem'       # noqa
     SERVICE_CERT_FILE            = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-cert.pem'            # noqa
+    SERVICE_CA_CERTCHAIN_FILE    = 'network-{network}/services/service-{service_id}/network-{network}-service-{service_id}-ca-certchain.pem'    # noqa
     SERVICE_CA_KEY_FILE          = 'private/network-{network}-service-{service_id}-ca.key'                                # noqa
     SERVICE_MEMBERS_CA_KEY_FILE  = 'private/network-{network}-service-{service_id}-member-ca.key'                         # noqa
     SERVICE_APPS_CA_KEY_FILE     = 'private/network-{network}-service-{service_id}-apps-ca.key'                           # noqa
@@ -65,7 +67,8 @@ class Paths:
     MEMBER_KEY_FILE                = 'private/network-{network}-account-{account}-member-{service_id}.key'                                                      # noqa
     MEMBER_DATA_CERT_FILE          = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data-cert.pem'             # noqa
     MEMBER_DATA_KEY_FILE           = 'private/network-{network}-account-{account}-member-{service_id}-data.key'                                                 # noqa
-    MEMBER_DATA_FILE               = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json'            # noqa
+    MEMBER_DATA_DIR                = 'private/network-{network}/account-{account}/data/network-{network}-member-{member_id}'                                    # noqa
+    MEMBER_DATA_FILE               = 'data-{service_id}-{member_id}.db'                                                                                       # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
@@ -73,6 +76,7 @@ class Paths:
     NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                               # noqa
     NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                             # noqa
     SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
+    SERVICE_CACERT_DOWNLOAD             = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-ca-certchain.pem'          # noqa
     SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-data-certs/network-{network}-{member_id}-data-cert.pem'    # noqa
     SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                            # noqa
     MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                         # noqa
@@ -140,13 +144,14 @@ class Paths:
             raise ValueError('No network specified')
         if '{service_id}' in path_template and service_id is None:
             raise ValueError('No service specified')
-        if '{account}' in path_template and not account_id:
+        if '{account_id}' in path_template and not account_id:
             raise ValueError('No account specified')
 
         path = path_template.format(
             network=self._network,
             account=self._account,
             service_id=service_id,
+            member_id=member_id,
         )
 
         return path
@@ -231,7 +236,9 @@ class Paths:
         return await self.exists(self.SECRETS_DIR)
 
     async def create_secrets_directory(self):
-        return await self._create_directory(self.SECRETS_DIR)
+        return await self._create_directory(
+            self._root_directory + '/' + self.SECRETS_DIR
+        )
 
     # Network directory
     @property
@@ -249,7 +256,9 @@ class Paths:
         return await self.exists(self.NETWORK_DIR)
 
     async def create_network_directory(self):
-        return await self._create_directory(self.NETWORK_DIR)
+        return await self._create_directory(
+            self._root_directory + '/' + self.NETWORK_DIR
+        )
 
     # Account directory
     @property
@@ -268,7 +277,9 @@ class Paths:
 
     async def create_account_directory(self):
         if not await self.account_directory_exists():
-            return await self._create_directory(self.ACCOUNT_DIR)
+            return await self._create_directory(
+                self._root_directory + '/' + self.ACCOUNT_DIR
+            )
 
     # service directory
     def service(self, service_id):
@@ -282,7 +293,8 @@ class Paths:
 
     async def create_service_directory(self, service_id):
         return await self._create_directory(
-            self.SERVICE_DIR, service_id=service_id
+            self._root_directory + '/' + self.SERVICE_DIR,
+            service_id=service_id
         )
 
     # Membership directory
@@ -298,7 +310,7 @@ class Paths:
 
     async def create_member_directory(self, service_id):
         await self._create_directory(
-            self.MEMBER_DIR, service_id=service_id
+            self._root_directory + '/' + self.MEMBER_DIR, service_id=service_id
         )
         return await self._create_directory(
             self.MEMBER_DIR + '/data', service_id=service_id

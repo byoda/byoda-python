@@ -2,7 +2,7 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -44,17 +44,18 @@ class MemberDataSecret(DataSecret):
 
         if not isinstance(member_id, UUID):
             member_id = UUID(member_id)
-        self.member_id = member_id
 
-        self.service_id = int(service_id)
+        self.member_id: UUID = member_id
 
-        account_id = None
+        service_id = int(service_id)
+
+        account_id: UUID | None = None
         if account:
-            account_id = account.account_id
+            account_id: UUID = account.account_id
 
         network: Network = config.server.network
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         # secret.review_commonname requires self.network to be string
         self.network: str = config.server.network.name
@@ -73,9 +74,10 @@ class MemberDataSecret(DataSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBER_DATA
+        self.service_id: int = service_id
+        self.id_type: IdType = IdType.MEMBER_DATA
 
-    def create(self, expire: int = 109500):
+    async def create(self, expire: int = 109500):
         '''
         Creates an RSA private key and X.509 cert
 
@@ -89,13 +91,17 @@ class MemberDataSecret(DataSecret):
         common_name = MemberDataSecret.create_common_name(
             self.member_id, self.service_id, self.network
         )
-        super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
+        await super().create(
+            common_name, expire=expire, key_size=4096, ca=self.ca
+        )
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
@@ -106,7 +112,9 @@ class MemberDataSecret(DataSecret):
         )
 
         # TODO: SECURITY: add constraints
-        return super().create_csr(common_name, key_size=4096, ca=False)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=False, renew=renew
+        )
 
     @staticmethod
     def create_common_name(member_id: UUID, service_id: int,
@@ -123,6 +131,8 @@ class MemberDataSecret(DataSecret):
         if not isinstance(network, str):
             network = network.name
 
+        service_id = int(service_id)
+
         return f'{member_id}.{IdType.MEMBER_DATA.value}{service_id}.{network}'
 
     @staticmethod
@@ -137,6 +147,7 @@ class MemberDataSecret(DataSecret):
         if not isinstance(network, str):
             network = network.name
 
+        service_id = int(service_id)
         member_data_secret = MemberDataSecret(member_id, service_id)
 
         try:

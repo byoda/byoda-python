@@ -15,7 +15,7 @@ container_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob
 blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python                 # noqa: E501
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -165,10 +165,7 @@ class AzureFileStorage(FileStorage):
     async def read(self, filepath: str, file_mode: FileMode = FileMode.BINARY,
                    storage_type=StorageType.PRIVATE) -> str:
         '''
-        Reads a file from Azure Object storage. If a locally cached copy is
-        available it uses that instead of reading from S3 storage. If a
-        locally cached copy is not available then the file is fetched from
-        object storage and written to the local cache
+        Reads a file from Azure Object storage.
 
         :param filepath: container + path + filename
         :param file_mode: is the data in the file text or binary
@@ -232,7 +229,7 @@ class AzureFileStorage(FileStorage):
         await blob_client.upload_blob(file_descriptor, overwrite=True)
 
         _LOGGER.debug(
-            f'wrote {len(data or [])} bytes to blob "byoda/{filepath}" for '
+            f'wrote to blob "byoda/{filepath}" for '
             f'bucket {self.buckets[storage_type.value]}'
         )
 

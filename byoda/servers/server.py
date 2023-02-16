@@ -3,7 +3,7 @@ Class for modeling the different server types, ie.:
 POD server, directory server, service server
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -18,6 +18,7 @@ from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType, DocumentStore
+from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 
@@ -31,14 +32,16 @@ JWT = TypeVar('JWT')
 
 
 class Server:
-    def __init__(self, network: Network):
+    def __init__(self, network: Network,
+                 cloud_type: CloudType = CloudType.LOCAL):
         self.server_type: ServerType = None
         self.network: Network = network
         self.account: Account = None
         self.service: Service = None
         self.document_store: DocumentStore = None
+        self.data_store: DataStore = None
         self.storage_driver: FileStorage = None
-        self.cloud = None
+        self.cloud: CloudType = cloud_type
         self.paths: Paths = None
         self.started: datetime = datetime.now(timezone.utc)
 

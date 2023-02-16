@@ -2,7 +2,7 @@
 /network/service API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 
 The registration of a service in the network takes four steps:
@@ -200,6 +200,11 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
             )
         )
 
+    _LOGGER.debug(
+        'POST service API called with CSR for service ID: '
+        f'{entity_id.service_id}'
+    )
+
     try:
         await dnsdb.lookup_fqdn(common_name, DnsRecordType.A)
         dns_exists = True
@@ -259,7 +264,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # if we actually need to do this as we can check any cert of the service
     # and its members through the cert chain that is chained to the network
     # root CA
-    service.service_ca = ServiceCaSecret(None, service.service_id, network)
+    service.service_ca = ServiceCaSecret(service.service_id, network)
     service.service_ca.cert = certchain.signed_cert
     service.service_ca.cert_chain = certchain.cert_chain
 
@@ -327,9 +332,7 @@ async def put_service(request: Request, service_id: int,
             raise ValueError(f'Unkown service id: {service_id}')
 
     if not service.data_secret:
-        service.data_secret = ServiceDataSecret(
-            service.name, service_id, network
-        )
+        service.data_secret = ServiceDataSecret(service_id, network)
 
     service.data_secret.from_string(certchain.certchain)
 

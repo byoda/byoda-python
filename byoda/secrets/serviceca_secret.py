@@ -2,17 +2,21 @@
 Cert manipulation for service secrets: Service CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
 from typing import TypeVar
+from datetime import datetime, timedelta
+
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType
+from byoda.datatypes import EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 
@@ -22,18 +26,45 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceCaSecret(CaSecret):
-    def __init__(self, service: str, service_id: int, network: Network):
+    # When should the Network Services CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+            IdType.MEMBERS_CA: 5 * 365,
+            IdType.APPS_CA: 5 * 365,
+            IdType.SERVICE: 2 * 365,
+            IdType.SERVICE_DATA: 5 * 365,
+    }
+
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
         the cert_file and private_key_file attributes of the instance must
         be set before the save() or load() members are called
+
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''
 
-        self.service = str(service)
+        service_id = int(service_id)
+
+        self.paths = network.paths
+        self.paths.service_id = service_id
+
+        super().__init__(
+            cert_file=self.paths.get(
+                Paths.SERVICE_CA_CERT_FILE, service_id=service_id
+            ),
+            key_file=self.paths.get(
+                Paths.SERVICE_CA_KEY_FILE, service_id=service_id
+            ),
+            storage_driver=self.paths.storage_driver
+        )
+
         self.service_id = int(service_id)
 
         if self.service_id < 0:
@@ -41,19 +72,12 @@ class ServiceCaSecret(CaSecret):
                 f'Service ID must be 0 or greater: {self.service_id}'
             )
 
-        self.paths = network.paths
-        self.paths.service_id = self.service_id
+        _LOGGER.debug(
+            'Instantiating Service CA secret for service ID: '
+            f'{self.service_id}'
+        )
 
         self.network = network.name
-        super().__init__(
-            cert_file=self.paths.get(
-                Paths.SERVICE_CA_CERT_FILE, service_id=self.service_id
-            ),
-            key_file=self.paths.get(
-                Paths.SERVICE_CA_KEY_FILE, service_id=self.service_id
-            ),
-            storage_driver=self.paths.storage_driver
-        )
 
         self.id_type = IdType.SERVICE_CA
 
@@ -61,15 +85,15 @@ class ServiceCaSecret(CaSecret):
         self.signs_ca_certs: bool = True
         self.max_path_length: int = 1
 
-        self.accepted_csrs = (
-            IdType.MEMBERS_CA, IdType.APPS_CA, IdType.SERVICE,
-            IdType.SERVICE_DATA,
-        )
+        self.accepted_csrs = self.ACCEPTED_CSRS
 
-    def create_csr(self, source=CsrSource.LOCAL) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR for the Service issuing CA
 
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
@@ -81,7 +105,9 @@ class ServiceCaSecret(CaSecret):
             f'{self.network}'
         )
 
-        return super().create_csr(commonname, key_size=4096, ca=self.ca)
+        return await super().create_csr(
+            commonname, key_size=4096, ca=self.ca, renew=renew
+        )
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''

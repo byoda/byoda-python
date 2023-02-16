@@ -4,7 +4,7 @@ request_auth
 provides helper functions to authenticate the client making the request
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -27,7 +27,8 @@ class ServiceRequestAuthFast(RequestAuth):
                  request: Request,
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
-                 x_client_ssl_issuing_ca: str | None = Header(None)):
+                 x_client_ssl_issuing_ca: str | None = Header(None),
+                 x_client_ssl_cert: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
 
@@ -48,10 +49,11 @@ class ServiceRequestAuthFast(RequestAuth):
 
         super().__init__(request.client.host, request.method)
 
-        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
-        self.x_client_ssl_subject: str = x_client_ssl_subject
-        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
-        self.authorization: str = None
+        self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
+        self.x_client_ssl_subject: str | None = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
+        self.x_client_ssl_cert: str | None = x_client_ssl_cert
+        self.authorization = None
 
     async def authenticate(self):
         try:
@@ -59,6 +61,7 @@ class ServiceRequestAuthFast(RequestAuth):
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
+                self.x_client_ssl_cert,
                 self.authorization
             )
         except ByodaMissingAuthInfo:
@@ -92,7 +95,8 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
                  request: Request,
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
-                 x_client_ssl_issuing_ca: str | None = Header(None)):
+                 x_client_ssl_issuing_ca: str | None = Header(None),
+                 x_client_ssl_cert: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
         With this class, authentication is optional. If no authentication
@@ -114,10 +118,11 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
 
         super().__init__(request.client.host, request.method)
 
-        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
-        self.x_client_ssl_subject: str = x_client_ssl_subject
-        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
-        self.authorization: str = None
+        self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
+        self.x_client_ssl_subject: str | None = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
+        self.x_client_ssl_cert: str | None = x_client_ssl_cert
+        self.authorization = None
 
     async def authenticate(self):
         try:

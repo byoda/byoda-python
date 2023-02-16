@@ -2,7 +2,7 @@
 Helper functions for API request processing
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -90,6 +90,7 @@ class RequestAuth:
         X-Client-SSL-Verify
         X-Client-SSL-Subject
         X-Client-SSL-Issuing-Ca
+        X-Client-SSL-Cert
         X-Forwarded-For
 
     With nginx this can be achieved by:
@@ -140,7 +141,8 @@ class RequestAuth:
         self.authorization: str = None
 
     async def authenticate(self, tls_status: TlsStatus, client_dn: str,
-                           issuing_ca_dn: str, authorization: str):
+                           issuing_ca_dn: str, client_cert: str,
+                           authorization: str):
         '''
         Get the authentication info for the client that made the API call.
         As long as either the TLS client cert or the JWT from the
@@ -156,6 +158,7 @@ class RequestAuth:
         :param client_dn: designated name of the presented client TLS cert
         :param issuing_ca_dn: designated name of the issuing CA for the
         presented TLS client cert
+        :param client_cert: PEM url-encoded client TLS cert
         :returns: (none)
         :raises: ByodaMissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
@@ -168,10 +171,11 @@ class RequestAuth:
         information in the request for authentication
         '''
 
-        self.tls_status: TlsStatus = tls_status
-        self.client_dn: str = client_dn
-        self.issuing_ca_dn: str = issuing_ca_dn
-        self.authorization: str = authorization
+        self.tls_status: TlsStatus | None = tls_status
+        self.client_dn: str | None = client_dn
+        self.issuing_ca_dn: str | None = issuing_ca_dn
+        self.client_cert: str | None = client_cert
+        self.authorization: str | None = authorization
 
         error = 401
         detail = 'Missing authentication info'
@@ -198,6 +202,7 @@ class RequestAuth:
                     self.client_dn, self.issuing_ca_dn
                 )
                 self.auth_source = AuthSource.CERT
+
                 return
             except HTTPException as exc:
                 error = exc.status
@@ -239,6 +244,10 @@ class RequestAuth:
                 )
             )
 
+        # SECURITY: we need to check the intermediate CA CN
+        # as currently any Member CA can sign certs for other
+        # services!
+
         self.id, subdomain = self.client_cn.split('.')[0:2]
         self.domain = self.client_cn.split('.', 3)[-2]
         if '-' in subdomain:
@@ -277,6 +286,7 @@ class RequestAuth:
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
+            request.headers.get('X-Client-SSL-Cert'),
             request.headers.get('Authorization'),
             request.client.host, HttpRequestMethod(request.method)
         )
@@ -292,7 +302,8 @@ class RequestAuth:
     @staticmethod
     async def authenticate_graphql(tls_status: TlsStatus,
                                    client_dn: str, issuing_ca_dn: str,
-                                   authorization: str, remote_addr: IpAddress,
+                                   ssl_cert, authorization: str,
+                                   remote_addr: IpAddress,
                                    method: HttpRequestMethod):
         '''
         Authenticate a request based on incoming TLS headers or JWT
@@ -342,7 +353,7 @@ class RequestAuth:
             from .memberrequest_auth import MemberRequestAuth
             auth = MemberRequestAuth(remote_addr, method)
             await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, authorization
+                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
             )
 
             _LOGGER.debug('Authentication for member %s', auth.member_id)
@@ -350,7 +361,7 @@ class RequestAuth:
             from .servicerequest_auth import ServiceRequestAuth
             auth = ServiceRequestAuth(remote_addr, method)
             await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, authorization
+                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
             )
 
             _LOGGER.debug(
@@ -436,7 +447,7 @@ class RequestAuth:
         try:
             # Member cert gets signed by Service Member CA
             members_ca_secret = MembersCaSecret(
-                None, service_id, network=network
+                service_id, network=network
             )
             entity_id = members_ca_secret.review_commonname(self.client_cn)
             self.member_id = entity_id.id
@@ -444,9 +455,7 @@ class RequestAuth:
             self.service_id = entity_id.service_id
 
             # The Member CA cert gets signed by the Service CA
-            service_ca_secret = ServiceCaSecret(
-                None, service_id, network=network
-            )
+            service_ca_secret = ServiceCaSecret(service_id, network=network)
             service_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
             raise HTTPException(
@@ -481,7 +490,7 @@ class RequestAuth:
         try:
             # Service secret gets signed by Service CA
             service_ca_secret = ServiceCaSecret(
-                None, entity_id.service_id, network=network
+                entity_id.service_id, network=network
             )
             entity_id = service_ca_secret.review_commonname(self.client_cn)
             self.service_id = entity_id.service_id

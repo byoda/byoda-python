@@ -2,19 +2,19 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import os
 import logging
-import datetime
 import re
 import tempfile
 import subprocess
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from datetime import datetime, timedelta
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -79,6 +79,13 @@ class Secret:
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    # When should the secret be renewed
+    RENEW_WANTED = datetime.now() + timedelta(days=90)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+
+    # We don't sign any CSRs as we are not a CA
+    ACCEPTED_CSRS = None
+
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None):
         '''
@@ -104,6 +111,7 @@ class Secret:
         self.password: str = None
 
         self.common_name: str = None
+        self.service_id: str | None = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -121,9 +129,9 @@ class Secret:
         self.ca: bool = False
         self.max_path_length: int = None
 
-    def create(self, common_name: str, issuing_ca: CaSecret = None,
-               expire: int = 30, key_size: int = _RSA_KEYSIZE,
-               ca: bool = False):
+    async def create(self, common_name: str, issuing_ca: CaSecret = None,
+                     expire: int = None, key_size: int = _RSA_KEYSIZE,
+                     private_key: rsa.RSAPrivateKey = None, ca: bool = False):
         '''
         Creates an RSA private key and either a self-signed X.509 cert
         or a cert signed by the issuing_ca. The latter is a one-step
@@ -132,7 +140,8 @@ class Secret:
         :param common_name: common_name for the certificate
         :param issuing_ca: optional, CA to sign the cert with. If not provided,
         a self-signed cert will be created
-        :param expire: days after which the cert should expire
+        :param expire: days after which the cert should expire, only used
+        for self-signed certs
         :param key_size: length of the key in bits
         :param ca: create a secret for an CA
         :returns: (none)
@@ -154,28 +163,55 @@ class Secret:
             f'expiration {expire}  and commonname {common_name} '
             f'with CA is {self.ca}'
         )
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=key_size
-        )
+
+        if private_key:
+            self.private_key = private_key
+        else:
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537, key_size=key_size
+            )
 
         if issuing_ca:
             # TODO: SECURITY: add constraints
-            csr = self.create_csr(ca)
-            self.cert = issuing_ca.sign_csr(csr, expire)
+            csr = await self.create_csr(ca)
+            self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
 
-    def create_selfsigned_cert(self, expire=365, ca=False):
+    def create_selfsigned_cert(self,
+                               expire: int | datetime | timedelta = 10950,
+                               ca: bool = False):
         '''
-        Create a self_signed certificate
+        Create a self_signed certificate. Self-signed certs have
+        a expiration of 30 years by default
 
-        :param expire: days after which the cert should expire
-        :param bool: is the cert for a CA
+        :param expire: number of days after which the cert should expire,
+        either as int or timedelta or the date when the cert should expire
+        as datetime
+
+        :param bool: is the cert for a CA?
         :returns: (none)
         :raises: (none)
         '''
 
         subject = issuer = self._get_cert_name()
+
+        if expire:
+            if isinstance(expire, int):
+                expiration: datetime = datetime.utcnow() + timedelta(
+                    days=expire
+                )
+            elif isinstance(expire, datetime):
+                expiration = expire
+            elif isinstance(expire, timedelta):
+                expiration: datetime = datetime.utcnow() + expire
+            else:
+                raise ValueError(
+                    'expire must be an int, datetime or timedelta, not: '
+                    f'{type(expire)}'
+                )
+        else:
+            expiration: datetime = datetime.utcnow() + timedelta(days=3650)
 
         self.is_root_cert = True
         self.cert = x509.CertificateBuilder().subject_name(
@@ -187,9 +223,9 @@ class Secret:
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.datetime.utcnow()
+            datetime.utcnow()
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=expire)
+            expiration
         ).add_extension(
             x509.SubjectAlternativeName(
                 [x509.DNSName(self.common_name)]
@@ -201,8 +237,8 @@ class Secret:
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-    def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
-                   ca: bool = False) -> CSR:
+    async def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
+                         ca: bool = False, renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
@@ -211,12 +247,14 @@ class Secret:
         :param common_name: common_name for the certificate
         :param key_size: length of the key in bits
         :param ca: create a secret for an CA
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: the Certificate Signature Request
         :raises: ValueError if the Secret instance already has a private key
                  or set
         '''
 
-        if self.private_key or self.cert:
+        if (self.private_key or self.cert) and not renew:
             raise ValueError('Secret already has a cert or private key')
 
         # TODO: SECURITY: add constraints
@@ -227,9 +265,13 @@ class Secret:
             f'and commonname {common_name}'
         )
 
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=_RSA_KEYSIZE,
-        )
+        if renew:
+            if not self.private_key:
+                await self.load(with_private_key=True)
+        else:
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537, key_size=_RSA_KEYSIZE,
+            )
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
@@ -330,8 +372,8 @@ class Secret:
 
         pem_signed_cert = self.cert_as_pem()
         pem_cert_chain = [
-            x.public_bytes(serialization.Encoding.PEM)
-            for x in self.cert_chain
+            cert.public_bytes(serialization.Encoding.PEM)
+            for cert in self.cert_chain
         ]
         context = ValidationContext(
             trust_roots=[root_ca.cert_as_pem()]
@@ -489,10 +531,11 @@ class Secret:
         :returns: bool
         '''
 
-        await self.storage_driver.exists(self.private_key_file)
+        return await self.storage_driver.exists(self.private_key_file)
 
     async def load(self, with_private_key: bool = True,
-                   password: str = 'byoda'):
+                   password: str = 'byoda',
+                   storage_driver: FileStorage = None):
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -505,6 +548,9 @@ class Secret:
                 available in the secret FileNotFoundError if the certificate
                 file or the file with the private key do not exist
         '''
+
+        if not storage_driver:
+            storage_driver = self.storage_driver
 
         # We allow (re-)loading an existing secret if we do not have
         # the private key and we need to read the private key.
@@ -531,6 +577,21 @@ class Secret:
             self.ca = extension.value.ca
         except x509.ExtensionNotFound:
             self.ca = False
+
+        if with_private_key:
+            # Only croak about expiration of cert if we own the private key
+            if self.cert.not_valid_after < self.RENEW_WANTED:
+                # TODO: add logic to recreate the signed cert
+                if self.cert.not_valid_after < self.RENEW_NEEDED:
+                    _LOGGER.warning(
+                        f'Certificate {self.cert_file} expires in 30 days: '
+                        f'{self.RENEW_NEEDED}'
+                    )
+                else:
+                    _LOGGER.info(
+                        f'Certificate {self.cert_file} expires in 90 days: '
+                        f'{self.RENEW_WANTED}'
+                    )
 
         self.common_name = None
         for rdns in self.cert.subject.rdns:
@@ -647,8 +708,7 @@ class Secret:
         _LOGGER.debug('Saving cert to %s', self.cert_file)
         data = self.certchain_as_pem()
 
-        directory = os.path.dirname(self.cert_file)
-        await storage_driver.create_directory(directory)
+        await storage_driver.create_directory(self.cert_file)
 
         await storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY

@@ -2,7 +2,7 @@
 Helper functions to set up tests
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -17,6 +17,7 @@ from byoda.datamodel.account import Account
 from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 from byoda.datatypes import CloudType
 
 from podserver.util import get_environment_vars
@@ -66,6 +67,10 @@ async def setup_network(test_dir: str) -> dict[str, str]:
         root_dir=network_data['root_dir']
     )
 
+    await config.server.set_data_store(
+        DataStoreType.SQLITE
+    )
+
     config.server.paths = network.paths
 
     return network_data
@@ -74,11 +79,12 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
     await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
+        DocumentStoreType.OBJECT_STORE, cloud_type=network_data['cloud'],
         bucket_prefix=network_data['bucket_prefix'],
         root_dir=network_data['root_dir']
     )
+
+    await server.set_data_store(DataStoreType.SQLITE)
 
     pod_account = Account(network_data['account_id'], server.network)
     await pod_account.paths.create_account_directory()

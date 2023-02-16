@@ -47,10 +47,6 @@ sudo docker run -d --restart unless-stopped \
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client
 
-echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
-echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
-chmod 600 ~/.pgpass
-
 export DIRSERVER=$(curl http://ifconfig.co)
 
 if [ ! -f ~/.secrets/sql_powerdns.password ]; then
@@ -58,6 +54,11 @@ if [ ! -f ~/.secrets/sql_powerdns.password ]; then
 fi
 
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
+
+echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
+echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
+chmod 600 ~/.pgpass
+
 
 cat >/tmp/byodadns.sql <<EOF
 CREATE DATABASE byodadns;
@@ -92,6 +93,7 @@ API_KEY=$(cat ~/.secrets/powerdns-api.key)
 sudo -i
 
 cat >/etc/powerdns/pdns.conf <<EOF
+launch=
 launch+=gpgsql
 gpgsql-host=${SERVER_IP}
 gpgsql-port=5432
@@ -169,19 +171,19 @@ scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_
 
 This is the public server that exposes the APIs
 
-Byoda code requires python 3.9 or later, ie. for Ubuntu:
+Byoda code requires python 3.10 or later, ie. for Ubuntu:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get -y install python3.9 pipenv
+sudo apt-get -y install python3.10 pipenv
 ```
-or run a distribution (like Ubuntu 21.04 or later) that includes python3.9
+or run a distribution (like Ubuntu 22.04 or later) that includes python3.10
 
 
 There is currently an issue with 'pipenv' to install the modules so we install
-python modules globally:
+python modules system-wide:
 
 ```
-sudo pip install -r requirements.txt
+sudo pipenv install --system
 ```
 
 Clone the repo:
@@ -208,6 +210,15 @@ sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-nginx-virtualserver.conf
 
 sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/nginx/conf.d/default.conf
 sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/nginx/conf.d/default.conf
+```
+Now nginx is installed we can set the file permissions to user 'www-data'
+
+```
+sudo chmod 555 ${ROOT_DIR}/private
+sudo chmod 444 ${ROOT_DIR}/private/*
+sudo mkdir -p ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
+sudo chown -R www-data ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
+sudo chmod 755 ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
 ```
 
 You can't start NGINX just yet as the directory server must have a trusted TLS cert/key. Set up a [Let's Encrypt](https://www.letsencrypt.org) install on the directory server. Please follow the instructions from Let's Encrypt on how to do this. I recommend adding a virtual server to nginx for HTTP on port 80 for web-based verification of ownership of your domain and installing a cronjob to renew the cert/key periodically.

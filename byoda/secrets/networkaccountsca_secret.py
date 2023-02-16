@@ -2,16 +2,18 @@
 Cert manipulation of network secrets: root CA, accounts CA and services CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
 from copy import copy
+from datetime import datetime, timedelta
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 from .secret import CSR
@@ -20,7 +22,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkAccountsCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.ACCOUNT, IdType.ACCOUNT_DATA]
+    # When should the Network Accounts CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.ACCOUNT: 365,
+        IdType.ACCOUNT_DATA: 365
+    }
 
     def __init__(self, paths: Paths = None, network: str = None):
         '''
@@ -61,10 +71,12 @@ class NetworkAccountsCaSecret(CaSecret):
         self.signs_ca_certs = False
         self.accepted_csrs = NetworkAccountsCaSecret.ACCEPTED_CSRS
 
-    def create_csr(self) -> CSR:
+    async def create_csr(self, renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and X.509 cert signature request
 
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a cert or a
                  private key
@@ -76,7 +88,9 @@ class NetworkAccountsCaSecret(CaSecret):
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )
 
-        return super().create_csr(commonname, key_size=4096, ca=self.ca)
+        return await super().create_csr(
+            commonname, key_size=4096, ca=self.ca, renew=renew
+        )
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''

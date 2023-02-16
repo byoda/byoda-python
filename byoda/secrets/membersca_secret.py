@@ -3,19 +3,20 @@ Cert manipulation for service secrets: Service CA, Service Members CA and
 Service secret
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
 from copy import copy
 from typing import TypeVar
-
+from datetime import datetime, timedelta
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import IdType, EntityId, CsrSource
+from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 
@@ -25,9 +26,17 @@ Network = TypeVar('Network', bound='Network')
 
 
 class MembersCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.MEMBER, IdType.MEMBER_DATA]
+    # When should the Members CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
 
-    def __init__(self, service: str, service_id: int, network: Network):
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.MEMBER: 365,
+        IdType.MEMBER_DATA: 365
+    }
+
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the Service Members CA secret.
 
@@ -45,11 +54,11 @@ class MembersCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.name)
-        self.service_id = int(service_id)
+        self.network: str = str(network.name)
+        service_id = int(service_id)
 
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -61,33 +70,38 @@ class MembersCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBERS_CA
+        self.service_id: int = service_id
+        self.id_type: IdType = IdType.MEMBERS_CA
 
         # X.509 constraints
-        self.ca = True
-        self.max_path_length = 0
+        self.ca: bool = True
+        self.max_path_length: int = 0
 
-        self.signs_ca_certs = False
-        self.accepted_csrs = MembersCaSecret.ACCEPTED_CSRS
+        self.signs_ca_certs: bool = False
+        self.accepted_csrs: dict[IdType, int] = MembersCaSecret.ACCEPTED_CSRS
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
         '''
 
         # TODO: SECURITY: add constraints
-        name = self.id_type.value.rstrip('-')
-        common_name = (
+        name: str = self.id_type.value.rstrip('-')
+        common_name: str = (
             f'{name}.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=True)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=True, renew=renew
+        )
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
@@ -117,7 +131,8 @@ class MembersCaSecret(CaSecret):
 
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname, network, MembersCaSecret.ACCEPTED_CSRS,
-            service_id=service_id, uuid_identifier=True, check_service_id=True
+            service_id=int(service_id), uuid_identifier=True,
+            check_service_id=True
         )
 
         return entity_id

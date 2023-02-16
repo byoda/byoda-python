@@ -10,9 +10,11 @@
         "description": "This is the dummy service used by test cases",
         "properties": {
             "member": {
-                "#accesscontrol": [
-                    "read"
-                ],
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read"]
+                    }
+                },
                 "properties": {
                     "joined": {
                         "description": "Date & time when the pod became a member of the service",
@@ -27,15 +29,15 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": [
-                    {
-                        "member": [
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": [
                             "read",
                             "update",
                             "delete"
                         ]
                     }
-                ],
+                },
                 "properties": {
                     "additional_names": {
                         "access": "private",

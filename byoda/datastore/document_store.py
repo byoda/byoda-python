@@ -1,40 +1,46 @@
 '''
-The document store handles storing the data of a pod for a service that
-the pod is a member of. This data is stored as an encrypted JSON file.
+The document store handles storing various files of a pod, such as
+certificates, keys, and service contracts.
 
 The DocumentStore can be extended to support different backend storage. It
-currently only supports local file systems and AWS S3. In the future it
-can be extended by for NoSQL storage to improve scalability.
+currently only supports local file systems and object storage of Azure, AWS,
+and GCP.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
 import orjson
 from enum import Enum
+from typing import TypeVar
+
+from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
-from byoda.storage import FileStorage, FileMode
+from byoda.storage.filestorage import FileStorage, FileMode
+from byoda.storage.sqlite import SqliteStorage
+
+Member = TypeVar('Member')
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class DocumentStoreType(Enum):
-    OBJECT_STORE        = "objectstore"     # noqa=E221
+    OBJECT_STORE        = 'objectstore'     # noqa=E221
 
 
 class DocumentStore:
     def __init__(self):
-        self.backend: FileStorage = None
+        self.backend: FileStorage | SqliteStorage = None
         self.store_type: DocumentStoreType = None
 
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,
-                                 cloud_type: CloudType.AWS = CloudType,
+                                 cloud_type: CloudType = None,
                                  bucket_prefix: str = None,
                                  root_dir: str = None):
         '''
@@ -56,22 +62,33 @@ class DocumentStore:
 
         return storage
 
-    async def read(self, filepath: str, data_secret: DataSecret) -> dict:
+    async def read(self, member: Member = None, class_name: str = None,
+                   filepath: str = None, data_secret: DataSecret = None,
+                   filters: DataFilterSet = None) -> dict:
         '''
-        Reads, decrypts and deserializes a JSON document
+        Reads data from the backend storage
         '''
 
-        # DocumentStore only stores encrypted data, which is binary
-        data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
+        if (member or class_name or filters) and (filepath or data_secret):
+            raise ValueError(
+                'Cannot specify both member, class_name, filters and '
+                'filepath, data_secret'
+            )
 
-        if data_secret:
-            data = data_secret.decrypt(data)
+        if isinstance(self.backend, FileStorage):
+            # DocumentStore only stores encrypted data, which is binary
+            data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
 
-        _LOGGER.debug(f'Read {data.decode("utf-8")} from {filepath}')
-        if data:
-            data = orjson.loads(data)
-        else:
-            data = dict()
+            if data_secret:
+                data = data_secret.decrypt(data)
+
+            _LOGGER.debug(f'Read {data.decode("utf-8")} from {filepath}')
+            if data:
+                data = orjson.loads(data)
+            else:
+                data = dict()
+        elif isinstance(self.backend, SqliteStorage):
+            data = await self.backend.read(member, class_name, filters)
 
         _LOGGER.debug(f'Read {len(data)} items')
 

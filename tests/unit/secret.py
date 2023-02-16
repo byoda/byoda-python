@@ -4,7 +4,7 @@
 Test cases for secrets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -30,17 +30,19 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
 
 from byoda.servers.pod_server import PodServer
-from byoda.servers.directory_server import DirectoryServer
 
-from byoda.secrets.secret import Secret
-from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 
-from byoda.datatypes import CloudType, ServerRole
+from byoda.datatypes import CloudType
+
+from byoda.datatypes import ServerRole
 
 from byoda import config
+
+from tests.lib.util import get_test_uuid
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
@@ -50,12 +52,60 @@ NETWORK = 'test.net'
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
+SCHEMA_DIR = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
+SCHEMA_FILE = SCHEMA_DIR + '/service_contract.json'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         shutil.rmtree(TEST_DIR)
         os.mkdir(TEST_DIR)
+        os.makedirs(TEST_DIR + SCHEMA_DIR)
+        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
+        config.test_case = True
+
+    async def asyncTearDown(self):
+        pass
+
+    async def test_ca_certchaisn(self):
+        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+
+        config.server = PodServer(network)
+        config.server.network = network
+
+        await config.server.set_document_store(
+            DocumentStoreType.OBJECT_STORE,
+            cloud_type=CloudType('LOCAL'),
+            bucket_prefix='byoda',
+            root_dir=TEST_DIR
+        )
+        network.services_ca.validate(network.root_ca, with_openssl=True)
+        network.accounts_ca.validate(network.root_ca, with_openssl=True)
+
+        # Need to set role to allow loading of unsigned services
+        network.roles = [ServerRole.Pod]
+
+        service = Service(network=network)
+        await service.examine_servicecontract(SCHEMA_FILE)
+        await service.create_secrets(network.services_ca, local=True)
+
+        service.service_ca.validate(network.root_ca, with_openssl=True)
+        service.apps_ca.validate(network.root_ca, with_openssl=True)
+        service.tls_secret.validate(network.root_ca, with_openssl=True)
+        service.data_secret.validate(network.root_ca, with_openssl=True)
+
+        account_id = get_test_uuid()
+        account = Account(account_id, network)
+
+        await account.paths.create_account_directory()
+
+        config.server.account = account
+        await config.server.set_data_store(DataStoreType.SQLITE)
+
+        # await account.load_memberships()
+        await account.create_secrets(network.accounts_ca)
+        account.tls_secret.validate(network.root_ca, with_openssl=True)
+        account.data_secret.validate(network.root_ca, with_openssl=True)
 
     async def test_secrets(self):
         '''
@@ -64,10 +114,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         #
         # Test creation of the CA hierarchy
+        #
         network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
-        config.server = DirectoryServer(network)
+        config.server = PodServer(network)
         config.server.network = network
+        config.server.network.account = 'pod'
+
         await config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
             cloud_type=CloudType('LOCAL'),
@@ -75,34 +128,25 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             root_dir=TEST_DIR
         )
 
-        network.services_ca.validate(network.root_ca, with_openssl=True)
-        network.accounts_ca.validate(network.root_ca, with_openssl=True)
-
         # Need to set role to allow loading of unsigned services
         network.roles = [ServerRole.Pod]
 
-        target_dir = \
-            f'/network-{NETWORK}/services/service-{SERVICE_ID}'
-        os.makedirs(TEST_DIR + target_dir)
-        target_schema = target_dir + '/service-contract.json'
-        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
+        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
         service = Service(network=network)
-        await service.examine_servicecontract(target_schema)
+        await service.examine_servicecontract(SCHEMA_FILE)
         await service.create_secrets(network.services_ca, local=True)
 
-        service.service_ca.validate(network.root_ca, with_openssl=True)
-        service.apps_ca.validate(network.root_ca, with_openssl=True)
-        service.tls_secret.validate(network.root_ca, with_openssl=True)
-        service.data_secret.validate(network.root_ca, with_openssl=True)
-
-        account_id = uuid4()
+        account_id = get_test_uuid()
         account = Account(account_id, network)
         await account.paths.create_account_directory()
-        await account.load_memberships()
+        # await account.load_memberships()
         await account.create_secrets(network.accounts_ca)
 
-        account.tls_secret.validate(network.root_ca, with_openssl=True)
-        account.data_secret.validate(network.root_ca, with_openssl=True)
+        config.server.account = account
+        await config.server.set_data_store(DataStoreType.SQLITE)
+
+        network.services_ca.validate(network.root_ca, with_openssl=True)
+        network.accounts_ca.validate(network.root_ca, with_openssl=True)
 
         # Create a dummy entry for the services in the network, otherwise
         # account.join(service) fails
@@ -114,8 +158,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
 
         # TODO: re-enable this test
-        # member = account.join(
-        #     SERVICE_ID, SCHEMA_VERSION, members_ca=service.members_ca
+        # member = await account.join(
+        #    SERVICE_ID, SCHEMA_VERSION, members_ca=service.members_ca,
+        #    local_service_contract=SCHEMA_FILE
         # )
 
         # self.assertIsNotNone(member.member_id)
@@ -123,7 +168,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # member.data_secret.validate(network.root_ca, with_openssl=True)
 
         # Certchain validation fails as network.services_ca
-        # is in the cert chain of account.data_secret and is
+        # is not in the cert chain of account.data_secret and is
         # not the root CA
         with self.assertRaises(ValueError):
             account.data_secret.validate(network.services_ca)
@@ -131,10 +176,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         #
         # Test data encryption
         #
-        target_account_id = uuid4()
+        target_account_id = get_test_uuid()
         target_account = Account(target_account_id, network, account='test')
         await target_account.paths.create_account_directory()
-        await target_account.load_memberships()
+        # await target_account.load_memberships()
         await target_account.create_secrets(network.accounts_ca)
 
         account.data_secret.create_shared_key(target_account.data_secret)
@@ -155,6 +200,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         passwords = target_account.data_secret.decrypt(ciphertext)
 
         self.assertEqual(data, passwords)
+
+        await account.create_secrets(network.accounts_ca, renew=True)
 
     async def test_message_signature(self):
         # Test creation of the CA hierarchy
@@ -235,11 +282,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             utils.Prehashed(chosen_hash)
         )
 
-        account = Account(uuid4(), network)
+        account = Account(get_test_uuid(), network)
         message = 'ik ben toch niet gek!'
 
         data_secret = MemberDataSecret(
-            uuid4(), ADDRESSBOOK_SERVICE_ID, account
+            get_test_uuid(), ADDRESSBOOK_SERVICE_ID, account
         )
 
         data_secret.cert_file = 'azure-pod-member-data-cert.pem'
@@ -265,7 +312,5 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
-    os.mkdir(TEST_DIR)
 
     unittest.main()

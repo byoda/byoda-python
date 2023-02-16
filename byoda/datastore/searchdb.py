@@ -3,7 +3,7 @@ Class SearchDB stores information about assets for the Service that pods can
 searchs using APIs exposed by the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

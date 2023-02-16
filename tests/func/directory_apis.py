@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -149,10 +149,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await network.load_network_secrets()
 
         uuid = uuid4()
-        secret = AccountSecret(
-            account='dir_api_test', account_id=uuid, network=network
-        )
-        csr = secret.create_csr()
+        secret = AccountSecret(account_id=uuid, network=network)
+        csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
         fqdn = AccountSecret.create_commonname(uuid, network.name)
         headers = {
@@ -209,9 +207,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         service_id = SERVICE_ID
         serviceca_secret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id, network=network
+            service_id=service_id, network=network
         )
-        csr = serviceca_secret.create_csr()
+        csr = await serviceca_secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = requests.post(
@@ -235,13 +233,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Check that the service CA public cert was written to the network
         # directory of the dirserver
         testsecret = ServiceCaSecret(
-            service='dir_api_test', service_id=service_id,
-            network=config.server.network
+            service_id=service_id, network=config.server.network
         )
         await testsecret.load(with_private_key=False)
 
-        service_secret = ServiceSecret('dir_api_test', service_id, network)
-        service_csr = service_secret.create_csr()
+        service_secret = ServiceSecret(service_id, network)
+        service_csr = await service_secret.create_csr()
         certchain = serviceca_secret.sign_csr(service_csr)
         service_secret.from_signed_cert(certchain)
         await service_secret.save()
@@ -253,9 +250,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # which the directory server needs to validate the service signature
         # of the schema for the service
         service_data_secret = ServiceDataSecret(
-            'dir_api_test', service_id, network
+            service_id, network
         )
-        service_data_csr = service_data_secret.create_csr()
+        service_data_csr = await service_data_secret.create_csr()
         data_certchain = serviceca_secret.sign_csr(service_data_csr)
         service_data_secret.from_signed_cert(data_certchain)
         await service_data_secret.save()

@@ -2,14 +2,15 @@
 Cert manipulation for accounts and members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
 from uuid import UUID
-from typing import TypeVar
 from copy import copy
+from typing import TypeVar
+from datetime import datetime, timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -24,6 +25,15 @@ Network = TypeVar('Network', bound='Network')
 
 
 class AccountSecret(Secret):
+    '''
+    The account secret is used as TLS secret on the Account API endpoint
+    of the pod
+    '''
+
+    # When should the secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None):
         '''
@@ -54,11 +64,14 @@ class AccountSecret(Secret):
         self.network = network
         self.id_type = IdType.ACCOUNT
 
-    def create_csr(self, account_id: UUID = None) -> CertificateSigningRequest:
+    async def create_csr(self, account_id: UUID = None, renew: bool = False
+                   ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param account_id: account_id
+        :param account_id: identifier for the account to be used in the CSR
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
@@ -75,7 +88,7 @@ class AccountSecret(Secret):
             self.account_id, self.network.name
         )
 
-        return super().create_csr(common_name, ca=self.ca)
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
     def create_commonname(account_id: UUID, network: str):

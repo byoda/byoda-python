@@ -1,7 +1,7 @@
 '''
 ApiClient, base class for RestApiClient, and GqlApiClient
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -109,7 +109,7 @@ class ApiClient:
                 # we do not have to set the root CA as the directory server
                 # uses a Let's Encrypt cert
                 _LOGGER.debug(
-                    'No using byoda certchain for server cert '
+                    'Not using byoda certchain for server cert '
                     f'verification of {api}'
                 )
                 self.ssl_context = ssl.create_default_context()
@@ -141,7 +141,7 @@ class ApiClient:
             self.session = config.client_pools[pool]
 
     @staticmethod
-    async def call(api: str, method: str = 'GET', secret:Secret = None,
+    async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
                    params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
@@ -159,11 +159,11 @@ class ApiClient:
         # This is used by the bootstrap of the pod, when the global variable is not yet
         # set
         if not network_name:
-            network = server.network
-            network_name = network.name
+            network: Network = server.network
+            network_name: str = network.name
 
         if isinstance(method, HttpMethod):
-            method = method.value
+            method: str = method.value
 
         if type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs

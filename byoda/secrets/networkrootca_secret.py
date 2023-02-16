@@ -1,20 +1,22 @@
 '''
-Cert manipulation of network secrets: root CA, accounts CA and services CA
+Cert manipulation of network secrets: root CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import os
 import logging
 from copy import copy
+from datetime import datetime, timedelta
 
 from cryptography.hazmat.primitives import serialization
 
 from byoda.util.paths import Paths
 
-from byoda.datatypes import CsrSource, EntityId
+from byoda.datatypes import CsrSource
+from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 
 from byoda.storage.filestorage import FileStorage
@@ -27,9 +29,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkRootCaSecret(CaSecret):
-    ACCEPTED_CSRS = [
-        IdType.ACCOUNTS_CA, IdType.SERVICES_CA, IdType.NETWORK_DATA
-    ]
+    # The Network Root CA secret should never renew
+    RENEW_WANTED = datetime.now() + timedelta(days=100 * 365)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=100 * 365)
+
+    # CSRs that we are willing to sign and what we set for their expiration
+    ACCEPTED_CSRS: dict[IdType, int] = {
+        IdType.ACCOUNTS_CA: 2 * 365,
+        IdType.SERVICES_CA: 16 * 365,
+        IdType.NETWORK_DATA: 2 * 365
+    }
 
     def __init__(self, paths: Paths = None, network: str = None):
         '''
@@ -72,7 +81,7 @@ class NetworkRootCaSecret(CaSecret):
         self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
-    def create(self, expire: int = 10950):
+    async def create(self, expire: int = 10950):
         '''
         Creates an RSA private key and X.509 cert
 
@@ -84,9 +93,11 @@ class NetworkRootCaSecret(CaSecret):
         '''
 
         common_name = f'root-ca.{self.network}'
-        super().create(common_name, expire=expire, key_size=4096, ca=self.ca)
+        await super().create(
+            common_name, expire=expire, key_size=4096, ca=self.ca
+        )
 
-    def create_csr(self):
+    async def create_csr(self, renew: bool = False):
         raise NotImplementedError
 
     def review_commonname(self, commonname: str) -> str:

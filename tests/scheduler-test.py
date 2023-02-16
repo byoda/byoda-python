@@ -12,9 +12,9 @@ from schedule import every, repeat, run_pending
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
-from byoda.datamodel.member import Member
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.datatypes import CloudType
 
@@ -47,12 +47,15 @@ async def main(argv):
 
     config.server = PodServer()
     server = config.server
+
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType(data['cloud']),
         bucket_prefix=data['bucket_prefix'],
         root_dir=data['root_dir']
     )
+
+    await server.data_store(DataStoreType.SQLITE)
 
     network = Network(data, data)
     await network.load_network_secrets()

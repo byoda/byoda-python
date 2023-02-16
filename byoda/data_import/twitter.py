@@ -9,7 +9,7 @@ TWITTER_API_KEY
 TWITTER_KEY_SECRET
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

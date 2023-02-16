@@ -3,7 +3,7 @@ Cert manipulation for service secrets: Service CA, Service Members CA and
 Service secret
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -26,7 +26,7 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceSecret(Secret):
-    def __init__(self, service: str, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network):
         '''
         Class for the service secret
 
@@ -36,27 +36,28 @@ class ServiceSecret(Secret):
         :raises: (none)
         '''
 
-        self.paths = copy(network.paths)
-        self.network = network.name
-        self.service = str(service)
-        self.service_id = int(service_id)
+        self.paths: Paths = copy(network.paths)
+        self.network: str = network.name
 
         super().__init__(
             cert_file=self.paths.get(
-                Paths.SERVICE_CERT_FILE, service_id=self.service_id
+                Paths.SERVICE_CERT_FILE, service_id=service_id
             ),
             key_file=self.paths.get(
-                Paths.SERVICE_KEY_FILE, service_id=self.service_id
+                Paths.SERVICE_KEY_FILE, service_id=service_id
             ),
             storage_driver=self.paths.storage_driver
         )
-        self.id_type = IdType.SERVICE
+        self.service_id: int = int(service_id)
+        self.id_type: IdType = IdType.SERVICE
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has a private key
         or cert
@@ -67,7 +68,7 @@ class ServiceSecret(Secret):
             self.service_id, self.network
         )
 
-        return super().create_csr(common_name, ca=self.ca)
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''

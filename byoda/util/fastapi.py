@@ -3,7 +3,7 @@ Helper function to set up the Fastapi API, shared by directory, services
 and pod servers and the functional test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

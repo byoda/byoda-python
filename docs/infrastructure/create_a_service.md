@@ -78,6 +78,7 @@ The keys of properties directly under the JSON Schema (so not under $defs) must 
   - description: What the data stored in this class is used for
   - type: must be "object" or "array"
   - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
+  - the name of the object must not start with '#', '_' or 'byoda'
 
 If the type is "object" then it must have a key "properties with as value an object with the keys:
   - description: What the data stored in this property is used for
@@ -129,7 +130,7 @@ permitted. Each of the actions may support some specifiers that provide addition
 
 The following actions are supported:
 - read with specifier:
-  - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 14400 seconds): how long may the requesting entity cache the data
+  - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 1 week, which is 604800 seconds): how long may the requesting entity cache the data
 - update, no specifiers
 - delete: delete the records matching the value of the specified filters
 - append: add an entry to an array
@@ -174,7 +175,11 @@ sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
 tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
+```
 
+Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
+```
+cat ${BYODA_HOME}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${BYODA_HOME}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
@@ -200,7 +205,7 @@ export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=addressbook.json
 
-export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT})
+export SERVICE_ID=$(jq -r .service_id ${BYODA_HOME}/${SERVICE_CONTRACT}); echo "Service ID ${SERVICE_ID}"
 export SERVICE_DIR="${BYODA_HOME}/service-${SERVICE_ID}"
 
 if [ ! -f $BYODA_HOME/byoda-python/config.yml ]; then
@@ -214,12 +219,17 @@ fi
 cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
 sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
-# Delete any existing unencrypted private key for the service
+# Delete any existing unencrypted private key for the service to avoid
+# permissions/ownership issues with the 'create_service_secrets' tool
 sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
+
+# Delete the unencrypted private key to avoid permissions/ownership issues
+# when the service server starts
+sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 ## 6: Get the service up and running
 These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu

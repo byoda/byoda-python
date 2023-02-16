@@ -4,7 +4,7 @@
 Test cases for authentication of REST / GraphQL API calls
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
-from byoda.requestauth import RequestAuth
+from byoda.requestauth.requestauth import RequestAuth
 from byoda.requestauth.jwt import JWT
 
 from byoda.datamodel.network import Network
@@ -31,6 +31,7 @@ from byoda.datamodel.member import Secret
 from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 from byoda.datatypes import CloudType, IdType
 from byoda.datatypes import TlsStatus
 from byoda.datatypes import HttpRequestMethod
@@ -85,6 +86,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         server.paths = network.paths
+        await server.set_data_store(DataStoreType.SQLITE)
 
         pod_account = Account(network_data['account_id'], network)
         await pod_account.paths.create_account_directory()
@@ -140,7 +142,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
+        await request_auth.authenticate(
+            TlsStatus.NONE, None, None, None, jwt.encoded
+        )
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -156,7 +160,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.authenticate(TlsStatus.NONE, None, None, jwt.encoded)
+        await request_auth.authenticate(
+            TlsStatus.NONE, None, None, None, jwt.encoded
+        )
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'token')
@@ -172,7 +178,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
+        await request_auth.authenticate(
+            TlsStatus.SUCCESS, client_dn, ca_dn, None, None
+        )
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
@@ -186,7 +194,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpRequestMethod.GET
         )
-        await request_auth.authenticate(TlsStatus.SUCCESS, client_dn, ca_dn, None)
+        await request_auth.authenticate(
+            TlsStatus.SUCCESS, client_dn, ca_dn, None, None
+        )
 
 
 if __name__ == '__main__':

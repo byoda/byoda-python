@@ -7,7 +7,7 @@ Requires enabling Twitter Development API. Sign up at
 https://developer.twitter.com/en
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 import os

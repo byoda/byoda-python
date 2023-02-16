@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+'''
+Test cases for importing tweets
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022, 2023
+:license    : GPLv3
+'''
+
 import os
 import sys
 import unittest

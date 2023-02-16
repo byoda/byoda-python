@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ import logging
 from uuid import uuid4, UUID
 from copy import copy
 from typing import TypeVar
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,11 +32,11 @@ from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.storage import FileStorage
+from byoda.datastore.data_store import DataStore
 
-from byoda.secrets import ServiceDataSecret
+from byoda.secrets import ServiceCaSecret, ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
 from byoda.secrets import Secret, MembersCaSecret
-
 
 from byoda.requestauth.jwt import JWT
 
@@ -69,7 +70,8 @@ class Member:
     '''
 
     def __init__(self, service_id: int, account: Account,
-                 local_service_contract: str = None) -> None:
+                 local_service_contract: str = None, member_id: UUID = None
+                 ) -> None:
         '''
         Constructor
 
@@ -83,7 +85,7 @@ class Member:
                 'storage_driver and filepath parameters can only be used by '
                 'test cases'
             )
-        self.member_id: UUID = None
+        self.member_id: UUID = member_id
         self.service_id: int = int(service_id)
 
         self.account: Account = account
@@ -91,25 +93,36 @@ class Member:
 
         self.data: MemberData = None
 
-        self.paths: Paths = copy(self.network.paths)
-        self.paths.account_id = account.account_id
-        self.paths.account = account.account
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(account.paths)
+        self.paths.account_id: UUID = account.account_id
+        self.paths.account: str = account.account
+        self.paths.service_id: int = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
         self.storage_driver: FileStorage = self.document_store.backend
+        self.data_store: DataStore = config.server.data_store
 
         self.private_key_password: str = account.private_key_password
 
         # The FastAPI app. We store this value to support upgrades of schema
-        self.app: FastAPI = None
+        self.app: FastAPI | None = None
 
-        self.tls_secret: MemberSecret = None
-        self.data_secret: MemberDataSecret = None
-        self.service_data_secret: ServiceDataSecret = None
+        self.tls_secret: MemberSecret | None = None
+        self.data_secret: MemberDataSecret | None = None
+        self.service_data_secret: ServiceDataSecret | None = None
+        self.service_ca_secret: ServiceCaSecret | None = None
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
+        '''
+        Loads the schema and the service for this membership
+        '''
+
+        if local_service_contract:
+            verify_signatures = False
+        else:
+            verify_signatures = True
+
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -121,7 +134,6 @@ class Member:
                         'test cases'
                     )
                 filepath = local_service_contract
-                verify_signatures = False
             else:
                 if new_membership:
                     filepath = self.paths.service_file(self.service_id)
@@ -129,7 +141,6 @@ class Member:
                     filepath = self.paths.member_service_file(self.service_id)
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
-                verify_signatures = True
 
             try:
                 _LOGGER.debug(
@@ -164,7 +175,9 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
-            self.schema: Schema = await self.load_schema()
+            self.schema: Schema = await self.load_schema(
+                verify_signatures=verify_signatures
+            )
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
@@ -173,7 +186,7 @@ class Member:
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
-            None, self.service_id, self.network
+            self.service_id, self.network
         )
         if await self.service_data_secret.cert_file_exists():
             await self.service_data_secret.load(with_private_key=False)
@@ -238,9 +251,12 @@ class Member:
             service.service_id, account,
             local_service_contract=local_service_contract
         )
-        await member.setup(local_service_contract=local_service_contract)
+        await member.setup(
+            local_service_contract=local_service_contract, new_membership=True
+        )
 
         if member_id:
+            _LOGGER.debug(f'Reviewing existing member_id: {member_id}')
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
             elif isinstance(member_id, UUID):
@@ -248,6 +264,7 @@ class Member:
             else:
                 raise ValueError(f'member_id {member_id} must have type UUID')
         else:
+            _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
 
         if not await member.paths.exists(member.paths.SERVICE_FILE):
@@ -273,11 +290,11 @@ class Member:
             )
 
         member.tls_secret = MemberSecret(
-            member.member_id, member.service_id, member.account
+            member.member_id, member.service_id, account=member.account
         )
 
         member.data_secret = MemberDataSecret(
-            member.member_id, member.service_id
+            member.member_id, member.service_id, account=member.account
         )
 
         await member.create_secrets(members_ca=members_ca)
@@ -290,17 +307,18 @@ class Member:
              storage_driver=server.local_storage
         )
 
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
+        member.data = MemberData(member)
         member.data.initalize()
 
         await member.data.save_protected_shared_key()
-        await member.data.save()
 
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
 
+        data_store = config.server.data_store
+        await data_store.setup_member_db(
+            member.member_id, member.service_id, member.schema
+        )
         return member
 
     async def create_nginx_config(self):
@@ -393,8 +411,8 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret
-                             ) -> Secret:
+    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+                             renew: bool = False) -> Secret:
         '''
         Abstraction for creating secrets for the Member class to avoid
         repetition of code for creating the various member secrets of the
@@ -417,16 +435,19 @@ class Member:
         )
 
         if await secret.cert_file_exists():
-            raise ValueError(
-                f'Cert for {type(secret)} for service {self.service_id} and '
-                f'member {self.member_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    f'Cert for {type(secret)} for account_id '
+                    f'{self.account_id} already exists'
+                )
 
         if await secret.private_key_file_exists():
-            raise ValueError(
-                f'Private key for {type(secret)} for service {self.service_id}'
-                f' and member {self.member_id} already exists'
-            )
+            if not renew:
+                raise ValueError(
+                    'Not creating new private key for secret because '
+                    f'the renew flag is not set for {type(secret)}'
+                )
+            secret.load(with_private_key=True)
 
         if not issuing_ca:
             if secret_cls != MemberSecret and secret_cls != MemberDataSecret:
@@ -440,7 +461,7 @@ class Member:
                 await self.register(secret)
 
         else:
-            csr = secret.create_csr()
+            csr = await secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
@@ -489,7 +510,7 @@ class Member:
         '''
 
         # Register with the service to get our CSR signed
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
 
         payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
         resp = await RestApiClient.call(
@@ -551,6 +572,51 @@ class Member:
         _LOGGER.debug(
             f'Member {self.member_id} registered service {self.service_id} '
             f' with network {self.network.name}'
+        )
+
+    async def load_service_cacert(self) -> None:
+        '''
+        Downloads the Service CA cert and writes it to local
+        storage for us by the nginx configuration for the membership
+        '''
+
+        server: Server = config.server
+
+        self.service_ca_certchain = ServiceCaSecret(
+            self.service_id, self.network
+        )
+        self.service_ca_certchain.cert_file = self.paths.get(
+            Paths.SERVICE_CA_CERTCHAIN_FILE
+        )
+        try:
+            await self.service_ca_certchain.load(
+                with_private_key=False, storage_driver=server.local_storage
+            )
+            return
+        except FileNotFoundError:
+            _LOGGER.debug(
+                'Did not find local Service CA cert so will download it'
+            )
+
+        # The downloaded cert downloaded here is the complete certchain from
+        # the Service CA to the root CA, including the self-signed root CA
+        # cert. The file is hosted by the nginx configuration for the
+        # Service server, in the 'ssl_client_certificate' directive.
+        resp = await ApiClient.call(
+            Paths.SERVICE_CACERT_DOWNLOAD,
+            service_id=self.service_id,
+            network_name=self.network.name
+        )
+        if resp.status != 200:
+            raise ValueError(
+                'No service CA cert available locally or from the '
+                'service'
+            )
+
+        self.service_ca_certchain.from_string(await resp.text())
+
+        await self.service_ca_certchain.save(
+            storage_driver=server.local_storage, overwrite=True
         )
 
     async def load_schema(self, filepath: str = None,
@@ -669,12 +735,19 @@ class Member:
             f'Verified network signature for service {self.service_id}'
         )
 
-    async def load_data(self):
+    async def load_network_links(self) -> list[dict[str, str | datetime]]:
+        '''
+        Loads the network links of the membership
+        '''
+
+        return await self.data.load_network_links()
+
+    async def load_data(self, key: str, filters: list[str] = None):
         '''
         Loads the data stored for the membership
         '''
 
-        await self.data.load()
+        await self.data.load(key, filters)
 
     async def save_data(self, data):
         '''

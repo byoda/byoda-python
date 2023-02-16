@@ -4,7 +4,7 @@
 Test cases for json schema
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -29,13 +29,15 @@ from python_graphql_client import GraphqlClient
 from strawberry.asgi import GraphQL
 
 from byoda.datastore.document_store import DocumentStoreType
-from byoda.datatypes import CloudType
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.service import Service
+
+from byoda.datatypes import CloudType
 
 from byoda.secrets import MemberSecret, MemberDataSecret
 
@@ -199,8 +201,9 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
             bucket_prefix='byodatest',
             root_dir=TEST_DIR
         )
-
         server.paths = network.paths
+
+        await server.set_data_store(DataStoreType.SQLITE)
 
         account_id = uuid4()
         pod_account = Account(account_id, network)
@@ -241,9 +244,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
             verify_signatures=False
         )
 
-        member.data = MemberData(
-            member, member.paths, member.document_store
-        )
+        member.data = MemberData(member)
         await member.data.save_protected_shared_key()
         member.data.initalize()
         await member.data.save()

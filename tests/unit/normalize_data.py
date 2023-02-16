@@ -4,7 +4,7 @@
 Test cases for SchemaItem.normalize
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -91,7 +91,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             },
             'network_links': [
                 {
-                    'timestamp': now.isoformat(),
+                    'created_timestamp': now.isoformat(),
                     'member_id': uuid,
                     'relation': 'follows'
                 }
@@ -112,7 +112,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue('network_links' in data)
         self.assertEqual(len(data['network_links']), 1)
         self.assertEqual(data['network_links'][0]['relation'], 'follows')
-        self.assertEqual(data['network_links'][0]['timestamp'], now)
+        self.assertEqual(data['network_links'][0]['created_timestamp'], now)
         self.assertEqual(data['network_links'][0]['member_id'], uuid)
 
 

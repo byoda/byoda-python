@@ -4,7 +4,7 @@ for generating the GraphQL Strawberry code based on Jinja2
 templates
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -240,8 +240,7 @@ class NetworkDataAccessRight(DataAccessRight):
             return False
 
         if auth.member_id:
-            await member.load_data()
-            network_links = member.data.get('network_links') or []
+            network_links = await member.load_network_links()
             _LOGGER.debug(f'Found total of {len(network_links)} network links')
             network = [
                 link for link in network_links

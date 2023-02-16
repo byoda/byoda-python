@@ -2,7 +2,7 @@
 Class for modeling a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -157,7 +157,7 @@ class Network:
         if await root_ca.cert_file_exists():
             await root_ca.load(with_private_key=True, password=password)
         else:
-            root_ca.create(expire=100*365)
+            await root_ca.create(expire=100*365)
             root_ca_password = passgen.passgen(length=48)
             await root_ca.save(password=root_ca_password)
             _LOGGER.info(
@@ -188,13 +188,17 @@ class Network:
         )
 
         # Create the services directory to enable the directory server to start
-        os.makedirs(paths.get(Paths.SERVICES_DIR), exist_ok=True)
+        os.makedirs(
+            paths._root_directory + '/' + paths.get(Paths.SERVICES_DIR),
+            exist_ok=True
+        )
 
         return network
 
     @staticmethod
     async def _create_secret(network: str, secret_cls: callable,
-                             issuing_ca: Secret, paths: Paths, password: str):
+                             issuing_ca: Secret, paths: Paths, password: str,
+                             renew: bool = False):
         '''
         Abstraction helper for creating secrets for a Network to avoid
         repetition of code for creating the various member secrets of the
@@ -218,12 +222,18 @@ class Network:
 
         secret = secret_cls(paths=paths)
 
-        if await secret.cert_file_exists():
+        if (await secret.cert_file_exists()
+                or await secret.private_key_file_exists()):
+            if not renew:
+                raise ValueError(
+                    f'Secret already exists: {secret.cert_file}, '
+                    f'{secret.private_key_file}'
+                )
             await secret.load(password=password)
             return secret
 
         # TODO: SECURITY: add constraints
-        csr = secret.create_csr()
+        csr = await secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr)
         secret.from_signed_cert(certchain)
@@ -278,9 +288,11 @@ class Network:
                 with_private_key=True, password=self.private_key_password
             )
         elif ServerRole.Test in self.roles:
+            # HACK: setting renew to True to avoid exception when secret
+            # already exists. As this is for a test case, we don't really care
             self.data_secret = await Network._create_secret(
                 self.name, NetworkDataSecret, self.root_ca, self.paths,
-                self.private_key_password
+                self.private_key_password, renew=True
             )
         else:
             if not self.root_ca.cert:

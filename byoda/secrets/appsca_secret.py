@@ -2,13 +2,14 @@
 Cert manipulation for service secrets: Apps CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
-from typing import TypeVar
 from copy import copy
+from typing import TypeVar
+from datetime import datetime, timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,14 +20,18 @@ from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class AppsCaSecret(CaSecret):
-    ACCEPTED_CSRS = [IdType.APP]
+    # When should a CA secret be renewed
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
 
-    def __init__(self, service: str, service_id: int,
-                 network: Network):
+    # CSRs that we are willing to sign
+    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365}
+
+    def __init__(self,  service_id: int, network: Network):
         '''
         Class for the Service Apps CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -38,12 +43,10 @@ class AppsCaSecret(CaSecret):
         :raises: (none)
         '''
 
-        self.network = str(network.name)
-        self.service_id = int(service_id)
-        self.service = str(service)
+        service_id = int(service_id)
 
-        self.paths = copy(network.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(network.paths)
+        self.paths.service_id: int = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -55,32 +58,39 @@ class AppsCaSecret(CaSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.APPS_CA
+        self.network: str = str(network.name)
+        self.service_id: int = service_id
+
+        self.id_type: IdType = IdType.APPS_CA
 
         # X.509 constraints
-        self.ca = True
-        self.max_path_length = 0
+        self.ca: bool = True
+        self.max_path_length: int = 0
 
-        self.signs_ca_certs = False
-        self.accepted_csrs = AppsCaSecret.ACCEPTED_CSRS
+        self.signs_ca_certs: bool = False
+        self.accepted_csrs: dict[IdType, int] = AppsCaSecret.ACCEPTED_CSRS
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
-        :param service_id: identifier for the service
+        :param renew: should any existing private key be used to
+        renew an existing certificate
         :returns: csr
         :raises: ValueError if the Secret instance already has
                                 a private key or cert
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'apps-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
 
-        return super().create_csr(common_name, key_size=4096, ca=True)
+        return await super().create_csr(
+            common_name, key_size=4096, ca=True, renew=renew
+        )
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
@@ -114,7 +124,7 @@ class AppsCaSecret(CaSecret):
 
         entity_id = CaSecret.review_commonname_by_parameters(
             commonname, network, AppsCaSecret.ACCEPTED_CSRS,
-            service_id=service_id,
+            service_id=int(service_id),
             uuid_identifier=True, check_service_id=True
         )
 

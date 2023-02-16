@@ -4,7 +4,7 @@
 Test cases for signatures for a service contract
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -81,6 +81,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
+        # TODO: implement this test case
         raise NotImplementedError('Need to complete this test case')
 
 

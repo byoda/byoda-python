@@ -2,7 +2,7 @@
 Cert manipulation for accounts and members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -36,15 +36,15 @@ class MemberSecret(Secret):
 
         self.member_id = None
         if member_id:
-            self.member_id = member_id
+            self.member_id: UUID = member_id
 
-        self.service_id = int(service_id)
+        service_id = int(service_id)
 
-        self.paths = copy(account.paths)
-        self.paths.service_id = self.service_id
+        self.paths: Paths = copy(account.paths)
+        self.paths.service_id: int = service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network = account.network.name
+        self.network: str = account.network.name
 
         super().__init__(
             cert_file=self.paths.get(
@@ -58,24 +58,26 @@ class MemberSecret(Secret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.id_type = IdType.MEMBER
+        self.service_id: int = service_id
+        self.id_type: IdType = IdType.MEMBER
 
-    def create_csr(self) -> CertificateSigningRequest:
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
         :param member_id: identifier of the member for the service
-        :param expire: days after which the cert should expire
+        :param renew: if True, renew the secret using the existing private key
         :returns: csr
         :raises: ValueError if the Secret instance already has
         a private key or cert
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = MemberSecret.create_commonname(
+        common_name: str = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )
-        return super().create_csr(common_name, ca=self.ca)
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
     def create_commonname(member_id: UUID, service_id: int, network: str):

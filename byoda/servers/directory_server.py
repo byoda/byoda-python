@@ -3,7 +3,7 @@ Class DirectoryServer derived from Server class for modelling
 a server that hosts a BYODA Network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -57,6 +57,9 @@ class DirectoryServer(Server):
         service_dir = network.paths.get(
             network.paths.root_directory + '/' + Paths.SERVICES_DIR
         )
+
+        if not os.path.exists(service_dir):
+            os.makedirs(service_dir, exist_ok=True)
 
         services_dirs = [
             svcdir for svcdir in os.listdir(service_dir)

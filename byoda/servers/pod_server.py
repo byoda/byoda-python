@@ -3,7 +3,7 @@ Class PodServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -21,6 +21,7 @@ from byoda.secrets import MemberSecret
 
 from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType, DataStore
 
 from byoda.storage.filestorage import FileStorage
 
@@ -42,12 +43,16 @@ Account = TypeVar('Account')
 class PodServer(Server):
     HTTP_PORT = 8000
 
-    def __init__(self, network: Network = None):
-        super().__init__(network)
+    def __init__(self, network: Network = None,
+                 cloud_type: CloudType = CloudType.LOCAL):
+        super().__init__(network, cloud_type=cloud_type)
 
         self.server_type = ServerType.POD
+        self.cloud: CloudType = cloud_type
         self.service_summaries: dict[int:dict] = None
         self.account_unencrypted_private_key_file: str = None
+
+        self.data_store: DataStore = None
 
     async def load_secrets(self, password: str = None):
         '''
@@ -98,6 +103,13 @@ class PodServer(Server):
         )
 
         self.local_storage = await FileStorage.setup(root_dir)
+
+    async def set_data_store(self, store_type: DataStoreType) -> None:
+        '''
+        Sets the storage of membership data
+        '''
+
+        self.data_store: DataStore = await DataStore.get_data_store(store_type)
 
     async def review_jwt(self, jwt: JWT):
         '''
@@ -160,6 +172,13 @@ class PodServer(Server):
                 )
 
         return secret
+
+    async def shutdown(self):
+        '''
+        Shuts down the server
+        '''
+
+        await self.data_store.close()
 
     def accepts_jwts(self):
         return True

@@ -2,7 +2,7 @@
 RestApiClient, derived from ApiClient for calling REST APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -71,7 +71,7 @@ class RestApiClient:
                 pass
 
         response: aiohttp.ClientResponse = await ApiClient.call(
-            api, method.value, secret=secret, params=params, data=data,
+            api, method, secret=secret, params=params, data=data,
             service_id=service_id, member_id=member_id, account_id=account_id,
         )
 

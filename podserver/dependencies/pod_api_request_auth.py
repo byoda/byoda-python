@@ -4,7 +4,7 @@ request_auth
 provides helper functions to authenticate the client making the request
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -34,6 +34,7 @@ class PodApiRequestAuth(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
+                 x_client_ssl_cert: str | None = Header(None),
                  authorization: str | None = Header(None)):
         '''
         Get the authentication info for the client that made the API call.
@@ -63,9 +64,10 @@ class PodApiRequestAuth(RequestAuth):
         super().__init__(request.client.host, request.method)
 
         self.service_id = service_id
-        self.x_client_ssl_verify: TlsStatus = x_client_ssl_verify
-        self.x_client_ssl_subject: str = x_client_ssl_subject
-        self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
+        self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
+        self.x_client_ssl_subject: str | None = x_client_ssl_subject
+        self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
+        self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization = authorization
 
     async def authenticate(self, service_id: int = None):
@@ -84,6 +86,7 @@ class PodApiRequestAuth(RequestAuth):
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
+                self.x_client_ssl_cert,
                 self.authorization
             )
         except ByodaMissingAuthInfo:

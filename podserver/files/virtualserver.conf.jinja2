@@ -52,6 +52,7 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
 
     location /logs/ {
@@ -102,6 +103,7 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
 
 
@@ -130,13 +132,21 @@ server {
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client
     ssl_verify_client on;
 
-    ssl_verify_depth 4;
+    ssl_verify_depth 5;
 
+{% if subdomain == 'accounts' %}
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
     ssl_client_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
 
     # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
     # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/network-{{ network }}-root-ca-cert.pem;
+{% else %}
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate
+    ssl_client_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-certchain.pem;
+
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_trusted_certificate
+    # ssl_trusted_certificate {{ root_dir }}/network-{{ network }}/services/service-{{ service_id }}/network-{{ network }}-service-{{ service_id }}-ca-cert.pem;
+{% endif %}
 
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
@@ -158,6 +168,7 @@ server {
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
 
     location /public/ {

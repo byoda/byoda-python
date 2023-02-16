@@ -2,7 +2,7 @@
 Class for modeling GraphQL requests that are proxied by a pod to other pods
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -186,19 +186,38 @@ class GraphQlProxy:
         if remote_member_id:
             targets = [remote_member_id]
         else:
-            network_links = self.member.data.get('network_links')
+            network_links = await self.member.data.load_network_links(
+                relations
+            )
 
             _LOGGER.debug(
                 f'Filtering {len(network_links or [])} network links on '
-                f'relations: {relations}'
+                f'relations: {", ".join(relations or [])}'
             )
-            targets = [
-                target['member_id'] for target in network_links or []
-                if not relations or target['relation'].lower() in relations
-            ]
-            _LOGGER.debug(
-                f'Filtered result: {",".join([str(t) for t in targets])}'
-            )
+            if not relations:
+                targets = [target['member_id'] for target in network_links]
+                _LOGGER.debug(
+                    f'Adding all {len(network_links)} network_links as targets'
+                )
+            else:
+                targets = []
+                for target in network_links or []:
+                    if target['relation'].lower() in relations:
+                        if str(target['member_id']).startswith('aaaaaaaa'):
+                            _LOGGER.debug(
+                                'We do not proxy to test UUIDs: '
+                                f'{target["member_id"]}'
+                            )
+                        else:
+                            _LOGGER.debug(
+                                f'Adding target {target["member_id"]} as a '
+                                f'{target["relation"]}'
+                            )
+                            targets.append(target['member_id'])
+
+        _LOGGER.debug(
+            f'Pods to proxy request to: {",".join([str(t) for t in targets])}'
+        )
 
         tasks = set()
 

@@ -1,15 +1,13 @@
 '''
 Class for modeling an element of data of a member
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
 import logging
-import orjson
 from uuid import UUID
 from typing import TypeVar
-from copy import copy, deepcopy
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -26,7 +24,7 @@ from byoda.datamodel.graphql_proxy import GraphQlProxy
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
 
-from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
 
 from byoda.requestauth.requestauth import RequestAuth
 
@@ -58,14 +56,11 @@ class MemberData(dict):
     by the schema of services
     '''
 
-    def __init__(self, member: Member, paths: Paths,
-                 doc_store: DocumentStore):
+    def __init__(self, member: Member):
         self.member: Member = member
         self.unvalidated_data: dict = None
 
-        self.paths: Paths = paths
-
-        self.document_store: DocumentStore = doc_store
+        self.paths: Paths = member.paths
 
     def initalize(self) -> None:
         '''
@@ -82,33 +77,13 @@ class MemberData(dict):
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
 
-    async def load(self) -> None:
+    def query(self, object_name: str, filters: DataFilterSet
+              ) -> list[dict[str, object]]:
         '''
-        Load the data from the data store
+        Queries the data store for the given object and filters
         '''
 
-        filepath = self.paths.get(
-            self.paths.MEMBER_DATA_PROTECTED_FILE,
-            service_id=self.member.service_id
-        )
-
-        try:
-            data = await self.document_store.read(
-                filepath, self.member.data_secret
-            )
-            for key, value in data.items():
-                self[key] = value
-
-            _LOGGER.debug(f'Loaded {len(self.keys() or [])} items')
-
-        except FileNotFoundError:
-            _LOGGER.warning(
-                'Unable to read data file for service '
-                f'{self.member.service_id} from {filepath}'
-            )
-            return {}
-
-        return self.normalize()
+        raise NotImplementedError
 
     def normalize(self) -> None:
         '''
@@ -131,67 +106,6 @@ class MemberData(dict):
 
             normalized = data_classes[field].normalize(value)
             self[field] = normalized
-
-    async def save(self, data=None) -> None:
-        '''
-        Save the data to the data store
-        '''
-
-        # MemberData inherits from dict so has a length
-        if not len(self) and not data:
-            raise ValueError(
-                'No member data for service %s available to save',
-                self.member.service_id
-            )
-
-        try:
-            if data:
-                _LOGGER.debug(f'Using {len(data)} bytes of data from argument')
-                self.unvalidated_data = data
-            else:
-                _LOGGER.debug(
-                    f'Using {len(self.unvalidated_data or [])} data from '
-                    'class instance'
-                )
-                data = {}
-                self.unvalidated_data = data
-
-            self.validate()
-            _LOGGER.debug(
-                f'After data validation, data is {len(data or [])} bytes'
-            )
-            # TODO: properly serialize data
-            await self.document_store.write(
-                self.paths.get(
-                    self.paths.MEMBER_DATA_PROTECTED_FILE,
-                    service_id=self.member.service_id
-                ),
-                data,
-                self.member.data_secret
-            )
-            _LOGGER.debug(f'Saved {len(self.keys() or [])} items')
-
-            # We need to update our dict with the data passed to this
-            # method
-            if self.unvalidated_data:
-                for key, value in data.items():
-                    self[key] = value
-
-        except OSError:
-            _LOGGER.error(
-                'Unable to write data file for service %s',
-                self.member.service_id
-            )
-
-    def _load_from_file(self, filename: str) -> None:
-        '''
-        This function should only be used by test cases
-        '''
-
-        with open(filename) as file_desc:
-            raw_data = file_desc.read(MAX_FILE_SIZE)
-
-        self.unvalidated_data = orjson.loads(raw_data)
 
     def validate(self):
         '''
@@ -241,14 +155,55 @@ class MemberData(dict):
         '''
 
         filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
+
         await self.member.storage_driver.write(
             filepath, self.member.data_secret.protected_shared_key,
             file_mode=FileMode.BINARY
         )
 
+    async def load_network_links(self, relations: str | list[str] | None = None
+                                 ) -> list[dict[str, str | datetime]]:
+        '''
+        Loads the network links for the membership. Used by the access
+        control logic.
+        '''
+
+        filter_set = None
+        if relations:
+            # DataFilter logic uses 'and' logic when multiple filters are
+            # specified. So we only use DataFilterSet when we have a single
+            # relation to filter on.
+            relation = relations
+            if isinstance(relations, list) and len(relations) == 1:
+                relation = relations[0]
+
+            if isinstance(relation, str):
+                link_filter = {
+                    'relation': {
+                        'eq': relation
+                    }
+                }
+                filter_set = DataFilterSet(link_filter)
+
+        data_store: DataStore = config.server.data_store
+
+        data = await data_store.query(
+            self.member.member_id, 'network_links', filters=filter_set
+        )
+
+        if relations and isinstance(relations, list) and len(relations) > 1:
+            # If more than 1 relation was provided, then we filter here
+            # ourselves instead of using DataFilterSet
+            data = [
+                network_link for network_link in data
+                if network_link['relation'] in relations
+            ]
+
+        return data
+
     async def add_log_entry(self, request: Request, auth: RequestAuth,
-                            operation: str, source: str, object: str,
-                            filters: list[str] = None,
+                            operation: str, source: str, class_name: str,
+                            filters: list[str] | DataFilterSet = None,
                             relations: list[str] = None,
                             remote_member_id: UUID | None = None,
                             depth: int = None, message: str = None,
@@ -256,21 +211,21 @@ class MemberData(dict):
                             origin_member_id: UUID | None = None,
                             origin_signature: str | None = None,
                             query_id: UUID = None,
-                            signature_format_version: int | None = None,
-                            load_data=False, save_data: bool = True):
+                            signature_format_version: int | None = None
+                            ) -> None:
         '''
         Adds an entry to data log
         '''
 
-        if load_data:
-            await self.load()
+        data_store: DataStore = config.server.data_store
 
-        if 'datalogs' not in self:
-            self['datalogs'] = []
+        if not isinstance(filters, DataFilterSet):
+            filter_set = DataFilterSet(filters)
+        else:
+            filter_set = filters
 
-        filter_set = DataFilterSet(filters)
-
-        self['datalogs'].append(
+        await data_store.append(
+            self.member.member_id, 'datalogs',
             {
                 'created_timestamp': datetime.now(timezone.utc),
                 'remote_addr': request.client.host,
@@ -291,9 +246,6 @@ class MemberData(dict):
                 'message': message,
             }
         )
-
-        if save_data:
-            await self.save()
 
     @staticmethod
     async def get_data(service_id: int, info: Info, depth: int = 0,
@@ -333,15 +285,9 @@ class MemberData(dict):
         )
 
         server = config.server
-        member: Member = server.account.memberships[service_id]
-        await member.load_data()
 
-        # For queries for objects we implement pagination and identify
-        # those APIs by appending _connection to the name for the
-        # data class
-        key = info.path.key
-        if key.endswith('_connection'):
-            key = key[:-1 * len('_connection')]
+        await server.account.load_memberships()
+        member: Member = server.account.memberships[service_id]
 
         # If an origin_member_id has been provided then we check
         # the signature
@@ -375,16 +321,24 @@ class MemberData(dict):
                     'submitted by someone else than ourselves'
                 )
 
+        # For queries for objects we implement pagination and identify
+        # those APIs by appending _connection to the name for the
+        # data class
+        key = info.path.key
+        if key.endswith('_connection'):
+            key = key[:-1 * len('_connection')]
+
+        filter_set = DataFilterSet(filters)
+
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
-            'graphql', key, relations=relations, filters=filters,
+            'graphql', key, relations=relations, filters=filter_set,
             depth=depth, timestamp=timestamp,
             remote_member_id=remote_member_id,
             origin_member_id=origin_member_id,
             origin_signature=origin_signature,
             signature_format_version=signature_format_version,
             query_id=query_id,
-            save_data=True
         )
 
         all_data = []
@@ -423,32 +377,11 @@ class MemberData(dict):
                 f'Collected {len(all_data)} items from the network'
             )
 
-        # DataFilterSet works on lists so we make put the object in a list
-        data = member.data.get(key)
-        if isinstance(data, dict):
-            data = [data]
-
-        if filters:
-            if isinstance(data, list):
-                filtered_data = DataFilterSet.filter(filters, data)
-            else:
-                _LOGGER.warning(
-                    'Received query with filters for data that is not a list: '
-                    f'{member.data}'
-                )
-        else:
-            filtered_data = data
-
-        _LOGGER.debug(
-            f'Got {len(filtered_data or [])} filtered objects out '
-            f'of {len(data or [])} locally'
-        )
-
-        modified_data = deepcopy(filtered_data)
-        for item in modified_data or []:
-            item[ORIGIN_KEY] = member.member_id
-
-        all_data.extend(modified_data or [])
+        data_store = server.data_store
+        data = await data_store.query(member.member_id, key, filter_set)
+        for data_item in data or []:
+            data_item[ORIGIN_KEY] = member.member_id
+            all_data.append(data_item)
 
         return all_data
 
@@ -478,14 +411,6 @@ class MemberData(dict):
         server = config.server
         member = server.account.memberships[service_id]
 
-        # Any data we may have in memory may be stale when we run
-        # multiple processes so we always need to load the data
-        await member.load_data()
-
-        # We do not modify existing data as it will need to be validated
-        # by JSON Schema before it can be accepted.
-        data = copy(member.data)
-
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
@@ -504,14 +429,10 @@ class MemberData(dict):
         schema = member.schema
         schema_properties = schema.json_schema['jsonschema']['properties']
 
-        # The query may be for an object for which we do not yet have
-        # any data
-        if class_object not in member.data:
-            member.data[class_object] = dict()
-
         # TODO: refactor to use dataclasses
         properties = schema_properties[class_object].get('properties', {})
 
+        data = {}
         for key in properties.keys():
             if properties[key]['type'] == 'object':
                 raise ValueError(
@@ -529,18 +450,22 @@ class MemberData(dict):
                 continue
 
             _LOGGER.debug(f'Setting key {key} for data object {class_object}')
-            member.data[class_object][key] = mutate_data[key]
+            data[key] = mutate_data[key]
 
         _LOGGER.debug(
             f'Saving {len(data or [])} bytes of data after mutation of '
             f'{class_object}'
         )
-        await member.save_data(data)
+        data_store = server.data_store
 
-        return member.data
+        records_affected = await data_store.mutate(
+            member.member_id, class_object, data
+        )
+
+        return records_affected
 
     @staticmethod
-    async def update_data(service_id: int, filters, info: Info) -> dict:
+    async def update_data(service_id: int, filters, info: Info) -> int:
         '''
         Updates a dict in an array
 
@@ -575,40 +500,12 @@ class MemberData(dict):
 
         server = config.server
         member = server.account.memberships[service_id]
-        await member.load_data()
 
+        filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'update',
-            'graphql', class_object, filters=filters
+            'graphql', class_object, filters=filter_set
         )
-
-        data = copy(member.data.get(class_object))
-
-        if not data:
-            _LOGGER.debug(f'No data available for {class_object}')
-            return {}
-
-        if not isinstance(data, list):
-            _LOGGER.warning(
-                'Received query with filters for data that is not a list: '
-                f'{member.data}'
-            )
-
-        # We remove the data based on the filters and then
-        # add the data back to the list
-        (data, removed) = DataFilterSet.filter_exclude(
-            filters, data
-        )
-        _LOGGER.debug(
-            f'Filtering left {len(data or [])} items and removed '
-            f'{len(removed or [])}'
-        )
-
-        # We can update only one list item per query
-        if not removed or len(removed) == 0:
-            raise ValueError('filters did not match any data')
-        elif len(removed) > 1:
-            raise ValueError('filters match more than one record')
 
         update_data: dict = info.selected_fields[0].arguments
 
@@ -626,24 +523,21 @@ class MemberData(dict):
             f'object {class_object}'
         )
 
-        removed[0].update(updates)
-
-        data.append(removed[0])
-
-        member.data[class_object] = data
+        data_store = server.data_store
+        object_count = await data_store.mutate(
+            member.member_id, class_object, updates, filter_set
+        )
 
         _LOGGER.debug(
-            f'Saving {len(data or [])} bytes of data after mutation of '
+            f'Saving {len(updates or [])} fields of data after mutation of '
             f'{class_object}'
         )
 
-        await member.save_data(member.data)
-
-        return removed[0]
+        return object_count
 
     async def append_data(service_id, info: Info,
                           remote_member_id: UUID | None = None,
-                          depth: int = 0) -> dict:
+                          depth: int = 0) -> int:
         '''
         Appends the provided data
 
@@ -703,38 +597,16 @@ class MemberData(dict):
                     'Must specify depth = 0 for appending locally'
                 )
 
-            # Any data we may have in memory may be stale when we run
-            # multiple processes so we always need to load the data
-            await member.load_data()
-
-            # We do not modify existing data as it will need to be validated
-            # by JSON Schema before it can be accepted.
-            data = copy(member.data)
-            _LOGGER.debug(f'Appending to {len(data or [])} bytes of data')
-
             # Gets the data included in the mutation
             mutate_data: dict = info.selected_fields[0].arguments
 
-            # The query may be for an array for which we do not yet have
-            # any data
-            if key not in member.data:
-                _LOGGER.debug(f'Initiating array {key} to empty list')
-                member.data[key] = []
-
-            # Strawberry passes us data that we can just copy as-is
-            _LOGGER.debug(f'Appending item to array {key}')
-
-            _LOGGER.debug(f'Appended {len(mutate_data or [])} bytes of data')
-            member.data[key].append(mutate_data)
-
-            _LOGGER.debug(
-                f'Saving {len(data or [])} bytes of data after appending to '
-                f'{key}'
+            _LOGGER.debug(f'Appended {len(mutate_data or [])} items of data')
+            data_store = server.data_store
+            object_count = await data_store.append(
+                member.member_id, key, mutate_data
             )
 
-            await member.save_data(data)
-
-            return mutate_data
+            return object_count
 
     @staticmethod
     async def delete_array_data(service_id: int, info: Info, filters) -> dict:
@@ -772,42 +644,16 @@ class MemberData(dict):
 
         server = config.server
         member = server.account.memberships[service_id]
-        await member.load_data()
 
+        filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'delete',
-            'graphql', object=class_object, filters=filters
+            'graphql', class_name=class_object, filters=filter_set
         )
 
-        data = copy(member.data.get(class_object))
-
-        if not data:
-            _LOGGER.debug(
-                'Can not delete items from empty array for class '
-                f'{class_object}'
-            )
-            return {}
-
-        if not isinstance(data, list):
-            _LOGGER.warning(
-                'Received query with filters for data that is not a list: '
-                f'{member.data}'
-            )
-
-        (data, removed) = DataFilterSet.filter_exclude(filters, data)
-
-        _LOGGER.debug(
-            f'Removed {len(removed or [])} items from array {class_object}, '
-            f'keeping {len(data or [])} items'
+        data_store = server.data_store
+        object_count = await data_store.delete(
+            member.member_id, class_object, filter_set
         )
 
-        member.data[class_object] = data
-
-        _LOGGER.debug(
-            f'Saving {len(data or [])} bytes of data after appending '
-            f'to {class_object}'
-        )
-
-        await member.save_data(member.data)
-
-        return removed
+        return object_count

@@ -64,7 +64,7 @@ class FileStorage:
     @staticmethod
     async def setup(root_dir: str):
         '''
-        Factory for AwsFileStorage
+        Factory for FileStorage
 
         :param bucket_prefix: prefix of the storage account, to which
         'private' and 'public' will be appended
@@ -129,7 +129,10 @@ class FileStorage:
         relative_path = relative_path.rstrip('/')
 
         if storage_type == StorageType.PRIVATE:
-            dirpath = self.local_path + relative_path
+            if relative_path.startswith(self.local_path):
+                dirpath = relative_path
+            else:
+                dirpath = self.local_path + relative_path
         else:
             dirpath = (
                 self.local_path.rstrip('/') + PUBLIC_POSTFIX + relative_path
@@ -364,6 +367,7 @@ class FileStorage:
         dirpath, filename = self.get_full_path(
             directory, create_dir=False, storage_type=storage_type
         )
+        _LOGGER.debug(f'Creating directory: {dirpath}')
         return os.makedirs(dirpath, exist_ok=exist_ok)
 
     def getmtime(self, filepath: str,

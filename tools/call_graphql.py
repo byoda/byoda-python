@@ -14,6 +14,7 @@ file system
 
 import os
 import sys
+import json
 import orjson
 import asyncio
 import logging
@@ -33,6 +34,7 @@ from byoda.datatypes import CloudType
 from byoda.datamodel.network import Network
 
 from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.servers.pod_server import PodServer
 
@@ -46,6 +48,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
         os.environ['ROOT_DIR'] = '/byoda'
+
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
@@ -74,15 +77,13 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     config.server.paths = network.paths
 
+    await config.server.set_data_store(DataStoreType.SQLITE)
+
     return network_data
 
 
-def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
-                   secret: str = None, member_token: bool = True):
-
-    if not id:
-        account = config.server.account
-        id = account.account_id
+async def get_jwt_header(id: UUID, base_url: str = BASE_URL,
+                         secret: str = None, member_token: bool = True):
 
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
@@ -99,11 +100,18 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
         'password': secret,
         'service_id': service_id,
     }
+    _LOGGER.debug(f'Calling URL: {url} with data {json.dumps(data)}')
     response = requests.post(url, json=data)
-    result = response.json()
-    if response.status_code != 200:
-        raise PermissionError(f'Failed to get auth token: {result}')
+    try:
+        result = response.json()
+        if response.status_code != 200:
+            await config.server.shutdown()
+            raise PermissionError(f'Failed to get auth token: {result}')
+    except json.decoder.JSONDecodeError:
+        await config.server.shutdown()
+        raise ValueError(f'Failed to get auth token: {response.text}')
 
+    _LOGGER.debug(f'JWT acquisition: {response.status_code} - {response.text}')
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
@@ -112,11 +120,7 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
 
 async def main(argv):
-    global _LOGGER
-    _LOGGER = Logger.getLogger(
-        sys.argv[0], debug=False, verbose=False, json_out=False,
-        loglevel=logging.WARNING
-    )
+
     await setup_network(None)
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', '-n', type=str, default='byoda.net')
@@ -137,8 +141,26 @@ async def main(argv):
     parser.add_argument('--filter-compare', type=str, default=None)
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
+    parser.add_argument(
+        '--debug', default=False, action='store_true'
+    )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv[1:])
+
+    if not args.member_id:
+        raise ValueError('No member id given')
+
+    global _LOGGER
+    if args.debug:
+        _LOGGER = Logger.getLogger(
+            sys.argv[0], debug=True, verbose=False, json_out=False,
+            loglevel=logging.DEBUG
+        )
+    else:
+        _LOGGER = Logger.getLogger(
+            sys.argv[0], debug=False, verbose=False, json_out=False,
+            loglevel=logging.WARNING
+        )
 
     network = args.network
     service_id = args.service_id
@@ -154,12 +176,14 @@ async def main(argv):
         relations = args.relations.split(',')
 
     if args.object not in GRAPHQL_STATEMENTS:
+        await config.server.shutdown()
         raise ValueError(
-            f'{args.object} not in available objects: ' +
+            f'{args.object} not in list of available objects for the service: '
             ', '.join(GRAPHQL_STATEMENTS.keys())
         )
 
     if args.action not in GRAPHQL_STATEMENTS[args.object]:
+        await config.server.shutdown()
         raise ValueError(
             f'{args.action} not in list of available actions for object '
             f'{args.object}: ' +
@@ -168,20 +192,23 @@ async def main(argv):
 
     base_url = f'https://proxy.{network}/{service_id}/{member_id}/api'
 
-    auth_header = get_jwt_header(
-        base_url=base_url, id=member_id, secret=password,
+    auth_header = await get_jwt_header(
+        member_id, base_url=base_url, secret=password,
         member_token=True
     )
 
     graphql_url = f'{base_url}/v1/data/service-{service_id}'
+    _LOGGER.debug(f'Using GraphQL URL: {graphql_url}')
 
     vars = {}
     try:
         with open(args.data_file) as file_desc:
+            _LOGGER.debug(f'Loading data from {args.data_file}')
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
         if action not in ('query', 'delete'):
+            await config.server.shutdown()
             raise
 
     if action in ('query', 'append'):
@@ -206,16 +233,28 @@ async def main(argv):
         graphql_url, GRAPHQL_STATEMENTS[object][action],
         vars=vars, headers=auth_header, timeout=30
     )
-    result = await response.json()
+    try:
+        result = await response.json()
+    except ValueError as exc:
+        await config.server.shutdown()
+        _LOGGER.error(
+            f'Failed to parse response: {exc}: {await response.text()}'
+        )
+        raise
 
     data = result.get('data')
     if data:
-        text = orjson.dumps(data, option=orjson.OPT_INDENT_2)
-        print('Data returned by GraphQL: ')
-        print(text.decode('utf-8'))
+        try:
+            text = orjson.dumps(data, option=orjson.OPT_INDENT_2)
+            print('Data returned by GraphQL: ')
+            print(text.decode('utf-8'))
+        except Exception as exc:
+            _LOGGER.error(f'Failed to parse data: {exc} - {data}')
+            raise
     else:
         print(f'GraphQL error: {result.get("errors")}')
 
+    await config.server.shutdown()
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))
