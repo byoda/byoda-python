@@ -7,7 +7,7 @@ Each membership of a service gets its own SqlLite DB file under the
 root-directory, ie.: /byoda/sqlite/<member_id>.db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

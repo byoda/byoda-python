@@ -4,7 +4,7 @@ for generating the GraphQL Strawberry code based on Jinja2
 templates
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

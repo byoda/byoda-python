@@ -236,7 +236,9 @@ class Paths:
         return await self.exists(self.SECRETS_DIR)
 
     async def create_secrets_directory(self):
-        return await self._create_directory(self.SECRETS_DIR)
+        return await self._create_directory(
+            self._root_directory + '/' + self.SECRETS_DIR
+        )
 
     # Network directory
     @property
@@ -254,7 +256,9 @@ class Paths:
         return await self.exists(self.NETWORK_DIR)
 
     async def create_network_directory(self):
-        return await self._create_directory(self.NETWORK_DIR)
+        return await self._create_directory(
+            self._root_directory + '/' + self.NETWORK_DIR
+        )
 
     # Account directory
     @property
@@ -273,7 +277,9 @@ class Paths:
 
     async def create_account_directory(self):
         if not await self.account_directory_exists():
-            return await self._create_directory(self.ACCOUNT_DIR)
+            return await self._create_directory(
+                self._root_directory + '/' + self.ACCOUNT_DIR
+            )
 
     # service directory
     def service(self, service_id):
@@ -287,7 +293,8 @@ class Paths:
 
     async def create_service_directory(self, service_id):
         return await self._create_directory(
-            self.SERVICE_DIR, service_id=service_id
+            self._root_directory + '/' + self.SERVICE_DIR,
+            service_id=service_id
         )
 
     # Membership directory
@@ -303,7 +310,7 @@ class Paths:
 
     async def create_member_directory(self, service_id):
         await self._create_directory(
-            self.MEMBER_DIR, service_id=service_id
+            self._root_directory + '/' + self.MEMBER_DIR, service_id=service_id
         )
         return await self._create_directory(
             self.MEMBER_DIR + '/data', service_id=service_id

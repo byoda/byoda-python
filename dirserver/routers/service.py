@@ -2,7 +2,7 @@
 /network/service API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 
 The registration of a service in the network takes four steps:
@@ -332,9 +332,7 @@ async def put_service(request: Request, service_id: int,
             raise ValueError(f'Unkown service id: {service_id}')
 
     if not service.data_secret:
-        service.data_secret = ServiceDataSecret(
-            service.name, service_id, network
-        )
+        service.data_secret = ServiceDataSecret(service_id, network)
 
     service.data_secret.from_string(certchain.certchain)
 

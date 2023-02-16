@@ -890,7 +890,7 @@ GRAPHQL_STATEMENTS['twitter_medias']['update'] = UPDATE_TWITTER_MEDIAS
 
 DELETE_FROM_TWITTER_MEDIAS = '''
 mutation ($filters: twitterMediaInputFilter!) {
-    delete_from_twitter_medias(filters: $filters) 
+    delete_from_twitter_medias(filters: $filters)
 }
 '''
 
@@ -961,7 +961,7 @@ GRAPHQL_STATEMENTS['network_links']['update'] = UPDATE_NETWORK_LINKS
 
 DELETE_FROM_NETWORK_LINKS = '''
 mutation ($filters: networkLinkInputFilter!) {
-    delete_from_network_links(filters: $filters) 
+    delete_from_network_links(filters: $filters)
 }
 '''
 
@@ -1037,7 +1037,7 @@ GRAPHQL_STATEMENTS['network_invites']['update'] = UPDATE_NETWORK_INVITES
 
 DELETE_FROM_NETWORK_INVITES = '''
 mutation ($filters: networkInviteInputFilter!) {
-    delete_from_network_invites(filters: $filters) 
+    delete_from_network_invites(filters: $filters)
 }
 '''
 
@@ -1118,7 +1118,7 @@ GRAPHQL_STATEMENTS['network_inbounds']['update'] = UPDATE_NETWORK_INBOUNDS
 
 DELETE_FROM_NETWORK_INBOUNDS = '''
 mutation ($filters: networkInboundInputFilter!) {
-    delete_from_network_inbounds(filters: $filters) 
+    delete_from_network_inbounds(filters: $filters)
 }
 '''
 
@@ -1204,7 +1204,7 @@ GRAPHQL_STATEMENTS['asset_links']['update'] = UPDATE_ASSET_LINKS
 
 DELETE_FROM_ASSET_LINKS = '''
 mutation ($filters: assetLinkInputFilter!) {
-    delete_from_asset_links(filters: $filters) 
+    delete_from_asset_links(filters: $filters)
 }
 '''
 
@@ -1285,7 +1285,7 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['update'] = UPDATE_ASSET_REACTION
 
 DELETE_FROM_ASSET_REACTIONS_RECEIVED = '''
 mutation ($filters: assetReactionInputFilter!) {
-    delete_from_asset_reactions_received(filters: $filters) 
+    delete_from_asset_reactions_received(filters: $filters)
 }
 '''
 
@@ -1426,7 +1426,7 @@ GRAPHQL_STATEMENTS['datalogs']['update'] = UPDATE_DATALOGS
 
 DELETE_FROM_DATALOGS = '''
 mutation ($filters: datalogInputFilter!) {
-    delete_from_datalogs(filters: $filters) 
+    delete_from_datalogs(filters: $filters)
 }
 '''
 
@@ -1557,7 +1557,7 @@ GRAPHQL_STATEMENTS['public_assets']['update'] = UPDATE_PUBLIC_ASSETS
 
 DELETE_FROM_PUBLIC_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
-    delete_from_public_assets(filters: $filters) 
+    delete_from_public_assets(filters: $filters)
 }
 '''
 
@@ -1688,7 +1688,7 @@ GRAPHQL_STATEMENTS['service_assets']['update'] = UPDATE_SERVICE_ASSETS
 
 DELETE_FROM_SERVICE_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
-    delete_from_service_assets(filters: $filters) 
+    delete_from_service_assets(filters: $filters)
 }
 '''
 
@@ -1819,7 +1819,7 @@ GRAPHQL_STATEMENTS['network_assets']['update'] = UPDATE_NETWORK_ASSETS
 
 DELETE_FROM_NETWORK_ASSETS = '''
 mutation ($filters: assetInputFilter!) {
-    delete_from_network_assets(filters: $filters) 
+    delete_from_network_assets(filters: $filters)
 }
 '''
 
@@ -1965,7 +1965,7 @@ GRAPHQL_STATEMENTS['tweets']['update'] = UPDATE_TWEETS
 
 DELETE_FROM_TWEETS = '''
 mutation ($filters: tweetInputFilter!) {
-    delete_from_tweets(filters: $filters) 
+    delete_from_tweets(filters: $filters)
 }
 '''
 

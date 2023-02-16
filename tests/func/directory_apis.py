@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 
@@ -149,9 +149,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await network.load_network_secrets()
 
         uuid = uuid4()
-        secret = AccountSecret(
-            account='dir_api_test', account_id=uuid, network=network
-        )
+        secret = AccountSecret(account_id=uuid, network=network)
         csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
         fqdn = AccountSecret.create_commonname(uuid, network.name)
@@ -239,7 +237,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         await testsecret.load(with_private_key=False)
 
-        service_secret = ServiceSecret('dir_api_test', service_id, network)
+        service_secret = ServiceSecret(service_id, network)
         service_csr = await service_secret.create_csr()
         certchain = serviceca_secret.sign_csr(service_csr)
         service_secret.from_signed_cert(certchain)
@@ -252,7 +250,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # which the directory server needs to validate the service signature
         # of the schema for the service
         service_data_secret = ServiceDataSecret(
-            'dir_api_test', service_id, network
+            service_id, network
         )
         service_data_csr = await service_data_secret.create_csr()
         data_certchain = serviceca_secret.sign_csr(service_data_csr)

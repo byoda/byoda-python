@@ -2,7 +2,7 @@
 Class for modeling a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -188,7 +188,10 @@ class Network:
         )
 
         # Create the services directory to enable the directory server to start
-        os.makedirs(paths.get(Paths.SERVICES_DIR), exist_ok=True)
+        os.makedirs(
+            paths._root_directory + '/' + paths.get(Paths.SERVICES_DIR),
+            exist_ok=True
+        )
 
         return network
 
@@ -285,9 +288,11 @@ class Network:
                 with_private_key=True, password=self.private_key_password
             )
         elif ServerRole.Test in self.roles:
+            # HACK: setting renew to True to avoid exception when secret
+            # already exists. As this is for a test case, we don't really care
             self.data_secret = await Network._create_secret(
                 self.name, NetworkDataSecret, self.root_ca, self.paths,
-                self.private_key_password
+                self.private_key_password, renew=True
             )
         else:
             if not self.root_ca.cert:

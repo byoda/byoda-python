@@ -127,7 +127,7 @@ GRAPHQL_STATEMENTS['{{ root_class.name }}']['update'] = UPDATE_{{ root_class.nam
 
 DELETE_FROM_{{ root_class.name|upper }} = '''
 mutation ($filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFilter!) {
-    delete_from_{{ root_class.name }}(filters: $filters) 
+    delete_from_{{ root_class.name }}(filters: $filters)
 }
 '''
 

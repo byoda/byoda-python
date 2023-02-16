@@ -2,7 +2,7 @@
 Class for modeling a service on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
@@ -692,7 +692,7 @@ class Service:
 
         if not self.apps_ca:
             self.apps_ca = AppsCaSecret(
-                self.name, self.service_id, self.network
+                self.service_id, self.network
             )
             await self.apps_ca.load(
                 with_private_key=with_private_key, password=password
@@ -708,7 +708,7 @@ class Service:
 
         if not self.tls_secret:
             self.tls_secret = ServiceSecret(
-                self.name, self.service_id, self.network
+                self.service_id, self.network
             )
             await self.tls_secret.load(
                 with_private_key=with_private_key, password=password

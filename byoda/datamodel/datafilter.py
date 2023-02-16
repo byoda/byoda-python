@@ -3,7 +3,7 @@ Classes for data filters for filtering results a GraphQL query based
 on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

@@ -6,7 +6,7 @@ The DataStore can be extended to support different backend storage. It
 currently only supports SqLite3.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

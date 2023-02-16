@@ -5,7 +5,7 @@ Verify that the POD sends out CORS headers when presented
 with an allowed origin header
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license
 '''
 

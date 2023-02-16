@@ -5,7 +5,7 @@ Services can chose to either provide REST APIs or GraphQL APIs or both.
 This is the REST /service/search API for the addressbook service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 

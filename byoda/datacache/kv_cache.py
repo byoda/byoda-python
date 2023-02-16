@@ -6,7 +6,7 @@ for cache keys, such as there is for the document store. The KV-cache does not
 provide encryption/decryption capabilities
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022
+:copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
