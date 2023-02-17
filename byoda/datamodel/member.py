@@ -91,7 +91,8 @@ class Member:
         self.account: Account = account
         self.network: Network = self.account.network
 
-        self.data: MemberData = None
+        self.schema: Schema | None = None
+        self.data: MemberData | None = None
 
         self.paths: Paths = copy(account.paths)
         self.paths.account_id: UUID = account.account_id
@@ -181,7 +182,11 @@ class Member:
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
-            pass
+            if not new_membership:
+                raise RuntimeError(
+                    'Did not find schema for a service we are already '
+                    'a member of'
+                )
 
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted

@@ -179,7 +179,7 @@ tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network $
 
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
 ```
-cat ${BYODA_HOME}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${BYODA_HOME}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
+cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
@@ -218,10 +218,10 @@ fi
 
 cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
-sudo cp ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
+sudo mv ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
 # Delete any existing unencrypted private key for the service to avoid
 # permissions/ownership issues with the 'create_service_secrets' tool
-sudo rm -f /var/tmp/service-${SERVICE_ID}.key
+sudo chown $USER:$USER  /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python

@@ -194,7 +194,7 @@ async def create_network_signature(service, args, password) -> bool:
             network.data_secret, SignatureType.NETWORK
         )
     else:
-        service_secret = ServiceSecret(None, service.service_id, network)
+        service_secret = ServiceSecret(service.service_id, network)
         await service_secret.load(with_private_key=True, password=password)
         _LOGGER.debug('Requesting network signature from the directory server')
         resp = await RestApiClient.call(
