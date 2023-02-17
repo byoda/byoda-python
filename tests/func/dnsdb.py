@@ -20,7 +20,6 @@ from ipaddress import ip_address
 import dns.resolver
 
 from sqlalchemy import delete, or_
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
