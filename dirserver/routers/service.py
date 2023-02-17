@@ -441,7 +441,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
                 try:
                     if not service.data_secret:
                         service.data_secret = ServiceDataSecret(
-                            None, service_id, network
+                            service_id, network
                         )
                         await service.data_secret.load(with_private_key=False)
 

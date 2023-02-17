@@ -13,7 +13,6 @@ import os
 import shutil
 import unittest
 from copy import copy
-from uuid import uuid4
 from datetime import datetime, timedelta
 
 from cryptography import x509

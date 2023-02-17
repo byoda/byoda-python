@@ -263,9 +263,9 @@ class Account:
         Loads the memberships of an account
         '''
 
-        _LOGGER.debug('Loading memberships')
-
         memberships = await self.get_memberships()
+
+        _LOGGER.debug(f'Loading {len(memberships)} memberships')
 
         for membership in memberships.values() or {}:
             member_id: UUID = membership['member_id']
