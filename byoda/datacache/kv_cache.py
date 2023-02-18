@@ -48,7 +48,7 @@ class KVCache(ABC):
 
         :param connection_string: connection string for Redis server
         :param identifier: string to include in the key annotation
-        :param chache_tech: the cache technology to use, only Redis is
+        :param chache_tech: the cache technology to use, Redis and Sqlite are
         supported at this time
         '''
 
@@ -59,6 +59,10 @@ class KVCache(ABC):
             from .kv_redis import KVRedis
             kvr = KVRedis(connection_string, identifier)
             return kvr
+        elif cache_tech == CacheTech.SQLITE:
+            from .kv_sqlite import KVSqlite
+            kvs = KVSqlite(connection_string)
+            return kvs
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 

@@ -135,7 +135,7 @@ class KVRedis(KVCache):
         return value
 
     def set(self, key: str, value: object,
-            expiration=DEFAULT_CACHE_EXPIRATION) -> bool:
+            expiration: int = DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
         Sets a key to the specified value. If the value is a dict
         or a list then it gets converted to a JSON string

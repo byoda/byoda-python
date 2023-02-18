@@ -96,6 +96,7 @@ class CloudType(Enum):
 
 class CacheTech(Enum):
     REDIS       = 1
+    SQLITE      = 2
 
 class StorageType(Enum):
     PRIVATE = 'private'
