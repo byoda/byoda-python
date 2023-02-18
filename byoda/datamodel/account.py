@@ -322,6 +322,7 @@ class Account:
 
         if service_id not in self.memberships:
             await member.load_service_cacert()
+            await member.create_query_cache()
             await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()

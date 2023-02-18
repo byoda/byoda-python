@@ -30,9 +30,12 @@ from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
 from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
+
+from byoda.datastore.querycache import QueryCache
 
 from byoda.storage import FileStorage
-from byoda.datastore.data_store import DataStore
+
 
 from byoda.secrets import ServiceCaSecret, ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
@@ -85,6 +88,7 @@ class Member:
                 'storage_driver and filepath parameters can only be used by '
                 'test cases'
             )
+
         self.member_id: UUID = member_id
         self.service_id: int = int(service_id)
 
@@ -100,8 +104,11 @@ class Member:
         self.paths.service_id: int = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
-        self.storage_driver: FileStorage = self.document_store.backend
         self.data_store: DataStore = config.server.data_store
+
+        self.query_cache: QueryCache | None = None
+
+        self.storage_driver: FileStorage = self.document_store.backend
 
         self.private_key_password: str = account.private_key_password
 
@@ -325,6 +332,13 @@ class Member:
             member.member_id, member.service_id, member.schema
         )
         return member
+
+    async def create_query_cache(self):
+        '''
+        Sets up the query cache for the membership
+        '''
+
+        self.query_cache = QueryCache.create(self)
 
     async def create_nginx_config(self):
         '''

@@ -9,21 +9,89 @@ the pod from forwarding loops; executing and forwarding the same query twice
 
 import logging
 from uuid import UUID
+from typing import TypeVar
 
 from byoda.datatypes import CacheTech
+
 from byoda.datacache.kv_cache import KVCache
+
+from byoda.util.paths import Paths
 
 _LOGGER = logging.getLogger(__name__)
 
+Member = TypeVar('Member')
+
 
 class QueryCache:
-    def __init__(self, connection_string: str, member_id: UUID,
-                 cache_tech: CacheTech):
+    def __init__(self, member: Member, cache_tech: CacheTech):
+        self.member: Member = member
+        self.cache_tech: CacheTech = cache_tech
 
-        self.kvcache: KVCache = KVCache.create(
-            connection_string, identifier=str(member_id),
+        if cache_tech == CacheTech.SQLITE:
+            paths: Paths = member.paths
+            self.filepath: str = (
+                paths.root_directory + '/' +
+                paths.get(paths.MEMBER_DATA_DIR, member_id=member.member_id)
+                + '/' +
+                paths.get(
+                    paths.MEMBER_QUERY_CACHE_FILE, member_id=member.member_id
+                )
+            )
+        else:
+            raise NotImplementedError('QueryCache not implemented for REDIS')
+
+        self.backend: KVCache | None = None
+
+    @staticmethod
+    async def create(member: Member, cache_tech=CacheTech.SQLITE):
+        '''
+        Factory for QueryCache
+
+        :param connection_string: connection string for Redis server or
+        path to the file for Sqlite
+        :param member_id: the member ID for the membership for which the
+        cache is created
+        '''
+
+        cache = QueryCache(member, cache_tech=cache_tech)
+        cache.backend: KVCache = await KVCache.create_async(
+            cache.filepath, identifier=str(member.member_id),
             cache_tech=cache_tech
         )
 
-    def check_query_id(self, query_id: UUID, add: bool = True) -> bool:
-        pass
+        return cache
+
+    async def close(self):
+        await self.backend.close()
+
+    async def exists(self, query_id: str) -> bool:
+        '''
+        Checks whether the query_id exists in the cache
+        '''
+
+        return await self.backend.exists(str(query_id))
+
+    async def set(self, query_id: UUID, value: object) -> bool:
+        '''
+        Sets the query_id in the cache
+
+        :returns: True if the query_id was set, False if it already existed
+        '''
+
+        return await self.backend.set(str(query_id), value)
+
+    async def delete(self, query_id: UUID) -> bool:
+        '''
+        Deletes the query_id from the cache
+
+        :returns: True if the query_id was deleted, False if it did not exist
+        '''
+
+        return await self.backend.delete(str(query_id))
+
+    async def purge(self) -> int:
+        '''
+        Purges the cache
+        '''
+
+        return await self.backend.purge()

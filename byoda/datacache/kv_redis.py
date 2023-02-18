@@ -17,6 +17,8 @@ from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
 
 _LOGGER = logging.getLogger(__name__)
 
+# TODO: convert KVRedis to async
+
 
 class KVRedis(KVCache):
     def __init__(self, connection_string: str, identifier: str = None):
