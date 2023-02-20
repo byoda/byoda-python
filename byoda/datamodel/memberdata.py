@@ -266,6 +266,8 @@ class MemberData(dict):
 
         :param service_id: the service being queried
         :param info: Info object with information about the GraphQL request
+        :param relations: relations to proxy the request to
+        :param timestam: the timestamp for the original request
         :param filters: filters to apply to the collected data
         :returns: the requested data
         '''
@@ -292,6 +294,9 @@ class MemberData(dict):
         # If an origin_member_id has been provided then we check
         # the signature
         auth: RequestAuth = info.context['auth']
+        if await member.query_cache.set(query_id, auth.id):
+            raise ValueError('Duplicate query id')
+
         if origin_member_id or origin_signature or timestamp:
             try:
                 await GraphQlProxy.verify_signature(

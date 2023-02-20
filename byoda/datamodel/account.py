@@ -18,6 +18,8 @@ from byoda.datatypes import MemberStatus
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
+from byoda.datastore.querycache import QueryCache
+
 from byoda.datamodel.memberdata import MemberData
 
 from byoda.secrets import Secret
@@ -365,7 +367,10 @@ class Account:
 
         await member.load_service_cacert()
 
+        member.query_cache = await QueryCache.create(member)
+
         await member.create_nginx_config()
+
         reload_gunicorn()
 
         self.memberships[service_id] = member

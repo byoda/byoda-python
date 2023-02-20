@@ -165,13 +165,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Try an array of objects that contain an array
         asset_id = uuid4()
         vars = {
-            "asset_id": asset_id,
-            "asset_type": "text",
-            "created_timestamp": str(
+            'query_id': uuid4(),
+            'asset_id': asset_id,
+            'asset_type': "text",
+            'created_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
             ),
-            "contents": "this is a test asset",
-            "keywords": ["just", "a", "test", "asset"],
+            'contents': 'this is a test asset',
+            'keywords': ['just', 'a', 'test', 'asset'],
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['append'],
@@ -185,6 +186,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         vars = {
             'filters': {'asset_id': {'eq': str(asset_id)}},
+            'query_id': uuid4(),
+
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],

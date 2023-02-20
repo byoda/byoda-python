@@ -43,9 +43,7 @@ class KVSqlite(KVCache):
     async def create(cache_file, identifier: str = None):
         cache = KVSqlite(cache_file)
 
-        cache.db_conn = await aiosqlite.connect(
-            cache_file, isolation_level=None
-        )
+        cache.db_conn = await aiosqlite.connect(cache_file)
         cache.db_conn.row_factory = dict_factory
 
         await cache.db_conn.execute('''
@@ -76,6 +74,7 @@ class KVSqlite(KVCache):
             'SELECT * FROM querycache WHERE query_id = :query_id',
             {'query_id': str(key)}
         )
+        self.db_conn.commit()
 
         return len(rows) > 0
 
@@ -87,6 +86,7 @@ class KVSqlite(KVCache):
             'SELECT * FROM querycache WHERE query_id = :query_id',
             {'query_id': str(key)}
         )
+        self.db_conn.commit()
 
         if len(rows) > 1:
             raise ValueError(f'More than 1 row returned for key: {key}')
@@ -121,6 +121,7 @@ class KVSqlite(KVCache):
                     'expiration': int(expires.timestamp())
                 }
             )
+            self.db_conn.commit()
         except aiosqlite.IntegrityError as exc:
             _LOGGER.debug(f'Inserting key {key} failed primary key: {exc}')
             return False
@@ -133,6 +134,7 @@ class KVSqlite(KVCache):
                 'DELETE FROM querycache WHERE query_id = :key',
                 {'key': key}
             )
+            self.db_conn.commit()
         except Exception as exc:
             _LOGGER.debug(f'Deleting key {key} failed: {exc}')
             return False
@@ -150,10 +152,13 @@ class KVSqlite(KVCache):
                 'DELETE FROM querycache WHERE expires < :timestamp',
                 {'timestamp': int(now.timestamp())}
             )
+            self.db_conn.commit()
             return result.rowcount
 
         except Exception as exc:
             _LOGGER.warning(f'Purging query cache failed: {exc}')
+            self.db_conn.commit()
+
             return False
 
     def get_next(self):
