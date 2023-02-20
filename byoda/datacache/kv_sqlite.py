@@ -74,7 +74,7 @@ class KVSqlite(KVCache):
             'SELECT * FROM querycache WHERE query_id = :query_id',
             {'query_id': str(key)}
         )
-        self.db_conn.commit()
+        await self.db_conn.commit()
 
         return len(rows) > 0
 
@@ -86,7 +86,7 @@ class KVSqlite(KVCache):
             'SELECT * FROM querycache WHERE query_id = :query_id',
             {'query_id': str(key)}
         )
-        self.db_conn.commit()
+        await self.db_conn.commit()
 
         if len(rows) > 1:
             raise ValueError(f'More than 1 row returned for key: {key}')
@@ -121,7 +121,7 @@ class KVSqlite(KVCache):
                     'expiration': int(expires.timestamp())
                 }
             )
-            self.db_conn.commit()
+            await self.db_conn.commit()
         except aiosqlite.IntegrityError as exc:
             _LOGGER.debug(f'Inserting key {key} failed primary key: {exc}')
             return False
@@ -134,7 +134,7 @@ class KVSqlite(KVCache):
                 'DELETE FROM querycache WHERE query_id = :key',
                 {'key': key}
             )
-            self.db_conn.commit()
+            await self.db_conn.commit()
         except Exception as exc:
             _LOGGER.debug(f'Deleting key {key} failed: {exc}')
             return False
