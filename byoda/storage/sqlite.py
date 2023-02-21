@@ -18,7 +18,6 @@ from typing import TypeVar
 from datetime import datetime, timezone
 
 import aiosqlite
-from aiosqlite.core import Connection
 
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import CloudType
@@ -40,48 +39,33 @@ _LOGGER = logging.getLogger(__name__)
 
 BACKUP_FILE_EXTENSION: str = '.backup'
 
-# Generic type for SQL cursors. The value will be set by the constructor
-# of the class for the specific SQL engine, derived from the SQL class
-Cursor: type = None
-
 
 class Sql:
     def __init__(self):
-        self.account_db_conn: Connection | None = None
+        self.account_db_file: str = None
+        self.member_db_files: dict[str, str] = {}
 
-        self.member_db_conns: dict[str, Connection] = {}
-
-    def connection(self, member_id: UUID = None) -> Connection:
+    def database_filepath(self, member_id: UUID = None) -> str:
         if not member_id:
-            con: Connection = self.account_db_conn
+            filepath: str = self.account_db_file
 
-            _LOGGER.debug('Using account DB connection')
+            _LOGGER.debug('Using account DB file')
         else:
-            con: Connection = self.member_db_conns.get(
+            filepath: str = self.member_db_files.get(
                 member_id
             )
             _LOGGER.debug(
-                f'Using member DB connection for member_id {member_id}'
+                f'Using member DB file for member_id {member_id}'
             )
-            if not con:
+            if not filepath:
                 raise ValueError(f'No DB for member_id {member_id}')
 
-        return con
-
-    def cursor(self, member_id: UUID = None) -> aiosqlite.cursor.Cursor:
-        '''
-        Returns a cursor for the account DB or the member DB for the member_id,
-        if provided
-        '''
-
-        con = self.connection(member_id)
-        cur = con.cursor()
-        return cur
+        return filepath
 
     async def execute(self, command: str, member_id: UUID = None,
                       data: dict[str, str | int | float | bool] = None,
                       autocommit: bool = True, fetchall: bool = False
-                      ) -> Cursor:
+                      ) -> aiosqlite.cursor.Cursor:
         '''
         Executes the SQL command.
 
@@ -94,49 +78,45 @@ class Sql:
         a list of rows
         '''
 
-        # con = self.connection(member_id)
+        datafile = self.database_filepath(member_id)
 
         if member_id:
             _LOGGER.debug(
                 f'Executing SQL for member {member_id}: {command} using '
                 f'SQL data file {self.member_data_files[member_id]}'
             )
-            db_conn = await aiosqlite.connect(
-                self.member_data_files[member_id]
-            )
         else:
             _LOGGER.debug(
                 f'Executing SQL for account: {command} using '
-                f'SQL data file {self.account_db_conn}'
+                f'SQL data file {self.account_db_file}'
             )
-            db_conn = await aiosqlite.connect(self.account_db_file)
 
-        db_conn.row_factory = aiosqlite.Row
+        async with aiosqlite.connect(datafile) as db_conn:
+            db_conn.row_factory = aiosqlite.Row
 
-        try:
-            if not fetchall:
-                result = await db_conn.execute(command, data)
-            else:
-                result = await db_conn.execute_fetchall(command, data)
+            try:
+                if not fetchall:
+                    result = await db_conn.execute(command, data)
+                else:
+                    result = await db_conn.execute_fetchall(command, data)
 
-            if autocommit:
-                _LOGGER.debug(
-                    f'Committing transaction for SQL command: {command}'
-                )
-                await db_conn.commit()
-            else:
-                _LOGGER.debug(f'Not SQL committing for SQL command {command}')
+                if autocommit:
+                    _LOGGER.debug(
+                        f'Committing transaction for SQL command: {command}'
+                    )
+                    await db_conn.commit()
+                else:
+                    _LOGGER.debug(
+                        f'Not SQL committing for SQL command {command}'
+                    )
 
-            await db_conn.close()
+                return result
+            except aiosqlite.Error as exc:
+                await db_conn.rollback()
+                _LOGGER.error(
+                    f'Error executing SQL: {exc}')
 
-            return result
-        except aiosqlite.Error as exc:
-            await db_conn.rollback()
-            await db_conn.close()
-            _LOGGER.error(
-                f'Error executing SQL: {exc}')
-
-            raise RuntimeError(exc)
+                raise RuntimeError(exc)
 
     async def query(self, member_id: UUID, key: str,
                     filters: DataFilterSet = None) -> dict[str, object]:
@@ -209,9 +189,6 @@ class SqliteStorage(Sql):
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
         self.member_data_files: dict[UUID, str] = {}
 
-        global Cursor
-        Cursor = aiosqlite.Cursor
-
     async def setup(server: PodServer):
         '''
         Factory for SqliteStorage class. This method restores the account DB
@@ -245,11 +222,6 @@ class SqliteStorage(Sql):
         _LOGGER.debug(
             'Opening or creating account DB file {sqlite.account_db_file}'
         )
-        sqlite.account_db_conn = await aiosqlite.connect(
-            sqlite.account_db_file
-        )
-
-        sqlite.account_db_conn.row_factory = aiosqlite.Row
 
         await sqlite.execute('''
             CREATE TABLE IF NOT EXISTS memberships(
@@ -267,15 +239,11 @@ class SqliteStorage(Sql):
 
     async def close(self):
         '''
-        Close all connections to Sqlite files. This method must
-        be called upon shutdown of the server as otherwise the
-        'asyncio' event loop will not exit
+        This is a empty method as we do not maintain any open connections
+        for Sqlite3
         '''
 
-        await self.account_db_conn.close()
-
-        for conn in self.member_db_conns.values():
-            await conn.close()
+        pass
 
     async def backup_datastore(self, server: PodServer):
         '''
@@ -339,8 +307,7 @@ class SqliteStorage(Sql):
                 )
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
-                             cloud_file_store: FileStorage,
-                             conn: aiosqlite.Connection = None):
+                             cloud_file_store: FileStorage):
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -366,20 +333,11 @@ class SqliteStorage(Sql):
 
         _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
 
-        if conn:
-            # If conn paraneter is passed, we use the connection
-            local_conn = conn
-        else:
-            # If conn paraneter is not passed, we open a new connection
-            # and we'll close it as well.
-            local_conn = await aiosqlite.connect(local_file)
-
-        backup_conn = await aiosqlite.connect(backup_file)
-        await local_conn.backup(backup_conn)
-        await backup_conn.close()
-
-        if not conn:
-            await local_conn.close()
+        # If conn paraneter is not passed, we open a new connection
+        # and we'll close it as well.
+        async with await aiosqlite.connect(local_file) as local_conn:
+            async with await aiosqlite.connect(backup_file) as backup_conn:
+                await local_conn.backup(backup_conn)
 
         with open(backup_file, 'rb') as file_desc:
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
@@ -464,6 +422,8 @@ class SqliteStorage(Sql):
         member_data_file = self.get_member_data_filepath(
             member_id, service_id, paths, local=True)
 
+        self.member_db_files[member_id] = member_data_file
+
         member_data_dir = os.path.dirname(member_data_file)
 
         if not os.path.exists(member_data_dir):
@@ -473,10 +433,6 @@ class SqliteStorage(Sql):
             )
 
         # this will create the DB file if it doesn't exist already
-        member_db_conn = await aiosqlite.connect(member_data_file)
-        member_db_conn.row_factory = aiosqlite.Row
-
-        self.member_db_conns[member_id] = member_db_conn
         self.member_data_files[member_id]: str = member_data_file
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
 

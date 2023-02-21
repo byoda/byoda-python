@@ -17,7 +17,9 @@ import asyncio
 import unittest
 import requests
 
+from uuid import uuid4
 from multiprocessing import Process
+
 import uvicorn
 
 from byoda.datamodel.account import Account
@@ -197,7 +199,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'],
-            timeout=120, headers=service_headers
+            vars={'query_id': uuid4()}, timeout=120, headers=service_headers
         )
         result = await response.json()
 

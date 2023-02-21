@@ -59,8 +59,7 @@ async def main(argv):
         loglevel=data.get('loglevel', 'INFO'), logfile=LOGFILE
     )
     _LOGGER.debug(
-        f'Starting podworker {data["bootstrap"]}: '
-        f'daemonize: {data["daemonize"]}'
+        f'Starting bootstrap with variable bootstrap={data["bootstrap"]}'
     )
 
     try:
@@ -73,6 +72,8 @@ async def main(argv):
             bucket_prefix=data['bucket_prefix'],
             root_dir=data['root_dir']
         )
+
+        _LOGGER.debug('Setting up the network')
         network = Network(data, data)
         await network.load_network_secrets()
 
@@ -89,13 +90,13 @@ async def main(argv):
 
         await server.set_data_store(DataStoreType.SQLITE)
 
+        _LOGGER.debug('Setting up the network')
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()
 
         account.password = data.get('account_secret')
 
         if data.get('bootstrap'):
-            _LOGGER.info('Running bootstrap tasks')
             await run_bootstrap_tasks(account)
         else:
             await account.tls_secret.load(
@@ -208,7 +209,7 @@ async def run_bootstrap_tasks(account: Account):
         _LOGGER.exception('Exception during startup')
         raise
 
-    _LOGGER.info('Podworker completed bootstrap')
+    _LOGGER.info('Bootstrap completed successfully')
 
 
 if __name__ == '__main__':

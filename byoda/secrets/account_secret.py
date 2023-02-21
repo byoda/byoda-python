@@ -65,7 +65,7 @@ class AccountSecret(Secret):
         self.id_type = IdType.ACCOUNT
 
     async def create_csr(self, account_id: UUID = None, renew: bool = False
-                   ) -> CertificateSigningRequest:
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 

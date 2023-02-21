@@ -69,7 +69,7 @@ class DataStore:
         returned
         '''
 
-        return await self.backend.get_memberships()
+        return await self.backend.get_memberships(status)
 
     async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
                     ) -> dict[str, object]:
