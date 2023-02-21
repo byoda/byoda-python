@@ -177,6 +177,7 @@ async def setup():
         cors_origins.append(f'https://{server.custom_domain}')
 
     for account_member in pod_account.memberships.values():
+        await account_member.create_query_cache()
         account_member.enable_graphql_api(app)
         await account_member.update_registration()
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
