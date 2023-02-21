@@ -366,8 +366,8 @@ class MemberData(dict):
                 # We need to insert origin_member_id, origin_signature
                 # and timestamp in the received query
                 all_data = await proxy.proxy_request(
-                    key, query, info, depth, relations,
-                    origin_member_id=origin_member_id,
+                    key, query, info, query_id, depth,
+                    relations, origin_member_id=origin_member_id,
                     origin_signature=origin_signature,
                     timestamp=timestamp
                 )
@@ -375,7 +375,7 @@ class MemberData(dict):
                 # origin_member_id, origin_signature and timestamp must
                 # already be set
                 all_data = await proxy.proxy_request(
-                    key, query, info, depth, relations
+                    key, query, info, query_id, depth, relations
                 )
 
             _LOGGER.debug(
