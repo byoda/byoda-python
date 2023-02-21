@@ -203,6 +203,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # add network_link for the 'remote member'
         vars = {
+            'query_id': uuid4(),
             'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'friend',
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
@@ -245,6 +246,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         vars = {
+            'query_id': uuid4(),
             'member_id': AZURE_POD_MEMBER_ID,
             'relation': 'family',
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
@@ -317,6 +319,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         for count in range(1, 100):
             vars = {
+                'query_id': uuid4(),
                 'created_timestamp': str(
                     datetime.now(tz=timezone.utc).isoformat()
                 ),
@@ -351,6 +354,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         cursor = ''
         for looper in range(0, 7):
             vars = {
+                'query_id': uuid4(),
                 'first': 15,
                 'after': cursor
             }
@@ -376,6 +380,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # relation 'family' for us
         #
         vars = {
+            'query_id': uuid4(),
             'depth': 1,
             'relations': ["family"]
         }
@@ -396,7 +401,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
-            timeout=120, headers=azure_member_auth_header
+            vars={'query_id': uuid4()}, timeout=120,
+            headers=azure_member_auth_header
         )
         result = await response.json()
         data = result.get('data')
@@ -412,6 +418,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         if not link_to_us:
             vars = {
+                'query_id': uuid4(),
                 'member_id': str(account_member.member_id),
                 'relation': 'family',
                 'created_timestamp': str(
@@ -451,6 +458,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(filtered_edges)
 
         vars = {
+            'query_id': uuid4(),
             'depth': 0,
         }
         response = await GraphQlClient.call(
@@ -505,6 +513,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Now we do the query for network assets to our pod with depth=1
         vars = {
+            'query_id': uuid4(),
             'depth': 1,
             'relations': ["family"]
         }
@@ -563,6 +572,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['mutate_person'], 1)
 
         vars = {
+            'query_id': uuid4(),
             'depth': 1
         }
         response = await GraphQlClient.call(
@@ -596,6 +606,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['append_network_invites'], 1)
 
         vars = {
+            'query_id': uuid4(),
             'member_id': str(account_member.member_id),
             'relation': 'friend',
             'created_timestamp': str(
@@ -640,6 +651,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             origin_member_id
         )
         vars = {
+            'query_id': uuid4(),
             'depth': depth,
             'relations': relations,
             'filters': filters,
@@ -690,6 +702,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         vars = {
+            'query_id': uuid4(),
             'given_name': 'Carl',
             'additional_names': '',
             'family_name': 'Hessing',
@@ -746,6 +759,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 }
         '''
         # Mutation fails because 'member' can only read this data
+        vars['query_id'] = uuid4()
         response = await GraphQlClient.call(
             url, query, vars=vars, timeout=120, headers=member_headers
         )
@@ -764,6 +778,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # Query fails because other members do not have access
+        vars['query_id'] = uuid4()
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'], vars=vars,
             timeout=120, headers=alt_member_headers
@@ -827,7 +842,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['query'],
-            timeout=120, headers=member_headers
+            vars={'query_id': uuid4()}, timeout=120, headers=member_headers
         )
         result = await response.json()
 
@@ -840,6 +855,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(data[1], data[2])
 
         vars = {
+            'query_id': uuid4(),
             'filters': {'relation': {'eq': 'friend'}},
         }
         response = await GraphQlClient.call(
@@ -854,6 +870,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(data['network_links_connection']['edges']), 1)
 
         vars = {
+            'query_id': uuid4(),
             'filters': {'relation': {'eq': 'follow'}},
         }
         response = await GraphQlClient.call(
@@ -870,6 +887,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(edges[0], edges[1])
 
         vars = {
+            'query_id': uuid4(),
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
@@ -901,6 +919,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['update_network_links'], 1)
 
         vars = {
+            'query_id': uuid4(),
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
 

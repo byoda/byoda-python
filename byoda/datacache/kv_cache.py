@@ -79,7 +79,7 @@ class KVCache(ABC):
             return kvr
         elif cache_tech == CacheTech.SQLITE:
             from .kv_sqlite import KVSqlite
-            kvs = await KVSqlite.create(connection_string, identifier)
+            kvs = await KVSqlite.create(connection_string)
             return kvs
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')

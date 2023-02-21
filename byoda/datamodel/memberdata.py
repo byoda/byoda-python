@@ -294,7 +294,7 @@ class MemberData(dict):
         # If an origin_member_id has been provided then we check
         # the signature
         auth: RequestAuth = info.context['auth']
-        if await member.query_cache.set(query_id, auth.id):
+        if not await member.query_cache.set(query_id, auth.id):
             raise ValueError('Duplicate query id')
 
         if origin_member_id or origin_signature or timestamp:
