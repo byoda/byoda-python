@@ -338,6 +338,7 @@ class Member:
         Sets up the query cache for the membership
         '''
 
+        _LOGGER.debug('Creating query cache for membership')
         self.query_cache = QueryCache.create(self)
 
     async def create_nginx_config(self):
