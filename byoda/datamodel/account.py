@@ -292,7 +292,7 @@ class Account:
         data_store: DataStore = config.server.data_store
         memberships = await data_store.backend.get_memberships(status)
         _LOGGER.debug(
-            f'Got {len(memberships)} memberships with '
+            f'Got {len(memberships or [])} memberships with '
             f'status {status} from account DB'
         )
 
@@ -319,14 +319,13 @@ class Account:
                 member.member_id, member.service_id, member.schema
         )
 
-        await member.load_secrets()
         member.data = MemberData(member)
 
         if service_id not in self.memberships:
+            await member.tls_secret.save_tmp_private_key()
             await member.load_service_cacert()
             await member.create_query_cache()
-
-        await member.data.load_protected_shared_key()
+            await member.data.load_protected_shared_key()
 
         self.memberships[service_id] = member
 
