@@ -97,13 +97,13 @@ async def main(argv):
         if data.get('bootstrap'):
             _LOGGER.info('Running bootstrap tasks')
             await run_bootstrap_tasks(account)
-
-        await account.tls_secret.load(
-            password=account.private_key_password
-        )
-        await account.data_secret.load(
-            password=account.private_key_password
-        )
+        else:
+            await account.tls_secret.load(
+                password=account.private_key_password
+            )
+            await account.data_secret.load(
+                password=account.private_key_password
+            )
 
         try:
             # Unencrypted private key is needed for nginx and aiohttp
@@ -111,9 +111,9 @@ async def main(argv):
                 password=data['private_key_password'], overwrite=True,
                 storage_driver=server.local_storage
             )
-            account.tls_secret.save_tmp_private_key()
         except PermissionError:
             _LOGGER.debug('Account cert/key already exists on local storage')
+            account.tls_secret.save_tmp_private_key()
 
         server.account = account
 
