@@ -76,9 +76,13 @@ async def main(argv):
         network = Network(data, data)
         await network.load_network_secrets()
 
-        await network.root_ca.save(
-            storage_driver=server.local_storage
-        )
+        try:
+            await network.root_ca.save(
+                storage_driver=server.local_storage
+            )
+        except PermissionError:
+            # We get permission error if the file already exists
+            pass
 
         server.network = network
         server.paths = network.paths
@@ -92,7 +96,7 @@ async def main(argv):
 
         if data.get('bootstrap'):
             _LOGGER.info('Running bootstrap tasks')
-            await run_bootstrap_tasks(server)
+            await run_bootstrap_tasks(account)
 
         await account.tls_secret.load(
             password=account.private_key_password
