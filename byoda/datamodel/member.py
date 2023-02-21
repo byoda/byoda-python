@@ -339,7 +339,7 @@ class Member:
         '''
 
         _LOGGER.debug('Creating query cache for membership')
-        self.query_cache = QueryCache.create(self)
+        self.query_cache = await QueryCache.create(self)
 
     async def create_nginx_config(self):
         '''
