@@ -224,7 +224,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'], timeout=120,
-            headers=azure_member_auth_header
+            vars={'query_id': uuid4()}, headers=azure_member_auth_header
         )
         result = await response.json()
 
@@ -234,6 +234,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         vars = {
             'filters': {'member_id': {'eq': str(AZURE_POD_MEMBER_ID)}},
+            'query_id': uuid4()
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['delete'], vars=vars,
@@ -342,7 +343,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'], timeout=120,
-            headers=auth_header
+            vars={'query_id': uuid4()}, headers=auth_header
         )
         result = await response.json()
 
@@ -439,7 +440,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             # Confirm we have a network_link entry
             response = await GraphQlClient.call(
                 azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
-                timeout=120, headers=azure_member_auth_header
+                vars={'query_id': uuid4()}, timeout=120,
+                headers=azure_member_auth_header
             )
             result = await response.json()
             data = result.get('data')
@@ -497,6 +499,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         vars = {
             'depth': 0,
+            'query_id': uuid4(),
         }
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
@@ -724,7 +727,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'],
-            timeout=120, headers=member_headers
+            vars={'query_id': uuid4()}, timeout=120, headers=member_headers
         )
         data = await response.json()
         self.assertIsNotNone(data.get('data'))
