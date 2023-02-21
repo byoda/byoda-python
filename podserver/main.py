@@ -105,7 +105,6 @@ async def setup():
     await server.get_registered_services()
 
     account = Account(network_data['account_id'], network)
-    await account.paths.create_account_directory()
     account.password = network_data.get('account_secret')
 
     await account.tls_secret.load(
@@ -114,16 +113,6 @@ async def setup():
     await account.data_secret.load(
         password=account.private_key_password
     )
-
-    try:
-        # Unencrypted private key is needed for nginx and aiohttp
-        await account.tls_secret.save(
-            password=network_data['private_key_password'], overwrite=True,
-            storage_driver=server.local_storage
-        )
-        account.tls_secret.save_tmp_private_key()
-    except PermissionError:
-        _LOGGER.debug('Account cert/key already exists on local storage')
 
     server.account = account
 

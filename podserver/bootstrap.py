@@ -88,13 +88,32 @@ async def main(argv):
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()
 
-        server.account = account
-
-        await account.register()
+        account.password = data.get('account_secret')
 
         if data.get('bootstrap'):
             _LOGGER.info('Running bootstrap tasks')
             await run_bootstrap_tasks(server)
+
+        await account.tls_secret.load(
+            password=account.private_key_password
+        )
+        await account.data_secret.load(
+            password=account.private_key_password
+        )
+
+        try:
+            # Unencrypted private key is needed for nginx and aiohttp
+            await account.tls_secret.save(
+                password=data['private_key_password'], overwrite=True,
+                storage_driver=server.local_storage
+            )
+            account.tls_secret.save_tmp_private_key()
+        except PermissionError:
+            _LOGGER.debug('Account cert/key already exists on local storage')
+
+        server.account = account
+
+        await account.register()
 
         # Save local copies for nginx and aiohttp to use
         account.tls_secret.save_tmp_private_key()
