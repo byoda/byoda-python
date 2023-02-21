@@ -326,6 +326,8 @@ class Account:
             await member.load_service_cacert()
             await member.create_query_cache()
             await member.create_nginx_config()
+        else:
+            _LOGGER.debug('Not creating query cache')
 
         await member.data.load_protected_shared_key()
 
