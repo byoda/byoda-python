@@ -214,7 +214,9 @@ class SqliteStorage(Sql):
 
     async def setup(server: PodServer):
         '''
-        Factory for SqliteStorage class
+        Factory for SqliteStorage class. This method restores the account DB
+        from the cloud if no loccal copy exists, except if we are not running
+        in the cloud
         '''
 
         sqlite = SqliteStorage()

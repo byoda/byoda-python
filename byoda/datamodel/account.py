@@ -267,7 +267,7 @@ class Account:
 
         memberships = await self.get_memberships()
 
-        _LOGGER.debug(f'Loading {len(memberships)} memberships')
+        _LOGGER.debug(f'Loading {len(memberships or [])} memberships')
 
         for membership in memberships.values() or {}:
             member_id: UUID = membership['member_id']
@@ -325,7 +325,6 @@ class Account:
         if service_id not in self.memberships:
             await member.load_service_cacert()
             await member.create_query_cache()
-            await member.create_nginx_config()
 
         await member.data.load_protected_shared_key()
 

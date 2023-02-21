@@ -54,10 +54,16 @@ if [[ "$?" != "0" ]]; then
     FAILURE=1
 fi
 
-if [ "${WORKERS}" = "" ]; then
-    # BUG: multiple workers will not pick up on new memberships
-    # so we set workers to 1
-    export WORKERS=1
+if [[ -z "${FAILURE}" ]]; then
+    echo "Starting bootstrap for podserver"
+    pipenv run podserver/bootstrap.py
+
+    if [[ "$?" != "0" ]]; then
+        echo "Bootstrap failed"
+        FAILURE=1
+    else
+        echo "Bootstrap exited successfully"
+    fi
 fi
 
 if [[ -z "${FAILURE}" ]]; then
@@ -72,6 +78,12 @@ if [[ -z "${FAILURE}" ]]; then
     else
         echo "Podworker exited successfully"
     fi
+fi
+
+if [ "${WORKERS}" = "" ]; then
+    # BUG: multiple workers will not pick up on new memberships
+    # so we set workers to 1
+    export WORKERS=1
 fi
 
 if [[ -z "${FAILURE}" ]]; then

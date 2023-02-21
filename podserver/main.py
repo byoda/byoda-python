@@ -1,6 +1,12 @@
 '''
 POD server for Bring Your Own Data and Algorithms
 
+The podserver relies on podserver/bootstrap.py to set up
+the account, its secrets, restoring the database files
+from the cloud storage, registering the pod and creating
+the nginx configuration files for the account and for
+existing memberships.
+
 Suported environment variables:
 CLOUD: 'AWS', 'LOCAL'
 BUCKET_PREFIX
@@ -27,11 +33,9 @@ from byoda.datamodel.account import Account
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.datatypes import IdType, StorageType, CloudType
+from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
-
-from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 from byoda.util.fastapi import setup_api, add_cors
 
@@ -49,7 +53,7 @@ LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
 # TODO: re-intro CORS origin ACL:
-# pod_account.tls_secret.common_name
+# account.tls_secret.common_name
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', [], [
@@ -92,12 +96,6 @@ async def setup():
 
     network = Network(network_data, network_data)
     await network.load_network_secrets()
-    try:
-        await network.root_ca.save(
-            storage_driver=server.local_storage
-        )
-    except PermissionError:
-        _LOGGER.debug('Root CA cert already exists on local storage')
 
     server.network = network
     server.paths = network.paths
@@ -106,132 +104,43 @@ async def setup():
 
     await server.get_registered_services()
 
-    # TODO: if we have a pod secret, should we compare its commonname with the
-    # account_id environment variable?
-    pod_account = Account(network_data['account_id'], network)
-    await pod_account.paths.create_account_directory()
-    pod_account.password = network_data.get('account_secret')
+    account = Account(network_data['account_id'], network)
+    await account.paths.create_account_directory()
+    account.password = network_data.get('account_secret')
 
-    if network_data.get('bootstrap'):
-        _LOGGER.info('Running bootstrap tasks')
-        await run_bootstrap_tasks(server, pod_account)
-    else:
-        await pod_account.tls_secret.load(
-            password=pod_account.private_key_password
-        )
-        await pod_account.data_secret.load(
-            password=pod_account.private_key_password
-        )
+    await account.tls_secret.load(
+        password=account.private_key_password
+    )
+    await account.data_secret.load(
+        password=account.private_key_password
+    )
 
     try:
         # Unencrypted private key is needed for nginx and aiohttp
-        await pod_account.tls_secret.save(
+        await account.tls_secret.save(
             password=network_data['private_key_password'], overwrite=True,
             storage_driver=server.local_storage
         )
-        pod_account.tls_secret.save_tmp_private_key()
+        account.tls_secret.save_tmp_private_key()
     except PermissionError:
         _LOGGER.debug('Account cert/key already exists on local storage')
 
-    await pod_account.load_memberships()
-    await pod_account.register()
-
-    server.account = pod_account
-
-    # Save local copies for nginx and aiohttp to use
-    pod_account.tls_secret.save_tmp_private_key()
-
-    nginx_config = NginxConfig(
-        directory=NGINX_SITE_CONFIG_DIR,
-        filename='virtualserver.conf',
-        identifier=network_data['account_id'],
-        subdomain=IdType.ACCOUNT.value,
-        cert_filepath=(
-            server.local_storage.local_path + '/' +
-            pod_account.tls_secret.cert_file
-        ),
-        key_filepath=pod_account.tls_secret.unencrypted_private_key_file,
-        alias=network.paths.account,
-        network=network.name,
-        public_cloud_endpoint=network.paths.storage_driver.get_url(
-            storage_type=StorageType.PUBLIC
-        ),
-        private_cloud_endpoint=network.paths.storage_driver.get_url(
-            storage_type=StorageType.PRIVATE
-        ),
-        port=PodServer.HTTP_PORT,
-        root_dir=server.network.paths.root_directory,
-        custom_domain=server.custom_domain,
-        shared_webserver=server.shared_webserver
-    )
-
-    nginx_config.create(htaccess_password=pod_account.password)
-    nginx_config.reload()
+    server.account = account
 
     cors_origins = [
         f'https://proxy.{network.name}',
-        f'https://{pod_account.tls_secret.common_name}'
+        f'https://{account.tls_secret.common_name}'
     ]
 
     if server.custom_domain:
         cors_origins.append(f'https://{server.custom_domain}')
 
-    for account_member in pod_account.memberships.values():
+    await account.load_memberships()
+
+    for account_member in account.memberships.values():
         await account_member.create_query_cache()
         account_member.enable_graphql_api(app)
-        await account_member.update_registration()
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
 
     _LOGGER.debug('Going to add CORS Origins')
     add_cors(app, cors_origins)
-
-
-async def run_bootstrap_tasks(server: PodServer, account: Account):
-    '''
-    When we are bootstrapping, we create any data that is missing from
-    the data store.
-    '''
-
-    account_id = account.account_id
-
-    _LOGGER.debug('Starting bootstrap tasks')
-    try:
-        await account.tls_secret.load(
-            password=account.private_key_password
-        )
-        common_name = account.tls_secret.common_name
-        if not common_name.startswith(str(account.account_id)):
-            error_msg = (
-                f'Common name of existing account secret {common_name} '
-                f'does not match ACCOUNT_ID environment variable {account_id}'
-            )
-            _LOGGER.exception(error_msg)
-            raise ValueError(error_msg)
-        _LOGGER.debug('Read account TLS secret')
-    except FileNotFoundError:
-        try:
-            await account.create_account_secret()
-            _LOGGER.info('Created account secret during bootstrap')
-        except Exception:
-            _LOGGER.exception('Exception during startup')
-            raise
-    except Exception:
-        _LOGGER.exception('Exception during startup')
-        raise
-
-    try:
-        await account.data_secret.load(
-            password=account.private_key_password
-        )
-        _LOGGER.debug('Read account data secret')
-    except FileNotFoundError:
-        try:
-            await account.create_data_secret()
-            _LOGGER.info('Created account data secret during bootstrap')
-        except Exception:
-            raise
-    except Exception:
-        _LOGGER.exception('Exception during startup')
-        raise
-
-    _LOGGER.info('Podworker completed bootstrap')
