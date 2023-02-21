@@ -200,7 +200,7 @@ async def main(argv):
     graphql_url = f'{base_url}/v1/data/service-{service_id}'
     _LOGGER.debug(f'Using GraphQL URL: {graphql_url}')
 
-    vars = {}
+    vars = {'query_id': uuid4()}
     try:
         with open(args.data_file) as file_desc:
             _LOGGER.debug(f'Loading data from {args.data_file}')
