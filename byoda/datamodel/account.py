@@ -371,6 +371,8 @@ class Account:
 
         await member.load_service_cacert()
 
+        member.register()
+
         member.query_cache = await QueryCache.create(member)
 
         await member.create_nginx_config()
