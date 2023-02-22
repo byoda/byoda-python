@@ -321,7 +321,7 @@ class Account:
 
         member.data = MemberData(member)
 
-        if not self.tls_secret:
+        if not member.tls_secret or not member.data_secret:
             await member.load_secrets()
 
         if not member.service_ca_certchain:

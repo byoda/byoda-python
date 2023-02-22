@@ -586,7 +586,7 @@ class Member:
             service_id=self.service_id
         )
         _LOGGER.debug(
-            f'Member {self.member_id} registered for service '
+            f'Member {self.member_id} updated registration for service '
             f'{self.service_id}'
         )
 
@@ -596,8 +596,8 @@ class Member:
         )
 
         _LOGGER.debug(
-            f'Member {self.member_id} registered service {self.service_id} '
-            f' with network {self.network.name}'
+            f'Member {self.member_id} updated registration with service '
+            f'{self.service_id}  with network {self.network.name}'
         )
 
     async def load_service_cacert(self) -> None:
