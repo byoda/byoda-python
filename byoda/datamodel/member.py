@@ -135,6 +135,7 @@ class Member:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
             # previously accepted
+            _LOGGER.debug('Setting up membership for service {self.service_id}')
             if local_service_contract:
                 if not config.test_case:
                     raise ValueError(
@@ -177,6 +178,7 @@ class Member:
 
             self.network.services[self.service_id] = self.service
         else:
+            _LOGGER.debug('Membership for {self.service_id} already in memory')
             self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously

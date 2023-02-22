@@ -235,7 +235,7 @@ async def main(argv):
     )
     try:
         result = await response.json()
-    except ValueError as exc:
+    except (ValueError, requests.exceptions.JSONDecodeError) as exc:
         await config.server.shutdown()
         _LOGGER.error(
             f'Failed to parse response: {exc}: {await response.text()}'

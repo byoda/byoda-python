@@ -35,19 +35,28 @@ export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
 sudo mkdir -p /var/lib/postgresql/data
 sudo chown -R 999:999 /var/lib/postgresql/
 
+# Install docker from the official docker repo
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
 # https://github.com/docker-library/postgres
-sudo apt-get -y install docker
 sudo docker run -d --restart unless-stopped \
     --publish=5432:5432 \
     -v /var/lib/postgresql/data:/var/lib/postgresql/data \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
-     postgres:13
+     postgres:15
 
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client
 
-export DIRSERVER=$(curl http://ifconfig.co)
+export DIRSERVER=$(curl -s http://ifconfig.me)
 
 if [ ! -f ~/.secrets/sql_powerdns.password ]; then
   passgen -n 1 >~/.secrets/sql_powerdns.password
@@ -64,12 +73,13 @@ cat >/tmp/byodadns.sql <<EOF
 CREATE DATABASE byodadns;
 CREATE USER powerdns PASSWORD '${SQL_DNS_PASSWORD}';
 GRANT ALL ON DATABASE byodadns TO powerdns;
+ALTER DATABASE byodadns OWNER TO powerdns
 EOF
 
 psql -h localhost -U postgres -d postgres -f /tmp/byodadns.sql
 rm /tmp/byodadns.sql
 
-psql -h localhost -U powerdns -d byodadns -f docs/powerdns-pgsql.schema
+psql -h localhost -U powerdns -d byodadns -f docs/infrastructure/powerdns-schema.psql
 ```
 
 ## Set up a DNS server
@@ -95,16 +105,12 @@ sudo -i
 cat >/etc/powerdns/pdns.conf <<EOF
 launch=
 launch+=gpgsql
-gpgsql-host=${SERVER_IP}
+gpgsql-host=127.0.0.1
 gpgsql-port=5432
 gpgsql-dbname=byodadns
 gpgsql-user=powerdns
 gpgsql-password=${SQL_DNS_PASSWORD}
 gpgsql-dnssec=yes
-EOF
-
-
-cat >/etc/powerdns/http.conf <<EOF
 webserver=yes
 webserver-address=0.0.0.0
 webserver-allow-from=127.0.0.1,192.168.0.0/24
@@ -117,7 +123,13 @@ EOF
 This table modification allows us to remove FQDNS from the database 1 week after they've last registered
 
 ```
+cat > /tmp/add_db_expire.psql <<EOF
 ALTER TABLE RECORDS ADD db_expire integer;
+EOF
+
+psql -h localhost -U powerdns -d byodadns -f /tmp/add_db_expire.psql
+rm /tmp/add_db_expire.psql
+
 ```
 
 Using  http://${DIRSERVER}:9191/login, create DNS zone for byoda.net with NS records for subdomains {accounts,services,members}.byoda.net
@@ -128,7 +140,7 @@ docker run -d --restart unless-stopped \
     -v pda-data:/data \
     -p 9191:80 \
     --name pdns-admin \
-    ngoduykhanh/powerdns-admin:latest
+    powerdnsadmin/pda-legacy:latest
 ```
 
 ## Create your CA

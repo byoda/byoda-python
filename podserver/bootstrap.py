@@ -107,7 +107,7 @@ async def main(argv):
             )
 
         try:
-            # Unencrypted private key is needed for nginx and aiohttp
+            # Unencrypted private key is needed for aiohttp
             await account.tls_secret.save(
                 password=data['private_key_password'], overwrite=True,
                 storage_driver=server.local_storage
@@ -119,9 +119,6 @@ async def main(argv):
         server.account = account
 
         await account.register()
-
-        # Save local copies for nginx and aiohttp to use
-        account.tls_secret.save_tmp_private_key()
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,

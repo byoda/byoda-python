@@ -322,7 +322,9 @@ class Account:
         member.data = MemberData(member)
 
         if service_id not in self.memberships:
-            await member.tls_secret.save_tmp_private_key()
+            await member.tls_secret.load(
+                with_private_key=True, password=self.private_key_password
+            )
             await member.load_service_cacert()
             await member.create_query_cache()
             await member.data.load_protected_shared_key()

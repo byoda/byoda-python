@@ -92,6 +92,7 @@ if [[ -z "${FAILURE}" ]]; then
     echo "Starting the web application server"
     pipenv run python3 -m gunicorn -p /var/run/podserver.pid --error-logfile /var/www/wwwroot/logs/gunicorn-error.log --access-logfile /var/www/wwwroot/logs/gunicorn-access.log -c gunicorn.conf.py podserver.main:app
     if [[ "$?" != "0" ]]; then
+        echo "Failed to start the application server"
         FAILURE=1
     fi
 fi

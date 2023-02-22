@@ -312,7 +312,12 @@ class Network:
                         )
                     _LOGGER.debug('Downloaded cert for Network root CA')
                     self.root_ca.from_string(await resp.text())
-                    await self.root_ca.save()
+
+                if self.root_ca.cert:
+                    try:
+                        await self.root_ca.save()
+                    except PermissionError:
+                        pass
 
             if not self.data_secret.cert:
                 try:
@@ -327,7 +332,12 @@ class Network:
                             'network'
                         )
                     self.data_secret.from_string(await resp.text())
-                    await self.data_secret.save()
+
+                if self.data_secret.cert:
+                    try:
+                        await self.data_secret.save()
+                    except PermissionError:
+                        pass
 
     async def add_service(self, service_id: int,
                           registration_status: RegistrationStatus = None
