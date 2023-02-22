@@ -145,13 +145,16 @@ async def put_member(request: Request, service_id: int, version: int,
 
     current_version = member.schema.version
     if current_version == version:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f'Already a member of service {service_id} with version '
-                f'{version}'
+        if member.tls_secret and member.tls_secret.cert:
+            await member.update_registration()
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f'Already a member of service {service_id} with version '
+                    f'{version}'
+                )
             )
-        )
 
     if current_version > version:
         raise HTTPException(
@@ -225,7 +228,8 @@ async def post_member_upload(request: Request, file: UploadFile,
                              auth: PodApiRequestAuth =
                              Depends(PodApiRequestAuth)):
     '''
-    Upload a file so it can be used as media for a post or tweet..
+    Upload a file so it can be used as media for a post or tweet.
+
     :param service_id: service_id of the service
     :param version: version of the service schema
     :raises: HTTPException 409
