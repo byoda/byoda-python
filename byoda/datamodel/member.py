@@ -119,6 +119,8 @@ class Member:
         self.data_secret: MemberDataSecret | None = None
         self.service_data_secret: ServiceDataSecret | None = None
         self.service_ca_secret: ServiceCaSecret | None = None
+        # This is the cert chain up to but excluding the network root CA
+        self.service_ca_certchain: ServiceCaSecret | None = None
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):

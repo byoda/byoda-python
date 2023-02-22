@@ -321,10 +321,16 @@ class Account:
 
         member.data = MemberData(member)
 
-        if service_id not in self.memberships:
+        if not self.tls_secret:
             await member.load_secrets()
+
+        if not member.service_ca_certchain:
             await member.load_service_cacert()
+
+        if not member.query_cache:
             await member.create_query_cache()
+
+        if not member.data_secret.shared_key:
             await member.data.load_protected_shared_key()
 
         self.memberships[service_id] = member
