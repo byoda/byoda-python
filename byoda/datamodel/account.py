@@ -371,7 +371,7 @@ class Account:
 
         await member.load_service_cacert()
 
-        member.register()
+        member.register(member.tls_secret)
 
         member.query_cache = await QueryCache.create(member)
 
