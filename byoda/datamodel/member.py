@@ -135,7 +135,9 @@ class Member:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
             # previously accepted
-            _LOGGER.debug('Setting up membership for service {self.service_id}')
+            _LOGGER.debug(
+                'Setting up membership for service {self.service_id}'
+            )
             if local_service_contract:
                 if not config.test_case:
                     raise ValueError(
