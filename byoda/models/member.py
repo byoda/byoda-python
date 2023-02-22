@@ -29,7 +29,7 @@ class MemberResponseModel(BaseModel):
     private_key: str
 
     def __repr__(self):
-        return('<MemberResponseModel={service_id: int, version: int}>')
+        return ('<MemberResponseModel={service_id: int, version: int}>')
 
     def as_dict(self):
         return {

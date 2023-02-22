@@ -147,6 +147,7 @@ async def put_member(request: Request, service_id: int, version: int,
     if current_version == version:
         if member.tls_secret and member.tls_secret.cert:
             await member.update_registration()
+            return member.as_dict()
         else:
             raise HTTPException(
                 status_code=409,
@@ -219,6 +220,7 @@ async def put_member(request: Request, service_id: int, version: int,
         # BUG: any additional workers also need to join the service
         member.upgrade()
 
+    return member.as_dict()
 
 @router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',      # noqa: E501
              response_model=UploadResponseModel)
