@@ -280,9 +280,10 @@ class SqliteStorage(Sql):
                 local_file, cloud_filepath, cloud_file_store,
                 self.account_db_conn
             )
-        except PermissionError:
+        except FileNotFoundError:
             _LOGGER.debug(
-                f'Not restoring account DB as local copy exists: {local_file}'
+                'Not backing up account DB as local file does not exist: '
+                f'{local_file}'
             )
 
         await self.backup_member_db_files(server)
