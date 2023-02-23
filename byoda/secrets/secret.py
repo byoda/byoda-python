@@ -747,6 +747,34 @@ class Secret:
 
         return data.decode('utf-8')
 
+    def private_key_as_pem(self) -> bytes:
+        '''
+        Returns the private key in PEM format
+        '''
+
+        private_key_pem = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        return private_key_pem
+
+    def cert_as_pem(self) -> bytes:
+        '''
+        Returns the BASE64 encoded byte string for the certificate
+
+        :returns: bytes with the PEM-encoded certificate
+        :raises: (none)
+        '''
+        return self.cert.public_bytes(serialization.Encoding.PEM)
+
+    def fingerprint(self) -> bytes:
+        '''
+        Returns the SHA256 fingerprint of the certificate
+        '''
+
+        return self.cert.fingerprint(hashes.SHA256)
+
     def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
                              ) -> str:
         '''
@@ -767,34 +795,6 @@ class Secret:
         self.unencrypted_private_key_file = filepath
 
         return filepath
-
-    def private_key_as_pem(self) -> bytes:
-        '''
-        Returns the private key in PEM format
-        '''
-
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        return private_key_pem
-
-    def cert_as_pem(self):
-        '''
-        Returns the BASE64 encoded byte string for the certificate
-
-        :returns: bytes with the PEM-encoded certificate
-        :raises: (none)
-        '''
-        return self.cert.public_bytes(serialization.Encoding.PEM)
-
-    def fingerprint(self):
-        '''
-        Returns the SHA256 fingerprint of the certificate
-        '''
-
-        return self.cert.fingerprint(hashes.SHA256)
 
     def review_commonname(self, commonname: str, uuid_identifier=True,
                           check_service_id=True) -> str:

@@ -104,7 +104,7 @@ async def main(argv):
             await run_bootstrap_tasks(account)
             await account.register()
         else:
-            server.load_secrets()
+            await server.load_secrets()
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
@@ -157,6 +157,7 @@ async def run_bootstrap_tasks(account: Account):
         await account.tls_secret.load(
             password=account.private_key_password
         )
+        _LOGGER.debug('Read account TLS secret')
         common_name = account.tls_secret.common_name
         if not common_name.startswith(str(account.account_id)):
             error_msg = (
@@ -177,6 +178,7 @@ async def run_bootstrap_tasks(account: Account):
         _LOGGER.exception('Exception during startup')
         raise
 
+    # Saving account TLS private key to temporary file
     account.tls_secret.save_tmp_private_key()
 
     try:
