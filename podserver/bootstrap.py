@@ -5,6 +5,16 @@ Gets everything in place for the podserver and podworker to run. We run the
 steps here to avoid race conditions in the multiple parallel processes that
 are started to run the podserver.
 
+Bootstrap use cases are based on
+- Whether an account already exists
+- Whether the BOOTSTRAP environment variable is set
+- Whether the Account DB is available (locally or from the cloud)
+- Whether the Account DB can be downloaded from object storage
+
+TODO: If the Account DB file is not locally available and can't be
+downloaded from the cloud, the pod must only start if the BOOTSTRAP environment
+variable is set. Otherwise, data of existing memberships could be lost
+
 Suported environment variables:
 CLOUD: 'AWS', 'AZURE', 'GCP', 'LOCAL'
 BUCKET_PREFIX

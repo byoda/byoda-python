@@ -246,9 +246,14 @@ class GraphQlProxy:
                 )
                 processed_data.append((target, target_data))
             else:
-                target, data = target_data
-                processed_data.append((target, data))
-                _LOGGER.debug(f'Target {target} returned {data}')
+                try:
+                    target, data = target_data
+                    processed_data.append((target, data))
+                    _LOGGER.debug(f'Target {target} returned {data}')
+                except TypeError:
+                    _LOGGER.debug(
+                        f'Got error from upstream pod: {str(network_data)}'
+                    )
 
         _LOGGER.debug(
             f'Collected data from {len(processed_data or [])} pods '
