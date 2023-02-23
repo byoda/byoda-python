@@ -35,6 +35,7 @@ from byoda.datastore.data_store import DataStoreType
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.util.paths import Paths
 from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
 
 from byoda.util.logger import Logger
@@ -63,8 +64,8 @@ async def main(argv):
     )
 
     try:
-        server = PodServer(cloud_type=CloudType(data['cloud']))
-        config.server = server
+        server: PodServer = PodServer(cloud_type=CloudType(data['cloud']))
+        config.server: PodServer = server
 
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
@@ -74,7 +75,7 @@ async def main(argv):
         )
 
         _LOGGER.debug('Setting up the network')
-        network = Network(data, data)
+        network: Network = Network(data, data)
         await network.load_network_secrets()
 
         try:
@@ -85,13 +86,16 @@ async def main(argv):
             # We get permission error if the file already exists
             pass
 
-        server.network = network
-        server.paths = network.paths
+        _LOGGER.debug('Setting up the network')
+        server.network: Network = network
+        server.paths: Paths = network.paths
 
         await server.set_data_store(DataStoreType.SQLITE)
 
-        _LOGGER.debug('Setting up the network')
-        account = Account(data['account_id'], network)
+        _LOGGER.debug('Setting up the account')
+        account: Account = Account(data['account_id'], network)
+        server.account: Account = account
+
         await account.paths.create_account_directory()
 
         account.password = data.get('account_secret')
@@ -100,24 +104,7 @@ async def main(argv):
             await run_bootstrap_tasks(account)
             await account.register()
         else:
-            await account.tls_secret.load(
-                password=account.private_key_password
-            )
-            await account.data_secret.load(
-                password=account.private_key_password
-            )
-
-        try:
-            # Unencrypted private key is needed for aiohttp
-            await account.tls_secret.save(
-                password=data['private_key_password'], overwrite=True,
-                storage_driver=server.local_storage
-            )
-        except PermissionError:
-            _LOGGER.debug('Account cert/key already exists on local storage')
-            account.tls_secret.save_tmp_private_key()
-
-        server.account = account
+            server.load_secrets()
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
@@ -189,6 +176,8 @@ async def run_bootstrap_tasks(account: Account):
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
+
+    account.tls_secret.save_tmp_private_key()
 
     try:
         await account.data_secret.load(
