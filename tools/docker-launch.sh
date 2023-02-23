@@ -2,7 +2,8 @@
 
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
-args=$(getopt -l "help" -l "wipe-all" -o "" -- "$@")
+KEEP_LOGS=0
+args=$(getopt -l "help" -l "wipe-all" -l "keep-logs" -o "" -- "$@")
 
 eval set -- "$args"
 
@@ -19,12 +20,15 @@ while [ $# -ge 1 ]; do
         --wipe-member-data)
             WIPE_MEMBER_DATA=1
             ;;
+        --keep-logs)
+            KEEP_LOGS=1
+            ;;
         -h|--help)
             echo "$0: Launch the Byoda container"
             echo ""
             echo "Launches the Byoda container."
             echo ""
-            echo "Usage: $0 [--help/-h] [--wipe-all] [--wipe-member-data]"
+            echo "Usage: $0 [--help/-h] [--wipe-all] [--wipe-member-data] [--keep-logs]"
             echo ""
             echo "--help/-h     shows this helptext"
             echo "--wipe-all    wipe all of the data of the pod and creates a new account ID before launching te container"
@@ -38,61 +42,11 @@ while [ $# -ge 1 ]; do
 done
 
 ###
-### Start of variables that you can configure
+### Pick up local settings for this byoda pod
 ###
+echo "Loading settings from settings.sh"
+source ~/byoda-settings.sh
 
-# Set to "IGNORE" when not using cloud storage
-export BUCKET_PREFIX="changeme"
-# Set the following two variables to long random strings
-export ACCOUNT_SECRET="changeme"
-export PRIVATE_KEY_SECRET="changeme"
-
-# These variables need to be set only for pods on AWS:
-export AWS_ACCESS_KEY_ID="changeme"
-export AWS_SECRET_ACCESS_KEY="changeme"
-
-# To impport your Twitter public tweets, sign up for Twitter Developer
-# program at https://developer.twitter.com/ and set the following three
-# environment variables (more instructions in
-# https://github.com/StevenHessing/byoda-python/README.md)
-export TWITTER_API_KEY=
-export TWITTER_KEY_SECRET=
-export TWITTER_USERNAME=
-
-# To use a custom domain, follow the instructions in the section
-# 'Certificates and browsers' in the README.md file.
-export CUSTOM_DOMAIN=
-
-# To install the pod on a (physical) server that already has nginx running,
-# set the SHARED_WEBSERVER variable to 'SHARED_WEBSERVER'
-export SHARED_WEBSERVER=
-
-# To install the pod on a (physical) server that already has nginx running,
-# and listens to port 80, and you want to use a CUSTOM_DOMAIN, unset the
-# MANAGE_CUSTOM_DOMAIN_CERT variable
-export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"
-
-# If you are running on a shared webserver with a custom domain and can't
-# make port 80 avaible then you'll have to generate the SSL cert yourself
-# and store it in a directory that follows the Let's Encrypt directory
-# lay-out and set the below variable to that directory
-export LETSENCRYPT_DIRECTORY="/var/www/letsencrypt"
-
-# With this option set to a directory, you can access the logs from the pod
-# on the host VM or server as it will be volume mounted in the pod.
-export LOCAL_WWWROOT_DIRECTORY=/var/www/wwwroot
-
-# If you are not running in a cloud VM then you can change this to the
-# directory where all data of the pod should be stored
-export BYODA_ROOT_DIR=/byoda
-
-# set DEBUG if you are interested in debug logs and troubleshooting the
-# processes in the pod
-export DEBUG=
-
-###
-### No changes needed below this line
-###
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
@@ -126,6 +80,11 @@ export WWWROOT_VOLUME_MOUNT=
 if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     echo "Volume mounting log directory: ${LOCAL_WWWROOT_DIRECTORY}"
     export WWWROOT_VOLUME_MOUNT="-v ${LOCAL_WWWROOT_DIRECTORY}:/var/www/wwwroot"
+fi
+
+if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
+    echo "Wiping logs: ${LOCAL_WWWROOT_DIRECTORY}/*.log"
+    sudo rm -f ${LOCAL_WWWROOT_DIRECTORY}/*.log
 fi
 
 export NGINXCONF_VOLUME_MOUNT=""

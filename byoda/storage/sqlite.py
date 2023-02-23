@@ -226,7 +226,7 @@ class SqliteStorage(Sql):
         )
 
         if (server.bootstrapping
-                or server.local_storage.exists(sqlite.account_db_file)):
+                or await server.local_storage.exists(sqlite.account_db_file)):
             await sqlite.execute('''
                 CREATE TABLE IF NOT EXISTS memberships(
                     member_id TEXT,
