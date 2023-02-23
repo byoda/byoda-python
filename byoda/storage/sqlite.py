@@ -346,9 +346,15 @@ class SqliteStorage(Sql):
 
         # If conn paraneter is not passed, we open a new connection
         # and we'll close it as well.
-        async with await aiosqlite.connect(local_file) as local_conn:
-            async with await aiosqlite.connect(backup_file) as backup_conn:
-                await local_conn.backup(backup_conn)
+        local_conn = await aiosqlite.connect(local_file)
+        backup_conn = aiosqlite.connect(backup_file)
+        try:
+            await local_conn.backup(backup_conn)
+        except Exception:
+            _LOGGER.exception('Failed to backup database')
+
+        backup_conn.close()
+        local_conn.close()
 
         with open(backup_file, 'rb') as file_desc:
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
