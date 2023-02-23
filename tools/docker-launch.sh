@@ -84,7 +84,7 @@ fi
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     echo "Wiping logs: ${LOCAL_WWWROOT_DIRECTORY}/*.log"
-    sudo rm -f ${LOCAL_WWWROOT_DIRECTORY}/*.log
+    sudo rm -f ${LOCAL_WWWROOT_DIRECTORY}/logs/*.log
 fi
 
 export NGINXCONF_VOLUME_MOUNT=""
