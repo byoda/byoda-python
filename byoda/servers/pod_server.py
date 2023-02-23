@@ -44,14 +44,16 @@ class PodServer(Server):
     HTTP_PORT = 8000
 
     def __init__(self, network: Network = None,
-                 cloud_type: CloudType = CloudType.LOCAL):
+                 cloud_type: CloudType = CloudType.LOCAL,
+                 bootstrapping: bool = False):
         super().__init__(network, cloud_type=cloud_type)
 
         self.server_type = ServerType.POD
         self.cloud: CloudType = cloud_type
         self.service_summaries: dict[int:dict] = None
         self.account_unencrypted_private_key_file: str = None
-
+        self.bootstrapping: bool = bootstrapping
+        
         self.data_store: DataStore = None
 
     async def load_secrets(self, password: str = None):

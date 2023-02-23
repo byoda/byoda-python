@@ -45,6 +45,7 @@ class Server:
         self.paths: Paths | None = None
         self.started: datetime = datetime.now(timezone.utc)
         self.local_storage: FileStorage | None = None
+        self.bootstrapping: bool = False
 
         # The POD will get its own TLS certificate and private key
         # for this custom domain so people can connect to it with

@@ -468,7 +468,10 @@ class SchemaDataArray(SchemaDataItem):
         else:
             # We need to normalize an array of scalars, which are represented
             # in storage as a string of JSON
-            items = orjson.loads(value or '[]')
+            if type(value) in (str, bytes):
+                items = orjson.loads(value or '[]')
+            else:
+                items = value
 
         for item in items or []:
             if self.referenced_class:

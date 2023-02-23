@@ -705,7 +705,10 @@ class Secret:
                 f'exists at {self.private_key_file}'
             )
 
-        _LOGGER.debug('Saving cert to %s', self.cert_file)
+        _LOGGER.debug(
+            f'Saving cert to {self.cert_file} with fingerprint '
+            f'{self.cert.fingerprint(hashes.SHA256()).hex()} '
+        )
         data = self.certchain_as_pem()
 
         await storage_driver.create_directory(self.cert_file)
@@ -715,7 +718,6 @@ class Secret:
         )
 
         if self.private_key:
-            _LOGGER.debug('Saving private key to %s', self.private_key_file)
             private_key_pem = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
@@ -723,7 +725,7 @@ class Secret:
                     str.encode(password)
                 )
             )
-
+            _LOGGER.debug(f'Saving private key to {self.private_key_file}')
             await storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
@@ -791,6 +793,7 @@ class Secret:
         _LOGGER.debug('Saving private key to %s', filepath)
 
         private_key_pem = self.private_key_as_pem()
+        _LOGGER.debug(f'Saving private key to {filepath}: {private_key_pem}')
         with open(filepath, 'wb') as file_desc:
             file_desc.write(private_key_pem)
 

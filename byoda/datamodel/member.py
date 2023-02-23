@@ -551,14 +551,14 @@ class Member:
         )
         await secret.save(password=self.private_key_password)
 
-        server: Server = config.server
-        await secret.save(
-            password=self.private_key_password, overwrite=True,
-            storage_driver=server.local_storage
-        )
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
+            server: Server = config.server
+            await secret.save(
+                password=self.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
             secret.save_tmp_private_key()
             await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),

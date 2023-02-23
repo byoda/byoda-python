@@ -177,11 +177,11 @@ class SqliteStorage(Sql):
 
         server = config.server
         self.paths: Paths = server.network.paths
-        data_dir = (
+        data_dir: str = (
             self.paths.root_directory + '/' +
             self.paths.get(Paths.ACCOUNT_DATA_DIR)
         )
-        self.data_dir = data_dir
+        self.data_dir: str = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
         self.account_db_file: str = f'{data_dir}/account.db'
@@ -198,6 +198,8 @@ class SqliteStorage(Sql):
 
         sqlite = SqliteStorage()
 
+        _LOGGER.debug('Setting up SqliteStorage')
+        
         db_downloaded: bool = False
         if (server.cloud != CloudType.LOCAL
                 and
@@ -220,7 +222,7 @@ class SqliteStorage(Sql):
                 )
 
         _LOGGER.debug(
-            'Opening or creating account DB file {sqlite.account_db_file}'
+            f'Opening or creating account DB file {sqlite.account_db_file}'
         )
 
         await sqlite.execute('''
@@ -286,6 +288,8 @@ class SqliteStorage(Sql):
         cloud_file_store: FileStorage = server.document_store.backend
 
         memberships: list[dict[str, object]] = await self.get_memberships()
+        _LOGGER.debug(f'Backing up {len (memberships)} membership DB files')
+
         for membership in memberships.values():
             cloud_member_data_file = self.get_member_data_filepath(
                 membership['member_id'], membership['service_id'],
