@@ -77,7 +77,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         for account_member in pod_account.memberships.values():
             account_member.enable_graphql_api(app)
-            await account_member.update_registration()
 
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
@@ -175,7 +174,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             ),
             timeout=120, headers=account_headers
         )
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, 200)
 
     async def test_service_auth(self):
         '''
@@ -321,7 +320,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     async def test_auth_token_request(self):
         pod_account = config.server.account
-        await pod_account.load_memberships()
         account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
         password = os.environ['ACCOUNT_SECRET']
 

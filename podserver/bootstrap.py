@@ -63,8 +63,8 @@ async def main(argv):
     )
 
     try:
-        config.server = PodServer(cloud_type=CloudType(data['cloud']))
-        server = config.server
+        server = PodServer(cloud_type=CloudType(data['cloud']))
+        config.server = server
 
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
@@ -98,6 +98,7 @@ async def main(argv):
 
         if data.get('bootstrap'):
             await run_bootstrap_tasks(account)
+            await account.register()
         else:
             await account.tls_secret.load(
                 password=account.private_key_password
@@ -117,8 +118,6 @@ async def main(argv):
             account.tls_secret.save_tmp_private_key()
 
         server.account = account
-
-        await account.register()
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,

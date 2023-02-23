@@ -53,7 +53,7 @@ class MemberRequestModel(BaseModel):
     version: int
 
     def __repr__(self):
-        return(
+        return (
             '<MemberRequestModel={service_id: int, version: int}>'
         )
 
@@ -69,7 +69,7 @@ class UploadResponseModel(BaseModel):
     location: str
 
     def __repr__(self):
-        return(
+        return (
             '<UploadResponseModel={service_id: int, location: str}>'
         )
 

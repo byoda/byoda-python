@@ -52,13 +52,8 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     network_data = get_environment_vars()
 
-    network = Network(network_data, network_data)
-    await network.load_network_secrets()
-
-    config.test_case = True
-
-    config.server = PodServer(network)
-    config.server.network = network
+    server = PodServer(cloud_type=CloudType.LOCAL)
+    config.server = server
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
@@ -67,9 +62,15 @@ async def setup_network(test_dir: str) -> dict[str, str]:
         root_dir=network_data['root_dir']
     )
 
-    await config.server.set_data_store(
-        DataStoreType.SQLITE
-    )
+    network = Network(network_data, network_data)
+    await network.load_network_secrets()
+
+    config.test_case = True
+
+    server.network = network
+    server.paths = network.paths
+
+    await config.server.set_data_store(DataStoreType.SQLITE)
 
     config.server.paths = network.paths
 
@@ -78,25 +79,17 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
 async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
-    await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE, cloud_type=network_data['cloud'],
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
-    )
 
-    await server.set_data_store(DataStoreType.SQLITE)
+    account = Account(network_data['account_id'], server.network)
+    await account.paths.create_account_directory()
 
-    pod_account = Account(network_data['account_id'], server.network)
-    await pod_account.paths.create_account_directory()
-    await pod_account.load_memberships()
+    server.account = account
 
-    server.account = pod_account
+    account.password = network_data.get('account_secret')
 
-    pod_account.password = os.environ['ACCOUNT_SECRET']
-
-    await pod_account.create_account_secret()
-    await pod_account.create_data_secret()
-    await pod_account.register()
+    await account.create_account_secret()
+    await account.register()
+    await account.create_data_secret()
 
     await server.get_registered_services()
 
@@ -113,9 +106,9 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     ADDRESSBOOK_VERSION = service['version']
 
     member_id = get_test_uuid()
-    await pod_account.join(
+    await account.join(
         ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
         local_service_contract='addressbook.json'
     )
 
-    return pod_account
+    return account

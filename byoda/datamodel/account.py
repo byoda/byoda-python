@@ -371,7 +371,13 @@ class Account:
 
         await member.load_service_cacert()
 
-        await member.register(member.tls_secret)
+        await member.load_secrets()
+
+        # Edge-case where pod already has a cert for the membership
+        if member.tls_secret.cert:
+            await member.update_registration()
+        else:
+            await member.register(member.tls_secret)
 
         member.query_cache = await QueryCache.create(member)
 

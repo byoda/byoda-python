@@ -182,7 +182,7 @@ class Member:
 
             self.network.services[self.service_id] = self.service
         else:
-            _LOGGER.debug('Membership for {self.service_id} already in memory')
+            _LOGGER.debug(f'Membership for {self.service_id} already in memory')
             self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously
