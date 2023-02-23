@@ -102,9 +102,24 @@ async def main(argv):
 
         if data.get('bootstrap'):
             await run_bootstrap_tasks(account)
+            # Saving account TLS certchain private key to local files
+            # so that Apiclient can use it to register the account
+            await account.tls_secret.save(
+                account.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
+            account.tls_secret.save_tmp_private_key()
             await account.register()
         else:
             await server.load_secrets()
+            # Saving account TLS certchain private key to local files
+            # so that Apiclient can use it to register the account
+            await account.tls_secret.save(
+                account.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
+            account.tls_secret.save_tmp_private_key()
+            await account.update_registration()
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
@@ -136,6 +151,11 @@ async def main(argv):
         await account.load_memberships()
 
         for member in account.memberships.values():
+            member.tls_secret.save_tmp_private_key()
+            await member.tls_secret.save(
+                member.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
             await member.update_registration()
             await member.create_nginx_config()
 
@@ -157,7 +177,6 @@ async def run_bootstrap_tasks(account: Account):
         await account.tls_secret.load(
             password=account.private_key_password
         )
-        _LOGGER.debug('Read account TLS secret')
         common_name = account.tls_secret.common_name
         if not common_name.startswith(str(account.account_id)):
             error_msg = (
@@ -166,20 +185,17 @@ async def run_bootstrap_tasks(account: Account):
             )
             _LOGGER.exception(error_msg)
             raise ValueError(error_msg)
-        _LOGGER.debug('Read account TLS secret')
+        _LOGGER.debug('Read existing account TLS secret')
     except FileNotFoundError:
         try:
             await account.create_account_secret()
-            _LOGGER.info('Created account secret during bootstrap')
+            _LOGGER.info('Created new account secret during bootstrap')
         except Exception:
             _LOGGER.exception('Exception during startup')
             raise
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
-
-    # Saving account TLS private key to temporary file
-    account.tls_secret.save_tmp_private_key()
 
     try:
         await account.data_secret.load(

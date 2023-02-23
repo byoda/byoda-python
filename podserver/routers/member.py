@@ -27,6 +27,8 @@ from byoda.datatypes import StorageType
 from byoda.models import MemberResponseModel
 from byoda.models import UploadResponseModel
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda import config
 
 from byoda.servers.pod_server import PodServer
@@ -88,6 +90,7 @@ async def post_member(request: Request, service_id: int, version: int,
     await auth.authenticate()
 
     account: Account = config.server.account
+    local_storage: FileStorage = config.server.local_storage
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
@@ -107,7 +110,7 @@ async def post_member(request: Request, service_id: int, version: int,
 
     _LOGGER.debug(f'Joining service {service_id}')
     # TODO: restart the gunicorn webserver when we join a service
-    member = await account.join(service_id, version)
+    member = await account.join(service_id, version, local_storage)
 
     _LOGGER.debug(f'Returning info about joined service {service_id}')
     return member.as_dict()

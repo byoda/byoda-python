@@ -245,7 +245,8 @@ class Member:
 
     @staticmethod
     async def create(service: Service, schema_version: int,
-                     account: Account, member_id: UUID = None,
+                     account: Account, local_storage: FileStorage,
+                     member_id: UUID = None,
                      members_ca: MembersCaSecret = None,
                      local_service_contract: str = None):
         '''
@@ -315,15 +316,9 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
-        await member.create_secrets(members_ca=members_ca)
+        await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
-
-        server: Server = config.server
-        await member.tls_secret.save(
-             password=member.private_key_password, overwrite=True,
-             storage_driver=server.local_storage
-        )
 
         member.data = MemberData(member)
         member.data.initalize()
@@ -355,12 +350,6 @@ class Member:
 
         if not self.member_id:
             self.load_secrets()
-
-        self.tls_secret.save_tmp_private_key()
-        await self.tls_secret.save(
-            self.private_key_password, overwrite=True,
-            storage_driver=config.server.local_storage
-        )
 
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
@@ -406,7 +395,8 @@ class Member:
             'Schema updates are not yet supported by the pod'
         )
 
-    async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+    async def create_secrets(self, local_storage: FileStorage,
+                             members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
         '''
@@ -423,6 +413,12 @@ class Member:
             self.tls_secret = await self._create_secret(
                 MemberSecret, members_ca
             )
+
+        await self.tls_secret.save(
+             password=self.private_key_password, overwrite=True,
+             storage_driver=local_storage
+        )
+        self.tls_secret.save_tmp_private_key()
 
         if self.data_secret and await self.data_secret.cert_file_exists():
             self.data_secret = MemberDataSecret(
@@ -561,6 +557,7 @@ class Member:
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
+            secret.save_tmp_private_key()
             await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),
                 method=HttpMethod.PUT,

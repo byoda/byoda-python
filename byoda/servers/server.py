@@ -34,21 +34,22 @@ JWT = TypeVar('JWT')
 class Server:
     def __init__(self, network: Network,
                  cloud_type: CloudType = CloudType.LOCAL):
-        self.server_type: ServerType = None
+        self.server_type: ServerType | None = None
         self.network: Network = network
-        self.account: Account = None
-        self.service: Service = None
-        self.document_store: DocumentStore = None
-        self.data_store: DataStore = None
-        self.storage_driver: FileStorage = None
+        self.account: Account | None = None
+        self.service: Service | None = None
+        self.document_store: DocumentStore | None = None
+        self.data_store: DataStore | None = None
+        self.storage_driver: FileStorage | None = None
         self.cloud: CloudType = cloud_type
-        self.paths: Paths = None
+        self.paths: Paths | None = None
         self.started: datetime = datetime.now(timezone.utc)
+        self.local_storage: FileStorage | None = None
 
         # The POD will get its own TLS certificate and private key
         # for this custom domain so people can connect to it with
         # their browsers
-        self.custom_domain: str = None
+        self.custom_domain: str | None = None
 
         # The POD will manage the nginx process if it is not running
         # on a shared webserver

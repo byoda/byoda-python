@@ -20,6 +20,8 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 from byoda.datatypes import CloudType
 
+from byoda.storage.filestorage import FileStorage
+
 from podserver.util import get_environment_vars
 
 from tests.lib.util import get_test_uuid
@@ -79,6 +81,7 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
 async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
+    local_storage: FileStorage = server.local_storage
 
     account = Account(network_data['account_id'], server.network)
     await account.paths.create_account_directory()
@@ -88,8 +91,15 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     account.password = network_data.get('account_secret')
 
     await account.create_account_secret()
-    await account.register()
+
+    # Save the cert file and unecrypted private key to local storage
+    await account.tls_secret.save(
+        account.private_key_password, overwrite=True,
+        storage_driver=local_storage
+    )
+    account.tls_secret.save_tmp_private_key()
     await account.create_data_secret()
+    await account.register()
 
     await server.get_registered_services()
 
@@ -107,8 +117,8 @@ async def setup_account(network_data: dict[str, str]) -> Account:
 
     member_id = get_test_uuid()
     await account.join(
-        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
-        local_service_contract='addressbook.json'
+        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, local_storage,
+        member_id=member_id, local_service_contract='addressbook.json'
     )
 
     return account

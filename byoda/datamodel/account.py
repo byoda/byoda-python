@@ -29,6 +29,8 @@ from byoda.secrets import AccountDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
 from byoda.util.api_client.restapi_client import RestApiClient
@@ -336,9 +338,9 @@ class Account:
         self.memberships[service_id] = member
 
     async def join(self, service_id: int, schema_version: int,
+                   local_storage: FileStorage,
                    members_ca: MembersCaSecret = None, member_id: UUID = None,
-                   local_service_contract: str = None
-                   ) -> Member:
+                   local_service_contract: str = None) -> Member:
         '''
         Join a service for the first time
 
@@ -364,7 +366,7 @@ class Account:
             await service.examine_servicecontract(local_service_contract)
 
         member = await Member.create(
-            service, schema_version, self, member_id=member_id,
+            service, schema_version, self, local_storage, member_id=member_id,
             members_ca=members_ca,
             local_service_contract=local_service_contract
         )
@@ -373,11 +375,17 @@ class Account:
 
         await member.load_secrets()
 
+        # Save secret to local disk as it is needed by ApiClient for
+        # registration
+        await member.tls_secret.save(
+            self.private_key_password, overwrite=True,
+            storage_driver=local_storage
+        )
+        member.tls_secret.save_tmp_private_key()
+
         # Edge-case where pod already has a cert for the membership
         if member.tls_secret.cert:
             await member.update_registration()
-        else:
-            await member.register(member.tls_secret)
 
         member.query_cache = await QueryCache.create(member)
 

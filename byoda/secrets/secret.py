@@ -786,13 +786,13 @@ class Secret:
         '''
 
         # private key is used both by nginx server and requests client
+
+        self.unencrypted_private_key_file = filepath
         _LOGGER.debug('Saving private key to %s', filepath)
 
         private_key_pem = self.private_key_as_pem()
         with open(filepath, 'wb') as file_desc:
             file_desc.write(private_key_pem)
-
-        self.unencrypted_private_key_file = filepath
 
         return filepath
 

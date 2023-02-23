@@ -101,7 +101,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await server.get_registered_services()
 
         member_id = get_test_uuid()
-        await pod_account.join(ADDRESSBOOK_SERVICE_ID, 1, member_id=member_id)
+        await pod_account.join(
+            ADDRESSBOOK_SERVICE_ID, 1, member_id=member_id, server.local_storage
+        )
 
     async def test_jwt(self):
         #
