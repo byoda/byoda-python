@@ -351,7 +351,7 @@ class SqliteStorage(Sql):
         backup_conn = await aiosqlite.connect(backup_file)
         try:
             await local_conn.backup(backup_conn)
-            _LOGGER.debug(f'Successfully backed up {local_file}')
+            _LOGGER.debug(f'Successfully created backup {local_file}')
         except Exception:
             _LOGGER.exception('Failed to backup database')
 
@@ -360,6 +360,7 @@ class SqliteStorage(Sql):
 
         with open(backup_file, 'rb') as file_desc:
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
+            _LOGGER.debug(f'Saved backup to cloud: {cloud_file}}')
 
     async def restore_db_file(self, local_file: str, cloud_file: str,
                               cloud_file_store: FileStorage):
