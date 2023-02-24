@@ -340,7 +340,8 @@ class SqliteStorage(Sql):
             backup_time = os.path.getmtime(backup_file)
             if file_time <= backup_time:
                 _LOGGER.debug(
-                    f'Not backing up {local_file} as it has not changed'
+                    f'Not backing up {local_file} as it has not changed: '
+                    f'{file_time} <= {backup_time}'
                 )
             return
 
