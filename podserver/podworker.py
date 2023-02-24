@@ -42,15 +42,15 @@ from byoda.data_import.twitter import Twitter
 
 from podserver.util import get_environment_vars
 
-from byoda.util.podworker.backup_datastore import \
-    backup_datastore  # noqa: F401
+from byoda.util.podworker.datastore_maintenance import \
+    backup_datastore, database_maintenance
 
 from byoda.util.podworker.twitter import fetch_tweets
 from byoda.util.podworker.twitter import twitter_update_task
 
 _LOGGER = None
 
-LOGFILE = '/var/www/wwwroot/logs/podworker.log'
+LOGFILE = '/var/www/wwwroot/logs/worker.log'
 ADDRESSBOOK_ID = 4294929430
 
 
@@ -117,12 +117,15 @@ async def run_daemon_tasks(server: PodServer):
         _LOGGER.debug('Scheduling backups of the datastore')
         every(1).minutes.do(backup_datastore, server)
 
+    _LOGGER.debug('Scheduling Database maintenance tasks')
+    every(10).minutes.do(database_maintenance, server)
+
     await run_startup_tasks(server)
 
     while True:
         try:
             await run_pending()
-            await asyncio.sleep(5)
+            await asyncio.sleep(15)
         except Exception:
             _LOGGER.exception('Exception during run_pending')
 

@@ -21,3 +21,12 @@ async def backup_datastore(server: PodServer):
     _LOGGER.info('Backing up datastore')
 
     await server.data_store.backend.backup_datastore(server)
+
+
+async def database_maintenance(server: PodServer):
+    '''
+    This is the place for database maintenance tasks,
+    ie. for Sqlite3 it performs WAL compaction
+    '''
+
+    await server.data_store.backend.maintainance(server)
