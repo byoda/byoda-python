@@ -361,7 +361,7 @@ class Member:
             cert_filepath=(
                 self.paths.root_directory + '/' + self.tls_secret.cert_file
             ),
-            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            key_filepath=self.tls_secret.get_tmp_private_key_filepath(),
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(

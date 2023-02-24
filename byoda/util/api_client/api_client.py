@@ -124,7 +124,7 @@ class ApiClient:
                         storage = server.storage_driver
 
                 cert_filepath = storage.local_path + secret.cert_file
-                key_filepath = secret.unencrypted_private_key_file
+                key_filepath = secret.get_tmp_private_key_filepath()
 
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_filepath}'
@@ -251,7 +251,7 @@ class ApiClient:
                         storage = server.storage_driver
 
                 cert_filepath = storage.local_path + secret.cert_file
-                key_filepath = secret.unencrypted_private_key_file
+                key_filepath = secret.get_tmp_private_key_filepath()
 
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_filepath}'

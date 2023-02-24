@@ -143,7 +143,7 @@ async def main(argv):
                 server.local_storage.local_path + '/' +
                 account.tls_secret.cert_file
             ),
-            key_filepath=account.tls_secret.unencrypted_private_key_file,
+            key_filepath=account.tls_secret.get_tmp_private_key_filepath(),
             alias=network.paths.account,
             network=network.name,
             public_cloud_endpoint=network.paths.storage_driver.get_url(
