@@ -93,6 +93,8 @@ class Sql:
 
         async with aiosqlite.connect(datafile) as db_conn:
             db_conn.row_factory = aiosqlite.Row
+            await db_conn.execute('pragma journal_mode = WAL')
+            await db_conn.execute('pragma synchronous = normal')
 
             try:
                 if not fetchall:
@@ -349,6 +351,11 @@ class SqliteStorage(Sql):
         # and we'll close it as well.
         local_conn = await aiosqlite.connect(local_file)
         backup_conn = await aiosqlite.connect(backup_file)
+        await local_conn.execute('pragma journal_mode = WAL')
+        await local_conn.execute('pragma synchronous = normal')
+        await backup_conn.execute('pragma journal_mode = WAL')
+        await backup_conn.execute('pragma synchronous = normal')
+
         try:
             await local_conn.backup(backup_conn)
             _LOGGER.debug(f'Successfully created backup {local_file}')
@@ -360,7 +367,7 @@ class SqliteStorage(Sql):
 
         with open(backup_file, 'rb') as file_desc:
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
-            _LOGGER.debug(f'Saved backup to cloud: {cloud_file}}')
+            _LOGGER.debug(f'Saved backup to cloud: {cloud_file}')
 
     async def restore_db_file(self, local_file: str, cloud_file: str,
                               cloud_file_store: FileStorage):
