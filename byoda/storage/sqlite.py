@@ -93,7 +93,6 @@ class Sql:
 
         async with aiosqlite.connect(datafile) as db_conn:
             db_conn.row_factory = aiosqlite.Row
-            await db_conn.execute('pragma journal_mode = WAL')
             await db_conn.execute('pragma synchronous = normal')
 
             try:
@@ -351,9 +350,7 @@ class SqliteStorage(Sql):
         # and we'll close it as well.
         local_conn = await aiosqlite.connect(local_file)
         backup_conn = await aiosqlite.connect(backup_file)
-        await local_conn.execute('pragma journal_mode = WAL')
         await local_conn.execute('pragma synchronous = normal')
-        await backup_conn.execute('pragma journal_mode = WAL')
         await backup_conn.execute('pragma synchronous = normal')
 
         try:
