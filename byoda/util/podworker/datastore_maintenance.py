@@ -29,4 +29,4 @@ async def database_maintenance(server: PodServer):
     ie. for Sqlite3 it performs WAL compaction
     '''
 
-    await server.data_store.backend.maintainance(server)
+    await server.data_store.backend.maintain(server)
