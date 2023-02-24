@@ -74,7 +74,10 @@ async def main(argv):
     )
 
     try:
-        server: PodServer = PodServer(cloud_type=CloudType(data['cloud']))
+        server: PodServer = PodServer(
+            cloud_type=CloudType(data['cloud']),
+            bootstrapping=bool(data.get('bootstrap'))
+        )
         config.server: PodServer = server
 
         await server.set_document_store(

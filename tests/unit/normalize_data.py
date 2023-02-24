@@ -66,7 +66,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         network = Network(network_data, network_data)
         await network.load_network_secrets()
-        config.server = PodServer()
+        config.server = PodServer(
+            bootstrapping=bool(network_data.get('bootstrap'))
+        )
         config.server.network = network
 
     @classmethod

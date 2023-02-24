@@ -65,11 +65,15 @@ app = setup_api(
 
 @app.on_event('startup')
 async def setup():
-    server: PodServer = PodServer()
+    network_data = get_environment_vars()
+
+    server: PodServer = PodServer(
+        bootstrapping=bool(network_data.get('bootstrap'))
+    )
+
     config.server = server
 
     # Remaining environment variables used:
-    network_data = get_environment_vars()
     server.custom_domain = network_data['custom_domain']
     server.shared_webserver = network_data['shared_webserver']
 

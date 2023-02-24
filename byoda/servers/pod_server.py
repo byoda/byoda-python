@@ -46,6 +46,16 @@ class PodServer(Server):
     def __init__(self, network: Network = None,
                  cloud_type: CloudType = CloudType.LOCAL,
                  bootstrapping: bool = False):
+        '''
+        Sets up data structures for a pod server
+
+        :param network: The network this server is part of
+        :param cloud_type: The cloud this server runs in
+        :param bootstrapping: are we allowed to create secrets
+        or database files from scratch when a download from
+        object storage fails.
+        '''
+
         super().__init__(network, cloud_type=cloud_type)
 
         self.server_type = ServerType.POD
@@ -53,7 +63,7 @@ class PodServer(Server):
         self.service_summaries: dict[int:dict] = None
         self.account_unencrypted_private_key_file: str = None
         self.bootstrapping: bool = bootstrapping
-        
+
         self.data_store: DataStore = None
 
     async def load_secrets(self, password: str = None):

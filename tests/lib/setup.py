@@ -54,7 +54,10 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     network_data = get_environment_vars()
 
-    server = PodServer(cloud_type=CloudType.LOCAL)
+    server: PodServer = PodServer(
+        cloud_type=CloudType.LOCAL,
+        bootstrapping=bool(network_data.get('bootstrap'))
+    )
     config.server = server
 
     await config.server.set_document_store(
