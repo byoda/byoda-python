@@ -328,6 +328,8 @@ class SqliteStorage(Sql):
 
         backup_file = f'{local_file}{BACKUP_FILE_EXTENSION}'
 
+        _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
+
         if not os.path.exists(local_file):
             raise FileNotFoundError(
                 f'Can not backup {local_file} as it does not exist'
@@ -342,14 +344,13 @@ class SqliteStorage(Sql):
                 )
             return
 
-        _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
-
         # If conn paraneter is not passed, we open a new connection
         # and we'll close it as well.
         local_conn = await aiosqlite.connect(local_file)
         backup_conn = await aiosqlite.connect(backup_file)
         try:
             await local_conn.backup(backup_conn)
+            _LOGGER.debug(f'Successfully backed up {local_file}')
         except Exception:
             _LOGGER.exception('Failed to backup database')
 
