@@ -347,7 +347,7 @@ class SqliteStorage(Sql):
         # If conn paraneter is not passed, we open a new connection
         # and we'll close it as well.
         local_conn = await aiosqlite.connect(local_file)
-        backup_conn = aiosqlite.connect(backup_file)
+        backup_conn = await aiosqlite.connect(backup_file)
         try:
             await local_conn.backup(backup_conn)
         except Exception:
