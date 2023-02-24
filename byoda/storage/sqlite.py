@@ -93,7 +93,7 @@ class Sql:
 
         async with aiosqlite.connect(datafile) as db_conn:
             db_conn.row_factory = aiosqlite.Row
-            await db_conn.execute('pragma synchronous = normal')
+            await db_conn.execute('PRAGMA synchronous = normal')
 
             try:
                 if not fetchall:
@@ -459,6 +459,10 @@ class SqliteStorage(Sql):
         # this will create the DB file if it doesn't exist already
         self.member_data_files[member_id]: str = member_data_file
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
+
+        async with aiosqlite.connect(member_data_file) as db_conn:
+            # This ensures that the Sqlite3 DB uses WAL
+            await db_conn.execute('PRAGMA journal_mode = WAL')
 
         await self.set_membership_status(
             member_id, service_id, MemberStatus.ACTIVE
