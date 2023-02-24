@@ -70,7 +70,7 @@ if [[ -z "${FAILURE}" ]]; then
     echo "Starting podworker"
     # podworker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
-    pipenv run podserver/podworker.py 2>/var/www/wwwroot/logs/podworker-stderr.log 1>/var/www/wwwroot/logs/podworker-stdout.log &
+    nice -20 pipenv run podserver/podworker.py 2>/var/www/wwwroot/logs/worker-stderr.log 1>/var/www/wwwroot/logs/worker-stdout.log &
 
     if [[ "$?" != "0" ]]; then
         echo "Podworker failed"

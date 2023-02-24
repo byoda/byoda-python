@@ -61,7 +61,6 @@ class PodServer(Server):
         self.server_type = ServerType.POD
         self.cloud: CloudType = cloud_type
         self.service_summaries: dict[int:dict] = None
-        self.account_unencrypted_private_key_file: str = None
         self.bootstrapping: bool = bootstrapping
 
         self.data_store: DataStore = None

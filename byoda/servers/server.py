@@ -34,17 +34,26 @@ JWT = TypeVar('JWT')
 class Server:
     def __init__(self, network: Network,
                  cloud_type: CloudType = CloudType.LOCAL):
+
         self.server_type: ServerType | None = None
+        self.cloud: CloudType = cloud_type
+
         self.network: Network = network
         self.account: Account | None = None
         self.service: Service | None = None
+
         self.document_store: DocumentStore | None = None
         self.data_store: DataStore | None = None
+
         self.storage_driver: FileStorage | None = None
-        self.cloud: CloudType = cloud_type
-        self.paths: Paths | None = None
-        self.started: datetime = datetime.now(timezone.utc)
         self.local_storage: FileStorage | None = None
+        self.paths: Paths | None = None
+
+        self.started: datetime = datetime.now(timezone.utc)
+
+        # If we are bootstrapping and there are no secrets
+        # or account DB files on the local storage or in the
+        # cloud then we will create new ones
         self.bootstrapping: bool = False
 
         # The POD will get its own TLS certificate and private key

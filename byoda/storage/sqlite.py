@@ -21,7 +21,10 @@ import aiosqlite
 
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import CloudType
+
 from byoda.datamodel.sqltable import SqlTable
+
+from byoda.secrets.account_data_secret import AccountDataSecret
 
 from byoda.util.paths import Paths
 
@@ -39,6 +42,7 @@ FileStorage = TypeVar('FileStorage')
 _LOGGER = logging.getLogger(__name__)
 
 BACKUP_FILE_EXTENSION: str = '.backup'
+PROTECTED_FILE_EXTENSION: str = '.protected'
 
 
 class SqliteStorage(Sql):
@@ -136,6 +140,8 @@ class SqliteStorage(Sql):
         if server.cloud == CloudType.LOCAL:
             raise ValueError('Cannot backup to local storage')
 
+        data_secret: AccountDataSecret = server.account.data_secret
+
         data_store: DataStore = server.data_store
         cloud_file_store: FileStorage = server.document_store.backend
 
@@ -155,9 +161,10 @@ class SqliteStorage(Sql):
                 f'{local_file}'
             )
 
-        await self.backup_member_db_files(server)
+        await self.backup_member_db_files(server, data_secret)
 
-    async def backup_member_db_files(self, server: PodServer):
+    async def backup_member_db_files(self, server: PodServer,
+                                     data_secret: AccountDataSecret):
         '''
         Backs up the database files for all memberships
         '''
@@ -180,7 +187,7 @@ class SqliteStorage(Sql):
             try:
                 await self.backup_db_file(
                     local_member_data_file, cloud_member_data_file,
-                    cloud_file_store
+                    cloud_file_store, data_secret
                 )
             except FileNotFoundError:
                 _LOGGER.warning(
@@ -188,7 +195,8 @@ class SqliteStorage(Sql):
                 )
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
-                             cloud_file_store: FileStorage):
+                             cloud_file_store: FileStorage,
+                             data_secret: AccountDataSecret):
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -197,6 +205,8 @@ class SqliteStorage(Sql):
         '''
 
         backup_file = f'{local_file}{BACKUP_FILE_EXTENSION}'
+        protected_local_backup_file = \
+            f'{backup_file}{PROTECTED_FILE_EXTENSION}'
 
         _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
 
@@ -231,9 +241,14 @@ class SqliteStorage(Sql):
         backup_conn.close()
         local_conn.close()
 
-        with open(backup_file, 'rb') as file_desc:
+        data_secret.encrypt_file(backup_file, protected_local_backup_file)
+
+        with open(protected_local_backup_file, 'rb') as file_desc:
+            cloud_file += PROTECTED_FILE_EXTENSION
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
             _LOGGER.debug(f'Saved backup to cloud: {cloud_file}')
+
+        os.remove(protected_local_backup_file)
 
     async def restore_db_file(self, local_file: str, cloud_file: str,
                               cloud_file_store: FileStorage):
