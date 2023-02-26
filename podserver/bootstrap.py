@@ -134,6 +134,10 @@ async def main(argv):
             account.tls_secret.save_tmp_private_key()
             await account.update_registration()
 
+        # Remaining environment variables used:
+        server.custom_domain = data['custom_domain']
+        server.shared_webserver = data['shared_webserver']
+
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
