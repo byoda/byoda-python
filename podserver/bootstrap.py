@@ -30,6 +30,7 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
+import os
 import sys
 import asyncio
 
@@ -63,6 +64,14 @@ LOGFILE = '/var/www/wwwroot/logs/bootstrap.log'
 async def main(argv):
     # Remaining environment variables used:
     data = get_environment_vars()
+
+    if str(data['debug']).lower() in ('true', 'debug', '1'):
+        config.debug = True
+        # Make our files readable by everyone, so we can
+        # use tools like call_graphql.py to debug the server
+        os.umask(0o0000)
+    else:
+        os.umask(0x0077)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(

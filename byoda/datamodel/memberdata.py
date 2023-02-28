@@ -547,6 +547,7 @@ class MemberData(dict):
         Appends the provided data
 
         :param service_id: Service ID for which the GraphQL API was called
+        :param remote_member_id: member_id that submitted the request
         :param info: the Strawberry 'info' variable
         '''
 

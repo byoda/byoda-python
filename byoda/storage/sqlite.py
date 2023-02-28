@@ -12,6 +12,7 @@ root-directory, ie.: /byoda/sqlite/<member_id>.db
 '''
 
 import os
+import shutil
 import logging
 from uuid import UUID
 from typing import TypeVar
@@ -250,8 +251,42 @@ class SqliteStorage(Sql):
 
         os.remove(protected_local_backup_file)
 
-    async def restore_db_file(self, local_file: str, cloud_file: str,
-                              cloud_file_store: FileStorage):
+    async def restore_member_db_files(self, server: PodServer):
+        '''
+        Downloads all the member DB files from the cloud
+        '''
+
+        paths: Paths = server.paths
+        account_data_secret = server.account.data_secret
+        doc_store: DocumentStore = server.document_store
+        cloud_file_store: FileStorage = doc_store.backend
+
+        memberships: list[dict[str, object]] = await self.get_memberships()
+        for membership in memberships.values():
+            cloud_member_data_file = self.get_member_data_filepath(
+                membership['member_id'], membership['service_id'], paths,
+                local=False
+            )
+            cloud_member_data_file += PROTECTED_FILE_EXTENSION
+
+            local_member_data_file = self.get_member_data_filepath(
+                membership['member_id'], membership['service_id'], paths,
+                local=True
+            )
+
+            try:
+                await self.restore_db_file(
+                    cloud_member_data_file, local_member_data_file,
+                    cloud_file_store, account_data_secret
+                )
+            except FileNotFoundError:
+                _LOGGER.warning(
+                    f'Did not find cloud data file {cloud_member_data_file}'
+                )
+
+    async def restore_db_file(self, cloud_file: str, local_file: str,
+                              cloud_file_store: FileStorage,
+                              account_data_secret: AccountDataSecret):
         '''
         Restores the a database file from the cloud
 
@@ -275,48 +310,18 @@ class SqliteStorage(Sql):
         # TODO: create non-blocking copy from cloud to local in FileStorage()
         data = await cloud_file_store.read(cloud_file)
 
+        protected_file = local_file + '/' + PROTECTED_FILE_EXTENSION
+        with open(protected_file, 'wb') as file_desc:
+            file_desc.write(data)
+
         # Create a backup locally as it will prevent the unmodified
         # database from being backed up to the cloud
-        backup_file = local_file + BACKUP_FILE_EXTENSION
-        with open(backup_file, 'wb') as file_desc:
-            file_desc.write(data)
+        backup_file = local_file + '/' + BACKUP_FILE_EXTENSION
+        account_data_secret.decrypt_file(protected_file, backup_file)
 
         # Only now create the database file so it will not be
         # newer than the backup file
-        with open(local_file, 'wb') as file_desc:
-            file_desc.write(data)
-
-    async def restore_member_db_files(self, server: PodServer):
-        '''
-        Downloads all the member DB files from the cloud
-        '''
-
-        doc_store: DocumentStore = server.document_store
-
-        paths: Paths = server.paths
-
-        cloud_file_store: FileStorage = doc_store.backend
-
-        memberships: list[dict[str, object]] = await self.get_memberships()
-        for membership in memberships.values():
-            cloud_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
-                local=False
-            )
-            local_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
-                local=True
-            )
-
-            try:
-                await self.restore_db_file(
-                    local_member_data_file, cloud_member_data_file,
-                    cloud_file_store
-                )
-            except FileNotFoundError:
-                _LOGGER.warning(
-                    f'Did not find cloud data file {cloud_member_data_file}'
-                )
+        shutil.copy2(backup_file, local_file)
 
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:
