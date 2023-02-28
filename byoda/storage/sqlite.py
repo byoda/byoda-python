@@ -154,7 +154,7 @@ class SqliteStorage(Sql):
                 os.path.basename(data_store.backend.account_db_file)
             )
             await self.backup_db_file(
-                local_file, cloud_filepath, cloud_file_store
+                local_file, cloud_filepath, cloud_file_store, data_secret
             )
         except FileNotFoundError:
             _LOGGER.debug(
