@@ -131,6 +131,10 @@ async def main(argv):
                 storage_driver=server.local_storage
             )
             account.tls_secret.save_tmp_private_key()
+            account.data_secret.save(
+                account.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
             await account.register()
         else:
             await server.load_secrets()
@@ -142,6 +146,7 @@ async def main(argv):
             )
             account.tls_secret.save_tmp_private_key()
             await account.update_registration()
+            await account.load_protected_shared_key()
 
         # Remaining environment variables used:
         server.custom_domain = data['custom_domain']
@@ -240,6 +245,20 @@ async def run_bootstrap_tasks(account: Account):
 
     _LOGGER.info('Bootstrap completed successfully')
 
+    try:
+        await account.load_protected_shared_key
+        _LOGGER.debug('Read account shared secret')
+    except FileNotFoundError:
+        try:
+            await account.data_secret.create_shared_key()
+            _LOGGER.info('Created account shared secret during bootstrap')
+            await account.save_protected_shared_key()
+            _LOGGER.info('Saved account shared secret during bootstrap')
+        except Exception:
+            raise
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))

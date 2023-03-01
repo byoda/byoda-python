@@ -111,12 +111,7 @@ async def setup():
     account = Account(network_data['account_id'], network)
     account.password = network_data.get('account_secret')
 
-    await account.tls_secret.load(
-        password=account.private_key_password
-    )
-    await account.data_secret.load(
-        password=account.private_key_password
-    )
+    await account.load_secrets()
 
     server.account = account
 

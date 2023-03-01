@@ -30,6 +30,7 @@ from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
 
 from byoda.storage.filestorage import FileStorage
+from byoda.storage import FileMode
 
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
@@ -108,6 +109,8 @@ class Account:
 
         await self.create_account_secret(accounts_ca, renew=renew)
         await self.create_data_secret(accounts_ca, renew=renew)
+        await self.data_secret.create_shared_key()
+        await self.save_protected_shared_key()
 
     async def create_account_secret(self,
                                     accounts_ca: NetworkAccountsCaSecret
@@ -221,6 +224,40 @@ class Account:
 
         return secret
 
+    async def load_protected_shared_key(self) -> None:
+        '''
+        Reads the protected symmetric key from file storage. Support
+        for changing symmetric keys is currently not supported.
+        '''
+
+        filepath = self.paths.get(
+            self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE
+        )
+
+        try:
+            protected = await self.document_store.backend.read(
+                filepath, file_mode=FileMode.BINARY
+            )
+            self.data_secret.load_shared_key(protected)
+        except OSError:
+            _LOGGER.error(
+                'Can not read the account protected shared key: {filepath}',
+                filepath
+            )
+            raise
+
+    async def save_protected_shared_key(self) -> None:
+        '''
+        Saves the protected symmetric key
+        '''
+
+        filepath = self.paths.get(self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE)
+
+        await self.document_store.backend.write(
+            filepath, self.data_secret.protected_shared_key,
+            file_mode=FileMode.BINARY
+        )
+
     async def load_secrets(self):
         '''
         Loads the secrets for the account
@@ -235,6 +272,9 @@ class Account:
             self.account, self.account_id, self.network
         )
         await self.data_secret.load(password=self.private_key_password)
+
+        # account shared key is required to encrypt the backups
+        await self.load_protected_shared_key()
 
     def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''

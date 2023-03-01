@@ -33,6 +33,7 @@ from byoda import config
 
 from .sql import Sql
 
+Account = TypeVar('Account')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
 PodServer = TypeVar('PodServer')
@@ -257,21 +258,22 @@ class SqliteStorage(Sql):
         '''
 
         paths: Paths = server.paths
-        account_data_secret = server.account.data_secret
+        account_data_secret: AccountDataSecret = server.account.data_secret
         doc_store: DocumentStore = server.document_store
         cloud_file_store: FileStorage = doc_store.backend
 
         memberships: list[dict[str, object]] = await self.get_memberships()
         for membership in memberships.values():
+            service_id = membership['service_id']
+            member_id: UUID = membership['member_id']
             cloud_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
+                member_id, service_id, paths,
                 local=False
             )
             cloud_member_data_file += PROTECTED_FILE_EXTENSION
 
             local_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
-                local=True
+                member_id, service_id, paths, local=True
             )
 
             try:

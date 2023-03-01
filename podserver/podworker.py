@@ -91,6 +91,7 @@ async def main(argv):
 
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()
+        await account.load_secrets()
 
         server.account = account
     except Exception:
