@@ -97,6 +97,8 @@ class SqliteStorage(Sql):
                 await sqlite.restore_db_file(
                     sqlite.account_db_file, cloud_filepath, cloud_file_store
                 )
+            else:
+                _LOGGER.debug('Protected backup file exists on cloud')
 
         _LOGGER.debug(
             f'Opening or creating account DB file {sqlite.account_db_file}'
