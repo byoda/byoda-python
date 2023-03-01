@@ -18,6 +18,7 @@ from byoda.datatypes import IdType
 
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
+from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
@@ -115,12 +116,15 @@ class PodServer(Server):
 
         self.local_storage = await FileStorage.setup(root_dir)
 
-    async def set_data_store(self, store_type: DataStoreType) -> None:
+    async def set_data_store(self, store_type: DataStoreType,
+                             data_secret: DataSecret) -> None:
         '''
         Sets the storage of membership data
         '''
 
-        self.data_store: DataStore = await DataStore.get_data_store(store_type)
+        self.data_store: DataStore = await DataStore.get_data_store(
+            store_type, data_secret
+        )
 
     async def review_jwt(self, jwt: JWT):
         '''

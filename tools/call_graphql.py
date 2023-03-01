@@ -77,8 +77,6 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     config.server.paths = network.paths
 
-    await config.server.set_data_store(DataStoreType.SQLITE)
-
     return network_data
 
 

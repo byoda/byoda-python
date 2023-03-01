@@ -87,13 +87,15 @@ async def main(argv):
         server.network = network
         server.paths = network.paths
 
-        await server.set_data_store(DataStoreType.SQLITE)
-
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()
         await account.load_secrets()
 
         server.account = account
+
+        await server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise

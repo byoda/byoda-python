@@ -109,7 +109,7 @@ class Account:
 
         await self.create_account_secret(accounts_ca, renew=renew)
         await self.create_data_secret(accounts_ca, renew=renew)
-        await self.data_secret.create_shared_key()
+        self.data_secret.create_shared_key()
         await self.save_protected_shared_key()
 
     async def create_account_secret(self,

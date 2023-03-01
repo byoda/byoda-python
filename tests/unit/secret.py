@@ -102,11 +102,16 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await account.paths.create_account_directory()
 
         config.server.account = account
+
         config.server.bootstrapping: bool = True
-        await config.server.set_data_store(DataStoreType.SQLITE)
+
+        await account.create_secrets(network.accounts_ca)
+
+        await config.server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
 
         # await account.load_memberships()
-        await account.create_secrets(network.accounts_ca)
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
 
@@ -147,7 +152,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.server.account = account
         config.server.bootstrapping: bool = True
-        await config.server.set_data_store(DataStoreType.SQLITE)
+        await config.server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)

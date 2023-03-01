@@ -21,6 +21,7 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.sqlite import SqliteStorage
 
+from byoda.secrets.data_secret import DataSecret
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,14 +39,17 @@ class DataStore:
         self.store_type: DataStoreType = None
 
     @staticmethod
-    async def get_data_store(storage_type: DataStoreType):
+    async def get_data_store(storage_type: DataStoreType,
+                             data_secret: DataSecret):
         '''
         Factory for initiating a document store
         '''
 
         storage = DataStore()
         if storage_type == DataStoreType.SQLITE:
-            storage.backend = await SqliteStorage.setup(config.server)
+            storage.backend = await SqliteStorage.setup(
+                config.server, data_secret
+            )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 

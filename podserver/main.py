@@ -104,16 +104,18 @@ async def setup():
     server.network = network
     server.paths = network.paths
 
-    await server.set_data_store(DataStoreType.SQLITE)
-
-    await server.get_registered_services()
-
     account = Account(network_data['account_id'], network)
     account.password = network_data.get('account_secret')
 
     await account.load_secrets()
 
     server.account = account
+
+    await server.set_data_store(
+        DataStoreType.SQLITE, account.data_secret
+    )
+
+    await server.get_registered_services()
 
     cors_origins = [
         f'https://proxy.{network.name}',

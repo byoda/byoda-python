@@ -86,8 +86,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         server.paths = network.paths
-        await server.set_data_store(DataStoreType.SQLITE)
-
         pod_account = Account(network_data['account_id'], network)
         await pod_account.paths.create_account_directory()
         await pod_account.load_memberships()
@@ -96,8 +94,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         await pod_account.create_account_secret()
         await pod_account.create_data_secret()
-        await pod_account.register()
 
+        await server.set_data_store(
+            DataStoreType.SQLITE, pod_account.data_secret
+        )
+
+        await pod_account.register()
         await server.get_registered_services()
 
         member_id = get_test_uuid()

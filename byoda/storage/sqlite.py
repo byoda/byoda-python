@@ -25,7 +25,7 @@ from byoda.datatypes import CloudType
 
 from byoda.datamodel.sqltable import SqlTable
 
-from byoda.secrets.account_data_secret import AccountDataSecret
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.util.paths import Paths
 
@@ -65,11 +65,15 @@ class SqliteStorage(Sql):
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
         self.member_data_files: dict[UUID, str] = {}
 
-    async def setup(server: PodServer):
+    async def setup(server: PodServer, data_secret: DataSecret):
         '''
         Factory for SqliteStorage class. This method restores the account DB
         from the cloud if no loccal copy exists, except if we are not running
         in the cloud
+
+        :param server: PodServer instance
+        :param data_secret: secret to decrypt the protected shared key used
+        to encrypt backups of the Sqlite3 DB files
         '''
 
         sqlite = SqliteStorage()
@@ -105,7 +109,7 @@ class SqliteStorage(Sql):
                     )
                     await sqlite.restore_db_file(
                         sqlite.account_db_file, cloud_filepath,
-                        cloud_file_store
+                        cloud_file_store, data_secret
                     )
                 else:
                     _LOGGER.debug(
@@ -159,7 +163,7 @@ class SqliteStorage(Sql):
         if server.cloud == CloudType.LOCAL:
             raise ValueError('Cannot backup to local storage')
 
-        data_secret: AccountDataSecret = server.account.data_secret
+        data_secret: DataSecret = server.account.data_secret
 
         data_store: DataStore = server.data_store
         cloud_file_store: FileStorage = server.document_store.backend
@@ -183,7 +187,7 @@ class SqliteStorage(Sql):
         await self.backup_member_db_files(server, data_secret)
 
     async def backup_member_db_files(self, server: PodServer,
-                                     data_secret: AccountDataSecret):
+                                     data_secret: DataSecret):
         '''
         Backs up the database files for all memberships
         '''
@@ -215,7 +219,7 @@ class SqliteStorage(Sql):
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
                              cloud_file_store: FileStorage,
-                             data_secret: AccountDataSecret):
+                             data_secret: DataSecret):
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -275,7 +279,7 @@ class SqliteStorage(Sql):
         '''
 
         paths: Paths = server.paths
-        account_data_secret: AccountDataSecret = server.account.data_secret
+        account_data_secret: DataSecret = server.account.data_secret
         doc_store: DocumentStore = server.document_store
         cloud_file_store: FileStorage = doc_store.backend
 
@@ -305,7 +309,7 @@ class SqliteStorage(Sql):
 
     async def restore_db_file(self, cloud_file: str, local_file: str,
                               cloud_file_store: FileStorage,
-                              account_data_secret: AccountDataSecret):
+                              account_data_secret: DataSecret):
         '''
         Restores the a database file from the cloud
 

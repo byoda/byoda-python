@@ -112,8 +112,6 @@ async def main(argv):
         server.network: Network = network
         server.paths: Paths = network.paths
 
-        await server.set_data_store(DataStoreType.SQLITE)
-
         _LOGGER.debug('Setting up the account')
         account: Account = Account(data['account_id'], network)
         server.account: Account = account
@@ -147,6 +145,8 @@ async def main(argv):
             account.tls_secret.save_tmp_private_key()
             await account.update_registration()
             await account.load_protected_shared_key()
+
+        await server.set_data_store(DataStoreType.SQLITE, account.data_secret)
 
         # Remaining environment variables used:
         server.custom_domain = data['custom_domain']

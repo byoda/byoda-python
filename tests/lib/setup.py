@@ -75,8 +75,6 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     server.network = network
     server.paths = network.paths
 
-    await config.server.set_data_store(DataStoreType.SQLITE)
-
     config.server.paths = network.paths
 
     return network_data
@@ -102,9 +100,12 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     )
     account.tls_secret.save_tmp_private_key()
     await account.create_data_secret()
+    account.data_secret.create_shared_key()
     await account.register()
 
     await server.get_registered_services()
+
+    await config.server.set_data_store(DataStoreType.SQLITE)
 
     services = list(server.network.service_summaries.values())
     service = [
