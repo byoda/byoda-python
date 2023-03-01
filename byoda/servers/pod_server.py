@@ -193,7 +193,9 @@ class PodServer(Server):
         Shuts down the server
         '''
 
-        await self.data_store.close()
+        # Note call_graphql tool does not set up the data store
+        if self.data_store:
+            await self.data_store.close()
 
     def accepts_jwts(self):
         return True
