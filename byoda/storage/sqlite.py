@@ -95,7 +95,7 @@ class SqliteStorage(Sql):
 
                 cloud_filepath = (
                     sqlite.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
-                    os.path.basename(sqlite.account_db_file) + '/' +
+                    os.path.basename(sqlite.account_db_file) +
                     PROTECTED_FILE_EXTENSION
                 )
                 if await cloud_file_store.exists(cloud_filepath):
