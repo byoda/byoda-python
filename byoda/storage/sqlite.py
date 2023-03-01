@@ -108,7 +108,7 @@ class SqliteStorage(Sql):
                         'cloud'
                     )
                     await sqlite.restore_db_file(
-                        sqlite.account_db_file, cloud_filepath,
+                        cloud_filepath, sqlite.account_db_file,
                         cloud_file_store, data_secret
                     )
                 else:
@@ -122,7 +122,7 @@ class SqliteStorage(Sql):
             f'Opening account DB file {sqlite.account_db_file}'
         )
 
-        if (server.bootstrapping
+        if (server.bootstrapping or server.cloud == CloudType.LOCAL
                 or await server.local_storage.exists(sqlite.account_db_file)):
             await sqlite.execute('''
                 CREATE TABLE IF NOT EXISTS memberships(
