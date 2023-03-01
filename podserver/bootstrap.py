@@ -246,7 +246,7 @@ async def run_bootstrap_tasks(account: Account):
     _LOGGER.info('Bootstrap completed successfully')
 
     try:
-        await account.load_protected_shared_key
+        await account.load_protected_shared_key()
         _LOGGER.debug('Read account shared secret')
     except FileNotFoundError:
         try:
