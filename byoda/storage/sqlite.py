@@ -333,7 +333,7 @@ class SqliteStorage(Sql):
         # TODO: create non-blocking copy from cloud to local in FileStorage()
         data = await cloud_file_store.read(cloud_file)
 
-        protected_file = local_file + '/' + PROTECTED_FILE_EXTENSION
+        protected_file = local_file + PROTECTED_FILE_EXTENSION
         with open(protected_file, 'wb') as file_desc:
             file_desc.write(data)
 
