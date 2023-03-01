@@ -339,7 +339,7 @@ class SqliteStorage(Sql):
 
         # Create a backup locally as it will prevent the unmodified
         # database from being backed up to the cloud
-        backup_file = local_file + '/' + BACKUP_FILE_EXTENSION
+        backup_file = local_file + BACKUP_FILE_EXTENSION
         account_data_secret.decrypt_file(protected_file, backup_file)
 
         # Only now create the database file so it will not be
