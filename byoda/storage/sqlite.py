@@ -246,7 +246,7 @@ class SqliteStorage(Sql):
                     f'Not backing up {local_file} as it has not changed: '
                     f'{file_time} <= {backup_time}'
                 )
-            return
+                return
 
         # If conn paraneter is not passed, we open a new connection
         # and we'll close it as well.
@@ -257,7 +257,7 @@ class SqliteStorage(Sql):
 
         try:
             await local_conn.backup(backup_conn)
-            _LOGGER.debug(f'Successfully created backup {local_file}')
+            _LOGGER.debug(f'Successfully created backup of {backup_file}')
         except Exception:
             _LOGGER.exception('Failed to backup database')
 
@@ -344,7 +344,11 @@ class SqliteStorage(Sql):
 
         # Only now create the database file so it will not be
         # newer than the backup file
+        _LOGGER.debug(f'Copying {backup_file} to {local_file}')
         shutil.copy2(backup_file, local_file)
+
+        _LOGGER.debug(f'Deleting downloaded protected file {protected_file}')
+        os.remove(protected_file)
 
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:
