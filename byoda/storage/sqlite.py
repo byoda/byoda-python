@@ -74,34 +74,48 @@ class SqliteStorage(Sql):
 
         sqlite = SqliteStorage()
 
-        _LOGGER.debug('Setting up SqliteStorage')
+        _LOGGER.debug(
+            f'Setting up SqliteStorage for cloud {server.cloud.value}'
+        )
 
         db_downloaded: bool = False
-        if (server.cloud != CloudType.LOCAL
-                and
-                not await server.local_storage.exists(sqlite.account_db_file)):
+        if await server.local_storage.exists(sqlite.account_db_file):
+            _LOGGER.debug('Local account DB file exists')
+        else:
             _LOGGER.debug('Account DB file does not exist locally')
-            db_downloaded = True
-
-            doc_store: DocumentStore = server.document_store
-
-            cloud_file_store: FileStorage = doc_store.backend
-
-            cloud_filepath = (
-                sqlite.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
-                os.path.basename(sqlite.account_db_file) + '/' +
-                PROTECTED_FILE_EXTENSION
-            )
-            if await cloud_file_store.exists(cloud_filepath):
-                _LOGGER.info('Restoring account DB file from cloud')
-                await sqlite.restore_db_file(
-                    sqlite.account_db_file, cloud_filepath, cloud_file_store
+            if server.cloud == CloudType.LOCAL:
+                _LOGGER.debug(
+                    'Not checking for backup as we are not in the cloud'
                 )
             else:
-                _LOGGER.debug('Protected backup file exists on cloud')
+                db_downloaded = True
+
+                doc_store: DocumentStore = server.document_store
+                cloud_file_store: FileStorage = doc_store.backend
+
+                cloud_filepath = (
+                    sqlite.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
+                    os.path.basename(sqlite.account_db_file) + '/' +
+                    PROTECTED_FILE_EXTENSION
+                )
+                if await cloud_file_store.exists(cloud_filepath):
+                    _LOGGER.info(
+                        f'Restoring account DB file {cloud_filepath} from '
+                        'cloud'
+                    )
+                    await sqlite.restore_db_file(
+                        sqlite.account_db_file, cloud_filepath,
+                        cloud_file_store
+                    )
+                else:
+                    _LOGGER.debug(
+                        f'Protected backup file {cloud_filepath} does not '
+                        f'exist in cloud {server.cloud.value}, will create '
+                        'new account DB'
+                    )
 
         _LOGGER.debug(
-            f'Opening or creating account DB file {sqlite.account_db_file}'
+            f'Opening account DB file {sqlite.account_db_file}'
         )
 
         if (server.bootstrapping
