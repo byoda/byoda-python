@@ -131,7 +131,7 @@ async def main(argv):
                 storage_driver=server.local_storage
             )
             account.tls_secret.save_tmp_private_key()
-            account.data_secret.save(
+            await account.data_secret.save(
                 account.private_key_password, overwrite=True,
                 storage_driver=server.local_storage
             )

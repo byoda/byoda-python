@@ -241,8 +241,7 @@ class Account:
             self.data_secret.load_shared_key(protected)
         except OSError:
             _LOGGER.error(
-                'Can not read the account protected shared key: {filepath}',
-                filepath
+                f'Can not read the account protected shared key: {filepath}',
             )
             raise
 
