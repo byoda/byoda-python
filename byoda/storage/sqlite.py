@@ -122,21 +122,23 @@ class SqliteStorage(Sql):
             f'Opening account DB file {sqlite.account_db_file}'
         )
 
-        if (server.bootstrapping or server.cloud == CloudType.LOCAL
-                or await server.local_storage.exists(sqlite.account_db_file)):
-            await sqlite.execute('''
-                CREATE TABLE IF NOT EXISTS memberships(
-                    member_id TEXT,
-                    service_id INTEGER,
-                    timestamp REAL,
-                    status TEXT
-                ) STRICT
-            ''')    # noqa: E501
-        else:
-            raise RuntimeError(
-                'No account DB file found on local file system '
-                'and we are not bootstrapping'
-            )
+        if not await server.local_storage.exists(sqlite.account_db_file):
+            if (server.bootstrapping or server.cloud == CloudType.LOCAL):
+                await sqlite.execute('''
+                    CREATE TABLE IF NOT EXISTS memberships(
+                        member_id TEXT,
+                        service_id INTEGER,
+                        timestamp REAL,
+                        status TEXT
+                    ) STRICT
+                ''')    # noqa: E501
+                await sqlite.execute('PRAGME journal_mode=WAL')
+                _LOGGER.debug('Created Account DB {sqlite.account_db_file}')
+            else:
+                raise RuntimeError(
+                    'No account DB file found on local file system '
+                    'and we are not bootstrapping'
+                )
 
         if db_downloaded:
             await sqlite.restore_member_db_files(server)
