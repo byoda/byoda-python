@@ -53,14 +53,13 @@ class SqliteStorage(Sql):
 
         server = config.server
         self.paths: Paths = server.network.paths
-        data_dir: str = (
+        self.data_dir: str = (
             self.paths.root_directory + '/' +
             self.paths.get(Paths.ACCOUNT_DATA_DIR)
         )
-        self.data_dir: str = data_dir
-        os.makedirs(data_dir, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
 
-        self.account_db_file: str = f'{data_dir}/account.db'
+        self.account_db_file: str = f'{self.data_dir}/account.db'
 
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
         self.member_data_files: dict[UUID, str] = {}
@@ -68,8 +67,8 @@ class SqliteStorage(Sql):
     async def setup(server: PodServer, data_secret: DataSecret):
         '''
         Factory for SqliteStorage class. This method restores the account DB
-        from the cloud if no loccal copy exists, except if we are not running
-        in the cloud
+        and membership DBs from the cloud if no loccal copy exists, except if
+        we are not running in the cloud
 
         :param server: PodServer instance
         :param data_secret: secret to decrypt the protected shared key used
@@ -82,68 +81,82 @@ class SqliteStorage(Sql):
             f'Setting up SqliteStorage for cloud {server.cloud.value}'
         )
 
-        db_downloaded: bool = False
         if await server.local_storage.exists(sqlite.account_db_file):
             _LOGGER.debug('Local account DB file exists')
         else:
-            _LOGGER.debug('Account DB file does not exist locally')
             if server.cloud == CloudType.LOCAL:
                 _LOGGER.debug(
                     'Not checking for backup as we are not in the cloud'
                 )
+                sqlite._create_account_db()
             else:
-                db_downloaded = True
-
-                doc_store: DocumentStore = server.document_store
-                cloud_file_store: FileStorage = doc_store.backend
-
-                cloud_filepath = (
-                    sqlite.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
-                    os.path.basename(sqlite.account_db_file) +
-                    PROTECTED_FILE_EXTENSION
-                )
-                if await cloud_file_store.exists(cloud_filepath):
-                    _LOGGER.info(
-                        f'Restoring account DB file {cloud_filepath} from '
-                        'cloud'
-                    )
-                    await sqlite.restore_db_file(
-                        cloud_filepath, sqlite.account_db_file,
-                        cloud_file_store, data_secret
-                    )
-                else:
-                    _LOGGER.debug(
-                        f'Protected backup file {cloud_filepath} does not '
-                        f'exist in cloud {server.cloud.value}, will create '
-                        'new account DB'
-                    )
-
+                if await sqlite._prep_account_db_file(
+                        server, data_secret):
+                    await sqlite.restore_member_db_files(server)
         _LOGGER.debug(
-            f'Opening account DB file {sqlite.account_db_file}'
+            f'Using account DB file {sqlite.account_db_file}'
         )
 
-        if not await server.local_storage.exists(sqlite.account_db_file):
-            if (server.bootstrapping or server.cloud == CloudType.LOCAL):
-                await sqlite.execute('''
-                    CREATE TABLE IF NOT EXISTS memberships(
-                        member_id TEXT,
-                        service_id INTEGER,
-                        timestamp REAL,
-                        status TEXT
-                    ) STRICT
-                ''')    # noqa: E501
-                await sqlite.execute('PRAGME journal_mode=WAL')
-                _LOGGER.debug('Created Account DB {sqlite.account_db_file}')
+        return sqlite
+
+    async def _prep_account_db_file(self, server: PodServer,
+                                    data_secret: DataSecret) -> bool:
+        '''
+        Downloads the Account DB from the cloud if it exists, otherwise
+        creates a new Account DB
+
+        :param server: PodServer instance
+        :param data_secret: secret to decrypt the protected shared key used
+        to encrypt backups of the Sqlite3 DB files
+        :returns: True if the account DB file was restored from the cloud
+        '''
+
+        _LOGGER.debug('Account DB file does not exist locally')
+        doc_store: DocumentStore = server.document_store
+        cloud_file_store: FileStorage = doc_store.backend
+
+        cloud_filepath = (
+            self.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
+            os.path.basename(self.account_db_file) +
+            PROTECTED_FILE_EXTENSION
+        )
+
+        if await cloud_file_store.exists(cloud_filepath):
+            _LOGGER.info(
+                f'Restoring account DB file {cloud_filepath} from '
+                'cloud'
+            )
+            await self.restore_db_file(
+                cloud_filepath, self.account_db_file,
+                cloud_file_store, data_secret
+            )
+            return True
+        else:
+            if (server.bootstrapping):
+                _LOGGER.debug(
+                    f'Protected backup file {cloud_filepath} does not '
+                    f'exist in cloud {server.cloud.value}, will create '
+                    'new account DB'
+                )
+                self._create_account_db()
+                return False
             else:
                 raise RuntimeError(
                     'No account DB file found on local file system '
                     'and we are not bootstrapping'
                 )
 
-        if db_downloaded:
-            await sqlite.restore_member_db_files(server)
-
-        return sqlite
+    async def _create_account_db(self):
+        await self.execute('''
+            CREATE TABLE IF NOT EXISTS memberships(
+                member_id TEXT,
+                service_id INTEGER,
+                timestamp REAL,
+                status TEXT
+            ) STRICT
+        ''')    # noqa: E501
+        await self.execute('PRAGME journal_mode=WAL')
+        _LOGGER.debug('Created Account DB {sqlite.account_db_file}')
 
     async def close(self):
         '''
