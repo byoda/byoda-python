@@ -501,6 +501,9 @@ class SqliteStorage(Sql):
         if status:
             query += f'WHERE status = "{status.value}" '
 
+        if not os.path.exists(self.account_db_file):
+            return {}
+
         rows = await self.execute(query, fetchall=True)
 
         memberships: dict[str, object] = {}
