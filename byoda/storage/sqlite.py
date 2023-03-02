@@ -155,7 +155,7 @@ class SqliteStorage(Sql):
                 status TEXT
             ) STRICT
         ''')    # noqa: E501
-        await self.execute('PRAGME journal_mode=WAL')
+        await self.execute('PRAGMA journal_mode=WAL')
         _LOGGER.debug('Created Account DB {sqlite.account_db_file}')
 
     async def close(self):
