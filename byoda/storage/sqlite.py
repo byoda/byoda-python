@@ -88,7 +88,7 @@ class SqliteStorage(Sql):
                 _LOGGER.debug(
                     'Not checking for backup as we are not in the cloud'
                 )
-                sqlite._create_account_db()
+                await sqlite._create_account_db()
             else:
                 if await sqlite._prep_account_db_file(
                         server, data_secret):
@@ -138,7 +138,7 @@ class SqliteStorage(Sql):
                     f'exist in cloud {server.cloud.value}, will create '
                     'new account DB'
                 )
-                self._create_account_db()
+                await self._create_account_db()
                 return False
             else:
                 raise RuntimeError(
