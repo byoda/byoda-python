@@ -62,7 +62,7 @@ class SqliteStorage(Sql):
         self.account_db_file: str = f'{self.data_dir}/account.db'
 
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
-        self.member_data_files: dict[UUID, str] = {}
+        self.member_db_files: dict[UUID, str] = {}
 
     async def setup(server: PodServer, data_secret: DataSecret):
         '''
@@ -147,6 +147,10 @@ class SqliteStorage(Sql):
                 )
 
     async def _create_account_db(self):
+        '''
+        Creates the Account DB file and sets the journal mode to WAL
+        '''
+
         await self.execute('''
             CREATE TABLE IF NOT EXISTS memberships(
                 member_id TEXT,
@@ -156,7 +160,7 @@ class SqliteStorage(Sql):
             ) STRICT
         ''')    # noqa: E501
         await self.execute('PRAGMA journal_mode=WAL')
-        _LOGGER.debug('Created Account DB {sqlite.account_db_file}')
+        _LOGGER.debug(f'Created Account DB {self.account_db_file}')
 
     async def close(self):
         '''
@@ -375,12 +379,10 @@ class SqliteStorage(Sql):
 
         server: Paths = config.server
         paths: Paths = server.network.paths
-        member_data_file = self.get_member_data_filepath(
+        member_db_file = self.get_member_data_filepath(
             member_id, service_id, paths, local=True)
 
-        self.member_db_files[member_id] = member_data_file
-
-        member_data_dir = os.path.dirname(member_data_file)
+        member_data_dir = os.path.dirname(member_db_file)
 
         if not os.path.exists(member_data_dir):
             os.makedirs(member_data_dir, exist_ok=True)
@@ -389,10 +391,10 @@ class SqliteStorage(Sql):
             )
 
         # this will create the DB file if it doesn't exist already
-        self.member_data_files[member_id]: str = member_data_file
+        self.member_db_files[member_id]: str = member_db_file
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
 
-        async with aiosqlite.connect(member_data_file) as db_conn:
+        async with aiosqlite.connect(member_db_file) as db_conn:
             # This ensures that the Sqlite3 DB uses WAL
             await db_conn.execute('PRAGMA journal_mode = WAL')
 
