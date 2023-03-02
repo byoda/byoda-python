@@ -262,8 +262,8 @@ class SqliteStorage(Sql):
         except Exception:
             _LOGGER.exception('Failed to backup database')
 
-        backup_conn.close()
-        local_conn.close()
+        await backup_conn.close()
+        await local_conn.close()
 
         data_secret.encrypt_file(backup_file, protected_local_backup_file)
 
