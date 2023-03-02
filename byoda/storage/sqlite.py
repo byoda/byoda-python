@@ -257,6 +257,7 @@ class SqliteStorage(Sql):
 
         try:
             await local_conn.backup(backup_conn)
+            await backup_conn.execute('PRAGMA wal_checkpoint(FULL)')
             _LOGGER.debug(f'Successfully created backup of {backup_file}')
         except Exception:
             _LOGGER.exception('Failed to backup database')
