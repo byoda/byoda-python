@@ -72,7 +72,7 @@ class Sql:
         if member_id:
             _LOGGER.debug(
                 f'Executing SQL for member {member_id}: {command} using '
-                f'SQL data file {self.member_data_files[member_id]}'
+                f'SQL data file {self.member_db_files[member_id]}'
             )
         else:
             _LOGGER.debug(
