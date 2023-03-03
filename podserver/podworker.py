@@ -118,7 +118,7 @@ async def run_daemon_tasks(server: PodServer):
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
-        every(1).minutes.do(backup_datastore, server)
+        every(240).minutes.do(backup_datastore, server)
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
     every(10).minutes.do(database_maintenance, server)
