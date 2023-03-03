@@ -105,7 +105,9 @@ async def setup_account(network_data: dict[str, str]) -> Account:
 
     await server.get_registered_services()
 
-    await config.server.set_data_store(DataStoreType.SQLITE)
+    await config.server.set_data_store(
+        DataStoreType.SQLITE, account.data_secret
+    )
 
     services = list(server.network.service_summaries.values())
     service = [

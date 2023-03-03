@@ -1,6 +1,0 @@
-FORWARDED_ALLOW_IPS=127.0.0.1
-PYTHONPATH='/opt/byoda/byoda-python/svcserver'
-SERVER_NAME=svc-SERVICE_ID-server.byoda.net
-
-# CONFIG_FILE is optional
-# CONFIG_FILE=config.yml
