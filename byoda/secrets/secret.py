@@ -100,9 +100,6 @@ class Secret:
         self.private_key: rsa.RSAPrivateKey = None
         self.private_key_file: str = key_file
 
-        # There is no default location for this file.
-        self.unencrypted_private_key_file: str = None
-
         self.cert: Certificate = None
         self.cert_file: str = cert_file
 
@@ -705,7 +702,10 @@ class Secret:
                 f'exists at {self.private_key_file}'
             )
 
-        _LOGGER.debug('Saving cert to %s', self.cert_file)
+        _LOGGER.debug(
+            f'Saving cert to {self.cert_file} with fingerprint '
+            f'{self.cert.fingerprint(hashes.SHA256()).hex()} '
+        )
         data = self.certchain_as_pem()
 
         await storage_driver.create_directory(self.cert_file)
@@ -715,7 +715,6 @@ class Secret:
         )
 
         if self.private_key:
-            _LOGGER.debug('Saving private key to %s', self.private_key_file)
             private_key_pem = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
@@ -723,7 +722,7 @@ class Secret:
                     str.encode(password)
                 )
             )
-
+            _LOGGER.debug(f'Saving private key to {self.private_key_file}')
             await storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
@@ -747,27 +746,6 @@ class Secret:
 
         return data.decode('utf-8')
 
-    def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
-                             ) -> str:
-        '''
-        Create an unencrypted copy of the key to the /tmp directory
-        so both the requests library and nginx can read it
-
-        :returns: filename to which the key was saved
-        :raises: (none)
-        '''
-
-        # private key is used both by nginx server and requests client
-        _LOGGER.debug('Saving private key to %s', filepath)
-
-        private_key_pem = self.private_key_as_pem()
-        with open(filepath, 'wb') as file_desc:
-            file_desc.write(private_key_pem)
-
-        self.unencrypted_private_key_file = filepath
-
-        return filepath
-
     def private_key_as_pem(self) -> bytes:
         '''
         Returns the private key in PEM format
@@ -780,7 +758,7 @@ class Secret:
         )
         return private_key_pem
 
-    def cert_as_pem(self):
+    def cert_as_pem(self) -> bytes:
         '''
         Returns the BASE64 encoded byte string for the certificate
 
@@ -789,12 +767,42 @@ class Secret:
         '''
         return self.cert.public_bytes(serialization.Encoding.PEM)
 
-    def fingerprint(self):
+    def fingerprint(self) -> bytes:
         '''
         Returns the SHA256 fingerprint of the certificate
         '''
 
         return self.cert.fingerprint(hashes.SHA256)
+
+    def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
+                             ) -> str:
+        '''
+        Create an unencrypted copy of the key to the /tmp directory
+        so both the requests library and nginx can read it
+
+        :returns: filename to which the key was saved
+        :raises: (none)
+        '''
+
+        # private key is used both by nginx server and requests client
+
+        _LOGGER.debug('Saving private key to %s', filepath)
+
+        private_key_pem = self.private_key_as_pem()
+        with open(filepath, 'wb') as file_desc:
+            file_desc.write(private_key_pem)
+
+        return filepath
+
+    def get_tmp_private_key_filepath(self,
+                                     filepath: str = '/var/tmp/private.key'
+                                     ) -> str:
+        '''
+        Gets the location where on local storage the unprotected private
+        key is stored
+        '''
+
+        return filepath
 
     def review_commonname(self, commonname: str, uuid_identifier=True,
                           check_service_id=True) -> str:

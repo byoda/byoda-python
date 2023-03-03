@@ -234,13 +234,14 @@ class Query:
 {%   if not root_class.item_id %}
     @strawberry.field
 {%     if root_class.type != DataType.ARRAY %}
-    async def {{ root_class.name }}_connection(self, info: Info, first: Optional[int] = None,
+    async def {{ root_class.name }}_connection(self, info: Info, query_id: UUID,
+            first: Optional[int] = None,
             after: Optional[str] = None,
             filters: Optional[{{ root_class.name }}_input_filter] = None,
             depth: Optional[int] = 0, relations: Optional[List[str]] = None,
             remote_member_id: Optional[UUID] = None,
             timestamp: Optional[datetime] = None,
-            query_id: Optional[UUID] = None,
+
             origin_member_id: Optional[UUID] = None,
             origin_signature: Optional[str] = None,
             signature_format_version: Optional[int] = None

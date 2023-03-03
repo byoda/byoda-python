@@ -86,22 +86,27 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         server.paths = network.paths
-        await server.set_data_store(DataStoreType.SQLITE)
-
         pod_account = Account(network_data['account_id'], network)
         await pod_account.paths.create_account_directory()
-        await pod_account.load_memberships()
 
         server.account = pod_account
 
         await pod_account.create_account_secret()
         await pod_account.create_data_secret()
-        await pod_account.register()
 
+        await server.set_data_store(
+            DataStoreType.SQLITE, pod_account.data_secret
+        )
+
+        await pod_account.load_memberships()
+
+        await pod_account.register()
         await server.get_registered_services()
 
         member_id = get_test_uuid()
-        await pod_account.join(ADDRESSBOOK_SERVICE_ID, 1, member_id=member_id)
+        await pod_account.join(
+            ADDRESSBOOK_SERVICE_ID, 1, server.local_storage, member_id=member_id
+        )
 
     async def test_jwt(self):
         #

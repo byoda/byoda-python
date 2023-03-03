@@ -69,7 +69,7 @@ class GraphQlProxy:
         self.class_name: str | None = None
 
     async def proxy_request(self, class_name: str, query: bytes, info: Info,
-                            depth: int, relations: list[str],
+                            query_id: UUID, depth: int, relations: list[str],
                             remote_member_id: UUID = None,
                             origin_member_id: UUID | None = None,
                             origin_signature: str | None = None,
@@ -105,7 +105,9 @@ class GraphQlProxy:
         self.class_name = class_name
 
         self.incoming_query = query
-        self._update_query(info, origin_member_id, origin_signature, timestamp)
+        self._update_query(
+            info, query_id, origin_member_id, origin_signature, timestamp
+        )
 
         network_data = await self._proxy_request(relations, remote_member_id)
 
@@ -116,7 +118,8 @@ class GraphQlProxy:
 
         return cleaned_data
 
-    def _update_query(self, info: Info, origin_member_id: UUID | None,
+    def _update_query(self, info: Info, query_id: UUID,
+                      origin_member_id: UUID | None,
                       origin_signature: str | None,
                       timestamp: datetime | None = None) -> None:
         '''
@@ -157,6 +160,8 @@ class GraphQlProxy:
         self.updated_query = (
             match.group(1) + f'"depth": {self.updated_depth}'.encode('utf-8')
         )
+
+        self.updated_query += f', "query_id": "{query_id}"'.encode('utf-8')
 
         if origin_member_id:
             self.updated_query += (
@@ -241,9 +246,14 @@ class GraphQlProxy:
                 )
                 processed_data.append((target, target_data))
             else:
-                target, data = target_data
-                processed_data.append((target, data))
-                _LOGGER.debug(f'Target {target} returned {data}')
+                try:
+                    target, data = target_data
+                    processed_data.append((target, data))
+                    _LOGGER.debug(f'Target {target} returned {data}')
+                except TypeError:
+                    _LOGGER.debug(
+                        f'Got error from upstream pod: {str(network_data)}'
+                    )
 
         _LOGGER.debug(
             f'Collected data from {len(processed_data or [])} pods '

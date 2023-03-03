@@ -18,6 +18,7 @@ from byoda.datatypes import IdType
 
 from byoda.secrets import AccountSecret
 from byoda.secrets import MemberSecret
+from byoda.secrets import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
@@ -44,13 +45,24 @@ class PodServer(Server):
     HTTP_PORT = 8000
 
     def __init__(self, network: Network = None,
-                 cloud_type: CloudType = CloudType.LOCAL):
+                 cloud_type: CloudType = CloudType.LOCAL,
+                 bootstrapping: bool = False):
+        '''
+        Sets up data structures for a pod server
+
+        :param network: The network this server is part of
+        :param cloud_type: The cloud this server runs in
+        :param bootstrapping: are we allowed to create secrets
+        or database files from scratch when a download from
+        object storage fails.
+        '''
+
         super().__init__(network, cloud_type=cloud_type)
 
         self.server_type = ServerType.POD
         self.cloud: CloudType = cloud_type
         self.service_summaries: dict[int:dict] = None
-        self.account_unencrypted_private_key_file: str = None
+        self.bootstrapping: bool = bootstrapping
 
         self.data_store: DataStore = None
 
@@ -104,12 +116,15 @@ class PodServer(Server):
 
         self.local_storage = await FileStorage.setup(root_dir)
 
-    async def set_data_store(self, store_type: DataStoreType) -> None:
+    async def set_data_store(self, store_type: DataStoreType,
+                             data_secret: DataSecret) -> None:
         '''
         Sets the storage of membership data
         '''
 
-        self.data_store: DataStore = await DataStore.get_data_store(store_type)
+        self.data_store: DataStore = await DataStore.get_data_store(
+            store_type, data_secret
+        )
 
     async def review_jwt(self, jwt: JWT):
         '''
@@ -178,7 +193,9 @@ class PodServer(Server):
         Shuts down the server
         '''
 
-        await self.data_store.close()
+        # Note call_graphql tool does not set up the data store
+        if self.data_store:
+            await self.data_store.close()
 
     def accepts_jwts(self):
         return True

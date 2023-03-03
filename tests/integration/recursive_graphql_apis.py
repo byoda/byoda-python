@@ -152,6 +152,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # relation 'friend' for us
         #
         vars = {
+            'query_id': uuid4(),
             'depth': 1,
             'relations': ["friend"]
         }
@@ -214,7 +215,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Confirm we have a network_link entry
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
-            timeout=120, headers=azure_member_auth_header
+            vars={'query_id': uuid4()}, timeout=120,
+            headers=azure_member_auth_header
         )
         result = await response.json()
         data = result.get('data')
@@ -230,6 +232,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(filtered_edges)
 
         vars = {
+            'query_id': uuid4(),
             'depth': 0,
         }
         response = await GraphQlClient.call(
@@ -267,6 +270,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(result.get('errors'))
 
         vars = {
+            'query_id': uuid4(),
             'depth': 0,
         }
         response = await GraphQlClient.call(
@@ -337,6 +341,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         vars = {
+            'query_id': uuid4(),
             'depth': depth,
             'relations': relations,
             'filters': filters,
@@ -358,6 +363,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Now we do the query for network assets to our pod with depth=1
         vars = {
+            'query_id': uuid4(),
             'depth': 1,
             'relations': ["friend"]
         }
@@ -386,6 +392,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             origin_member_id
         )
         vars = {
+            'query_id': uuid4(),
             'depth': depth,
             'relations': relations,
             'filters': filters,

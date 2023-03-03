@@ -37,7 +37,6 @@ class SqlTable:
         Constructor for a SQL table for a top-level item in the schema
         '''
 
-        self.conn: SqlConnection = sql_store.member_db_conns[member_id]
         self.sql_store: Sql = sql_store
         self.member_id: UUID = member_id
         self.table_name: str = SqlTable.get_table_name(data_class.name)

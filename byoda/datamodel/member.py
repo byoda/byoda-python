@@ -30,9 +30,12 @@ from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
 
 from byoda.datastore.document_store import DocumentStore
+from byoda.datastore.data_store import DataStore
+
+from byoda.datastore.querycache import QueryCache
 
 from byoda.storage import FileStorage
-from byoda.datastore.data_store import DataStore
+
 
 from byoda.secrets import ServiceCaSecret, ServiceDataSecret
 from byoda.secrets import MemberSecret, MemberDataSecret
@@ -85,6 +88,7 @@ class Member:
                 'storage_driver and filepath parameters can only be used by '
                 'test cases'
             )
+
         self.member_id: UUID = member_id
         self.service_id: int = int(service_id)
 
@@ -100,8 +104,11 @@ class Member:
         self.paths.service_id: int = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
-        self.storage_driver: FileStorage = self.document_store.backend
         self.data_store: DataStore = config.server.data_store
+
+        self.query_cache: QueryCache | None = None
+
+        self.storage_driver: FileStorage = self.document_store.backend
 
         self.private_key_password: str = account.private_key_password
 
@@ -112,6 +119,8 @@ class Member:
         self.data_secret: MemberDataSecret | None = None
         self.service_data_secret: ServiceDataSecret | None = None
         self.service_ca_secret: ServiceCaSecret | None = None
+        # This is the cert chain up to but excluding the network root CA
+        self.service_ca_certchain: ServiceCaSecret | None = None
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
@@ -128,6 +137,9 @@ class Member:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
             # previously accepted
+            _LOGGER.debug(
+                'Setting up membership for service {self.service_id}'
+            )
             if local_service_contract:
                 if not config.test_case:
                     raise ValueError(
@@ -170,6 +182,9 @@ class Member:
 
             self.network.services[self.service_id] = self.service
         else:
+            _LOGGER.debug(
+                f'Membership for {self.service_id} already in memory'
+            )
             self.service = self.network.services[self.service_id]
 
         # This is the schema a.k.a data contract that we have previously
@@ -232,7 +247,8 @@ class Member:
 
     @staticmethod
     async def create(service: Service, schema_version: int,
-                     account: Account, member_id: UUID = None,
+                     account: Account, local_storage: FileStorage,
+                     member_id: UUID = None,
                      members_ca: MembersCaSecret = None,
                      local_service_contract: str = None):
         '''
@@ -302,15 +318,9 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
-        await member.create_secrets(members_ca=members_ca)
+        await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
-
-        server: Server = config.server
-        await member.tls_secret.save(
-             password=member.private_key_password, overwrite=True,
-             storage_driver=server.local_storage
-        )
 
         member.data = MemberData(member)
         member.data.initalize()
@@ -326,6 +336,14 @@ class Member:
         )
         return member
 
+    async def create_query_cache(self):
+        '''
+        Sets up the query cache for the membership
+        '''
+
+        _LOGGER.debug('Creating query cache for membership')
+        self.query_cache = await QueryCache.create(self)
+
     async def create_nginx_config(self):
         '''
         Generates the Nginx virtual server configuration for
@@ -335,12 +353,6 @@ class Member:
         if not self.member_id:
             self.load_secrets()
 
-        self.tls_secret.save_tmp_private_key()
-        await self.tls_secret.save(
-            self.private_key_password, overwrite=True,
-            storage_driver=config.server.local_storage
-        )
-
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
@@ -349,7 +361,7 @@ class Member:
             cert_filepath=(
                 self.paths.root_directory + '/' + self.tls_secret.cert_file
             ),
-            key_filepath=self.tls_secret.unencrypted_private_key_file,
+            key_filepath=self.tls_secret.get_tmp_private_key_filepath(),
             alias=self.network.paths.account,
             network=self.network.name,
             public_cloud_endpoint=self.paths.storage_driver.get_url(
@@ -385,7 +397,8 @@ class Member:
             'Schema updates are not yet supported by the pod'
         )
 
-    async def create_secrets(self, members_ca: MembersCaSecret = None) -> None:
+    async def create_secrets(self, local_storage: FileStorage,
+                             members_ca: MembersCaSecret = None) -> None:
         '''
         Creates the secrets for a membership
         '''
@@ -402,6 +415,12 @@ class Member:
             self.tls_secret = await self._create_secret(
                 MemberSecret, members_ca
             )
+
+        await self.tls_secret.save(
+             password=self.private_key_password, overwrite=True,
+             storage_driver=local_storage
+        )
+        self.tls_secret.save_tmp_private_key()
 
         if self.data_secret and await self.data_secret.cert_file_exists():
             self.data_secret = MemberDataSecret(
@@ -532,14 +551,15 @@ class Member:
         )
         await secret.save(password=self.private_key_password)
 
-        server: Server = config.server
-        await secret.save(
-            password=self.private_key_password, overwrite=True,
-            storage_driver=server.local_storage
-        )
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
         if isinstance(secret, MemberSecret):
+            server: Server = config.server
+            await secret.save(
+                password=self.private_key_password, overwrite=True,
+                storage_driver=server.local_storage
+            )
+            secret.save_tmp_private_key()
             await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),
                 method=HttpMethod.PUT,
@@ -565,7 +585,7 @@ class Member:
             service_id=self.service_id
         )
         _LOGGER.debug(
-            f'Member {self.member_id} registered for service '
+            f'Member {self.member_id} updated registration for service '
             f'{self.service_id}'
         )
 
@@ -575,8 +595,8 @@ class Member:
         )
 
         _LOGGER.debug(
-            f'Member {self.member_id} registered service {self.service_id} '
-            f' with network {self.network.name}'
+            f'Member {self.member_id} updated registration with service '
+            f'{self.service_id}  with network {self.network.name}'
         )
 
     async def load_service_cacert(self) -> None:

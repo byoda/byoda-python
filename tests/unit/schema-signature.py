@@ -63,9 +63,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # Remaining environment variables used:
         network_data = get_environment_vars()
 
-        network = Network(network_data, network_data)
+        network: Network = Network(network_data, network_data)
         await network.load_network_secrets()
-        config.server = PodServer()
+        config.server: PodServer = PodServer(
+            bootstrapping=bool(network_data.get('bootstrap'))
+        )
         config.server.network = network
 
     @classmethod
@@ -77,7 +79,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_load_schema(self):
         uuid = get_test_uuid()                      # noqa: F841
 
-        schema = await Schema.get_schema(
+        await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )

@@ -115,7 +115,6 @@ class ApiClient:
                 self.ssl_context = ssl.create_default_context()
             else:
                 ca_filepath = storage.local_path + server.network.root_ca.cert_file
-
                 self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
                 _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
@@ -124,14 +123,13 @@ class ApiClient:
                     # Hack: podserver and svcserver use different attributes
                         storage = server.storage_driver
 
-                key_path = secret.save_tmp_private_key()
-
                 cert_filepath = storage.local_path + secret.cert_file
+                key_filepath = secret.get_tmp_private_key_filepath()
 
                 _LOGGER.debug(
-                    f'Setting client cert/key to {cert_filepath}, {key_path}'
+                    f'Setting client cert/key to {cert_filepath}, {key_filepath}'
                 )
-                self.ssl_context.load_cert_chain(cert_filepath, key_path)
+                self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
 
             timeout_setting = aiohttp.ClientTimeout(total=timeout)
             self.session = aiohttp.ClientSession(timeout=timeout_setting)
@@ -252,14 +250,13 @@ class ApiClient:
                     # Hack: podserver and svcserver use different attributes
                         storage = server.storage_driver
 
-                key_path = secret.save_tmp_private_key()
-
                 cert_filepath = storage.local_path + secret.cert_file
+                key_filepath = secret.get_tmp_private_key_filepath()
 
                 _LOGGER.debug(
-                    f'Setting client cert/key to {cert_filepath}, {key_path}'
+                    f'Setting client cert/key to {cert_filepath}, {key_filepath}'
                 )
-                session.cert = (cert_filepath, key_path)
+                session.cert = (cert_filepath, key_filepath)
 
 
             config.sync_client_pools[pool] = session

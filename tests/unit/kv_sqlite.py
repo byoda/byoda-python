@@ -1,0 +1,67 @@
+'''
+Test cases for Key/Value class using SQLite backend
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022, 2023
+:license    : GPLv3
+'''
+
+import os
+import sys
+import shutil
+from uuid import uuid4
+
+import unittest
+
+from byoda.util.logger import Logger
+
+from byoda.datatypes import CacheTech
+
+from byoda.datacache.kv_cache import KVCache
+
+TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
+
+
+class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+        try:
+            shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(TEST_DIR)
+
+    @classmethod
+    async def asyncTearDown(self):
+        pass
+
+    async def test_cache(self):
+        member_id = uuid4()
+        cache: KVCache = await KVCache.create_async(
+            f'{TEST_DIR}/test.db',  str(member_id),
+            cache_tech=CacheTech.SQLITE
+        )
+        self.assertFalse(await cache.exists('blah'))
+        self.assertIsNone(await cache.get('blah'))
+        self.assertFalse(await cache.delete('blah'))
+
+        self.assertTrue(await cache.set('blah', 'foo'))
+        self.assertFalse(await cache.set('blah', 'foo'))
+        self.assertTrue(await cache.exists('blah'))
+        self.assertEqual(await cache.get('blah'), 'foo')
+
+        self.assertTrue(await cache.delete('blah'))
+
+        self.assertFalse(await cache.exists('blah'))
+        self.assertIsNone(await cache.get('blah'))
+        self.assertFalse(await cache.delete('blah'))
+
+        await cache.close()
+
+
+if __name__ == '__main__':
+    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
+    unittest.main()

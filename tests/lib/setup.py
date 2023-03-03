@@ -20,6 +20,8 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 from byoda.datatypes import CloudType
 
+from byoda.storage.filestorage import FileStorage
+
 from podserver.util import get_environment_vars
 
 from tests.lib.util import get_test_uuid
@@ -52,13 +54,11 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     network_data = get_environment_vars()
 
-    network = Network(network_data, network_data)
-    await network.load_network_secrets()
-
-    config.test_case = True
-
-    config.server = PodServer(network)
-    config.server.network = network
+    server: PodServer = PodServer(
+        cloud_type=CloudType.LOCAL,
+        bootstrapping=bool(network_data.get('bootstrap'))
+    )
+    config.server = server
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
@@ -67,9 +67,13 @@ async def setup_network(test_dir: str) -> dict[str, str]:
         root_dir=network_data['root_dir']
     )
 
-    await config.server.set_data_store(
-        DataStoreType.SQLITE
-    )
+    network = Network(network_data, network_data)
+    await network.load_network_secrets()
+
+    config.test_case = True
+
+    server.network = network
+    server.paths = network.paths
 
     config.server.paths = network.paths
 
@@ -78,27 +82,30 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
 async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
-    await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE, cloud_type=network_data['cloud'],
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+    local_storage: FileStorage = server.local_storage
+
+    account = Account(network_data['account_id'], server.network)
+    await account.paths.create_account_directory()
+
+    server.account = account
+
+    account.password = network_data.get('account_secret')
+
+    await account.create_account_secret()
+
+    # Save the cert file and unecrypted private key to local storage
+    await account.tls_secret.save(
+        account.private_key_password, overwrite=True,
+        storage_driver=local_storage
     )
-
-    await server.set_data_store(DataStoreType.SQLITE)
-
-    pod_account = Account(network_data['account_id'], server.network)
-    await pod_account.paths.create_account_directory()
-    await pod_account.load_memberships()
-
-    server.account = pod_account
-
-    pod_account.password = os.environ['ACCOUNT_SECRET']
-
-    await pod_account.create_account_secret()
-    await pod_account.create_data_secret()
-    await pod_account.register()
+    account.tls_secret.save_tmp_private_key()
+    await account.create_data_secret()
+    account.data_secret.create_shared_key()
+    await account.register()
 
     await server.get_registered_services()
+
+    await config.server.set_data_store(DataStoreType.SQLITE)
 
     services = list(server.network.service_summaries.values())
     service = [
@@ -113,9 +120,9 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     ADDRESSBOOK_VERSION = service['version']
 
     member_id = get_test_uuid()
-    await pod_account.join(
-        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, member_id=member_id,
-        local_service_contract='addressbook.json'
+    await account.join(
+        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, local_storage,
+        member_id=member_id, local_service_contract='addressbook.json'
     )
 
-    return pod_account
+    return account

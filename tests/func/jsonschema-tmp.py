@@ -203,14 +203,16 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         )
         server.paths = network.paths
 
-        await server.set_data_store(DataStoreType.SQLITE)
-
         account_id = uuid4()
         pod_account = Account(account_id, network)
         await pod_account.paths.create_account_directory()
         await pod_account.load_memberships()
 
         server.account = pod_account
+
+        await server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
 
         # We can't join the service as it doesn't exist in the network
         # so we have to use our own membership logic

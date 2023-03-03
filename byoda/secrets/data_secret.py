@@ -7,6 +7,7 @@ Cert manipulation
 '''
 
 import os
+import struct
 import logging
 from datetime import datetime, timedelta
 
@@ -60,11 +61,12 @@ class DataSecret(Secret):
 
         self.fernet = None
 
-    def encrypt(self, data: bytes):
+    def encrypt(self, data: bytes, with_logging: bool = True) -> bytes:
         '''
         Encrypts the provided data with the Fernet algorithm
 
         :param bytes data : data to be encrypted
+        :param with_logging: write debug logging, for use by encrypt_file()
         :returns: encrypted data
         :raises: KeyError if no shared secret was generated or
                             loaded for this instance of Secret
@@ -76,15 +78,38 @@ class DataSecret(Secret):
         if isinstance(data, str):
             data = str.encode(data)
 
-        _LOGGER.debug('Encrypting data with %d bytes', len(data))
+        if with_logging:
+            _LOGGER.debug('Encrypting data with %d bytes', len(data))
+
         ciphertext = self.fernet.encrypt(data)
         return ciphertext
 
-    def decrypt(self, ciphertext: bytes) -> bytes:
+    def encrypt_file(self, file_in: str, file_out: str,
+                     block_size: int = 1 << 16 - 4):
+        '''
+        Encrypts a file without Fernet needing to have the whole file in memory
+        '''
+
+        # based on https://stackoverflow.com/questions/69312922/how-to-encrypt-large-file-using-python      # noqa: E501
+        with open(file_in, 'rb') as fd_in, open(file_out, 'wb') as fd_out:
+            while True:
+                chunk = fd_in.read(block_size)
+                if len(chunk) == 0:
+                    break
+                encrypted = self.encrypt(chunk, with_logging=False)
+                fd_out.write(struct.pack('<I', len(encrypted)))
+                fd_out.write(encrypted)
+                if len(chunk) < block_size:
+                    break
+
+        _LOGGER.debug(f'Encrypted {file_in} to {file_out}')
+
+    def decrypt(self, ciphertext: bytes, with_logging=True) -> bytes:
         '''
         Decrypts the ciphertext
 
-        :param ciphertext : data to be encrypted
+        :param ciphertext: data to be encrypted
+        :param with_logging: write debug logging, for use by decrypt_file()
         :returns: encrypted data
         :raises: KeyError if no shared secret was generated
                                   or loaded for this instance of Secret
@@ -94,9 +119,27 @@ class DataSecret(Secret):
             raise KeyError('No shared secret available to decrypt')
 
         data = self.fernet.decrypt(ciphertext)
-        _LOGGER.debug('Decrypted data with %d bytes', len(data))
+        if with_logging:
+            _LOGGER.debug('Decrypted data with %d bytes', len(data))
 
         return data
+
+    def decrypt_file(self, file_in: str, file_out: str):
+        '''
+        Decrypts a file without Fernet needing to have the whole file in memory
+        '''
+
+        # based on https://stackoverflow.com/questions/69312922/how-to-encrypt-large-file-using-python      # noqa: E501
+        with open(file_in, 'rb') as fd_in, open(file_out, 'wb') as fd_out:
+            while True:
+                size_data = fd_in.read(4)
+                if len(size_data) == 0:
+                    break
+                chunk = fd_in.read(struct.unpack('<I', size_data)[0])
+                decrypted = self.decrypt(chunk, with_logging=False)
+                fd_out.write(decrypted)
+
+        _LOGGER.debug(f'Decrypted {file_in} to {file_out}')
 
     def create_shared_key(self, target_secret=None):
         '''

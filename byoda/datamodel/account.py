@@ -18,6 +18,8 @@ from byoda.datatypes import MemberStatus
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
+from byoda.datastore.querycache import QueryCache
+
 from byoda.datamodel.memberdata import MemberData
 
 from byoda.secrets import Secret
@@ -26,6 +28,9 @@ from byoda.secrets import DataSecret
 from byoda.secrets import AccountDataSecret
 from byoda.secrets import NetworkAccountsCaSecret
 from byoda.secrets import MembersCaSecret
+
+from byoda.storage.filestorage import FileStorage
+from byoda.storage import FileMode
 
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
@@ -104,6 +109,8 @@ class Account:
 
         await self.create_account_secret(accounts_ca, renew=renew)
         await self.create_data_secret(accounts_ca, renew=renew)
+        self.data_secret.create_shared_key()
+        await self.save_protected_shared_key()
 
     async def create_account_secret(self,
                                     accounts_ca: NetworkAccountsCaSecret
@@ -217,6 +224,39 @@ class Account:
 
         return secret
 
+    async def load_protected_shared_key(self) -> None:
+        '''
+        Reads the protected symmetric key from file storage. Support
+        for changing symmetric keys is currently not supported.
+        '''
+
+        filepath = self.paths.get(
+            self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE
+        )
+
+        try:
+            protected = await self.document_store.backend.read(
+                filepath, file_mode=FileMode.BINARY
+            )
+            self.data_secret.load_shared_key(protected)
+        except OSError:
+            _LOGGER.error(
+                f'Can not read the account protected shared key: {filepath}',
+            )
+            raise
+
+    async def save_protected_shared_key(self) -> None:
+        '''
+        Saves the protected symmetric key
+        '''
+
+        filepath = self.paths.get(self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE)
+
+        await self.document_store.backend.write(
+            filepath, self.data_secret.protected_shared_key,
+            file_mode=FileMode.BINARY
+        )
+
     async def load_secrets(self):
         '''
         Loads the secrets for the account
@@ -231,6 +271,9 @@ class Account:
             self.account, self.account_id, self.network
         )
         await self.data_secret.load(password=self.private_key_password)
+
+        # account shared key is required to encrypt the backups
+        await self.load_protected_shared_key()
 
     def create_jwt(self, expiration_days: int = 365) -> JWT:
         '''
@@ -265,7 +308,7 @@ class Account:
 
         memberships = await self.get_memberships()
 
-        _LOGGER.debug(f'Loading {len(memberships)} memberships')
+        _LOGGER.debug(f'Loading {len(memberships or [])} memberships')
 
         for membership in memberships.values() or {}:
             member_id: UUID = membership['member_id']
@@ -290,7 +333,7 @@ class Account:
         data_store: DataStore = config.server.data_store
         memberships = await data_store.backend.get_memberships(status)
         _LOGGER.debug(
-            f'Got {len(memberships)} memberships with '
+            f'Got {len(memberships or [])} memberships with '
             f'status {status} from account DB'
         )
 
@@ -317,21 +360,26 @@ class Account:
                 member.member_id, member.service_id, member.schema
         )
 
-        await member.load_secrets()
         member.data = MemberData(member)
 
-        if service_id not in self.memberships:
-            await member.load_service_cacert()
-            await member.create_nginx_config()
+        if not member.tls_secret or not member.data_secret:
+            await member.load_secrets()
 
-        await member.data.load_protected_shared_key()
+        if not member.service_ca_certchain:
+            await member.load_service_cacert()
+
+        if not member.query_cache:
+            await member.create_query_cache()
+
+        if not member.data_secret.shared_key:
+            await member.data.load_protected_shared_key()
 
         self.memberships[service_id] = member
 
     async def join(self, service_id: int, schema_version: int,
+                   local_storage: FileStorage,
                    members_ca: MembersCaSecret = None, member_id: UUID = None,
-                   local_service_contract: str = None
-                   ) -> Member:
+                   local_service_contract: str = None) -> Member:
         '''
         Join a service for the first time
 
@@ -357,14 +405,31 @@ class Account:
             await service.examine_servicecontract(local_service_contract)
 
         member = await Member.create(
-            service, schema_version, self, member_id=member_id,
+            service, schema_version, self, local_storage, member_id=member_id,
             members_ca=members_ca,
             local_service_contract=local_service_contract
         )
 
         await member.load_service_cacert()
 
+        await member.load_secrets()
+
+        # Save secret to local disk as it is needed by ApiClient for
+        # registration
+        await member.tls_secret.save(
+            self.private_key_password, overwrite=True,
+            storage_driver=local_storage
+        )
+        member.tls_secret.save_tmp_private_key()
+
+        # Edge-case where pod already has a cert for the membership
+        if member.tls_secret.cert:
+            await member.update_registration()
+
+        member.query_cache = await QueryCache.create(member)
+
         await member.create_nginx_config()
+
         reload_gunicorn()
 
         self.memberships[service_id] = member

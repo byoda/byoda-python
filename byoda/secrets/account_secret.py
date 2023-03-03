@@ -65,7 +65,7 @@ class AccountSecret(Secret):
         self.id_type = IdType.ACCOUNT
 
     async def create_csr(self, account_id: UUID = None, renew: bool = False
-                   ) -> CertificateSigningRequest:
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
@@ -114,5 +114,13 @@ class AccountSecret(Secret):
         requests module can use it.
         '''
         return super().save_tmp_private_key(
-            filepath='/var/tmp/private-account.key'
+            filepath=self.get_tmp_private_key_filepath()
         )
+
+    def get_tmp_private_key_filepath(self) -> str:
+        '''
+        Gets the location where on local storage the unprotected private
+        key is stored
+        '''
+
+        return '/var/tmp/private-account.key'

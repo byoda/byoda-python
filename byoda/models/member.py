@@ -29,7 +29,7 @@ class MemberResponseModel(BaseModel):
     private_key: str
 
     def __repr__(self):
-        return('<MemberResponseModel={service_id: int, version: int}>')
+        return ('<MemberResponseModel={service_id: int, version: int}>')
 
     def as_dict(self):
         return {
@@ -53,7 +53,7 @@ class MemberRequestModel(BaseModel):
     version: int
 
     def __repr__(self):
-        return(
+        return (
             '<MemberRequestModel={service_id: int, version: int}>'
         )
 
@@ -69,7 +69,7 @@ class UploadResponseModel(BaseModel):
     location: str
 
     def __repr__(self):
-        return(
+        return (
             '<UploadResponseModel={service_id: int, location: str}>'
         )
 

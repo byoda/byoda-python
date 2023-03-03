@@ -241,15 +241,17 @@ class NetworkDataAccessRight(DataAccessRight):
 
         if auth.member_id:
             network_links = await member.load_network_links()
-            _LOGGER.debug(f'Found total of {len(network_links)} network links')
+            _LOGGER.debug(
+                f'Found total of {len(network_links or [])} network links'
+            )
             network = [
-                link for link in network_links
+                link for link in network_links or []
                 if (link['member_id'] == auth.member_id
                     and (not self.relations or
                     link['relation'].lower() in self.relations))
             ]
 
-        _LOGGER.debug(f'Found {len(network)} applicable network links')
+        _LOGGER.debug(f'Found {len(network or [])} applicable network links')
 
         if len(network):
             _LOGGER.debug('Network authorization successful')

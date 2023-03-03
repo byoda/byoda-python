@@ -42,15 +42,15 @@ from byoda.data_import.twitter import Twitter
 
 from podserver.util import get_environment_vars
 
-from byoda.util.podworker.backup_datastore import \
-    backup_datastore  # noqa: F401
+from byoda.util.podworker.datastore_maintenance import \
+    backup_datastore, database_maintenance
 
 from byoda.util.podworker.twitter import fetch_tweets
 from byoda.util.podworker.twitter import twitter_update_task
 
 _LOGGER = None
 
-LOGFILE = '/var/www/wwwroot/logs/podworker.log'
+LOGFILE = '/var/www/wwwroot/logs/worker.log'
 ADDRESSBOOK_ID = 4294929430
 
 
@@ -69,7 +69,10 @@ async def main(argv):
     )
 
     try:
-        config.server = PodServer(cloud_type=CloudType(data['cloud']))
+        config.server = PodServer(
+            cloud_type=CloudType(data['cloud']),
+            bootstrapping=bool(data.get('bootstrap'))
+        )
         server = config.server
 
         await server.set_document_store(
@@ -84,12 +87,15 @@ async def main(argv):
         server.network = network
         server.paths = network.paths
 
-        await server.set_data_store(DataStoreType.SQLITE)
-
         account = Account(data['account_id'], network)
         await account.paths.create_account_directory()
+        await account.load_secrets()
 
         server.account = account
+
+        await server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
@@ -112,14 +118,17 @@ async def run_daemon_tasks(server: PodServer):
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
-        every(1).minutes.do(backup_datastore, server)
+        every(240).minutes.do(backup_datastore, server)
+
+    _LOGGER.debug('Scheduling Database maintenance tasks')
+    every(10).minutes.do(database_maintenance, server)
 
     await run_startup_tasks(server)
 
     while True:
         try:
             await run_pending()
-            await asyncio.sleep(5)
+            await asyncio.sleep(15)
         except Exception:
             _LOGGER.exception('Exception during run_pending')
 

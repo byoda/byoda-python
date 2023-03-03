@@ -27,6 +27,8 @@ from byoda.datatypes import StorageType
 from byoda.models import MemberResponseModel
 from byoda.models import UploadResponseModel
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda import config
 
 from byoda.servers.pod_server import PodServer
@@ -88,6 +90,7 @@ async def post_member(request: Request, service_id: int, version: int,
     await auth.authenticate()
 
     account: Account = config.server.account
+    local_storage: FileStorage = config.server.local_storage
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
@@ -107,7 +110,7 @@ async def post_member(request: Request, service_id: int, version: int,
 
     _LOGGER.debug(f'Joining service {service_id}')
     # TODO: restart the gunicorn webserver when we join a service
-    member = await account.join(service_id, version)
+    member = await account.join(service_id, version, local_storage)
 
     _LOGGER.debug(f'Returning info about joined service {service_id}')
     return member.as_dict()
@@ -145,13 +148,17 @@ async def put_member(request: Request, service_id: int, version: int,
 
     current_version = member.schema.version
     if current_version == version:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f'Already a member of service {service_id} with version '
-                f'{version}'
+        if member.tls_secret and member.tls_secret.cert:
+            await member.update_registration()
+            return member.as_dict()
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f'Already a member of service {service_id} with version '
+                    f'{version}'
+                )
             )
-        )
 
     if current_version > version:
         raise HTTPException(
@@ -216,6 +223,8 @@ async def put_member(request: Request, service_id: int, version: int,
         # BUG: any additional workers also need to join the service
         member.upgrade()
 
+    return member.as_dict()
+
 
 @router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',      # noqa: E501
              response_model=UploadResponseModel)
@@ -225,7 +234,8 @@ async def post_member_upload(request: Request, file: UploadFile,
                              auth: PodApiRequestAuth =
                              Depends(PodApiRequestAuth)):
     '''
-    Upload a file so it can be used as media for a post or tweet..
+    Upload a file so it can be used as media for a post or tweet.
+
     :param service_id: service_id of the service
     :param version: version of the service schema
     :raises: HTTPException 409

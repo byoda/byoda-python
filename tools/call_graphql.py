@@ -77,8 +77,6 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     config.server.paths = network.paths
 
-    await config.server.set_data_store(DataStoreType.SQLITE)
-
     return network_data
 
 
@@ -200,7 +198,7 @@ async def main(argv):
     graphql_url = f'{base_url}/v1/data/service-{service_id}'
     _LOGGER.debug(f'Using GraphQL URL: {graphql_url}')
 
-    vars = {}
+    vars = {'query_id': uuid4()}
     try:
         with open(args.data_file) as file_desc:
             _LOGGER.debug(f'Loading data from {args.data_file}')
@@ -235,7 +233,7 @@ async def main(argv):
     )
     try:
         result = await response.json()
-    except ValueError as exc:
+    except (ValueError, requests.exceptions.JSONDecodeError) as exc:
         await config.server.shutdown()
         _LOGGER.error(
             f'Failed to parse response: {exc}: {await response.text()}'

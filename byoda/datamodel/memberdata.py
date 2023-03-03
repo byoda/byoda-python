@@ -266,6 +266,8 @@ class MemberData(dict):
 
         :param service_id: the service being queried
         :param info: Info object with information about the GraphQL request
+        :param relations: relations to proxy the request to
+        :param timestam: the timestamp for the original request
         :param filters: filters to apply to the collected data
         :returns: the requested data
         '''
@@ -292,6 +294,9 @@ class MemberData(dict):
         # If an origin_member_id has been provided then we check
         # the signature
         auth: RequestAuth = info.context['auth']
+        if not await member.query_cache.set(query_id, auth.id):
+            raise ValueError('Duplicate query id')
+
         if origin_member_id or origin_signature or timestamp:
             try:
                 await GraphQlProxy.verify_signature(
@@ -361,8 +366,8 @@ class MemberData(dict):
                 # We need to insert origin_member_id, origin_signature
                 # and timestamp in the received query
                 all_data = await proxy.proxy_request(
-                    key, query, info, depth, relations,
-                    origin_member_id=origin_member_id,
+                    key, query, info, query_id, depth,
+                    relations, origin_member_id=origin_member_id,
                     origin_signature=origin_signature,
                     timestamp=timestamp
                 )
@@ -370,7 +375,7 @@ class MemberData(dict):
                 # origin_member_id, origin_signature and timestamp must
                 # already be set
                 all_data = await proxy.proxy_request(
-                    key, query, info, depth, relations
+                    key, query, info, query_id, depth, relations
                 )
 
             _LOGGER.debug(
@@ -542,6 +547,7 @@ class MemberData(dict):
         Appends the provided data
 
         :param service_id: Service ID for which the GraphQL API was called
+        :param remote_member_id: member_id that submitted the request
         :param info: the Strawberry 'info' variable
         '''
 

@@ -12,23 +12,28 @@ root-directory, ie.: /byoda/sqlite/<member_id>.db
 '''
 
 import os
+import shutil
 import logging
 from uuid import UUID
 from typing import TypeVar
 from datetime import datetime, timezone
 
 import aiosqlite
-from aiosqlite.core import Connection
 
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import CloudType
+
 from byoda.datamodel.sqltable import SqlTable
-from byoda.datamodel.datafilter import DataFilterSet
+
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.util.paths import Paths
 
 from byoda import config
 
+from .sql import Sql
+
+Account = TypeVar('Account')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
 PodServer = TypeVar('PodServer')
@@ -39,156 +44,7 @@ FileStorage = TypeVar('FileStorage')
 _LOGGER = logging.getLogger(__name__)
 
 BACKUP_FILE_EXTENSION: str = '.backup'
-
-# Generic type for SQL cursors. The value will be set by the constructor
-# of the class for the specific SQL engine, derived from the SQL class
-Cursor: type = None
-
-
-class Sql:
-    def __init__(self):
-        self.account_db_conn: Connection | None = None
-
-        self.member_db_conns: dict[str, Connection] = {}
-
-    def connection(self, member_id: UUID = None) -> Connection:
-        if not member_id:
-            con: Connection = self.account_db_conn
-
-            _LOGGER.debug('Using account DB connection')
-        else:
-            con: Connection = self.member_db_conns.get(
-                member_id
-            )
-            _LOGGER.debug(
-                f'Using member DB connection for member_id {member_id}'
-            )
-            if not con:
-                raise ValueError(f'No DB for member_id {member_id}')
-
-        return con
-
-    def cursor(self, member_id: UUID = None) -> aiosqlite.cursor.Cursor:
-        '''
-        Returns a cursor for the account DB or the member DB for the member_id,
-        if provided
-        '''
-
-        con = self.connection(member_id)
-        cur = con.cursor()
-        return cur
-
-    async def execute(self, command: str, member_id: UUID = None,
-                      data: dict[str, str | int | float | bool] = None,
-                      autocommit: bool = True, fetchall: bool = False
-                      ) -> Cursor:
-        '''
-        Executes the SQL command.
-
-        :param command: SQL command to execute
-        :parm member_id: member_id for the member DB to execute the command on
-        :param data: data to use for the named placeholders in the SQL command
-        :param autocommit: whether to commit the transaction after executing
-        :param fetchall: should rows be fetched and returned
-        :returns: if 'fetchall' is False, the Cursor to the result, otherwise
-        a list of rows
-        '''
-
-        # con = self.connection(member_id)
-
-        if member_id:
-            _LOGGER.debug(
-                f'Executing SQL for member {member_id}: {command} using '
-                f'SQL data file {self.member_data_files[member_id]}'
-            )
-            db_conn = await aiosqlite.connect(
-                self.member_data_files[member_id]
-            )
-        else:
-            _LOGGER.debug(
-                f'Executing SQL for account: {command} using '
-                f'SQL data file {self.account_db_conn}'
-            )
-            db_conn = await aiosqlite.connect(self.account_db_file)
-
-        db_conn.row_factory = aiosqlite.Row
-
-        try:
-            if not fetchall:
-                result = await db_conn.execute(command, data)
-            else:
-                result = await db_conn.execute_fetchall(command, data)
-
-            if autocommit:
-                _LOGGER.debug(
-                    f'Committing transaction for SQL command: {command}'
-                )
-                await db_conn.commit()
-            else:
-                _LOGGER.debug(f'Not SQL committing for SQL command {command}')
-
-            await db_conn.close()
-
-            return result
-        except aiosqlite.Error as exc:
-            await db_conn.rollback()
-            await db_conn.close()
-            _LOGGER.error(
-                f'Error executing SQL: {exc}')
-
-            raise RuntimeError(exc)
-
-    async def query(self, member_id: UUID, key: str,
-                    filters: DataFilterSet = None) -> dict[str, object]:
-        '''
-        Execute the query on the SqlTable for the member_id and key
-        '''
-
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.query(filters)
-
-    async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
-                     data_filter_set: DataFilterSet = None) -> int:
-        '''
-        Execute the mutation on the SqlTable for the member_id and key
-        '''
-
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.mutate(data, data_filter_set)
-
-    async def append(self, member_id: UUID, key: str, data: dict[str, object]):
-        '''
-        Execute the append on the SqlTable for the member_id and key
-        '''
-
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.append(data)
-
-    async def delete(self, member_id: UUID, key: str,
-                     data_filter_set: DataFilterSet = None) -> int:
-        '''
-        Execute the delete on the SqlTable for the member_id and key
-        '''
-
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.delete(data_filter_set)
-
-    async def read(self, member: Member, class_name: str,
-                   filters: DataFilterSet):
-        '''
-        Reads all the data for a membership
-        '''
-
-        return await self.query(member.id, class_name, filters)
-
-    async def write(self, member: Member):
-        '''
-        Writes all the data for a membership
-        '''
-
-        raise NotImplementedError(
-            'No write method implemented for Sql storage'
-        )
+PROTECTED_FILE_EXTENSION: str = '.protected'
 
 
 class SqliteStorage(Sql):
@@ -197,59 +53,105 @@ class SqliteStorage(Sql):
 
         server = config.server
         self.paths: Paths = server.network.paths
-        data_dir = (
+        self.data_dir: str = (
             self.paths.root_directory + '/' +
             self.paths.get(Paths.ACCOUNT_DATA_DIR)
         )
-        self.data_dir = data_dir
-        os.makedirs(data_dir, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
 
-        self.account_db_file: str = f'{data_dir}/account.db'
+        self.account_db_file: str = f'{self.data_dir}/account.db'
 
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
-        self.member_data_files: dict[UUID, str] = {}
+        self.member_db_files: dict[UUID, str] = {}
 
-        global Cursor
-        Cursor = aiosqlite.Cursor
-
-    async def setup(server: PodServer):
+    async def setup(server: PodServer, data_secret: DataSecret):
         '''
-        Factory for SqliteStorage class
+        Factory for SqliteStorage class. This method restores the account DB
+        and membership DBs from the cloud if no loccal copy exists, except if
+        we are not running in the cloud
+
+        :param server: PodServer instance
+        :param data_secret: secret to decrypt the protected shared key used
+        to encrypt backups of the Sqlite3 DB files
         '''
 
         sqlite = SqliteStorage()
 
-        db_downloaded: bool = False
-        if (server.cloud != CloudType.LOCAL
-                and
-                not await server.local_storage.exists(sqlite.account_db_file)):
-            _LOGGER.debug('Account DB file does not exist locally')
-            db_downloaded = True
+        _LOGGER.debug(
+            f'Setting up SqliteStorage for cloud {server.cloud.value}'
+        )
 
-            doc_store: DocumentStore = server.document_store
+        if await server.local_storage.exists(sqlite.account_db_file):
+            _LOGGER.debug('Local account DB file exists')
+        else:
+            if server.cloud == CloudType.LOCAL:
+                _LOGGER.debug(
+                    'Not checking for backup as we are not in the cloud'
+                )
+                await sqlite._create_account_db()
+            else:
+                if await sqlite._prep_account_db_file(
+                        server, data_secret):
+                    await sqlite.restore_member_db_files(server)
+        _LOGGER.debug(
+            f'Using account DB file {sqlite.account_db_file}'
+        )
 
-            cloud_file_store: FileStorage = doc_store.backend
+        return sqlite
 
-            cloud_filepath = (
-                sqlite.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
-                os.path.basename(sqlite.account_db_file)
+    async def _prep_account_db_file(self, server: PodServer,
+                                    data_secret: DataSecret) -> bool:
+        '''
+        Downloads the Account DB from the cloud if it exists, otherwise
+        creates a new Account DB
+
+        :param server: PodServer instance
+        :param data_secret: secret to decrypt the protected shared key used
+        to encrypt backups of the Sqlite3 DB files
+        :returns: True if the account DB file was restored from the cloud
+        '''
+
+        _LOGGER.debug('Account DB file does not exist locally')
+        doc_store: DocumentStore = server.document_store
+        cloud_file_store: FileStorage = doc_store.backend
+
+        cloud_filepath = (
+            self.paths.get(Paths.ACCOUNT_DATA_DIR) + '/' +
+            os.path.basename(self.account_db_file) +
+            PROTECTED_FILE_EXTENSION
+        )
+
+        if await cloud_file_store.exists(cloud_filepath):
+            _LOGGER.info(
+                f'Restoring account DB file {cloud_filepath} from '
+                'cloud'
             )
-            if await cloud_file_store.exists(cloud_filepath):
-                _LOGGER.info('Restoring account DB file from cloud')
-                await sqlite.restore_db_file(
-                    sqlite.account_db_file, cloud_filepath, cloud_file_store
+            await self.restore_db_file(
+                cloud_filepath, self.account_db_file,
+                cloud_file_store, data_secret
+            )
+            return True
+        else:
+            if (server.bootstrapping):
+                _LOGGER.debug(
+                    f'Protected backup file {cloud_filepath} does not '
+                    f'exist in cloud {server.cloud.value}, will create '
+                    'new account DB'
+                )
+                await self._create_account_db()
+                return False
+            else:
+                raise RuntimeError(
+                    'No account DB file found on local file system '
+                    'and we are not bootstrapping'
                 )
 
-        _LOGGER.debug(
-            'Opening or creating account DB file {sqlite.account_db_file}'
-        )
-        sqlite.account_db_conn = await aiosqlite.connect(
-            sqlite.account_db_file
-        )
+    async def _create_account_db(self):
+        '''
+        Creates the Account DB file and sets the journal mode to WAL
+        '''
 
-        sqlite.account_db_conn.row_factory = aiosqlite.Row
-
-        await sqlite.execute('''
+        await self.execute('''
             CREATE TABLE IF NOT EXISTS memberships(
                 member_id TEXT,
                 service_id INTEGER,
@@ -257,23 +159,16 @@ class SqliteStorage(Sql):
                 status TEXT
             ) STRICT
         ''')    # noqa: E501
-
-        if db_downloaded:
-            await sqlite.restore_member_db_files(server)
-
-        return sqlite
+        await self.execute('PRAGMA journal_mode=WAL')
+        _LOGGER.debug(f'Created Account DB {self.account_db_file}')
 
     async def close(self):
         '''
-        Close all connections to Sqlite files. This method must
-        be called upon shutdown of the server as otherwise the
-        'asyncio' event loop will not exit
+        This is a empty method as we do not maintain any open connections
+        for Sqlite3
         '''
 
-        await self.account_db_conn.close()
-
-        for conn in self.member_db_conns.values():
-            await conn.close()
+        pass
 
     async def backup_datastore(self, server: PodServer):
         '''
@@ -287,6 +182,8 @@ class SqliteStorage(Sql):
         if server.cloud == CloudType.LOCAL:
             raise ValueError('Cannot backup to local storage')
 
+        data_secret: DataSecret = server.account.data_secret
+
         data_store: DataStore = server.data_store
         cloud_file_store: FileStorage = server.document_store.backend
 
@@ -298,17 +195,18 @@ class SqliteStorage(Sql):
                 os.path.basename(data_store.backend.account_db_file)
             )
             await self.backup_db_file(
-                local_file, cloud_filepath, cloud_file_store,
-                self.account_db_conn
+                local_file, cloud_filepath, cloud_file_store, data_secret
             )
-        except PermissionError:
+        except FileNotFoundError:
             _LOGGER.debug(
-                f'Not restoring account DB as local copy exists: {local_file}'
+                'Not backing up account DB as local file does not exist: '
+                f'{local_file}'
             )
 
-        await self.backup_member_db_files(server)
+        await self.backup_member_db_files(server, data_secret)
 
-    async def backup_member_db_files(self, server: PodServer):
+    async def backup_member_db_files(self, server: PodServer,
+                                     data_secret: DataSecret):
         '''
         Backs up the database files for all memberships
         '''
@@ -316,6 +214,8 @@ class SqliteStorage(Sql):
         cloud_file_store: FileStorage = server.document_store.backend
 
         memberships: list[dict[str, object]] = await self.get_memberships()
+        _LOGGER.debug(f'Backing up {len (memberships)} membership DB files')
+
         for membership in memberships.values():
             cloud_member_data_file = self.get_member_data_filepath(
                 membership['member_id'], membership['service_id'],
@@ -329,7 +229,7 @@ class SqliteStorage(Sql):
             try:
                 await self.backup_db_file(
                     local_member_data_file, cloud_member_data_file,
-                    cloud_file_store
+                    cloud_file_store, data_secret
                 )
             except FileNotFoundError:
                 _LOGGER.warning(
@@ -338,7 +238,7 @@ class SqliteStorage(Sql):
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
                              cloud_file_store: FileStorage,
-                             conn: aiosqlite.Connection = None):
+                             data_secret: DataSecret):
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -347,6 +247,10 @@ class SqliteStorage(Sql):
         '''
 
         backup_file = f'{local_file}{BACKUP_FILE_EXTENSION}'
+        protected_local_backup_file = \
+            f'{backup_file}{PROTECTED_FILE_EXTENSION}'
+
+        _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
 
         if not os.path.exists(local_file):
             raise FileNotFoundError(
@@ -358,32 +262,74 @@ class SqliteStorage(Sql):
             backup_time = os.path.getmtime(backup_file)
             if file_time <= backup_time:
                 _LOGGER.debug(
-                    f'Not backing up {local_file} as it has not changed'
+                    f'Not backing up {local_file} as it has not changed: '
+                    f'{file_time} <= {backup_time}'
                 )
-            return
+                return
 
-        _LOGGER.debug(f'Backing up {local_file} to {cloud_file}')
-
-        if conn:
-            # If conn paraneter is passed, we use the connection
-            local_conn = conn
-        else:
-            # If conn paraneter is not passed, we open a new connection
-            # and we'll close it as well.
-            local_conn = await aiosqlite.connect(local_file)
-
+        # If conn paraneter is not passed, we open a new connection
+        # and we'll close it as well.
+        local_conn = await aiosqlite.connect(local_file)
         backup_conn = await aiosqlite.connect(backup_file)
-        await local_conn.backup(backup_conn)
+        await local_conn.execute('pragma synchronous = normal')
+        await backup_conn.execute('pragma synchronous = normal')
+
+        try:
+            await local_conn.backup(backup_conn)
+            await backup_conn.execute('PRAGMA wal_checkpoint(FULL)')
+            _LOGGER.debug(f'Successfully created backup of {backup_file}')
+        except Exception:
+            _LOGGER.exception('Failed to backup database')
+
         await backup_conn.close()
+        await local_conn.close()
 
-        if not conn:
-            await local_conn.close()
+        data_secret.encrypt_file(backup_file, protected_local_backup_file)
 
-        with open(backup_file, 'rb') as file_desc:
+        with open(protected_local_backup_file, 'rb') as file_desc:
+            cloud_file += PROTECTED_FILE_EXTENSION
             await cloud_file_store.write(cloud_file, file_descriptor=file_desc)
+            _LOGGER.debug(f'Saved backup to cloud: {cloud_file}')
 
-    async def restore_db_file(self, local_file: str, cloud_file: str,
-                              cloud_file_store: FileStorage):
+        os.remove(protected_local_backup_file)
+
+    async def restore_member_db_files(self, server: PodServer):
+        '''
+        Downloads all the member DB files from the cloud
+        '''
+
+        paths: Paths = server.paths
+        account_data_secret: DataSecret = server.account.data_secret
+        doc_store: DocumentStore = server.document_store
+        cloud_file_store: FileStorage = doc_store.backend
+
+        memberships: list[dict[str, object]] = await self.get_memberships()
+        for membership in memberships.values():
+            service_id = membership['service_id']
+            member_id: UUID = membership['member_id']
+            cloud_member_data_file = self.get_member_data_filepath(
+                member_id, service_id, paths,
+                local=False
+            )
+            cloud_member_data_file += PROTECTED_FILE_EXTENSION
+
+            local_member_data_file = self.get_member_data_filepath(
+                member_id, service_id, paths, local=True
+            )
+
+            try:
+                await self.restore_db_file(
+                    cloud_member_data_file, local_member_data_file,
+                    cloud_file_store, account_data_secret
+                )
+            except FileNotFoundError:
+                _LOGGER.warning(
+                    f'Did not find cloud data file {cloud_member_data_file}'
+                )
+
+    async def restore_db_file(self, cloud_file: str, local_file: str,
+                              cloud_file_store: FileStorage,
+                              account_data_secret: DataSecret):
         '''
         Restores the a database file from the cloud
 
@@ -407,48 +353,22 @@ class SqliteStorage(Sql):
         # TODO: create non-blocking copy from cloud to local in FileStorage()
         data = await cloud_file_store.read(cloud_file)
 
+        protected_file = local_file + PROTECTED_FILE_EXTENSION
+        with open(protected_file, 'wb') as file_desc:
+            file_desc.write(data)
+
         # Create a backup locally as it will prevent the unmodified
         # database from being backed up to the cloud
         backup_file = local_file + BACKUP_FILE_EXTENSION
-        with open(backup_file, 'wb') as file_desc:
-            file_desc.write(data)
+        account_data_secret.decrypt_file(protected_file, backup_file)
 
         # Only now create the database file so it will not be
         # newer than the backup file
-        with open(local_file, 'wb') as file_desc:
-            file_desc.write(data)
+        _LOGGER.debug(f'Copying {backup_file} to {local_file}')
+        shutil.copy2(backup_file, local_file)
 
-    async def restore_member_db_files(self, server: PodServer):
-        '''
-        Downloads all the member DB files from the cloud
-        '''
-
-        doc_store: DocumentStore = server.document_store
-
-        paths: Paths = server.paths
-
-        cloud_file_store: FileStorage = doc_store.backend
-
-        memberships: list[dict[str, object]] = await self.get_memberships()
-        for membership in memberships.values():
-            cloud_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
-                local=False
-            )
-            local_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'], paths,
-                local=True
-            )
-
-            try:
-                await self.restore_db_file(
-                    local_member_data_file, cloud_member_data_file,
-                    cloud_file_store
-                )
-            except FileNotFoundError:
-                _LOGGER.warning(
-                    f'Did not find cloud data file {cloud_member_data_file}'
-                )
+        _LOGGER.debug(f'Deleting downloaded protected file {protected_file}')
+        os.remove(protected_file)
 
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:
@@ -459,10 +379,10 @@ class SqliteStorage(Sql):
 
         server: Paths = config.server
         paths: Paths = server.network.paths
-        member_data_file = self.get_member_data_filepath(
+        member_db_file = self.get_member_data_filepath(
             member_id, service_id, paths, local=True)
 
-        member_data_dir = os.path.dirname(member_data_file)
+        member_data_dir = os.path.dirname(member_db_file)
 
         if not os.path.exists(member_data_dir):
             os.makedirs(member_data_dir, exist_ok=True)
@@ -470,13 +390,13 @@ class SqliteStorage(Sql):
                 f'Created member db data directory {member_data_dir}'
             )
 
-        # this will create the DB file if it doesn't exist already
-        member_db_conn = await aiosqlite.connect(member_data_file)
-        member_db_conn.row_factory = aiosqlite.Row
-
-        self.member_db_conns[member_id] = member_db_conn
-        self.member_data_files[member_id]: str = member_data_file
+        self.member_db_files[member_id]: str = member_db_file
         self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
+
+        # this will create the DB file if it doesn't exist already
+        async with aiosqlite.connect(member_db_file) as db_conn:
+            # This ensures that the Sqlite3 DB uses WAL
+            await db_conn.execute('PRAGMA journal_mode = WAL')
 
         await self.set_membership_status(
             member_id, service_id, MemberStatus.ACTIVE
@@ -583,6 +503,9 @@ class SqliteStorage(Sql):
         if status:
             query += f'WHERE status = "{status.value}" '
 
+        if not os.path.exists(self.account_db_file):
+            return {}
+
         rows = await self.execute(query, fetchall=True)
 
         memberships: dict[str, object] = {}
@@ -617,3 +540,31 @@ class SqliteStorage(Sql):
         )
 
         return memberships_status
+
+    async def maintain(self, server: PodServer):
+        '''
+        Performs maintenance on the membership Sqlite DB files.
+        '''
+
+        memberships: list[dict[str, object]] = await self.get_memberships()
+        _LOGGER.debug(
+            f'Performing Sqlit3 DB maintenance on {len(memberships)} DB files'
+        )
+
+        for membership in memberships.values():
+            member_data_file = self.get_member_data_filepath(
+                membership['member_id'], membership['service_id'],
+                server.paths, local=True
+            )
+
+            try:
+                async with aiosqlite.connect(member_data_file) as db_conn:
+                    await db_conn.execute('PRAGMA wal_checkpoint(FULL)')
+                    _LOGGER.debug(
+                        f'Finished WAL checkpointing on {member_data_file}'
+                    )
+            except Exception as exc:
+                _LOGGER.warning(
+                    'Could not checkpoint Sqlite3 DB file '
+                    f'{member_data_file}: {exc}'
+                )

@@ -54,17 +54,23 @@ if [[ "$?" != "0" ]]; then
     FAILURE=1
 fi
 
-if [ "${WORKERS}" = "" ]; then
-    # BUG: multiple workers will not pick up on new memberships
-    # so we set workers to 1
-    export WORKERS=1
+if [[ -z "${FAILURE}" ]]; then
+    echo "Starting bootstrap for podserver"
+    pipenv run podserver/bootstrap.py
+
+    if [[ "$?" != "0" ]]; then
+        echo "Bootstrap failed"
+        FAILURE=1
+    else
+        echo "Bootstrap exited successfully"
+    fi
 fi
 
 if [[ -z "${FAILURE}" ]]; then
     echo "Starting podworker"
     # podworker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
-    pipenv run podserver/podworker.py 2>/var/www/wwwroot/logs/podworker-stderr.log 1>/var/www/wwwroot/logs/podworker-stdout.log &
+    nice -20 pipenv run podserver/podworker.py 2>/var/www/wwwroot/logs/worker-stderr.log 1>/var/www/wwwroot/logs/worker-stdout.log &
 
     if [[ "$?" != "0" ]]; then
         echo "Podworker failed"
@@ -74,12 +80,19 @@ if [[ -z "${FAILURE}" ]]; then
     fi
 fi
 
+if [ "${WORKERS}" = "" ]; then
+    # BUG: multiple workers will not pick up on new memberships
+    # so we set workers to 1
+    export WORKERS=1
+fi
+
 if [[ -z "${FAILURE}" ]]; then
     # location of pid file is used by byoda.util.reload.reload_gunicorn
     rm -rf /var/run/podserver.pid
     echo "Starting the web application server"
     pipenv run python3 -m gunicorn -p /var/run/podserver.pid --error-logfile /var/www/wwwroot/logs/gunicorn-error.log --access-logfile /var/www/wwwroot/logs/gunicorn-access.log -c gunicorn.conf.py podserver.main:app
     if [[ "$?" != "0" ]]; then
+        echo "Failed to start the application server"
         FAILURE=1
     fi
 fi

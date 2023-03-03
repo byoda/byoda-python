@@ -11,8 +11,11 @@ Test cases for secrets
 import sys
 import os
 import shutil
+import secrets
+import filecmp
 import unittest
 from copy import copy
+from random import randint
 from datetime import datetime, timedelta
 
 from cryptography import x509
@@ -99,10 +102,16 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await account.paths.create_account_directory()
 
         config.server.account = account
-        await config.server.set_data_store(DataStoreType.SQLITE)
+
+        config.server.bootstrapping: bool = True
+
+        await account.create_secrets(network.accounts_ca)
+
+        await config.server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
 
         # await account.load_memberships()
-        await account.create_secrets(network.accounts_ca)
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
 
@@ -142,7 +151,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await account.create_secrets(network.accounts_ca)
 
         config.server.account = account
-        await config.server.set_data_store(DataStoreType.SQLITE)
+        config.server.bootstrapping: bool = True
+        await config.server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)
@@ -178,7 +190,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         target_account_id = get_test_uuid()
         target_account = Account(target_account_id, network, account='test')
         await target_account.paths.create_account_directory()
-        # await target_account.load_memberships()
         await target_account.create_secrets(network.accounts_ca)
 
         account.data_secret.create_shared_key(target_account.data_secret)
@@ -201,6 +212,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data, passwords)
 
         await account.create_secrets(network.accounts_ca, renew=True)
+
+        # Test data encryption of large files
+        source_file = TEST_DIR + 'bulk_data'
+        with open(source_file, 'wb') as file_desc:
+            data = secrets.token_bytes((1 << 21) - randint(1, 1 << 10))
+            file_desc.write(data)
+
+        protected_file = source_file + '.protected'
+        out_file = source_file + '.out'
+
+        data_secret = account.data_secret
+        data_secret.create_shared_key()
+        data_secret.encrypt_file(source_file, protected_file)
+        data_secret.decrypt_file(protected_file, out_file)
+        compare_check = filecmp.cmp(source_file, out_file)
+        self.assertTrue(compare_check)
 
     async def test_message_signature(self):
         # Test creation of the CA hierarchy

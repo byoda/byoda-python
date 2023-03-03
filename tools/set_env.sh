@@ -15,7 +15,7 @@ export PYTHONPATH=$PYTHONPATH:$(pwd):~/byoda-python:~/src/byoda-python:/root/byo
 export NETWORK="byoda.net"
 
 export ROOT_CA=/byoda/network-$NETWORK/network-$NETWORK-root-ca-cert.pem
-export PASSPHRASE=$(grep PRIVATE_KEY_SECRET ~/docker-launch.sh  | head -1 | cut -f 2 -d '=' | sed 's|"||g')
+export PASSPHRASE=$(grep PRIVATE_KEY_SECRET ~/byoda-settings.sh  | head -1 | cut -f 2 -d '=' | sed 's|"||g')
 
 export ACCOUNT_CERT=/byoda/network-byoda.net/account-pod/pod-cert.pem
 export ACCOUNT_KEY=/byoda/private/network-byoda.net-account-pod.key
@@ -29,7 +29,7 @@ export ACCOUNT_ID=$( \
 )
 export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
 export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
-export ACCOUNT_PASSWORD=$(grep ACCOUNT_SECRET ~/docker-launch.sh | head -1 | cut -f 2 -d '=' | sed 's|"||g')
+export ACCOUNT_PASSWORD=$(grep ACCOUNT_SECRET ~/byoda-settings.sh | head -1 | cut -f 2 -d '=' | sed 's|"||g')
 
 echo "Setting:"
 echo "ROOT CA cert                      : $ROOT_CA"
