@@ -54,7 +54,8 @@ if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
 fi
 ```
 
-- Copy and edit the tools/docker-launch.sh script and modify the following variables starting at line 42 of the script
+- Copy the tools/docker-launch.sh script
+- Copy and edit the tools/byoda-settings.sh script and modify the variables in the script
     - BUCKET_PREFIX
     - ACCOUNT_SECRET: set it to a long random string; it can be used as credential for browsing your pod
     - PRIVATE_KEY_SECRET: set it to a long random string; it will be used for the private keys that the pod will create
@@ -66,8 +67,8 @@ fi
 
 ```
 cd byoda-python
-cp tools/docker-launch.sh ~
-vi ~/docker-launch.sh
+cp tools/docker-launch.sh tools/byoda-settings.sh ~
+vi ~/byoda-settings.sh
 ```
 
 - Now run the docker-launch.sh script
