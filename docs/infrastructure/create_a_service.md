@@ -232,7 +232,20 @@ tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 sudo rm -f /var/tmp/service-${SERVICE_ID}.key
 
 ## 6: Get the service up and running
-These instructions are assuming you've installed the service server on an distribution that uses systemd(8), ie. Debian, Ubuntu
+The service server can be run as a container
+```
+mkdir -p /var/log/byoda
+docker run -d   --name byoda-service \
+    --restart=unless-stopped \
+    -p 8010:8000 \
+    -e "LOGLEVEL=DEBUG" \
+    -e "WORKERS=2" \
+    -e "SERVER_NAME=service-${SERVICE_ID}.${BYODA_DOMAIN}" \
+    -v /var/log/byoda:/var/log/byoda \
+    -v ${SERVICE_DIR}:${SERVICE_DIR} \
+    -v ${BYODA_HOME}/byoda-python/config.yml:${BYODA_HOME}/byoda-python/config.yml \
+    byoda/byoda-service:latest
+
 
 ```
 NGINX_USER=www-data

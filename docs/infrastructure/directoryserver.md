@@ -205,13 +205,22 @@ sudo mkdir ${BYODA_HOME}
 sudo chown -R $USER:$USER ${BYODA_HOME}
 git clone https://github.com/StevenHessing/byoda-python
 cd byoda-python
-sudo cp docs/files/gunicorn-systemd /etc/systemd/system/dirserver.service
-sudo systemctl daemon-reload
-sudo systemctl enable dirserver
 cp config-sample.yml config.yml
 ```
+Edit the config.yml, including the connection string for your Postgres server and run the directory server in a container
+```
+docker run -d   --name byoda-directory \
+    --restart=unless-stopped \
+    -p 8000:8000 \
+    -e "LOGLEVEL=DEBUG" \
+    -e "WORKERS=2" \
+    -e "SERVER_NAME=dirserver.${BYODA_DOMAIN}" \
+    -v /var/log/byoda:/var/log/byoda \
+    -v ${BYODA_HOME}/dirserver:${BYODA_HOME}/dirserver \
+    -v ${BYODA_HOME}/byoda-python/config.yml:${BYODA_HOME}/byoda-python/config.yml \
+    byoda/byoda-directory:latest
+```
 
-Edit the config.yml, including the connection string for your Postgres server
 
 
 We install nginx as reverse proxy in for the directory server:
