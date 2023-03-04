@@ -86,7 +86,7 @@ vi ~/byoda-settings.sh
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it a.o. to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
 ## Using the pod with the 'Address Book' service
-The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the tools/call_graphql.py tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_envenv.sh](https://github.com/byoda/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
+The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the [tools/call_graphql.py](https://github.com/byoda/byoda-python/blob/master/tools/call_graphql.py) tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_env.sh](https://github.com/byoda/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 ```
 sudo mkdir /byoda 2>/dev/null
 sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
@@ -125,7 +125,7 @@ source tools/set_env.sh
 ```
 You will need the Member ID later on in this introduction. When the pod becomes a member of a service, it creates a namespace for that service so that data from different services is isolated and one service can not access the data of the other service, unless you explicitly allow it to.
 
-Querying and sumitting data to the pod uses the [GraphQL language](https://graphql.org/). As the GraphQL language has a learning curve, we provide the 'call-graphql.py' tool to initially interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
+Querying and sumitting data to the pod uses the [GraphQL language](https://graphql.org/). As the GraphQL language has a learning curve, we provide the [tools/call_graphql.py](https://github.com/byoda/byoda-python/blob/master/tools/call_graphql.py) tool to initially interact with data storage in the pod. Whenever you want to store or update data in the pod, you need to supply a JSON file to the tool so it can submit that data. So let's put some data about us in our pod
 
 ```
 cat >~/person.json <<EOF
@@ -173,11 +173,11 @@ and you'll see a bit more info than what you put in person.json as we only suppl
 
 As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested information. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is 'b8dc1bd4-fd92-443c-877b-66cc2e93086a'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '3d0fff6a-b043-430e-afb3-0e2995b69da5'
 ```
 cat >~/follow.json <<EOF
 {
-    "member_id": "b8dc1bd4-fd92-443c-877b-66cc2e93086a",
+    "member_id": "3d0fff6a-b043-430e-afb3-0e2995b69da5",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
@@ -191,13 +191,13 @@ The 'Address Book' service has unidirectional relations. So the fact that you fo
 cat >~invite.json <<EOF
 {
     "created_timestamp": "2022-07-04T14:50:26.451308+00:00",
-    "member_id": "a2e36bed-1bf8-4774-bc73-5f08a4bae27d",
+    "member_id": "<replace with your member_id>",
     "relation": "follow",
     "text": "Hey, why don't you follow me!"
 }
 EOF
 
-tools/call_graphql.py --object network_invites --action append --remote-member-id b8dc1bd4-fd92-443c-877b-66cc2e93086a --data-file ~invite.json --depth 1
+tools/call_graphql.py --object network_invites --action append --remote-member-id 3d0fff6a-b043-430e-afb3-0e2995b69da5 --data-file ~invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.

@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
 WORKDIR /opt/byoda
 
-HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
+# HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
@@ -51,13 +51,6 @@ ENV PYTHONPATH=/opt/byoda/byoda-python
 COPY . byoda-python/
 
 CMD  cd /opt/byoda/byoda-python && \
-    pipenv run python3 -m gunicorn \
-        -k uvicorn.workers.UvicornWorker \
-        --bind 0.0.0.0:8000  \
-        --proxy-allow-from '*' \
-        --forwarded-allow-ips '*' \
-        -p /var/run/svcserver.pid \
-        --error-logfile /var/log/byoda/gunicorn-service-error.log \
-        --access-logfile /var/log/byoda/gunicorn-service-access.log \
-        -c gunicorn.conf.py \
-        svcserver.main:app
+    pipenv run python3 svcserver/svcworker.py \
+        1> /var/log/byoda/svcworker-stdout.log \
+        2> /var/log/byoda/svcworker-error.log \
