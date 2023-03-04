@@ -282,5 +282,16 @@ openssl s_client -connect service.service-0.byoda.net:443 -CAfile root-ca.pem
 curl  https://service.service-0.byoda.net/network-byoda.net-service-0-data-cert.pem -o network-byoda.net-service-0-data-cert.pem --cacert root-ca.pem
 ```
 
+Now we need to install the service worker. The service worker collects information from the person object of members of the service and stores it in Redis. The service uses this data to host an API that allows you to find people based on their email address
+```
+mkdir -p /var/log/byoda
+docker run -d   --name byoda-serviceworker \
+    --restart=unless-stopped \
+    -e "LOGLEVEL=DEBUG" \
+    -v /var/log/byoda:/var/log/byoda \
+    -v ${SERVICE_DIR}:${SERVICE_DIR} \
+    byoda/byoda-serviceworker:latest
+```
+
 ### Developing the service
 The reference svcserver and the svcworker implement a pattern where the svcserver writes a member UUID to a Redis key whenever a pod registers the membership with the svcserver. The Redis key has a list as its value. The svcworker periodically takes a member UUID from the head of the list and pushes it to the back of the list. The svcworker can then query data from the pod of that member and store any data listed as cachable in the service contract in Redis
