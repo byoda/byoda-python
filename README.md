@@ -68,8 +68,6 @@ fi
 ```
 sudo mkdir /byoda 2>/dev/null
 cd byoda-python
-sudo pip3 install pipenv
-pipenv install
 cp tools/docker-launch.sh tools/byoda-settings.sh ~
 vi ~/byoda-settings.sh
 ```
@@ -145,6 +143,8 @@ cat >~/person.json <<EOF
 }
 EOF
 
+sudo pip3 install pipenv
+pipenv install
 pipenv run tools/call_graphql.py --object person --action mutate --data-file ~/person.json
 ```
 
@@ -210,7 +210,7 @@ cat >~invite.json <<EOF
 }
 EOF
 
-pipenv run tools/call_graphql.py --object network_invites --action append --remote-member-id 94f23c4b-1721-4ffe-bfed-90f86d07611a --data-file ~invite.json --depth 1
+pipenv run tools/call_graphql.py --object network_invites --action append --remote-member-id 94f23c4b-1721-4ffe-bfed-90f86d07611a --data-file ~/invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.
