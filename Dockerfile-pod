@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y \
         libffi-dev \
         python3-dev \
         libpq-dev \
+        lib-nng1 \
         nginx \
         sqlite3 \
         libaugeas0 \

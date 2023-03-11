@@ -284,7 +284,8 @@ class SchemaDataScalar(SchemaDataItem):
         super().__init__(class_name, schema, schema_id)
 
         self.defined_class: bool = False
-
+        self.format: str = None
+        
         if self.type == DataType.STRING:
             self.format: str = self.schema.get('format')
             if self.format == 'date-time':

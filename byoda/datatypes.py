@@ -98,6 +98,9 @@ class CacheTech(Enum):
     REDIS       = 1
     SQLITE      = 2
 
+class PubSubTech(Enum):
+    NNG       = 1
+
 class StorageType(Enum):
     PRIVATE = 'private'
     PUBLIC = 'public'

@@ -16,6 +16,7 @@ from datetime import datetime
 from byoda.datatypes import DataType
 
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.dataclass import SchemaDataScalar
 from byoda.datamodel.datafilter import DataFilterSet
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,6 +99,18 @@ class SqlTable:
         stmt = stmt.rstrip(', ') + ') STRICT'
 
         await self.sql_store.execute(stmt, self.member_id)
+
+        for column in self.columns.values():
+            if (isinstance(column, SchemaDataScalar)
+                    and column.format == 'uuid'):
+                stmt = (
+                    f'CREATE INDEX BYODA_IDX_{self.table_name}_{column.name} '
+                    f' ON {self.table_name}({column.storage_name})'
+                )
+                await self.sql_store.execute(stmt, self.member_id)
+                _LOGGER.debug(
+                    f'Created index on {self.table_name}:{column.storage_name}'
+                )
 
     async def query(self, data_filter_set: DataFilterSet):
         '''

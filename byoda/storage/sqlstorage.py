@@ -1,8 +1,7 @@
 '''
-There is both a generic SQL class. The generic SQL class takes care
-of converting the data schema of a service to a SQL table. Classes
-for different SQL flavors and implementations should derive from
-this class
+The generic SQL class takes care of converting the data schema of
+a service to a SQL table. Classes for different SQL flavors and
+implementations should derive from this class
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023

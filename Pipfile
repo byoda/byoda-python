@@ -50,6 +50,10 @@ certbot = "*"
 aiosqlite = "*"
 fastjsonschema = "*"
 aioschedule = {git = "https://github.com/AleksHeller/python-aioschedule"}
+pynng = "*"
+setuptools = "==65.5.1"
+future = "*"
+wheel = "*"
 
 [dev-packages]
 flake8 = "*"
