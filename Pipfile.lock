@@ -1107,7 +1107,7 @@
                 "sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4",
                 "sha256:90b77e79eaa3eba6de819a0c442c0b4ceefc341a7a2ab77d7562bf49f425c5c2"
             ],
-            "markers": "python_full_version >= '3.5.0'",
+            "markers": "python_version >= '3.5'",
             "version": "==3.4"
         },
         "isodate": {
@@ -1423,7 +1423,7 @@
                 "sha256:032e81d534a88ec1736d03f780ba073f047a06c478b06e2937486f334e955c51",
                 "sha256:a07c5b4f3985c3cf4798369631fb7011adb498e2a46d8440efc75a8f29a0f983"
             ],
-            "markers": "python_full_version >= '3.5.0' and platform_system != 'Windows'",
+            "markers": "python_version >= '3.5' and platform_system != 'Windows'",
             "version": "==2.7.0"
         },
         "protobuf": {
