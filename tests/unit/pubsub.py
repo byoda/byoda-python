@@ -42,10 +42,6 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         connection_string = f'ipc:///{TEST_DIR}/test.ipc'
 
         data = {'test': 'test'}
-        # await pub.send(data)
-
-        # result = await sub.recv()
-        # self.assertEqual(data, result)
 
         with pynng.Pub0(listen=connection_string) as pub, \
                 pynng.Sub0(dial=connection_string) as sub:
@@ -56,8 +52,8 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             val = orjson.loads(result)
             self.assertEqual(data, val)
 
-        pub = PubSub.setup(PubSubTech.NNG, connection_string, True)
-        sub = PubSub.setup(PubSubTech.NNG, connection_string, False)
+        pub = PubSub.setup(connection_string, True, PubSubTech.NNG)
+        sub = PubSub.setup(connection_string, False, PubSubTech.NNG))
         async with pub, sub:
             await pub.send(data)
             val = await sub.recv()

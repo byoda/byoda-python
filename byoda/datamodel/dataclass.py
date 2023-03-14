@@ -23,6 +23,9 @@ from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
 
+from byoda.storage.pubsub import PubSub
+from byoda.storage.pubsub import PubSubTech
+
 from .dataaccessright import DataAccessRight
 
 
@@ -96,6 +99,11 @@ class SchemaDataItem:
         # under the root data item
         self.storage_name: str = None
         self.storage_type: str = None
+
+        # The Pub/Sub for communicating changes to data using this class
+        # instance. Only used for SchemaDataArray instances
+        self.pubsub_writer: PubSub = None
+        self.pubsub_class: PubSub = None
 
         self.access_rights: list[DataAccessRight] = {}
 
@@ -285,7 +293,7 @@ class SchemaDataScalar(SchemaDataItem):
 
         self.defined_class: bool = False
         self.format: str = None
-        
+
         if self.type == DataType.STRING:
             self.format: str = self.schema.get('format')
             if self.format == 'date-time':
@@ -418,7 +426,15 @@ class SchemaDataArray(SchemaDataItem):
                  classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
 
+        self.pubsub_writer = PubSub.setup(class_name, send=True)
+        self.pubsub_reader = PubSub.setup(class_name, send=False)
+
         self.defined_class: bool = False
+
+        # The Pub/Sub for communicating changes to data using this class
+        # instance
+        self.pubsub_class: callable = None
+        self.pubsub_counter: callable = None
 
         items = schema.get('items')
         if not items:

@@ -9,6 +9,8 @@ this class
 :license    : GPLv3
 '''
 
+import os
+import shutil
 import logging
 
 import orjson
@@ -25,7 +27,8 @@ class PubSub:
         self.sender: bool = send
 
     @staticmethod
-    def setup(pubsub_tech: PubSubTech, connection_string: str, send: bool):
+    def setup(connection_string: str, send: bool,
+              pubsub_tech: PubSubTech = PubSubTech.NNG):
         '''
         Factory for PubSub
         '''
@@ -35,11 +38,48 @@ class PubSub:
         else:
             raise ValueError(f'Unknown PubSub tech: {pubsub_tech}')
 
+    @staticmethod
+    def get_connection_string() -> str:
+        '''
+        Returns the connection string
+        '''
+
+        raise NotImplementedError
+
+    @staticmethod
+    def cleanup():
+        '''
+        Cleans up any resources
+        '''
+
+        raise NotImplementedError
+
 
 class PubSubNng(PubSub):
     SEND_TIMEOUT = 100
     RECV_TIMEOUT = 3660
     SEND_BUFFER_SIZE = 100
+    PUBSUB_DIR = '/tmp/byoda-pubsub'
+
+    def __init__(self, class_name: str, send: bool):
+        '''
+        This class uses local special files for inter-process
+        communication. There is a file for:
+        - each server process
+        - each top-level data element of type 'array' in the service schema
+        for changes to the data in that array
+        - each top-level data element of type 'array' in the service schema
+        for counting the number of elements in the array
+
+        The filename format is:
+            <prefix>/<process-id>.byoda_<data-element-name>[-count]
+        '''
+
+        if not os.path.isdir(self.PUBSUB_DIR):
+            os.makedirs(self.PUBSUB_DIR, exist_ok=True)
+
+        connection_string = PubSubNng.get_connection_string(class_name)
+        super().__init__(connection_string, send)
 
     async def __aenter__(self):
         self.pub: pynng.Sub0 | None = None
@@ -59,6 +99,14 @@ class PubSubNng(PubSub):
             self.pub.close()
         else:
             self.sub.close()
+
+    @staticmethod
+    def get_connection_string(class_name: str) -> str:
+        return f'ipc://{PubSubNng.PUBSUB_DIR}/{os.getpid()}-BYODA-{class_name}'
+
+    @staticmethod
+    def cleanup():
+        shutil.rmtree(PubSubNng.PUBSUB_DIR, ignore_errors=True)
 
     async def send(self, data: object):
         if not self.pub:
