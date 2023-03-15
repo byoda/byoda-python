@@ -18,6 +18,7 @@ from strawberry.types import Info
 
 from byoda import config
 
+from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
@@ -540,6 +541,7 @@ class MemberData(dict):
 
         return object_count
 
+    @staticmethod
     async def append_data(service_id, info: Info,
                           remote_member_id: UUID | None = None,
                           depth: int = 0) -> int:
@@ -611,6 +613,13 @@ class MemberData(dict):
             object_count = await data_store.append(
                 member.member_id, key, mutate_data
             )
+
+            data_class: SchemaDataArray = member.schema.data_classes[key]
+            pubsub_class = data_class.pubsub_class
+            await pubsub_class.send({'append': mutate_data})
+
+            pubsub_counter = data_class.pubsub_counter
+            await pubsub_counter.send({'append': 1})
 
             return object_count
 

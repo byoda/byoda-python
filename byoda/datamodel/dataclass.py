@@ -102,8 +102,8 @@ class SchemaDataItem:
 
         # The Pub/Sub for communicating changes to data using this class
         # instance. Only used for SchemaDataArray instances
-        self.pubsub_writer: PubSub = None
-        self.pubsub_class: PubSub = None
+        self.pubsub_class: PubSub | None = None
+        self.pubsub_counter: PubSub | None = None
 
         self.access_rights: list[DataAccessRight] = {}
 
@@ -426,15 +426,12 @@ class SchemaDataArray(SchemaDataItem):
                  classes: dict) -> None:
         super().__init__(class_name, schema, schema_id)
 
-        self.pubsub_writer = PubSub.setup(class_name, send=True)
-        self.pubsub_reader = PubSub.setup(class_name, send=False)
-
         self.defined_class: bool = False
 
         # The Pub/Sub for communicating changes to data using this class
         # instance
-        self.pubsub_class: callable = None
-        self.pubsub_counter: callable = None
+        self.pubsub_class = PubSub.setup(class_name, send=True)
+        self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
 
         items = schema.get('items')
         if not items:

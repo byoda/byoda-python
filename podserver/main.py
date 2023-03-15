@@ -37,6 +37,8 @@ from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
+from byoda.storage.pubsub import PubSubNng
+
 from byoda.util.fastapi import setup_api, add_cors
 
 from .util import get_environment_vars
@@ -65,6 +67,11 @@ app = setup_api(
 
 @app.on_event('startup')
 async def setup():
+
+    # HACK: Deletes files from tmp directory. Possible race condition
+    # with other process so we do it right at the start
+    PubSubNng.cleanup()
+
     network_data = get_environment_vars()
 
     server: PodServer = PodServer(

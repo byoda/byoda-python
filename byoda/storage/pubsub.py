@@ -22,19 +22,23 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PubSub:
-    def __init__(self, connection_string: str, send: bool):
+    def __init__(self, connection_string: str, send: bool,
+                 work_dir: str = None):
         self.connection_string: str = connection_string
         self.sender: bool = send
+        self.pub: pynng.Pub0 | None = None
+        self.sub: pynng.Sub0 | None = None
 
     @staticmethod
     def setup(connection_string: str, send: bool,
-              pubsub_tech: PubSubTech = PubSubTech.NNG):
+              pubsub_tech: PubSubTech = PubSubTech.NNG,
+              work_dir: str = None):
         '''
         Factory for PubSub
         '''
 
         if pubsub_tech == PubSubTech.NNG:
-            return PubSubNng(connection_string, send)
+            return PubSubNng(connection_string, send, work_dir=work_dir)
         else:
             raise ValueError(f'Unknown PubSub tech: {pubsub_tech}')
 
@@ -61,7 +65,8 @@ class PubSubNng(PubSub):
     SEND_BUFFER_SIZE = 100
     PUBSUB_DIR = '/tmp/byoda-pubsub'
 
-    def __init__(self, class_name: str, send: bool):
+    def __init__(self, class_name: str, send: bool,
+                 work_dir: str = None):
         '''
         This class uses local special files for inter-process
         communication. There is a file for:
@@ -75,10 +80,17 @@ class PubSubNng(PubSub):
             <prefix>/<process-id>.byoda_<data-element-name>[-count]
         '''
 
-        if not os.path.isdir(self.PUBSUB_DIR):
-            os.makedirs(self.PUBSUB_DIR, exist_ok=True)
+        if work_dir:
+            self.work_dir = work_dir
+        else:
+            self.work_dir = PubSubNng.PUBSUB_DIR
 
-        connection_string = PubSubNng.get_connection_string(class_name)
+        if not os.path.isdir(self.work_dir):
+            os.makedirs(self.work_dir, exist_ok=True)
+
+        connection_string = PubSubNng.get_connection_string(
+            class_name, self.work_dir
+        )
         super().__init__(connection_string, send)
 
     async def __aenter__(self):
@@ -101,12 +113,26 @@ class PubSubNng(PubSub):
             self.sub.close()
 
     @staticmethod
-    def get_connection_string(class_name: str) -> str:
-        return f'ipc://{PubSubNng.PUBSUB_DIR}/{os.getpid()}-BYODA-{class_name}'
+    def get_connection_string(class_name: str, work_dir: str = None) -> str:
+        '''
+        Gets the file/path for the special file
+        '''
+
+        if not work_dir:
+            work_dir = PubSubNng.PUBSUB_DIR
+
+        return f'ipc://{work_dir}/{os.getpid()}-BYODA-{class_name}'
 
     @staticmethod
-    def cleanup():
-        shutil.rmtree(PubSubNng.PUBSUB_DIR, ignore_errors=True)
+    def cleanup(work_dir: str = None):
+        '''
+        Deletes the directory where the special files are stored
+        '''
+
+        if not work_dir:
+            work_dir = PubSubNng.PUBSUB_DIR
+
+        shutil.rmtree(work_dir, ignore_errors=True)
 
     async def send(self, data: object):
         if not self.pub:

@@ -22,12 +22,18 @@ from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.storage.pubsub import PubSubNng
+
 from podserver.util import get_environment_vars
 
 from tests.lib.util import get_test_uuid
 
 
 async def setup_network(test_dir: str) -> dict[str, str]:
+    # Deletes files from tmp directory. Possible race condition
+    # with other process so we do it right at the start
+    PubSubNng.cleanup()
+
     config.debug = True
 
     if test_dir:
