@@ -100,7 +100,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
@@ -143,7 +143,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
@@ -408,7 +408,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
 

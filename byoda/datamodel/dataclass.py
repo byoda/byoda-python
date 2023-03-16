@@ -428,21 +428,19 @@ class SchemaDataArray(SchemaDataItem):
 
         self.defined_class: bool = False
 
-        # The Pub/Sub for communicating changes to data using this class
-        # instance
-        self.pubsub_class = PubSub.setup(class_name, send=True)
-        self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
-
         items = schema.get('items')
         if not items:
             raise ValueError(
                 'Schema properties for array {class_name} does not have items '
                 'defined'
             )
+
         if 'type' in items:
+            # This is an array of scalars
             self.items = DataType(items['type'])
             self.referenced_class = SchemaDataItem.create(None, schema['items'], self.schema_id)
         elif '$ref' in items:
+            # This is an array of objects of the referenced class
             self.items = DataType.REFERENCE
             reference = items['$ref']
             url = urlparse(reference)
@@ -462,6 +460,12 @@ class SchemaDataArray(SchemaDataItem):
                     f'Unknown class {referenced_class} referenced by {class_name}'
                 )
             self.referenced_class = classes[referenced_class]
+
+            # The Pub/Sub for communicating changes to data using this class
+            # instance. We only track changes for arrays that reference
+            # another class
+            self.pubsub_class = PubSub.setup(class_name, send=True)
+            self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
         else:
             raise ValueError(
                 f'Array {class_name} must have "type" or "$ref" defined'

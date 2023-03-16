@@ -27,6 +27,8 @@ import uvicorn
 from byoda.datamodel.account import Account
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
+from byoda.storage.pubsub import PubSubNng
+
 from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda.util.logger import Logger
@@ -66,6 +68,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
+        PubSubNng.cleanup()
         network_data = await setup_network(TEST_DIR)
         pod_account = await setup_account(network_data)
         global BASE_URL
@@ -99,7 +102,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-
         await config.server.shutdown()
         TestDirectoryApis.PROCESS.terminate()
 

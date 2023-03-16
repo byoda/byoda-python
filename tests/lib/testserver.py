@@ -1,21 +1,8 @@
 '''
-POD server for Bring Your Own Data and Algorithms
+Copy of POD server with minor tweaks to run during tests
 
-The podserver relies on podserver/bootstrap.py to set up
-the account, its secrets, restoring the database files
-from the cloud storage, registering the pod and creating
-the nginx configuration files for the account and for
-existing memberships.
-
-Suported environment variables:
-CLOUD: 'AWS', 'LOCAL'
-BUCKET_PREFIX
-NETWORK
-ACCOUNT_ID
-ACCOUNT_SECRET
-PRIVATE_KEY_SECRET: secret to protect the private key
-LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
-ROOT_DIR: where files need to be cached (if object storage is used) or stored
+This file should remain in sync with podserver/main.py
+except where noted in comments in the code
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -24,6 +11,15 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 
 import os
 import sys
+
+###
+### Test change
+###
+import shutil
+from tests.lib.util import get_test_uuid
+###
+###
+###
 
 from byoda import config
 from byoda.util.logger import Logger
@@ -43,11 +39,11 @@ from byoda.util.fastapi import setup_api, add_cors
 
 from podserver.util import get_environment_vars
 
-from .routers import account as AccountRouter
-from .routers import member as MemberRouter
-from .routers import authtoken as AuthTokenRouter
-from .routers import status as StatusRouter
-from .routers import accountdata as AccountDataRouter
+from podserver.routers import account as AccountRouter
+from podserver.routers import member as MemberRouter
+from podserver.routers import authtoken as AuthTokenRouter
+from podserver.routers import status as StatusRouter
+from podserver.routers import accountdata as AccountDataRouter
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -74,6 +70,28 @@ async def setup():
 
     network_data = get_environment_vars()
 
+    ###
+    ### Test change
+    ###
+    config.test_case = True
+
+    if network_data['root_dir']:
+        try:
+            shutil.rmtree(network_data['root_dir'])
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(network_data['root_dir'])
+    else:
+        network_data['root_dir'] = '/tmp/byoda-test/podserver'
+
+    shutil.copy('tests/collateral/addressbook.json', network_data['root_dir'])
+
+    network_data['account_id'] = get_test_uuid()
+    ###
+    ###
+    ###
+
     server: PodServer = PodServer(
         bootstrapping=bool(network_data.get('bootstrap'))
     )
@@ -91,6 +109,15 @@ async def setup():
         os.umask(0o0000)
     else:
         os.umask(0x0077)
+
+    ###
+    ### Test change
+    ###
+    global LOG_FILE
+    LOG_FILE = network_data['root_dir'] + '/pod.log'
+    ###
+    ###
+    ###
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -114,7 +141,25 @@ async def setup():
     account = Account(network_data['account_id'], network)
     account.password = network_data.get('account_secret')
 
-    await account.load_secrets()
+    ###
+    ### Test change
+    ###
+    await account.paths.create_account_directory()
+    await account.create_account_secret()
+    await account.tls_secret.save(
+        account.private_key_password, overwrite=True,
+        storage_driver=server.local_storage
+    )
+    account.tls_secret.save_tmp_private_key()
+    await account.create_data_secret()
+    account.data_secret.create_shared_key()
+
+    await account.register()
+
+    ###
+    ###
+    ###
+    ### await account.load_secrets()
 
     server.account = account
 
@@ -123,6 +168,26 @@ async def setup():
     )
 
     await server.get_registered_services()
+
+    ###
+    ### Test change
+    ###
+    services = list(server.network.service_summaries.values())
+    service = [
+        service
+        for service in services
+        if service['name'] == 'addressbook'
+    ][0]
+
+    member_id = get_test_uuid()
+    await account.join(
+        service['service_id'], service['version'], server.local_storage,
+        member_id=member_id, local_service_contract='addressbook.json'
+    )
+    ###
+    ###
+    ###
+    ###await server.get_registered_services()
 
     cors_origins = [
         f'https://proxy.{network.name}',

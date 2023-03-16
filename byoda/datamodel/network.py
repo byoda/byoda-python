@@ -263,13 +263,12 @@ class Network:
 
         # FileStorage.get_storage ignores bucket_prefix parameter
         # when local storage is used.
-        private_object_storage: FileStorage = await FileStorage.get_storage(
-            self.cloud, self.bucket_prefix, self.root_dir
-        )
+
+        storage: FileStorage = config.server.document_store.backend
 
         self.paths: Paths = Paths(
             root_directory=self.root_dir, network=self.name,
-            account=self.account, storage_driver=private_object_storage
+            account=self.account, storage_driver=storage
         )
 
         # Everyone must at least have the root ca cert.

@@ -84,7 +84,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        data_classes = schema.get_graphql_classes()
+        data_classes = schema.get_data_classes()
         data = {
             'person': {
                 'given_name': 'Steven',

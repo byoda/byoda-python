@@ -147,7 +147,8 @@ class Service:
     @classmethod
     async def get_service(cls, network: Network, filepath: str = None,
                     verify_signatures: bool = True,
-                    with_private_key: bool = False, password: str = None):
+                    with_private_key: bool = False, password: str = None,
+                    load_schema: bool = True):
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures
@@ -171,11 +172,12 @@ class Service:
         if verify_signatures:
             await service.load_data_secret(with_private_key, password)
 
-        await service.load_schema(
-            filepath=filepath, verify_contract_signatures=verify_signatures
-        )
+        if load_schema:
+            await service.load_schema(
+                filepath=filepath, verify_contract_signatures=verify_signatures
+            )
 
-        service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
+            service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
 
         _LOGGER.debug(f'Read service from {filepath}')
 

@@ -317,7 +317,7 @@ class Schema:
             f'{CODEGEN_DIRECTORY}/service_{self.service_id}_graphql.py'
         )
 
-        classes = self.get_graphql_classes()
+        classes = self.get_data_classes()
 
         # We pass Class types so that we can use them in Jinja2 conditional
         # expressions
@@ -353,7 +353,7 @@ class Schema:
         # Here we can the function of the module to extract the schema
         self.gql_schema = module.get_schema()
 
-    def get_graphql_classes(self) -> list[dict[str, dict]]:
+    def get_data_classes(self) -> list[dict[str, dict]]:
         '''
         Finds all objects in the JSON sch ema for which we will
         need to generate @strawberry.type classes

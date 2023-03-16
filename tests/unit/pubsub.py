@@ -52,12 +52,11 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             val = orjson.loads(result)
             self.assertEqual(data, val)
 
-        pub = PubSub.setup('test', True, PubSubTech.NNG, TEST_DIR)
-        sub = PubSub.setup('test', False, PubSubTech.NNG, TEST_DIR)
-        async with pub, sub:
-            await pub.send(data)
-            val = await sub.recv()
-            self.assertEqual(val, data)
+        pub = PubSub.setup('test', True, PubSubTech.NNG)
+        sub = PubSub.setup('test', False, PubSubTech.NNG)
+        await pub.send(data)
+        val = await sub.recv()
+        self.assertEqual(val, data)
 
 
 if __name__ == '__main__':

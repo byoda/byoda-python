@@ -138,7 +138,7 @@ class Member:
             # by the service, which may differ from the one we have
             # previously accepted
             _LOGGER.debug(
-                'Setting up membership for service {self.service_id}'
+                f'Setting up membership for service {self.service_id}'
             )
             if local_service_contract:
                 if not config.test_case:
@@ -161,7 +161,8 @@ class Member:
                 )
                 self.service = await Service.get_service(
                     self.network, filepath=filepath,
-                    verify_signatures=verify_signatures
+                    verify_signatures=verify_signatures,
+                    load_schema=False
                 )
                 if not local_service_contract:
                     await self.service.verify_schema_signatures()
@@ -192,7 +193,7 @@ class Member:
         # by the service
         try:
             self.schema: Schema = await self.load_schema(
-                verify_signatures=verify_signatures
+                filepath=filepath, verify_signatures=verify_signatures,
             )
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
@@ -290,18 +291,6 @@ class Member:
 
         if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
-
-        # TODO: make this more user-friendly by attempting to download
-        # the specific version of a schema
-        if not local_service_contract:
-            await member.service.download_schema(
-                save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
-            )
-
-        member.schema = await member.load_schema(
-            filepath=local_service_contract,
-            verify_signatures=not bool(local_service_contract)
-        )
 
         if (member.schema.version != schema_version):
             raise ValueError(
@@ -648,6 +637,9 @@ class Member:
                           verify_signatures: bool = True) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
+
+        :param filepath: The path to the schema file. If not provided, schema
+        will be read from the default location
         '''
 
         if not filepath:

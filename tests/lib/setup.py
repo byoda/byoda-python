@@ -30,10 +30,6 @@ from tests.lib.util import get_test_uuid
 
 
 async def setup_network(test_dir: str) -> dict[str, str]:
-    # Deletes files from tmp directory. Possible race condition
-    # with other process so we do it right at the start
-    PubSubNng.cleanup()
-
     config.debug = True
 
     if test_dir:
@@ -87,6 +83,10 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
 
 async def setup_account(network_data: dict[str, str]) -> Account:
+    # Deletes files from tmp directory. Possible race condition
+    # with other process so we do it right at the start
+    PubSubNng.cleanup()
+
     server = config.server
     local_storage: FileStorage = server.local_storage
 
