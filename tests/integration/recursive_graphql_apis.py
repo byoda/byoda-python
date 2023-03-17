@@ -14,15 +14,11 @@ the headers that would normally be set by the reverse proxy
 import os
 import sys
 import shutil
-import asyncio
 import unittest
 import requests
 
 from datetime import datetime, timezone
 from uuid import uuid4
-
-from multiprocessing import Process
-import uvicorn
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -44,6 +40,7 @@ from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
 
+from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 
@@ -58,8 +55,8 @@ from tests.lib.auth import get_azure_pod_jwt
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
-
-TEST_DIR = '/tmp/byoda-tests/pod_apis'
+TIMEOUT: int = 900
+TEST_DIR: str = '/tmp/byoda-tests/pod_apis'
 
 _LOGGER = None
 
@@ -71,8 +68,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
+        mock_environment_vars(TEST_DIR)
         network_data = await setup_network(TEST_DIR)
+
+        config.test_case = "TEST_CLIENT"
         pod_account = await setup_account(network_data)
+
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=config.server.HTTP_PORT)
 
@@ -105,24 +106,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             TEST_DIR
         )
 
-        TestDirectoryApis.PROCESS = Process(
-            target=uvicorn.run,
-            args=(app,),
-            kwargs={
-                'host': '0.0.0.0',
-                'port': config.server.HTTP_PORT,
-                'log_level': 'trace'
-            },
-            daemon=True
-        )
-        TestDirectoryApis.PROCESS.start()
-
-        await asyncio.sleep(3)
-
     @classmethod
     async def asyncTearDown(self):
-
-        TestDirectoryApis.PROCESS.terminate()
+        pass
 
     async def test_graphql_addressbook_jwt(self):
         pod_account = config.server.account
@@ -158,7 +144,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
-            vars=vars, timeout=120, headers=auth_header
+            vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
 
@@ -178,7 +164,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_links']['append'],
-            vars=vars, timeout=120, headers=auth_header
+            vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
 
@@ -204,7 +190,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_links']['append'],
-            vars=vars, timeout=120, headers=azure_member_auth_header
+            vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
         result = await response.json()
 
@@ -215,7 +201,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Confirm we have a network_link entry
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
-            vars={'query_id': uuid4()}, timeout=120,
+            vars={'query_id': uuid4()}, timeout=TIMEOUT,
             headers=azure_member_auth_header
         )
         result = await response.json()
@@ -237,7 +223,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
-            vars=vars, timeout=120, headers=azure_member_auth_header
+            vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
         result = await response.json()
         data = result.get('data')
@@ -262,7 +248,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
             response = await GraphQlClient.call(
                 azure_url, GRAPHQL_STATEMENTS['network_assets']['append'],
-                vars=vars, timeout=120, headers=azure_member_auth_header
+                vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
             )
             result = await response.json()
             data = result.get('data')
@@ -275,7 +261,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
-            vars=vars, timeout=120, headers=azure_member_auth_header
+            vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
         result = await response.json()
 
@@ -352,7 +338,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
-            vars=vars, timeout=120, headers=auth_header
+            vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
 
@@ -369,7 +355,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
-            vars=vars, timeout=120, headers=auth_header
+            vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
 
@@ -403,7 +389,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         query = GRAPHQL_STATEMENTS['network_assets']['query']
         response = await GraphQlClient.call(
             url, query,
-            vars=vars, timeout=120, headers=auth_header
+            vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
 

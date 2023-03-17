@@ -38,6 +38,14 @@ from byoda.storage.pubsub import PubSubNng
 
 from byoda.util.fastapi import setup_api, add_cors
 
+###
+### Test change     # noqa: E266
+###
+from tests.lib.setup import mock_environment_vars
+###
+###
+###
+
 from podserver.util import get_environment_vars
 
 from podserver.routers import account as AccountRouter
@@ -50,6 +58,14 @@ _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
+
+###
+### Test change     # noqa: E266
+###
+TEST_DIR = '/tmp/byoda-tests/podserver'
+###
+###
+###
 
 # TODO: re-intro CORS origin ACL:
 # account.tls_secret.common_name
@@ -64,10 +80,17 @@ app = setup_api(
 
 @app.on_event('startup')
 async def setup():
-
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     PubSubNng.cleanup()
+
+    ###
+    ### Test change     # noqa: E266
+    ###
+    mock_environment_vars(TEST_DIR)
+    ###
+    ###
+    ###
 
     network_data = get_environment_vars()
 
@@ -84,7 +107,7 @@ async def setup():
 
         os.makedirs(network_data['root_dir'])
     else:
-        network_data['root_dir'] = '/tmp/byoda-test/podserver'
+        network_data['root_dir'] = TEST_DIR
     ###
     ###
     ###

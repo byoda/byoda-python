@@ -58,6 +58,10 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         val = await sub.recv()
         self.assertEqual(val, data)
 
+        await pub.send(data)
+        val = await sub.recv()
+        self.assertEqual(val, data)
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

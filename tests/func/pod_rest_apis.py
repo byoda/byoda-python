@@ -40,6 +40,7 @@ from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import setup_network
+from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
@@ -60,6 +61,7 @@ POD_ACCOUNT: Account = None
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = "TEST_CLIENT"

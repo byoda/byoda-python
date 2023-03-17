@@ -63,7 +63,7 @@ class PubSubNng(PubSub):
     SEND_BUFFER_SIZE = 100
     PUBSUB_DIR = '/tmp/byoda-pubsub'
 
-    def __init__(self, class_name: str, send: bool):
+    def __init__(self, class_name: str, is_sender: bool):
         '''
         This class uses local special files for inter-process
         communication. There is a file for:
@@ -83,7 +83,7 @@ class PubSubNng(PubSub):
             os.makedirs(self.work_dir, exist_ok=True)
 
         connection_string = PubSubNng.get_connection_string(class_name)
-        super().__init__(connection_string, send)
+        super().__init__(connection_string, is_sender)
 
         if self.sender:
             _LOGGER.debug(
@@ -126,15 +126,13 @@ class PubSubNng(PubSub):
         if not self.pub:
             raise ValueError('PubSubNng not setup for sending')
 
-        with self.pub as pub:
-            val = orjson.dumps(data)
-            await pub.asend(val)
+        val = orjson.dumps(data)
+        await self.pub.asend(val)
 
     async def recv(self) -> object:
         if not self.sub:
             raise ValueError('PubSubNng not setup for receiving')
 
-        with self.sub as sub:
-            val = await sub.arecv()
-            data = orjson.loads(val)
-            return data
+        val = await self.sub.arecv()
+        data = orjson.loads(val)
+        return data
