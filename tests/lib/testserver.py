@@ -13,9 +13,10 @@ import os
 import sys
 
 ###
-### Test change
+### Test change     # noqa: E266
 ###
 import shutil
+import orjson
 from tests.lib.util import get_test_uuid
 ###
 ###
@@ -71,9 +72,9 @@ async def setup():
     network_data = get_environment_vars()
 
     ###
-    ### Test change
+    ### Test change     # noqa: E266
     ###
-    config.test_case = True
+    config.test_case = "TEST_SERVER"
 
     if network_data['root_dir']:
         try:
@@ -84,10 +85,6 @@ async def setup():
         os.makedirs(network_data['root_dir'])
     else:
         network_data['root_dir'] = '/tmp/byoda-test/podserver'
-
-    shutil.copy('tests/collateral/addressbook.json', network_data['root_dir'])
-
-    network_data['account_id'] = get_test_uuid()
     ###
     ###
     ###
@@ -111,7 +108,7 @@ async def setup():
         os.umask(0x0077)
 
     ###
-    ### Test change
+    ### Test change     # noqa: E266
     ###
     global LOG_FILE
     LOG_FILE = network_data['root_dir'] + '/pod.log'
@@ -138,11 +135,21 @@ async def setup():
     server.network = network
     server.paths = network.paths
 
+    ###
+    ### Test change     # noqa: E266
+    ###
+    network_data['account_id'] = get_test_uuid()
+    with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
+        file_desc.write(orjson.dumps(network_data['account_id']))
+    ###
+    ###
+    ###
+
     account = Account(network_data['account_id'], network)
     account.password = network_data.get('account_secret')
 
     ###
-    ### Test change
+    ### Test change     # noqa: E266
     ###
     await account.paths.create_account_directory()
     await account.create_account_secret()
@@ -153,13 +160,12 @@ async def setup():
     account.tls_secret.save_tmp_private_key()
     await account.create_data_secret()
     account.data_secret.create_shared_key()
-
+    await account.save_protected_shared_key()
     await account.register()
-
     ###
     ###
     ###
-    ### await account.load_secrets()
+    # await account.load_secrets()
 
     server.account = account
 
@@ -170,7 +176,7 @@ async def setup():
     await server.get_registered_services()
 
     ###
-    ### Test change
+    ### Test change     # noqa: E266
     ###
     services = list(server.network.service_summaries.values())
     service = [
@@ -182,12 +188,12 @@ async def setup():
     member_id = get_test_uuid()
     await account.join(
         service['service_id'], service['version'], server.local_storage,
-        member_id=member_id, local_service_contract='addressbook.json'
+        member_id=member_id
     )
     ###
     ###
     ###
-    ###await server.get_registered_services()
+    # await server.get_registered_services()
 
     cors_origins = [
         f'https://proxy.{network.name}',

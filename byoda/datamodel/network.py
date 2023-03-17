@@ -169,7 +169,9 @@ class Network:
             'private_key_password': password, 'roles': ['test']
         }
         network = Network(network_data, network_data)
-        await network.load_network_secrets(root_ca)
+        await network.load_network_secrets(
+            root_ca, storage_driver=root_ca.storage_driver
+        )
 
         # Root CA, signs Accounts CA, Services CA and
         # Network Data Secret. We don't need a 'Network.ServiceSecret'
@@ -259,16 +261,18 @@ class Network:
             with_private_key=True, password=self.private_key_password
         )
 
-    async def load_network_secrets(self, root_ca: NetworkRootCaSecret = None):
+    async def load_network_secrets(self, root_ca: NetworkRootCaSecret = None,
+                                   storage_driver: FileStorage = None) -> None:
 
         # FileStorage.get_storage ignores bucket_prefix parameter
         # when local storage is used.
 
-        storage: FileStorage = config.server.document_store.backend
+        if not storage_driver:
+            storage_driver: FileStorage = config.server.document_store.backend
 
         self.paths: Paths = Paths(
             root_directory=self.root_dir, network=self.name,
-            account=self.account, storage_driver=storage
+            account=self.account, storage_driver=storage_driver
         )
 
         # Everyone must at least have the root ca cert.

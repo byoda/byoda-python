@@ -104,8 +104,9 @@ class SqlTable:
             if (isinstance(column, SchemaDataScalar)
                     and column.format == 'uuid'):
                 stmt = (
-                    f'CREATE INDEX BYODA_IDX_{self.table_name}_{column.name} '
-                    f' ON {self.table_name}({column.storage_name})'
+                    f'CREATE INDEX IF NOT EXISTS '
+                    f'BYODA_IDX_{self.table_name}_{column.name} '
+                    f'ON {self.table_name}({column.storage_name})'
                 )
                 await self.sql_store.execute(stmt, self.member_id)
                 _LOGGER.debug(

@@ -24,7 +24,8 @@ from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
 
 from byoda.storage.pubsub import PubSub
-from byoda.storage.pubsub import PubSubTech
+
+from byoda import config
 
 from .dataaccessright import DataAccessRight
 
@@ -464,8 +465,9 @@ class SchemaDataArray(SchemaDataItem):
             # The Pub/Sub for communicating changes to data using this class
             # instance. We only track changes for arrays that reference
             # another class
-            self.pubsub_class = PubSub.setup(class_name, send=True)
-            self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
+            if config.test_case != "TEST_CLIENT":
+                self.pubsub_class = PubSub.setup(class_name, send=True)
+                self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
         else:
             raise ValueError(
                 f'Array {class_name} must have "type" or "$ref" defined'

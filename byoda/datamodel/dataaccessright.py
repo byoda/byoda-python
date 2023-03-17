@@ -239,6 +239,7 @@ class NetworkDataAccessRight(DataAccessRight):
             _LOGGER.debug(f'No membership found for service {service_id}')
             return False
 
+        network = None
         if auth.member_id:
             network_links = await member.load_network_links()
             _LOGGER.debug(
@@ -253,7 +254,7 @@ class NetworkDataAccessRight(DataAccessRight):
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
 
-        if len(network):
+        if len(network or []):
             _LOGGER.debug('Network authorization successful')
             return True
 

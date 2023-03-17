@@ -15,15 +15,11 @@ import unittest
 import logging
 from datetime import datetime, timezone
 
-from byoda.datamodel.network import Network
-
 from byoda.datamodel.schema import Schema
-
-from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
 
-from podserver.util import get_environment_vars
+from tests.lib.setup import setup_network
 
 from byoda import config
 
@@ -41,15 +37,6 @@ BASE_URL = 'http://localhost:{PORT}/api'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(TEST_DIR)
-
         shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
         os.environ['ROOT_DIR'] = TEST_DIR
         os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -61,15 +48,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
         os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network = Network(network_data, network_data)
-        await network.load_network_secrets()
-        config.server = PodServer(
-            bootstrapping=bool(network_data.get('bootstrap'))
-        )
-        config.server.network = network
+        await setup_network()
 
     @classmethod
     def tearDownClass(cls):

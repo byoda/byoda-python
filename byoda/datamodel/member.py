@@ -164,8 +164,6 @@ class Member:
                     verify_signatures=verify_signatures,
                     load_schema=False
                 )
-                if not local_service_contract:
-                    await self.service.verify_schema_signatures()
             except FileNotFoundError:
                 # if the service contract is not yet available for
                 # this membership then it should be downloaded at
@@ -192,6 +190,11 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
+            if new_membership:
+                await self.service.download_schema(
+                    save=True, filepath=filepath
+                )
+
             self.schema: Schema = await self.load_schema(
                 filepath=filepath, verify_signatures=verify_signatures,
             )

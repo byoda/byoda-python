@@ -29,20 +29,10 @@ from podserver.util import get_environment_vars
 from tests.lib.util import get_test_uuid
 
 
-async def setup_network(test_dir: str) -> dict[str, str]:
-    config.debug = True
-
-    if test_dir:
-        try:
-            shutil.rmtree(test_dir)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(test_dir)
-    else:
-        test_dir = '/tmp'
-
-    shutil.copy('tests/collateral/addressbook.json', test_dir)
+def mock_environment_vars(test_dir: str):
+    '''
+    Sets environment variables needed by setup_network() and setup_account
+    '''
 
     os.environ['ROOT_DIR'] = test_dir
     os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -54,7 +44,25 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
+
+async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
+    '''
+    Sets up the network for test clients
+    '''
+
+    config.debug = True
+
     network_data = get_environment_vars()
+
+    if delete_tmp_dir:
+        try:
+            shutil.rmtree(network_data['root_dir'])
+        except FileNotFoundError:
+            pass
+
+    os.makedirs(network_data['root_dir'], exist_ok=True)
+
+    shutil.copy('tests/collateral/addressbook.json', network_data['root_dir'])
 
     server: PodServer = PodServer(
         cloud_type=CloudType.LOCAL,
