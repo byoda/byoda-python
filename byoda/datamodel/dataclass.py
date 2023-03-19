@@ -190,6 +190,11 @@ class SchemaDataItem:
         if not item_type:
             raise ValueError(f'No type found in {class_name}')
 
+        _LOGGER.debug(
+            f'Creating data class instance for {class_name} '
+            f'for type {item_type}'
+        )
+
         if item_type == 'object':
             item = SchemaDataObject(class_name, schema, schema_id)
         elif item_type == 'array':
@@ -311,6 +316,11 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
+        _LOGGER.debug(
+            f'Created scalar class %s of type {self.type} with '
+            f'format {self.format} and python type {self.python_type}'
+        )
+
     def normalize(self, value: str | int | float) -> str | int | float:
         '''
         Normalizes the value to the correct data type for the item
@@ -370,6 +380,8 @@ class SchemaDataObject(SchemaDataItem):
 
             self.fields[field] = item
 
+        _LOGGER.debug(f'Created object class {class_name}'
+                      )
     def normalize(self, value: dict) -> dict:
         '''
         Normalizes the values in a dict
@@ -470,11 +482,18 @@ class SchemaDataArray(SchemaDataItem):
             # another class
             if config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(class_name, send=True)
-                self.pubsub_counter = PubSub.setup(f'COUNTER_{class_name}', send=True)
+                self.pubsub_counter = PubSub.setup(
+                    f'COUNTER_{class_name}', send=True
+                )
         else:
             raise ValueError(
                 f'Array {class_name} must have "type" or "$ref" defined'
             )
+
+        _LOGGER.debug(
+            f'Created array class {class_name} with referenced class '
+            f'{referenced_class}'
+        )
 
     def normalize(self, value: list) -> list:
         '''

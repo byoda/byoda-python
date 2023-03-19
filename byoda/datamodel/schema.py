@@ -304,6 +304,7 @@ class Schema:
 
         defs = self.json_schema['jsonschema'].get("$defs", {})
         for class_name, class_properties in defs.items():
+            _LOGGER.debug(f'Parsing defined class {class_name}')
             dataclass = SchemaDataItem.create(
                 class_name, class_properties, schema_id
             )
@@ -311,6 +312,7 @@ class Schema:
 
         properties = self.json_schema['jsonschema']['properties']
         for class_name, class_properties in properties.items():
+            _LOGGER.debug(f'Parsing class {class_name}')
             dataclass = SchemaDataItem.create(
                 class_name, class_properties, schema_id, self.data_classes
             )
