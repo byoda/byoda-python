@@ -34,7 +34,6 @@ from byoda.datatypes import CloudType
 from byoda.datamodel.network import Network
 
 from byoda.datastore.document_store import DocumentStoreType
-from byoda.datastore.data_store import DataStoreType
 
 from byoda.servers.pod_server import PodServer
 
@@ -60,13 +59,7 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     network_data = get_environment_vars()
 
-    network = Network(network_data, network_data)
-    await network.load_network_secrets()
-
-    config.test_case = True
-
-    config.server = PodServer(network)
-    config.server.network = network
+    config.server = PodServer(bootstrapping=False)
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
@@ -74,6 +67,13 @@ async def setup_network(test_dir: str) -> dict[str, str]:
         bucket_prefix=network_data['bucket_prefix'],
         root_dir=network_data['root_dir']
     )
+
+    network = Network(network_data, network_data)
+    await network.load_network_secrets()
+
+    config.test_case = True
+
+    config.server.network = network
 
     config.server.paths = network.paths
 
