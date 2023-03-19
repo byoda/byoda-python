@@ -122,6 +122,16 @@ class Schema:
 
         return data
 
+    def as_string(self):
+        '''
+        Returns the schema as a string of json data presented
+        for creating or verifying a signature for the schema
+        '''
+
+        return orjson.dumps(
+            self.json_schema, option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
+        )
+
     @staticmethod
     async def get_schema(filepath: str, storage_driver: FileStorage,
                          service_data_secret: ServiceDataSecret,
@@ -130,6 +140,8 @@ class Schema:
         '''
         Facory to read schema from a file
         '''
+
+        _LOGGER.debug(f'Loading schema from {filepath}')
         data = await storage_driver.read(filepath)
         json_schema = orjson.loads(data)
 
@@ -142,16 +154,6 @@ class Schema:
         )
 
         return schema
-
-    def as_string(self):
-        '''
-        Returns the schema as a string of json data presented
-        for creating or verifying a signature for the schema
-        '''
-
-        return orjson.dumps(
-            self.json_schema, option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
-        )
 
     def load(self, verify_contract_signatures: bool = True) -> None:
         '''
@@ -287,7 +289,7 @@ class Schema:
 
     def get_data_classes(self) -> list[dict[str, dict]]:
         '''
-        Finds all objects in the JSON sch ema for which we will
+        Finds all objects in the JSON schema for which we will
         need to generate @strawberry.type classes
         '''
 

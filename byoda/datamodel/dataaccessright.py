@@ -95,6 +95,7 @@ class DataAccessRight:
 
             permissions.append(permission)
 
+        _LOGGER.debug(f'Access right for {entity_type} is {permissions}')
         return entity_type, permissions
 
     def authorize(self, service_id: int, operation: DataOperationType,

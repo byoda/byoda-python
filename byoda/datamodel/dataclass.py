@@ -213,8 +213,11 @@ class SchemaDataItem:
         Parse the #accesscontrol key of the data item in the JSON Schema
         '''
 
+        _LOGGER.debug(f'Parssing access controls for {self.name}')
+
         rights = self.schema.get('#accesscontrol')
         if not rights:
+            _LOGGER.debug(f'No access rights defined for {self.name}')
             return
 
         if not isinstance(rights, dict):
