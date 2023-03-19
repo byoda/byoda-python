@@ -67,9 +67,9 @@ async def authorize_graphql_request(operation: DataOperationType,
             'root level of the service contract'
         )
 
-    _LOGGER.debug(f'Authorizing request for data element {key}')
-
     auth: RequestAuth = info.context['auth']
+
+    _LOGGER.debug(f'Authorizing request for data element {key}')
 
     data_class: SchemaDataItem = data_classes[key]
     access_allowed = await data_class.authorize_access(

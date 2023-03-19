@@ -285,6 +285,37 @@ class Schema:
 
         self.verified_signatures.add(signature_type)
 
+    def get_data_classes(self) -> list[dict[str, dict]]:
+        '''
+        Finds all objects in the JSON sch ema for which we will
+        need to generate @strawberry.type classes
+        '''
+
+        _LOGGER.debug('Parsing data classes of the schema')
+
+        schema_id = self.json_schema['jsonschema'].get('$id')
+        if not schema_id:
+            raise ValueError('JSON Schema must have an "$id" field')
+
+        # TODO: SECURITY check that urlparse.netloc matches the entity_id for
+        # the service
+
+        defs = self.json_schema['jsonschema'].get("$defs", {})
+        for class_name, class_properties in defs.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id
+            )
+            self.data_classes[class_name] = dataclass
+
+        properties = self.json_schema['jsonschema']['properties']
+        for class_name, class_properties in properties.items():
+            dataclass = SchemaDataItem.create(
+                class_name, class_properties, schema_id, self.data_classes
+            )
+            self.data_classes[class_name] = dataclass
+
+        return self.data_classes
+
     def generate_graphql_schema(self, verify_schema_signatures: bool = True):
         '''
         Generates code to enable GraphQL schema to be generated using graphql.
@@ -352,35 +383,6 @@ class Schema:
 
         # Here we can the function of the module to extract the schema
         self.gql_schema = module.get_schema()
-
-    def get_data_classes(self) -> list[dict[str, dict]]:
-        '''
-        Finds all objects in the JSON sch ema for which we will
-        need to generate @strawberry.type classes
-        '''
-
-        schema_id = self.json_schema['jsonschema'].get('$id')
-        if not schema_id:
-            raise ValueError('JSON Schema must have an "$id" field')
-
-        # TODO: SECURITY check that urlparse.netloc matches the entity_id for
-        # the service
-
-        defs = self.json_schema['jsonschema'].get("$defs", {})
-        for class_name, class_properties in defs.items():
-            dataclass = SchemaDataItem.create(
-                class_name, class_properties, schema_id
-            )
-            self.data_classes[class_name] = dataclass
-
-        properties = self.json_schema['jsonschema']['properties']
-        for class_name, class_properties in properties.items():
-            dataclass = SchemaDataItem.create(
-                class_name, class_properties, schema_id, self.data_classes
-            )
-            self.data_classes[class_name] = dataclass
-
-        return self.data_classes
 
     # Getter/Setters for
     # - service_id

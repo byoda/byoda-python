@@ -508,6 +508,9 @@ class SchemaDataArray(SchemaDataItem):
 
         :param operation: requested operation
         :param auth: the authenticated requesting entity
+        :param service_id: the service ID of the service specified in the
+        request
+        :param depth: the level of recurssion specified in the request
         :returns: None if no determination was made, otherwise True or False
         '''
 
@@ -516,6 +519,9 @@ class SchemaDataArray(SchemaDataItem):
         )
 
         if access_allowed is False:
+            _LOGGER.debug(
+                f'Access is not authorized for {operation} for service {service_id}'
+            )
             return False
 
         child_access_allowed = None
