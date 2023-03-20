@@ -339,6 +339,8 @@ class Schema:
                          SignatureType.SERVICE in self.verified_signatures)):
             raise ValueError('Schema signatures have not been verified')
 
+        _LOGGER.debug('Generating GraphQL schema')
+        
         loader = jinja2.FileSystemLoader(SCHEMA_TEMPLATE)
         environment = jinja2.Environment(
             loader=loader,

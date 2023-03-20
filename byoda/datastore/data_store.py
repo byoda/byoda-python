@@ -45,6 +45,8 @@ class DataStore:
         Factory for initiating a document store
         '''
 
+        _LOGGER.debug(f'Setting up data store of type {storage_type}')
+        
         storage = DataStore()
         if storage_type == DataStoreType.SQLITE:
             storage.backend = await SqliteStorage.setup(

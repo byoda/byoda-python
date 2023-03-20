@@ -97,6 +97,7 @@ class Network:
 
         self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
+        _LOGGER.debug(f'Instanciating network {self.name}')
         self.dnsdb = None
         self.paths: Paths = None
 

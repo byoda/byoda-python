@@ -130,6 +130,11 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
+        _LOGGER.debug(
+            f'Instantiated Service object for service {self.name} / '
+            f'{self.service_id}'
+        )
+
 
     async def examine_servicecontract(self, filepath: str) -> None:
         '''
@@ -179,7 +184,7 @@ class Service:
 
             service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
 
-        _LOGGER.debug(f'Read service from {filepath}')
+        _LOGGER.debug(f'Read service from {filepath}, loaded schema: {load_schema}')
 
         return service
 
@@ -659,7 +664,9 @@ class Service:
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
         if resp.status == 200:
+            _LOGGER.debug(f'Downloaded service contract to {filepath}')
             if save:
+                _LOGGER.debug(f'Saving service contract to {filepath}')
                 await self.save_schema(await resp.text(), filepath=filepath)
 
             return await resp.text()
@@ -767,6 +774,7 @@ class Service:
         '''
 
         try:
+            _LOGGER.debug(f'Downloading data cert for service {self.service_id}')
             resp = await ApiClient.call(
                 Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
             )

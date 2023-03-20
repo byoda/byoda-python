@@ -95,6 +95,7 @@ class PodServer(Server):
             summaries = await resp.json()
             for summary in summaries.get('service_summaries', []):
                 self.network.service_summaries[summary['service_id']] = summary
+
             _LOGGER.debug(
                 f'Read summaries for {len(self.network.service_summaries)} '
                 'services'

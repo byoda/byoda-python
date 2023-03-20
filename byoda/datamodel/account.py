@@ -100,6 +100,11 @@ class Account:
 
         self.memberships: dict[int, Member] = dict()
 
+        _LOGGER.debug(
+            f'Initialized account {self.account_id} on '
+            f'network {self.network.name}'
+        )
+
     async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None,
                              renew: bool = False):
         '''
@@ -314,9 +319,6 @@ class Account:
             member_id: UUID = membership['member_id']
             service_id: int = membership['service_id']
             if service_id not in self.memberships:
-                _LOGGER.debug(
-                    f'Loading membership for service {service_id}: {member_id}'
-                )
                 await self.load_membership(service_id, member_id)
 
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
@@ -345,7 +347,11 @@ class Account:
         Load the data for a membership of a service
         '''
 
-        _LOGGER.debug(f'Loading membership for service_id: {service_id}')
+        _LOGGER.debug(
+            f'Loading membership for service_id: {service_id} with '
+            f'id {member_id}'
+        )
+
         if service_id in self.memberships:
             raise ValueError(
                 f'Already a member of service {service_id}'

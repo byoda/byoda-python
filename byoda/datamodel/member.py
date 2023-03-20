@@ -122,6 +122,11 @@ class Member:
         # This is the cert chain up to but excluding the network root CA
         self.service_ca_certchain: ServiceCaSecret | None = None
 
+        _LOGGER.debug(
+            f'Instantiated membership {self.member_id} for '
+            f'service {self.service_id}'
+        )
+
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
         '''
@@ -149,8 +154,10 @@ class Member:
                 filepath = local_service_contract
             else:
                 if new_membership:
+                    _LOGGER.debug('Setting up new membership')
                     filepath = self.paths.service_file(self.service_id)
                 else:
+                    _LOGGER.debug('Setting up existing membership')
                     filepath = self.paths.member_service_file(self.service_id)
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
@@ -662,8 +669,11 @@ class Member:
             )
             raise FileNotFoundError(filepath)
 
+        _LOGGER.debug(f'Loading schema at {filepath}')
         if verify_signatures:
             await self.verify_schema_signatures(schema)
+        else:
+            _LOGGER.debug('Not verifying schema signatures')
 
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
