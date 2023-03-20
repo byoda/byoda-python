@@ -125,6 +125,9 @@ class Logger(logging.Logger):
         logging_handler.setFormatter(formatter)
         root_logger.addHandler(logging_handler)
 
+        # TODO: manage log levels for various SDKs
+        logging.getLogger('azure.mgmt.resource').setLevel(logging.WARNING)
+
         # Now create a child logger for the caller, which inherits
         # from the root logger
         logger = logging.getLogger(appname)

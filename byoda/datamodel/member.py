@@ -164,7 +164,8 @@ class Member:
 
             try:
                 _LOGGER.debug(
-                    f'Setting up service {self.service_id} from {filepath}'
+                    f'Setting up service {self.service_id} from {filepath} '
+                    'without loading the schema'
                 )
                 self.service = await Service.get_service(
                     self.network, filepath=filepath,
