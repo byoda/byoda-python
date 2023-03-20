@@ -64,8 +64,10 @@ class DataAccessRight:
             if (self.distance or self.relations or
                     self.source_signature_required or
                     self.anonimized_responses):
-                raise ValueError('Search right cannot have other '
-                                 'parameters than the permission')
+                raise ValueError(
+                    'Search right cannot have other '
+                    'parameters than the permission'
+                )
             self.search_condition = permission_data.get('match', 'exact')
             self.casesensitive = permission_data.get('casesensitive', True)
 

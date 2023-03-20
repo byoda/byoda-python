@@ -492,7 +492,7 @@ class SchemaDataArray(SchemaDataItem):
 
         _LOGGER.debug(
             f'Created array class {class_name} with referenced class '
-            f'{referenced_class}'
+            f'{self.referenced_class}'
         )
 
     def normalize(self, value: list) -> list:
