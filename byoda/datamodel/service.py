@@ -181,10 +181,11 @@ class Service:
             await service.load_schema(
                 filepath=filepath, verify_contract_signatures=verify_signatures
             )
+
+            service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
         else:
             _LOGGER.debug('Not loading service schema')
 
-            service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
 
         _LOGGER.debug(f'Read service from {filepath}, loaded schema: {load_schema}')
 
