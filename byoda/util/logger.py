@@ -131,6 +131,13 @@ class Logger(logging.Logger):
         logging.getLogger('azure').setLevel(logging.WARNING)
         logging.getLogger('google').setLevel(logging.WARNING)
 
+        logging.getLogger('byoda.storage.azure').setLevel(logging.INFO)
+        logging.getLogger('byoda.storage.aws').setLevel(logging.INFO)
+        logging.getLogger('byoda.storage.gcp').setLevel(logging.INFO)
+        logging.getLogger('byoda.storage.filestorage').setLevel(
+            logging.INFO
+        )
+
         # Now create a child logger for the caller, which inherits
         # from the root logger
         logger = logging.getLogger(appname)

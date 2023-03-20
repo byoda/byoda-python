@@ -130,10 +130,7 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
-        _LOGGER.debug(
-            f'Instantiated Service object for service {self.name} / '
-            f'{self.service_id}'
-        )
+        _LOGGER.debug('Instantiated Service object for service')
 
 
     async def examine_servicecontract(self, filepath: str) -> None:
@@ -142,12 +139,15 @@ class Service:
         '''
 
         _LOGGER.debug(f'Reviewing schema in {filepath}')
+
         raw_data = await self.storage_driver.read(filepath)
         data = orjson.loads(raw_data)
         service_id = data['service_id']
-        _LOGGER.debug(f'Found service_ID {service_id}')
+
         self.service_id = int(service_id)
         self.name = data['name']
+
+        _LOGGER.debug(f'Found service ID {service_id} for service {self.name}')
 
     @classmethod
     async def get_service(cls, network: Network, filepath: str = None,
@@ -181,6 +181,8 @@ class Service:
             await service.load_schema(
                 filepath=filepath, verify_contract_signatures=verify_signatures
             )
+        else:
+            _LOGGER.debug('Not loading service schema')
 
             service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
 
