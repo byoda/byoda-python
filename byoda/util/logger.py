@@ -126,7 +126,10 @@ class Logger(logging.Logger):
         root_logger.addHandler(logging_handler)
 
         # TODO: manage log levels for various SDKs
-        logging.getLogger('azure.mgmt.resource').setLevel(logging.WARNING)
+        logging.getLogger('aiosqlite').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('azure').setLevel(logging.WARNING)
+        logging.getLogger('google').setLevel(logging.WARNING)
 
         # Now create a child logger for the caller, which inherits
         # from the root logger
