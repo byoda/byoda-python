@@ -20,6 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 RequestAuth = TypeVar('RequestAuth')
 Member = TypeVar('Member')
+Account = TypeVar('Account')
 
 
 class DataAccessRight:
@@ -115,6 +116,8 @@ class DataAccessRight:
         recursion depth exceeds to 'distance' for the access right.
         '''
 
+        account: Account = config.server.account
+
         if self.data_operation != operation:
             return None, None
 
@@ -124,8 +127,8 @@ class DataAccessRight:
                 f'distance of {self.distance} for {operation} on {service_id}')
             return False, None
 
-        await config.server.account.get_memberships()
-        member: Member = config.server.account.memberships.get(service_id)
+        await account.get_memberships()
+        member: Member = account.memberships.get(service_id)
 
         return True, member
 
@@ -191,7 +194,7 @@ class AnyMemberDataAccessRight(DataAccessRight):
             _LOGGER.debug('Request not authorized')
 
         if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
+            _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
         if auth.member_id and auth.service_id == service_id:
@@ -228,7 +231,7 @@ class NetworkDataAccessRight(DataAccessRight):
         if self.relations:
             _LOGGER.debug(
                'Relation of network links must be one of '
-               f'{",".join(self.relations)}'
+               f'{", ".join(self.relations)}'
             )
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
@@ -238,7 +241,7 @@ class NetworkDataAccessRight(DataAccessRight):
             _LOGGER.debug('Request not authorized')
 
         if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
+            _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
         network = None
@@ -247,12 +250,18 @@ class NetworkDataAccessRight(DataAccessRight):
             _LOGGER.debug(
                 f'Found total of {len(network_links or [])} network links'
             )
-            network = [
-                link for link in network_links or []
+            network = []
+            for link in network_links or []:
+                _LOGGER.debug(
+                    f'Found ink: link["relation"] to {link["member_id"]}'
+                )
                 if (link['member_id'] == auth.member_id
-                    and (not self.relations or
-                    link['relation'].lower() in self.relations))
-            ]
+                        and (not self.relations
+                             or link['relation'].lower() in self.relations))):
+                    _LOGGER.debug(f'Link to {link["member_id"]} matches {self.relations}')
+                    network.append(link)
+                else:
+                    _LOGGER.debug(f'Link to {link["member_id"]} fails {self.relations}')
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
 
@@ -288,7 +297,7 @@ class ServiceDataAccessRight(DataAccessRight):
             _LOGGER.debug('Request not authorized')
 
         if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
+            _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
         if service_id == auth.service_id:
@@ -331,7 +340,7 @@ class AnonymousDataAccessRight(DataAccessRight):
             _LOGGER.debug('Request not authorized')
 
         if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
+            _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
         if service_id == auth.service_id:

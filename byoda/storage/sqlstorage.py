@@ -37,13 +37,13 @@ class Sql:
         if not member_id:
             filepath: str = self.account_db_file
 
-            _LOGGER.debug('Using account DB file')
+            _LOGGER.debug(f'Using account DB file: {filepath}')
         else:
             filepath: str = self.member_db_files.get(
                 member_id
             )
             _LOGGER.debug(
-                f'Using member DB file for member_id {member_id}'
+                f'Using member DB file for member_id {member_id}: {filepath}'
             )
             if not filepath:
                 raise ValueError(f'No DB for member_id {member_id}')

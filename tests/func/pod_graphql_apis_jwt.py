@@ -17,7 +17,7 @@ import unittest
 import requests
 
 from copy import copy
-from uuid import UUID, uuid4
+from uuid import uuid4
 from datetime import datetime, timezone
 
 import orjson
@@ -42,7 +42,6 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
-from tests.lib.util import get_test_uuid
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
