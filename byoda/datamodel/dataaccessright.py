@@ -233,12 +233,6 @@ class NetworkDataAccessRight(DataAccessRight):
                'Relation of network links must be one of '
                f'{", ".join(self.relations)} for member_id {auth.member_id}'
             )
-            for relation in self.relations:
-                _LOGGER.debug(
-                    f'Permitted relation {relation}({type(relation)}'
-                )
-            if 'friend' in self.relations:
-                _LOGGER.debug('"friend" is in relations')
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
 

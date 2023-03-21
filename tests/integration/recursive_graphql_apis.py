@@ -13,16 +13,20 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import orjson
 import shutil
 import unittest
 import requests
 
+from uuid import uuid4, UUID
 from datetime import datetime, timezone
-from uuid import uuid4
 
+from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.util.message_signature import MessageSignature
+
+from byoda.datastore.data_store import DataStoreType
 
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
@@ -32,7 +36,6 @@ from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
-
 from byoda import config
 
 from podserver.routers import account as AccountRouter
@@ -42,7 +45,6 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
-from tests.lib.setup import setup_account
 
 from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
@@ -56,7 +58,7 @@ from tests.lib.auth import get_azure_pod_jwt
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 TIMEOUT: int = 900
-TEST_DIR: str = '/tmp/byoda-tests/pod_apis'
+TEST_DIR: str = '/tmp/byoda-tests/podserver'
 
 _LOGGER = None
 
@@ -64,30 +66,45 @@ POD_ACCOUNT: Account = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    PROCESS = None
     APP_CONFIG = None
 
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(TEST_DIR)
+        network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = "TEST_CLIENT"
-        pod_account = await setup_account(network_data)
+
+        network: Network = config.server.network
+        server = config.server
 
         global BASE_URL
-        BASE_URL = BASE_URL.format(PORT=config.server.HTTP_PORT)
+        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
+
+        with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
+            network_data['account_id'] = orjson.loads(file_desc.read())
+
+        account = Account(network_data['account_id'], network)
+        account.password = network_data.get('account_secret')
+        await account.load_secrets()
+
+        server.account = account
+
+        await config.server.set_data_store(
+            DataStoreType.SQLITE, account.data_secret
+        )
+
+        await server.get_registered_services()
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [pod_account.tls_secret.common_name], [
+            'v0.0.1', [account.tls_secret.common_name], [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
             ]
         )
 
-        for account_member in pod_account.memberships.values():
+        for account_member in account.memberships.values():
             account_member.enable_graphql_api(app)
-            await account_member.update_registration()
 
         shutil.copy(
             'tests/collateral/local/azure-pod-member-cert.pem',

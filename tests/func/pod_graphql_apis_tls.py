@@ -11,12 +11,10 @@ the headers that would normally be set by the reverse proxy
 :license
 '''
 
-import os
 import sys
 import unittest
 import requests
 
-from copy import copy
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 
@@ -24,7 +22,6 @@ import orjson
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
-from byoda.datamodel.graphql_proxy import GraphQlProxy
 
 from byoda.datastore.data_store import DataStoreType
 
@@ -44,13 +41,10 @@ from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.util import get_test_uuid
 
-from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
-
-from tests.lib.auth import get_azure_pod_jwt
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -63,9 +57,6 @@ POD_ACCOUNT: Account = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    PROCESS = None
-    APP_CONFIG = None
-
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
