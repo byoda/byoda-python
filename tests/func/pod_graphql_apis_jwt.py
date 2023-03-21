@@ -42,6 +42,7 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
+from tests.lib.setup import get_account_id
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
@@ -77,8 +78,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
-            network_data['account_id'] = orjson.loads(file_desc.read())
+        network_data['account_id'] = get_account_id(network_data)
 
         account = Account(network_data['account_id'], network)
         account.password = network_data.get('account_secret')

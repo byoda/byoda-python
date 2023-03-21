@@ -1,5 +1,16 @@
 #!/bin/bash
 
+RESULT=$(git status | grep 'branch master')
+
+if [ "$?" -eq "0" ]; then
+    export TAG=latest
+else
+    export TAG=dev
+fi
+
+echo "Using tag: ${TAG}"
+
+
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 KEEP_LOGS=0
@@ -295,7 +306,7 @@ if [[ "${CLOUD}" != "LOCAL" ]]; then
 fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
-sudo docker pull byoda/byoda-pod:latest
+sudo docker pull byoda/byoda-pod:${TAG}
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
@@ -323,4 +334,4 @@ sudo docker run -d \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \
-    byoda/byoda-pod:latest
+    byoda/byoda-pod:${TAG}

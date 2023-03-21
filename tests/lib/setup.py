@@ -9,6 +9,10 @@ Helper functions to set up tests
 import os
 import shutil
 
+from uuid import UUID
+
+import orjson
+
 from byoda import config
 
 from byoda.datamodel.network import Network
@@ -142,3 +146,28 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     )
 
     return account
+
+
+def get_account_id(network_data: dict[str, str]) -> str:
+    '''
+    Gets the account ID used by the test POD server
+
+    :param network_data: The dict as returned by
+    podserver.util.get_environment_vars
+    :returns: the account ID
+    '''
+
+    with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
+        account_id = orjson.loads(file_desc.read())
+
+    return account_id
+
+
+def write_account_id(network_data: dict[str, str]):
+    '''
+    Writes the account ID to a local file so that test clients
+    can use the same account ID as the test podserver
+    '''
+    
+    with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
+        file_desc.write(orjson.dumps(network_data['account_id']))

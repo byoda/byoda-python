@@ -42,6 +42,7 @@ from byoda.util.fastapi import setup_api, add_cors
 ### Test change     # noqa: E266
 ###
 from tests.lib.setup import mock_environment_vars
+from tests.lib.setup import write_account_id
 ###
 ###
 ###
@@ -162,8 +163,7 @@ async def setup():
     ### Test change     # noqa: E266
     ###
     network_data['account_id'] = get_test_uuid()
-    with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
-        file_desc.write(orjson.dumps(network_data['account_id']))
+    write_account_id(network_data)
     ###
     ###
     ###
