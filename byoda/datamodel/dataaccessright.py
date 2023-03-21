@@ -100,8 +100,8 @@ class DataAccessRight:
         _LOGGER.debug(f'Access right for {entity_type} is {permissions}')
         return entity_type, permissions
 
-    def authorize(self, service_id: int, operation: DataOperationType,
-                  depth: int) -> tuple[bool | None, Member | None]:
+    async def authorize(self, service_id: int, operation: DataOperationType,
+                        depth: int) -> tuple[bool | None, Member | None]:
         '''
         Returns our membership for the service if the operation matches
         this access right
@@ -124,6 +124,7 @@ class DataAccessRight:
                 f'distance of {self.distance} for {operation} on {service_id}')
             return False, None
 
+        await config.server.account.get_memberships()
         member: Member = config.server.account.memberships.get(service_id)
         if not member:
             _LOGGER.debug(f'No membership found for service {service_id}')
@@ -150,7 +151,7 @@ class MemberDataAccessRight(DataAccessRight):
 
         _LOGGER.debug('Authorizing member access for data item')
 
-        allowed, member = super().authorize(service_id, operation, depth)
+        allowed, member = await super().authorize(service_id, operation, depth)
         if allowed is False:
             _LOGGER.debug('Request not authorized')
 
@@ -187,7 +188,7 @@ class AnyMemberDataAccessRight(DataAccessRight):
 
         _LOGGER.debug('Authorizing any member access for data item')
 
-        allowed, member = super().authorize(service_id, operation, depth)
+        allowed, member = await super().authorize(service_id, operation, depth)
         if allowed is False:
             _LOGGER.debug('Request not authorized')
 
@@ -234,7 +235,7 @@ class NetworkDataAccessRight(DataAccessRight):
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
 
-        allowed, member = super().authorize(service_id, operation, depth)
+        allowed, member = await super().authorize(service_id, operation, depth)
         if allowed is False:
             _LOGGER.debug('Request not authorized')
 
@@ -284,7 +285,7 @@ class ServiceDataAccessRight(DataAccessRight):
 
         _LOGGER.debug('Authorizing access by the service for data item')
 
-        allowed, member = super().authorize(service_id, operation, depth)
+        allowed, member = await super().authorize(service_id, operation, depth)
         if allowed is False:
             _LOGGER.debug('Request not authorized')
 
@@ -327,7 +328,7 @@ class AnonymousDataAccessRight(DataAccessRight):
             'Authorizing access by the service for data item {self.name}'
         )
 
-        allowed, member = super().authorize(service_id, operation, depth)
+        allowed, member = await super().authorize(service_id, operation, depth)
         if allowed is False:
             _LOGGER.debug('Request not authorized')
 

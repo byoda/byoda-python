@@ -13,6 +13,9 @@ import os
 import sys
 import yaml
 import asyncio
+
+from uuid import uuid4
+
 from datetime import datetime, timedelta, timezone
 
 from python_graphql_client import GraphqlClient
@@ -134,7 +137,8 @@ async def main():
         )
         try:
             result = client.execute(
-                query=GRAPHQL_STATEMENTS['person']['query']
+                query=GRAPHQL_STATEMENTS['person']['query'],
+                variables={'query_id': uuid4()}
             )
             if result.get('data'):
                 edges = result['data']['person_connection']['edges']

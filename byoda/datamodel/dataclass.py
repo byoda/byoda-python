@@ -218,7 +218,7 @@ class SchemaDataItem:
         Parse the #accesscontrol key of the data item in the JSON Schema
         '''
 
-        _LOGGER.debug(f'Parssing access controls for {self.name}')
+        _LOGGER.debug(f'Parsing access controls for {self.name}')
 
         rights = self.schema.get('#accesscontrol')
         if not rights:
@@ -317,7 +317,7 @@ class SchemaDataScalar(SchemaDataItem):
                 self.python_type = 'UUID'
 
         _LOGGER.debug(
-            f'Created scalar class %s of type {self.type} with '
+            f'Created scalar class {self.name} of type {self.type} with '
             f'format {self.format} and python type {self.python_type}'
         )
 
