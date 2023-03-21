@@ -1,20 +1,22 @@
 #!/bin/bash
 
-RESULT=$(git status | grep 'branch master')
 
-if [ "$?" -eq "0" ]; then
-    export TAG=latest
-else
-    export TAG=dev
+export TAG=latest
+
+if [ -d ".git" ]; then
+    RESULT=$(grep byoda .git/config)
+    if [ "$?" -eq "0" ]; then
+        RESULT=$(git status | head -1 | grep 'branch master')
+        if [ "$?" -eq "1" ]; then
+            export TAG=dev
+        fi
+    fi
 fi
-
-echo "Using tag: ${TAG}"
-
 
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 KEEP_LOGS=0
-args=$(getopt -l "help" -l "wipe-all" -l "keep-logs" -o "" -- "$@")
+args=$(getopt -l "help" -l "wipe-all" -l "keep-logs" -l "tag" -o "t:" -- "$@")
 
 eval set -- "$args"
 
@@ -34,6 +36,10 @@ while [ $# -ge 1 ]; do
         --keep-logs)
             KEEP_LOGS=1
             ;;
+        -t|--tag)
+            shift
+            export TAG=$2
+            ;;
         -h|--help)
             echo "$0: Launch the Byoda container"
             echo ""
@@ -41,10 +47,13 @@ while [ $# -ge 1 ]; do
             echo ""
             echo "Usage: $0 [--help/-h] [--wipe-all] [--wipe-member-data] [--keep-logs]"
             echo ""
-            echo "--help/-h     shows this helptext"
-            echo "--wipe-all    wipe all of the data of the pod and creates a new account ID before launching te container"
+            echo "--help/-h             shows this helptext"
+            echo "--wipe-all            wipe all of the data of the pod and creates a new account ID before launching te container"
+            echo "--wipe-member-data    wipe all membership data of the pod before launching te container"
+            echo "--keep-logs           do not delete the logs of the pod"
+            echo "--tag [latest | dev ] use the dev or latest tag of the container"
             echo ""
-            return 0
+            exit 0
             ;;
         *)
            ;;
@@ -58,6 +67,12 @@ done
 echo "Loading settings from settings.sh"
 source ~/byoda-settings.sh
 
+if [[ "${TAG}" != "latest" && "${TAG}" != "dev" ]]; then
+    echo "Invalid tag: ${TAG}"
+    exit 1
+fi
+
+echo "Using Byoda container byoda-pod:${TAG}"
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
