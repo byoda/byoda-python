@@ -257,11 +257,15 @@ class NetworkDataAccessRight(DataAccessRight):
                 )
                 if (link['member_id'] == auth.member_id
                         and (not self.relations
-                             or link['relation'].lower() in self.relations))):
-                    _LOGGER.debug(f'Link to {link["member_id"]} matches {self.relations}')
+                             or link['relation'].lower() in self.relations)):
+                    _LOGGER.debug(
+                        f'Link to {link["member_id"]} matches {self.relations}'
+                    )
                     network.append(link)
                 else:
-                    _LOGGER.debug(f'Link to {link["member_id"]} fails {self.relations}')
+                    _LOGGER.debug(
+                        f'Link to {link["member_id"]} fails {self.relations}'
+                    )
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
 
