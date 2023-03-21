@@ -253,18 +253,18 @@ class NetworkDataAccessRight(DataAccessRight):
             network = []
             for link in network_links or []:
                 _LOGGER.debug(
-                    f'Found ink: link["relation"] to {link["member_id"]}'
+                    f'Found link: {link["relation"]} to {link["member_id"]}'
                 )
                 if (link['member_id'] == auth.member_id
                         and (not self.relations
                              or link['relation'].lower() in self.relations)):
                     _LOGGER.debug(
-                        f'Link to {link["member_id"]} matches {self.relations}'
+                        f'Link to {link["relation"]} is in {self.relations}'
                     )
                     network.append(link)
                 else:
                     _LOGGER.debug(
-                        f'Link to {link["member_id"]} fails {self.relations}'
+                        f'Link to {link["relation"]} not in {self.relations}'
                     )
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
