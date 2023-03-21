@@ -231,7 +231,7 @@ class NetworkDataAccessRight(DataAccessRight):
         if self.relations:
             _LOGGER.debug(
                'Relation of network links must be one of '
-               f'{", ".join(self.relations)}'
+               f'{", ".join(self.relations)} for member_id {auth.member_id}'
             )
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
@@ -253,18 +253,18 @@ class NetworkDataAccessRight(DataAccessRight):
             network = []
             for link in network_links or []:
                 _LOGGER.debug(
-                    f'Found link: {link["relation"]} to {link["member_id"]}'
+                    f'Found link: {", ".join(link["relation"])} to {link["member_id"]}'
                 )
                 if (link['member_id'] == auth.member_id
                         and (not self.relations
                              or link['relation'].lower() in self.relations)):
                     _LOGGER.debug(
-                        f'Link to {link["relation"]} is in {self.relations}'
+                        f'Link to {link["relation"]} is in {", ".join(self.relations)}'
                     )
                     network.append(link)
                 else:
                     _LOGGER.debug(
-                        f'Link to {link["relation"]} not in {self.relations}'
+                        f'Link to {link["relation"]} not in {", ".join(self.relations)}'
                     )
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
