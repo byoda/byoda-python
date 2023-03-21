@@ -126,8 +126,6 @@ class DataAccessRight:
 
         await config.server.account.get_memberships()
         member: Member = config.server.account.memberships.get(service_id)
-        if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
 
         return True, member
 
@@ -156,7 +154,7 @@ class MemberDataAccessRight(DataAccessRight):
             _LOGGER.debug('Request not authorized')
 
         if not member:
-            _LOGGER.debug(f'No membership found for service {service_id}')
+            _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
         if auth.member_id and auth.member_id == member.member_id:
@@ -165,7 +163,7 @@ class MemberDataAccessRight(DataAccessRight):
             )
             return True
 
-        _LOGGER.debug(f'Authorization failed for ourselves: {auth.member_id}')
+        _LOGGER.debug(f'{auth.member_id} is not ourselves: {member.member_id}')
         return False
 
 

@@ -94,10 +94,6 @@ class Sql:
                         f'Committing transaction for SQL command: {command}'
                     )
                     await db_conn.commit()
-                else:
-                    _LOGGER.debug(
-                        f'Not SQL committing for SQL command {command}'
-                    )
 
                 return result
             except aiosqlite.Error as exc:
