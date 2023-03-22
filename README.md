@@ -302,13 +302,8 @@ export MEMBER_JWT=$( \
      https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/pod/authtoken | jq -r .auth_token); echo $MEMBER_JWT
 ```
 
-You can use the member JWT to query GraphQL API on the pod:
-```
-curl -s -X POST -H 'content-type: application/json' \
-    -H "Authorization: bearer $MEMBER_JWT" \
-    https://proxy.byoda.net/$SERVICE_ADDR_ID/$MEMBER_ID/api/v1/data/service-$SERVICE_ADDR_ID \
-    --data '{"query": "query {person_connection {edges {person {given_name additional_names family_name email homepage_url avatar_url}}}}"}' | jq .
-```
+You can use the member JWT to query GraphQL API on the pod. We don't send GraphQL queries using curl as those queries are rather tedious to compose but the tools/call_graphql.py tool uses a JWT to call the GraphQL API.
+
 A BYODA service doesn't just consist of a data model and namespaces and APIs on pods. A service also has to host a server that hosts some required APIs. The service can optionally host additional APIs such as a 'search' service to allow members to discover other members. You can use the member-JWT to call REST APIs against the server for the service:
 ```
 curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \

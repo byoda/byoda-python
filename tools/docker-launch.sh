@@ -349,4 +349,5 @@ sudo docker run -d \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \
+    --ulimit nofile=65536:65536 \
     byoda/byoda-pod:${TAG}

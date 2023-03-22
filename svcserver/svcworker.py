@@ -18,6 +18,8 @@ from uuid import uuid4
 
 from datetime import datetime, timedelta, timezone
 
+import orjson
+
 from python_graphql_client import GraphqlClient
 from requests.exceptions import ConnectionError as RequestConnectionError
 from requests.exceptions import HTTPError
@@ -146,6 +148,10 @@ async def main():
                     _LOGGER.debug('Did not get any info from the pod')
                 else:
                     person_data = edges[0]['person']
+                    _LOGGER.info(
+                        f'Got data from member {member_id}: '
+                        f'{orjson.dumps(person_data)}'
+                    )
                     server.member_db.set_data(member_id, person_data)
 
                     server.member_db.kvcache.set(

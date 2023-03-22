@@ -16,7 +16,6 @@ import sys
 ### Test change     # noqa: E266
 ###
 import shutil
-import orjson
 from tests.lib.util import get_test_uuid
 ###
 ###

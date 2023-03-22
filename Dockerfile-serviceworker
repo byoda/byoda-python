@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y \
         libffi-dev \
         python3-dev \
         libpq-dev \
+        libnng1 \
         libaugeas0 \
         git \
     && apt-get -y clean \
@@ -53,4 +54,4 @@ COPY . byoda-python/
 CMD  cd /opt/byoda/byoda-python && \
     pipenv run python3 svcserver/svcworker.py \
         1> /var/log/byoda/svcworker-stdout.log \
-        2> /var/log/byoda/svcworker-error.log \
+        2> /var/log/byoda/svcworker-stderr.log \
