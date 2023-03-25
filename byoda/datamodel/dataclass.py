@@ -481,9 +481,11 @@ class SchemaDataArray(SchemaDataItem):
             # instance. We only track changes for arrays that reference
             # another class
             if config.test_case != "TEST_CLIENT":
-                self.pubsub_class = PubSub.setup(class_name, send=True)
+                self.pubsub_class = PubSub.setup(
+                    class_name, schema['service_id'], is_counter=False, is_sender=True
+                )
                 self.pubsub_counter = PubSub.setup(
-                    f'COUNTER_{class_name}', send=True
+                    class_name, schema['service_id'], is_counter=True, is_sender=True
                 )
         else:
             raise ValueError(

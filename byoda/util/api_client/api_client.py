@@ -163,6 +163,8 @@ class ApiClient:
         if isinstance(method, HttpMethod):
             method: str = method.value
 
+        processed_data = data
+        updated_headers = None
         if data and type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs
             processed_data = orjson.dumps(data)

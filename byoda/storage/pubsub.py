@@ -11,10 +11,12 @@ this class
 
 import os
 import shutil
+import asyncio
 import logging
 
-import orjson
 import pynng
+
+import orjson
 
 from byoda.datatypes import PubSubTech
 
@@ -22,21 +24,26 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PubSub:
-    def __init__(self, connection_string: str, send: bool):
+    def __init__(self, connection_string: str, service_id: int,
+                 is_sender: bool):
         self.connection_string: str = connection_string
-        self.sender: bool = send
+        self.service_id: int = service_id
+        self.is_sender: bool = is_sender
         self.pub: pynng.Pub0 | None = None
-        self.sub: pynng.Sub0 | None = None
+        self.subs: list[pynng.Sub0] = []
 
     @staticmethod
-    def setup(connection_string: str, send: bool,
+    def setup(connection_string: str, service_id: int,
+              is_counter: bool = False, is_sender: bool = False,
               pubsub_tech: PubSubTech = PubSubTech.NNG):
         '''
         Factory for PubSub
         '''
 
         if pubsub_tech == PubSubTech.NNG:
-            return PubSubNng(connection_string, send)
+            return PubSubNng(
+                connection_string, service_id, is_counter, is_sender
+            )
         else:
             raise ValueError(f'Unknown PubSub tech: {pubsub_tech}')
 
@@ -63,7 +70,8 @@ class PubSubNng(PubSub):
     SEND_BUFFER_SIZE = 100
     PUBSUB_DIR = '/tmp/byoda-pubsub'
 
-    def __init__(self, class_name: str, is_sender: bool):
+    def __init__(self, class_name: str, service_id: int, is_counter: bool,
+                 is_sender: bool):
         '''
         This class uses local special files for inter-process
         communication. There is a file for:
@@ -79,13 +87,17 @@ class PubSubNng(PubSub):
 
         self.work_dir = PubSubNng.PUBSUB_DIR
 
-        if not os.path.isdir(self.work_dir):
-            os.makedirs(self.work_dir, exist_ok=True)
+        connection_string = PubSubNng.get_connection_string(
+            class_name, service_id, is_counter
+        )
 
-        connection_string = PubSubNng.get_connection_string(class_name)
-        super().__init__(connection_string, is_sender)
+        path = PubSubNng.get_directory(service_id)
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
 
-        if self.sender:
+        super().__init__(connection_string, service_id, is_sender)
+
+        if self.is_sender:
             _LOGGER.debug(
                 f'Setting up for sending to {self.connection_string}'
             )
@@ -100,19 +112,72 @@ class PubSubNng(PubSub):
             self.sub: pynng.Sub0 | None = None
         else:
             _LOGGER.debug(
-                f'Setting up for receiving from {self.connection_string}'
+                f'Setting up for receiving messages for class {class_name}'
             )
-            self.sub = pynng.Sub0(dial=self.connection_string)
-            self.sub.subscribe(b'')
-            self.pub: pynng.Sub0 | None = None
+
+            path = PubSubNng.get_directory(service_id)
+            files = os.listdir(path)
+            for file in files:
+                prefix = PubSubNng.get_filename(class_name, is_counter)
+                if file.startswith(prefix):
+                    filepath = PubSubNng.get_connection_string(
+                        class_name, service_id, is_counter
+                    )
+                    _LOGGER.debug(
+                        f'Found file: {file} for class {class_name}'
+                    )
+                    sub = pynng.Sub0(dial=filepath)
+                    sub.subscribe(b'')
+                    self.subs.append(sub)
 
     @staticmethod
-    def get_connection_string(class_name: str) -> str:
+    def get_directory(service_id: int) -> str:
         '''
-        Gets the file/path for the special file
+        Gets the directory in which the special files are created for the
+        service
         '''
 
-        return f'ipc://{PubSubNng.PUBSUB_DIR}/{os.getpid()}-BYODA-{class_name}'
+        return f'{PubSubNng.PUBSUB_DIR}/service-{service_id}'
+
+    @classmethod
+    def get_connection_prefix(cls, class_name: str, service_id: int,
+                              is_counter: bool) -> str:
+        '''
+        Gets the file/path for the special file without the process ID suffix
+        '''
+
+        path = cls.get_directory(service_id)
+        filename = cls.get_filename(class_name, is_counter)
+        filepath = f'ipc://{path}/{filename}'
+
+        return filepath
+
+    @staticmethod
+    def get_filename(class_name: str, is_counter: bool) -> str:
+        filename = f'{class_name}.pipe-'
+        if is_counter:
+            filename += 'COUNTER-'
+
+        return filename
+
+    @classmethod
+    def get_connection_string(cls, class_name: str, service_id: int,
+                              is_counter: bool) -> str:
+        '''
+        Gets the file/path for the special file
+
+        The filename includes the ID of the calling process so we can
+        support senders to run multiple webserver processes to run in
+        parallel, as nng does not support multiple senders to the same
+        socket.
+        Readers will have to read from all the files for the service_id
+        & class_name in order to get all the messages for the class
+        '''
+
+        filepath = cls.get_connection_prefix(
+            class_name, service_id, is_counter
+        )
+        return f'{filepath}{os.getpid()}'
 
     @staticmethod
     def cleanup():
@@ -129,10 +194,20 @@ class PubSubNng(PubSub):
         val = orjson.dumps(data)
         await self.pub.asend(val)
 
-    async def recv(self) -> object:
-        if not self.sub:
+    async def recv(self) -> list[object]:
+        if not self.subs:
             raise ValueError('PubSubNng not setup for receiving')
 
-        val = await self.sub.arecv()
-        data = orjson.loads(val)
+        tasks = [
+            asyncio.create_task(sub.arecv())
+            for sub in self.subs
+        ]
+
+        completed_tasks = asyncio.as_completed(tasks)
+
+        data = [
+            orjson.loads(await completed_task)
+            for completed_task in completed_tasks
+        ]
+
         return data

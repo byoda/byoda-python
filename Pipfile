@@ -54,6 +54,7 @@ pynng = "*"
 setuptools = "==65.5.1"
 future = "*"
 wheel = "*"
+trio = "*"
 
 [dev-packages]
 flake8 = "*"

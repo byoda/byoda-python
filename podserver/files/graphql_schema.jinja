@@ -496,10 +496,40 @@ class Mutation:
 
 {% endfor %}{# for root_class in classes.values() #}
 
+@strawberry.type
+class Subscription:
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id %}
+{%     if root_class.type == DataType.ARRAY %}
+    @strawberry.subscription
+    async def {{ root_class.referenced_class.name }}(self, info: Info,
+            filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None,
+            ) -> {{ root_class.referenced_class.name }}:
+        _LOGGER.debug(
+            f'Resolving {{ root_class.name }} array'
+        )
+
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{result}'
+            )
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        data = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
+
+        return data
+
+{%     endif %}{# if root_class.type != DataType.ARRAY #}
+{%   endif %}{#  if not root_class.item_id #}
+{% endfor %}{# for root_class in classes.values() #}
+
 def get_schema():
     # This is a Strawberry Schema, not byoda.Schema
     return strawberry.Schema(
-        query=Query, mutation=Mutation,
+        query=Query, mutation=Mutation, subscription=Subscription,
         config=StrawberryConfig(auto_camel_case=False)
     )
 

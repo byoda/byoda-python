@@ -126,10 +126,12 @@ class Logger(logging.Logger):
         root_logger.addHandler(logging_handler)
 
         # TODO: manage log levels for various SDKs
+        logging.getLogger('asyncio').setLevel(logging.WARNING)
         logging.getLogger('aiosqlite').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('azure').setLevel(logging.WARNING)
         logging.getLogger('google').setLevel(logging.WARNING)
+        logging.getLogger('pynng.nng').setLevel(logging.INFO)
 
         logging.getLogger('byoda.storage.azure').setLevel(logging.INFO)
         logging.getLogger('byoda.storage.aws').setLevel(logging.INFO)
