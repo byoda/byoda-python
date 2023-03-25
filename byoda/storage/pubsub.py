@@ -71,24 +71,35 @@ class PubSubNng(PubSub):
     PUBSUB_DIR = '/tmp/byoda-pubsub'
 
     def __init__(self, class_name: str, service_id: int, is_counter: bool,
-                 is_sender: bool):
+                 is_sender: bool, process_id: int = None):
         '''
         This class uses local special files for inter-process
-        communication. There is a file for:
-        - each server process
-        - each top-level data element of type 'array' in the service schema
+        communication. There is a file for each combination of:
+        - server process
+        - top-level data element of type 'array' in the service schema
         for changes to the data in that array
         - each top-level data element of type 'array' in the service schema
         for counting the number of elements in the array
 
         The filename format is:
             <prefix>/<process-id>.byoda_<data-element-name>[-count]
+
+        :param class_name: the name of the class for which messages will
+        be sent or received
+        :param service_id: the service id for which messages will be sent
+        or received
+        :param is_counter: the counter for the length of the array for
+        <class_name>
+        :param is_sender: is this instance going to send or receive messages
+        :process_id: if specified, the full file/path to the seocker will
+        use the provided process ID instead of the actual process ID. This
+        parameter should only be used for testing purposes
         '''
 
         self.work_dir = PubSubNng.PUBSUB_DIR
 
         connection_string = PubSubNng.get_connection_string(
-            class_name, service_id, is_counter
+            class_name, service_id, is_counter, process_id
         )
 
         path = PubSubNng.get_directory(service_id)
@@ -121,7 +132,7 @@ class PubSubNng(PubSub):
                 prefix = PubSubNng.get_filename(class_name, is_counter)
                 if file.startswith(prefix):
                     filepath = PubSubNng.get_connection_string(
-                        class_name, service_id, is_counter
+                        class_name, service_id, is_counter, process_id
                     )
                     _LOGGER.debug(
                         f'Found file: {file} for class {class_name}'
@@ -162,7 +173,7 @@ class PubSubNng(PubSub):
 
     @classmethod
     def get_connection_string(cls, class_name: str, service_id: int,
-                              is_counter: bool) -> str:
+                              is_counter: bool, process_id: int = None) -> str:
         '''
         Gets the file/path for the special file
 
@@ -177,7 +188,11 @@ class PubSubNng(PubSub):
         filepath = cls.get_connection_prefix(
             class_name, service_id, is_counter
         )
-        return f'{filepath}{os.getpid()}'
+
+        if not process_id:
+            process_id = os.getpid()
+
+        return f'{filepath}{process_id}'
 
     @staticmethod
     def cleanup():
