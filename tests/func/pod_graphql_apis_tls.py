@@ -18,8 +18,6 @@ import requests
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 
-import orjson
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 
@@ -71,7 +69,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         network_data['account_id'] = get_account_id(network_data)
-        
+
         account = Account(network_data['account_id'], network)
         account.password = network_data.get('account_secret')
         await account.load_secrets()

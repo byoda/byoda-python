@@ -71,15 +71,22 @@ class SchemaDataItem:
     code leveraging the Strawberry GraphQL module.
 
     A data 'class' here can be eiter an object/dict, array/list or scalar
+
+    :param class_name: name of the class
+    :param schema: json-schema blurb for the class
+    :param schema_id: id of the schema
+    :param service_id: id of the service the class belongs to
     '''
 
-    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
+    def __init__(self, class_name: str, schema: dict, schema_id: str, service_id: int
+                 ) -> None:
 
         self.name: str | None = class_name
         self.schema: dict[str, object] = schema
         self.description: str | None = schema.get('description')
         self.item_id: str | None = schema.get('$id')
         self.schema_id: str = schema_id
+        self.service_id: int = service_id
         self.schema_url: ParseResult = urlparse(schema_id)
         self.enabled_apis: set = set()
         self.defined_class: bool | None = None
@@ -181,7 +188,7 @@ class SchemaDataItem:
 
     @staticmethod
     def create(class_name: str, schema: dict, schema_id: str,
-               classes: dict = None):
+               service_id: int, classes: dict = None):
         '''
         Factory for instances of classes derived from SchemaDataItem
         '''
@@ -196,13 +203,13 @@ class SchemaDataItem:
         )
 
         if item_type == 'object':
-            item = SchemaDataObject(class_name, schema, schema_id)
+            item = SchemaDataObject(class_name, schema, schema_id, service_id)
         elif item_type == 'array':
             item = SchemaDataArray(
-                class_name, schema, schema_id, classes=classes
+                class_name, schema, schema_id, service_id, classes=classes
             )
         else:
-            item = SchemaDataScalar(class_name, schema, schema_id)
+            item = SchemaDataScalar(class_name, schema, schema_id, service_id)
 
         return item
 
@@ -297,8 +304,9 @@ class SchemaDataItem:
         return None
 
 class SchemaDataScalar(SchemaDataItem):
-    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
-        super().__init__(class_name, schema, schema_id)
+    def __init__(self, class_name: str, schema: dict, schema_id: str,
+                 service_id: int) -> None:
+        super().__init__(class_name, schema, schema_id, service_id)
 
         self.defined_class: bool = False
         self.format: str = None
@@ -341,8 +349,9 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    def __init__(self, class_name: str, schema: dict, schema_id: str) -> None:
-        super().__init__(class_name, schema, schema_id)
+    def __init__(self, class_name: str, schema: dict, schema_id: str,
+                 service_id: int) -> None:
+        super().__init__(class_name, schema, schema_id, service_id)
 
         # 'Defined' classes are objects under the '$defs' object
         # of the JSON Schema. We don't create GraphQL mutations for
@@ -376,7 +385,7 @@ class SchemaDataObject(SchemaDataItem):
                         'object'
                     )
 
-            item = SchemaDataItem.create(field, field_properties, schema_id)
+            item = SchemaDataItem.create(field, field_properties, schema_id, service_id)
 
             self.fields[field] = item
 
@@ -439,8 +448,8 @@ class SchemaDataObject(SchemaDataItem):
 
 class SchemaDataArray(SchemaDataItem):
     def __init__(self, class_name: str, schema: dict, schema_id: str,
-                 classes: dict) -> None:
-        super().__init__(class_name, schema, schema_id)
+                 service_id: int, classes: dict) -> None:
+        super().__init__(class_name, schema, schema_id, service_id)
 
         self.defined_class: bool = False
 
@@ -454,7 +463,9 @@ class SchemaDataArray(SchemaDataItem):
         if 'type' in items:
             # This is an array of scalars
             self.items = DataType(items['type'])
-            self.referenced_class = SchemaDataItem.create(None, schema['items'], self.schema_id)
+            self.referenced_class = SchemaDataItem.create(
+                None, schema['items'], self.schema_id, self.service_id
+            )
         elif '$ref' in items:
             # This is an array of objects of the referenced class
             self.items = DataType.REFERENCE
@@ -482,10 +493,10 @@ class SchemaDataArray(SchemaDataItem):
             # another class
             if config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
-                    class_name, schema['service_id'], is_counter=False, is_sender=True
+                    class_name, self.service_id, is_counter=False, is_sender=True
                 )
                 self.pubsub_counter = PubSub.setup(
-                    class_name, schema['service_id'], is_counter=True, is_sender=True
+                    class_name, self.service_id, is_counter=True, is_sender=True
                 )
         else:
             raise ValueError(

@@ -306,7 +306,7 @@ class Schema:
         for class_name, class_properties in defs.items():
             _LOGGER.debug(f'Parsing defined class {class_name}')
             dataclass = SchemaDataItem.create(
-                class_name, class_properties, schema_id
+                class_name, class_properties, schema_id, self.service_id
             )
             self.data_classes[class_name] = dataclass
 
@@ -314,7 +314,8 @@ class Schema:
         for class_name, class_properties in properties.items():
             _LOGGER.debug(f'Parsing class {class_name}')
             dataclass = SchemaDataItem.create(
-                class_name, class_properties, schema_id, self.data_classes
+                class_name, class_properties, schema_id, self.service_id,
+                self.data_classes
             )
             self.data_classes[class_name] = dataclass
 

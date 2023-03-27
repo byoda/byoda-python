@@ -7,6 +7,7 @@ Static variable definitions used in various test cases
 '''
 
 BASE_URL = 'http://localhost:{PORT}/api'
+BASE_WS_URL = 'ws://localhost:{PORT}/api'
 
 ADDRESSBOOK_SERVICE_ID = 4294929430
 ADDRESSBOOK_VERSION = 1

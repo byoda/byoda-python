@@ -434,7 +434,7 @@ class MemberData(dict):
         )
 
         while True:
-            data = sub.recv()
+            data = await sub.recv()
             for item in data:
                 yield item
 

@@ -1,15 +1,17 @@
 '''
-GraphQlClient, for performing GraphQL queries
+GraphQlClient, for performing GraphQL queries, either using HTTP or websockets
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
+import orjson
 import logging
 
 import aiohttp
 import requests
+import websockets
 
 from byoda.secrets import Secret
 from byoda.util.api_client.restapi_client import HttpMethod
@@ -67,4 +69,44 @@ class GraphQlClient:
         if vars:
             body["variables"] = vars
 
+        return body
+
+
+class GraphQlWsClient(GraphQlClient):
+    async def subscribe(self, url: str, query: bytes, secret: Secret = None,
+                        headers: dict = None, vars: dict = None,
+                        timeout: int = 10) -> aiohttp.ClientResponse:
+
+        body = GraphQlWsClient.prep_query(query, vars)
+
+        async with websockets.connect(url) as websocket:
+            pass
+
+        return
+
+    @staticmethod
+    def prep_query(query: str, vars: dict) -> str:
+        '''
+        Generates the GraphQL query to be used in a HTTP POST call
+        '''
+
+        if isinstance(query, bytes):
+            query = query.decode('utf-8')
+
+        body = {
+            'operationName': 'subscription',
+            'query': query
+        }
+
+        if vars:
+            body['variables'] = vars
+
+        request_message = orjson.dumps(
+            {
+                'type': 'start',
+                'id': '1',
+                'payload': body
+            }
+
+        )
         return body

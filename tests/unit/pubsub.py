@@ -7,7 +7,6 @@ Test cases for PubSub
 '''
 
 import os
-import re
 import sys
 import shutil
 import logging
@@ -15,7 +14,6 @@ import unittest
 
 import pynng
 import orjson
-
 
 from byoda.util.logger import Logger
 
