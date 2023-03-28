@@ -436,13 +436,13 @@ class MemberData(dict):
         data_class = member.schema.data_classes[class_name]
 
         sub = PubSub.setup(
-            data_class, service_id, is_counter=False, is_sender=False,
-            pubsub_tech=PubSubTech.NNG
+            data_class.name, data_class, service_id, is_counter=False,
+            is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
         data = await sub.recv()
 
-        return {data}
+        return data
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:
@@ -669,7 +669,12 @@ class MemberData(dict):
 
             data_class: SchemaDataArray = member.schema.data_classes[key]
             pubsub_class = data_class.pubsub_class
-            await pubsub_class.send({'append': mutate_data})
+            await pubsub_class.send(
+                {
+                    'action': 'append',
+                    data_class.referenced_class.name: mutate_data
+                }
+            )
 
             pubsub_counter = data_class.pubsub_counter
             await pubsub_counter.send({'append': 1})

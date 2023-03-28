@@ -526,13 +526,12 @@ class Subscription:
 
         while True:
             data = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
-            for record in data:
-                action = list(record.keys())[0]
+            for item in data:
                 yield {{ root_class.name }}_update(
-                    action=action,
+                    action=item['action'],
                     {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-                        record[action]['{{ field_name }}'],
+                        item['{{ root_class.referenced_class.name }}']['{{ field_name }}'],
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
                     )
                 )
