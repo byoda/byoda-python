@@ -37,6 +37,8 @@ from byoda.storage.pubsub import PubSubTech
 
 from byoda.util.paths import Paths
 
+from byoda.servers.pod_server import PodServer
+
 from byoda.exceptions import ByodaValueError
 
 # These imports are only used for typing
@@ -423,20 +425,24 @@ class MemberData(dict):
             f'for object {info.path.key}'
         )
 
+        server: PodServer = config.server
+        await server.account.load_memberships()
+        member: Member = server.account.memberships[service_id]
+
         # The GraphQL API that was called, with other words, the name
         # of the class referenced by an array at the top-level of the
         # schema
-        class_name = info.path.key
+        class_name = info.path.key[:-1 * len('_updates')]
+        data_class = member.schema.data_classes[class_name]
 
-        sub = await PubSub.setup(
-            class_name, service_id, is_counter=False, is_sender=False,
-            pub_sub_tech=PubSubTech.NNG
+        sub = PubSub.setup(
+            data_class, service_id, is_counter=False, is_sender=False,
+            pubsub_tech=PubSubTech.NNG
         )
 
         data = await sub.recv()
 
-        return data
-
+        return {data}
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:

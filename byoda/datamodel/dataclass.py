@@ -493,10 +493,12 @@ class SchemaDataArray(SchemaDataItem):
             # another class
             if config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
-                    class_name, self.service_id, is_counter=False, is_sender=True
+                    self.name, self, self.service_id, is_counter=False,
+                    is_sender=True
                 )
                 self.pubsub_counter = PubSub.setup(
-                    class_name, self.service_id, is_counter=True, is_sender=True
+                    self.name, self, self.service_id, is_counter=True,
+                    is_sender=True
                 )
         else:
             raise ValueError(

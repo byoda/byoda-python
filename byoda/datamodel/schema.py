@@ -160,31 +160,30 @@ class Schema:
         Load a schema from a dict
         '''
 
-        try:
-            self._service_signature = ServiceSignature.from_dict(
-                self.json_schema['signatures'].get(
-                    SignatureType.SERVICE.value
-                ),
-                data_secret=self.service_data_secret
+        if verify_contract_signatures:
+            try:
+                self._service_signature = ServiceSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.SERVICE.value
+                    ),
+                    data_secret=self.service_data_secret
 
-            )
-        except ValueError:
-            if verify_contract_signatures:
+                )
+            except ValueError:
                 _LOGGER.exception(
                     'No Service signature in contract for service '
                     f'{self.service_id}'
                 )
                 raise
 
-        try:
-            self._network_signature = NetworkSignature.from_dict(
-                self.json_schema['signatures'].get(
-                    SignatureType.NETWORK.value
-                ),
-                data_secret=self.network_data_secret
-            )
-        except ValueError:
-            if verify_contract_signatures:
+            try:
+                self._network_signature = NetworkSignature.from_dict(
+                    self.json_schema['signatures'].get(
+                        SignatureType.NETWORK.value
+                    ),
+                    data_secret=self.network_data_secret
+                )
+            except ValueError:
                 _LOGGER.exception(
                     'No Network signature in contract for service '
                     f'{self.service_id}'

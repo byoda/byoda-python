@@ -15,12 +15,23 @@ import unittest
 import pynng
 import orjson
 
+from datetime import datetime, timezone
+
 from byoda.util.logger import Logger
 
 from byoda.datatypes import PubSubTech
+
+from byoda.datamodel.schema import Schema
+from byoda.datamodel.dataclass import SchemaDataItem
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda.storage.pubsub import PubSub
 from byoda.storage.pubsub import PubSubNng
 
+from byoda import config
+
+from tests.lib.util import get_test_uuid
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,12 +42,16 @@ SERVICE_ID = 999
 class TestPubSub(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         try:
-            path = PubSubNng.get_directory(service_id=SERVICE_ID)
-            shutil.rmtree(path)
+            shutil.rmtree(TEST_DIR)
+            shutil.rmtree(PubSubNng.PUBSUB_DIR)
         except FileNotFoundError:
             pass
 
         os.makedirs(TEST_DIR, exist_ok=True)
+
+        shutil.copy2('tests/collateral/addressbook.json', TEST_DIR)
+
+        config.test_case = 'TEST_CLIENT'
 
     async def test_pynng_one_sender_one_receiver(self):
         _LOGGER.debug('test_pynng_one_sender_one_receiver')
@@ -90,78 +105,145 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
     async def test_one_sender_one_receiver(self):
         _LOGGER.debug('test_one_sender_one_receiver')
-        data = {'test': 'test'}
+
+        storage: FileStorage = FileStorage(TEST_DIR)
+        schema: Schema = await Schema.get_schema(
+            'addressbook.json', storage, None, None,
+            verify_contract_signatures=False
+        )
+
+        schema.get_data_classes()
+
+        data_class: SchemaDataItem = schema.data_classes['network_links']
+
+        test_data = {
+            'action': 'append',
+            'network_link': {
+                'member_id': get_test_uuid(),
+                'relation': 'friend',
+                'created_timestamp': datetime.now(tz=timezone.utc)
+            }
+        }
 
         pub = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=True,
-            pubsub_tech=PubSubTech.NNG
+            'test', data_class, schema.service_id, is_counter=False,
+            is_sender=True, pubsub_tech=PubSubTech.NNG
         )
 
         sub = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=False,
-            pubsub_tech=PubSubTech.NNG
+            'test', data_class, schema.service_id, is_counter=False,
+            is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        await pub.send(data)
+        await pub.send(test_data)
         values = await sub.recv()
-        self.assertEqual(values[0], data)
+
+        value = values[0]
+        self.assertEqual(value, test_data)
 
     async def test_one_sender_two_receivers(self):
         _LOGGER.debug('test_one_sender_two_receivers')
-        data = {'test': 'test'}
+
+        storage: FileStorage = FileStorage(TEST_DIR)
+        schema: Schema = await Schema.get_schema(
+            'addressbook.json', storage, None, None,
+            verify_contract_signatures=False
+        )
+
+        schema.get_data_classes()
+
+        data_class: SchemaDataItem = schema.data_classes['network_links']
+
+        test_data = {
+            'action': 'append',
+            'network_link': {
+                'member_id': get_test_uuid(),
+                'relation': 'friend',
+                'created_timestamp': datetime.now(tz=timezone.utc)
+            }
+        }
 
         pub = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=True,
-            pubsub_tech=PubSubTech.NNG
+            'test', data_class, schema.service_id, is_counter=False,
+            is_sender=True, pubsub_tech=PubSubTech.NNG
         )
 
         subs = [
             PubSub.setup(
-                'test', 999, is_counter=False, is_sender=False,
-                pubsub_tech=PubSubTech.NNG
+                'test', data_class, schema.service_id, is_counter=False,
+                is_sender=False, pubsub_tech=PubSubTech.NNG
             ),
             PubSub.setup(
-                'test', 999, is_counter=False, is_sender=False,
-                pubsub_tech=PubSubTech.NNG
+                'test', data_class, schema.service_id, is_counter=False,
+                is_sender=False, pubsub_tech=PubSubTech.NNG
             )
         ]
 
-        await pub.send(data)
+        await pub.send(test_data)
         values = [
             await subs[0].recv(),
             await subs[1].recv()
         ]
-        self.assertEqual(values[0][0], data)
-        self.assertEqual(values[1][0], data)
+        self.assertEqual(values[0][0], test_data)
+        self.assertEqual(values[1][0], test_data)
 
     async def test_two_senders_one_receiver(self):
         _LOGGER.debug('test_two_senders_one_receiver')
 
-        data = [{'test': 'test'}, {'test_two': 'test_two'}]
+        storage: FileStorage = FileStorage(TEST_DIR)
+        schema: Schema = await Schema.get_schema(
+            'addressbook.json', storage, None, None,
+            verify_contract_signatures=False
+        )
 
+        schema.get_data_classes()
+
+        data_class: SchemaDataItem = schema.data_classes['network_links']
+
+        test_data = [
+            {
+                'action': 'append',
+                'network_link': {
+                    'member_id': get_test_uuid(),
+                    'relation': 'friend',
+                    'created_timestamp': datetime.now(tz=timezone.utc)
+                }
+            },
+            {
+                'action': 'append',
+                'network_link': {
+                    'member_id': get_test_uuid(),
+                    'relation': 'family',
+                    'created_timestamp': datetime.now(tz=timezone.utc)
+                }
+            }
+        ]
+
+        # For the second instance of pubs, we bypass PubSub.setup() and
+        # directly call PubSubNng() so that we can set the process_id
         pubs = [
             PubSub.setup(
-                'test', 999, is_counter=False, is_sender=True,
-                pubsub_tech=PubSubTech.NNG
+                'test', data_class, schema.service_id, is_counter=False,
+                is_sender=True, pubsub_tech=PubSubTech.NNG
             ),
             PubSubNng(
-                'test', 999, is_counter=False, is_sender=True,
-                process_id=1
+                data_class, schema.service_id, is_counter=False,
+                is_sender=True, process_id=1
             ),
         ]
 
         sub = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=False,
-            pubsub_tech=PubSubTech.NNG
+            'test', data_class, schema.service_id, is_counter=False,
+            is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        await pubs[0].send(data[0])
-        await pubs[1].send(data[1])
+        await pubs[0].send(test_data[0])
+        await pubs[1].send(test_data[1])
 
         results = await sub.recv()
 
         for result in results:
-            self.assertIn(result, data)
+            self.assertIn(result, test_data)
 
 
 if __name__ == '__main__':

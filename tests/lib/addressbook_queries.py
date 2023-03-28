@@ -1011,8 +1011,8 @@ mutation ($filters: networkLinkInputFilter!) {
 GRAPHQL_STATEMENTS['network_links']['delete'] = DELETE_FROM_NETWORK_LINKS
 
 SUBSCRIPTION_NETWORK_LINKS_UPDATES = '''
-subscription {
-    network_links_updates {
+subscription ($filters: networkLinkInputFilter) {
+    network_links_updates (filters: $filters) {
             created_timestamp
             member_id
             relation

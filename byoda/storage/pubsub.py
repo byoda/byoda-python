@@ -13,6 +13,7 @@ import os
 import shutil
 import asyncio
 import logging
+from typing import TypeVar
 
 import pynng
 
@@ -22,19 +23,24 @@ from byoda.datatypes import PubSubTech
 
 _LOGGER = logging.getLogger(__name__)
 
+SchemaDataItem = TypeVar('SchemaDataItem')
+
 
 class PubSub:
-    def __init__(self, connection_string: str, service_id: int,
-                 is_sender: bool):
+    def __init__(self, connection_string: str, data_class: SchemaDataItem,
+                 service_id: int, is_sender: bool):
         self.connection_string: str = connection_string
         self.service_id: int = service_id
         self.is_sender: bool = is_sender
+
+        self.data_class = data_class
         self.pub: pynng.Pub0 | None = None
         self.subs: list[pynng.Sub0] = []
 
     @staticmethod
-    def setup(connection_string: str, service_id: int,
-              is_counter: bool = False, is_sender: bool = False,
+    def setup(connection_string: str, data_class: SchemaDataItem,
+              service_id: int, is_counter: bool = False,
+              is_sender: bool = False,
               pubsub_tech: PubSubTech = PubSubTech.NNG):
         '''
         Factory for PubSub
@@ -42,10 +48,13 @@ class PubSub:
 
         if pubsub_tech == PubSubTech.NNG:
             return PubSubNng(
-                connection_string, service_id, is_counter, is_sender
+                data_class, service_id, is_counter,
+                is_sender
             )
         else:
-            raise ValueError(f'Unknown PubSub tech: {pubsub_tech}')
+            raise ValueError(
+                f'Unknown PubSub tech {pubsub_tech}: {connection_string}'
+            )
 
     @staticmethod
     def get_connection_string() -> str:
@@ -70,8 +79,8 @@ class PubSubNng(PubSub):
     SEND_BUFFER_SIZE = 100
     PUBSUB_DIR = '/tmp/byoda-pubsub'
 
-    def __init__(self, class_name: str, service_id: int, is_counter: bool,
-                 is_sender: bool, process_id: int = None):
+    def __init__(self, data_class: SchemaDataItem, service_id: int,
+                 is_counter: bool, is_sender: bool, process_id: int = None):
         '''
         This class uses local special files for inter-process
         communication. There is a file for each combination of:
@@ -84,8 +93,7 @@ class PubSubNng(PubSub):
         The filename format is:
             <prefix>/<process-id>.byoda_<data-element-name>[-count]
 
-        :param class_name: the name of the class for which messages will
-        be sent or received
+        :param data_class: The class for which data will be send or received
         :param service_id: the service id for which messages will be sent
         or received
         :param is_counter: the counter for the length of the array for
@@ -99,14 +107,14 @@ class PubSubNng(PubSub):
         self.work_dir = PubSubNng.PUBSUB_DIR
 
         connection_string = PubSubNng.get_connection_string(
-            class_name, service_id, is_counter, process_id
+            data_class.name, service_id, is_counter, process_id
         )
 
         path = PubSubNng.get_directory(service_id)
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
-        super().__init__(connection_string, service_id, is_sender)
+        super().__init__(connection_string, data_class, service_id, is_sender)
 
         if self.is_sender:
             _LOGGER.debug(
@@ -123,19 +131,20 @@ class PubSubNng(PubSub):
             self.sub: pynng.Sub0 | None = None
         else:
             _LOGGER.debug(
-                f'Setting up for receiving messages for class {class_name}'
+                'Setting up for receiving messages for class '
+                f'{self.data_class.name}'
             )
 
             path = PubSubNng.get_directory(service_id)
             files = os.listdir(path)
             for file in files:
-                prefix = PubSubNng.get_filename(class_name, is_counter)
+                prefix = PubSubNng.get_filename(data_class.name, is_counter)
                 if file.startswith(prefix):
                     filepath = PubSubNng.get_connection_string(
-                        class_name, service_id, is_counter, process_id
+                        data_class.name, service_id, is_counter, process_id
                     )
                     _LOGGER.debug(
-                        f'Found file: {file} for class {class_name}'
+                        f'Found file: {file} for class {self.data_class.name}'
                     )
                     sub = pynng.Sub0(dial=filepath)
                     sub.subscribe(b'')
@@ -203,13 +212,20 @@ class PubSubNng(PubSub):
         shutil.rmtree(PubSubNng.PUBSUB_DIR, ignore_errors=True)
 
     async def send(self, data: object):
+        '''
+        Serializes the data and sends it to the socket
+        '''
+
         if not self.pub:
             raise ValueError('PubSubNng not setup for sending')
 
         val = orjson.dumps(data)
         await self.pub.asend(val)
 
-    async def recv(self) -> list[object]:
+    async def recv(self) -> list[dict[str, str | dict]]:
+        '''
+        Receives the data from the socket, normalizes it and returns it
+        '''
         if not self.subs:
             raise ValueError('PubSubNng not setup for receiving')
 
@@ -224,5 +240,18 @@ class PubSubNng(PubSub):
             orjson.loads(await completed_task)
             for completed_task in completed_tasks
         ]
+
+        referenced_class: SchemaDataItem = self.data_class.referenced_class
+
+        # Replace the data with the normalized data
+        for item in data:
+            item_data = item[referenced_class.name]
+            # At this time, all pub/sub messages are for arrays of objects so
+            # we use the referenced class to normalize the data
+            normalized_values = referenced_class.normalize(
+                item_data
+            )
+
+            item[referenced_class.name] = normalized_values
 
         return data

@@ -137,28 +137,27 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         request = '''
-subscription ($filters: networkLinkInputFilter) {
-    network_links_updates(filters: $filters) {
-            created_timestamp
-            member_id
-            relation
+subscription  {
+    network_links_updates {
+        relation
     }
 }
 '''
 
         client = GraphqlClient(endpoint=url, headers=member_headers)
         data = client.execute(
-            query=GRAPHQL_STATEMENTS['network_links']['updates'],
+            request,
             variables=None
         )
         ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
         async with websockets.connect(ws_url, subprotocols=['graphql-ws'],
                                       extra_headers=member_headers
                                       ) as websocket:
-            message = GraphQlWsClient.prep_query(
+            query = GraphQlWsClient.prep_query(
                 GRAPHQL_STATEMENTS['network_links']['updates'], None
             )
-            await websocket.send(orjson.dumps(message))
+            message = orjson.dumps(request)
+            await websocket.send(message)
             async for response_message in websocket:
                 response_body = orjson.loads(response_message)
                 if response_body['type'] == 'connection_ack':

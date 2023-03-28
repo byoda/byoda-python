@@ -135,7 +135,8 @@ mutation ($filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFi
 GRAPHQL_STATEMENTS['{{ root_class.name }}']['delete'] = DELETE_FROM_{{ root_class.name|upper }}
 
 SUBSCRIPTION_{{ root_class.name|upper }}_UPDATES = '''
-subscription ($filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFilter) {
+subscription (
+    $filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFilter) {
     {{ root_class.name }}_updates(filters: $filters) {
         {{ root_class.referenced_class.name }} {
 {%     for field in root_class.referenced_class.fields.values() %}

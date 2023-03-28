@@ -186,6 +186,11 @@ class {{ root_class.name }}_input_filter:
 
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 
+@strawberry.type
+class {{ root_class.name }}_update:
+    action: str
+    {{ root_class.referenced_class.name }}: {{ root_class.referenced_class.name }}
+
 {# avoid classes referenced by multiple root classes from being included multiple times #}
 {%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
 {%     if class_name_deliminated not in ns.classes_seen %}
@@ -503,10 +508,11 @@ class Subscription:
 {%     if root_class.type == DataType.ARRAY %}
     @strawberry.subscription
     async def {{ root_class.name }}_updates(self, info: Info,
-            ) -> {{ root_class.referenced_class.name }}:
+            filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None
+            ) -> {{ root_class.name }}_update:
         _LOGGER.debug('Resolving updates for {{ root_class.name }} array')
 
-        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        # result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
 
         # FIXME: This is a temporary hack to bypass authentication
         result = True
@@ -521,7 +527,15 @@ class Subscription:
         while True:
             data = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
             for record in data:
-                yield record
+                action = list(record.keys())[0]
+                yield {{ root_class.name }}_update(
+                    action=action,
+                    {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}(
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+                        record[action]['{{ field_name }}'],
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+                    )
+                )
 
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
 {%   endif %}{#  if not root_class.item_id #}
