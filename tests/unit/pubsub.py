@@ -39,7 +39,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         os.makedirs(TEST_DIR, exist_ok=True)
 
     async def test_pynng_one_sender_one_receiver(self):
-        _LOGGER.debug('test_pyng_one_sender_one_receiver')
+        _LOGGER.debug('test_pynng_one_sender_one_receiver')
         connection_string = f'ipc:///{TEST_DIR}/test.ipc'
 
         data = {'test': 'test'}
@@ -51,50 +51,60 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             pub.send(orjson.dumps(data))
 
             result = sub.recv()
-            val = orjson.loads(result)
-            self.assertEqual(data, val)
+            value = orjson.loads(result)
+            self.assertEqual(data, value)
 
     async def test_pynng_two_senders_two_receiver(self):
-        _LOGGER.debug('test_pyng_one_sender_one_receiver')
-        connection_string_one = f'ipc:///{TEST_DIR}/test_one.ipc'
-        connection_string_two = f'ipc:///{TEST_DIR}/test_two.ipc'
+        _LOGGER.debug('test_pynng_two_senders_two_receivers')
+        connection_strings = [
+            f'ipc:///{TEST_DIR}/test_one.ipc',
+            f'ipc:///{TEST_DIR}/test_two.ipc'
+        ]
 
-        data_one = {'test': 'test'}
-        data_two = {'test_two': 'test_two'}
+        data = [{'test': 'test'}, {'test_two': 'test_two'}]
 
-        pub_one = pynng.Pub0(listen=connection_string_one)
-        pub_two = pynng.Pub0(listen=connection_string_two)
+        pubs = [
+            pynng.Pub0(listen=connection_strings[0]),
+            pynng.Pub0(listen=connection_strings[1])
+        ]
 
-        sub_one = pynng.Sub0(dial=connection_string_one)
-        sub_one.subscribe(b'')
-        sub_two = pynng.Sub0(dial=connection_string_two)
-        sub_two.subscribe(b'')
+        subs = [
+            pynng.Sub0(dial=connection_strings[0]),
+            pynng.Sub0(dial=connection_strings[1])
+        ]
+        subs[0].subscribe(b'')
+        subs[1].subscribe(b'')
 
-        pub_one.send(orjson.dumps(data_one))
-        pub_two.send(orjson.dumps(data_two))
+        pubs[0].send(orjson.dumps(data[0]))
+        pubs[1].send(orjson.dumps(data[1]))
 
-        result_one = sub_one.recv()
-        result_two = sub_two.recv()
+        results = [subs[0].recv(), subs[1].recv()]
 
-        val_one = orjson.loads(result_one)
-        self.assertEqual(data_one, val_one)
-        val_two = orjson.loads(result_two)
-        self.assertEqual(data_two, val_two)
+        values = [
+            orjson.loads(results[0]),
+            orjson.loads(results[1])
+        ]
+        self.assertEqual(data[0], values[0])
+
+        self.assertEqual(data[1], values[1])
 
     async def test_one_sender_one_receiver(self):
+        _LOGGER.debug('test_one_sender_one_receiver')
         data = {'test': 'test'}
 
         pub = PubSub.setup(
             'test', 999, is_counter=False, is_sender=True,
             pubsub_tech=PubSubTech.NNG
         )
+
         sub = PubSub.setup(
             'test', 999, is_counter=False, is_sender=False,
             pubsub_tech=PubSubTech.NNG
         )
+
         await pub.send(data)
-        val = await sub.recv()
-        self.assertEqual(val[0], data)
+        values = await sub.recv()
+        self.assertEqual(values[0], data)
 
     async def test_one_sender_two_receivers(self):
         _LOGGER.debug('test_one_sender_two_receivers')
@@ -104,22 +114,25 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             'test', 999, is_counter=False, is_sender=True,
             pubsub_tech=PubSubTech.NNG
         )
-        sub = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=False,
-            pubsub_tech=PubSubTech.NNG
-        )
 
-        sub2 = PubSub.setup(
-            'test', 999, is_counter=False, is_sender=False,
-            pubsub_tech=PubSubTech.NNG
-        )
+        subs = [
+            PubSub.setup(
+                'test', 999, is_counter=False, is_sender=False,
+                pubsub_tech=PubSubTech.NNG
+            ),
+            PubSub.setup(
+                'test', 999, is_counter=False, is_sender=False,
+                pubsub_tech=PubSubTech.NNG
+            )
+        ]
 
         await pub.send(data)
-        val = await sub.recv()
-        self.assertEqual(val[0], data)
-
-        val = await sub2.recv()
-        self.assertEqual(val[0], data)
+        values = [
+            await subs[0].recv(),
+            await subs[1].recv()
+        ]
+        self.assertEqual(values[0][0], data)
+        self.assertEqual(values[1][0], data)
 
     async def test_two_senders_one_receiver(self):
         _LOGGER.debug('test_two_senders_one_receiver')

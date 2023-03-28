@@ -433,10 +433,10 @@ class MemberData(dict):
             pub_sub_tech=PubSubTech.NNG
         )
 
-        while True:
-            data = await sub.recv()
-            for item in data:
-                yield item
+        data = await sub.recv()
+
+        return data
+
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:

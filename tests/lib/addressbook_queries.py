@@ -908,6 +908,37 @@ mutation ($filters: twitterMediaInputFilter!) {
 
 GRAPHQL_STATEMENTS['twitter_medias']['delete'] = DELETE_FROM_TWITTER_MEDIAS
 
+SUBSCRIPTION_TWITTER_MEDIAS_UPDATES = '''
+subscription ($filters: twitterMediaInputFilter) {
+    twitter_medias_updates(filters: $filters) {
+        twitter_media {
+            created_timestamp
+            height
+            width
+            alt_text
+            duration
+            media_key
+            preview_image_url
+            media_type
+            view_count
+            variants
+            url
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['twitter_medias']['updates'] = SUBSCRIPTION_TWITTER_MEDIAS_UPDATES
+
+SUBSCRIPTION_TWITTER_MEDIAS_COUNT = '''
+subscription {
+    twitter_medias_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['twitter_medias']['count'] = SUBSCRIPTION_TWITTER_MEDIAS_COUNT
+
+
 QUERY_NETWORK_LINKS = '''
 query ($query_id: UUID!, $filters: networkLinkInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -978,6 +1009,27 @@ mutation ($filters: networkLinkInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_links']['delete'] = DELETE_FROM_NETWORK_LINKS
+
+SUBSCRIPTION_NETWORK_LINKS_UPDATES = '''
+subscription {
+    network_links_updates {
+            created_timestamp
+            member_id
+            relation
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_links']['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDATES
+
+SUBSCRIPTION_NETWORK_LINKS_COUNT = '''
+subscription {
+    network_links_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_links']['count'] = SUBSCRIPTION_NETWORK_LINKS_COUNT
+
 
 QUERY_NETWORK_INVITES = '''
 query ($query_id: UUID!, $filters: networkInviteInputFilter,
@@ -1054,6 +1106,30 @@ mutation ($filters: networkInviteInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_invites']['delete'] = DELETE_FROM_NETWORK_INVITES
+
+SUBSCRIPTION_NETWORK_INVITES_UPDATES = '''
+subscription ($filters: networkInviteInputFilter) {
+    network_invites_updates(filters: $filters) {
+        network_invite {
+            created_timestamp
+            member_id
+            relation
+            text
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_invites']['updates'] = SUBSCRIPTION_NETWORK_INVITES_UPDATES
+
+SUBSCRIPTION_NETWORK_INVITES_COUNT = '''
+subscription {
+    network_invites_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_invites']['count'] = SUBSCRIPTION_NETWORK_INVITES_COUNT
+
 
 QUERY_NETWORK_INBOUNDS = '''
 query ($query_id: UUID!, $filters: networkInboundInputFilter,
@@ -1135,6 +1211,31 @@ mutation ($filters: networkInboundInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_inbounds']['delete'] = DELETE_FROM_NETWORK_INBOUNDS
+
+SUBSCRIPTION_NETWORK_INBOUNDS_UPDATES = '''
+subscription ($filters: networkInboundInputFilter) {
+    network_inbounds_updates(filters: $filters) {
+        network_inbound {
+            created_timestamp
+            member_id
+            relation
+            signature
+            signature_expiration
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_inbounds']['updates'] = SUBSCRIPTION_NETWORK_INBOUNDS_UPDATES
+
+SUBSCRIPTION_NETWORK_INBOUNDS_COUNT = '''
+subscription {
+    network_inbounds_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_inbounds']['count'] = SUBSCRIPTION_NETWORK_INBOUNDS_COUNT
+
 
 QUERY_ASSET_LINKS = '''
 query ($query_id: UUID!, $filters: assetLinkInputFilter,
@@ -1222,6 +1323,32 @@ mutation ($filters: assetLinkInputFilter!) {
 
 GRAPHQL_STATEMENTS['asset_links']['delete'] = DELETE_FROM_ASSET_LINKS
 
+SUBSCRIPTION_ASSET_LINKS_UPDATES = '''
+subscription ($filters: assetLinkInputFilter) {
+    asset_links_updates(filters: $filters) {
+        asset_link {
+            created_timestamp
+            member_id
+            asset_id
+            asset_url
+            relation
+            signature
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['asset_links']['updates'] = SUBSCRIPTION_ASSET_LINKS_UPDATES
+
+SUBSCRIPTION_ASSET_LINKS_COUNT = '''
+subscription {
+    asset_links_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['asset_links']['count'] = SUBSCRIPTION_ASSET_LINKS_COUNT
+
+
 QUERY_ASSET_REACTIONS_RECEIVED = '''
 query ($query_id: UUID!, $filters: assetReactionInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -1302,6 +1429,31 @@ mutation ($filters: assetReactionInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['asset_reactions_received']['delete'] = DELETE_FROM_ASSET_REACTIONS_RECEIVED
+
+SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_UPDATES = '''
+subscription ($filters: assetReactionInputFilter) {
+    asset_reactions_received_updates(filters: $filters) {
+        asset_reaction {
+            created_timestamp
+            member_id
+            asset_id
+            relation
+            signature
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['asset_reactions_received']['updates'] = SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_UPDATES
+
+SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNT = '''
+subscription {
+    asset_reactions_received_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['asset_reactions_received']['count'] = SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNT
+
 
 QUERY_DATALOGS = '''
 query ($query_id: UUID!, $filters: datalogInputFilter,
@@ -1444,6 +1596,43 @@ mutation ($filters: datalogInputFilter!) {
 
 GRAPHQL_STATEMENTS['datalogs']['delete'] = DELETE_FROM_DATALOGS
 
+SUBSCRIPTION_DATALOGS_UPDATES = '''
+subscription ($filters: datalogInputFilter) {
+    datalogs_updates(filters: $filters) {
+        datalog {
+            created_timestamp
+            remote_addr
+            remote_id
+            remote_id_type
+            origin_member_id
+            origin_timestamp
+            query_id
+            origin_signature
+            signature_format_version
+            operation
+            object
+            query_filters
+            query_depth
+            query_relations
+            query_remote_member_id
+            source
+            message
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['datalogs']['updates'] = SUBSCRIPTION_DATALOGS_UPDATES
+
+SUBSCRIPTION_DATALOGS_COUNT = '''
+subscription {
+    datalogs_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['datalogs']['count'] = SUBSCRIPTION_DATALOGS_COUNT
+
+
 QUERY_PUBLIC_ASSETS = '''
 query ($query_id: UUID!, $filters: assetInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -1574,6 +1763,41 @@ mutation ($filters: assetInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['public_assets']['delete'] = DELETE_FROM_PUBLIC_ASSETS
+
+SUBSCRIPTION_PUBLIC_ASSETS_UPDATES = '''
+subscription ($filters: assetInputFilter) {
+    public_assets_updates(filters: $filters) {
+        asset {
+            created_timestamp
+            asset_id
+            asset_type
+            locale
+            creator
+            created
+            content_warnings
+            copyright_years
+            publisher
+            title
+            subject
+            contents
+            keywords
+            forum
+            response_to
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['public_assets']['updates'] = SUBSCRIPTION_PUBLIC_ASSETS_UPDATES
+
+SUBSCRIPTION_PUBLIC_ASSETS_COUNT = '''
+subscription {
+    public_assets_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['public_assets']['count'] = SUBSCRIPTION_PUBLIC_ASSETS_COUNT
+
 
 QUERY_SERVICE_ASSETS = '''
 query ($query_id: UUID!, $filters: assetInputFilter,
@@ -1706,6 +1930,41 @@ mutation ($filters: assetInputFilter!) {
 
 GRAPHQL_STATEMENTS['service_assets']['delete'] = DELETE_FROM_SERVICE_ASSETS
 
+SUBSCRIPTION_SERVICE_ASSETS_UPDATES = '''
+subscription ($filters: assetInputFilter) {
+    service_assets_updates(filters: $filters) {
+        asset {
+            created_timestamp
+            asset_id
+            asset_type
+            locale
+            creator
+            created
+            content_warnings
+            copyright_years
+            publisher
+            title
+            subject
+            contents
+            keywords
+            forum
+            response_to
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['service_assets']['updates'] = SUBSCRIPTION_SERVICE_ASSETS_UPDATES
+
+SUBSCRIPTION_SERVICE_ASSETS_COUNT = '''
+subscription {
+    service_assets_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['service_assets']['count'] = SUBSCRIPTION_SERVICE_ASSETS_COUNT
+
+
 QUERY_NETWORK_ASSETS = '''
 query ($query_id: UUID!, $filters: assetInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -1836,6 +2095,41 @@ mutation ($filters: assetInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['network_assets']['delete'] = DELETE_FROM_NETWORK_ASSETS
+
+SUBSCRIPTION_NETWORK_ASSETS_UPDATES = '''
+subscription ($filters: assetInputFilter) {
+    network_assets_updates(filters: $filters) {
+        asset {
+            created_timestamp
+            asset_id
+            asset_type
+            locale
+            creator
+            created
+            content_warnings
+            copyright_years
+            publisher
+            title
+            subject
+            contents
+            keywords
+            forum
+            response_to
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_assets']['updates'] = SUBSCRIPTION_NETWORK_ASSETS_UPDATES
+
+SUBSCRIPTION_NETWORK_ASSETS_COUNT = '''
+subscription {
+    network_assets_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['network_assets']['count'] = SUBSCRIPTION_NETWORK_ASSETS_COUNT
+
 
 QUERY_TWEETS = '''
 query ($query_id: UUID!, $filters: tweetInputFilter,
@@ -1982,3 +2276,41 @@ mutation ($filters: tweetInputFilter!) {
 '''
 
 GRAPHQL_STATEMENTS['tweets']['delete'] = DELETE_FROM_TWEETS
+
+SUBSCRIPTION_TWEETS_UPDATES = '''
+subscription ($filters: tweetInputFilter) {
+    tweets_updates(filters: $filters) {
+        tweet {
+            created_timestamp
+            asset_id
+            lang
+            creator
+            contents
+            response_to
+            conversation_id
+            geo
+            retweet_count
+            reply_count
+            like_count
+            quote_count
+            mentions
+            urls
+            references
+            media_ids
+            hashtags
+            assets
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['tweets']['updates'] = SUBSCRIPTION_TWEETS_UPDATES
+
+SUBSCRIPTION_TWEETS_COUNT = '''
+subscription {
+    tweets_count() {
+        count
+    }
+}
+'''
+GRAPHQL_STATEMENTS['tweets']['count'] = SUBSCRIPTION_TWEETS_COUNT
+

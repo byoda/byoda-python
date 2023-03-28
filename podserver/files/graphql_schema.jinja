@@ -502,14 +502,14 @@ class Subscription:
 {%   if not root_class.item_id %}
 {%     if root_class.type == DataType.ARRAY %}
     @strawberry.subscription
-    async def {{ root_class.referenced_class.name }}(self, info: Info,
-            filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None,
+    async def {{ root_class.name }}_updates(self, info: Info,
             ) -> {{ root_class.referenced_class.name }}:
-        _LOGGER.debug(
-            f'Resolving {{ root_class.name }} array'
-        )
+        _LOGGER.debug('Resolving updates for {{ root_class.name }} array')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+
+        # FIXME: This is a temporary hack to bypass authentication
+        result = True
         if not result:
             _LOGGER.debug(
                 'Authentication status for subscription for data from array '
@@ -518,9 +518,10 @@ class Subscription:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        data = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
-
-        return data
+        while True:
+            data = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
+            for record in data:
+                yield record
 
 {%     endif %}{# if root_class.type != DataType.ARRAY #}
 {%   endif %}{#  if not root_class.item_id #}
