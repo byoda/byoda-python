@@ -136,27 +136,28 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
         }
 
+        ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
         request = '''
-subscription  {
-    network_links_updates {
-        relation
+subscription ($filters: networkLinkInputFilter) {
+    network_links_updates (filters: $filters) {
+        action
+    		network_link {
+            created_timestamp
+            member_id
+            relation
+        }
     }
 }
 '''
 
-        client = GraphqlClient(endpoint=url, headers=member_headers)
-        data = client.execute(
-            request,
-            variables=None
-        )
-        ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
         async with websockets.connect(ws_url, subprotocols=['graphql-ws'],
                                       extra_headers=member_headers
                                       ) as websocket:
             query = GraphQlWsClient.prep_query(
                 GRAPHQL_STATEMENTS['network_links']['updates'], None
             )
-            message = orjson.dumps(request)
+            message = orjson.dumps(query)
             await websocket.send(message)
             async for response_message in websocket:
                 response_body = orjson.loads(response_message)

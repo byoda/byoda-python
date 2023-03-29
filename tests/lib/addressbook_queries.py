@@ -909,8 +909,10 @@ mutation ($filters: twitterMediaInputFilter!) {
 GRAPHQL_STATEMENTS['twitter_medias']['delete'] = DELETE_FROM_TWITTER_MEDIAS
 
 SUBSCRIPTION_TWITTER_MEDIAS_UPDATES = '''
-subscription ($filters: twitterMediaInputFilter) {
+subscription (
+    $filters: twitterMediaInputFilter) {
     twitter_medias_updates(filters: $filters) {
+        action
         twitter_media {
             created_timestamp
             height
@@ -1011,11 +1013,15 @@ mutation ($filters: networkLinkInputFilter!) {
 GRAPHQL_STATEMENTS['network_links']['delete'] = DELETE_FROM_NETWORK_LINKS
 
 SUBSCRIPTION_NETWORK_LINKS_UPDATES = '''
-subscription ($filters: networkLinkInputFilter) {
-    network_links_updates (filters: $filters) {
+subscription (
+    $filters: networkLinkInputFilter) {
+    network_links_updates(filters: $filters) {
+        action
+        network_link {
             created_timestamp
             member_id
             relation
+        }
     }
 }
 '''
@@ -1108,8 +1114,10 @@ mutation ($filters: networkInviteInputFilter!) {
 GRAPHQL_STATEMENTS['network_invites']['delete'] = DELETE_FROM_NETWORK_INVITES
 
 SUBSCRIPTION_NETWORK_INVITES_UPDATES = '''
-subscription ($filters: networkInviteInputFilter) {
+subscription (
+    $filters: networkInviteInputFilter) {
     network_invites_updates(filters: $filters) {
+        action
         network_invite {
             created_timestamp
             member_id
@@ -1213,8 +1221,10 @@ mutation ($filters: networkInboundInputFilter!) {
 GRAPHQL_STATEMENTS['network_inbounds']['delete'] = DELETE_FROM_NETWORK_INBOUNDS
 
 SUBSCRIPTION_NETWORK_INBOUNDS_UPDATES = '''
-subscription ($filters: networkInboundInputFilter) {
+subscription (
+    $filters: networkInboundInputFilter) {
     network_inbounds_updates(filters: $filters) {
+        action
         network_inbound {
             created_timestamp
             member_id
@@ -1324,8 +1334,10 @@ mutation ($filters: assetLinkInputFilter!) {
 GRAPHQL_STATEMENTS['asset_links']['delete'] = DELETE_FROM_ASSET_LINKS
 
 SUBSCRIPTION_ASSET_LINKS_UPDATES = '''
-subscription ($filters: assetLinkInputFilter) {
+subscription (
+    $filters: assetLinkInputFilter) {
     asset_links_updates(filters: $filters) {
+        action
         asset_link {
             created_timestamp
             member_id
@@ -1431,8 +1443,10 @@ mutation ($filters: assetReactionInputFilter!) {
 GRAPHQL_STATEMENTS['asset_reactions_received']['delete'] = DELETE_FROM_ASSET_REACTIONS_RECEIVED
 
 SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_UPDATES = '''
-subscription ($filters: assetReactionInputFilter) {
+subscription (
+    $filters: assetReactionInputFilter) {
     asset_reactions_received_updates(filters: $filters) {
+        action
         asset_reaction {
             created_timestamp
             member_id
@@ -1597,8 +1611,10 @@ mutation ($filters: datalogInputFilter!) {
 GRAPHQL_STATEMENTS['datalogs']['delete'] = DELETE_FROM_DATALOGS
 
 SUBSCRIPTION_DATALOGS_UPDATES = '''
-subscription ($filters: datalogInputFilter) {
+subscription (
+    $filters: datalogInputFilter) {
     datalogs_updates(filters: $filters) {
+        action
         datalog {
             created_timestamp
             remote_addr
@@ -1765,8 +1781,10 @@ mutation ($filters: assetInputFilter!) {
 GRAPHQL_STATEMENTS['public_assets']['delete'] = DELETE_FROM_PUBLIC_ASSETS
 
 SUBSCRIPTION_PUBLIC_ASSETS_UPDATES = '''
-subscription ($filters: assetInputFilter) {
+subscription (
+    $filters: assetInputFilter) {
     public_assets_updates(filters: $filters) {
+        action
         asset {
             created_timestamp
             asset_id
@@ -1931,8 +1949,10 @@ mutation ($filters: assetInputFilter!) {
 GRAPHQL_STATEMENTS['service_assets']['delete'] = DELETE_FROM_SERVICE_ASSETS
 
 SUBSCRIPTION_SERVICE_ASSETS_UPDATES = '''
-subscription ($filters: assetInputFilter) {
+subscription (
+    $filters: assetInputFilter) {
     service_assets_updates(filters: $filters) {
+        action
         asset {
             created_timestamp
             asset_id
@@ -2097,8 +2117,10 @@ mutation ($filters: assetInputFilter!) {
 GRAPHQL_STATEMENTS['network_assets']['delete'] = DELETE_FROM_NETWORK_ASSETS
 
 SUBSCRIPTION_NETWORK_ASSETS_UPDATES = '''
-subscription ($filters: assetInputFilter) {
+subscription (
+    $filters: assetInputFilter) {
     network_assets_updates(filters: $filters) {
+        action
         asset {
             created_timestamp
             asset_id
@@ -2278,8 +2300,10 @@ mutation ($filters: tweetInputFilter!) {
 GRAPHQL_STATEMENTS['tweets']['delete'] = DELETE_FROM_TWEETS
 
 SUBSCRIPTION_TWEETS_UPDATES = '''
-subscription ($filters: tweetInputFilter) {
+subscription (
+    $filters: tweetInputFilter) {
     tweets_updates(filters: $filters) {
+        action
         tweet {
             created_timestamp
             asset_id

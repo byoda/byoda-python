@@ -138,6 +138,7 @@ SUBSCRIPTION_{{ root_class.name|upper }}_UPDATES = '''
 subscription (
     $filters: {{ root_class.referenced_class.name|to_lower_camel }}InputFilter) {
     {{ root_class.name }}_updates(filters: $filters) {
+        action
         {{ root_class.referenced_class.name }} {
 {%     for field in root_class.referenced_class.fields.values() %}
             {{ field.name }}
