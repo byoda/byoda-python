@@ -15,7 +15,6 @@ dnspython = "*"
 SQLAlchemy = "*"
 Jinja2 = "*"
 passgen = "*"
-python-graphql-client = "*"
 boto3 = "*"
 azure-storage-blob = "*"
 azure-identity = "*"
@@ -55,6 +54,7 @@ setuptools = "==65.5.1"
 future = "*"
 wheel = "*"
 trio = "*"
+gql = {extras = ["aiohttp", "websockets"], version = "*"}
 
 [dev-packages]
 flake8 = "*"

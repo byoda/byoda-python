@@ -37,7 +37,7 @@ def setup_api(title: str, description: str, version: str,
 
     app = FastAPI(
         title=title, description=description, version=version,
-        middleware=middleware
+        middleware=middleware, debug=True
     )
 
     if cors_origins:

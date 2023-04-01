@@ -21,8 +21,6 @@ from datetime import datetime, timezone
 import orjson
 import websockets
 
-from python_graphql_client import GraphqlClient
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 
@@ -139,23 +137,18 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
         request = '''
-subscription ($filters: networkLinkInputFilter) {
-    network_links_updates (filters: $filters) {
-        action
-    		network_link {
-            created_timestamp
-            member_id
-            relation
-        }
-    }
+query user {
+    name
+    age
 }
 '''
-
-        async with websockets.connect(ws_url, subprotocols=['graphql-ws'],
-                                      extra_headers=member_headers
-                                      ) as websocket:
+        ws_url = 'ws://127.0.0.1:8000/graphql'
+        # '/api/ws/v1/data/service-4294929430'
+        async with websockets.connect(
+                ws_url, subprotocols=['graphql-transport-ws', 'graphql-ws'],
+                extra_headers=member_headers) as websocket:
             query = GraphQlWsClient.prep_query(
-                GRAPHQL_STATEMENTS['network_links']['updates'], None
+                request
             )
             message = orjson.dumps(query)
             await websocket.send(message)

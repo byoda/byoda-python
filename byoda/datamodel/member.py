@@ -18,11 +18,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from strawberry.fastapi import GraphQLRouter
+from strawberry.subscriptions import GRAPHQL_TRANSPORT_WS_PROTOCOL
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import StorageType
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datatypes import GRAPHQL_WS_API_URL_PREFIX
 
 
 from byoda.datamodel.service import Service
@@ -700,12 +702,17 @@ class Member:
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
-        path = GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)
+        rest_path = GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)
         graphql_app = GraphQLRouter(
-            self.schema.gql_schema, graphiql=config.debug
+            self.schema.gql_schema, graphiql=config.debug,
         )
 
-        app.include_router(graphql_app, prefix=path)
+        app.include_router(graphql_app, prefix=rest_path)
+
+        websocket_path = GRAPHQL_WS_API_URL_PREFIX.format(
+            service_id=self.service_id
+        )
+        app.add_websocket_route(websocket_path, graphql_app)
 
     def upgrade_graphql_api(self, app: FastAPI) -> None:
         '''
