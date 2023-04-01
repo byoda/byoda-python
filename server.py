@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# from https://strawberry.rocks/docs/general/subscriptions
+
 import asyncio
 from typing import AsyncGenerator
 

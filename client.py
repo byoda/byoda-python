@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# from: https://gql.readthedocs.io/en/latest/transports/websockets.html
+
 import logging
 import asyncio
 
@@ -12,25 +14,22 @@ logging.basicConfig(level=logging.INFO)
 
 async def main():
     ws_url = 'ws://127.0.0.1:8000/graphql'
-    transport = WebsocketsTransport(url=ws_url)
+    transport = WebsocketsTransport(
+        url=ws_url, subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL]
+    )
 
     # Using `async with` on the client will start a connection on the transport
     # and provide a `session` variable to execute queries on this connection
     async with Client(
         transport=transport,
-        fetch_schema_from_transport=True,
+        fetch_schema_from_transport=False,
     ) as session:
 
         # Request subscription
         subscription = gql(
             """
             subscription {
-                person {
-                    User {
-                        name
-                        age
-                    }
-                }
+                count(target: 5)
             }
         """
         )
