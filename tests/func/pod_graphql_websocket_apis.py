@@ -18,6 +18,9 @@ import requests
 from uuid import UUID
 from datetime import datetime, timezone
 
+from gql import Client, gql
+from gql.transport.websockets import WebsocketsTransport
+
 import orjson
 import websockets
 
@@ -103,7 +106,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         pass
 
-    async def test_graphql_addressbook_tls_cert(self):
+    async def test_graphql_websocket(self):
         pod_account = config.server.account
         account_id = pod_account.account_id
         network = pod_account.network
@@ -136,30 +139,28 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
-        request = '''
-query user {
-    name
-    age
-}
-'''
-        ws_url = 'ws://127.0.0.1:8000/graphql'
-        # '/api/ws/v1/data/service-4294929430'
-        async with websockets.connect(
-                ws_url, subprotocols=['graphql-transport-ws', 'graphql-ws'],
-                extra_headers=member_headers) as websocket:
+        ws_url = 'ws://127.0.0.1:8000/api/v1/data/service-4294929430'
+        transport = WebsocketsTransport(
+            url=ws_url,
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL]
+        )
+
+        # Using `async with` on the client will start a connection on the
+        # transport and provide a `session` variable to execute queries on
+        # this connection
+        async with Client(
+            transport=transport,
+            fetch_schema_from_transport=False,
+        ) as session:
+
+            request = GRAPHQL_STATEMENTS['network_links']['updates']
             query = GraphQlWsClient.prep_query(
-                request
+                request, vars=None
             )
-            message = orjson.dumps(query)
-            await websocket.send(message)
-            async for response_message in websocket:
-                response_body = orjson.loads(response_message)
-                if response_body['type'] == 'connection_ack':
-                    _LOGGER.info('the server accepted the connection')
-                elif response_body['type'] == 'ka':
-                    _LOGGER.info('the server sent a keep alive message')
-                else:
-                    print(response_body['payload'])
+            # message = orjson.dumps(query)
+            message = gql(request)
+            async for result in session.subscribe(message):
+                print(result)
 
         # client = GraphQlClient(endpoint=ws_url)
         vars = {

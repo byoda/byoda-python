@@ -713,6 +713,10 @@ class Member:
             service_id=self.service_id
         )
         app.add_websocket_route(websocket_path, graphql_app)
+        _LOGGER.debug(
+            'Opened websocket route for GraphQL subscriptions '
+            f'at {websocket_path}'
+        )
 
     def upgrade_graphql_api(self, app: FastAPI) -> None:
         '''
