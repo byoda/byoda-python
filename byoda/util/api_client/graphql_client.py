@@ -13,6 +13,8 @@ import aiohttp
 import requests
 import websockets
 
+from gql import gql
+
 from byoda.secrets import Secret
 from byoda.util.api_client.restapi_client import HttpMethod
 

@@ -12,6 +12,7 @@ the headers that would normally be set by the reverse proxy
 '''
 
 import sys
+import asyncio
 import unittest
 import requests
 
@@ -21,8 +22,6 @@ from datetime import datetime, timezone
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport
 
-import orjson
-import websockets
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
@@ -110,7 +109,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         pod_account = config.server.account
         account_id = pod_account.account_id
         network = pod_account.network
-        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
         service_id = ADDRESSBOOK_SERVICE_ID
 
@@ -130,53 +128,64 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = response.json()
         member_id = UUID(data['member_id'])
 
-        member_headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject':
-                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{NETWORK}',
-            'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
-        }
-
         ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
-        ws_url = 'ws://127.0.0.1:8000/api/v1/data/service-4294929430'
         transport = WebsocketsTransport(
             url=ws_url,
             subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL]
         )
 
-        # Using `async with` on the client will start a connection on the
-        # transport and provide a `session` variable to execute queries on
-        # this connection
-        async with Client(
-            transport=transport,
-            fetch_schema_from_transport=False,
-        ) as session:
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        session = await client.connect_async(reconnecting=True)
 
-            request = GRAPHQL_STATEMENTS['network_links']['updates']
-            query = GraphQlWsClient.prep_query(
-                request, vars=None
-            )
-            # message = orjson.dumps(query)
-            message = gql(request)
-            async for result in session.subscribe(message):
-                print(result)
+        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        message = gql(request)
 
-        # client = GraphQlClient(endpoint=ws_url)
-        vars = {
-            'member_id': str(get_test_uuid()),
-            'relation': 'follow',
-            'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
-        }
-        response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
-            timeout=120, headers=member_headers
+        task1 = asyncio.create_task(session.execute(message))
+        task2 = asyncio.create_task(perform_append(member_id))
+
+        subscribe_result, append_result = await asyncio.gather(task1, task2)
+
+        self.assertIsNone(append_result.get('errors'))
+        append_data = append_result.get('data')
+        self.assertIsNotNone(append_data)
+        self.assertEqual(append_data['append_network_links'], 1)
+
+        self.assertIsNone(subscribe_result.get('errors'))
+        subscribe_data = subscribe_result.get('network_links_updates')
+        self.assertEqual(
+            subscribe_data['action'], 'append'
         )
-        result = await response.json()
+        self.assertEqual(
+            subscribe_data['network_link']['relation'], 'follow'
+        )
 
-        data = result.get('data')
-        self.assertIsNotNone(data)
-        self.assertIsNone(result.get('errors'))
+        await client.close_async()
+
+
+async def perform_append(member_id) -> object:
+    url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+    member_headers = {
+        'X-Client-SSL-Verify': 'SUCCESS',
+        'X-Client-SSL-Subject':
+            f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{NETWORK}',
+        'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
+    }
+
+    vars = {
+        'member_id': str(get_test_uuid()),
+        'relation': 'follow',
+        'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
+    }
+
+    response = await GraphQlClient.call(
+        url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+        timeout=120, headers=member_headers
+    )
+    result = await response.json()
+
+    return result
 
 
 if __name__ == '__main__':

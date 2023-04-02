@@ -14,6 +14,8 @@ from collections import namedtuple
 # Location to mount the API in the FastApi app and
 # to proxy incoming GraphQL requests to other pods
 GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
+# FastAPI has a bug where the websocket app needs to be under the same path
+# as te HTTP app, otherwise it will return a 403.
 GRAPHQL_WS_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
 
 # Object property to temporarily store the member ID of the

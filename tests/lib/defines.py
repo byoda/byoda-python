@@ -7,6 +7,8 @@ Static variable definitions used in various test cases
 '''
 
 BASE_URL = 'http://localhost:{PORT}/api'
+# FastAPI has bug where websocket app needs to be under same path as the
+# HTTP app
 BASE_WS_URL = 'ws://localhost:{PORT}/api'
 
 ADDRESSBOOK_SERVICE_ID = 4294929430
