@@ -225,7 +225,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await client.close_async()
 
     async def test_graphql_websocket_append_with_not_matching_filter(self):
-        return True
         pod_account = config.server.account
         account_id = pod_account.account_id
         network = pod_account.network
@@ -248,7 +247,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         transport = WebsocketsTransport(
             url=ws_url,
             subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
-            headers=member_headers
+            headers=member_headers,
+            keep_alive_timeout=600, pong_timeout=600
 
         )
 
@@ -263,30 +263,41 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'relation': {'eq': 'blah'}}
         }
         task1 = asyncio.create_task(session.execute(message, vars))
+        # First we add a network_link with a relation that does not match
         task2 = asyncio.create_task(perform_append(member_id, 'friend'))
+        # Now we add a network_link with a relation that does match
+        task3 = asyncio.create_task(perform_append(member_id, 'blah'))
 
-        subscribe_result, append_result = await asyncio.gather(task1, task2)
+        subscribe_result, append_friend_result, append_blah_result = \
+            await asyncio.gather(task1, task2, task3)
 
-        # Confirm the GraphQL append API call was successful.
-        self.assertIsNone(append_result.get('errors'))
-        append_data = append_result.get('data')
+        # Confirm the two GraphQL append API calls weres successful.
+        self.assertIsNone(append_friend_result.get('errors'))
+        append_data = append_friend_result.get('data')
         self.assertIsNotNone(append_data)
         self.assertEqual(append_data['append_network_links'], 1)
 
-        # Confirm our update subscription has received the result
+        self.assertIsNone(append_blah_result.get('errors'))
+        append_data = append_blah_result.get('data')
+        self.assertIsNotNone(append_data)
+        self.assertEqual(append_data['append_network_links'], 1)
+
+        # Confirm our update subscription has received the result of the
+        # second append
         self.assertIsNone(subscribe_result.get('errors'))
         subscribe_data = subscribe_result.get('network_links_updates')
         self.assertEqual(
             subscribe_data['action'], 'append'
         )
         self.assertEqual(
-            subscribe_data['network_link']['relation'], 'friend'
+            subscribe_data['network_link']['relation'], 'blah'
         )
 
         await client.close_async()
 
 
 async def perform_append(member_id: UUID, relation: str) -> object:
+    await asyncio.sleep(1)
     url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
     member_headers = get_member_tls_headers(

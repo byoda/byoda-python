@@ -440,26 +440,27 @@ class MemberData(dict):
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        data = await sub.recv()
+        while True:
+            data = await sub.recv()
 
-        filtered_data: list[dict] = []
-        for item in data or []:
-            item_data = item[referenced_class_name]
-            # We run the data through the filters but the filters
-            # work on and return arrays
-            filtered_items: list[dict] = DataFilterSet.filter(
-                filters, [item_data]
-            )
-            if filtered_items:
-                filtered_item = filtered_items[0]
-                filtered_data.append(
-                    {
-                        'action': item['action'],
-                        referenced_class_name: filtered_item
-                    }
+            filtered_data: list[dict] = []
+            for item in data or []:
+                item_data = item[referenced_class_name]
+                # We run the data through the filters but the filters
+                # work on and return arrays
+                filtered_items: list[dict] = DataFilterSet.filter(
+                    filters, [item_data]
                 )
-
-        return filtered_data
+                if filtered_items:
+                    filtered_item = filtered_items[0]
+                    filtered_data.append(
+                        {
+                            'action': item['action'],
+                            referenced_class_name: filtered_item
+                        }
+                    )
+            if filtered_data:
+                return filtered_data
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:
