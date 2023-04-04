@@ -512,10 +512,8 @@ class Subscription:
             ) -> {{ root_class.name }}_update:
         _LOGGER.debug('Resolving updates for {{ root_class.name }} array')
 
-        # result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
 
-        # FIXME: This is a temporary hack to bypass authentication
-        result = True
         if not result:
             _LOGGER.debug(
                 'Authentication status for subscription for data from array '

@@ -496,10 +496,6 @@ class SchemaDataArray(SchemaDataItem):
                     self.name, self, self.service_id, is_counter=False,
                     is_sender=True
                 )
-                self.pubsub_counter = PubSub.setup(
-                    self.name, self, self.service_id, is_counter=True,
-                    is_sender=True
-                )
         else:
             raise ValueError(
                 f'Array {class_name} must have "type" or "$ref" defined'

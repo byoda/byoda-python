@@ -20,8 +20,6 @@ from copy import copy
 from uuid import uuid4
 from datetime import datetime, timezone
 
-import orjson
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
@@ -194,7 +192,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'filters': {'asset_id': {'eq': str(asset_id)}},
             'query_id': uuid4(),
-
         }
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],

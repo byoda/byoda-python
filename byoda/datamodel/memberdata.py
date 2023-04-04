@@ -434,7 +434,7 @@ class MemberData(dict):
         # schema
         class_name = info.path.key[:-1 * len('_updates')]
         data_class = member.schema.data_classes[class_name]
-
+        referenced_class_name: str = class_name.strip('s')
         sub = PubSub.setup(
             data_class.name, data_class, service_id, is_counter=False,
             is_sender=False, pubsub_tech=PubSubTech.NNG
@@ -442,7 +442,24 @@ class MemberData(dict):
 
         data = await sub.recv()
 
-        return data
+        filtered_data: list[dict] = []
+        for item in data or []:
+            item_data = item[referenced_class_name]
+            # We run the data through the filters but the filters
+            # work on and return arrays
+            filtered_items: list[dict] = DataFilterSet.filter(
+                filters, [item_data]
+            )
+            if filtered_items:
+                filtered_item = filtered_items[0]
+                filtered_data.append(
+                    {
+                        'action': item['action'],
+                        referenced_class_name: filtered_item
+                    }
+                )
+
+        return filtered_data
 
     @staticmethod
     async def mutate_data(service_id, info: Info) -> None:
@@ -668,16 +685,13 @@ class MemberData(dict):
             )
 
             data_class: SchemaDataArray = member.schema.data_classes[key]
-            pubsub_class = data_class.pubsub_class
+            pubsub_class: PubSub = data_class.pubsub_class
             await pubsub_class.send(
                 {
                     'action': 'append',
                     data_class.referenced_class.name: mutate_data
                 }
             )
-
-            pubsub_counter = data_class.pubsub_counter
-            await pubsub_counter.send({'append': 1})
 
             return object_count
 

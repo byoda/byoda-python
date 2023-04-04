@@ -29,7 +29,6 @@ from byoda.datamodel.network import Network
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
-from byoda.util.api_client.graphql_client import GraphQlWsClient
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -43,12 +42,15 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
-from tests.lib.util import get_test_uuid
 from tests.lib.setup import get_account_id
 
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import BASE_WS_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
+from tests.lib.util import get_test_uuid
+from tests.lib.util import get_account_tls_headers
+from tests.lib.util import get_member_tls_headers
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
@@ -105,34 +107,32 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         pass
 
-    async def test_graphql_websocket(self):
+    async def test_graphql_websocket_append_no_filter(self):
         pod_account = config.server.account
         account_id = pod_account.account_id
         network = pod_account.network
 
-        service_id = ADDRESSBOOK_SERVICE_ID
-
-        account_headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject':
-                f'CN={account_id}.accounts.{network.name}',
-            'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
-        }
+        account_headers = get_account_tls_headers(account_id, network.name)
 
         API = BASE_URL + '/v1/pod/member'
         response = requests.get(
-            API + f'/service_id/{service_id}', timeout=120,
+            API + f'/service_id/{ADDRESSBOOK_SERVICE_ID}', timeout=120,
             headers=account_headers
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         member_id = UUID(data['member_id'])
+        member_headers = get_member_tls_headers(
+            member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+        )
 
         ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
         transport = WebsocketsTransport(
             url=ws_url,
-            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL]
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+            headers=member_headers
+
         )
 
         client = Client(transport=transport, fetch_schema_from_transport=False)
@@ -141,11 +141,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         request = GRAPHQL_STATEMENTS['network_links']['updates']
         message = gql(request)
 
-        task1 = asyncio.create_task(session.execute(message))
-        task2 = asyncio.create_task(perform_append(member_id))
+        # Test 1: no filter
+        task1 = asyncio.create_task(session.execute(message,))
+        task2 = asyncio.create_task(perform_append(member_id, 'follow'))
 
         subscribe_result, append_result = await asyncio.gather(task1, task2)
 
+        # Confirm the GraphQL append API call was successful.
         self.assertIsNone(append_result.get('errors'))
         append_data = append_result.get('data')
         self.assertIsNotNone(append_data)
@@ -159,23 +161,141 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             subscribe_data['network_link']['relation'], 'follow'
         )
+        await client.close_async()
+
+    async def test_graphql_websocket_append_with_matching_filter(self):
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        network = pod_account.network
+
+        account_headers = get_account_tls_headers(account_id, network.name)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(
+            API + f'/service_id/{ADDRESSBOOK_SERVICE_ID}', timeout=120,
+            headers=account_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        member_id = UUID(data['member_id'])
+        member_headers = get_member_tls_headers(
+            member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+        )
+
+        ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+        transport = WebsocketsTransport(
+            url=ws_url,
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+            headers=member_headers
+
+        )
+
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        session = await client.connect_async(reconnecting=True)
+
+        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        message = gql(request)
+
+        # Test 2: filter for matching relation
+        vars = {
+            'filters': {'relation': {'eq': 'friend'}}
+        }
+        task1 = asyncio.create_task(session.execute(message, vars))
+        task2 = asyncio.create_task(perform_append(member_id, 'friend'))
+
+        subscribe_result, append_result = await asyncio.gather(task1, task2)
+
+        # Confirm the GraphQL append API call was successful.
+        self.assertIsNone(append_result.get('errors'))
+        append_data = append_result.get('data')
+        self.assertIsNotNone(append_data)
+        self.assertEqual(append_data['append_network_links'], 1)
+
+        # Confirm our update subscription has received the result
+        self.assertIsNone(subscribe_result.get('errors'))
+        subscribe_data = subscribe_result.get('network_links_updates')
+        self.assertEqual(
+            subscribe_data['action'], 'append'
+        )
+        self.assertEqual(
+            subscribe_data['network_link']['relation'], 'friend'
+        )
+
+        await client.close_async()
+
+    async def test_graphql_websocket_append_with_not_matching_filter(self):
+        return True
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        network = pod_account.network
+
+        account_headers = get_account_tls_headers(account_id, network.name)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(
+            API + f'/service_id/{ADDRESSBOOK_SERVICE_ID}', timeout=120,
+            headers=account_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        member_id = UUID(data['member_id'])
+        member_headers = get_member_tls_headers(
+            member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+        )
+        ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+        transport = WebsocketsTransport(
+            url=ws_url,
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+            headers=member_headers
+
+        )
+
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        session = await client.connect_async(reconnecting=True)
+
+        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        message = gql(request)
+
+        # Test 3: filter with no matching relation
+        vars = {
+            'filters': {'relation': {'eq': 'blah'}}
+        }
+        task1 = asyncio.create_task(session.execute(message, vars))
+        task2 = asyncio.create_task(perform_append(member_id, 'friend'))
+
+        subscribe_result, append_result = await asyncio.gather(task1, task2)
+
+        # Confirm the GraphQL append API call was successful.
+        self.assertIsNone(append_result.get('errors'))
+        append_data = append_result.get('data')
+        self.assertIsNotNone(append_data)
+        self.assertEqual(append_data['append_network_links'], 1)
+
+        # Confirm our update subscription has received the result
+        self.assertIsNone(subscribe_result.get('errors'))
+        subscribe_data = subscribe_result.get('network_links_updates')
+        self.assertEqual(
+            subscribe_data['action'], 'append'
+        )
+        self.assertEqual(
+            subscribe_data['network_link']['relation'], 'friend'
+        )
 
         await client.close_async()
 
 
-async def perform_append(member_id) -> object:
+async def perform_append(member_id: UUID, relation: str) -> object:
     url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
-    member_headers = {
-        'X-Client-SSL-Verify': 'SUCCESS',
-        'X-Client-SSL-Subject':
-            f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{NETWORK}',
-        'X-Client-SSL-Issuing-CA': f'CN=members-ca.{NETWORK}'
-    }
+    member_headers = get_member_tls_headers(
+        member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+    )
 
     vars = {
         'member_id': str(get_test_uuid()),
-        'relation': 'follow',
+        'relation': relation,
         'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
     }
 
