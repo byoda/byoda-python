@@ -70,6 +70,14 @@ class CounterCache:
     async def close(self):
         await self.backend.close()
 
+    @staticmethod
+    def _get_key_name(class_name: str, field_name: str = None,
+                            value: any = None):
+        if field_name is None:
+            return class_name
+        else:
+            return f'{class_name}-{field_name}-{str(value)}'
+
     async def exists(self, class_name: str) -> bool:
         '''
         Checks whether the query_id exists in the cache
@@ -84,18 +92,32 @@ class CounterCache:
 
         return await self.backend.get(class_name)
 
-    async def update(self, delta: int, table: Table) -> int:
+    async def update(self, delta: int, table: Table, field_name: str = None,
+                     value: any = None) -> int:
         '''
-        Updates the counter with the delta. The delta can
-        be a negative value to decrement the counter
+        Updates the counter with the delta. If no value is
+        found in the cache, the counter is set to the number
+        of items in the table.
+
+        :param delta: the delta to add to the counter, can be
+        a negative number to decrement the counter
+        :param table: instance of a class derived from Table
+        :returns: The value of the updated counter
         '''
 
-        value = await self.incr(table.class_name, delta)
-        if value is None:
-            value = await table.count()
-            await self.set(table.class_name, value)
+        if (field_name and value is None) or (field_name is None and value):
+            raise ValueError(
+                'Both field_name and value must be specified or both None'
+            )
 
-        return value
+        key = CounterCache._get_key_name(table.class_name, field_name, value)
+
+        counter = await self.incr(key, delta)
+        if counter is None:
+            counter = await table.count(field_name, value)
+            await self.set(table.class_name, counter)
+
+        return counter
 
     async def set(self, class_name: str, value: object) -> bool:
         '''

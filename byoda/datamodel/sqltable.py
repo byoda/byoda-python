@@ -197,6 +197,43 @@ class SqlTable(Table):
         '''
         return column.lstrip('_')
 
+    @staticmethod
+    def convert_to_sql_type(column: str, value: object) -> object:
+        '''
+        Converts the value to the type expected by the database
+        '''
+
+        # Normalize value to python type expected by the database driver
+        if value is None:
+            return None
+        elif column.storage_type == 'INTEGER':
+            value = int(value)
+        elif column.storage_type == 'REAL':
+            # We store date-time values as an epoch timestamp
+            if (hasattr(column, 'format')
+                    and column.format == 'date-time'):
+                if isinstance(value, str):
+                    value = datetime.fromisoformat(value).timestamp()
+                elif isinstance(value, datetime):
+                    value = value.timestamp()
+                elif type(value) in (int, float):
+                    pass
+                else:
+                    raise ValueError(
+                        f'Invalid type {type(value)} for '
+                        f'date-time value: {value}'
+                    )
+            else:
+                value = float(value)
+        elif column.storage_type == 'TEXT':
+            if type(value) in (list, dict):
+                # For nested objects or arrays, we store them as JSON
+                value = orjson.dumps(value).decode('utf-8')
+            else:
+                value = str(value)
+
+        return value
+
     def sql_values_clause(self, data: dict, separator: str = '='
                           ) -> tuple[str, dict[str, object]]:
         '''
@@ -216,38 +253,15 @@ class SqlTable(Table):
             value = data.get(column.name)
             # We only include columns for which a value is available
             # in the 'data' dict
-            if value:
-                # Add the column to the list of columns
-                stmt += f'{column.storage_name}, '
+            if not value:
+                continue
 
-                # Normalize value to type expected by the database
-                if column.storage_type == 'INTEGER':
-                    value = int(value)
-                elif column.storage_type == 'REAL':
-                    # We store date-time values as an epoch timestamp
-                    if (hasattr(column, 'format')
-                            and column.format == 'date-time'):
-                        if isinstance(value, str):
-                            value = datetime.fromisoformat(value).timestamp()
-                        elif isinstance(value, datetime):
-                            value = value.timestamp()
-                        elif type(value) in (int, float):
-                            pass
-                        else:
-                            raise ValueError(
-                                f'Invalid type {type(value)} for '
-                                f'date-time value: {value}'
-                            )
-                    else:
-                        value = float(value)
-                elif column.storage_type == 'TEXT':
-                    if type(value) in (list, dict):
-                        # For nested objects or arrays, we store them as JSON
-                        value = orjson.dumps(value).decode('utf-8')
-                    else:
-                        value = str(value)
+            # Add the column to the list of columns
+            stmt += f'{column.storage_name}, '
 
-                values[column.storage_name] = value
+            value = self.convert_to_sql_type(column, value)
+
+            values[column.storage_name] = value
 
         stmt = stmt.rstrip(', ') + f') {separator} ('
         for column in self.columns.values():
@@ -412,15 +426,17 @@ class ArraySqlTable(SqlTable):
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
 
-    async def count(self) -> int:
+    async def count(self, field_name: str, value: any) -> int:
         '''
         Gets the number of items from the array stored in the table
         '''
 
+        stmt = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
+        if field_name:
+            stmt += f' WHERE {field_name} = :{value}'
+
         rows = await self.sql_store.execute(
-            f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}',
-            member_id=self.member_id, fetchall=True
-        )
+            stmt, member_id=self.member_id, data=value, fetchall=True)
 
         row_count = rows[0]['counter']
 

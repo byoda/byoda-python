@@ -211,7 +211,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         server.account = pod_account
 
         await server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.SQLITE, pod_account.data_secret
         )
 
         # We can't join the service as it doesn't exist in the network

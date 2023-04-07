@@ -23,7 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 # 3 days default expiration
 DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
 
-# TODO: review leveldb at https://github.com/wbolster/plyvel
+# TODO: review
+# ldbm at https://pypi.org/project/lmdbm/
+# leveldb at https://github.com/wbolster/plyvel
 
 
 class KVCache(ABC):

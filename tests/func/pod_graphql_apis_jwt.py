@@ -120,7 +120,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         url = f'{BASE_URL}/v1/pod/authtoken'
         response = requests.post(url, json=data)
-        
+
         self.assertEqual(response.status_code, 200)
         result = response.json()
         auth_header = {
@@ -246,8 +246,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         result = await response.json()
         data = result.get('data')
-        # BUG: This should be 1, but it is 0
-        self.assertIsNotNone(data['delete_from_network_links'], 0)
+        self.assertEqual(data['delete_from_network_links'], 1)
         self.assertIsNone(result.get('errors'))
 
         vars = {

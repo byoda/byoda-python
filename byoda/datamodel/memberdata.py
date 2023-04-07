@@ -19,6 +19,7 @@ from strawberry.types import Info
 from byoda import config
 
 from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 from byoda.datamodel.table import Table
@@ -689,12 +690,12 @@ class MemberData(dict):
                 )
 
             # Gets the data included in the mutation
-            mutate_data: dict = info.selected_fields[0].arguments
+            append_data: dict = info.selected_fields[0].arguments
 
-            _LOGGER.debug(f'Appended {len(mutate_data or [])} items of data')
+            _LOGGER.debug(f'Appended {len(append_data or [])} items of data')
             data_store: DataStore = server.data_store
             object_count = await data_store.append(
-                member.member_id, class_name, mutate_data
+                member.member_id, class_name, append_data
             )
 
             data_class: SchemaDataArray = \
@@ -703,12 +704,19 @@ class MemberData(dict):
             table: Table = data_store.get_table(member.member_id, class_name)
             counter_cache: CounterCache = member.counter_cache
             await counter_cache.update(1, table)
+            referenced_class: SchemaDataObject = data_class.referenced_class
+            if referenced_class:
+                for field in referenced_class.fields.values():
+                    if field.is_counter and append_data.get(field.name):
+                        await counter_cache.update(
+                            1, table, field.name, append_data[field.name]
+                        )
 
             pubsub_class: PubSub = data_class.pubsub_class
             await pubsub_class.send(
                 {
                     'action': 'append',
-                    data_class.referenced_class.name: mutate_data
+                    data_class.referenced_class.name: append_data
                 }
             )
 
@@ -764,6 +772,6 @@ class MemberData(dict):
 
         table: Table = data_store.get_table(member.member_id, class_name)
         counter_cache: CounterCache = member.counter_cache
-        counter_cache.update(-1 * object_count, table)
+        await counter_cache.update(-1 * object_count, table)
 
         return object_count

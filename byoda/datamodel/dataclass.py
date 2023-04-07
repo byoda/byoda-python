@@ -44,6 +44,9 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
+class Annotation(Enum):
+    # flask8: noqa=E221
+    COUNTER     = 'counter'
 
 # Translation from jsondata data type to Python data type in the Jinja template
 PYTHON_SCALAR_TYPE_MAP = {
@@ -63,6 +66,8 @@ GRAPHQL_SCALAR_TYPE_MAP = {
     DataType.DATETIME: 'DateTime',
     DataType.UUID: 'UUID',
 }
+
+MARKER_ANNOTATION = '#annotations'
 
 class SchemaDataItem:
     '''
@@ -89,8 +94,20 @@ class SchemaDataItem:
         self.service_id: int = service_id
         self.schema_url: ParseResult = urlparse(schema_id)
         self.enabled_apis: set = set()
+
+        # Is this a class referenced by other classes
         self.defined_class: bool | None = None
+        
         self.fields: list[SchemaDataItem] | None = None
+        self.annotations: set(Annotation) = set()
+
+        # Annotations for the class, currently only used by SchemaDataScalar
+        for annotation in schema.get(MARKER_ANNOTATION, []):
+            self.annotations.add(Annotation(annotation))
+
+        # Currently only used for SchemaDataScalar instances, to keep
+        # counter per unique value of the item in an SchemaDataArray
+        self.is_counter: bool = False
 
         self.type: DataType = DataType(schema['type'])
 
@@ -111,7 +128,6 @@ class SchemaDataItem:
         # The Pub/Sub for communicating changes to data using this class
         # instance. Only used for SchemaDataArray instances
         self.pubsub_class: PubSub | None = None
-        self.pubsub_counter: PubSub | None = None
 
         self.access_rights: list[DataAccessRight] = {}
 
@@ -310,6 +326,8 @@ class SchemaDataScalar(SchemaDataItem):
 
         self.defined_class: bool = False
         self.format: str = None
+
+        self.is_counter = 'counter' in self.annotations
 
         if self.type == DataType.STRING:
             self.format: str = self.schema.get('format')

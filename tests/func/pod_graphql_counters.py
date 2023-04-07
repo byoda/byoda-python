@@ -115,8 +115,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         url = BASE_URL + f'/v1/data/service-{service_id}'
 
-        asset_id = uuid4()
+        asset_ids: list[str] = []
+
+        counter_cache: CounterCache = member.counter_cache
+        start_counter = await counter_cache.get('network_assets')
+        if not start_counter:
+            start_counter = 0
+
         for count in range(1, 5):
+            asset_id = uuid4()
+            asset_ids.append(asset_id)
             vars = {
                 'query_id': uuid4(),
                 'created_timestamp': str(
@@ -139,9 +147,25 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             result = await response.json()
             self.assertIsNone(result.get('errors'))
 
-            counter_cache: CounterCache = member.counter_cache
             cache_value = await counter_cache.get('network_assets')
-            self.assertEqual(count, cache_value)
+            self.assertEqual(count, cache_value - start_counter)
+
+        # Delete one asset
+        vars = {
+            'filters': {'asset_id': {'eq': str(asset_ids[0])}},
+            'query_id': uuid4(),
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['network_assets']['delete'], vars=vars,
+            timeout=120, headers=auth_header
+        )
+        result = await response.json()
+        data = result.get('data')
+        self.assertEqual(data['delete_from_network_assets'], 1)
+        self.assertIsNone(result.get('errors'))
+
+        cache_value = await counter_cache.get('network_assets')
+        self.assertEqual(cache_value, count + start_counter - 1)
 
 
 if __name__ == '__main__':
