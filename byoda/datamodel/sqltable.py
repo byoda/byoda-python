@@ -19,6 +19,8 @@ from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.dataclass import SchemaDataScalar
 from byoda.datamodel.datafilter import DataFilterSet
 
+from .table import Table
+
 _LOGGER = logging.getLogger(__name__)
 
 Sql = TypeVar('Sql')
@@ -26,7 +28,7 @@ SqlCursor = TypeVar('SqlCursor')
 SqlConnection = TypeVar('SqlConnection')
 
 
-class SqlTable:
+class SqlTable(Table):
     '''
     Models a SQL table based on a top-level item in the schema for a
     service
@@ -38,6 +40,7 @@ class SqlTable:
         Constructor for a SQL table for a top-level item in the schema
         '''
 
+        self.class_name: str = data_class.name
         self.sql_store: Sql = sql_store
         self.member_id: UUID = member_id
         self.table_name: str = SqlTable.get_table_name(data_class.name)
@@ -408,6 +411,20 @@ class ArraySqlTable(SqlTable):
 
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
+
+    async def count(self) -> int:
+        '''
+        Gets the number of items from the array stored in the table
+        '''
+
+        rows = await self.sql_store.execute(
+            f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}',
+            member_id=self.member_id, fetchall=True
+        )
+
+        row_count = rows[0]['counter']
+
+        return row_count
 
     async def query(self, data_filters: DataFilterSet = None,
                     first: int = None, after: int = None,

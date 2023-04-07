@@ -18,7 +18,7 @@ from byoda.datatypes import MemberStatus
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
-from byoda.datastore.querycache import QueryCache
+from byoda.datacache.querycache import QueryCache
 
 from byoda.datamodel.memberdata import MemberData
 
@@ -376,6 +376,9 @@ class Account:
 
         if not member.query_cache:
             await member.create_query_cache()
+
+        if not member.counter_cache:
+            await member.create_counter_cache()
 
         if not member.data_secret.shared_key:
             await member.data.load_protected_shared_key()

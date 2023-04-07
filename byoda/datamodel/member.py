@@ -18,7 +18,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from strawberry.fastapi import GraphQLRouter
-from strawberry.subscriptions import GRAPHQL_TRANSPORT_WS_PROTOCOL
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -34,8 +33,8 @@ from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
-from byoda.datastore.querycache import QueryCache
-
+from byoda.datacache.querycache import QueryCache
+from byoda.datacache.counter_cache import CounterCache
 from byoda.storage import FileStorage
 
 
@@ -109,6 +108,7 @@ class Member:
         self.data_store: DataStore = config.server.data_store
 
         self.query_cache: QueryCache | None = None
+        self.counter_cache: CounterCache | None = None
 
         self.storage_driver: FileStorage = self.document_store.backend
 
@@ -338,7 +338,7 @@ class Member:
         )
         return member
 
-    async def create_query_cache(self):
+    async def create_query_cache(self) -> None:
         '''
         Sets up the query cache for the membership
         '''
@@ -346,7 +346,15 @@ class Member:
         _LOGGER.debug('Creating query cache for membership')
         self.query_cache = await QueryCache.create(self)
 
-    async def create_nginx_config(self):
+    async def create_counter_cache(self) -> None:
+        '''
+        Sets up the counter cache for the membership
+        '''
+
+        _LOGGER.debug('Creating query cache for membership')
+        self.counter_cache = await CounterCache.create(self)
+
+    async def create_nginx_config(self) -> None:
         '''
         Generates the Nginx virtual server configuration for
         the membership
@@ -382,7 +390,7 @@ class Member:
         nginx_config.create()
         nginx_config.reload()
 
-    def update_schema(self, version: int):
+    def update_schema(self, version: int) -> None:
         '''
         Download the latest version of the schema, disables the old version
         of the schema and enables the new version

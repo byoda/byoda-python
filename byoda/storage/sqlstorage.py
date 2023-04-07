@@ -16,7 +16,7 @@ import aiosqlite
 
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet
-
+from byoda.datamodel.table import Table
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -102,6 +102,14 @@ class Sql:
                     f'Error executing SQL: {exc}')
 
                 raise RuntimeError(exc)
+
+    def get_table(self, member_id: UUID, class_name: str) -> Table:
+        '''
+        Returns the table for the class of the member_id
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
+        return sql_table
 
     async def query(self, member_id: UUID, key: str,
                     filters: DataFilterSet = None) -> dict[str, object]:

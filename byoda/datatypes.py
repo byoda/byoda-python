@@ -101,6 +101,11 @@ class CacheTech(Enum):
     REDIS       = 1
     SQLITE      = 2
 
+class CacheType(Enum):
+    QUERY_ID     = 'query'
+    COUNTER      = 'counter'
+    OBJECT       = 'object'
+
 class PubSubTech(Enum):
     NNG       = 1
 

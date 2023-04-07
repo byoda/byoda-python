@@ -15,9 +15,10 @@ from enum import Enum
 from uuid import UUID
 from typing import TypeVar
 
-from byoda.datatypes import MemberStatus
-
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.table import Table
+
+from byoda.datatypes import MemberStatus
 
 from byoda.storage.sqlite import SqliteStorage
 
@@ -46,7 +47,7 @@ class DataStore:
         '''
 
         _LOGGER.debug(f'Setting up data store of type {storage_type}')
-        
+
         storage = DataStore()
         if storage_type == DataStoreType.SQLITE:
             storage.backend = await SqliteStorage.setup(
@@ -56,6 +57,13 @@ class DataStore:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 
         return storage
+
+    def get_table(self, member_id: UUID, class_name: str) -> Table:
+        '''
+        Returns the SqlTable instance for the given class name
+        '''
+
+        return self.backend.get_table(member_id, class_name)
 
     async def setup_member_db(self, member_id: UUID, service_id: int,
                               schema: Schema) -> None:

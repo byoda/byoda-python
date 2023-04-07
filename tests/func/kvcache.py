@@ -20,6 +20,8 @@ from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
 
+from byoda.util.paths import Paths
+
 from byoda import config
 
 CONFIG_FILE = 'tests/collateral/config.yml'
@@ -32,8 +34,6 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
         with open(CONFIG_FILE) as file_desc:
             TestKVCache.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
@@ -49,20 +49,17 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(test_dir)
 
-        network = await Network.create(
-            app_config['application']['network'],
-            app_config['svcserver']['root_dir'],
-            app_config['svcserver']['private_key_password']
-        )
-        await network.load_network_secrets()
-
         network = Network(
             app_config['svcserver'], app_config['application']
         )
-        await network.load_network_secrets()
-
+        network.paths = Paths(
+            network=app_config['application']['network'],
+            root_directory=test_dir
+        )
         config.server = ServiceServer(network, app_config)
-        await config.server.load_network_secrets()
+
+        # await network.load_network_secrets(storage_driver=local_storage)
+        # await config.server.load_network_secrets()
 
         config.server.member_db.kvcache.delete(TEST_KEY)
 

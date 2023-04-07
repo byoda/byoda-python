@@ -136,6 +136,7 @@ async def setup():
 
     for account_member in account.memberships.values():
         await account_member.create_query_cache()
+        await account_member.create_counter_cache()
         account_member.enable_graphql_api(app)
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
 

@@ -41,6 +41,8 @@ from byoda.secrets import ServiceCaSecret
 from byoda.secrets import ServiceSecret
 from byoda.secrets import ServiceDataSecret
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.logger import Logger
 
 from byoda import config
@@ -146,7 +148,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             TestDirectoryApis.APP_CONFIG['dirserver'],
             TestDirectoryApis.APP_CONFIG['application']
         )
-        await network.load_network_secrets()
+        storage = FileStorage(
+            TestDirectoryApis.APP_CONFIG['svcserver']['root_dir']
+        )
+        await network.load_network_secrets(storage_driver=storage)
 
         uuid = uuid4()
         secret = AccountSecret(account_id=uuid, network=network)

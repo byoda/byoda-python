@@ -21,11 +21,13 @@ from byoda import config
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
+from byoda.datamodel.table import Table
 
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
 
 from byoda.datastore.data_store import DataStore
+from byoda.datacache.counter_cache import CounterCache
 
 from byoda.requestauth.requestauth import RequestAuth
 
@@ -573,7 +575,7 @@ class MemberData(dict):
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'update_' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('update_'):].lower()
+        class_key = info.path.key[len('update_'):].lower()
 
         server = config.server
         member = server.account.memberships[service_id]
@@ -581,7 +583,7 @@ class MemberData(dict):
         filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'update',
-            'graphql', class_object, filters=filter_set
+            'graphql', class_key, filters=filter_set
         )
 
         update_data: dict = info.selected_fields[0].arguments
@@ -597,17 +599,26 @@ class MemberData(dict):
 
         _LOGGER.debug(
             f'Updating data for scalars {", ".join(updates.keys())} of'
-            f'object {class_object}'
+            f'object {class_key}'
         )
 
-        data_store = server.data_store
+        data_store: DataStore = server.data_store
         object_count = await data_store.mutate(
-            member.member_id, class_object, updates, filter_set
+            member.member_id, class_key, updates, filter_set
+        )
+
+        data_class: SchemaDataArray = member.schema.data_classes[class_key]
+        pubsub_class: PubSub = data_class.pubsub_class
+        await pubsub_class.send(
+            {
+                'action': 'update',
+                data_class.referenced_class.name: update_data
+            }
         )
 
         _LOGGER.debug(
             f'Saving {len(updates or [])} fields of data after mutation of '
-            f'{class_object}'
+            f'{class_key}'
         )
 
         return object_count
@@ -638,17 +649,18 @@ class MemberData(dict):
             f'for object {info.path.key}'
         )
 
-        server = config.server
-        member = server.account.memberships[service_id]
+        server: PodServer = config.server
+        member: Member = server.account.memberships[service_id]
 
         # By convention implemented in the Jinja template, the called
         # mutate 'function' starts with the string 'mutate' so we to find out
         # what mutation was invoked, we want what comes after it.
-        key = info.path.key[len('append_'):].lower()
+        class_name = info.path.key[len('append_'):].lower()
 
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'append',
-            'graphql', key, depth=depth, remote_member_id=remote_member_id
+            'graphql', class_name, depth=depth,
+            remote_member_id=remote_member_id
         )
 
         if remote_member_id and remote_member_id != member.member_id:
@@ -665,7 +677,7 @@ class MemberData(dict):
             query = await request.body()
             proxy = GraphQlProxy(member)
             all_data = await proxy.proxy_request(
-                key, query, depth, None, remote_member_id
+                class_name, query, depth, None, remote_member_id
             )
             return all_data
         else:
@@ -680,12 +692,18 @@ class MemberData(dict):
             mutate_data: dict = info.selected_fields[0].arguments
 
             _LOGGER.debug(f'Appended {len(mutate_data or [])} items of data')
-            data_store = server.data_store
+            data_store: DataStore = server.data_store
             object_count = await data_store.append(
-                member.member_id, key, mutate_data
+                member.member_id, class_name, mutate_data
             )
 
-            data_class: SchemaDataArray = member.schema.data_classes[key]
+            data_class: SchemaDataArray = \
+                member.schema.data_classes[class_name]
+
+            table: Table = data_store.get_table(member.member_id, class_name)
+            counter_cache: CounterCache = member.counter_cache
+            await counter_cache.update(1, table)
+
             pubsub_class: PubSub = data_class.pubsub_class
             await pubsub_class.send(
                 {
@@ -728,7 +746,7 @@ class MemberData(dict):
         # By convention implemented in the Jinja template, the called mutate
         # 'function' starts with the string 'delete_from' so we to find out
         # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('delete_from_'):].lower()
+        class_name = info.path.key[len('delete_from_'):].lower()
 
         server = config.server
         member = server.account.memberships[service_id]
@@ -736,12 +754,16 @@ class MemberData(dict):
         filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'delete',
-            'graphql', class_name=class_object, filters=filter_set
+            'graphql', class_name=class_name, filters=filter_set
         )
 
         data_store = server.data_store
         object_count = await data_store.delete(
-            member.member_id, class_object, filter_set
+            member.member_id, class_name, filter_set
         )
+
+        table: Table = data_store.get_table(member.member_id, class_name)
+        counter_cache: CounterCache = member.counter_cache
+        counter_cache.update(-1 * object_count, table)
 
         return object_count

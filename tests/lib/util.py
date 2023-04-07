@@ -6,7 +6,14 @@ Helper functions for tests
 :license
 '''
 
+import os
 from uuid import uuid4, UUID
+
+import requests
+
+from byoda.datamodel.member import Member
+
+from tests.lib.defines import BASE_URL
 
 
 def get_test_uuid() -> UUID:
@@ -34,3 +41,5 @@ def get_member_tls_headers(member_id: UUID, network: str, service_id: int) -> di
         'X-Client-SSL-Issuing-CA': f'CN=members-ca.{network}'
     }
     return member_headers
+
+

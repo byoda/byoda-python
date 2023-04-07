@@ -12,6 +12,7 @@ from uuid import UUID
 from typing import TypeVar
 
 from byoda.datatypes import CacheTech
+from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -57,7 +58,7 @@ class QueryCache:
         _LOGGER.debug(f'Creating query cache using {cache.filepath}')
         cache.backend: KVCache = await KVCache.create_async(
             cache.filepath, identifier=str(member.member_id),
-            cache_tech=cache_tech
+            cache_tech=cache_tech, cache_type=CacheType.QUERY_ID
         )
 
         return cache

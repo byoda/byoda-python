@@ -113,14 +113,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_id = ADDRESSBOOK_SERVICE_ID
         password = os.environ['ACCOUNT_SECRET']
 
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
-                'password': password,
-                'service_id': ADDRESSBOOK_SERVICE_ID
-            }
-        )
+        data = {
+            'username': str(account_member.member_id)[:8],
+            'password': password,
+            'service_id': ADDRESSBOOK_SERVICE_ID
+        }
+        url = f'{BASE_URL}/v1/pod/authtoken'
+        response = requests.post(url, json=data)
+        
         self.assertEqual(response.status_code, 200)
         result = response.json()
         auth_header = {
