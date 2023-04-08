@@ -774,4 +774,16 @@ class MemberData(dict):
         counter_cache: CounterCache = member.counter_cache
         await counter_cache.update(-1 * object_count, table)
 
+        data_class: SchemaDataArray = member.schema.data_classes[class_name]
+        referenced_class: SchemaDataObject = data_class.referenced_class
+        if referenced_class:
+            for field in referenced_class.fields.values():
+                data_filter = getattr(filters, field.name, None)
+                filter_value = getattr(data_filter, 'eq', None)
+                if field.is_counter and data_filter and filter_value:
+                    await counter_cache.update(
+                        -1 * object_count, table, field.name, filter_value
+                    )
+
+        # TODO: pubsub message for deletion of records.
         return object_count

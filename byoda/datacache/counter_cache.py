@@ -132,22 +132,26 @@ class CounterCache:
         '''
         Increments the counter and returns the new value
         '''
+
         return await self.backend.incr(class_name, value)
 
     async def decr(self, class_name, value: int = 1) -> None:
         '''
         Increments the counter
         '''
+        
         return await self.backend.decr(class_name, value)
 
-    async def delete(self, class_name: str) -> bool:
+    async def delete(self, class_name: str, field_name: str = None) -> bool:
         '''
         Deletes the query_id from the cache
 
         :returns: True if the query_id was deleted, False if it did not exist
         '''
 
-        return await self.backend.delete(class_name)
+        key = CounterCache._get_key_name(class_name, field_name, value)
+
+        return await self.backend.delete(key)
 
     async def purge(self) -> int:
         '''
