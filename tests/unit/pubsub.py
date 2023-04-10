@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 from byoda.datatypes import PubSubTech
 from byoda.datatypes import PubSubMessageAction
 
-from byoda.datamodel.pubsub_message import PubSubDataMessage
+from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
+from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
@@ -106,8 +107,8 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(data[1], values[1])
 
-    async def test_one_sender_one_receiver(self):
-        _LOGGER.debug('test_one_sender_one_receiver')
+    async def test_one_sender_one_receiver_append(self):
+        _LOGGER.debug('test_one_sender_one_receiver_append')
 
         storage: FileStorage = FileStorage(TEST_DIR)
         schema: Schema = await Schema.get_schema(
@@ -135,13 +136,45 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        message = PubSubDataMessage.create(
-            PubSubMessageAction.APPEND, test_data, data_class
+        message = PubSubDataAppendMessage.create(test_data, data_class)
+        await pub.send(message)
+        values = await sub.recv()
+
+        value: PubSubDataAppendMessage = values[0]
+        self.assertEqual(value.data, test_data)
+
+    async def test_one_sender_one_receiver_delete(self):
+        _LOGGER.debug('test_one_sender_one_receiver_delete')
+
+        storage: FileStorage = FileStorage(TEST_DIR)
+        schema: Schema = await Schema.get_schema(
+            'addressbook.json', storage, None, None,
+            verify_contract_signatures=False
+        )
+
+        schema.get_data_classes()
+
+        data_class: SchemaDataItem = schema.data_classes['network_links']
+
+        test_data = 1
+
+        pub = PubSub.setup(
+            'test', data_class, schema, is_counter=False,
+            is_sender=True, pubsub_tech=PubSubTech.NNG
+        )
+
+        sub = PubSub.setup(
+            'test', data_class, schema, is_counter=False,
+            is_sender=False, pubsub_tech=PubSubTech.NNG
+        )
+
+        message = PubSubDataDeleteMessage.create(
+            test_data, data_class
         )
         await pub.send(message)
         values = await sub.recv()
 
-        value: PubSubDataMessage = values[0]
+        value: PubSubDataDeleteMessage = values[0]
         self.assertEqual(value.data, test_data)
 
     async def test_one_sender_two_receivers(self):
@@ -178,11 +211,9 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
                 is_sender=False, pubsub_tech=PubSubTech.NNG
             )
         ]
-        message = PubSubDataMessage.create(
-            PubSubMessageAction.APPEND, test_data, data_class
-        )
+        message = PubSubDataAppendMessage.create(test_data, data_class)
         await pub.send(message)
-        messages: list[PubSubDataMessage] = [
+        messages: list[PubSubDataAppendMessage] = [
             await subs[0].recv(),
             await subs[1].recv()
         ]
@@ -234,12 +265,8 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         )
 
         test_messages = [
-            PubSubDataMessage.create(
-                PubSubMessageAction.APPEND, test_data, data_class
-            ),
-            PubSubDataMessage.create(
-                PubSubMessageAction.APPEND, test_data, data_class
-            )
+            PubSubDataAppendMessage.create(test_data[0], data_class),
+            PubSubDataAppendMessage.create(test_data[1], data_class)
         ]
 
         await pubs[0].send(test_messages[0])

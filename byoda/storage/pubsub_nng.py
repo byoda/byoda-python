@@ -94,7 +94,8 @@ class PubSubNng(PubSub):
                 prefix = PubSubNng.get_filename(data_class.name, is_counter)
                 if file.startswith(prefix):
                     filepath = PubSubNng.get_connection_string(
-                        data_class.name, schema.service_id, is_counter, process_id
+                        data_class.name, schema.service_id, is_counter,
+                        process_id
                     )
                     _LOGGER.debug(
                         f'Found file: {file} for class {self.data_class.name}'
@@ -200,7 +201,7 @@ class PubSubNng(PubSub):
         messages: list[PubSubDataMessage] = []
         # Replace the data with the normalized data
         for data in responses:
-            message = PubSubDataMessage.parse(data, self.schema)
+            message = PubSubMessage.parse(data, self.schema)
             if referenced_class.name != message.class_name:
                 raise ValueError(
                     f'Received message for class {data.get("class_name")} '
