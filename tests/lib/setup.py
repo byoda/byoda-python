@@ -26,7 +26,7 @@ from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.storage.pubsub import PubSubNng
+from byoda.storage.pubsub_nng import PubSubNng
 
 from podserver.util import get_environment_vars
 
@@ -168,6 +168,6 @@ def write_account_id(network_data: dict[str, str]):
     Writes the account ID to a local file so that test clients
     can use the same account ID as the test podserver
     '''
-    
+
     with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
         file_desc.write(orjson.dumps(network_data['account_id']))

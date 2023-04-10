@@ -17,9 +17,10 @@ import orjson
 
 from datetime import datetime, timezone
 
-from byoda.util.logger import Logger
-
 from byoda.datatypes import PubSubTech
+from byoda.datatypes import PubSubMessageAction
+
+from byoda.datamodel.pubsub_message import PubSubDataMessage
 
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
@@ -27,7 +28,9 @@ from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.storage.filestorage import FileStorage
 
 from byoda.storage.pubsub import PubSub
-from byoda.storage.pubsub import PubSubNng
+from byoda.storage.pubsub_nng import PubSubNng
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -117,29 +120,29 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         data_class: SchemaDataItem = schema.data_classes['network_links']
 
         test_data = {
-            'action': 'append',
-            'network_link': {
-                'member_id': get_test_uuid(),
-                'relation': 'friend',
-                'created_timestamp': datetime.now(tz=timezone.utc)
-            }
+            'member_id': get_test_uuid(),
+            'relation': 'friend',
+            'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
         pub = PubSub.setup(
-            'test', data_class, schema.service_id, is_counter=False,
+            'test', data_class, schema, is_counter=False,
             is_sender=True, pubsub_tech=PubSubTech.NNG
         )
 
         sub = PubSub.setup(
-            'test', data_class, schema.service_id, is_counter=False,
+            'test', data_class, schema, is_counter=False,
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        await pub.send(test_data)
+        message = PubSubDataMessage.create(
+            PubSubMessageAction.APPEND, test_data, data_class
+        )
+        await pub.send(message)
         values = await sub.recv()
 
-        value = values[0]
-        self.assertEqual(value, test_data)
+        value: PubSubDataMessage = values[0]
+        self.assertEqual(value.data, test_data)
 
     async def test_one_sender_two_receivers(self):
         _LOGGER.debug('test_one_sender_two_receivers')
@@ -155,37 +158,36 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         data_class: SchemaDataItem = schema.data_classes['network_links']
 
         test_data = {
-            'action': 'append',
-            'network_link': {
-                'member_id': get_test_uuid(),
-                'relation': 'friend',
-                'created_timestamp': datetime.now(tz=timezone.utc)
-            }
+            'member_id': get_test_uuid(),
+            'relation': 'friend',
+            'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
         pub = PubSub.setup(
-            'test', data_class, schema.service_id, is_counter=False,
+            'test', data_class, schema, is_counter=False,
             is_sender=True, pubsub_tech=PubSubTech.NNG
         )
 
         subs = [
             PubSub.setup(
-                'test', data_class, schema.service_id, is_counter=False,
+                'test', data_class, schema, is_counter=False,
                 is_sender=False, pubsub_tech=PubSubTech.NNG
             ),
             PubSub.setup(
-                'test', data_class, schema.service_id, is_counter=False,
+                'test', data_class, schema, is_counter=False,
                 is_sender=False, pubsub_tech=PubSubTech.NNG
             )
         ]
-
-        await pub.send(test_data)
-        values = [
+        message = PubSubDataMessage.create(
+            PubSubMessageAction.APPEND, test_data, data_class
+        )
+        await pub.send(message)
+        messages: list[PubSubDataMessage] = [
             await subs[0].recv(),
             await subs[1].recv()
         ]
-        self.assertEqual(values[0][0], test_data)
-        self.assertEqual(values[1][0], test_data)
+        self.assertEqual(messages[0][0].data, test_data)
+        self.assertEqual(messages[1][0].data, test_data)
 
     async def test_two_senders_one_receiver(self):
         _LOGGER.debug('test_two_senders_one_receiver')
@@ -202,20 +204,14 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         test_data = [
             {
-                'action': 'append',
-                'network_link': {
-                    'member_id': get_test_uuid(),
-                    'relation': 'friend',
-                    'created_timestamp': datetime.now(tz=timezone.utc)
-                }
+                'member_id': get_test_uuid(),
+                'relation': 'friend',
+                'created_timestamp': datetime.now(tz=timezone.utc)
             },
             {
-                'action': 'append',
-                'network_link': {
-                    'member_id': get_test_uuid(),
-                    'relation': 'family',
-                    'created_timestamp': datetime.now(tz=timezone.utc)
-                }
+                'member_id': get_test_uuid(),
+                'relation': 'family',
+                'created_timestamp': datetime.now(tz=timezone.utc)
             }
         ]
 
@@ -223,27 +219,36 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         # directly call PubSubNng() so that we can set the process_id
         pubs = [
             PubSub.setup(
-                'test', data_class, schema.service_id, is_counter=False,
+                'test', data_class, schema, is_counter=False,
                 is_sender=True, pubsub_tech=PubSubTech.NNG
             ),
             PubSubNng(
-                data_class, schema.service_id, is_counter=False,
+                data_class, schema, is_counter=False,
                 is_sender=True, process_id=1
             ),
         ]
 
         sub = PubSub.setup(
-            'test', data_class, schema.service_id, is_counter=False,
+            'test', data_class, schema, is_counter=False,
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
-        await pubs[0].send(test_data[0])
-        await pubs[1].send(test_data[1])
+        test_messages = [
+            PubSubDataMessage.create(
+                PubSubMessageAction.APPEND, test_data, data_class
+            ),
+            PubSubDataMessage.create(
+                PubSubMessageAction.APPEND, test_data, data_class
+            )
+        ]
+
+        await pubs[0].send(test_messages[0])
+        await pubs[1].send(test_messages[1])
 
         results = await sub.recv()
 
         for result in results:
-            self.assertIn(result, test_data)
+            self.assertIn(result.data, test_data)
 
 
 if __name__ == '__main__':

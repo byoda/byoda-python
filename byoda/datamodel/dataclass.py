@@ -97,7 +97,7 @@ class SchemaDataItem:
 
         # Is this a class referenced by other classes
         self.defined_class: bool | None = None
-        
+
         self.fields: list[SchemaDataItem] | None = None
         self.annotations: set(Annotation) = set()
 
@@ -511,7 +511,7 @@ class SchemaDataArray(SchemaDataItem):
             # another class
             if config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
-                    self.name, self, self.service_id, is_counter=False,
+                    self.name, self, schema, is_counter=False,
                     is_sender=True
                 )
         else:

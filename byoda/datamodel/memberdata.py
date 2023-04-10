@@ -23,6 +23,7 @@ from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 from byoda.datamodel.table import Table
+from byoda.datamodel.pubsub_message import PubSubDataMessage
 
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
@@ -37,6 +38,7 @@ from byoda.secrets.secret import InvalidSignature
 from byoda.storage import FileMode
 from byoda.storage.pubsub import PubSub
 from byoda.storage.pubsub import PubSubTech
+from byoda.datatypes import PubSubMessageAction
 
 from byoda.util.paths import Paths
 
@@ -439,7 +441,7 @@ class MemberData(dict):
         data_class = member.schema.data_classes[class_name]
         referenced_class_name: str = class_name.strip('s')
         sub = PubSub.setup(
-            data_class.name, data_class, service_id, is_counter=False,
+            data_class.name, data_class, member.schema, is_counter=False,
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
@@ -452,16 +454,14 @@ class MemberData(dict):
                 # We run the data through the filters but the filters
                 # work on and return arrays
                 filtered_items: list[dict] = DataFilterSet.filter(
-                    filters, [item_data]
+                    filters, [message.data]
                 )
                 if filtered_items:
                     filtered_item = filtered_items[0]
                     filtered_data.append(
-                        {
-                            'action': item['action'],
-                            referenced_class_name: filtered_item
-                        }
+                        PubSubDataMessage.create(message.action, filtered_item, data_class)
                     )
+
             if filtered_data:
                 return filtered_data
 
@@ -712,13 +712,13 @@ class MemberData(dict):
                             1, table, field.name, append_data[field.name]
                         )
 
-            pubsub_class: PubSub = data_class.pubsub_class
-            await pubsub_class.send(
-                {
-                    'action': 'append',
-                    data_class.referenced_class.name: append_data
-                }
+            message = PubSubDataMessage.create(
+                PubSubMessageAction.APPEND,
+                append_data,
+                data_class.referenced_class,
             )
+            pubsub_class: PubSub = data_class.pubsub_class
+            await pubsub_class.send(message)
 
             return object_count
 

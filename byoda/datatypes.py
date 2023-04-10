@@ -109,6 +109,14 @@ class CacheType(Enum):
 class PubSubTech(Enum):
     NNG       = 1
 
+class PubSubMessageType(Enum):
+    DATA       = 'data'
+
+class PubSubMessageAction(Enum):
+    APPEND      = 'append'
+    DELETE      = 'delete'
+    MUTATE      = 'mutate'
+
 class StorageType(Enum):
     PRIVATE = 'private'
     PUBLIC = 'public'
