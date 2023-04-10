@@ -9,6 +9,7 @@ the pod from forwarding loops; executing and forwarding the same query twice
 
 import logging
 
+from uuid import UUID
 from typing import TypeVar
 
 from byoda.datamodel.table import Table
@@ -72,7 +73,7 @@ class CounterCache:
 
     @staticmethod
     def _get_key_name(class_name: str, field_name: str = None,
-                            value: any = None):
+                      value: any = None):
         if field_name is None:
             return class_name
         else:
@@ -139,10 +140,11 @@ class CounterCache:
         '''
         Increments the counter
         '''
-        
+
         return await self.backend.decr(class_name, value)
 
-    async def delete(self, class_name: str, field_name: str = None) -> bool:
+    async def delete(self, class_name: str, field_name: str = None,
+                     value: str | UUID = None) -> bool:
         '''
         Deletes the query_id from the cache
 
