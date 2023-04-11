@@ -177,20 +177,91 @@ class PubSubDataAppendMessage(PubSubDataMessage):
         msg = PubSubDataAppendMessage(data_dict)
 
         msg.data_class: SchemaDataItem = \
+            schema.data_classes[data_dict['class_name']]
+        msg.class_name: str = msg.data_class.name
+
+        msg.data = msg.data_class.referenced_class.normalize(
+            data_dict.get('data')
+        )
+
+        return msg
+
+
+class PubSubDataMutateMessage(PubSubDataMessage):
+    def __init__(self, data: int, data_class: SchemaDataItem = None):
+        '''
+        Constructor
+
+        :param data: the number of deleted items
+        '''
+
+        super().__init__(PubSubMessageAction.MUTATE, data, data_class)
+
+    @staticmethod
+    def create(data: int, data_class: SchemaDataItem):
+        '''
+        Factory
+        '''
+
+        msg = PubSubDataMutateMessage(data, data_class)
+
+        return msg
+
+    @staticmethod
+    def parse(data: bytes | dict, schema: Schema):
+        '''
+        Factory, parses a message received over pub/sub. Normalizes
+        received data to the data class specified in the message
+
+        :param data: the number of deleted items
+        :param schema: the schema for the service for which the message
+        was received
+        :returns: PubSubDataDeleteMessage
+        :raises: ValueError
+        '''
+
+        if isinstance(data, bytes):
+            data_dict = orjson.loads(data)
+        elif isinstance(data, dict):
+            data_dict = data
+        else:
+            _LOGGER.exception(
+                f'Data provided is not a dict or bytes: {type(data)}'
+            )
+            raise ValueError(
+                f'Data provided is not a dict or bytes: {type(data)}'
+            )
+
+        action = PubSubMessageAction(data_dict['action'])
+        if action != PubSubMessageAction.MUTATE:
+            _LOGGER.exception(f'Invalid action: {action} for this class')
+            raise ValueError
+
+        msg = PubSubDataMutateMessage(data_dict)
+
+        msg.data_class: SchemaDataItem = \
             schema.data_classes[data_dict['class_name']].referenced_class
         msg.class_name: str = msg.data_class.name
 
-        msg.data = msg.data_class.normalize(data_dict.get('data'))
+        # Data is the number of items of the class specified by data_class
+        # were deleted
+        msg.data = data_dict.get('data')
 
         return msg
 
 
 class PubSubDataDeleteMessage(PubSubDataMessage):
-    def __init__(self, data: object, data_class: SchemaDataItem = None):
+    def __init__(self, data: int, data_class: SchemaDataItem = None):
+        '''
+        Constructor
+
+        :param data: the number of deleted items
+        '''
+
         super().__init__(PubSubMessageAction.DELETE, data, data_class)
 
     @staticmethod
-    def create(data: object, data_class: SchemaDataItem):
+    def create(data: int, data_class: SchemaDataItem):
         '''
         Factory
         '''
@@ -202,9 +273,10 @@ class PubSubDataDeleteMessage(PubSubDataMessage):
     @staticmethod
     def parse(data: bytes | dict, schema: Schema):
         '''
-        Factory, parses a message received over pub/sub
+        Factory, parses a message received over pub/sub. Normalizes
+        received data to the data class specified in the message
 
-        :param data: either a list of bytes of JSON data or a dict
+        :param data: the number of deleted items
         :param schema: the schema for the service for which the message
         was received
         :returns: PubSubDataDeleteMessage
@@ -231,7 +303,7 @@ class PubSubDataDeleteMessage(PubSubDataMessage):
         msg = PubSubDataDeleteMessage(data_dict)
 
         msg.data_class: SchemaDataItem = \
-            schema.data_classes[data_dict['class_name']].referenced_class
+            schema.data_classes[data_dict['class_name']]
         msg.class_name: str = msg.data_class.name
 
         # Data is the number of items of the class specified by data_class

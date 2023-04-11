@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 RequestAuth = TypeVar('RequestAuth')
 Member = TypeVar('Member')
-
+Schema = TypeVar('Schema')
 
 # We create a number of standard APIs for each class to manipulate data.
 class GraphQlAPI(Enum):
@@ -76,23 +76,24 @@ class SchemaDataItem:
     code leveraging the Strawberry GraphQL module.
 
     A data 'class' here can be eiter an object/dict, array/list or scalar
-
-    :param class_name: name of the class
-    :param schema: json-schema blurb for the class
-    :param schema_id: id of the schema
-    :param service_id: id of the service the class belongs to
     '''
 
-    def __init__(self, class_name: str, schema: dict, schema_id: str, service_id: int
-                 ) -> None:
+    def __init__(self, class_name: str, schema_data: dict[str:object], schema: Schema) -> None:
+        '''
+        Constructor
+
+        :param class_name: name of the class
+        :param schema: Schema instance
+        :param schema_data: json-schema blurb for the class
+        '''
 
         self.name: str | None = class_name
-        self.schema: dict[str, object] = schema
-        self.description: str | None = schema.get('description')
-        self.item_id: str | None = schema.get('$id')
-        self.schema_id: str = schema_id
-        self.service_id: int = service_id
-        self.schema_url: ParseResult = urlparse(schema_id)
+        self.schema_data: dict[str, object] = schema_data
+        self.description: str | None = schema_data.get('description')
+        self.item_id: str | None = schema_data.get('$id')
+        self.schema_id: str = schema.schema_id
+        self.service_id: int = schema.service_id
+        self.schema_url: ParseResult = urlparse(schema.schema_id)
         self.enabled_apis: set = set()
 
         # Is this a class referenced by other classes
@@ -102,21 +103,21 @@ class SchemaDataItem:
         self.annotations: set(Annotation) = set()
 
         # Annotations for the class, currently only used by SchemaDataScalar
-        for annotation in schema.get(MARKER_ANNOTATION, []):
+        for annotation in schema_data.get(MARKER_ANNOTATION, []):
             self.annotations.add(Annotation(annotation))
 
         # Currently only used for SchemaDataScalar instances, to keep
         # counter per unique value of the item in an SchemaDataArray
         self.is_counter: bool = False
 
-        self.type: DataType = DataType(schema['type'])
+        self.type: DataType = DataType(schema_data['type'])
 
         # Used by SchemaDataArray to point to the class the entries
         # of the array have
         self.referenced_class: str = None
 
         self.python_type, self.graphql_type = self.get_types(
-            class_name, self.schema
+            class_name, self.schema_data
         )
 
         # The class for storing data for the service sets the values
@@ -133,8 +134,7 @@ class SchemaDataItem:
 
         self.parse_access_controls()
 
-    def get_types(self, data_name: str, data_schema: dict
-                       ) -> tuple[str, str]:
+    def get_types(self, data_name: str, schema_data: dict) -> tuple[str, str]:
         '''
         Returns translation of the jsonschema -> python typing string
         and of the jsonschema -> graphql typing string
@@ -146,7 +146,7 @@ class SchemaDataItem:
         :raises: ValueError, KeyError
         '''
 
-        js_type = data_schema.get('type')
+        js_type = schema_data.get('type')
         if not js_type:
             raise ValueError(f'Class {data_name} does not have a type defined')
 
@@ -160,7 +160,7 @@ class SchemaDataItem:
 
         if jsonschema_type not in (DataType.OBJECT, DataType.ARRAY):
             try:
-                format = data_schema.get('format')
+                format = schema_data.get('format')
                 if format and format.lower() in ('date-time', 'uuid'):
                     format_datatype = DataType(format)
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[format_datatype]
@@ -175,7 +175,7 @@ class SchemaDataItem:
 
             return python_type, graphql_type
         elif jsonschema_type == DataType.ARRAY:
-            items = data_schema.get('items')
+            items = schema_data.get('items')
             if not items:
                 raise ValueError(
                     f'Array {data_name} does not have items defined'
@@ -203,13 +203,12 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema: dict, schema_id: str,
-               service_id: int, classes: dict = None):
+    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = None):
         '''
         Factory for instances of classes derived from SchemaDataItem
         '''
 
-        item_type = schema.get('type')
+        item_type = schema_data.get('type')
         if not item_type:
             raise ValueError(f'No type found in {class_name}')
 
@@ -219,13 +218,14 @@ class SchemaDataItem:
         )
 
         if item_type == 'object':
-            item = SchemaDataObject(class_name, schema, schema_id, service_id)
+            item = SchemaDataObject(
+                class_name, schema_data, schema)
         elif item_type == 'array':
             item = SchemaDataArray(
-                class_name, schema, schema_id, service_id, classes=classes
+                class_name, schema_data, schema, classes=classes
             )
         else:
-            item = SchemaDataScalar(class_name, schema, schema_id, service_id)
+            item = SchemaDataScalar(class_name, schema_data, schema)
 
         return item
 
@@ -243,7 +243,7 @@ class SchemaDataItem:
 
         _LOGGER.debug(f'Parsing access controls for {self.name}')
 
-        rights = self.schema.get('#accesscontrol')
+        rights = self.schema_data.get('#accesscontrol')
         if not rights:
             _LOGGER.debug(f'No access rights defined for {self.name}')
             return
@@ -320,9 +320,8 @@ class SchemaDataItem:
         return None
 
 class SchemaDataScalar(SchemaDataItem):
-    def __init__(self, class_name: str, schema: dict, schema_id: str,
-                 service_id: int) -> None:
-        super().__init__(class_name, schema, schema_id, service_id)
+    def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
+        super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
         self.format: str = None
@@ -330,11 +329,11 @@ class SchemaDataScalar(SchemaDataItem):
         self.is_counter = 'counter' in self.annotations
 
         if self.type == DataType.STRING:
-            self.format: str = self.schema.get('format')
+            self.format: str = self.schema_data.get('format')
             if self.format == 'date-time':
                 self.type = DataType.DATETIME
                 self.python_type = 'datetime'
-            elif (self.format == 'uuid' or self.schema.get('regex') ==
+            elif (self.format == 'uuid' or self.schema_data.get('regex') ==
                     (
                         '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}'
                         '-[0-9a-f]{12}$'
@@ -367,9 +366,8 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    def __init__(self, class_name: str, schema: dict, schema_id: str,
-                 service_id: int) -> None:
-        super().__init__(class_name, schema, schema_id, service_id)
+    def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
+        super().__init__(class_name, schema_data, schema)
 
         # 'Defined' classes are objects under the '$defs' object
         # of the JSON Schema. We don't create GraphQL mutations for
@@ -379,13 +377,13 @@ class SchemaDataObject(SchemaDataItem):
         # we require that there no further '/'s in the id
 
         self.fields: dict[str, SchemaDataItem] = {}
-        self.required_fields: list[str] = schema.get('required', [])
+        self.required_fields: list[str] = schema_data.get('required', [])
         self.defined_class: bool = False
 
         if self.item_id:
             self.defined_class = True
 
-        for field, field_properties in schema['properties'].items():
+        for field, field_properties in schema_data['properties'].items():
             if field_properties['type'] == 'object':
                 raise ValueError(
                     f'Nested objects or arrays under object {class_name} are '
@@ -403,7 +401,7 @@ class SchemaDataObject(SchemaDataItem):
                         'object'
                     )
 
-            item = SchemaDataItem.create(field, field_properties, schema_id, service_id)
+            item = SchemaDataItem.create(field, field_properties, schema)
 
             self.fields[field] = item
 
@@ -465,13 +463,13 @@ class SchemaDataObject(SchemaDataItem):
 
 
 class SchemaDataArray(SchemaDataItem):
-    def __init__(self, class_name: str, schema: dict, schema_id: str,
-                 service_id: int, classes: dict) -> None:
-        super().__init__(class_name, schema, schema_id, service_id)
+    def __init__(self, class_name: str, schema_data: dict, schema: Schema,
+                 classes: dict[str, SchemaDataItem]) -> None:
+        super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
 
-        items = schema.get('items')
+        items = schema_data.get('items')
         if not items:
             raise ValueError(
                 'Schema properties for array {class_name} does not have items '
@@ -482,7 +480,7 @@ class SchemaDataArray(SchemaDataItem):
             # This is an array of scalars
             self.items = DataType(items['type'])
             self.referenced_class = SchemaDataItem.create(
-                None, schema['items'], self.schema_id, self.service_id
+                None, schema_data['items'], schema
             )
         elif '$ref' in items:
             # This is an array of objects of the referenced class
@@ -504,6 +502,7 @@ class SchemaDataArray(SchemaDataItem):
                 raise ValueError(
                     f'Unknown class {referenced_class} referenced by {class_name}'
                 )
+
             self.referenced_class = classes[referenced_class]
 
             # The Pub/Sub for communicating changes to data using this class

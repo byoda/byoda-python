@@ -18,7 +18,6 @@ import orjson
 from datetime import datetime, timezone
 
 from byoda.datatypes import PubSubTech
-from byoda.datatypes import PubSubMessageAction
 
 from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage

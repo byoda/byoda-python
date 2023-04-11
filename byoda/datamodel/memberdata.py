@@ -23,7 +23,9 @@ from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 from byoda.datamodel.table import Table
-from byoda.datamodel.pubsub_message import PubSubDataMessage
+from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
+from byoda.datamodel.pubsub_message import PubSubDataMutateMessage
+from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
@@ -38,7 +40,6 @@ from byoda.secrets.secret import InvalidSignature
 from byoda.storage import FileMode
 from byoda.storage.pubsub import PubSub
 from byoda.storage.pubsub import PubSubTech
-from byoda.datatypes import PubSubMessageAction
 
 from byoda.util.paths import Paths
 
@@ -439,28 +440,23 @@ class MemberData(dict):
         # schema
         class_name = info.path.key[:-1 * len('_updates')]
         data_class = member.schema.data_classes[class_name]
-        referenced_class_name: str = class_name.strip('s')
         sub = PubSub.setup(
             data_class.name, data_class, member.schema, is_counter=False,
             is_sender=False, pubsub_tech=PubSubTech.NNG
         )
 
         while True:
-            data = await sub.recv()
+            messages = await sub.recv()
 
             filtered_data: list[dict] = []
-            for item in data or []:
-                item_data = item[referenced_class_name]
+            for message in messages or []:
                 # We run the data through the filters but the filters
                 # work on and return arrays
                 filtered_items: list[dict] = DataFilterSet.filter(
                     filters, [message.data]
                 )
                 if filtered_items:
-                    filtered_item = filtered_items[0]
-                    filtered_data.append(
-                        PubSubDataMessage.create(message.action, filtered_item, data_class)
-                    )
+                    filtered_data.append(message)
 
             if filtered_data:
                 return filtered_data
@@ -609,13 +605,9 @@ class MemberData(dict):
         )
 
         data_class: SchemaDataArray = member.schema.data_classes[class_key]
+        message = PubSubDataMutateMessage.create(object_count, data_class)
         pubsub_class: PubSub = data_class.pubsub_class
-        await pubsub_class.send(
-            {
-                'action': 'update',
-                data_class.referenced_class.name: update_data
-            }
-        )
+        await pubsub_class.send(message)
 
         _LOGGER.debug(
             f'Saving {len(updates or [])} fields of data after mutation of '
@@ -704,19 +696,21 @@ class MemberData(dict):
             table: Table = data_store.get_table(member.member_id, class_name)
             counter_cache: CounterCache = member.counter_cache
             await counter_cache.update(1, table)
-            referenced_class: SchemaDataObject = data_class.referenced_class
-            if referenced_class:
-                for field in referenced_class.fields.values():
-                    if field.is_counter and append_data.get(field.name):
-                        await counter_cache.update(
-                            1, table, field.name, append_data[field.name]
-                        )
 
-            message = PubSubDataMessage.create(
-                PubSubMessageAction.APPEND,
-                append_data,
-                data_class.referenced_class,
-            )
+            referenced_class: SchemaDataObject = data_class.referenced_class
+            if not referenced_class:
+                # Edge case if the top-level array stores scalars instead
+                # of objects
+                return object_count
+
+            # Update the counter cache for any fields that are counters
+            for field in referenced_class.fields.values():
+                if field.is_counter and append_data.get(field.name):
+                    await counter_cache.update(
+                        1, table, field.name, append_data[field.name]
+                    )
+
+            message = PubSubDataAppendMessage.create(append_data, data_class)
             pubsub_class: PubSub = data_class.pubsub_class
             await pubsub_class.send(message)
 
@@ -777,13 +771,20 @@ class MemberData(dict):
         data_class: SchemaDataArray = member.schema.data_classes[class_name]
         referenced_class: SchemaDataObject = data_class.referenced_class
         if referenced_class:
-            for field in referenced_class.fields.values():
-                data_filter = getattr(filters, field.name, None)
-                filter_value = getattr(data_filter, 'eq', None)
-                if field.is_counter and data_filter and filter_value:
-                    await counter_cache.update(
-                        -1 * object_count, table, field.name, filter_value
-                    )
+            # Edge case for when the top-level array stores scalars instead
+            # of objects
+            return object_count
 
-        # TODO: pubsub message for deletion of records.
+        for field in referenced_class.fields.values():
+            data_filter = getattr(filters, field.name, None)
+            filter_value = getattr(data_filter, 'eq', None)
+            if field.is_counter and data_filter and filter_value:
+                await counter_cache.update(
+                    -1 * object_count, table, field.name, filter_value
+                )
+
+        message = PubSubDataDeleteMessage.create(object_count, data_class)
+        pubsub_class: PubSub = data_class.pubsub_class
+        await pubsub_class.send(message)
+
         return object_count

@@ -196,16 +196,14 @@ class PubSubNng(PubSub):
             for completed_task in completed_tasks
         ]
 
-        referenced_class: SchemaDataItem = self.data_class.referenced_class
-
         messages: list[PubSubDataMessage] = []
         # Replace the data with the normalized data
         for data in responses:
             message = PubSubMessage.parse(data, self.schema)
-            if referenced_class.name != message.class_name:
+            if self.data_class.name != message.class_name:
                 raise ValueError(
                     f'Received message for class {data.get("class_name")} '
-                    f'on pubsub channel for class {referenced_class.name}'
+                    f'on pubsub channel for class {self.data_class.name}'
                 )
 
             messages.append(message)
