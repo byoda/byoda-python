@@ -67,7 +67,7 @@ GRAPHQL_SCALAR_TYPE_MAP = {
     DataType.UUID: 'UUID',
 }
 
-MARKER_ANNOTATION = '#annotations'
+MARKER_PROPERTIES = '#properties'
 
 class SchemaDataItem:
     '''
@@ -103,7 +103,7 @@ class SchemaDataItem:
         self.annotations: set(Annotation) = set()
 
         # Annotations for the class, currently only used by SchemaDataScalar
-        for annotation in schema_data.get(MARKER_ANNOTATION, []):
+        for annotation in schema_data.get(MARKER_PROPERTIES, []):
             self.annotations.add(Annotation(annotation))
 
         # Currently only used for SchemaDataScalar instances, to keep

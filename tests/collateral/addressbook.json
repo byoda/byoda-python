@@ -612,7 +612,7 @@
                             "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid",
-                            "#annotations": ["counter"]
+                            "#properties": ["counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
