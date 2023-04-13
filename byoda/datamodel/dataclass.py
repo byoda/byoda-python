@@ -326,8 +326,6 @@ class SchemaDataScalar(SchemaDataItem):
         self.defined_class: bool = False
         self.format: str = None
 
-        self.is_counter = 'counter' in self.annotations
-
         if self.type == DataType.STRING:
             self.format: str = self.schema_data.get('format')
             if self.format == 'date-time':
@@ -340,6 +338,16 @@ class SchemaDataScalar(SchemaDataItem):
                     )):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
+
+        self.is_counter = 'counter' in self.annotations
+
+        if (self.is_counter and not (self.type == DataType.UUID or
+                self.type == DataType.STRING)):
+            _LOGGER.exception(
+                f'Only UUIDs and strings can be counters: {self.name}, '
+                f'{self.type}'
+            )
+            raise ValueError('Only UUIDs and strings can be counters')
 
         _LOGGER.debug(
             f'Created scalar class {self.name} of type {self.type} with '

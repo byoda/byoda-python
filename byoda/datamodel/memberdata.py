@@ -6,6 +6,8 @@ Class for modeling an element of data of a member
 '''
 
 import logging
+import itertools
+
 from uuid import UUID
 from typing import TypeVar
 from datetime import datetime
@@ -646,7 +648,7 @@ class MemberData(dict):
         member: Member = server.account.memberships[service_id]
 
         # By convention implemented in the Jinja template, the called
-        # mutate 'function' starts with the string 'mutate' so we to find out
+        # mutate 'function' starts with the string 'mutate' so to find out
         # what mutation was invoked, we want what comes after it.
         class_name = info.path.key[len('append_'):].lower()
 
@@ -693,22 +695,21 @@ class MemberData(dict):
             data_class: SchemaDataArray = \
                 member.schema.data_classes[class_name]
 
+            # Update the counter for the top-level array
             table: Table = data_store.get_table(member.member_id, class_name)
             counter_cache: CounterCache = member.counter_cache
             await counter_cache.update(1, table)
 
             referenced_class: SchemaDataObject = data_class.referenced_class
-            if not referenced_class:
+            if (not referenced_class or
+                    not isinstance(referenced_class, SchemaDataObject)):
                 # Edge case if the top-level array stores scalars instead
                 # of objects
                 return object_count
 
-            # Update the counter cache for any fields that are counters
-            for field in referenced_class.fields.values():
-                if field.is_counter and append_data.get(field.name):
-                    await counter_cache.update(
-                        1, table, field.name, append_data[field.name]
-                    )
+            await MemberData._update_field_counters(
+                1, append_data, referenced_class, counter_cache, table
+            )
 
             message = PubSubDataAppendMessage.create(append_data, data_class)
             pubsub_class: PubSub = data_class.pubsub_class
@@ -766,25 +767,89 @@ class MemberData(dict):
 
         table: Table = data_store.get_table(member.member_id, class_name)
         counter_cache: CounterCache = member.counter_cache
+
+        # Update the counter for the top-level array
         await counter_cache.update(-1 * object_count, table)
 
         data_class: SchemaDataArray = member.schema.data_classes[class_name]
         referenced_class: SchemaDataObject = data_class.referenced_class
-        if referenced_class:
+        if not referenced_class:
             # Edge case for when the top-level array stores scalars instead
             # of objects
             return object_count
 
+        # We need to see if any of the filters are for fields that are
+        # counters and update the counters for those fields. This means that
+        # field-specific counters are only decremented if the delete GraphQL
+        # command specified the counter field in the filter.
+        # HACK: this means that counters will not be properly decremented if
+        # a filter was not specified for a counter field. Because of this
+        # reason, the podworker will have to periodically check value for
+        # the field-specific counters
+        filter_data = {}
         for field in referenced_class.fields.values():
+            if not field.is_counter:
+                continue
             data_filter = getattr(filters, field.name, None)
             filter_value = getattr(data_filter, 'eq', None)
-            if field.is_counter and data_filter and filter_value:
-                await counter_cache.update(
-                    -1 * object_count, table, field.name, filter_value
-                )
+            if data_filter and filter_value:
+                filter_data[field.name] = filter_value
+
+        if filter_data:
+            await MemberData._update_field_counters(
+                    -1 * object_count, filter_data, referenced_class,
+                    counter_cache, table
+            )
 
         message = PubSubDataDeleteMessage.create(object_count, data_class)
         pubsub_class: PubSub = data_class.pubsub_class
         await pubsub_class.send(message)
 
         return object_count
+
+    @staticmethod
+    async def _update_field_counters(delta: int, data: dict,
+                                     data_class: SchemaDataObject,
+                                     counter_cache: CounterCache, table: Table
+                                     ):
+        '''
+        Update the counter cache for any fields that are counters
+
+        :param delta: The amount to increment the counter by (can be negative)
+        :data: the data provided in the query
+        '''
+
+        # TODO: create test cases for this code
+        keys = MemberData._get_counter_key_permutations(data_class, data)
+        for key in keys:
+            _LOGGER.debug(f'Updating counter {key} for append')
+            await counter_cache.update(
+                delta, table, key, data[key]
+            )
+
+    @staticmethod
+    def _get_counter_key_permutations(data_class: SchemaDataObject, data: set
+                                      ):
+        '''
+        Gets the different key permutations for the fields with is_counter=True
+        '''
+
+        counter_fields = [
+            field.name for field in data_class.fields.values()
+            if field.is_counter and (not data or field.name in data)
+        ]
+
+        subsets = set()
+        for index in range(1, len(counter_fields) + 1):
+            sets = itertools.combinations(counter_fields, index)
+            for key in sets:
+                subsets.add(key)
+
+        keys: set[str] = set()
+        for combo in subsets:
+            value = ''
+            for field in combo:
+                value += f'{field}={data[field]}-'
+            keys.add(value.rstrip('-'))
+
+        return keys
