@@ -155,7 +155,7 @@ class GraphQlProxy:
             )
 
         self.incoming_depth = int(match.group(2))
-        self.updated_depth = str(self.incoming_depth - 1)
+        self.updated_depth = self.incoming_depth - 1
 
         if self.updated_depth < 0:
             raise ValueError(
@@ -163,7 +163,7 @@ class GraphQlProxy:
             )
 
         self.updated_query = (
-            match.group(1) + f'"depth": {self.updated_depth}'.encode('utf-8')
+            match.group(1) + f'"depth": {str(self.updated_depth)}'.encode('utf-8')
         )
 
         self.updated_query += f', "query_id": "{query_id}"'.encode('utf-8')

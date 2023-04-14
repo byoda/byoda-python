@@ -17,8 +17,6 @@ import orjson
 
 from datetime import datetime, timezone
 
-from byoda.datatypes import PubSubTech
-
 from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
@@ -125,15 +123,9 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
-        pub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=True, pubsub_tech=PubSubTech.NNG
-        )
+        pub = PubSub.setup('test', data_class, schema, is_sender=True)
 
-        sub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=False, pubsub_tech=PubSubTech.NNG
-        )
+        sub = PubSub.setup('test', data_class, schema, is_sender=False)
 
         message = PubSubDataAppendMessage.create(test_data, data_class)
         await pub.send(message)
@@ -157,15 +149,9 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         test_data = 1
 
-        pub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=True, pubsub_tech=PubSubTech.NNG
-        )
+        pub = PubSub.setup('test', data_class, schema, is_sender=True)
 
-        sub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=False, pubsub_tech=PubSubTech.NNG
-        )
+        sub = PubSub.setup('test', data_class, schema, is_sender=False)
 
         message = PubSubDataDeleteMessage.create(
             test_data, data_class
@@ -195,20 +181,11 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
-        pub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=True, pubsub_tech=PubSubTech.NNG
-        )
+        pub = PubSub.setup('test', data_class, schema, is_sender=True)
 
         subs = [
-            PubSub.setup(
-                'test', data_class, schema, is_counter=False,
-                is_sender=False, pubsub_tech=PubSubTech.NNG
-            ),
-            PubSub.setup(
-                'test', data_class, schema, is_counter=False,
-                is_sender=False, pubsub_tech=PubSubTech.NNG
-            )
+            PubSub.setup('test', data_class, schema, is_sender=False),
+            PubSub.setup('test', data_class, schema, is_sender=False)
         ]
         message = PubSubDataAppendMessage.create(test_data, data_class)
         await pub.send(message)
@@ -248,20 +225,11 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         # For the second instance of pubs, we bypass PubSub.setup() and
         # directly call PubSubNng() so that we can set the process_id
         pubs = [
-            PubSub.setup(
-                'test', data_class, schema, is_counter=False,
-                is_sender=True, pubsub_tech=PubSubTech.NNG
-            ),
-            PubSubNng(
-                data_class, schema, is_counter=False,
-                is_sender=True, process_id=1
-            ),
+            PubSub.setup('test', data_class, schema, is_sender=True),
+            PubSubNng(data_class, schema, is_sender=True, process_id=1),
         ]
 
-        sub = PubSub.setup(
-            'test', data_class, schema, is_counter=False,
-            is_sender=False, pubsub_tech=PubSubTech.NNG
-        )
+        sub = PubSub.setup('test', data_class, schema, is_sender=False)
 
         test_messages = [
             PubSubDataAppendMessage.create(test_data[0], data_class),

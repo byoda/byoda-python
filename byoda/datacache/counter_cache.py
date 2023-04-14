@@ -72,9 +72,14 @@ class CounterCache:
         await self.backend.close()
 
     @staticmethod
-    def _get_key_name(class_name: str, field_name: str = None,
-                      value: any = None):
-        if field_name is None:
+    def get_key_name(class_name: str, field_name: str = None,
+                      value: str | UUID = None):
+        '''
+        Gets the key name for the counter cache, including the field_name
+        and value if provided.
+        '''
+
+        if field_name is None or value is None:
             return class_name
         else:
             return f'{class_name}-{field_name}-{str(value)}'
@@ -111,7 +116,7 @@ class CounterCache:
                 'Both field_name and value must be specified or both None'
             )
 
-        key = CounterCache._get_key_name(table.class_name, field_name, value)
+        key = CounterCache.get_key_name(table.class_name, field_name, value)
 
         counter = await self.incr(key, delta)
         if counter is None:
@@ -151,7 +156,7 @@ class CounterCache:
         :returns: True if the query_id was deleted, False if it did not exist
         '''
 
-        key = CounterCache._get_key_name(class_name, field_name, value)
+        key = CounterCache.get_key_name(class_name, field_name, value)
 
         return await self.backend.delete(key)
 

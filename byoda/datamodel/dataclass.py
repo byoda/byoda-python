@@ -44,7 +44,7 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
-class Annotation(Enum):
+class Property(Enum):
     # flask8: noqa=E221
     COUNTER     = 'counter'
 
@@ -100,11 +100,11 @@ class SchemaDataItem:
         self.defined_class: bool | None = None
 
         self.fields: list[SchemaDataItem] | None = None
-        self.annotations: set(Annotation) = set()
+        self.properties: set(Property) = set()
 
-        # Annotations for the class, currently only used by SchemaDataScalar
-        for annotation in schema_data.get(MARKER_PROPERTIES, []):
-            self.annotations.add(Annotation(annotation))
+        # Properties for the class, currently only used by SchemaDataScalar
+        for property in schema_data.get(MARKER_PROPERTIES, []):
+            self.properties.add(Property(property))
 
         # Currently only used for SchemaDataScalar instances, to keep
         # counter per unique value of the item in an SchemaDataArray
@@ -339,7 +339,7 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter = 'counter' in self.annotations
+        self.is_counter = 'counter' in self.properties
 
         if (self.is_counter and not (self.type == DataType.UUID or
                 self.type == DataType.STRING)):
@@ -518,8 +518,7 @@ class SchemaDataArray(SchemaDataItem):
             # another class
             if config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
-                    self.name, self, schema, is_counter=False,
-                    is_sender=True
+                    self.name, self, schema, is_sender=True
                 )
         else:
             raise ValueError(

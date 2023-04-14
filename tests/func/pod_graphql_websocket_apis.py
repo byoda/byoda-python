@@ -159,7 +159,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             subscribe_data['action'], 'append'
         )
         self.assertEqual(
-            subscribe_data['network_link']['relation'], 'follow'
+            subscribe_data['data']['relation'], 'follow'
         )
         await client.close_async()
 
@@ -219,7 +219,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             subscribe_data['action'], 'append'
         )
         self.assertEqual(
-            subscribe_data['network_link']['relation'], 'friend'
+            subscribe_data['data']['relation'], 'friend'
         )
 
         await client.close_async()
@@ -290,7 +290,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             subscribe_data['action'], 'append'
         )
         self.assertEqual(
-            subscribe_data['network_link']['relation'], 'blah'
+            subscribe_data['data']['relation'], 'blah'
         )
 
         await client.close_async()

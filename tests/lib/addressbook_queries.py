@@ -913,7 +913,8 @@ subscription (
     $filters: twitterMediaInputFilter) {
     twitter_medias_updates(filters: $filters) {
         action
-        twitter_media {
+        class_name
+        data {
             created_timestamp
             height
             width
@@ -1017,7 +1018,8 @@ subscription (
     $filters: networkLinkInputFilter) {
     network_links_updates(filters: $filters) {
         action
-        network_link {
+        class_name
+        data {
             created_timestamp
             member_id
             relation
@@ -1118,7 +1120,8 @@ subscription (
     $filters: networkInviteInputFilter) {
     network_invites_updates(filters: $filters) {
         action
-        network_invite {
+        class_name
+        data {
             created_timestamp
             member_id
             relation
@@ -1225,7 +1228,8 @@ subscription (
     $filters: networkInboundInputFilter) {
     network_inbounds_updates(filters: $filters) {
         action
-        network_inbound {
+        class_name
+        data {
             created_timestamp
             member_id
             relation
@@ -1338,7 +1342,8 @@ subscription (
     $filters: assetLinkInputFilter) {
     asset_links_updates(filters: $filters) {
         action
-        asset_link {
+        class_name
+        data {
             created_timestamp
             member_id
             asset_id
@@ -1447,7 +1452,8 @@ subscription (
     $filters: assetReactionInputFilter) {
     asset_reactions_received_updates(filters: $filters) {
         action
-        asset_reaction {
+        class_name
+        data {
             created_timestamp
             member_id
             asset_id
@@ -1615,7 +1621,8 @@ subscription (
     $filters: datalogInputFilter) {
     datalogs_updates(filters: $filters) {
         action
-        datalog {
+        class_name
+        data {
             created_timestamp
             remote_addr
             remote_id
@@ -1785,7 +1792,8 @@ subscription (
     $filters: assetInputFilter) {
     public_assets_updates(filters: $filters) {
         action
-        asset {
+        class_name
+        data {
             created_timestamp
             asset_id
             asset_type
@@ -1953,7 +1961,8 @@ subscription (
     $filters: assetInputFilter) {
     service_assets_updates(filters: $filters) {
         action
-        asset {
+        class_name
+        data {
             created_timestamp
             asset_id
             asset_type
@@ -2121,7 +2130,8 @@ subscription (
     $filters: assetInputFilter) {
     network_assets_updates(filters: $filters) {
         action
-        asset {
+        class_name
+        data {
             created_timestamp
             asset_id
             asset_type
@@ -2304,7 +2314,8 @@ subscription (
     $filters: tweetInputFilter) {
     tweets_updates(filters: $filters) {
         action
-        tweet {
+        class_name
+        data {
             created_timestamp
             asset_id
             lang

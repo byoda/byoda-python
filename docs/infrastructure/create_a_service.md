@@ -78,17 +78,17 @@ The keys of properties directly under the JSON Schema (so not under $defs) must 
   - description: What the data stored in this class is used for
   - type: must be "object" or "array"
   - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
-  - the name of the object must not start with '#', '_' or 'byoda'
+  - the name of the object must not start with '#', '_', 'byoda', or 'BYODA'
 
-If the type is "object" then it must have a key "properties with as value an object with the keys:
+If the type is "object" then it must have a key "properties" with as value an object with the keys:
   - description: What the data stored in this property is used for
   - #accesscontrol: see below for more information
   - type: must be a scalar, (ie. "string" or "number") or an array
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
-IF the type is "array" then the following keys are required:
-  - description: What the data stored in this property is used for
-  - #accesscontrol: see below for more information
+IF the type is "array" then the following keys are supported:
+  - description: Required field. What the data stored in this property is used for
+  - #accesscontrol: Optional field. See below for more information
   - items: must be an object with a key with one of these two values:
     - type: must be "string" or "integer"
     - $ref: a string that must match one of the classes defined under $defs (see below)
@@ -98,6 +98,8 @@ A data structure under $defs must have the following keys:
 - $schema: Must be set to "https://json-schema.org/draft-07/schema#"
 - description: What the data stored in this class is used for
 - type: must be "object"
+- #properties: optional field with a list of strings. Each string must be one of the supported values:
+  - counter: maintain counters for this field. Only supported for fields of type UUID and string
 - properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
   - type: must be a scalar, ie. "string" or "number" or an array.
@@ -112,6 +114,8 @@ from the addressbook.json service contract to your contract.
       - "member_id": {"type": "string"}
 - network_links of type array using the /schemas/network_link as reference
 - memberlogs of type array using the /schemas/memberlog as reference
+
+The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counters' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the 'network_links' table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values were not specified, the podworker process will periodically update counters based on the data stored for the array.
 
 ### Data Access control
 The Pod controls access to the data for the services stored in the Pod based on access controls that

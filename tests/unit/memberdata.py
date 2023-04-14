@@ -53,6 +53,15 @@ class TestAccountManager(unittest.TestCase):
             )
         )
 
+        counter_filter = {
+            'a': 1,
+            'b': 2,
+        }
+        keys = MemberData._get_counter_key_permutations(
+            filter_data, counter_filter
+        )
+        pass
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
