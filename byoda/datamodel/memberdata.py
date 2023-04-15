@@ -915,7 +915,8 @@ class MemberData(dict):
     @staticmethod
     async def _get_field_counters(data_class: SchemaDataObject,
                                   counter_cache: CounterCache, table: Table,
-                                  counter_filters: list[tuple[str, str | UUID]] | None
+                                  counter_filters: list[
+                                      tuple[str, str | UUID]] | None
                                   ) -> list[str, int]:
         '''
         Update the counter cache for any fields that are counters

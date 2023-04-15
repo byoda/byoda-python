@@ -73,7 +73,7 @@ class CounterCache:
 
     @staticmethod
     def get_key_name(class_name: str, field_name: str = None,
-                      value: str | UUID = None):
+                     value: str | UUID = None):
         '''
         Gets the key name for the counter cache, including the field_name
         and value if provided.
