@@ -37,7 +37,7 @@ from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
-from byoda.storage.pubsub import PubSubNng
+from byoda.storage.pubsub_nng import PubSubNng
 
 from byoda.util.fastapi import setup_api, add_cors
 
