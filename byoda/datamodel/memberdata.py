@@ -833,7 +833,7 @@ class MemberData(dict):
         counter_cache: CounterCache = member.counter_cache
 
         # Update the counter for the top-level array
-        await counter_cache.update(-1 * object_count, table)
+        await counter_cache.update(class_name, -1 * object_count, table)
 
         data_class: SchemaDataArray = member.schema.data_classes[class_name]
         referenced_class: SchemaDataObject = data_class.referenced_class
@@ -887,9 +887,7 @@ class MemberData(dict):
         keys = MemberData._get_counter_key_permutations(data_class, data)
         for key in keys:
             _LOGGER.debug(f'Updating counter {key} for append')
-            await counter_cache.update(
-                delta, table, key, data[key]
-            )
+            await counter_cache.update(key, delta, table)
 
     @staticmethod
     def _get_counter_key_permutations(data_class: SchemaDataObject, data: set

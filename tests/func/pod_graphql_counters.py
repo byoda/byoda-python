@@ -161,14 +161,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         result = await response.json()
         data = result.get('data')
-        self.assertEqual(data['delete_from_network_assets'], 1)
         self.assertIsNone(result.get('errors'))
+        self.assertEqual(data['delete_from_network_assets'], 1)
 
         cache_value = await counter_cache.get('network_assets')
         self.assertEqual(cache_value, count + start_counter - 1)
 
         vars = {
-            'filters': {'asset_id': {'eq': str(asset_ids[0])}},
+            'filters': {'asset_id': {'eq': str(asset_ids[1])}},
             'query_id': uuid4(),
         }
         response = await GraphQlClient.call(
@@ -177,13 +177,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         result = await response.json()
         data = result.get('data')
-        self.assertEqual(data['delete_from_network_assets'], 1)
         self.assertIsNone(result.get('errors'))
+        self.assertEqual(data['delete_from_network_assets'], 1)
 
         cache_value = await counter_cache.get('network_assets')
-        self.assertEqual(cache_value, count + start_counter - 1)
+        self.assertEqual(cache_value, count + start_counter - 2)
 
-    
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

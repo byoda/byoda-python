@@ -73,7 +73,8 @@ class CounterCache:
         await self.backend.close()
 
     @staticmethod
-    def get_key_name(class_name: str, counter_filters: list[CounterFilter]):
+    def get_key_name(class_name: str,
+                     counter_filters: list[CounterFilter] | None = None):
         '''
         Gets the key name for the counter cache, including the field_names
         and values if provided.
@@ -98,7 +99,8 @@ class CounterCache:
         return await self.backend.exists(class_name)
 
     async def get(self, class_name: str,
-                  counter_filters: list[tuple[str, str | UUID]]) -> bool:
+                  counter_filters: list[CounterFilter] | None = None
+                  ) -> bool:
         '''
         Checks whether the query_id exists in the cache
         '''
