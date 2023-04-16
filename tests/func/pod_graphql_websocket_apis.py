@@ -132,7 +132,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url=ws_url,
             subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
             headers=member_headers
-
         )
 
         client = Client(transport=transport, fetch_schema_from_transport=False)

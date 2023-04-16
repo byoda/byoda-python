@@ -14,6 +14,7 @@ from typing import TypeVar
 from datetime import datetime
 
 from byoda.datatypes import DataType
+from byoda.datatypes import CounterFilter
 
 from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.dataclass import SchemaDataScalar
@@ -426,17 +427,26 @@ class ArraySqlTable(SqlTable):
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
 
-    async def count(self, field_name: str, value: any) -> int:
+    async def count(self, counter_filters: list[CounterFilter]) -> int:
         '''
         Gets the number of items from the array stored in the table
+
+        :param counter_filter: list of field/value pairs to filter the
+        data
         '''
 
         stmt = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
-        if field_name:
-            stmt += f' WHERE {field_name} = :{value}'
+
+        data = {}
+        if counter_filters:
+            stmt += ' WHERE'
+            for field_name, value in counter_filters:
+                column_name = self.get_column_name(field_name)
+                stmt += f' {column_name} = :{value}'
+                data[column_name] = value
 
         rows = await self.sql_store.execute(
-            stmt, member_id=self.member_id, data=value, fetchall=True)
+            stmt, member_id=self.member_id, data=data, fetchall=True)
 
         row_count = rows[0]['counter']
 

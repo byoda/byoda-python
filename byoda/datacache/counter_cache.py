@@ -16,6 +16,7 @@ from byoda.datamodel.table import Table
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
+from byoda.datatypes import CounterFilter
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -72,17 +73,22 @@ class CounterCache:
         await self.backend.close()
 
     @staticmethod
-    def get_key_name(class_name: str, field_name: str = None,
-                     value: str | UUID = None):
+    def get_key_name(class_name: str, counter_filters: list[CounterFilter]):
         '''
-        Gets the key name for the counter cache, including the field_name
-        and value if provided.
+        Gets the key name for the counter cache, including the field_names
+        and values if provided.
         '''
 
-        if field_name is None or value is None:
-            return class_name
-        else:
-            return f'{class_name}-{field_name}-{str(value)}'
+        key = class_name
+
+        specifiers = []
+        for field_name, value in counter_filters or []:
+            specifiers.append(f'{field_name}-{str(value)}')
+
+        for specifier in sorted(specifiers):
+            key += f'_{specifier}'
+
+        return key
 
     async def exists(self, class_name: str) -> bool:
         '''
@@ -91,15 +97,17 @@ class CounterCache:
 
         return await self.backend.exists(class_name)
 
-    async def get(self, class_name: str) -> bool:
+    async def get(self, class_name: str,
+                  counter_filters: list[tuple[str, str | UUID]]) -> bool:
         '''
         Checks whether the query_id exists in the cache
         '''
 
-        return await self.backend.get(class_name)
+        key = self.get_key_name(class_name, counter_filters)
+        return await self.backend.get(key)
 
-    async def update(self, delta: int, table: Table, field_name: str = None,
-                     value: any = None) -> int:
+    async def update(self, key, delta: int, table: Table,
+                     counter_filters: list[CounterFilter] = None) -> int:
         '''
         Updates the counter with the delta. If no value is
         found in the cache, the counter is set to the number
@@ -111,16 +119,11 @@ class CounterCache:
         :returns: The value of the updated counter
         '''
 
-        if (field_name and value is None) or (field_name is None and value):
-            raise ValueError(
-                'Both field_name and value must be specified or both None'
-            )
-
-        key = CounterCache.get_key_name(table.class_name, field_name, value)
+        key = CounterCache.get_key_name(table.class_name, counter_filters)
 
         counter = await self.incr(key, delta)
         if counter is None:
-            counter = await table.count(field_name, value)
+            counter = await table.count(counter_filters)
             await self.set(table.class_name, counter)
 
         return counter

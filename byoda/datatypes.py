@@ -9,6 +9,7 @@ Non-specific data types
 # flake8: noqa=E221
 
 from enum import Enum
+from uuid import UUID
 from collections import namedtuple
 
 # Location to mount the API in the FastApi app and
@@ -105,6 +106,8 @@ class CacheType(Enum):
     QUERY_ID     = 'query'
     COUNTER      = 'counter'
     OBJECT       = 'object'
+
+CounterFilter = tuple[str, str | UUID]
 
 class PubSubTech(Enum):
     NNG       = 1

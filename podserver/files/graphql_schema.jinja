@@ -202,34 +202,31 @@ class {{ root_class.name }}_input_filter:
 
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 {# avoid classes referenced by multiple root classes from being included multiple times #}
-{%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
-{%     if class_name_deliminated not in ns.classes_seen %}
 @strawberry.type
 class {{ root_class.name }}_update:
     action: str
     class_name: str
     data: {{ root_class.referenced_class.name }}
 
-{%       for field in root_class.referenced_class.fields.values() %}
-{%         if field.is_counter %}
-{%           set ns.class_has_counters = True %}
-{%         endif %}{# if field.is_counter #}
-{%       endfor %}{# for field in root_class.referenced_class.fields.values() #}
+{%     for field in root_class.referenced_class.fields.values() %}
+{%       if field.is_counter %}
+{%         set ns.class_has_counters = True %}
+{%       endif %}{# if field.is_counter #}
+{%     endfor %}{# for field in root_class.referenced_class.fields.values() #}
 
-{%       if class_name_deliminated in ns.class_has_counters %}
+{%     if class_name_deliminated in ns.class_has_counters %}
 class {{ root_class.name }}_counter:
     class_name: str
     data: int
 
 class {{ root_class.name }}_counter_filter:
-{%         for field in root_class.referenced_class.fields.values() %}
-{%           if field.is_counter %}
+{%       for field in root_class.referenced_class.fields.values() %}
+{%         if field.is_counter %}
     field_name: str
     value: str | UUID
-{%           endif %}{# if field.is_counter #}
-{%         endfor %}{# for field in root_class.fields.values() #}
-{%       endif %}{# if ns.class_has_counters #}
-{%     endif %}{# if class_name_deliminated not in ns.classes_seen #}
+{%         endif %}{# if field.is_counter #}
+{%       endfor %}{# for field in root_class.fields.values() #}
+{%     endif %}{# if ns.class_has_counters #}
 
 @strawberry.input
 class {{ root_class.referenced_class.name }}_input_filter:
@@ -592,7 +589,7 @@ class Subscription:
 
         while True:
             counter: int = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
-            yield {{ root_class.name }}_counter(class_name=counters['class_name'],value= counter)
+            yield {{ root_class.name }}_counter(class_name=counters['class_name'],value=counter)
 
 {%     endif %} {# if class_name_deliminated in ns.classes_with_counters #}
 
