@@ -191,19 +191,21 @@ async def main(argv):
             ", ".join(GRAPHQL_STATEMENTS[object_name])
         )
 
-    if args.action in ('query', 'mutate', 'update', 'append', 'delete'):
-        base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
-        websockets: bool = False
-    else:
-        base_url: str = f'wss://proxy.{network}/{service_id}/{member_id}/api'
-        websockets: bool = True
+    base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
+    ws_base_url: str = f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
 
     auth_header = await get_jwt_header(
         member_id, base_url=base_url, secret=password,
         member_token=True
     )
 
-    graphql_url = f'{base_url}/v1/data/service-{service_id}'
+    if args.action in ('query', 'mutate', 'update', 'append', 'delete'):
+        websockets: bool = False
+        graphql_url = f'{base_url}/v1/data/service-{service_id}'
+    else:
+        websockets: bool = True
+        graphql_url = f'{ws_base_url}/v1/data/service-{service_id}'
+
     _LOGGER.debug(f'Using GraphQL URL: {graphql_url}')
 
     vars = {'query_id': uuid4()}
@@ -273,18 +275,19 @@ async def call_http(graphql_url: str, object_name: str, action: str,
 
 async def call_websocket(graphql_url: str, object_name: str, action: str,
                          auth_header: str) -> None:
-        transport = WebsocketsTransport(
-            url=graphql_url,
-            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
-            headers=auth_header
-        )
+    transport = WebsocketsTransport(
+        url=graphql_url,
+        subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+        headers=auth_header
+    )
 
-        client = Client(transport=transport, fetch_schema_from_transport=False)
-        session = await client.connect_async(reconnecting=True)
-
+    async with Client(
+        transport=transport, fetch_schema_from_transport=False,
+        execute_timeout=600
+    ) as session:
         request = GRAPHQL_STATEMENTS[object_name][action]
         message = gql(request)
-        result = session.execute(message,)
+        result = await session.execute(message)
         print(orjson.dumps(result).decode('utf-8'))
 
 
