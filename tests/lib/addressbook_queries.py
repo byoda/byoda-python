@@ -1814,7 +1814,7 @@ GRAPHQL_STATEMENTS['network_assets']['updates'] = SUBSCRIPTION_NETWORK_ASSETS_UP
 
 SUBSCRIPTION_NETWORK_ASSETS_COUNTER = '''
 subscription {
-    network_assets_counter() {
+    network_assets_counter {
         class_name
         data
     }
