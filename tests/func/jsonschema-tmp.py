@@ -24,8 +24,6 @@ from starlette.applications import Starlette
 from multiprocessing import Process
 import uvicorn
 
-from python_graphql_client import GraphqlClient
-
 from strawberry.asgi import GraphQL
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -35,6 +33,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.memberdata import MemberData
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 from byoda.datamodel.service import Service
 
 from byoda.datatypes import CloudType
@@ -360,7 +359,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=network_links_query, headers=member_headers
         )
-        self.assertEqual(result['data']['network_links'], [])
+        self.assertEqual(result['data'][MARKER_NETWORK_LINKS], [])
 
         network_links_variables = {
             'timestamp': '2022-01-21T04:01:36.798843+00:00',

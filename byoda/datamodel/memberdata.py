@@ -63,6 +63,8 @@ MAX_FILE_SIZE = 65536
 RECURSIVE_QUERY_TTL = 300
 QUERY_EXPIRATION = timedelta(seconds=RECURSIVE_QUERY_TTL)
 
+MARKER_NETWORK_LINKS = 'network_links'
+
 
 class MemberData(dict):
     '''
@@ -202,7 +204,8 @@ class MemberData(dict):
         data_store: DataStore = config.server.data_store
 
         data = await data_store.query(
-            self.member.member_id, 'network_links', filters=filter_set
+            self.member.member_id, MARKER_NETWORK_LINKS,
+            filters=filter_set
         )
 
         if relations and isinstance(relations, list) and len(relations) > 1:

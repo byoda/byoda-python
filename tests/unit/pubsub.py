@@ -22,6 +22,7 @@ from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.storage.filestorage import FileStorage
 
@@ -115,7 +116,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         schema.get_data_classes()
 
-        data_class: SchemaDataItem = schema.data_classes['network_links']
+        data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
         test_data = {
             'member_id': get_test_uuid(),
@@ -145,7 +146,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         schema.get_data_classes()
 
-        data_class: SchemaDataItem = schema.data_classes['network_links']
+        data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
         test_data = 1
 
@@ -173,7 +174,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         schema.get_data_classes()
 
-        data_class: SchemaDataItem = schema.data_classes['network_links']
+        data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
         test_data = {
             'member_id': get_test_uuid(),
@@ -207,7 +208,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         schema.get_data_classes()
 
-        data_class: SchemaDataItem = schema.data_classes['network_links']
+        data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
         test_data = [
             {

@@ -8,6 +8,8 @@ using the 'podserver/files/grahphql_schema.jinja' template
 :license    : GPLv3
 '''
 
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+
 GRAPHQL_STATEMENTS = {}
 
 
@@ -969,7 +971,7 @@ query ($query_id: UUID!, $filters: networkLinkInputFilter,
 }
 '''
 
-GRAPHQL_STATEMENTS['network_links'] = {'query': QUERY_NETWORK_LINKS}
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS] = {'query': QUERY_NETWORK_LINKS}
 
 APPEND_NETWORK_LINKS = '''
 mutation (
@@ -985,7 +987,7 @@ mutation (
 }
 '''
 
-GRAPHQL_STATEMENTS['network_links']['append'] = APPEND_NETWORK_LINKS
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'] = APPEND_NETWORK_LINKS
 
 UPDATE_NETWORK_LINKS = '''
 mutation (
@@ -1003,7 +1005,7 @@ mutation (
 }
 '''
 
-GRAPHQL_STATEMENTS['network_links']['update'] = UPDATE_NETWORK_LINKS
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['update'] = UPDATE_NETWORK_LINKS
 
 DELETE_FROM_NETWORK_LINKS = '''
 mutation ($filters: networkLinkInputFilter!) {
@@ -1011,7 +1013,7 @@ mutation ($filters: networkLinkInputFilter!) {
 }
 '''
 
-GRAPHQL_STATEMENTS['network_links']['delete'] = DELETE_FROM_NETWORK_LINKS
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'] = DELETE_FROM_NETWORK_LINKS
 
 SUBSCRIPTION_NETWORK_LINKS_UPDATES = '''
 subscription (
@@ -1027,7 +1029,7 @@ subscription (
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_links']['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDATES
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDATES
 
 SUBSCRIPTION_NETWORK_LINKS_COUNT = '''
 subscription {
@@ -1036,7 +1038,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_links']['count'] = SUBSCRIPTION_NETWORK_LINKS_COUNT
+GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['count'] = SUBSCRIPTION_NETWORK_LINKS_COUNT
 
 
 QUERY_NETWORK_INVITES = '''

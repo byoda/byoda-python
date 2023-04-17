@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
 
@@ -225,7 +226,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -240,7 +241,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -258,7 +259,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': friend_timestamp
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -268,7 +269,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['query'],
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
             vars={'query_id': uuid4()}, timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -286,7 +287,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'relation': {'eq': 'friend'}},
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['query'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -301,7 +302,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'relation': {'eq': 'follow'}},
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['query'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -318,7 +319,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['query'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -336,7 +337,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'best_friend',
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['update'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['update'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()
@@ -364,10 +365,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # self.assertTrue('member' in data)
         # self.assertTrue('datalogs' in data)
         # self.assertTrue('person' in data)
-        # self.assertTrue('network_links' in data)
+        # self.assertTrue(MARKER_NETWORK_LINKS in data)
 
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['delete'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
             timeout=120, headers=member_headers
         )
         result = await response.json()

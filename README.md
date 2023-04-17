@@ -258,7 +258,7 @@ If you look at the 'network_assets' data structure in the JSON file, you see:
     }
 ```
 
-This means that once I have accepted your invite by adding an entry to my 'network_links' array, you can query my 'network_assets' and read my posts, tweets or video uploads that I have decided to add to the 'network_assets' array.
+This means that once I have accepted your invite by adding an entry to my 'BYODA_network_links' array, you can query my 'network_assets' and read my posts, tweets or video uploads that I have decided to add to the 'network_assets' array.
 
 With the 'distance: 1' parameter, only people that I have entries for in my 'network_links' array can see those assets. But in the same JSON, you can see the 'service_assets' array with access control
 

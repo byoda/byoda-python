@@ -147,6 +147,11 @@ class uuid_query_operator_input:
     eq: Optional[UUID] = None
     ne: Optional[UUID] = None
 
+@strawberry.type
+class counter:
+    class_name: str
+    data: int
+
 {% set ns = namespace(classes_with_counters='',class_has_counter = False,classes_seen='') %}
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
@@ -215,10 +220,6 @@ class {{ root_class.name }}_update:
 {%     endfor %}{# for field in root_class.referenced_class.fields.values() #}
 
 {%     if class_name_deliminated in ns.class_has_counters %}
-class {{ root_class.name }}_counter:
-    class_name: str
-    data: int
-
 class {{ root_class.name }}_counter_filter:
 {%       for field in root_class.referenced_class.fields.values() %}
 {%         if field.is_counter %}
@@ -570,11 +571,12 @@ class Subscription:
                 )
 
 {%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
-{%     if class_name_deliminated in ns.classes_with_counters %}
     @strawberry.subscription
     async def {{ root_class.name }}_counter(self, info: Info,
+{%     if class_name_deliminated in ns.classes_with_counters %}
             filters: Optional[list[{{ root_class.referenced_class.name }}_counter_filter]] = None
-            ) -> {{ root_class.name }}_counter:
+{%     endif %} {# if class_name_deliminated in ns.classes_with_counters #}
+            ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
         result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
@@ -588,10 +590,13 @@ class Subscription:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         while True:
+{%     if class_name_deliminated in ns.classes_with_counters %}
             counter: int = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
-            yield {{ root_class.name }}_counter(class_name=counters['class_name'],value=counter)
+{%     else %} {# if class_name_deliminated in ns.classes_with_counters #}
+            counter: int = await MemberDataClassByoda.get_updates({{ service_id }}, info)
+{% endif %} {# if class_name_deliminated in ns.classes_with_counters #}
+            yield counter(class_name='{{ root_class.name }}', value=counter)
 
-{%     endif %} {# if class_name_deliminated in ns.classes_with_counters #}
 
 {%   endif %}{# if not root_class.item_id and root_class.type == DataType.ARRAY #}
 {% endfor %}{# for root_class in classes.values() #}

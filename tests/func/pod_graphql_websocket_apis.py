@@ -25,6 +25,7 @@ from gql.transport.websockets import WebsocketsTransport
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
 
@@ -137,7 +138,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         client = Client(transport=transport, fetch_schema_from_transport=False)
         session = await client.connect_async(reconnecting=True)
 
-        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        request = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates']
         message = gql(request)
 
         # Test 1: no filter
@@ -193,7 +194,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         client = Client(transport=transport, fetch_schema_from_transport=False)
         session = await client.connect_async(reconnecting=True)
 
-        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        request = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates']
         message = gql(request)
 
         # Test 2: filter for matching relation
@@ -254,7 +255,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         client = Client(transport=transport, fetch_schema_from_transport=False)
         session = await client.connect_async(reconnecting=True)
 
-        request = GRAPHQL_STATEMENTS['network_links']['updates']
+        request = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates']
         message = gql(request)
 
         # Test 3: filter with no matching relation
@@ -310,7 +311,7 @@ async def perform_append(member_id: UUID, relation: str) -> object:
     }
 
     response = await GraphQlClient.call(
-        url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+        url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
         timeout=120, headers=member_headers
     )
     result = await response.json()

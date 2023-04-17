@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
 
@@ -213,7 +214,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=auth_header
         )
         result = await response.json()
@@ -241,7 +242,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4()
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['delete'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
             timeout=120, headers=auth_header
         )
         result = await response.json()
@@ -257,7 +258,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'], vars=vars,
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=auth_header
         )
         result = await response.json()
@@ -404,7 +405,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         account_member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         response = await GraphQlClient.call(
-            azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
+            azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
             vars={'query_id': uuid4()}, timeout=120,
             headers=azure_member_auth_header
         )
@@ -429,7 +430,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                     datetime.now(tz=timezone.utc).isoformat()
                 )
             }
-            query = GRAPHQL_STATEMENTS['network_links']['append']
+            query = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append']
             response = await GraphQlClient.call(
                 azure_url, query,
                 vars=vars, timeout=120, headers=azure_member_auth_header
@@ -442,7 +443,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
             # Confirm we have a network_link entry
             response = await GraphQlClient.call(
-                azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
+                azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
                 vars={'query_id': uuid4()}, timeout=120,
                 headers=azure_member_auth_header
             )

@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+
 from byoda.util.message_signature import MessageSignature
 
 from byoda.datastore.data_store import DataStoreType
@@ -179,7 +181,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         }
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['network_links']['append'],
+            url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'],
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
         result = await response.json()
@@ -205,7 +207,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         }
         response = await GraphQlClient.call(
-            azure_url, GRAPHQL_STATEMENTS['network_links']['append'],
+            azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'],
             vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
         result = await response.json()
@@ -216,7 +218,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Confirm we have a network_link entry
         response = await GraphQlClient.call(
-            azure_url, GRAPHQL_STATEMENTS['network_links']['query'],
+            azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
             vars={'query_id': uuid4()}, timeout=TIMEOUT,
             headers=azure_member_auth_header
         )

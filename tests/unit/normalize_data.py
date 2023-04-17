@@ -16,6 +16,7 @@ import logging
 from datetime import datetime, timezone
 
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.util.logger import Logger
 
@@ -70,7 +71,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'family_name': 'Hessing',
                 'email': 'steven@byoda.org'
             },
-            'network_links': [
+            MARKER_NETWORK_LINKS: [
                 {
                     'created_timestamp': now.isoformat(),
                     'member_id': uuid,
@@ -90,11 +91,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue('person' in data)
         self.assertEqual(len(data['person']), 3)
-        self.assertTrue('network_links' in data)
-        self.assertEqual(len(data['network_links']), 1)
-        self.assertEqual(data['network_links'][0]['relation'], 'follows')
-        self.assertEqual(data['network_links'][0]['created_timestamp'], now)
-        self.assertEqual(data['network_links'][0]['member_id'], uuid)
+        self.assertTrue(MARKER_NETWORK_LINKS in data)
+        self.assertEqual(len(data[MARKER_NETWORK_LINKS]), 1)
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['relation'], 'follows')
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['created_timestamp'], now)
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['member_id'], uuid)
 
 
 if __name__ == '__main__':

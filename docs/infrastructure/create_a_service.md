@@ -105,6 +105,9 @@ A data structure under $defs must have the following keys:
   - type: must be a scalar, ie. "string" or "number" or an array.
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
+There are some data structures that the BYODA pod uses for various purposes. The name of these data structures
+starts with 'BYODA_'. If you include these data structures in your schema then it must have a set of defined
+fields and specific type.
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
 from the addressbook.json service contract to your contract.
 - member, with definitions:
@@ -115,7 +118,7 @@ from the addressbook.json service contract to your contract.
 - network_links of type array using the /schemas/network_link as reference
 - memberlogs of type array using the /schemas/memberlog as reference
 
-The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counters' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the 'network_links' table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values were not specified, the podworker process will periodically update counters based on the data stored for the array.
+The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
 ### Data Access control
 The Pod controls access to the data for the services stored in the Pod based on access controls that
