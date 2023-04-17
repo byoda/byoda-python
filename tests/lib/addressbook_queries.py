@@ -647,7 +647,8 @@ GRAPHQL_STATEMENTS['network_links']['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDA
 SUBSCRIPTION_NETWORK_LINKS_COUNTER = '''
 subscription {
     network_links_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -750,7 +751,8 @@ GRAPHQL_STATEMENTS['network_invites']['updates'] = SUBSCRIPTION_NETWORK_INVITES_
 SUBSCRIPTION_NETWORK_INVITES_COUNTER = '''
 subscription {
     network_invites_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -859,7 +861,8 @@ GRAPHQL_STATEMENTS['network_links_inbound']['updates'] = SUBSCRIPTION_NETWORK_LI
 SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER = '''
 subscription {
     network_links_inbound_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -974,7 +977,8 @@ GRAPHQL_STATEMENTS['asset_links']['updates'] = SUBSCRIPTION_ASSET_LINKS_UPDATES
 SUBSCRIPTION_ASSET_LINKS_COUNTER = '''
 subscription {
     asset_links_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -1083,7 +1087,8 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['updates'] = SUBSCRIPTION_ASSET_R
 SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNTER = '''
 subscription {
     asset_reactions_received_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -1264,7 +1269,8 @@ GRAPHQL_STATEMENTS['datalogs']['updates'] = SUBSCRIPTION_DATALOGS_UPDATES
 SUBSCRIPTION_DATALOGS_COUNTER = '''
 subscription {
     datalogs_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -1445,7 +1451,8 @@ GRAPHQL_STATEMENTS['public_assets']['updates'] = SUBSCRIPTION_PUBLIC_ASSETS_UPDA
 SUBSCRIPTION_PUBLIC_ASSETS_COUNTER = '''
 subscription {
     public_assets_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -1626,7 +1633,8 @@ GRAPHQL_STATEMENTS['service_assets']['updates'] = SUBSCRIPTION_SERVICE_ASSETS_UP
 SUBSCRIPTION_SERVICE_ASSETS_COUNTER = '''
 subscription {
     service_assets_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
@@ -1807,7 +1815,8 @@ GRAPHQL_STATEMENTS['network_assets']['updates'] = SUBSCRIPTION_NETWORK_ASSETS_UP
 SUBSCRIPTION_NETWORK_ASSETS_COUNTER = '''
 subscription {
     network_assets_counter() {
-        count
+        class_name
+        data
     }
 }
 '''
