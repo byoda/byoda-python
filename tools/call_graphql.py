@@ -215,7 +215,7 @@ async def main(argv):
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
-        if action not in ('query', 'delete', 'updates', 'counter'):
+        if action not in ('query', 'delete', 'updates', 'count'):
             await config.server.shutdown()
             raise
 
@@ -286,9 +286,14 @@ async def call_websocket(graphql_url: str, object_name: str, action: str,
         execute_timeout=600
     ) as session:
         request = GRAPHQL_STATEMENTS[object_name][action]
-        message = gql(request)
-        result = await session.execute(message)
-        print(orjson.dumps(result).decode('utf-8'))
+        while True:
+            message = gql(request)
+            result = await session.execute(message)
+            print(
+                orjson.dumps(
+                    result, option=orjson.OPT_INDENT_2
+                ).decode('utf-8')
+            )
 
 
 if __name__ == '__main__':
