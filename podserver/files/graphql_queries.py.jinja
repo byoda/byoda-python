@@ -157,7 +157,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['{{ root_class.name }}']['counter'] = SUBSCRIPTION_{{ root_class.name|upper }}_COUNT
+GRAPHQL_STATEMENTS['{{ root_class.name }}']['counter'] = SUBSCRIPTION_{{ root_class.name|upper }}_COUNTER
 
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# for root_class in classes.values() #}

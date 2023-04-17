@@ -651,7 +651,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_links']['counter'] = SUBSCRIPTION_NETWORK_LINKS_COUNT
+GRAPHQL_STATEMENTS['network_links']['counter'] = SUBSCRIPTION_NETWORK_LINKS_COUNTER
 
 
 QUERY_NETWORK_INVITES = '''
@@ -754,7 +754,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_invites']['counter'] = SUBSCRIPTION_NETWORK_INVITES_COUNT
+GRAPHQL_STATEMENTS['network_invites']['counter'] = SUBSCRIPTION_NETWORK_INVITES_COUNTER
 
 
 QUERY_NETWORK_LINKS_INBOUND = '''
@@ -863,7 +863,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_links_inbound']['counter'] = SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNT
+GRAPHQL_STATEMENTS['network_links_inbound']['counter'] = SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER
 
 
 QUERY_ASSET_LINKS = '''
@@ -978,7 +978,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['asset_links']['counter'] = SUBSCRIPTION_ASSET_LINKS_COUNT
+GRAPHQL_STATEMENTS['asset_links']['counter'] = SUBSCRIPTION_ASSET_LINKS_COUNTER
 
 
 QUERY_ASSET_REACTIONS_RECEIVED = '''
@@ -1087,7 +1087,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['asset_reactions_received']['counter'] = SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNT
+GRAPHQL_STATEMENTS['asset_reactions_received']['counter'] = SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNTER
 
 
 QUERY_DATALOGS = '''
@@ -1268,7 +1268,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['datalogs']['counter'] = SUBSCRIPTION_DATALOGS_COUNT
+GRAPHQL_STATEMENTS['datalogs']['counter'] = SUBSCRIPTION_DATALOGS_COUNTER
 
 
 QUERY_PUBLIC_ASSETS = '''
@@ -1449,7 +1449,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['public_assets']['counter'] = SUBSCRIPTION_PUBLIC_ASSETS_COUNT
+GRAPHQL_STATEMENTS['public_assets']['counter'] = SUBSCRIPTION_PUBLIC_ASSETS_COUNTER
 
 
 QUERY_SERVICE_ASSETS = '''
@@ -1630,7 +1630,7 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['service_assets']['counter'] = SUBSCRIPTION_SERVICE_ASSETS_COUNT
+GRAPHQL_STATEMENTS['service_assets']['counter'] = SUBSCRIPTION_SERVICE_ASSETS_COUNTER
 
 
 QUERY_NETWORK_ASSETS = '''
@@ -1811,5 +1811,5 @@ subscription {
     }
 }
 '''
-GRAPHQL_STATEMENTS['network_assets']['counter'] = SUBSCRIPTION_NETWORK_ASSETS_COUNT
+GRAPHQL_STATEMENTS['network_assets']['counter'] = SUBSCRIPTION_NETWORK_ASSETS_COUNTER
 
