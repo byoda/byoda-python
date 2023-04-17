@@ -33,10 +33,10 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.memberdata import MemberData
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 from byoda.datamodel.service import Service
 
 from byoda.datatypes import CloudType
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.secrets import MemberSecret, MemberDataSecret
 

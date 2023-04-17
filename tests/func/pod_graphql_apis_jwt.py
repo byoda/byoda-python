@@ -23,7 +23,8 @@ from datetime import datetime, timezone
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
 

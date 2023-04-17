@@ -8,7 +8,7 @@ using the 'podserver/files/grahphql_schema.jinja' template
 :license    : GPLv3
 '''
 
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 GRAPHQL_STATEMENTS = {}
 

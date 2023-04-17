@@ -22,7 +22,8 @@ from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.storage.filestorage import FileStorage
 

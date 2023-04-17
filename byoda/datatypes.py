@@ -23,6 +23,8 @@ GRAPHQL_WS_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
 # source of that object
 ORIGIN_KEY = 'byoda_origin'
 
+# What is the data class for storing network relations
+MARKER_NETWORK_LINKS = 'network_links'
 
 class ServerRole(Enum):
     RootCa               = 'root_ca'

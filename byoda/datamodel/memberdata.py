@@ -31,6 +31,7 @@ from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStore
 from byoda.datacache.counter_cache import CounterCache
@@ -63,7 +64,6 @@ MAX_FILE_SIZE = 65536
 RECURSIVE_QUERY_TTL = 300
 QUERY_EXPIRATION = timedelta(seconds=RECURSIVE_QUERY_TTL)
 
-MARKER_NETWORK_LINKS = 'network_links'
 
 
 class MemberData(dict):

@@ -25,9 +25,10 @@ from gql.transport.websockets import WebsocketsTransport
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
+
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 

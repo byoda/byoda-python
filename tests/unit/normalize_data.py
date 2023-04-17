@@ -16,7 +16,8 @@ import logging
 from datetime import datetime, timezone
 
 from byoda.datamodel.schema import Schema
-from byoda.datamodel.memberdata import MARKER_NETWORK_LINKS
+
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.util.logger import Logger
 
