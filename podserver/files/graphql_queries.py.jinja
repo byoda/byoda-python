@@ -150,14 +150,14 @@ subscription (
 '''
 GRAPHQL_STATEMENTS['{{ root_class.name }}']['updates'] = SUBSCRIPTION_{{ root_class.name|upper }}_UPDATES
 
-SUBSCRIPTION_{{ root_class.name|upper }}_COUNT = '''
+SUBSCRIPTION_{{ root_class.name|upper }}_COUNTER = '''
 subscription {
     {{ root_class.name }}_count() {
         count
     }
 }
 '''
-GRAPHQL_STATEMENTS['{{ root_class.name }}']['count'] = SUBSCRIPTION_{{ root_class.name|upper }}_COUNT
+GRAPHQL_STATEMENTS['{{ root_class.name }}']['counter'] = SUBSCRIPTION_{{ root_class.name|upper }}_COUNT
 
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# for root_class in classes.values() #}

@@ -23,6 +23,9 @@ from uuid import UUID, uuid4
 
 import requests
 
+from gql import Client, gql
+from gql.transport.websockets import WebsocketsTransport
+
 from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
@@ -164,7 +167,7 @@ async def main(argv):
     service_id = args.service_id
     member_id = args.member_id
     password = args.password
-    object = args.object
+    object_name = args.object
     action = args.action
     depth = args.depth
     remote_member_id = args.remote_member_id
@@ -180,15 +183,20 @@ async def main(argv):
             ', '.join(GRAPHQL_STATEMENTS.keys())
         )
 
-    if args.action not in GRAPHQL_STATEMENTS[args.object]:
+    if args.action not in GRAPHQL_STATEMENTS[object_name]:
         await config.server.shutdown()
         raise ValueError(
             f'{args.action} not in list of available actions for object '
             f'{args.object}: ' +
-            ", ".join(GRAPHQL_STATEMENTS[args.object])
+            ", ".join(GRAPHQL_STATEMENTS[object_name])
         )
 
-    base_url = f'https://proxy.{network}/{service_id}/{member_id}/api'
+    if args.action in ('query', 'mutate', 'update', 'append', 'delete'):
+        base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
+        websockets: bool = False
+    else:
+        base_url: str = f'wss://proxy.{network}/{service_id}/{member_id}/api'
+        websockets: bool = True
 
     auth_header = await get_jwt_header(
         member_id, base_url=base_url, secret=password,
@@ -205,7 +213,7 @@ async def main(argv):
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
-        if action not in ('query', 'delete'):
+        if action not in ('query', 'delete', 'updates', 'counter'):
             await config.server.shutdown()
             raise
 
@@ -227,8 +235,18 @@ async def main(argv):
             'filter_value to be specified'
         )
 
+    if not websockets:
+        await call_http(graphql_url, object_name, action, vars, auth_header)
+    else:
+        await call_websocket(graphql_url, object_name, action, auth_header)
+
+    await config.server.shutdown()
+
+
+async def call_http(graphql_url: str, object_name: str, action: str,
+                    vars: dict, auth_header: str) -> None:
     response = await GraphQlClient.call(
-        graphql_url, GRAPHQL_STATEMENTS[object][action],
+        graphql_url, GRAPHQL_STATEMENTS[object_name][action],
         vars=vars, headers=auth_header, timeout=30
     )
     try:
@@ -252,7 +270,23 @@ async def main(argv):
     else:
         print(f'GraphQL error: {result.get("errors")}')
 
-    await config.server.shutdown()
+
+async def call_websocket(graphql_url: str, object_name: str, action: str,
+                         auth_header: str) -> None:
+        transport = WebsocketsTransport(
+            url=graphql_url,
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+            headers=auth_header
+        )
+
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        session = await client.connect_async(reconnecting=True)
+
+        request = GRAPHQL_STATEMENTS[object_name][action]
+        message = gql(request)
+        result = session.execute(message,)
+        print(orjson.dumps(result).decode('utf-8'))
+
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))
