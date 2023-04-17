@@ -152,7 +152,7 @@ GRAPHQL_STATEMENTS['{{ root_class.name }}']['updates'] = SUBSCRIPTION_{{ root_cl
 
 SUBSCRIPTION_{{ root_class.name|upper }}_COUNTER = '''
 subscription {
-    {{ root_class.name }}_count() {
+    {{ root_class.name }}_counter() {
         count
     }
 }

@@ -215,7 +215,7 @@ async def main(argv):
             text = file_desc.read()
             vars = orjson.loads(text)
     except FileNotFoundError:
-        if action not in ('query', 'delete', 'updates', 'count'):
+        if action not in ('query', 'delete', 'updates', 'counter'):
             await config.server.shutdown()
             raise
 
