@@ -28,8 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 
 GRAPHQL_OPERATIONS: tuple[str] = ('query', 'mutation', 'subscription')
 
-_ACCESS_MARKER: str = '#accesscontrol'
-
 SchemaDataItem = TypeVar('SchemaDataItem')
 
 

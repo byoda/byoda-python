@@ -66,7 +66,10 @@ fi
   - You can ignore the other variables that can be set in this file. They'll be discussed in other sections of the documentation
 
 ```
+sudo mkdir /byoda 2>/dev/null
 cd byoda-python
+sudo pip3 install pipenv
+pipenv install
 cp tools/docker-launch.sh tools/byoda-settings.sh ~
 vi ~/byoda-settings.sh
 ```
@@ -89,11 +92,6 @@ vi ~/byoda-settings.sh
 The 'Address Book' service is a proof of concept on how a service in the BYODA network can operate. Control of the pod uses REST APIs while access to data in the pod uses [GraphQL](https://graphql.org/). Using the [tools/call_graphql.py](https://github.com/byoda/byoda-python/blob/master/tools/call_graphql.py) tool you can interface with the data storage in the pod without having to know GraphQL. Copy the [set_env.sh](https://github.com/byoda/byoda-python/blob/master/tools/set_env.sh) to the same directory as the docker-launch.sh script on your VM / server and source it:
 
 ```bash
-sudo mkdir /byoda 2>/dev/null
-sudo pip3 install --upgrade orjson aiohttp jsonschema requests \
-    python_graphql_client certvalidator sqlalchemy passgen \
-    starlette starlette-context python-json-logger \
-    python-dateutils aiosqlite pynng gql[aiohttp,websockets]
 source tools/set_env.sh
 ```
 
@@ -147,13 +145,13 @@ cat >~/person.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object person --action mutate --data-file ~/person.json
+pipenv run tools/call_graphql.py --object person --action mutate --data-file ~/person.json
 ```
 
 If you want to see your details again, you can run
 
 ```bash
-tools/call_graphql.py --object person --action query
+pipenv run tools/call_graphql.py --object person --action query
 ```
 
 and you'll see a bit more info than what you put in person.json as we only supplied the fields required by the data model of the 'address book' service:
@@ -186,18 +184,18 @@ and you'll see a bit more info than what you put in person.json as we only suppl
 
 As a query for 'person' objects can result in more than one result, the output facilitates pagination. You can see in the output the 'person' object with the requested information. The pagination implementation follows the [best practices defined by the GraphQL community](https://graphql.org/learn/pagination/).
 
-Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '3d0fff6a-b043-430e-afb3-0e2995b69da5'
+Now suppose you want to follow me. The member ID of the Address Book service of one of my test pods is '94f23c4b-1721-4ffe-bfed-90f86d07611a'
 
 ```bash
 cat >~/follow.json <<EOF
 {
-    "member_id": "3d0fff6a-b043-430e-afb3-0e2995b69da5",
+    "member_id": "94f23c4b-1721-4ffe-bfed-90f86d07611a",
     "relation": "follow",
     "created_timestamp": "2022-07-04T03:50:26.451308+00:00"
 }
 EOF
 
-tools/call_graphql.py --object network_links --action append --data-file ~/follow.json
+pipenv run tools/call_graphql.py --object network_links --action append --data-file ~/follow.json
 ```
 
 The 'Address Book' service has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
@@ -212,7 +210,7 @@ cat >~invite.json <<EOF
 }
 EOF
 
-tools/call_graphql.py --object network_invites --action append --remote-member-id 3d0fff6a-b043-430e-afb3-0e2995b69da5 --data-file ~invite.json --depth 1
+pipenv run tools/call_graphql.py --object network_invites --action append --remote-member-id 94f23c4b-1721-4ffe-bfed-90f86d07611a --data-file ~invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.

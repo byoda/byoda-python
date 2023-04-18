@@ -22,6 +22,7 @@ from typing import TypeVar
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
+from byoda.datatypes import MARKER_ACCESS_CONTROL
 
 from byoda.storage.pubsub import PubSub
 
@@ -243,7 +244,7 @@ class SchemaDataItem:
 
         _LOGGER.debug(f'Parsing access controls for {self.name}')
 
-        rights = self.schema_data.get('#accesscontrol')
+        rights = self.schema_data.get(MARKER_ACCESS_CONTROL)
         if not rights:
             _LOGGER.debug(f'No access rights defined for {self.name}')
             return

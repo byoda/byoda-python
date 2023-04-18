@@ -581,16 +581,9 @@ class Subscription:
             ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
-        try:
-            result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
-        except HTTPException as exc:
-            _LOGGER.debug(
-                'Authentication status for subscription for data from array '
-                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
-                f'{exc}'
-            )
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
 
-        if False:
+        if not result:
             _LOGGER.debug(
                 'Authentication status for subscription for data from array '
                 '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '

@@ -14,17 +14,21 @@ from collections import namedtuple
 
 # Location to mount the API in the FastApi app and
 # to proxy incoming GraphQL requests to other pods
-GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
+GRAPHQL_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
+
 # FastAPI has a bug where the websocket app needs to be under the same path
-# as te HTTP app, otherwise it will return a 403.
-GRAPHQL_WS_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
+# as te HTTP app, otherwise it will return a 403. On nginx, we map incoming
+# websocket requests for /vs-api/ to /api/ to work around this FastAPI bug.
+GRAPHQL_WS_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
 
 # Object property to temporarily store the member ID of the
 # source of that object
-ORIGIN_KEY = 'byoda_origin'
+ORIGIN_KEY: str = 'byoda_origin'
 
 # What is the data class for storing network relations
-MARKER_NETWORK_LINKS = 'network_links'
+MARKER_NETWORK_LINKS: str = 'network_links'
+MARKER_ACCESS_CONTROL: str = '#accesscontrol'
+
 
 class ServerRole(Enum):
     RootCa               = 'root_ca'

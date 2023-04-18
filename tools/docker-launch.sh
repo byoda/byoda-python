@@ -16,7 +16,7 @@ fi
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 KEEP_LOGS=0
-args=$(getopt -l "help" -l "wipe-all" -l "keep-logs" -l "tag" -o "t:" -- "$@")
+args=$(getopt -l "help" -l "wipe-all" -l "wipe-member-data" -l "keep-logs" -l "tag" -o "t:" -- "$@")
 
 eval set -- "$args"
 
@@ -221,7 +221,7 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping GCP storage failed, you may have to run 'az login' first"
             exit 1
         fi
     fi
@@ -255,7 +255,7 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping AWS storage failed, you may have to run 'aws login' first"
             exit 1
         fi
     fi
@@ -270,15 +270,13 @@ else
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
-        echo "Wiping data and secrets for memberships not supported on AWS yet"
-        exit 1
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}-account-pod-member-*.key
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/*
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping storage failed"
             exit 1
         fi
     fi
