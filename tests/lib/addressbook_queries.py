@@ -645,8 +645,9 @@ subscription (
 GRAPHQL_STATEMENTS['network_links']['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDATES
 
 SUBSCRIPTION_NETWORK_LINKS_COUNTER = '''
-subscription {
-    network_links_counter() {
+subscription (
+    $filters: networkLinksCounterFilter) {
+    network_links_counter(filters: $filters) {
         class_name
         data
     }
@@ -749,8 +750,9 @@ subscription (
 GRAPHQL_STATEMENTS['network_invites']['updates'] = SUBSCRIPTION_NETWORK_INVITES_UPDATES
 
 SUBSCRIPTION_NETWORK_INVITES_COUNTER = '''
-subscription {
-    network_invites_counter() {
+subscription (
+    $filters: networkInvitesCounterFilter) {
+    network_invites_counter(filters: $filters) {
         class_name
         data
     }
@@ -859,8 +861,9 @@ subscription (
 GRAPHQL_STATEMENTS['network_links_inbound']['updates'] = SUBSCRIPTION_NETWORK_LINKS_INBOUND_UPDATES
 
 SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER = '''
-subscription {
-    network_links_inbound_counter() {
+subscription (
+    $filters: networkLinksInboundCounterFilter) {
+    network_links_inbound_counter(filters: $filters) {
         class_name
         data
     }
@@ -975,8 +978,9 @@ subscription (
 GRAPHQL_STATEMENTS['asset_links']['updates'] = SUBSCRIPTION_ASSET_LINKS_UPDATES
 
 SUBSCRIPTION_ASSET_LINKS_COUNTER = '''
-subscription {
-    asset_links_counter() {
+subscription (
+    $filters: assetLinksCounterFilter) {
+    asset_links_counter(filters: $filters) {
         class_name
         data
     }
@@ -1085,8 +1089,9 @@ subscription (
 GRAPHQL_STATEMENTS['asset_reactions_received']['updates'] = SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_UPDATES
 
 SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNTER = '''
-subscription {
-    asset_reactions_received_counter() {
+subscription (
+    $filters: assetReactionsReceivedCounterFilter) {
+    asset_reactions_received_counter(filters: $filters) {
         class_name
         data
     }
@@ -1267,8 +1272,9 @@ subscription (
 GRAPHQL_STATEMENTS['datalogs']['updates'] = SUBSCRIPTION_DATALOGS_UPDATES
 
 SUBSCRIPTION_DATALOGS_COUNTER = '''
-subscription {
-    datalogs_counter() {
+subscription (
+    $filters: datalogsCounterFilter) {
+    datalogs_counter(filters: $filters) {
         class_name
         data
     }
@@ -1449,8 +1455,9 @@ subscription (
 GRAPHQL_STATEMENTS['public_assets']['updates'] = SUBSCRIPTION_PUBLIC_ASSETS_UPDATES
 
 SUBSCRIPTION_PUBLIC_ASSETS_COUNTER = '''
-subscription {
-    public_assets_counter() {
+subscription (
+    $filters: publicAssetsCounterFilter) {
+    public_assets_counter(filters: $filters) {
         class_name
         data
     }
@@ -1631,8 +1638,9 @@ subscription (
 GRAPHQL_STATEMENTS['service_assets']['updates'] = SUBSCRIPTION_SERVICE_ASSETS_UPDATES
 
 SUBSCRIPTION_SERVICE_ASSETS_COUNTER = '''
-subscription {
-    service_assets_counter() {
+subscription (
+    $filters: serviceAssetsCounterFilter) {
+    service_assets_counter(filters: $filters) {
         class_name
         data
     }
@@ -1813,8 +1821,9 @@ subscription (
 GRAPHQL_STATEMENTS['network_assets']['updates'] = SUBSCRIPTION_NETWORK_ASSETS_UPDATES
 
 SUBSCRIPTION_NETWORK_ASSETS_COUNTER = '''
-subscription {
-    network_assets_counter {
+subscription (
+    $filters: networkAssetsCounterFilter) {
+    network_assets_counter(filters: $filters) {
         class_name
         data
     }

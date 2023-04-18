@@ -207,6 +207,7 @@ class {{ root_class.name }}_input_filter:
 
 {%   else %}{# if root_class.type != DataType.ARRAY #}
 {# avoid classes referenced by multiple root classes from being included multiple times #}
+
 @strawberry.type
 class {{ root_class.name }}_update:
     action: str
@@ -219,15 +220,18 @@ class {{ root_class.name }}_update:
 {%       endif %}{# if field.is_counter #}
 {%     endfor %}{# for field in root_class.referenced_class.fields.values() #}
 
-{%     if class_name_deliminated in ns.class_has_counters %}
+@strawberry.input
 class {{ root_class.name }}_counter_filter:
+{%     if class_name_deliminated not in ns.class_has_counters %}
+    dummy: str
+{%     else %} {# if class_name_deliminated in ns.class_has_counters #}
 {%       for field in root_class.referenced_class.fields.values() %}
 {%         if field.is_counter %}
     field_name: str
     value: str | UUID
 {%         endif %}{# if field.is_counter #}
 {%       endfor %}{# for field in root_class.fields.values() #}
-{%     endif %}{# if ns.class_has_counters #}
+{%     endif %}{# if class_name_deliminated in ns.class_has_counters #}
 
 @strawberry.input
 class {{ root_class.referenced_class.name }}_input_filter:
@@ -573,15 +577,20 @@ class Subscription:
 {%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
     @strawberry.subscription
     async def {{ root_class.name }}_counter(self, info: Info,
-{%     if class_name_deliminated in ns.classes_with_counters %}
-            filters: Optional[list[{{ root_class.referenced_class.name }}_counter_filter]] = None
-{%     endif %} {# if class_name_deliminated in ns.classes_with_counters #}
+            filters: Optional[list[Optional[{{ root_class.name }}_counter_filter]]] = None
             ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
-        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        try:
+            result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        except HTTPException as exc:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{exc}'
+            )
 
-        if not result:
+        if False:
             _LOGGER.debug(
                 'Authentication status for subscription for data from array '
                 '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
