@@ -511,8 +511,11 @@ class MemberData(dict):
         )
 
         counter_cache: CounterCache = member.counter_cache
+        data_store: DataStore = server.data_store
+        table: Table = data_store.get_table(member.member_id, class_name)
+
         current_counter_value = await counter_cache.get(
-            class_name, counter_filter
+            class_name, counter_filter, table
         )
 
         while True:
@@ -520,10 +523,14 @@ class MemberData(dict):
 
             for message in messages or []:
                 # We run the data through the counter filters
+                matches_filter = True
                 if counter_filter:
                     for field_name, value in counter_filter.items():
                         if message.data.get(field_name) != value:
-                            continue
+                            matches_filter = False
+
+                if not matches_filter:
+                    continue
 
                 counter_value = await counter_cache.get(
                     class_name, counter_filter
@@ -603,7 +610,7 @@ class MemberData(dict):
             f'Saving {len(data or [])} bytes of data after mutation of '
             f'{class_object}'
         )
-        data_store = server.data_store
+        data_store: DataStore = server.data_store
 
         records_affected = await data_store.mutate(
             member.member_id, class_object, data
@@ -827,8 +834,8 @@ class MemberData(dict):
             'graphql', class_name=class_name, filters=filter_set
         )
 
-        data_store = server.data_store
-        object_count = await data_store.delete(
+        data_store: DataStore = server.data_store
+        object_count: int = await data_store.delete(
             member.member_id, class_name, filter_set
         )
 
@@ -924,11 +931,18 @@ class MemberData(dict):
 
         keys: set[str] = set()
         for combo in subsets:
-            value = data_class.name
+            value: str = data_class.name
             for field in combo:
-                value += f'_{field}={data[field]}'
+                # We can only manage keys for fields that are counters
+                # if a value is provided for the field in the data.
+                # This means counters do not have to be accurate but
+                # we accept that to avoid having to query the database
+                if field in data:
+                    value += f'_{field}={data[field]}'
+
             keys.add(value.rstrip('-'))
 
+        # We always have a key for the array
         keys.add(data_class.name)
 
         return keys

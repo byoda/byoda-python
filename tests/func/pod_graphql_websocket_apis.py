@@ -141,9 +141,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         request = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates']
         message_updates = gql(request)
-        message_counter = gql(
-            GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['counter']
-        )
 
         # Test 1: no filter
         task_updates = asyncio.create_task(session.execute(message_updates,))
@@ -206,21 +203,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         task_counter = asyncio.create_task(
             session.execute(message_counter)
         )
-        #task_counter_filter_match = asyncio.create_task(
-        #    session.execute(
-        #        message_counter, {'filter': {'relation': 'follow'}}
-        #    )
-        #)
-        # task_counter_filter_not_match = asyncio.create_task(
-        #    session.execute(
-        #        message_counter, {'filter': {'relation': 'friend'}}
-        #    )
-        # )
+        task_counter_filter_match = asyncio.create_task(
+            session.execute(
+                message_counter, {'filter': {'relation': 'follow'}}
+            )
+        )
         task_append = asyncio.create_task(perform_append(member_id, 'follow'))
 
-        counter_result, append_result = \
+        counter_result, counter_match_result, append_result = \
             await asyncio.gather(
-                task_counter, task_append
+                task_counter, task_counter_filter_match, task_append
             )
 
         # Confirm the GraphQL counter API call was successful.
@@ -230,9 +222,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Confirm the GraphQL counter API call with matching filter was
         # successful.
-        # self.assertIsNone(counter_match_result.get('errors'))
-        # counter_data = counter_match_result.get('network_links_counter')
-        # self.assertEqual(counter_match_result['data'], 1)
+        self.assertIsNone(counter_match_result.get('errors'))
+        counter_data = counter_match_result.get('network_links_counter')
+        self.assertEqual(counter_data['data'], 1)
 
         # Confirm the GraphQL append API call was successful.
         self.assertIsNone(append_result.get('errors'))

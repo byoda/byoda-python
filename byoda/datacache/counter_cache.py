@@ -85,7 +85,7 @@ class CounterCache:
         specifiers = []
         if counter_filter:
             for field_name, value in counter_filter.items():
-                specifiers.append(f'{field_name}-{str(value)}')
+                specifiers.append(f'{field_name}={str(value)}')
 
             for specifier in sorted(specifiers):
                 key += f'_{specifier}'
@@ -100,14 +100,32 @@ class CounterCache:
         return await self.backend.exists(class_name)
 
     async def get(self, class_name: str,
-                  counter_filter: CounterFilter | None = None
-                  ) -> bool:
+                  counter_filter: CounterFilter | None = None,
+                  table: Table = None
+                  ) -> int:
         '''
-        Checks whether the query_id exists in the cache
+        Checks whether the query_id exists in the cache. If
+        the table parameter is provided and the counter does
+        not yet exist in the cache then the counter is
+        set in the cache by reading from the table.
+
+        :param class_name: The name of the class to get the counter for
+        :param counter_filter: filter used to determine the name
+        of the key in the cache
+        :param table: if there is no value in the cache then get
+        the value by scanning the table and write the value to the
+        cache
         '''
 
         key = self.get_key_name(class_name, counter_filter)
-        return await self.backend.get(key)
+
+        counter = await self.backend.get(key)
+
+        if counter is None and table:
+            counter = await table.count(counter_filter)
+            await self.set(key, counter)
+
+        return counter
 
     async def update(self, key: str, delta: int, table: Table,
                      counter_filter: CounterFilter | None = None) -> int:

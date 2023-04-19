@@ -352,22 +352,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
 
-        # Test account data export API for the service
-        # service_id = ADDRESSBOOK_SERVICE_ID
-        # response = requests.get(
-        #     f'{BASE_URL}/v1/pod/account/data/service_id/{service_id}',
-        #     headers=account_headers
-        # )
-
-        # TODO: refactor data export API for switch from object to SQL storage
-        # self.assertEqual(response.status_code, 200)
-        # data = response.json()
-        # data = data['data']
-        # self.assertTrue('member' in data)
-        # self.assertTrue('datalogs' in data)
-        # self.assertTrue('person' in data)
-        # self.assertTrue(MARKER_NETWORK_LINKS in data)
-
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
             timeout=120, headers=member_headers

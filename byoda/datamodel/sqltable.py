@@ -442,7 +442,7 @@ class ArraySqlTable(SqlTable):
             stmt += ' WHERE'
             for field_name, value in counter_filter.items():
                 column_name = self.get_column_name(field_name)
-                stmt += f' {column_name} = :{value}'
+                stmt += f' {column_name} = :{column_name}'
                 data[column_name] = value
 
         rows = await self.sql_store.execute(
