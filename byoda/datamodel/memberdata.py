@@ -835,9 +835,6 @@ class MemberData(dict):
         table: Table = data_store.get_table(member.member_id, class_name)
         counter_cache: CounterCache = member.counter_cache
 
-        # Update the counter for the top-level array
-        await counter_cache.update(class_name, -1 * object_count, table)
-
         data_class: SchemaDataArray = member.schema.data_classes[class_name]
         referenced_class: SchemaDataObject = data_class.referenced_class
         if not referenced_class:
@@ -862,11 +859,10 @@ class MemberData(dict):
             if data_filter and filter_value:
                 filter_data[field.name] = filter_value
 
-        if filter_data:
-            await MemberData._update_field_counters(
-                    -1 * object_count, filter_data, data_class,
-                    counter_cache, table
-            )
+        await MemberData._update_field_counters(
+                -1 * object_count, filter_data, data_class,
+                counter_cache, table
+        )
 
         message = PubSubDataDeleteMessage.create(object_count, data_class)
         pubsub_class: PubSub = data_class.pubsub_class
