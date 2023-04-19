@@ -113,7 +113,7 @@ class CacheType(Enum):
     COUNTER      = 'counter'
     OBJECT       = 'object'
 
-CounterFilter = tuple[str, str | UUID]
+CounterFilter = dict[str, str | UUID]
 
 class PubSubTech(Enum):
     NNG       = 1

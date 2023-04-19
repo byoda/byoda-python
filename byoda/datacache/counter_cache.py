@@ -74,7 +74,7 @@ class CounterCache:
 
     @staticmethod
     def get_key_name(class_name: str,
-                     counter_filters: list[CounterFilter] | None = None):
+                     counter_filter: CounterFilter | None = None):
         '''
         Gets the key name for the counter cache, including the field_names
         and values if provided.
@@ -83,11 +83,12 @@ class CounterCache:
         key = class_name
 
         specifiers = []
-        for field_name, value in counter_filters or []:
-            specifiers.append(f'{field_name}-{str(value)}')
+        if counter_filter:
+            for field_name, value in counter_filter.items():
+                specifiers.append(f'{field_name}-{str(value)}')
 
-        for specifier in sorted(specifiers):
-            key += f'_{specifier}'
+            for specifier in sorted(specifiers):
+                key += f'_{specifier}'
 
         return key
 
@@ -99,17 +100,17 @@ class CounterCache:
         return await self.backend.exists(class_name)
 
     async def get(self, class_name: str,
-                  counter_filters: list[CounterFilter] | None = None
+                  counter_filter: CounterFilter | None = None
                   ) -> bool:
         '''
         Checks whether the query_id exists in the cache
         '''
 
-        key = self.get_key_name(class_name, counter_filters)
+        key = self.get_key_name(class_name, counter_filter)
         return await self.backend.get(key)
 
-    async def update(self, key, delta: int, table: Table,
-                     counter_filters: list[CounterFilter] = None) -> int:
+    async def update(self, key: str, delta: int, table: Table,
+                     counter_filter: CounterFilter | None = None) -> int:
         '''
         Updates the counter with the delta. If no value is
         found in the cache, the counter is set to the number
@@ -121,12 +122,10 @@ class CounterCache:
         :returns: The value of the updated counter
         '''
 
-        key = CounterCache.get_key_name(table.class_name, counter_filters)
-
         counter = await self.incr(key, delta)
         if counter is None:
-            counter = await table.count(counter_filters)
-            await self.set(table.class_name, counter)
+            counter = await table.count(counter_filter)
+            await self.set(key, counter)
 
         return counter
 

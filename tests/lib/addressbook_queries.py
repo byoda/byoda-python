@@ -646,8 +646,8 @@ GRAPHQL_STATEMENTS['network_links']['updates'] = SUBSCRIPTION_NETWORK_LINKS_UPDA
 
 SUBSCRIPTION_NETWORK_LINKS_COUNTER = '''
 subscription (
-    $filters: networkLinksCounterFilter) {
-    network_links_counter(filters: $filters) {
+    $filter: networkLinksCounterFilter) {
+    network_links_counter(filter: $filter) {
         class_name
         data
     }

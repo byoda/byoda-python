@@ -468,7 +468,7 @@ class MemberData(dict):
 
     @staticmethod
     async def get_counter(service_id: int, info: Info,
-                          counter_filters: list[CounterFilter] = None
+                          counter_filter: CounterFilter = None
                           ) -> int:
         '''
         Provides counters if an array at the root level of the schema
@@ -512,7 +512,7 @@ class MemberData(dict):
 
         counter_cache: CounterCache = member.counter_cache
         current_counter_value = await counter_cache.get(
-            class_name, counter_filters
+            class_name, counter_filter
         )
 
         while True:
@@ -520,12 +520,13 @@ class MemberData(dict):
 
             for message in messages or []:
                 # We run the data through the counter filters
-                for field_name, value in counter_filters or []:
-                    if message.data.get(field_name) != value:
-                        continue
+                if counter_filter:
+                    for field_name, value in counter_filter.items():
+                        if message.data.get(field_name) != value:
+                            continue
 
                 counter_value = await counter_cache.get(
-                    class_name, counter_filters
+                    class_name, counter_filter
                 )
 
                 if counter_value != current_counter_value:
@@ -769,7 +770,7 @@ class MemberData(dict):
 
             if data_class.referenced_class:
                 keys: set[str] = MemberData._get_counter_key_permutations(
-                    data_class.referenced_class, append_data
+                    data_class, append_data
                 )
             else:
                 keys: set[str] = set([data_class.name])
@@ -863,7 +864,7 @@ class MemberData(dict):
 
         if filter_data:
             await MemberData._update_field_counters(
-                    -1 * object_count, filter_data, referenced_class,
+                    -1 * object_count, filter_data, data_class,
                     counter_cache, table
             )
 
@@ -875,7 +876,7 @@ class MemberData(dict):
 
     @staticmethod
     async def _update_field_counters(delta: int, data: dict,
-                                     data_class: SchemaDataObject,
+                                     data_class: SchemaDataArray,
                                      counter_cache: CounterCache, table: Table
                                      ):
         '''
@@ -892,18 +893,19 @@ class MemberData(dict):
             await counter_cache.update(key, delta, table)
 
     @staticmethod
-    def _get_counter_key_permutations(data_class: SchemaDataObject, data: set
+    def _get_counter_key_permutations(data_class: SchemaDataArray, data: set
                                       ) -> set[str]:
         '''
         Gets the different key permutations for the fields with the is_counter
         property set to True and for which a key/value exists in the data
         '''
 
+        referenced_class: SchemaDataObject = data_class.referenced_class
         counter_fields = []
-        if data_class:
+        if referenced_class:
             counter_fields = [
-                field.name for field in data_class.fields.values()
-                if field.is_counter and (not data or field.name in data)
+                field.name for field in referenced_class.fields.values()
+                if field.is_counter and (not data or data.get(field.name))
             ]
 
         subsets = set()
@@ -912,11 +914,13 @@ class MemberData(dict):
             for key in sets:
                 subsets.add(key)
 
-        keys: set[str] = set([data_class.name])
+        keys: set[str] = set()
         for combo in subsets:
-            value = ''
+            value = data_class.name
             for field in combo:
                 value += f'_{field}={data[field]}'
             keys.add(value.rstrip('-'))
+
+        keys.add(data_class.name)
 
         return keys

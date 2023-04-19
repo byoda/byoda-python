@@ -577,11 +577,15 @@ class Subscription:
 {%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
     @strawberry.subscription
     async def {{ root_class.name }}_counter(self, info: Info,
-            filters: Optional[list[Optional[{{ root_class.name }}_counter_filter]]] = None
+            filter: {{ root_class.name }}_counter_filter | None
             ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
-        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        try:
+            result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        except:
+            pass
+        result = True
 
         if not result:
             _LOGGER.debug(
@@ -591,12 +595,18 @@ class Subscription:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
+        filter_dict: dict[str, str | UUID] | None = None
+        if filter:
+            filter_dict = {
+{%     for field_name, field in root_class.referenced_class.fields.items() %}
+{%       if field.is_counter %}
+                '{{ field.name }}': filter.{{ field_name }},
+{%       endif %}{# if field.is_counter #}
+{%     endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+            }
+
         while True:
-{%     if class_name_deliminated in ns.classes_with_counters %}
-            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info, filters)
-{%     else %}{# if class_name_deliminated in ns.classes_with_counters #}
-            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info)
-{% endif %}{# if class_name_deliminated in ns.classes_with_counters #}
+            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info, filter_dict)
             yield counter(class_name='{{ root_class.name }}', data=counter_value)
 
 

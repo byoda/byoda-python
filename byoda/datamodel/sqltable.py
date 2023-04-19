@@ -427,7 +427,7 @@ class ArraySqlTable(SqlTable):
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
 
-    async def count(self, counter_filters: list[CounterFilter]) -> int:
+    async def count(self, counter_filter: CounterFilter) -> int:
         '''
         Gets the number of items from the array stored in the table
 
@@ -438,9 +438,9 @@ class ArraySqlTable(SqlTable):
         stmt = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
 
         data = {}
-        if counter_filters:
+        if counter_filter:
             stmt += ' WHERE'
-            for field_name, value in counter_filters:
+            for field_name, value in counter_filter.items():
                 column_name = self.get_column_name(field_name)
                 stmt += f' {column_name} = :{value}'
                 data[column_name] = value

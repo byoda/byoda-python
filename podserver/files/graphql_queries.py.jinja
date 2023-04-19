@@ -152,8 +152,8 @@ GRAPHQL_STATEMENTS['{{ root_class.name }}']['updates'] = SUBSCRIPTION_{{ root_cl
 
 SUBSCRIPTION_{{ root_class.name|upper }}_COUNTER = '''
 subscription (
-    $filters: {{ root_class.name|to_lower_camel }}CounterFilter) {
-    {{ root_class.name }}_counter(filters: $filters) {
+    $filter: {{ root_class.name|to_lower_camel }}CounterFilter) {
+    {{ root_class.name }}_counter(filter: $filter) {
         class_name
         data
     }
