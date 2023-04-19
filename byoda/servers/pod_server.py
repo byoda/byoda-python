@@ -36,9 +36,9 @@ _LOGGER = logging.getLogger(__name__)
 
 Network = TypeVar('Network')
 RegistrationStatus = TypeVar('RegistrationStatus')
-JWT = TypeVar('JWT')
 Member = TypeVar('Member')
 Account = TypeVar('Account')
+JWT = TypeVar('JWT')
 
 
 class PodServer(Server):
@@ -85,7 +85,7 @@ class PodServer(Server):
         Downloads a list of service summaries
         '''
 
-        network = self.network
+        network: Network = self.network
 
         url = network.paths.get(Paths.NETWORKSERVICES_API)
         resp = await RestApiClient.call(url)

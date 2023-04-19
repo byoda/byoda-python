@@ -140,13 +140,18 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         session = await client.connect_async(reconnecting=True)
 
         request = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['updates']
-        message = gql(request)
+        message_updates = gql(request)
+        message_counter = gql(
+            GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['counter']
+        )
 
         # Test 1: no filter
-        task1 = asyncio.create_task(session.execute(message,))
-        task2 = asyncio.create_task(perform_append(member_id, 'follow'))
+        task_updates = asyncio.create_task(session.execute(message_updates,))
+        task_append = asyncio.create_task(perform_append(member_id, 'follow'))
 
-        subscribe_result, append_result = await asyncio.gather(task1, task2)
+        subscribe_result, append_result = await asyncio.gather(
+            task_updates, task_append
+        )
 
         # Confirm the GraphQL append API call was successful.
         self.assertIsNone(append_result.get('errors'))
@@ -162,6 +167,95 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             subscribe_data['data']['relation'], 'follow'
         )
+
+        await client.close_async()
+
+    async def test_graphql_counters(self):
+        pod_account = config.server.account
+        account_id = pod_account.account_id
+        network = pod_account.network
+
+        account_headers = get_account_tls_headers(account_id, network.name)
+
+        API = BASE_URL + '/v1/pod/member'
+        response = requests.get(
+            API + f'/service_id/{ADDRESSBOOK_SERVICE_ID}', timeout=120,
+            headers=account_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        member_id = UUID(data['member_id'])
+        member_headers = get_member_tls_headers(
+            member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+        )
+        ws_url = f'{BASE_WS_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+        transport = WebsocketsTransport(
+            url=ws_url,
+            subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],
+            headers=member_headers
+        )
+
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        session = await client.connect_async(reconnecting=True)
+
+        message_counter = gql(
+            GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['counter']
+        )
+        # Test 1: no filter
+        task_counter = asyncio.create_task(session.execute(message_counter,))
+        task_counter_filter_match = asyncio.create_task(
+            session.execute(
+                message_counter, {'filters': {'relation': 'follow'}}
+            )
+        )
+        # task_counter_filter_not_match = asyncio.create_task(
+        #    session.execute(
+        #        message_counter, {'filters': {'relation': 'friend'}}
+        #    )
+        # )
+        task_append = asyncio.create_task(perform_append(member_id, 'follow'))
+
+        counter_result, counter_match_result, append_result = \
+            await asyncio.gather(
+                task_counter, task_counter_filter_match, task_append
+            )
+
+        # Confirm the GraphQL counter API call was successful.
+        self.assertIsNone(counter_result.get('errors'))
+        counter_data = counter_result.get('network_links_counter')
+        self.assertEqual(counter_data['data'], 1)
+
+        # Confirm the GraphQL counter API call with matching filter was
+        # successful.
+        self.assertIsNone(counter_match_result.get('errors'))
+        counter_data = counter_match_result.get('network_links_counter')
+        self.assertEqual(counter_match_result['data'], 1)
+
+        # Confirm the GraphQL append API call was successful.
+        self.assertIsNone(append_result.get('errors'))
+        append_data = append_result.get('data')
+        self.assertIsNotNone(append_data)
+        self.assertEqual(append_data['append_network_links'], 1)
+
+        # Now delete the item and confirm the counter is decremented
+        task_counter = asyncio.create_task(session.execute(message_counter,))
+        task_delete = asyncio.create_task(perform_delete(member_id, 'follow'))
+
+        counter_result, delete_result = await asyncio.gather(
+            task_counter, task_delete
+        )
+
+        self.assertIsNone(counter_result.get('errors'))
+        counter_data = counter_result.get('network_links_counter')
+        self.assertEqual(counter_data['data'], 0)
+
+        # Confirm the GraphQL append API call was successful.
+        self.assertIsNone(delete_result.get('errors'))
+        delete_data = delete_result.get('data')
+        self.assertIsNotNone(delete_data)
+        self.assertEqual(delete_data['delete_from_network_links'], 1)
+
         await client.close_async()
 
     async def test_graphql_websocket_append_with_matching_filter(self):
@@ -313,6 +407,27 @@ async def perform_append(member_id: UUID, relation: str) -> object:
 
     response = await GraphQlClient.call(
         url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
+        timeout=120, headers=member_headers
+    )
+    result = await response.json()
+
+    return result
+
+
+async def perform_delete(member_id: UUID, relation: str) -> object:
+    await asyncio.sleep(1)
+    url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+
+    member_headers = get_member_tls_headers(
+        member_id, NETWORK, ADDRESSBOOK_SERVICE_ID
+    )
+
+    vars = {
+        'filters': {'relation': {'eq': relation}},
+    }
+
+    response = await GraphQlClient.call(
+        url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
         timeout=120, headers=member_headers
     )
     result = await response.json()

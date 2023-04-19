@@ -120,6 +120,9 @@ def get_query_key(path: list[str]) -> str:
         elif obj.endswith('_updates'):
             key = obj[:-1 * len('_updates')]
             break
+        elif obj.endswith('_counter'):
+            key = obj[:-1 * len('_counter')]
+            break
         else:
             key = obj
             break

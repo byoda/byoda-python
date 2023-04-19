@@ -65,7 +65,6 @@ RECURSIVE_QUERY_TTL = 300
 QUERY_EXPIRATION = timedelta(seconds=RECURSIVE_QUERY_TTL)
 
 
-
 class MemberData(dict):
     '''
     Generic data object for the storing data as defined
@@ -505,7 +504,7 @@ class MemberData(dict):
         # The GraphQL API that was called, with other words, the name
         # of the class referenced by an array at the top-level of the
         # schema
-        class_name = info.path.key[:-1 * len('_counters')]
+        class_name = info.path.key[:-1 * len('_counter')]
         data_class = member.schema.data_classes[class_name]
         sub = PubSub.setup(
             data_class.name, data_class, member.schema, is_sender=False

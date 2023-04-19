@@ -152,7 +152,7 @@ class counter:
     class_name: str
     data: int
 
-{% set ns = namespace(classes_with_counters='',class_has_counter = False,classes_seen='') %}
+{% set ns = namespace(classes_with_counters = '',class_has_counters = False,classes_seen = '') %}
 {% for root_class in classes.values() %}
 {%   if root_class.type != DataType.ARRAY %}
 {%     set ns.class_has_counter = False %}
@@ -162,8 +162,8 @@ class counter:
 {%       endif %}
 {%     endfor %}
 {%     if ns.class_has_counter %}
-{%       set referenced_class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
-{%       set ns.classes_with_counters = ns.classes_with_counters + referenced_class_name_deliminated %}
+{%       set class_name_deliminated = ':' + root_class.name + ':' %}
+{%       set ns.classes_with_counters = ns.classes_with_counters + class_name_deliminated %}
 {%     endif %}
 {%   endif %}
 {% endfor %}{# for root_class in classes.values() #}
@@ -214,6 +214,7 @@ class {{ root_class.name }}_update:
     class_name: str
     data: {{ root_class.referenced_class.name }}
 
+{%     set ns.class_has_counters = False %}
 {%     for field in root_class.referenced_class.fields.values() %}
 {%       if field.is_counter %}
 {%         set ns.class_has_counters = True %}
@@ -222,13 +223,12 @@ class {{ root_class.name }}_update:
 
 @strawberry.input
 class {{ root_class.name }}_counter_filter:
-{%     if class_name_deliminated not in ns.class_has_counters %}
-    dummy: str
-{%     else %} {# if class_name_deliminated in ns.class_has_counters #}
+{%     if not ns.class_has_counters %}
+    dummy: str | None
+{%     else %}{# if class_name_deliminated in ns.class_has_counters #}
 {%       for field in root_class.referenced_class.fields.values() %}
 {%         if field.is_counter %}
-    field_name: str
-    value: str | UUID
+    {{ field.name }}: {{ field.python_type }} | None
 {%         endif %}{# if field.is_counter #}
 {%       endfor %}{# for field in root_class.fields.values() #}
 {%     endif %}{# if class_name_deliminated in ns.class_has_counters #}
@@ -593,11 +593,11 @@ class Subscription:
 
         while True:
 {%     if class_name_deliminated in ns.classes_with_counters %}
-            counter: int = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
-{%     else %} {# if class_name_deliminated in ns.classes_with_counters #}
-            counter: int = await MemberDataClassByoda.get_updates({{ service_id }}, info)
-{% endif %} {# if class_name_deliminated in ns.classes_with_counters #}
-            yield counter(class_name='{{ root_class.name }}', value=counter)
+            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info, filters)
+{%     else %}{# if class_name_deliminated in ns.classes_with_counters #}
+            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info)
+{% endif %}{# if class_name_deliminated in ns.classes_with_counters #}
+            yield counter(class_name='{{ root_class.name }}', data=counter_value)
 
 
 {%   endif %}{# if not root_class.item_id and root_class.type == DataType.ARRAY #}

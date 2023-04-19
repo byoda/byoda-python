@@ -340,7 +340,7 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter = 'counter' in self.properties
+        self.is_counter = Property.COUNTER in self.properties
 
         if (self.is_counter and not (self.type == DataType.UUID or
                 self.type == DataType.STRING)):
