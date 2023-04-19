@@ -876,10 +876,17 @@ class MemberData(dict):
                                      counter_cache: CounterCache, table: Table
                                      ):
         '''
-        Update the counter cache for any fields that are counters
+        Update the counter cache for any fields in the SchemaDataArray that
+        are counters
 
         :param delta: The amount to increment the counter by (can be negative)
-        :data: the data provided in the query
+        :param data: the data provided in the query. Only counters for fields
+        for which data is provided can be updated.
+        :param data_class: The data class for the array for which the counters
+        should be updated
+        :param counter_cache: the cache where the key/values are stored
+        :param table: the (SQL) table that can be queried if there is no
+        existing value in the cache to start with
         '''
 
         # TODO: create test cases for this code
@@ -894,6 +901,11 @@ class MemberData(dict):
         '''
         Gets the different key permutations for the fields with the is_counter
         property set to True and for which a key/value exists in the data
+
+        :param data_class: The data class for the array for which the keys
+        should be generated
+        :param data: the data provided in the query. Only counters for fields
+        that have a value in the data will be included in the keys
         '''
 
         referenced_class: SchemaDataObject = data_class.referenced_class

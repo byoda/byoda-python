@@ -204,13 +204,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         # Test 1: no filter
         task_counter = asyncio.create_task(
-            session.execute(message_counter, {'filter': None})
+            session.execute(message_counter)
         )
-        task_counter_filter_match = asyncio.create_task(
-            session.execute(
-                message_counter, {'filter': {'relation': 'follow'}}
-            )
-        )
+        #task_counter_filter_match = asyncio.create_task(
+        #    session.execute(
+        #        message_counter, {'filter': {'relation': 'follow'}}
+        #    )
+        #)
         # task_counter_filter_not_match = asyncio.create_task(
         #    session.execute(
         #        message_counter, {'filter': {'relation': 'friend'}}
@@ -218,21 +218,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # )
         task_append = asyncio.create_task(perform_append(member_id, 'follow'))
 
-        counter_match_result, append_result = \
+        counter_result, append_result = \
             await asyncio.gather(
-                task_counter_filter_match, task_append
+                task_counter, task_append
             )
 
         # Confirm the GraphQL counter API call was successful.
-        # self.assertIsNone(counter_result.get('errors'))
-        # counter_data = counter_result.get('network_links_counter')
-        # self.assertEqual(counter_data['data'], 2)
+        self.assertIsNone(counter_result.get('errors'))
+        counter_data = counter_result.get('network_links_counter')
+        self.assertEqual(counter_data['data'], 1)
 
         # Confirm the GraphQL counter API call with matching filter was
         # successful.
-        self.assertIsNone(counter_match_result.get('errors'))
-        counter_data = counter_match_result.get('network_links_counter')
-        self.assertEqual(counter_match_result['data'], 1)
+        # self.assertIsNone(counter_match_result.get('errors'))
+        # counter_data = counter_match_result.get('network_links_counter')
+        # self.assertEqual(counter_match_result['data'], 1)
 
         # Confirm the GraphQL append API call was successful.
         self.assertIsNone(append_result.get('errors'))
@@ -241,7 +241,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(append_data['append_network_links'], 1)
 
         # Now delete the item and confirm the counter is decremented
-        task_counter = asyncio.create_task(session.execute(message_counter,))
+        task_counter = asyncio.create_task(
+            session.execute(message_counter)
+        )
         task_delete = asyncio.create_task(perform_delete(member_id, 'follow'))
 
         counter_result, delete_result = await asyncio.gather(

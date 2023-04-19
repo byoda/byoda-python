@@ -577,7 +577,7 @@ class Subscription:
 {%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
     @strawberry.subscription
     async def {{ root_class.name }}_counter(self, info: Info,
-            filter: {{ root_class.name }}_counter_filter | None
+            filter: {{ root_class.name }}_counter_filter | None = None
             ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
