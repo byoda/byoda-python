@@ -277,10 +277,10 @@ class NumberDataFilter(DataFilter):
         self.compare_functions = {
             'eq': self.eq,
             'ne': self.ne,
-            'gt': self.ne,
-            'lt': self.ne,
-            'egt': self.ne,
-            'elt': self.ne,
+            'gt': self.gt,
+            'lt': self.lt,
+            'egt': self.egt,
+            'elt': self.elt,
         }
 
         self.sql_functions = {

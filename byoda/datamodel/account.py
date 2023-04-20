@@ -18,7 +18,7 @@ from byoda.datatypes import MemberStatus
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
-from byoda.datastore.querycache import QueryCache
+from byoda.datacache.querycache import QueryCache
 
 from byoda.datamodel.memberdata import MemberData
 
@@ -99,6 +99,11 @@ class Account:
         self.paths.account_id = self.account_id
 
         self.memberships: dict[int, Member] = dict()
+
+        _LOGGER.debug(
+            f'Initialized account {self.account_id} on '
+            f'network {self.network.name}'
+        )
 
     async def create_secrets(self, accounts_ca: NetworkAccountsCaSecret = None,
                              renew: bool = False):
@@ -314,9 +319,6 @@ class Account:
             member_id: UUID = membership['member_id']
             service_id: int = membership['service_id']
             if service_id not in self.memberships:
-                _LOGGER.debug(
-                    f'Loading membership for service {service_id}: {member_id}'
-                )
                 await self.load_membership(service_id, member_id)
 
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
@@ -345,7 +347,11 @@ class Account:
         Load the data for a membership of a service
         '''
 
-        _LOGGER.debug(f'Loading membership for service_id: {service_id}')
+        _LOGGER.debug(
+            f'Loading membership for service_id: {service_id} with '
+            f'id {member_id}'
+        )
+
         if service_id in self.memberships:
             raise ValueError(
                 f'Already a member of service {service_id}'
@@ -370,6 +376,9 @@ class Account:
 
         if not member.query_cache:
             await member.create_query_cache()
+
+        if not member.counter_cache:
+            await member.create_counter_cache()
 
         if not member.data_secret.shared_key:
             await member.data.load_protected_shared_key()

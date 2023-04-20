@@ -130,6 +130,8 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
+        _LOGGER.debug('Instantiated Service object for service')
+
 
     async def examine_servicecontract(self, filepath: str) -> None:
         '''
@@ -137,17 +139,21 @@ class Service:
         '''
 
         _LOGGER.debug(f'Reviewing schema in {filepath}')
+
         raw_data = await self.storage_driver.read(filepath)
         data = orjson.loads(raw_data)
         service_id = data['service_id']
-        _LOGGER.debug(f'Found service_ID {service_id}')
+
         self.service_id = int(service_id)
         self.name = data['name']
+
+        _LOGGER.debug(f'Found service ID {service_id} for service {self.name}')
 
     @classmethod
     async def get_service(cls, network: Network, filepath: str = None,
                     verify_signatures: bool = True,
-                    with_private_key: bool = False, password: str = None):
+                    with_private_key: bool = False, password: str = None,
+                    load_schema: bool = True):
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures
@@ -171,13 +177,17 @@ class Service:
         if verify_signatures:
             await service.load_data_secret(with_private_key, password)
 
-        await service.load_schema(
-            filepath=filepath, verify_contract_signatures=verify_signatures
-        )
+        if load_schema:
+            await service.load_schema(
+                filepath=filepath, verify_contract_signatures=verify_signatures
+            )
 
-        service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
+            service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
+        else:
+            _LOGGER.debug('Not loading service schema')
 
-        _LOGGER.debug(f'Read service from {filepath}')
+
+        _LOGGER.debug(f'Read service from {filepath}, loaded schema: {load_schema}')
 
         return service
 
@@ -657,7 +667,9 @@ class Service:
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
         if resp.status == 200:
+            _LOGGER.debug(f'Downloaded service contract to {filepath}')
             if save:
+                _LOGGER.debug(f'Saving service contract to {filepath}')
                 await self.save_schema(await resp.text(), filepath=filepath)
 
             return await resp.text()
@@ -765,6 +777,7 @@ class Service:
         '''
 
         try:
+            _LOGGER.debug(f'Downloading data cert for service {self.service_id}')
             resp = await ApiClient.call(
                 Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
             )

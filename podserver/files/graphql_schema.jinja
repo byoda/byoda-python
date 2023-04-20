@@ -23,6 +23,7 @@ from fastapi import HTTPException
 
 from byoda.datamodel.memberdata import MemberData as MemberDataClassByoda
 from byoda.datamodel.memberdata import ORIGIN_KEY as BYODA_ORIGIN_KEY
+from byoda.datamodel.pubsub_message import PubSubMessage as PubSubMessageByoda
 from byoda.datatypes import IdType as ByodaIdType
 
 import logging as loggingByoda
@@ -146,10 +147,29 @@ class uuid_query_operator_input:
     eq: Optional[UUID] = None
     ne: Optional[UUID] = None
 
-{% set ns = namespace(classes_seen='') %}
-{% for root_class in classes.values() %}
-{%   if root_class.type != DataType.ARRAY  %}
+@strawberry.type
+class counter:
+    class_name: str
+    data: int
 
+{% set ns = namespace(classes_with_counters = '',class_has_counters = False,classes_seen = '') %}
+{% for root_class in classes.values() %}
+{%   if root_class.type != DataType.ARRAY %}
+{%     set ns.class_has_counter = False %}
+{%     for field in root_class.fields.values() %}
+{%       if field.is_counter %}
+{%         set ns.class_has_counter = True %}
+{%       endif %}
+{%     endfor %}
+{%     if ns.class_has_counter %}
+{%       set class_name_deliminated = ':' + root_class.name + ':' %}
+{%       set ns.classes_with_counters = ns.classes_with_counters + class_name_deliminated %}
+{%     endif %}
+{%   endif %}
+{% endfor %}{# for root_class in classes.values() #}
+
+{% for root_class in classes.values() %}
+{%   if root_class.type != DataType.ARRAY %}
 @strawberry.type
 class {{ root_class.name }}:
 {%     for field in root_class.fields.values() %}
@@ -166,6 +186,7 @@ class {{ root_class.name }}_input:
 {# avoid classes referenced by multiple root classes from being included multiple times #}
 {%     set class_name_deliminated = ':' + root_class.name + ':' %}
 {%     if class_name_deliminated not in ns.classes_seen %}
+
 @strawberry.input
 class {{ root_class.name }}_input_filter:
 {%       for field_name, field in root_class.fields.items() %}
@@ -185,27 +206,50 @@ class {{ root_class.name }}_input_filter:
 {%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
 
 {%   else %}{# if root_class.type != DataType.ARRAY #}
-
 {# avoid classes referenced by multiple root classes from being included multiple times #}
-{%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
-{%     if class_name_deliminated not in ns.classes_seen %}
+
+@strawberry.type
+class {{ root_class.name }}_update:
+    action: str
+    class_name: str
+    data: {{ root_class.referenced_class.name }}
+
+{%     set ns.class_has_counters = False %}
+{%     for field in root_class.referenced_class.fields.values() %}
+{%       if field.is_counter %}
+{%         set ns.class_has_counters = True %}
+{%       endif %}{# if field.is_counter #}
+{%     endfor %}{# for field in root_class.referenced_class.fields.values() #}
+
+@strawberry.input
+class {{ root_class.name }}_counter_filter:
+{%     if not ns.class_has_counters %}
+    dummy: str | None
+{%     else %}{# if class_name_deliminated in ns.class_has_counters #}
+{%       for field in root_class.referenced_class.fields.values() %}
+{%         if field.is_counter %}
+    {{ field.name }}: {{ field.python_type }} | None
+{%         endif %}{# if field.is_counter #}
+{%       endfor %}{# for field in root_class.fields.values() #}
+{%     endif %}{# if class_name_deliminated in ns.class_has_counters #}
+
 @strawberry.input
 class {{ root_class.referenced_class.name }}_input_filter:
-{%       for field_name, field in root_class.referenced_class.fields.items() %}
-{%         if field.type == DataType.STRING %}
+{%     for field_name, field in root_class.referenced_class.fields.items() %}
+{%       if field.type == DataType.STRING %}
     {{ field_name }}: Optional[string_query_operator_input] = None
-{%         elif field.type == DataType.DATETIME %}
+{%       elif field.type == DataType.DATETIME %}
     {{ field_name }}: Optional[datetime_query_operator_input] = None
-{%         elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
+{%       elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
     {{ field_name }}: Optional[number_query_operator_input] = None
-{%         elif field.type == DataType.UUID %}
+{%       elif field.type == DataType.UUID %}
     {{ field_name }}: Optional[uuid_query_operator_input] = None
-{%         elif field.type == DataType.ARRAY %}
+{%       elif field.type == DataType.ARRAY %}
     {{ field_name }}: Optional[List[str]] = None
-{%         endif %}{# if field.python_type == "str" #}
-{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
-{%       set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
-{%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
+{%       endif %}{# if field.python_type == "str" #}
+{%     endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+{%     set class_name_deliminated = ':' + root_class.name + ':' %}
+{%     set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
 {%   endif %}{# if root_class.type != DataType.ARRAY #}
 {% endfor %}{# root_class in classes.values() #}
 
@@ -496,10 +540,83 @@ class Mutation:
 
 {% endfor %}{# for root_class in classes.values() #}
 
+@strawberry.type
+class Subscription:
+{% set ns.classes_seen = '' %}
+{% for root_class in classes.values() %}
+{%   if not root_class.item_id and root_class.type == DataType.ARRAY %}
+    @strawberry.subscription
+    async def {{ root_class.name }}_updates(self, info: Info,
+            filters: Optional[{{ root_class.referenced_class.name }}_input_filter] = None
+            ) -> {{ root_class.name }}_update:
+        _LOGGER.debug('Resolving updates for {{ root_class.name }} array')
+
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{result}'
+            )
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        while True:
+            messages: list[PubSubMessageByoda] = await MemberDataClassByoda.get_updates({{ service_id }}, info, filters)
+            for message in messages:
+                yield {{ root_class.name }}_update(
+                    action=message.action.value,
+                    class_name=message.class_name,
+                    data={{ root_class.referenced_class.name }}(
+{%     for field_name, field in root_class.referenced_class.fields.items() %}
+                        message.data['{{ field_name }}'],
+{%     endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+                    )
+                )
+
+{%     set class_name_deliminated = ':' + root_class.referenced_class.name + ':' %}
+    @strawberry.subscription
+    async def {{ root_class.name }}_counter(self, info: Info,
+            filter: {{ root_class.name }}_counter_filter | None = None
+            ) -> counter:
+        _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
+
+        try:
+            result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
+        except:
+            pass
+        result = True
+
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from array '
+                '{{ root_class.name }} of objects {{ root_class.referenced_class.name }}: '
+                f'{result}'
+            )
+            raise HTTPException(status_code=400, detail='Authentication failed')
+
+        filter_dict: dict[str, str | UUID] | None = None
+        if filter:
+            filter_dict = {
+{%     for field_name, field in root_class.referenced_class.fields.items() %}
+{%       if field.is_counter %}
+                '{{ field.name }}': filter.{{ field_name }},
+{%       endif %}{# if field.is_counter #}
+{%     endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+            }
+
+        while True:
+            counter_value: int = await MemberDataClassByoda.get_counter({{ service_id }}, info, filter_dict)
+            yield counter(class_name='{{ root_class.name }}', data=counter_value)
+
+
+{%   endif %}{# if not root_class.item_id and root_class.type == DataType.ARRAY #}
+{% endfor %}{# for root_class in classes.values() #}
+
 def get_schema():
     # This is a Strawberry Schema, not byoda.Schema
     return strawberry.Schema(
-        query=Query, mutation=Mutation,
+        query=Query, mutation=Mutation, subscription=Subscription,
         config=StrawberryConfig(auto_camel_case=False)
     )
 

@@ -13,17 +13,29 @@ import os
 import sys
 import yaml
 import asyncio
+
+from uuid import uuid4
+
 from datetime import datetime, timedelta, timezone
 
-from python_graphql_client import GraphqlClient
+import orjson
+
+from byoda.util.api_client.graphql_client import GraphQlClient
 from requests.exceptions import ConnectionError as RequestConnectionError
 from requests.exceptions import HTTPError
+
+from byoda.datamodel.service import Service
 
 from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
+from byoda.datastore.memberdb import MemberDb
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datamodel.graphql_proxy import POD_TO_POD_PORT
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.paths import Paths
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
@@ -36,7 +48,7 @@ MAX_WAIT = 15 * 60
 MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
 
 BASE_URL = (
-    'https://{member_id}.members-{service_id}.{network}' +
+    'https://{member_id}.members-{service_id}.{network}:{port}' +
     GRAPHQL_API_URL_PREFIX
 )
 
@@ -67,29 +79,16 @@ async def main():
         root_directory=app_config['svcserver']['root_dir']
     )
     server = ServiceServer(network, app_config)
-    await server.load_network_secrets()
+    storage = FileStorage(app_config['svcserver']['root_dir'])
+    await server.load_network_secrets(storage_driver=storage)
 
     await server.load_secrets(
         password=app_config['svcserver']['private_key_password']
     )
     config.server = server
-    service = server.service
-    try:
-        unprotected_key_file = service.tls_secret.save_tmp_private_key()
-    except PermissionError:
-        _LOGGER.info(
-            'Could not write unprotected key, probably because it '
-            'already exists'
-        )
-        unprotected_key_file = f'/tmp/service-{service.service_id}.key'
 
-    certkey = (
-        service.paths.root_directory + '/' + service.tls_secret.cert_file,
-        unprotected_key_file
-    )
-    root_ca_certfile = (
-        f'{service.paths.root_directory}/{service.network.root_ca.cert_file}'
-    )
+    service: Service = server.service
+    service.tls_secret.save_tmp_private_key()
 
     if not await service.paths.service_file_exists(service.service_id):
         await service.download_schema(save=True)
@@ -100,21 +99,21 @@ async def main():
         f'Starting service worker for service ID: {service.service_id}'
     )
 
+    member_db: MemberDb = server.member_db
     while True:
-        member_id = server.member_db.get_next(timeout=MAX_WAIT)
+        member_id = member_db.get_next(timeout=MAX_WAIT)
         if not member_id:
             _LOGGER.debug('No member available in list of members')
             continue
 
-        server.member_db.add_member(member_id)
         _LOGGER.debug(f'Processing member_id {member_id}')
         try:
-            data = server.member_db.get_meta(member_id)
+            data = member_db.get_meta(member_id)
         except (TypeError, KeyError) as exc:
             _LOGGER.warning(f'Invalid data for member: {member_id}: {exc}')
             continue
 
-        server.member_db.add_meta(
+        member_db.add_meta(
             data['member_id'], data['remote_addr'], data['schema_version'],
             data['data_secret'], data['status']
         )
@@ -124,35 +123,50 @@ async def main():
         #
         # Here is where we can do stuff
         #
-
         url = BASE_URL.format(
             member_id=str(member_id), service_id=service.service_id,
-            network=service.network.name
-        )
-        client = GraphqlClient(
-            endpoint=url, cert=certkey, verify=root_ca_certfile
+            network=service.network.name, port=POD_TO_POD_PORT
         )
         try:
-            result = client.execute(
-                query=GRAPHQL_STATEMENTS['person']['query']
+            response = await GraphQlClient.call(
+                url,
+                GRAPHQL_STATEMENTS['person']['query'],
+                secret=service.tls_secret,
+                vars={'query_id': str(uuid4())}
             )
-            if result.get('data'):
-                edges = result['data']['person_connection']['edges']
+
+            body = await response.json()
+
+            if body.get('data'):
+                edges = body['data']['person_connection']['edges']
                 if not edges:
                     _LOGGER.debug('Did not get any info from the pod')
                 else:
                     person_data = edges[0]['person']
-                    server.member_db.set_data(member_id, person_data)
+                    _LOGGER.info(
+                        f'Got data from member {member_id}: '
+                        f'{orjson.dumps(person_data)}'
+                    )
+                    member_db.set_data(member_id, person_data)
 
-                    server.member_db.kvcache.set(
+                    member_db.kvcache.set(
                         person_data['email'], str(member_id)
                     )
+
             else:
-                _LOGGER.debug(
+                _LOGGER.warning(
                     f'GraphQL person query failed against member {member_id}'
                 )
+
+            # Add the member back to the list of members as it seems
+            # to be up and running, even if it may not have returned
+            # any data
+            member_db.add_member(member_id)
         except (HTTPError, RequestConnectionError) as exc:
-            _LOGGER.debug(f'Failed to connect to {url}: {exc}')
+            _LOGGER.info(
+                f'Not adding member back to the list because we failed '
+                f'to connect to {url}: {exc}'
+            )
             continue
         #
         # and now we wait for the time to process the next client

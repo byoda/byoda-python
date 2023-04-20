@@ -9,6 +9,10 @@ the headers that would normally be set by the reverse proxy
 TODO: include instructions on how to set up credentials to the AWS, Azure and
 GCP clouds so this test case can use those credentials
 
+For Google Cloud run:
+  gcloud auth logi
+  gcloud config set project <project>
+
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3

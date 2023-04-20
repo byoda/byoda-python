@@ -15,15 +15,13 @@ import unittest
 import logging
 from datetime import datetime, timezone
 
-from byoda.datamodel.network import Network
-
 from byoda.datamodel.schema import Schema
 
-from byoda.servers.pod_server import PodServer
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.util.logger import Logger
 
-from podserver.util import get_environment_vars
+from tests.lib.setup import setup_network
 
 from byoda import config
 
@@ -41,15 +39,6 @@ BASE_URL = 'http://localhost:{PORT}/api'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(TEST_DIR)
-
         shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
         os.environ['ROOT_DIR'] = TEST_DIR
         os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -61,15 +50,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
         os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network = Network(network_data, network_data)
-        await network.load_network_secrets()
-        config.server = PodServer(
-            bootstrapping=bool(network_data.get('bootstrap'))
-        )
-        config.server.network = network
+        await setup_network()
 
     @classmethod
     def tearDownClass(cls):
@@ -84,14 +65,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        data_classes = schema.get_graphql_classes()
+        data_classes = schema.get_data_classes()
         data = {
             'person': {
                 'given_name': 'Steven',
                 'family_name': 'Hessing',
                 'email': 'steven@byoda.org'
             },
-            'network_links': [
+            MARKER_NETWORK_LINKS: [
                 {
                     'created_timestamp': now.isoformat(),
                     'member_id': uuid,
@@ -111,11 +92,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue('person' in data)
         self.assertEqual(len(data['person']), 3)
-        self.assertTrue('network_links' in data)
-        self.assertEqual(len(data['network_links']), 1)
-        self.assertEqual(data['network_links'][0]['relation'], 'follows')
-        self.assertEqual(data['network_links'][0]['created_timestamp'], now)
-        self.assertEqual(data['network_links'][0]['member_id'], uuid)
+        self.assertTrue(MARKER_NETWORK_LINKS in data)
+        self.assertEqual(len(data[MARKER_NETWORK_LINKS]), 1)
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['relation'], 'follows')
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['created_timestamp'], now)
+        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['member_id'], uuid)
 
 
 if __name__ == '__main__':

@@ -26,7 +26,7 @@ from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
-_ACCESS_MARKER = '#accesscontrol'
+GRAPHQL_OPERATIONS: tuple[str] = ('query', 'mutation', 'subscription')
 
 SchemaDataItem = TypeVar('SchemaDataItem')
 
@@ -67,9 +67,9 @@ async def authorize_graphql_request(operation: DataOperationType,
             'root level of the service contract'
         )
 
-    _LOGGER.debug(f'Authorizing request for data element {key}')
-
     auth: RequestAuth = info.context['auth']
+
+    _LOGGER.debug(f'Authorizing request for data element {key}')
 
     data_class: SchemaDataItem = data_classes[key]
     access_allowed = await data_class.authorize_access(
@@ -101,7 +101,7 @@ def get_query_key(path: list[str]) -> str:
     # GraphQL Mutate queries
     key = None
     for obj in reversed(path):
-        if obj is None or obj.lower() in ('query', 'mutation'):
+        if obj is None or obj.lower() in (GRAPHQL_OPERATIONS):
             continue
         elif obj.endswith('_connection'):
             key = obj[:-1 * len('_connection')]
@@ -116,6 +116,12 @@ def get_query_key(path: list[str]) -> str:
             break
         elif obj.startswith('delete_from_'):
             key = obj[len('delete_from_'):]
+            break
+        elif obj.endswith('_updates'):
+            key = obj[:-1 * len('_updates')]
+            break
+        elif obj.endswith('_counter'):
+            key = obj[:-1 * len('_counter')]
             break
         else:
             key = obj

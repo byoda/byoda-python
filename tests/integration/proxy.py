@@ -50,7 +50,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         auth_header = get_jwt_header(
             base_url=base_url, id=id, secret=account_secret,
-            member_token=True
+            service_id=service_id
         )
         self.assertIsNotNone(auth_header)
 

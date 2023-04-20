@@ -8,6 +8,7 @@ storing data about their members
 '''
 
 import logging
+
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 
@@ -15,7 +16,9 @@ import orjson
 
 import aiosqlite
 
-from .kv_cache import KVCache
+from byoda.datatypes import CacheType
+
+from byoda.datacache.kv_cache import KVCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ def dict_factory(cursor, row):
 
 
 class KVSqlite(KVCache):
-    def __init__(self, cache_file: str):
+    def __init__(self, cache_file: str, cache_type: CacheType):
         '''
         Constructor
 
@@ -39,24 +42,7 @@ class KVSqlite(KVCache):
         super().__init__(identifier=None)
         self.default_cache_expiration = DEFAULT_CACHE_EXPIRATION
         self.cache_file = cache_file
-
-    @staticmethod
-    async def create(cache_file: str):
-        cache = KVSqlite(cache_file)
-
-        _LOGGER.debug(f'Connecting to Sqlite DB: {cache_file}')
-        async with aiosqlite.connect(cache_file, isolation_level=None
-                                     ) as db_conn:
-            _LOGGER.debug('Creating querycache table')
-            await db_conn.execute('''
-                CREATE TABLE IF NOT EXISTS querycache(
-                    query_id TEXT PRIMARY KEY,
-                    data TEXT,
-                    expires INTEGER
-                ) STRICT
-            ''')
-
-        return cache
+        self.cache_type: CacheType = cache_type
 
     async def close(self):
         '''
@@ -64,6 +50,35 @@ class KVSqlite(KVCache):
         '''
 
         pass
+
+    def _get_table_name(self):
+        '''
+        Gets the name of the SQL table for the cache
+        '''
+
+        return f'BYODA_{self.cache_type.value}'
+
+    @staticmethod
+    async def create(connection_string: str, cache_type: CacheType):
+        cache = KVSqlite(connection_string, cache_type)
+
+        _LOGGER.debug(f'Connecting to Cache: {connection_string}')
+        async with aiosqlite.connect(connection_string, isolation_level=None
+                                     ) as db_conn:
+            if not cache_type:
+                raise ValueError(f'Invalida cache type: {cache_type.value}')
+
+            table_name: str = cache._get_table_name()
+            _LOGGER.debug(f'Creating {table_name} cache table')
+            await db_conn.execute(
+                f'CREATE TABLE IF NOT EXISTS {table_name}('
+                f'    key TEXT PRIMARY KEY,'
+                f'    data TEXT,'
+                f'    expires INTEGER'
+                f') STRICT'
+            )
+
+        return cache
 
     async def exists(self, key: str) -> bool | None:
         '''
@@ -75,20 +90,31 @@ class KVSqlite(KVCache):
                                          ) as db_conn:
                 db_conn.row_factory = dict_factory
 
-                _LOGGER.debug(f'Checking if key {key} exists in the cache')
-                rows = await db_conn.execute_fetchall(
-                    'SELECT * FROM querycache WHERE query_id = :query_id',
-                    {'query_id': str(key)}
+                cache_type: str = self.cache_type.value
+                table_name: str = self._get_table_name()
+
+                _LOGGER.debug(
+                    f'Checking if key {key} exists in cache {cache_type}'
                 )
-            _LOGGER.debug(f'Found {rows} rows for cache key {key}')
+                rows = await db_conn.execute_fetchall(
+                    f'SELECT * FROM {table_name} WHERE key = :value',
+                    {'value': str(key)}
+                )
+            _LOGGER.debug(
+                f'Found {rows} rows for cache key {key} for cache {cache_type}'
+            )
             return len(rows) > 0
         except aiosqlite.OperationalError as exc:
-            _LOGGER.debug(f'Checking for key {key} failed: {exc}')
+            _LOGGER.debug(
+                f'Checking for key {key} in cache {cache_type} failed: {exc}'
+            )
             return None
 
-    async def get(self, key: str) -> object:
+    async def get(self, key: str) -> object | None:
         '''
         Gets the values for a key from the cache
+
+        :returns: None if key does not exist
         '''
 
         try:
@@ -96,20 +122,29 @@ class KVSqlite(KVCache):
                                          ) as db_conn:
                 db_conn.row_factory = dict_factory
 
-                _LOGGER.debug(f'Getting key {key} from cache')
+                cache_type: str = self.cache_type.value
+                table_name: str = self._get_table_name()
+
+                _LOGGER.debug(f'Getting key {key} from cache {cache_type}')
                 rows = await db_conn.execute_fetchall(
-                    'SELECT * FROM querycache WHERE query_id = :query_id',
-                    {'query_id': str(key)}
+                    f'SELECT * FROM {table_name} WHERE key = :value',
+                    {'value': str(key)}
                 )
 
         except aiosqlite.OperationalError as exc:
-            _LOGGER.debug(f'Getting key {key} failed: {exc}')
+            _LOGGER.debug(
+                f'Getting key {key} from cache {cache_type} failed: {exc}'
+            )
             return None
 
-        _LOGGER.debug(f'Found {len(rows)} rows for cache key {key}')
+        _LOGGER.debug(
+            f'Found {len(rows)} rows for key {key} in cache {cache_type}'
+        )
 
         if len(rows) > 1:
-            raise ValueError(f'More than 1 row returned for key: {key}')
+            raise ValueError(
+                f'More than 1 row returned for key {key} in cache {cache_type}'
+            )
 
         if len(rows) == 0:
             return None
@@ -132,14 +167,19 @@ class KVSqlite(KVCache):
         try:
             async with aiosqlite.connect(self.cache_file, isolation_level=None
                                          ) as db_conn:
+                cache_type: str = self.cache_type.value
+                table_name: str = self._get_table_name()
+
                 now = datetime.now(tz=timezone.utc)
                 expires = now + timedelta(seconds=expiration)
                 data = orjson.dumps(value).decode('utf-8')
                 _LOGGER.debug(
-                    f'Inserting key {key} with value {data} into cache'
+                    f'Inserting key {key} with value {data} into cache '
+                    f'{cache_type}'
                 )
                 result = await db_conn.execute(
-                    'INSERT INTO querycache VALUES (:key, :data, :expiration)',        # noqa: E501
+                    f'INSERT INTO {table_name} '
+                    f'VALUES (:key, :data, :expiration)',
                     {
                         'key': key,
                         'data': data,
@@ -148,8 +188,129 @@ class KVSqlite(KVCache):
                 )
                 return result.rowcount == 1
         except aiosqlite.IntegrityError as exc:
-            _LOGGER.debug(f'Inserting key {key} failed primary key: {exc}')
+            _LOGGER.debug(
+                f'Inserting key {key} in cache {cache_type} failed '
+                f'for primary key: {exc}'
+            )
             return False
+
+    async def incr(self, key: str | UUID, value: int = 1,
+                   expiration: int = DEFAULT_CACHE_EXPIRATION) -> int:
+        '''
+        increments the value for the key in the cache
+
+        :returns: None if key not in the cache
+        :raises: ValueError if the value for the key is not an int
+        '''
+
+        cache_type: str = self.cache_type.value
+        _LOGGER.debug(
+            f'Incrementing key {key} with value {value} into cache '
+            f'{cache_type}'
+        )
+
+        # TODO: put get and set in a single SQL transaction
+        current_value = await self.get(key)
+        if current_value is None:
+            return None
+
+        try:
+            new_value = max(0, int(current_value) + value)
+        except ValueError as exc:
+            _LOGGER.exception(
+                f'Can not increment non-integer value {type(current_value)}: '
+                f'{exc}'
+            )
+            raise
+
+        try:
+            async with aiosqlite.connect(self.cache_file, isolation_level=None
+                                         ) as db_conn:
+                table_name: str = self._get_table_name()
+
+                now = datetime.now(tz=timezone.utc)
+                expires = now + timedelta(seconds=expiration)
+                data = orjson.dumps(new_value).decode('utf-8')
+                _LOGGER.debug(
+                    f'Updating key {key} with value {data} into cache '
+                    f'{cache_type}'
+                )
+                await db_conn.execute(
+                    f'UPDATE {table_name} '
+                    f'SET data = :data, expires = :expiration '
+                    f'WHERE key = :key',
+                    {
+                        'key': key,
+                        'data': data,
+                        'expiration': int(expires.timestamp())
+                    }
+                )
+        except aiosqlite.IntegrityError as exc:
+            _LOGGER.exception(
+                f'Update key {key} in cache {cache_type} failed: {exc}'
+            )
+            return RuntimeError
+
+        return new_value
+
+    async def decr(self, key: str | UUID, value: int = 1,
+                   expiration: int = DEFAULT_CACHE_EXPIRATION) -> int:
+        '''
+        increments the value for the key in the cache
+
+        :returns: None if key not in the cache
+        :raises: ValueError if the value for the key is not an int
+        '''
+
+        cache_type: str = self.cache_type.value
+        _LOGGER.debug(
+            f'Decrementing key {key} with value {value} into cache '
+            f'{cache_type}'
+        )
+
+        # TODO: put get and set in a single SQL transaction
+        current_value = await self.get(key)
+        if current_value is None:
+            return None
+
+        try:
+            new_value = max(0, int(current_value) - value)
+        except ValueError as exc:
+            _LOGGER.exception(
+                f'Can not decrement non-integer value {type(current_value)}: '
+                f'{exc}'
+            )
+            raise
+
+        try:
+            async with aiosqlite.connect(self.cache_file, isolation_level=None
+                                         ) as db_conn:
+                table_name: str = self._get_table_name()
+
+                now = datetime.now(tz=timezone.utc)
+                expires = now + timedelta(seconds=expiration)
+                data = orjson.dumps(new_value).decode('utf-8')
+                _LOGGER.debug(
+                    f'Updating key {key} with value {data} into cache '
+                    f'{cache_type}'
+                )
+                await db_conn.execute(
+                    f'UPDATE {table_name} '
+                    f'SET data = :data, expires = :expiration'
+                    f'WHERE key = :key',
+                    {
+                        'key': key,
+                        'data': data,
+                        'expiration': int(expires.timestamp())
+                    }
+                )
+        except aiosqlite.IntegrityError as exc:
+            _LOGGER.exception(
+                f'Update key {key} in cache {cache_type} failed: {exc}'
+            )
+            return RuntimeError
+
+        return new_value
 
     async def delete(self, key: str | UUID) -> bool:
         try:
@@ -157,12 +318,17 @@ class KVSqlite(KVCache):
             async with aiosqlite.connect(self.cache_file, isolation_level=None
                                          ) as db_conn:
                 db_conn.row_factory = dict_factory
+
+                cache_type: str = self.cache_type.value
+                table_name: str = self._get_table_name()
+
                 result = await db_conn.execute(
-                    'DELETE FROM querycache WHERE query_id = :key',
+                    f'DELETE FROM {table_name} WHERE key = :key',
                     {'key': key}
                 )
                 _LOGGER.debug(
                     f'Deleted {result.rowcount} row(s) for key {key}'
+                    f'from cache {cache_type}'
                 )
                 return result.rowcount > 0
         except Exception as exc:
@@ -175,17 +341,21 @@ class KVSqlite(KVCache):
         '''
 
         now = datetime.now(tz=timezone.utc)
+        cache_type: str = self.cache_type.value
         try:
             _LOGGER.debug(f'Purging expired keys from the cache {str(now)}')
             async with aiosqlite.connect(self.cache_file, isolation_level=None
                                          ) as db_conn:
+                table_name: str = self._get_table_name()
+
                 result = await db_conn.execute(
-                    'DELETE FROM querycache WHERE expires < :timestamp',
+                    f'DELETE FROM {table_name} '
+                    f'WHERE expires < :timestamp',
                     {'timestamp': int(now.timestamp())}
                 )
                 return result.rowcount
         except Exception as exc:
-            _LOGGER.warning(f'Purging query cache failed: {exc}')
+            _LOGGER.warning(f'Purging cache {cache_type} failed: {exc}')
             return False
 
     def get_next(self):

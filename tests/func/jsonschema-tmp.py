@@ -24,8 +24,6 @@ from starlette.applications import Starlette
 from multiprocessing import Process
 import uvicorn
 
-from python_graphql_client import GraphqlClient
-
 from strawberry.asgi import GraphQL
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -38,6 +36,7 @@ from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.service import Service
 
 from byoda.datatypes import CloudType
+from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.secrets import MemberSecret, MemberDataSecret
 
@@ -211,7 +210,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         server.account = pod_account
 
         await server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.SQLITE, pod_account.data_secret
         )
 
         # We can't join the service as it doesn't exist in the network
@@ -360,7 +359,7 @@ class TestJsonSchema(unittest.IsolatedAsyncioTestCase):
         result = client.execute(
             query=network_links_query, headers=member_headers
         )
-        self.assertEqual(result['data']['network_links'], [])
+        self.assertEqual(result['data'][MARKER_NETWORK_LINKS], [])
 
         network_links_variables = {
             'timestamp': '2022-01-21T04:01:36.798843+00:00',

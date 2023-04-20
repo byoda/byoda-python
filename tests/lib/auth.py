@@ -26,7 +26,8 @@ from tests.lib.defines import AZURE_POD_MEMBER_ID
 
 
 def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
-                   secret: str = None, member_token: bool = True):
+                   secret: str = None,
+                   service_id: int = ADDRESSBOOK_SERVICE_ID):
 
     if not id:
         account = config.server.account
@@ -38,15 +39,16 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     url = base_url + '/v1/pod/authtoken'
 
     data = {
-        'account': str(id)[:8],
+        'username': str(id)[:8],
         'password': secret
     }
-    if member_token:
-        data['service_id'] = ADDRESSBOOK_SERVICE_ID
+    if service_id is not None:
+        data['service_id'] = service_id
 
     response = requests.post(url, json=data)
 
     result = response.json()
+
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }

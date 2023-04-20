@@ -121,7 +121,7 @@ class ApiClient:
             if secret:
                 if not storage:
                     # Hack: podserver and svcserver use different attributes
-                        storage = server.storage_driver
+                    storage = server.storage_driver
 
                 cert_filepath = storage.local_path + secret.cert_file
                 key_filepath = secret.get_tmp_private_key_filepath()
@@ -163,7 +163,9 @@ class ApiClient:
         if isinstance(method, HttpMethod):
             method: str = method.value
 
-        if type(data) not in [str, bytes]:
+        processed_data = data
+        updated_headers = None
+        if data and type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs
             processed_data = orjson.dumps(data)
             if headers:

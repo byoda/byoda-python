@@ -78,6 +78,9 @@ class Server:
 
         self.cloud = cloud_type
 
+        _LOGGER.debug(
+            f'Setting document store to {store_type} on cloud {cloud_type}'
+        )
         self.document_store = await DocumentStore.get_document_store(
             store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,
             root_dir=root_dir

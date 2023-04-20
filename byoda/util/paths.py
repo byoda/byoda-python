@@ -71,6 +71,7 @@ class Paths:
     MEMBER_DATA_DIR                = 'private/network-{network}/account-{account}/data/network-{network}-member-{member_id}'                                    # noqa
     MEMBER_DATA_FILE               = 'data-{service_id}-{member_id}.db'                                                                                         # noqa
     MEMBER_QUERY_CACHE_FILE        = 'querycache-{service_id}-{member_id}.db'                                                                                   # noqa
+    MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                   # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 

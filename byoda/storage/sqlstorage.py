@@ -1,8 +1,7 @@
 '''
-There is both a generic SQL class. The generic SQL class takes care
-of converting the data schema of a service to a SQL table. Classes
-for different SQL flavors and implementations should derive from
-this class
+The generic SQL class takes care of converting the data schema of
+a service to a SQL table. Classes for different SQL flavors and
+implementations should derive from this class
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -17,7 +16,7 @@ import aiosqlite
 
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet
-
+from byoda.datamodel.table import Table
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -38,13 +37,13 @@ class Sql:
         if not member_id:
             filepath: str = self.account_db_file
 
-            _LOGGER.debug('Using account DB file')
+            _LOGGER.debug(f'Using account DB file: {filepath}')
         else:
             filepath: str = self.member_db_files.get(
                 member_id
             )
             _LOGGER.debug(
-                f'Using member DB file for member_id {member_id}'
+                f'Using member DB file for member_id {member_id}: {filepath}'
             )
             if not filepath:
                 raise ValueError(f'No DB for member_id {member_id}')
@@ -95,10 +94,6 @@ class Sql:
                         f'Committing transaction for SQL command: {command}'
                     )
                     await db_conn.commit()
-                else:
-                    _LOGGER.debug(
-                        f'Not SQL committing for SQL command {command}'
-                    )
 
                 return result
             except aiosqlite.Error as exc:
@@ -107,6 +102,14 @@ class Sql:
                     f'Error executing SQL: {exc}')
 
                 raise RuntimeError(exc)
+
+    def get_table(self, member_id: UUID, class_name: str) -> Table:
+        '''
+        Returns the table for the class of the member_id
+        '''
+
+        sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
+        return sql_table
 
     async def query(self, member_id: UUID, key: str,
                     filters: DataFilterSet = None) -> dict[str, object]:

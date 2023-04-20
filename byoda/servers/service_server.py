@@ -18,6 +18,8 @@ from byoda.datastore.searchdb import SearchDB
 
 from byoda.secrets.member_secret import MemberSecret
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
 
@@ -64,8 +66,8 @@ class ServiceServer(Server):
 
         self.dns_resolver = DnsResolver(network.name)
 
-    async def load_network_secrets(self):
-        await self.network.load_network_secrets()
+    async def load_network_secrets(self, storage_driver: FileStorage = None):
+        await self.network.load_network_secrets(storage_driver=storage_driver)
 
     async def load_secrets(self, password: str):
         await self.service.load_secrets(

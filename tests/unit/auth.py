@@ -21,30 +21,28 @@ from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
 from byoda.requestauth.requestauth import RequestAuth
-from byoda.requestauth.jwt import JWT
 
-from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.member import Secret
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.datastore.document_store import DocumentStoreType
-from byoda.datastore.data_store import DataStoreType
-from byoda.datatypes import CloudType, IdType
+from byoda.datatypes import IdType
 from byoda.datatypes import TlsStatus
 from byoda.datatypes import HttpRequestMethod
-
-
-from podserver.util import get_environment_vars
 
 from byoda.util.logger import Logger
 
 from byoda import config
 
-from tests.lib.util import get_test_uuid
+from tests.lib.setup import mock_environment_vars
+from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
+
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
+
 CONFIG_FILE = 'tests/collateral/config.yml'
 
 TEST_DIR = '/tmp/byoda-tests/auth'
@@ -52,61 +50,11 @@ TEST_DIR = '/tmp/byoda-tests/auth'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
+        mock_environment_vars(TEST_DIR)
+        
+        network_data = await setup_network()
 
-        os.makedirs(TEST_DIR)
-
-        os.environ['ROOT_DIR'] = TEST_DIR
-        os.environ['BUCKET_PREFIX'] = 'byoda'
-        os.environ['CLOUD'] = 'LOCAL'
-        os.environ['NETWORK'] = 'byoda.net'
-        os.environ['ACCOUNT_ID'] = str(get_test_uuid())
-        os.environ['ACCOUNT_SECRET'] = 'test'
-        os.environ['LOGLEVEL'] = 'DEBUG'
-        os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
-        os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
-
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network = Network(network_data, network_data)
-        await network.load_network_secrets()
-
-        config.server = PodServer(network)
-        server = config.server
-
-        await server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType(network_data['cloud']),
-            bucket_prefix=network_data['bucket_prefix'],
-            root_dir=network_data['root_dir']
-        )
-
-        server.paths = network.paths
-        pod_account = Account(network_data['account_id'], network)
-        await pod_account.paths.create_account_directory()
-
-        server.account = pod_account
-
-        await pod_account.create_account_secret()
-        await pod_account.create_data_secret()
-
-        await server.set_data_store(
-            DataStoreType.SQLITE, pod_account.data_secret
-        )
-
-        await pod_account.load_memberships()
-
-        await pod_account.register()
-        await server.get_registered_services()
-
-        member_id = get_test_uuid()
-        await pod_account.join(
-            ADDRESSBOOK_SERVICE_ID, 1, server.local_storage, member_id=member_id
-        )
+        account = await setup_account(network_data)
 
     async def test_jwt(self):
         #

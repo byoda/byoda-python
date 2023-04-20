@@ -31,7 +31,7 @@ from byoda.util.paths import Paths
 
 from byoda import config
 
-from .sql import Sql
+from .sqlstorage import Sql
 
 Account = TypeVar('Account')
 Member = TypeVar('Member')

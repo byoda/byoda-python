@@ -1,9 +1,22 @@
 #!/bin/bash
 
+
+export TAG=latest
+
+if [ -d ".git" ]; then
+    RESULT=$(grep byoda .git/config)
+    if [ "$?" -eq "0" ]; then
+        RESULT=$(git status | head -1 | grep 'branch master')
+        if [ "$?" -eq "1" ]; then
+            export TAG=dev
+        fi
+    fi
+fi
+
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 KEEP_LOGS=0
-args=$(getopt -l "help" -l "wipe-all" -l "keep-logs" -o "" -- "$@")
+args=$(getopt -l "help" -l "wipe-all" -l "wipe-member-data" -l "keep-logs" -l "tag" -o "t:" -- "$@")
 
 eval set -- "$args"
 
@@ -23,6 +36,10 @@ while [ $# -ge 1 ]; do
         --keep-logs)
             KEEP_LOGS=1
             ;;
+        -t|--tag)
+            shift
+            export TAG=$2
+            ;;
         -h|--help)
             echo "$0: Launch the Byoda container"
             echo ""
@@ -30,10 +47,13 @@ while [ $# -ge 1 ]; do
             echo ""
             echo "Usage: $0 [--help/-h] [--wipe-all] [--wipe-member-data] [--keep-logs]"
             echo ""
-            echo "--help/-h     shows this helptext"
-            echo "--wipe-all    wipe all of the data of the pod and creates a new account ID before launching te container"
+            echo "--help/-h             shows this helptext"
+            echo "--wipe-all            wipe all of the data of the pod and creates a new account ID before launching te container"
+            echo "--wipe-member-data    wipe all membership data of the pod before launching te container"
+            echo "--keep-logs           do not delete the logs of the pod"
+            echo "--tag [latest | dev ] use the dev or latest tag of the container"
             echo ""
-            return 0
+            exit 0
             ;;
         *)
            ;;
@@ -47,6 +67,12 @@ done
 echo "Loading settings from settings.sh"
 source ~/byoda-settings.sh
 
+if [[ "${TAG}" != "latest" && "${TAG}" != "dev" ]]; then
+    echo "Invalid tag: ${TAG}"
+    exit 1
+fi
+
+echo "Using Byoda container byoda-pod:${TAG}"
 
 if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
@@ -195,7 +221,7 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping GCP storage failed, you may have to run 'az login' first"
             exit 1
         fi
     fi
@@ -229,7 +255,7 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping AWS storage failed, you may have to run 'aws login' first"
             exit 1
         fi
     fi
@@ -244,15 +270,13 @@ else
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
-        echo "Wiping data and secrets for memberships not supported on AWS yet"
-        exit 1
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}-account-pod-member-*.key
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/*
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping storage failed"
             exit 1
         fi
     fi
@@ -295,7 +319,7 @@ if [[ "${CLOUD}" != "LOCAL" ]]; then
 fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
-sudo docker pull byoda/byoda-pod:latest
+sudo docker pull byoda/byoda-pod:${TAG}
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
@@ -323,4 +347,5 @@ sudo docker run -d \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \
-    byoda/byoda-pod:latest
+    --ulimit nofile=65536:65536 \
+    byoda/byoda-pod:${TAG}
