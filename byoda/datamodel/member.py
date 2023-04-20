@@ -23,6 +23,7 @@ from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import StorageType
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datatypes import GRAPHQL_WS_API_URL_PREFIX
 
 
 from byoda.datamodel.service import Service
@@ -32,8 +33,8 @@ from byoda.datamodel.schema import Schema, SignatureType
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
 
-from byoda.datastore.querycache import QueryCache
-
+from byoda.datacache.querycache import QueryCache
+from byoda.datacache.counter_cache import CounterCache
 from byoda.storage import FileStorage
 
 
@@ -107,6 +108,7 @@ class Member:
         self.data_store: DataStore = config.server.data_store
 
         self.query_cache: QueryCache | None = None
+        self.counter_cache: CounterCache | None = None
 
         self.storage_driver: FileStorage = self.document_store.backend
 
@@ -121,6 +123,11 @@ class Member:
         self.service_ca_secret: ServiceCaSecret | None = None
         # This is the cert chain up to but excluding the network root CA
         self.service_ca_certchain: ServiceCaSecret | None = None
+
+        _LOGGER.debug(
+            f'Instantiated membership {self.member_id} for '
+            f'service {self.service_id}'
+        )
 
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
@@ -138,7 +145,7 @@ class Member:
             # by the service, which may differ from the one we have
             # previously accepted
             _LOGGER.debug(
-                'Setting up membership for service {self.service_id}'
+                f'Setting up membership for service {self.service_id}'
             )
             if local_service_contract:
                 if not config.test_case:
@@ -149,22 +156,24 @@ class Member:
                 filepath = local_service_contract
             else:
                 if new_membership:
+                    _LOGGER.debug('Setting up new membership')
                     filepath = self.paths.service_file(self.service_id)
                 else:
+                    _LOGGER.debug('Setting up existing membership')
                     filepath = self.paths.member_service_file(self.service_id)
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
 
             try:
                 _LOGGER.debug(
-                    f'Setting up service {self.service_id} from {filepath}'
+                    f'Setting up service {self.service_id} from {filepath} '
+                    'without loading the schema'
                 )
                 self.service = await Service.get_service(
                     self.network, filepath=filepath,
-                    verify_signatures=verify_signatures
+                    verify_signatures=verify_signatures,
+                    load_schema=False
                 )
-                if not local_service_contract:
-                    await self.service.verify_schema_signatures()
             except FileNotFoundError:
                 # if the service contract is not yet available for
                 # this membership then it should be downloaded at
@@ -191,8 +200,13 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
+            if new_membership:
+                await self.service.download_schema(
+                    save=True, filepath=filepath
+                )
+
             self.schema: Schema = await self.load_schema(
-                verify_signatures=verify_signatures
+                filepath=filepath, verify_signatures=verify_signatures,
             )
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
@@ -291,18 +305,6 @@ class Member:
         if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
-        # TODO: make this more user-friendly by attempting to download
-        # the specific version of a schema
-        if not local_service_contract:
-            await member.service.download_schema(
-                save=True, filepath=member.paths.get(Paths.MEMBER_SERVICE_FILE)
-            )
-
-        member.schema = await member.load_schema(
-            filepath=local_service_contract,
-            verify_signatures=not bool(local_service_contract)
-        )
-
         if (member.schema.version != schema_version):
             raise ValueError(
                 f'Downloaded schema for service_id {service.service_id} '
@@ -336,7 +338,7 @@ class Member:
         )
         return member
 
-    async def create_query_cache(self):
+    async def create_query_cache(self) -> None:
         '''
         Sets up the query cache for the membership
         '''
@@ -344,7 +346,15 @@ class Member:
         _LOGGER.debug('Creating query cache for membership')
         self.query_cache = await QueryCache.create(self)
 
-    async def create_nginx_config(self):
+    async def create_counter_cache(self) -> None:
+        '''
+        Sets up the counter cache for the membership
+        '''
+
+        _LOGGER.debug('Creating query cache for membership')
+        self.counter_cache = await CounterCache.create(self)
+
+    async def create_nginx_config(self) -> None:
         '''
         Generates the Nginx virtual server configuration for
         the membership
@@ -380,7 +390,7 @@ class Member:
         nginx_config.create()
         nginx_config.reload()
 
-    def update_schema(self, version: int):
+    def update_schema(self, version: int) -> None:
         '''
         Download the latest version of the schema, disables the old version
         of the schema and enables the new version
@@ -648,6 +658,9 @@ class Member:
                           verify_signatures: bool = True) -> Schema:
         '''
         Loads the schema for the service that we're loading the membership for
+
+        :param filepath: The path to the schema file. If not provided, schema
+        will be read from the default location
         '''
 
         if not filepath:
@@ -667,8 +680,11 @@ class Member:
             )
             raise FileNotFoundError(filepath)
 
+        _LOGGER.debug(f'Loading schema at {filepath}')
         if verify_signatures:
             await self.verify_schema_signatures(schema)
+        else:
+            _LOGGER.debug('Not verifying schema signatures')
 
         schema.generate_graphql_schema(
             verify_schema_signatures=verify_signatures
@@ -694,12 +710,21 @@ class Member:
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
         # requests
-        path = GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)
+        rest_path = GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)
         graphql_app = GraphQLRouter(
-            self.schema.gql_schema, graphiql=config.debug
+            self.schema.gql_schema, graphiql=config.debug,
         )
 
-        app.include_router(graphql_app, prefix=path)
+        app.include_router(graphql_app, prefix=rest_path)
+
+        websocket_path = GRAPHQL_WS_API_URL_PREFIX.format(
+            service_id=self.service_id
+        )
+        app.add_websocket_route(websocket_path, graphql_app)
+        _LOGGER.debug(
+            'Opened websocket route for GraphQL subscriptions '
+            f'at {websocket_path}'
+        )
 
     def upgrade_graphql_api(self, app: FastAPI) -> None:
         '''

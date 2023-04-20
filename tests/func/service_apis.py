@@ -28,12 +28,15 @@ from cryptography.hazmat.primitives import serialization
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
-from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import Service
 
 from byoda.secrets import Secret
 from byoda.secrets import MemberSecret
 from byoda.secrets import MemberDataSecret
+
+from byoda.storage.filestorage import FileStorage
+
+from byoda.servers.service_server import ServiceServer
 
 from byoda.util.logger import Logger
 from byoda.util.paths import Paths
@@ -117,7 +120,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         config.server = ServiceServer(network, app_config)
-        await config.server.load_network_secrets()
+        storage = FileStorage(app_config['svcserver']['root_dir'])
+        await config.server.load_network_secrets(storage_driver=storage)
 
         await config.server.load_secrets(
             app_config['svcserver']['private_key_password']

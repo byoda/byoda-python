@@ -15,8 +15,9 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.member import Member
 
-from byoda.datastore.querycache import QueryCache
+from byoda.datacache.querycache import QueryCache
 
+from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import get_test_uuid
@@ -28,6 +29,8 @@ TEST_DIR = '/tmp/byoda-tests/query_cache'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        mock_environment_vars(TEST_DIR)
+
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         try:

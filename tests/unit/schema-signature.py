@@ -14,20 +14,15 @@ import shutil
 import unittest
 import logging
 
-from byoda.datamodel.network import Network
-
 from byoda.datamodel.schema import Schema
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.util.logger import Logger
-
-from podserver.util import get_environment_vars
 
 from byoda import config
 
 from tests.lib.util import get_test_uuid
-
+from tests.lib.setup import mock_environment_vars
+from tests.lib.setup import setup_network
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,26 +44,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
-        os.environ['ROOT_DIR'] = TEST_DIR
-        os.environ['BUCKET_PREFIX'] = 'byoda'
-        os.environ['CLOUD'] = 'LOCAL'
-        os.environ['NETWORK'] = 'byoda.net'
-        os.environ['ACCOUNT_ID'] = str(get_test_uuid())
-        os.environ['ACCOUNT_SECRET'] = 'test'
-        os.environ['LOGLEVEL'] = 'DEBUG'
-        os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
-        os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
-
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network: Network = Network(network_data, network_data)
-        await network.load_network_secrets()
-        config.server: PodServer = PodServer(
-            bootstrapping=bool(network_data.get('bootstrap'))
-        )
-        config.server.network = network
+        mock_environment_vars(TEST_DIR)
+        await setup_network()
 
     @classmethod
     def tearDownClass(cls):

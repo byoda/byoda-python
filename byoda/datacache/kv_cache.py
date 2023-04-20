@@ -16,11 +16,16 @@ from abc import ABC, abstractmethod
 from byoda import config
 
 from byoda.datatypes import CacheTech
+from byoda.datatypes import CacheType
 
 _LOGGER = logging.getLogger(__name__)
 
 # 3 days default expiration
 DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
+
+# TODO: review
+# ldbm at https://pypi.org/project/lmdbm/
+# leveldb at https://github.com/wbolster/plyvel
 
 
 class KVCache(ABC):
@@ -42,7 +47,8 @@ class KVCache(ABC):
 
     @staticmethod
     def create(connection_string: str, identifier: str = None,
-               cache_tech: CacheTech = CacheTech.REDIS):
+               cache_tech: CacheTech = CacheTech.REDIS,
+               cache_type: CacheType = None):
         '''
         Factory for a KV Cache
 
@@ -55,31 +61,37 @@ class KVCache(ABC):
         if not connection_string:
             raise ValueError('No connection string provided')
 
+        if cache_tech == CacheTech.SQLITE:
+            raise ValueError('Sqlite cache not supported for sync')
+
         if cache_tech == CacheTech.REDIS:
+            if cache_type:
+                raise ValueError('Cache type not supported for Redis')
             from .kv_redis import KVRedis
             kvr = KVRedis(connection_string, identifier)
             return kvr
-        elif cache_tech == CacheTech.SQLITE:
-            from .kv_sqlite import KVSqlite
-            kvs = KVSqlite(connection_string)
-            return kvs
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 
+    @staticmethod
     async def create_async(connection_string: str, identifier: str = None,
-                           cache_tech: CacheTech = CacheTech.SQLITE):
+                           cache_tech: CacheTech = CacheTech.SQLITE,
+                           cache_type: CacheType = None):
 
         # TODO: convert KVRedis to async
         if not connection_string:
             raise ValueError('No connection string provided')
 
         if cache_tech == CacheTech.REDIS:
+            if cache_type:
+                raise ValueError('Cache type not supported for Redis')
+
             from .kv_redis import KVRedis
             kvr = KVRedis(connection_string, identifier)
             return kvr
         elif cache_tech == CacheTech.SQLITE:
             from .kv_sqlite import KVSqlite
-            kvs = await KVSqlite.create(connection_string)
+            kvs = await KVSqlite.create(connection_string, cache_type)
             return kvs
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
@@ -100,7 +112,11 @@ class KVCache(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, key: str) -> object:
+    def get(self, key: str) -> object | None:
+        '''
+        Returns None if key is not in the cache
+        '''
+
         raise NotImplementedError
 
     @abstractmethod
@@ -128,7 +144,13 @@ class KVCache(ABC):
     def shift_push_list(self, key: str, wait: bool = True):
         raise NotImplementedError
 
-    def get_list(self, key):
+    def get_list(self, key: str):
+        raise NotImplementedError
+
+    async def incr(self, key: str, value: int = 1) -> int:
+        raise NotImplementedError
+
+    async def decr(self, key: str, value: int = 1) -> int:
         raise NotImplementedError
 
     @abstractmethod

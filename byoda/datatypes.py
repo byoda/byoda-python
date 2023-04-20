@@ -9,15 +9,25 @@ Non-specific data types
 # flake8: noqa=E221
 
 from enum import Enum
+from uuid import UUID
 from collections import namedtuple
 
 # Location to mount the API in the FastApi app and
 # to proxy incoming GraphQL requests to other pods
-GRAPHQL_API_URL_PREFIX = '/api/v1/data/service-{service_id}'
+GRAPHQL_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
+
+# FastAPI has a bug where the websocket app needs to be under the same path
+# as te HTTP app, otherwise it will return a 403. On nginx, we map incoming
+# websocket requests for /vs-api/ to /api/ to work around this FastAPI bug.
+GRAPHQL_WS_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
 
 # Object property to temporarily store the member ID of the
 # source of that object
-ORIGIN_KEY = 'byoda_origin'
+ORIGIN_KEY: str = 'byoda_origin'
+
+# What is the data class for storing network relations
+MARKER_NETWORK_LINKS: str = 'network_links'
+MARKER_ACCESS_CONTROL: str = '#accesscontrol'
 
 
 class ServerRole(Enum):
@@ -97,6 +107,24 @@ class CloudType(Enum):
 class CacheTech(Enum):
     REDIS       = 1
     SQLITE      = 2
+
+class CacheType(Enum):
+    QUERY_ID     = 'query'
+    COUNTER      = 'counter'
+    OBJECT       = 'object'
+
+CounterFilter = dict[str, str | UUID]
+
+class PubSubTech(Enum):
+    NNG       = 1
+
+class PubSubMessageType(Enum):
+    DATA       = 'data'
+
+class PubSubMessageAction(Enum):
+    APPEND      = 'append'
+    DELETE      = 'delete'
+    MUTATE      = 'mutate'
 
 class StorageType(Enum):
     PRIVATE = 'private'

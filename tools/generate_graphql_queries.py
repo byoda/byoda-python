@@ -39,7 +39,7 @@ def main(argv):
 
     schema = Schema(data)
     schema.load(verify_contract_signatures=False)
-    schema.get_graphql_classes()
+    schema.get_data_classes()
     loader = jinja2.FileSystemLoader('podserver/files')
     environment = jinja2.Environment(
         loader=loader,

@@ -14,9 +14,13 @@ from typing import TypeVar
 from datetime import datetime
 
 from byoda.datatypes import DataType
+from byoda.datatypes import CounterFilter
 
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.dataclass import SchemaDataScalar
 from byoda.datamodel.datafilter import DataFilterSet
+
+from .table import Table
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +29,7 @@ SqlCursor = TypeVar('SqlCursor')
 SqlConnection = TypeVar('SqlConnection')
 
 
-class SqlTable:
+class SqlTable(Table):
     '''
     Models a SQL table based on a top-level item in the schema for a
     service
@@ -37,6 +41,7 @@ class SqlTable:
         Constructor for a SQL table for a top-level item in the schema
         '''
 
+        self.class_name: str = data_class.name
         self.sql_store: Sql = sql_store
         self.member_id: UUID = member_id
         self.table_name: str = SqlTable.get_table_name(data_class.name)
@@ -98,6 +103,19 @@ class SqlTable:
         stmt = stmt.rstrip(', ') + ') STRICT'
 
         await self.sql_store.execute(stmt, self.member_id)
+
+        for column in self.columns.values():
+            if (isinstance(column, SchemaDataScalar)
+                    and column.format == 'uuid'):
+                stmt = (
+                    f'CREATE INDEX IF NOT EXISTS '
+                    f'BYODA_IDX_{self.table_name}_{column.name} '
+                    f'ON {self.table_name}({column.storage_name})'
+                )
+                await self.sql_store.execute(stmt, self.member_id)
+                _LOGGER.debug(
+                    f'Created index on {self.table_name}:{column.storage_name}'
+                )
 
     async def query(self, data_filter_set: DataFilterSet):
         '''
@@ -180,6 +198,43 @@ class SqlTable:
         '''
         return column.lstrip('_')
 
+    @staticmethod
+    def convert_to_sql_type(column: str, value: object) -> object:
+        '''
+        Converts the value to the type expected by the database
+        '''
+
+        # Normalize value to python type expected by the database driver
+        if value is None:
+            return None
+        elif column.storage_type == 'INTEGER':
+            value = int(value)
+        elif column.storage_type == 'REAL':
+            # We store date-time values as an epoch timestamp
+            if (hasattr(column, 'format')
+                    and column.format == 'date-time'):
+                if isinstance(value, str):
+                    value = datetime.fromisoformat(value).timestamp()
+                elif isinstance(value, datetime):
+                    value = value.timestamp()
+                elif type(value) in (int, float):
+                    pass
+                else:
+                    raise ValueError(
+                        f'Invalid type {type(value)} for '
+                        f'date-time value: {value}'
+                    )
+            else:
+                value = float(value)
+        elif column.storage_type == 'TEXT':
+            if type(value) in (list, dict):
+                # For nested objects or arrays, we store them as JSON
+                value = orjson.dumps(value).decode('utf-8')
+            else:
+                value = str(value)
+
+        return value
+
     def sql_values_clause(self, data: dict, separator: str = '='
                           ) -> tuple[str, dict[str, object]]:
         '''
@@ -199,38 +254,15 @@ class SqlTable:
             value = data.get(column.name)
             # We only include columns for which a value is available
             # in the 'data' dict
-            if value:
-                # Add the column to the list of columns
-                stmt += f'{column.storage_name}, '
+            if not value:
+                continue
 
-                # Normalize value to type expected by the database
-                if column.storage_type == 'INTEGER':
-                    value = int(value)
-                elif column.storage_type == 'REAL':
-                    # We store date-time values as an epoch timestamp
-                    if (hasattr(column, 'format')
-                            and column.format == 'date-time'):
-                        if isinstance(value, str):
-                            value = datetime.fromisoformat(value).timestamp()
-                        elif isinstance(value, datetime):
-                            value = value.timestamp()
-                        elif type(value) in (int, float):
-                            pass
-                        else:
-                            raise ValueError(
-                                f'Invalid type {type(value)} for '
-                                f'date-time value: {value}'
-                            )
-                    else:
-                        value = float(value)
-                elif column.storage_type == 'TEXT':
-                    if type(value) in (list, dict):
-                        # For nested objects or arrays, we store them as JSON
-                        value = orjson.dumps(value).decode('utf-8')
-                    else:
-                        value = str(value)
+            # Add the column to the list of columns
+            stmt += f'{column.storage_name}, '
 
-                values[column.storage_name] = value
+            value = self.convert_to_sql_type(column, value)
+
+            values[column.storage_name] = value
 
         stmt = stmt.rstrip(', ') + f') {separator} ('
         for column in self.columns.values():
@@ -394,6 +426,31 @@ class ArraySqlTable(SqlTable):
 
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
             data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
+
+    async def count(self, counter_filter: CounterFilter) -> int:
+        '''
+        Gets the number of items from the array stored in the table
+
+        :param counter_filter: list of field/value pairs to filter the
+        data
+        '''
+
+        stmt = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
+
+        data = {}
+        if counter_filter:
+            stmt += ' WHERE'
+            for field_name, value in counter_filter.items():
+                column_name = self.get_column_name(field_name)
+                stmt += f' {column_name} = :{column_name}'
+                data[column_name] = value
+
+        rows = await self.sql_store.execute(
+            stmt, member_id=self.member_id, data=data, fetchall=True)
+
+        row_count = rows[0]['counter']
+
+        return row_count
 
     async def query(self, data_filters: DataFilterSet = None,
                     first: int = None, after: int = None,

@@ -125,7 +125,9 @@ class RequestAuth:
 
         self.remote_addr: IpAddress = remote_addr
 
-        self.method: HttpRequestMethod = method
+        # HttpRwquestMethod is None when request is
+        # a GraphQL subscribe request coming over websockets
+        self.method: HttpRequestMethod | None = method
         self.id_type: IdType = None
         self.client_cn: str = None
         self.issuing_ca_cn: str = None
@@ -282,13 +284,20 @@ class RequestAuth:
             f'Authenticating GraphQL request from IP: {request.client.host}'
         )
 
+        if hasattr(request, 'method'):
+            request_method = HttpRequestMethod(request.method)
+        else:
+            # GraphQL subscription over websockets does not have
+            # an HTTP method
+            request_method = None
+
         auth = await RequestAuth.authenticate_graphql(
             request.headers.get('X-Client-SSL-Verify'),
             request.headers.get('X-Client-SSL-Subject'),
             request.headers.get('X-Client-SSL-Issuing-CA'),
             request.headers.get('X-Client-SSL-Cert'),
             request.headers.get('Authorization'),
-            request.client.host, HttpRequestMethod(request.method)
+            request.client.host, request_method
         )
 
         if auth.service_id != service_id:

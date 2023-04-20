@@ -38,15 +38,10 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
-from byoda.data_import.twitter import Twitter
-
 from podserver.util import get_environment_vars
 
 from byoda.util.podworker.datastore_maintenance import \
     backup_datastore, database_maintenance
-
-from byoda.util.podworker.twitter import fetch_tweets
-from byoda.util.podworker.twitter import twitter_update_task
 
 _LOGGER = None
 
@@ -113,9 +108,6 @@ async def run_daemon_tasks(server: PodServer):
     _LOGGER.debug('Scheduling ping message task')
     every(60).seconds.do(log_ping_message)
 
-    _LOGGER.debug('Scheduling twitter update task')
-    every(180).seconds.do(twitter_update_task, server)
-
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
         every(240).minutes.do(backup_datastore, server)
@@ -123,34 +115,12 @@ async def run_daemon_tasks(server: PodServer):
     _LOGGER.debug('Scheduling Database maintenance tasks')
     every(10).minutes.do(database_maintenance, server)
 
-    await run_startup_tasks(server)
-
     while True:
         try:
             await run_pending()
             await asyncio.sleep(15)
         except Exception:
             _LOGGER.exception('Exception during run_pending')
-
-
-async def run_startup_tasks(server: PodServer):
-    _LOGGER.debug('Running podworker startup tasks')
-
-    account: Account = server.account
-    server.twitter_client = None
-
-    try:
-        if (ADDRESSBOOK_ID in account.memberships
-                and Twitter.twitter_integration_enabled()):
-            _LOGGER.info('Enabling Twitter integration')
-            server.twitter_client = Twitter.client()
-            user = server.twitter_client.get_user()
-            server.twitter_client.extract_user_data(user)
-
-            fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
-    except Exception:
-        _LOGGER.exception('Exception during startup')
-        raise
 
 
 async def log_ping_message():

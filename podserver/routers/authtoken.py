@@ -31,8 +31,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
              status_code=200)
 async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     '''
-    Get JWT for either a pod account or a pod member, if the service_id
-    parameter was specified
+    Get JWT the pod account
     '''
 
     _LOGGER.debug(
@@ -86,9 +85,7 @@ async def post_member_auth_token(request: Request, service_id: int,
                                  auth: PodApiRequestAuth =
                                  Depends(PodApiRequestAuth)):
     '''
-    Get data for the pod account.
-    The data request is evaluated using the identify specified in the
-    client cert.
+    Get the JWT for a pod member, using username/password
     '''
 
     _LOGGER.debug(

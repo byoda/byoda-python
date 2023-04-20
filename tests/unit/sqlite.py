@@ -17,21 +17,21 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from byoda.datamodel.schema import Schema
-from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
 from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.datatypes import MemberStatus
-
-from byoda.servers.pod_server import PodServer
 
 from byoda.storage.sqlite import SqliteStorage
 
 
 from byoda import config
 
-from podserver.util import get_environment_vars
-
 from byoda.util.logger import Logger
+
+from tests.lib.setup import mock_environment_vars
+from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
 
 from tests.lib.util import get_test_uuid
 
@@ -69,43 +69,25 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(TEST_DIR)
-
-        shutil.copy(SCHEMA, TEST_DIR)
-        os.environ['ROOT_DIR'] = TEST_DIR
-        os.environ['BUCKET_PREFIX'] = 'byoda'
-        os.environ['CLOUD'] = 'LOCAL'
-        os.environ['NETWORK'] = 'byoda.net'
-        os.environ['ACCOUNT_ID'] = str(get_test_uuid())
-        os.environ['ACCOUNT_SECRET'] = 'test'
-        os.environ['LOGLEVEL'] = 'DEBUG'
-        os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
-        os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
-
-        # Remaining environment variables used:
-        network_data = get_environment_vars()
-
-        network = Network(network_data, network_data)
-        await network.load_network_secrets()
-        config.server = PodServer()
-        config.server.network = network
+        mock_environment_vars(TEST_DIR)
+        network_data = await setup_network()
+        await setup_account(network_data)
+        config.test_case = "TEST_CLIENT"
 
     async def test_object(self):
+        config.test_case = "TEST_CLIENT"
+        account: Account = config.server.account
+
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup(config.server)
+        sql = await SqliteStorage.setup(config.server, account.data_secret)
         await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Populate Person object with string data and check the result
@@ -139,16 +121,19 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data[0]['joined'], now)
 
     async def test_array(self):
+        config.test_case = "TEST_CLIENT"
+        account: Account = config.server.account
+
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup(config.server)
+        sql = await SqliteStorage.setup(config.server, account.data_secret)
         await sql.setup_member_db(uuid, schema.service_id, schema)
 
         # Test for NetworkInvites array of objects
@@ -404,15 +389,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(data)
 
     async def test_member_db(self):
+        config.test_case = "TEST_CLIENT"
+        account: Account = config.server.account
+
+        # BUG: async unittest.asyncsetup did not run??
+        os.remove('/tmp/byoda-tests/sqlite/private/network-byoda.net/account-pod/data/account.db')
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        schema.get_graphql_classes()
+        schema.get_data_classes()
 
         uuid = get_test_uuid()
 
-        sql = await SqliteStorage.setup(config.server)
+        # '/tmp/byoda-tests/sqlite/private/network-byoda.net/account-pod/data/account.db'
+        sql = await SqliteStorage.setup(config.server, account.data_secret)
         await sql.setup_member_db(uuid, schema.service_id, schema)
         await sql.set_membership_status(
             uuid, schema.service_id, MemberStatus.ACTIVE
@@ -456,5 +447,4 @@ def compare_network_invite(data: list[dict[str, str]],
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

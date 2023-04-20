@@ -1,15 +1,19 @@
 '''
-GraphQlClient, for performing GraphQL queries
+GraphQlClient, for performing GraphQL queries, either using HTTP or websockets
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
+import orjson
 import logging
 
 import aiohttp
 import requests
+import websockets
+
+from gql import gql
 
 from byoda.secrets import Secret
 from byoda.util.api_client.restapi_client import HttpMethod

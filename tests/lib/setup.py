@@ -9,6 +9,10 @@ Helper functions to set up tests
 import os
 import shutil
 
+from uuid import UUID
+
+import orjson
+
 from byoda import config
 
 from byoda.datamodel.network import Network
@@ -22,25 +26,17 @@ from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.storage.pubsub_nng import PubSubNng
+
 from podserver.util import get_environment_vars
 
 from tests.lib.util import get_test_uuid
 
 
-async def setup_network(test_dir: str) -> dict[str, str]:
-    config.debug = True
-
-    if test_dir:
-        try:
-            shutil.rmtree(test_dir)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(test_dir)
-    else:
-        test_dir = '/tmp'
-
-    shutil.copy('tests/collateral/addressbook.json', test_dir)
+def mock_environment_vars(test_dir: str):
+    '''
+    Sets environment variables needed by setup_network() and setup_account
+    '''
 
     os.environ['ROOT_DIR'] = test_dir
     os.environ['BUCKET_PREFIX'] = 'byoda'
@@ -52,7 +48,25 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
+
+async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
+    '''
+    Sets up the network for test clients
+    '''
+
+    config.debug = True
+
     network_data = get_environment_vars()
+
+    if delete_tmp_dir:
+        try:
+            shutil.rmtree(network_data['root_dir'])
+        except FileNotFoundError:
+            pass
+
+    os.makedirs(network_data['root_dir'], exist_ok=True)
+
+    shutil.copy('tests/collateral/addressbook.json', network_data['root_dir'])
 
     server: PodServer = PodServer(
         cloud_type=CloudType.LOCAL,
@@ -81,6 +95,10 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
 
 async def setup_account(network_data: dict[str, str]) -> Account:
+    # Deletes files from tmp directory. Possible race condition
+    # with other process so we do it right at the start
+    PubSubNng.cleanup()
+
     server = config.server
     local_storage: FileStorage = server.local_storage
 
@@ -128,3 +146,28 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     )
 
     return account
+
+
+def get_account_id(network_data: dict[str, str]) -> str:
+    '''
+    Gets the account ID used by the test POD server
+
+    :param network_data: The dict as returned by
+    podserver.util.get_environment_vars
+    :returns: the account ID
+    '''
+
+    with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
+        account_id = orjson.loads(file_desc.read())
+
+    return account_id
+
+
+def write_account_id(network_data: dict[str, str]):
+    '''
+    Writes the account ID to a local file so that test clients
+    can use the same account ID as the test podserver
+    '''
+
+    with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
+        file_desc.write(orjson.dumps(network_data['account_id']))
