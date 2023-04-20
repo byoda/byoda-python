@@ -581,11 +581,7 @@ class Subscription:
             ) -> counter:
         _LOGGER.debug('Resolving counter for {{ root_class.name }} array')
 
-        try:
-            result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
-        except:
-            pass
-        result = True
+        result = await authenticate(self, info, DataOperationType_Byoda.READ, 0)
 
         if not result:
             _LOGGER.debug(
