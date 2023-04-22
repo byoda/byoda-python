@@ -55,6 +55,8 @@ future = "*"
 wheel = "*"
 trio = "*"
 gql = {extras = ["aiohttp", "websockets"], version = "*"}
+install = "*"
+beautifulsoup4 = "*"
 
 [dev-packages]
 flake8 = "*"
