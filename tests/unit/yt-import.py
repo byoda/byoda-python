@@ -1,59 +1,43 @@
 #!/usr/bin/env python3
 
-import re
+import os
 import sys
+import unittest
 
-import orjson
-
-from bs4 import BeautifulSoup
+from byoda.data_import.youtube import YouTube
 
 from byoda.util.logger import Logger
 
 _LOGGER = None
 
+TEST_FILE: str = 'tests/collateral/yt-channel-videos.html'
 
-def main():
-    with open('/tmp/yt-gmhikaru.html') as file_desc:
-        soup = BeautifulSoup(file_desc, 'html.parser')
-
-    pattern = re.compile(r'var ytInitialData = (.*?);')
-    script = soup.find('script', string=pattern)
-
-    data_raw = pattern.search(script.text).group(1)
-
-    data = orjson.loads(data_raw)
-    tabs = data['contents']['twoColumnBrowseResultsRenderer']['tabs']
-    section_contents = tabs[0]['tabRenderer']['content']['sectionListRenderer']['contents']
-
-    titles = {}
-    find_videos(section_contents, titles)
-
-    print(f'Titles found: {len(titles)}')
+API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 
-def find_videos(data: dict | list | int | str | float, titles: dict):
-    if isinstance(data, list):
-        for item in data:
-            if type(item) in (dict, list):
-                find_videos(item, titles)
-    elif isinstance(data, dict):
-        if 'videoId' in data:
-            titles[data['videoId']] = data
-            if 'title' in data and 'simpleText' in data['title']:
-                print(
-                    f'Found {data["title"]["simpleText"]} with ID '
-                    f'{data["videoId"]}'
-                )
-            elif data['videoId'] not in titles:
-                print(f'Found {data["videoId"]} without title')
+class TestFileStorage(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        os.environ[YouTube.ENVIRON_CHANNEL] = ''
+        os.environ[YouTube.ENVIRON_API_KEY] = ''
 
-            return
+    async def test_scrape_videos(self):
+        os.environ[YouTube.ENVIRON_CHANNEL] = 'besmart'
 
-        for value in data.values():
-            if type(value) in (dict, list):
-                find_videos(value, titles)
+        yt = YouTube()
+        await yt.get_videos('tests/collateral/yt-import.html')
+        self.assertEqual(len(yt.videos), 115)
+
+    async def test_import_videos(self):
+        with open(API_KEY_FILE, 'r') as file_desc:
+            api_key = file_desc.read().strip()
+
+        os.environ[YouTube.ENVIRON_API_KEY] = api_key
+        yt = YouTube()
+        await yt.get_videos()
 
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-    main()
+
+    unittest.main()
+

@@ -379,21 +379,13 @@ The procedure to use a custom domain is:
 
 You can now point your browser to your pod: <https://byoda.example.org> (or the dns record you actually created.)
 
-## Twitter integration
+## Youtube import
 
-To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
+To enable the import of YouTube videos from one or more channels, set the name of the channel(s) you
+want to import in settings.py:
 
-```bash
-# Set this to the API key you generated on the Twitter Dev portal
-export TWITTER_API_KEY=
 
-# Set this to the secret you generated on the Twitter Dev portal
-export TWITTER_KEY_SECRET=
 
-# Select your own handle or, if you don't tweet much,
-# set it to a handle of someone you like. Sample value: 'byoda_org'
-export TWITTER_USERNAME=
-```
 
 When you launch the pod with these settings, a worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call-graphql tool:
 
