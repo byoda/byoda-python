@@ -48,6 +48,7 @@ class GraphQlAPI(Enum):
 class Property(Enum):
     # flask8: noqa=E221
     COUNTER     = 'counter'
+    INDEX       = 'index'
 
 # Translation from jsondata data type to Python data type in the Jinja template
 PYTHON_SCALAR_TYPE_MAP = {
@@ -107,8 +108,11 @@ class SchemaDataItem:
         for property in schema_data.get(MARKER_PROPERTIES, []):
             self.properties.add(Property(property))
 
-        # Currently only used for SchemaDataScalar instances, to keep
-        # counter per unique value of the item in an SchemaDataArray
+        # Create index on this item in an array of SchemaDataObject
+        self.is_index: bool = False
+
+        # Keep counter per unique value of the item in an SchemaDataArray
+        # Setting this will also cause the item to be indexed
         self.is_counter: bool = False
 
         self.type: DataType = DataType(schema_data['type'])
@@ -340,7 +344,8 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter = Property.COUNTER in self.properties
+        self.is_counter: bool = Property.COUNTER in self.properties
+        self.is_index: bool = Property.INDEX in self.properties
 
         if (self.is_counter and not (self.type == DataType.UUID or
                 self.type == DataType.STRING)):
@@ -388,6 +393,12 @@ class SchemaDataObject(SchemaDataItem):
         self.fields: dict[str, SchemaDataItem] = {}
         self.required_fields: list[str] = schema_data.get('required', [])
         self.defined_class: bool = False
+
+        if Property.COUNTER in self.properties:
+            raise ValueError('Counters are not supported for objects')
+
+        if Property.INDEX in self.properties:
+            raise ValueError('Index is not supported for objects')
 
         if self.item_id:
             self.defined_class = True
@@ -477,6 +488,13 @@ class SchemaDataArray(SchemaDataItem):
         super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
+
+        if Property.COUNTER in self.properties:
+            raise ValueError('Counters are not supported for arrays')
+
+        if Property.INDEX in self.properties:
+            raise ValueError('Index is not supported for arraus')
+
 
         items = schema_data.get('items')
         if not items:

@@ -281,7 +281,7 @@
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
             },
-            "network_inbound": {
+            "network_links_inbound": {
                 "$id": "/schemas/network_inbound",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "The relation another member has with you",
@@ -397,25 +397,30 @@
                     "created_timestamp": {
                         "description": "time the log entry was created",
                         "format": "date-time",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "remote_addr": {
                         "description": "The remote IP address performing the request",
                         "format": "ipv4",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "remote_id": {
                         "description": "The ID of the client originating the log entry",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "remote_id_type": {
                         "description": "The type of ID used to authenticate, ie. member, service or account",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "origin_member_id": {
                         "description": "The UUID of the member that originated the recurise query",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["index", "counter"]
                     },
                     "origin_timestamp": {
                         "description": "The time the query was created by the origin member of the recursive query",
@@ -437,11 +442,13 @@
                     },
                     "operation": {
                         "description": "What operation that was requested by the client",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "object": {
                         "description": "name of the object in the GraphQL query",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "query_filters": {
                         "description": "the filters specified in the GraphQL query",
@@ -449,20 +456,24 @@
                     },
                     "query_depth": {
                         "description": "the depth specified the GraphQL query",
-                        "type": "integer"
+                        "type": "integer",
+                        "#properties": ["index", "counter"]
                     },
                     "query_relations": {
                         "description": "the relations specified in the GraphQL query",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "query_remote_member_id": {
                         "description": "The member that was specified in the append request to proxy to",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["index", "counter"]
                     },
                     "source": {
                         "description": "The source of the log entry, ie. the client, a graphql query, etc.",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index", "counter"]
                     },
                     "message": {
                         "description": "Additional information about the request",
@@ -498,7 +509,8 @@
                     },
                     "creator": {
                         "description": "creator of the asset",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index"]
                     },
                     "created": {
                         "description": "date of creation of the content",
@@ -519,8 +531,14 @@
                         }
                     },
                     "publisher": {
+                        "#properties": ["index", "counter"],
                         "description": "the publisher of the asset",
                         "type": "string"
+                    },
+                    "publisher_asset_id": {
+                        "description": "Identifier of the asset set by the publisher",
+                        "type": "string",
+                        "#properties": ["index"]
                     },
                     "title": {
                         "description": "title of the asset",
@@ -553,13 +571,13 @@
                         "type": "string"
                     },
                     "root_asset_id": {
-                        "#properties": ["counter"],
+                        "#properties": ["counter", "index"],
                         "description": "ID of asset is the root of the thread",
                         "type": "string",
                         "format": "uuid"
                     },
                     "response_to_asset_id": {
-                        "#properties": ["counter"],
+                        "#properties": ["counter", "index"],
                         "description": "ID of asset that this asset is a response to",
                         "type": "string",
                         "format": "uuid"

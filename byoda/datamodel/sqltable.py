@@ -104,18 +104,54 @@ class SqlTable(Table):
 
         await self.sql_store.execute(stmt, self.member_id)
 
+        # When a table has been modified in a new version of the schema,
+        # new columns may have been added.  We need to add them to the
+        # table
+        rows = await self.sql_store.execute(
+            f'PRAGMA table_info("{self.table_name}");',
+            self.member_id, fetchall=True
+        )
+        sql_columns = {row['name']: row['type'] for row in rows}
+
         for column in self.columns.values():
-            if (isinstance(column, SchemaDataScalar)
-                    and column.format == 'uuid'):
-                stmt = (
-                    f'CREATE INDEX IF NOT EXISTS '
-                    f'BYODA_IDX_{self.table_name}_{column.name} '
-                    f'ON {self.table_name}({column.storage_name})'
+            if isinstance(column, SchemaDataScalar):
+                await self.reconcile_column(
+                    column, sql_columns.get(column.storage_name)
                 )
-                await self.sql_store.execute(stmt, self.member_id)
-                _LOGGER.debug(
-                    f'Created index on {self.table_name}:{column.storage_name}'
-                )
+
+    async def reconcile_column(self, column: SchemaDataItem,
+                               current_sql_type: str | None):
+        '''
+        Ensure a field in the data class is present in the table, has the
+        correct data type and, if specified, is indexed
+
+        :raises: ValueError if the data type of an existing column has changed
+        '''
+
+        if current_sql_type and column.storage_type != current_sql_type:
+            raise ValueError(
+                f'Can not convert existing SQL column {column.storage_name} '
+                f'from {column.storage_type} to {current_sql_type} in table '
+                f'{self.table_name}'
+            )
+
+        if not current_sql_type:
+            stmt = (
+                f'ALTER TABLE {self.table_name} '
+                f'ADD COLUMN {column.storage_name} {column.storage_type};'
+            )
+            await self.sql_store.execute(stmt, self.member_id)
+
+        if (column.is_index or column.is_counter or column.format == 'uuid'):
+            stmt = (
+                f'CREATE INDEX IF NOT EXISTS '
+                f'BYODA_IDX_{self.table_name}_{column.name} '
+                f'ON {self.table_name}({column.storage_name})'
+            )
+            await self.sql_store.execute(stmt, self.member_id)
+            _LOGGER.debug(
+                f'Created index on {self.table_name}:{column.storage_name}'
+            )
 
     async def query(self, data_filter_set: DataFilterSet):
         '''

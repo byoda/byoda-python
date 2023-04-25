@@ -60,7 +60,7 @@ class DataStore:
 
     def get_table(self, member_id: UUID, class_name: str) -> Table:
         '''
-        Returns the SqlTable instance for the given class name
+        Returns the Table instance for the given class name
         '''
 
         return self.backend.get_table(member_id, class_name)
