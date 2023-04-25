@@ -6,16 +6,12 @@ GraphQlClient, for performing GraphQL queries, either using HTTP or websockets
 :license    : GPLv3
 '''
 
-import orjson
 import logging
 
 import aiohttp
 import requests
-import websockets
 
-from gql import gql
-
-from byoda.secrets import Secret
+from byoda.secrets.secret import Secret
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from .api_client import ApiClient

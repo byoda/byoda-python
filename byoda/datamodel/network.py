@@ -21,14 +21,14 @@ from byoda.datamodel.service import RegistrationStatus
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.secrets import Secret
-from byoda.secrets import NetworkRootCaSecret
-from byoda.secrets import NetworkDataSecret
-from byoda.secrets import NetworkAccountsCaSecret
-from byoda.secrets import NetworkServicesCaSecret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import MembersCaSecret
-from byoda.secrets import ServiceSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+from byoda.secrets.network_data_secret import NetworkDataSecret
+from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
+from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.util.api_client.api_client import ApiClient
 

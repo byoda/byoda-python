@@ -34,7 +34,8 @@ from byoda.util.message_signature import ServiceSignature
 from byoda.util.message_signature import NetworkSignature
 from byoda.util.message_signature import SignatureType
 
-from byoda.secrets import Secret, DataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.storage import FileStorage
 

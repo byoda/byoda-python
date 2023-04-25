@@ -29,12 +29,12 @@ from byoda.datatypes import IdType
 from byoda.datatypes import HttpRequestMethod
 from byoda.datatypes import AuthSource
 
-from byoda.secrets import ServiceSecret
-from byoda.secrets import MembersCaSecret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import NetworkAccountsCaSecret
-from byoda.secrets import NetworkRootCaSecret
-from byoda.secrets import NetworkServicesCaSecret
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 
 from byoda.datatypes import TlsStatus
 

@@ -14,7 +14,7 @@ import requests
 import aiohttp
 
 
-from byoda.secrets import Secret
+from byoda.secrets.secret import Secret
 
 from .api_client import ApiClient, HttpMethod
 

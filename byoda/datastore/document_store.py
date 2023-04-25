@@ -18,7 +18,7 @@ from typing import TypeVar
 
 from byoda.datamodel.datafilter import DataFilterSet
 
-from byoda.secrets import DataSecret
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.storage.filestorage import FileStorage, FileMode

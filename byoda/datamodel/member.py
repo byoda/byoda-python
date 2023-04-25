@@ -38,9 +38,12 @@ from byoda.datacache.counter_cache import CounterCache
 from byoda.storage import FileStorage
 
 
-from byoda.secrets import ServiceCaSecret, ServiceDataSecret
-from byoda.secrets import MemberSecret, MemberDataSecret
-from byoda.secrets import Secret, MembersCaSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.requestauth.jwt import JWT
 

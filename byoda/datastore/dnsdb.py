@@ -25,7 +25,9 @@ from sqlalchemy.future import select
 from sqlalchemy import create_engine
 
 from sqlalchemy.engine import Engine
-from byoda.secrets import MemberSecret, AccountSecret, ServiceSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.datatypes import IdType
 

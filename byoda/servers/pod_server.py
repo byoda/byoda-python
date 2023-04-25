@@ -16,9 +16,9 @@ from byoda.util.paths import Paths
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
 
-from byoda.secrets import AccountSecret
-from byoda.secrets import MemberSecret
-from byoda.secrets import DataSecret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType

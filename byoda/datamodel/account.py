@@ -22,12 +22,12 @@ from byoda.datacache.querycache import QueryCache
 
 from byoda.datamodel.memberdata import MemberData
 
-from byoda.secrets import Secret
-from byoda.secrets import AccountSecret
-from byoda.secrets import DataSecret
-from byoda.secrets import AccountDataSecret
-from byoda.secrets import NetworkAccountsCaSecret
-from byoda.secrets import MembersCaSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.data_secret import DataSecret
+from byoda.secrets.account_data_secret import AccountDataSecret
+from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.storage.filestorage import FileStorage
 from byoda.storage import FileMode
