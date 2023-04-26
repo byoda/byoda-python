@@ -356,7 +356,7 @@
             "asset_reaction": {
                 "$id": "/schemas/asset_reaction",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "Reactions to assets of the member",
+                "description": "Reactions received by the member to assets of the member",
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
@@ -365,24 +365,26 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "#properties": ["counter"],
+                        "#properties": ["index", "counter"],
                         "description": "The UUID of the member that reacted to our asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "asset_id": {
-                        "#properties": ["counter"],
+                        "#properties": ["index", "counter"],
+                        "description": "The UUID of our asset",
+                        "type": "string",
+                        "format":  "uuid"
+                    },
+                    "asset_class": {
+                        "#properties": ["index", "counter"],
                         "description": "The UUID of our asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "#properties": ["index", "counter"],
                         "description": "What relation the other member has with our asset, for example liked",
-                        "type": "string"
-                    },
-                    "signature": {
-                        "description": "The digital signature created using the data cert of the member of the string of concatenating the member_id, asset_id, and relation",
                         "type": "string"
                     }
                 },
@@ -497,11 +499,23 @@
                             "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid",
-                            "#properties": ["counter"]
+                            "#properties": ["index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
                         "type": "string"
+                    },
+                    "asset_url": {
+                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "thumbnails": {
+                        "description": "thumbnails for the asset, format: 'name_H_W_url'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "locale": {
                         "description": "locale for the metadata, ie. en_US",
@@ -512,8 +526,8 @@
                         "type": "string",
                         "#properties": ["index"]
                     },
-                    "created": {
-                        "description": "date of creation of the content",
+                    "published_timestamp": {
+                        "description": "date-time of first publication of the content",
                         "type": "string",
                         "format": "date-time"
                     },
@@ -575,6 +589,10 @@
                         "description": "ID of asset is the root of the thread",
                         "type": "string",
                         "format": "uuid"
+                    },
+                    "root_asset_class": {
+                        "description": "top-level class of the root asset in the schema (ie. public_asset)",
+                        "type": "string"
                     },
                     "response_to_asset_id": {
                         "#properties": ["counter", "index"],

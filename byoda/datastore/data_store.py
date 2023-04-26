@@ -85,21 +85,27 @@ class DataStore:
 
         return await self.backend.get_memberships(status)
 
-    async def query(self, member_id: UUID, key: str, filters: dict[str, dict]
-                    ) -> dict[str, object]:
+    async def query(self, member_id: UUID, class_name: str,
+                    filters: dict[str, dict]) -> dict[str, object]:
 
-        return await self.backend.query(member_id, key, filters)
+        return await self.backend.query(member_id, class_name, filters)
 
-    async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
+    async def mutate(self, member_id: UUID, class_name: str,
+                     data: dict[str, object],
                      data_filter_set: DataFilterSet = None) -> int:
-        return await self.backend.mutate(member_id, key, data, data_filter_set)
+        return await self.backend.mutate(
+            member_id, class_name, data, data_filter_set
+        )
 
-    async def append(self, member_id: UUID, key: str, data: dict[str, object]):
-        return await self.backend.append(member_id, key, data)
+    async def append(self, member_id: UUID, class_name: str,
+                     data: dict[str, object]):
+        return await self.backend.append(member_id, class_name, data)
 
-    async def delete(self, member_id: UUID, key: str,
+    async def delete(self, member_id: UUID, class_name: str,
                      data_filter_set: DataFilterSet = None) -> int:
-        return await self.backend.delete(member_id, key, data_filter_set)
+        return await self.backend.delete(
+            member_id, class_name, data_filter_set
+        )
 
     async def close(self):
         await self.backend.close()

@@ -24,7 +24,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_CHANNEL] = 'besmart'
 
         yt = YouTube()
-        await yt.get_videos('tests/collateral/yt-import.html')
+        await yt.get_videos(filename='tests/collateral/yt-import.html')
         self.assertEqual(len(yt.channels['besmart'].videos), 115)
 
     async def test_import_videos(self):
@@ -34,7 +34,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_API_KEY] = api_key
         os.environ[YouTube.ENVIRON_CHANNEL] = 'GMHikaru'
         yt = YouTube()
-        await yt.get_videos()
+        await yt.get_videos(max_requests=2)
 
 
 if __name__ == '__main__':

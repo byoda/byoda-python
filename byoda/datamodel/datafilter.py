@@ -868,7 +868,6 @@ class DataFilterSet:
             return
 
         if isinstance(filters, dict):
-            # For test cases we support filters as dict
             filter_items = filters.items()
         else:
             filter_items = filters.__dict__.items()

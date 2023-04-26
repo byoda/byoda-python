@@ -64,7 +64,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
 
-        config.test_case = "TEST_CLIENT"
+        config.test_case = 'TEST_CLIENT'
 
         network: Network = config.server.network
         server = config.server
