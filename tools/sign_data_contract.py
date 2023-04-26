@@ -28,8 +28,8 @@ from byoda.util.paths import Paths
 
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpMethod
-from byoda.secrets import ServiceSecret
-from byoda.secrets import NetworkDataSecret
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.network_data_secret import NetworkDataSecret
 
 from byoda import config
 
