@@ -81,7 +81,7 @@ async def main(argv):
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType('LOCAL'),
         bucket_prefix='byoda',
-        root_dir='/tmp'
+        root_dir=root_dir
     )
     await config.server.load_network_secrets()
 
@@ -139,6 +139,7 @@ async def load_service(args, network: Network, password: str):
     '''
     Load service and its secrets
     '''
+
     service = Service(network=network)
     await service.examine_servicecontract(args.contract)
 
@@ -151,7 +152,11 @@ async def load_service(args, network: Network, password: str):
     return service
 
 
-def create_service_signature(service):
+def create_service_signature(service: Service):
+    '''
+    Creates the signature of the service for the schema
+    '''
+
     schema = service.schema.json_schema
 
     if SignatureType.SERVICE.value in service.schema.json_schema['signatures']:
@@ -167,7 +172,7 @@ def create_service_signature(service):
     _LOGGER.debug(f'Added service signature {schema["signatures"]["service"]}')
 
 
-async def create_network_signature(service, args, password) -> bool:
+async def create_network_signature(service: Service, args, password: str) -> bool:
     '''
     Add network signature to the service schema/data contract,
     either locally or by a directory server over the network
