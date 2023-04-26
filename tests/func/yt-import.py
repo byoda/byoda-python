@@ -10,6 +10,7 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 
 from byoda.datastore.data_store import DataStoreType
+from byoda.datastore.data_store import DataStore
 
 from byoda.data_import.youtube import YouTube
 
@@ -25,6 +26,9 @@ from byoda import config
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import mock_environment_vars
+
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import BASE_URL
 
 _LOGGER = None
 
@@ -81,20 +85,34 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_scrape_videos(self):
+        account: Account = config.server.account
+        await account.load_memberships()
+        member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+
+        data_store: DataStore = config.server.data_store
+
         os.environ[YouTube.ENVIRON_CHANNEL] = 'besmart'
 
         yt = YouTube()
-        await yt.get_videos()
+        await yt.get_videos(member.member_id, data_store)
+
         self.assertGreater(len(yt.channels['besmart'].videos), 100)
 
     async def test_import_videos(self):
+        return
+        account: Account = config.server.account
+        await account.load_memberships()
+        member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+
+        data_store: DataStore = config.server.data_store
+
         with open(API_KEY_FILE, 'r') as file_desc:
             api_key = file_desc.read().strip()
 
         os.environ[YouTube.ENVIRON_API_KEY] = api_key
         os.environ[YouTube.ENVIRON_CHANNEL] = 'GMHikaru'
         yt = YouTube()
-        await yt.get_videos()
+        await yt.get_videos(member.member_id, data_store)
 
 
 async def main():

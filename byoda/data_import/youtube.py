@@ -25,17 +25,16 @@ from datetime import datetime, timezone
 from dateutil import parser
 
 import orjson
+import aiohttp
 
 from bs4 import BeautifulSoup
 
 from googleapiclient.discovery import build
 from googleapiclient.discovery import Resource as YouTubeResource
 
+from byoda.datamodel.datafilter import DataFilterSet
+
 from byoda.datastore.data_store import DataStore
-
-from byoda.util.api_client.api_client import ApiClient
-
-from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -172,7 +171,7 @@ class YouTubeVideo:
 
         return video
 
-    def to_datastore(self, member_id: UUID, data_store: DataStore) -> bool:
+    async def to_datastore(self, member_id: UUID, data_store: DataStore) -> bool:
         '''
         Adds a video to the datastore, if it does not exist already
 
@@ -186,15 +185,16 @@ class YouTubeVideo:
                 'Either both or neither member_id and data_store must be specified'
             )
 
-        filterset = {
-            'published_asset_id': {
-                'eq': self.video_id,
+        filters = DataFilterSet(
+            {
+                'published_asset_id': {
+                    'eq': self.video_id,
+                }
             }
-        }
+        )
 
-        data = data_store.query(
-            member_id, YouTube.DATASTORE_CLASS_NAME,
-            filterset=filterset
+        data = await data_store.query(
+            member_id, YouTube.DATASTORE_CLASS_NAME, filters=filters
         )
         if len(data):
             _LOGGER.debug(
@@ -240,11 +240,10 @@ class YouTubeChannel:
             with open(filename, 'r') as file_desc:
                 data = file_desc.read()
         else:
-            resp = await ApiClient.call(
-                YouTube.CHANNEL_VIDEOS_URL.format(channel_id=self.name)
-            )
-
-            data = await resp.text()
+            async with aiohttp.ClientSession() as session:
+                url = YouTube.CHANNEL_URL.format(channel_name=self.name)
+                async with session.get(url) as response:
+                    data = await response.text()
 
         soup = BeautifulSoup(data, 'html.parser')
         script = soup.find('script', string=YouTube.CHANNEL_SCRAPE_REGEX)
@@ -266,8 +265,8 @@ class YouTubeChannel:
         # first checks whether the video is already in the data store and only adds it
         # if it is not.
         if data_store:
-            for video in self.videos:
-                video.to_datastore(member_id, data_store)
+            for video in self.videos.values():
+                await video.to_datastore(member_id, data_store)
 
     def find_videos(self, data: dict | list | int | str | float,
                     titles: dict[str, YouTubeVideo]) -> None:
@@ -364,7 +363,7 @@ class YouTubeChannel:
             page_token: str = response.get('nextPageToken')
             api_requests += 1
 
-            duplicate_video_found = self._import_video_data(
+            duplicate_video_found = await self._import_video_data(
                 response.get('items', []), member_id, data_store
             )
 
@@ -396,7 +395,7 @@ class YouTubeChannel:
                 )
                 return
 
-    def _import_video_data(self, data: dict, member_id: UUID = None,
+    async def _import_video_data(self, data: dict, member_id: UUID = None,
                            data_store: DataStore = None) -> bool:
         '''
         Parse the data returned by the YouTube Data Search API and import the
@@ -419,7 +418,7 @@ class YouTubeChannel:
 
             result = None
             if data_store:
-                result = video.to_datastore(member_id, data_store)
+                result = await video.to_datastore(member_id, data_store)
                 if not result:
                     _LOGGER.debug(
                         f'Found duplicate video ID {video.video_id}, '
@@ -433,7 +432,7 @@ class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     SCRAPE_URL: str = 'https://www.youtube.com'
-    CHANNEL_URL: str = SCRAPE_URL + '/channel/{channel_id}'
+    CHANNEL_URL: str = SCRAPE_URL + '/@{channel_name}'
     CHANNEL_VIDEOS_URL: str = SCRAPE_URL + '/channel/{channel_id}/videos'
     CHANNEL_SCRAPE_REGEX = re.compile(r'var ytInitialData = (.*?);')
     DATASTORE_CLASS_NAME: str = 'public_assets'
@@ -545,7 +544,9 @@ class YouTube:
             _LOGGER.info('YouTube integration is enabled')
 
         if not self.youtube_api_integration_enabled():
-            await self.scrape_videos(filename=filename)
+            await self.scrape_videos(
+                member_id=member_id, data_store=data_store, filename=filename
+            )
             return
 
         if filename:
