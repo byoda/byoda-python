@@ -16,11 +16,12 @@ import argparse
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
-
-from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
+from byoda.servers.service_server import ServiceServer
+
 from byoda.storage.filestorage import FileStorage
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.util.message_signature import SignatureType
 from byoda.util.logger import Logger
@@ -71,7 +72,14 @@ async def main(argv):
     network.paths = Paths(
         root_directory=root_dir, network=network.name
     )
-    config.server = ServiceServer(network, app_config)
+    config.server: ServiceServer = ServiceServer(network, app_config)
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        'LOCAL',
+        bucket_prefix=None,
+        root_dir='/tmp'
+    )
     await config.server.load_network_secrets()
 
     service = await load_service(args, config.server.network, password)
