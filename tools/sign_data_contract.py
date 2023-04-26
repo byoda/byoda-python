@@ -18,10 +18,13 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import RegistrationStatus
 
-from byoda.servers.service_server import ServiceServer
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.storage.filestorage import FileStorage
-from byoda.datastore.document_store import DocumentStoreType
+
+from byoda.servers.service_server import ServiceServer
+
+from byoda.datatypes import CloudType
 
 from byoda.util.message_signature import SignatureType
 from byoda.util.logger import Logger
@@ -76,8 +79,8 @@ async def main(argv):
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
-        'LOCAL',
-        bucket_prefix=None,
+        cloud_type=CloudType('LOCAL'),
+        bucket_prefix='byoda',
         root_dir='/tmp'
     )
     await config.server.load_network_secrets()
