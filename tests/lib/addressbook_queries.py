@@ -467,6 +467,252 @@ mutation(
 GRAPHQL_STATEMENTS['asset']['mutate'] = MUTATE_ASSET
 
 
+QUERY_TWITTER_ACCOUNT = '''
+query ($query_id: UUID!, $filters: twitterAccountInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    twitter_account_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_account {
+                twitter_id
+                created_timestamp
+                name
+                url
+                display_url
+                pinned_tweet_id
+                profile_image_url
+                followers_count
+                following_count
+                tweet_count
+                listed_count
+                handle
+                verified
+                withheld
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_account'] = {'query': QUERY_TWITTER_ACCOUNT}
+
+MUTATE_TWITTER_ACCOUNT = '''
+mutation(
+                    $twitter_id: String,
+                    $created_timestamp: DateTime,
+                    $name: String,
+                    $url: String,
+                    $display_url: String,
+                    $pinned_tweet_id: String,
+                    $profile_image_url: String,
+                    $followers_count: Int,
+                    $following_count: Int,
+                    $tweet_count: Int,
+                    $listed_count: Int,
+                    $handle: String,
+                    $verified: Boolean,
+                    $withheld: String,
+) {
+    mutate_twitter_account(
+                    twitter_id: $twitter_id,
+                    created_timestamp: $created_timestamp,
+                    name: $name,
+                    url: $url,
+                    display_url: $display_url,
+                    pinned_tweet_id: $pinned_tweet_id,
+                    profile_image_url: $profile_image_url,
+                    followers_count: $followers_count,
+                    following_count: $following_count,
+                    tweet_count: $tweet_count,
+                    listed_count: $listed_count,
+                    handle: $handle,
+                    verified: $verified,
+                    withheld: $withheld,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_account']['mutate'] = MUTATE_TWITTER_ACCOUNT
+
+
+QUERY_TWITTER_MEDIA = '''
+query ($query_id: UUID!, $filters: twitterMediaInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    twitter_media_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_media {
+                created_timestamp
+                height
+                width
+                alt_text
+                duration
+                media_key
+                preview_image_url
+                media_type
+                view_count
+                variants
+                url
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_media'] = {'query': QUERY_TWITTER_MEDIA}
+
+MUTATE_TWITTER_MEDIA = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    mutate_twitter_media(
+                    created_timestamp: $created_timestamp,
+                    height: $height,
+                    width: $width,
+                    alt_text: $alt_text,
+                    duration: $duration,
+                    media_key: $media_key,
+                    preview_image_url: $preview_image_url,
+                    media_type: $media_type,
+                    view_count: $view_count,
+                    variants: $variants,
+                    url: $url,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_media']['mutate'] = MUTATE_TWITTER_MEDIA
+
+
+QUERY_TWEET = '''
+query ($query_id: UUID!, $filters: tweetInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    tweet_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            tweet {
+                created_timestamp
+                asset_id
+                lang
+                creator
+                contents
+                response_to
+                conversation_id
+                geo
+                retweet_count
+                reply_count
+                like_count
+                quote_count
+                mentions
+                urls
+                references
+                media_ids
+                hashtags
+                assets
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweet'] = {'query': QUERY_TWEET}
+
+MUTATE_TWEET = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $asset_id: String,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    mutate_tweet(
+                    created_timestamp: $created_timestamp,
+                    asset_id: $asset_id,
+                    lang: $lang,
+                    creator: $creator,
+                    contents: $contents,
+                    response_to: $response_to,
+                    conversation_id: $conversation_id,
+                    geo: $geo,
+                    retweet_count: $retweet_count,
+                    reply_count: $reply_count,
+                    like_count: $like_count,
+                    quote_count: $quote_count,
+                    mentions: $mentions,
+                    urls: $urls,
+                    references: $references,
+                    media_ids: $media_ids,
+                    hashtags: $hashtags,
+                    assets: $assets,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['tweet']['mutate'] = MUTATE_TWEET
+
+
 QUERY_MEMBER = '''
 query ($query_id: UUID!, $filters: memberInputFilter,
         $first: Int, $after: String,
@@ -1914,4 +2160,151 @@ subscription (
 }
 '''
 GRAPHQL_STATEMENTS['network_assets']['counter'] = SUBSCRIPTION_NETWORK_ASSETS_COUNTER
+
+
+QUERY_TWITTER_MEDIAS = '''
+query ($query_id: UUID!, $filters: twitterMediaInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    twitter_medias_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            twitter_media {
+                created_timestamp
+                height
+                width
+                alt_text
+                duration
+                media_key
+                preview_image_url
+                media_type
+                view_count
+                variants
+                url
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias'] = {'query': QUERY_TWITTER_MEDIAS}
+
+APPEND_TWITTER_MEDIAS = '''
+mutation (
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String!,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    append_twitter_medias (
+            created_timestamp: $created_timestamp,
+            height: $height,
+            width: $width,
+            alt_text: $alt_text,
+            duration: $duration,
+            media_key: $media_key,
+            preview_image_url: $preview_image_url,
+            media_type: $media_type,
+            view_count: $view_count,
+            variants: $variants,
+            url: $url,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['append'] = APPEND_TWITTER_MEDIAS
+
+UPDATE_TWITTER_MEDIAS = '''
+mutation (
+    $filters: twitterMediaInputFilter!,
+                    $created_timestamp: DateTime,
+                    $height: Int,
+                    $width: Int,
+                    $alt_text: String,
+                    $duration: Int,
+                    $media_key: String,
+                    $preview_image_url: String,
+                    $media_type: String,
+                    $view_count: Int,
+                    $variants: [String!],
+                    $url: String,
+) {
+    update_twitter_medias(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        height: $height,
+        width: $width,
+        alt_text: $alt_text,
+        duration: $duration,
+        media_key: $media_key,
+        preview_image_url: $preview_image_url,
+        media_type: $media_type,
+        view_count: $view_count,
+        variants: $variants,
+        url: $url,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['update'] = UPDATE_TWITTER_MEDIAS
+
+DELETE_FROM_TWITTER_MEDIAS = '''
+mutation ($filters: twitterMediaInputFilter!) {
+    delete_from_twitter_medias(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['twitter_medias']['delete'] = DELETE_FROM_TWITTER_MEDIAS
+
+SUBSCRIPTION_TWITTER_MEDIAS_UPDATES = '''
+subscription (
+    $filters: twitterMediaInputFilter) {
+    twitter_medias_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            created_timestamp
+            height
+            width
+            alt_text
+            duration
+            media_key
+            preview_image_url
+            media_type
+            view_count
+            variants
+            url
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['twitter_medias']['updates'] = SUBSCRIPTION_TWITTER_MEDIAS_UPDATES
+
+SUBSCRIPTION_TWITTER_MEDIAS_COUNTER = '''
+subscription (
+    $filter: twitterMediasCounterFilter) {
+    twitter_medias_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['twitter_medias']['counter'] = SUBSCRIPTION_TWITTER_MEDIAS_COUNTER
 
