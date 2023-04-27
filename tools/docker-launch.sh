@@ -208,6 +208,8 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
             --pattern private/network-${NETWORK}/account-pod/data/*
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+            --pattern network-${NETWORK}/account-pod/service-*/service-contract.json
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
             --pattern network-${NETWORK}/services/service-contract.json
 
         if [ $? -ne 0 ]; then
@@ -243,6 +245,7 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
+        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/service-contract.json
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
@@ -289,6 +292,7 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         echo "Wiping data and secrets for memberships not supported on AWS yet"
         exit 1
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
+        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/service-contract.json
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
@@ -304,12 +308,23 @@ else
         sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
         sudo mkdir -p ${BYODA_ROOT_DIR}
         rm ${ACCOUNT_FILE}
-    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+    elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}-account-pod-member-*.key
-        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/*
+        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
+        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
+
+        if [ $? -ne 0 ]; then
+            echo "Wiping storage failed"
+            exit 1
+        fi
+    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        # echo "Wiping data and service-contracts for all memberships of the pod"
+        # TODO
+        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
+        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/service-contract.json
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
