@@ -111,13 +111,13 @@ class Sql:
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
         return sql_table
 
-    async def query(self, member_id: UUID, key: str,
+    async def query(self, member_id: UUID, class_name: str,
                     filters: DataFilterSet = None) -> dict[str, object]:
         '''
-        Execute the query on the SqlTable for the member_id and key
+        Execute the query on the SqlTable for the member_id and class_name
         '''
 
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
         return await sql_table.query(filters)
 
     async def mutate(self, member_id: UUID, key: str, data: dict[str, object],

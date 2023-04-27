@@ -34,7 +34,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_API_KEY] = api_key
         os.environ[YouTube.ENVIRON_CHANNEL] = 'GMHikaru'
         yt = YouTube()
-        await yt.get_videos(max_requests=2)
+        await yt.get_videos(max_api_requests=2)
 
 
 if __name__ == '__main__':

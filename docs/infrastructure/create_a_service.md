@@ -232,7 +232,7 @@ cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
-# Set file ownership of the  unencrypted private key to the user/group used
+# Set file ownership of the unencrypted private key to the user/group used
 # by nginx so it can read the private key
 sudo chown www-data:www-data /var/tmp/service-${SERVICE_ID}.key
 

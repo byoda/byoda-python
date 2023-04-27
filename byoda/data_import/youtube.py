@@ -64,7 +64,12 @@ class YouTubeThumbnail:
             self.size = f'{self.width}x{self.height}'
 
     def __str__(self) -> str:
-        return f'{self.size}_{self.height}_{self.width}_{self.url}'
+        if isinstance(self.size, YouTubeThumbnailSize):
+            size = self.size.value
+        else:
+            size = self.size
+
+        return f'{size}_{self.width}_{self.height}_{self.url}'
 
 class YouTubeVideo:
     def __init__(self):
@@ -120,7 +125,7 @@ class YouTubeVideo:
                 video.published_time_info: str = time['simpleText']
 
             if not video.published_time_info:
-                video.published_time = time['runs'][0]['text']
+                video.published_time_info = time['runs'][0]['text']
 
         if 'viewCountText' in data:
             video.view_count = data['viewCountText']['simpleText']
@@ -187,7 +192,7 @@ class YouTubeVideo:
 
         filters = DataFilterSet(
             {
-                'published_asset_id': {
+                'publisher_asset_id': {
                     'eq': self.video_id,
                 }
             }
@@ -196,7 +201,7 @@ class YouTubeVideo:
         data = await data_store.query(
             member_id, YouTube.DATASTORE_CLASS_NAME, filters=filters
         )
-        if len(data):
+        if data and len(data):
             _LOGGER.debug(
                 f'YouTube video {self.video_id} is already in the BYODA membership'
             )
@@ -208,11 +213,14 @@ class YouTubeVideo:
             if value:
                 asset[mapping] = value
 
-            asset['thumbnails'] = [
-                str(thumbnail) for thumbnail in self.thumbnails
+
+            asset['thumbnails']: list[str] = [
+                str(thumbnail) for thumbnail in self.thumbnails.values()
             ]
 
-        data_store.append(member_id, YouTube.DATASTORE_CLASS_NAME, asset)
+        await data_store.append(member_id, YouTube.DATASTORE_CLASS_NAME, asset)
+
+        return True
 
 class YouTubeChannel:
     def __init__(self, name: str = None, channel_id: str = None,
@@ -229,6 +237,10 @@ class YouTubeChannel:
         Scrapes videos from the YouTube website and optionally stores them in
         the data store
 
+        :param member_id: the member ID of the pod for the service
+        :param data_store: the data store to import the data to
+        :param filename: file with scrape data. If not specified, the data is
+        retrieved from the youtube.com website.
         '''
 
         if bool(member_id) != bool(data_store):
@@ -254,7 +266,7 @@ class YouTubeChannel:
 
         data = orjson.loads(raw_data)
 
-        self.find_videos(data, self.videos)
+        self.find_videos(data)
 
         _LOGGER.debug(
             f'Scraped {len(self.videos)} videos from '
@@ -268,17 +280,18 @@ class YouTubeChannel:
             for video in self.videos.values():
                 await video.to_datastore(member_id, data_store)
 
-    def find_videos(self, data: dict | list | int | str | float,
-                    titles: dict[str, YouTubeVideo]) -> None:
+    def find_videos(self, data: dict | list | int | str | float) -> None:
         '''
         Find the videos in the by walking through the deserialized
         output of a YouTube scrape
+
+        :param data: a subset of the scraped data from youtube.com
         '''
 
         if isinstance(data, list):
             for item in data:
                 if type(item) in (dict, list):
-                    self.find_videos(item, titles)
+                    self.find_videos(item)
         elif isinstance(data, dict):
             video_id = data.get('videoId')
             if video_id:
@@ -289,7 +302,7 @@ class YouTubeChannel:
 
             for value in data.values():
                 if type(value) in (dict, list):
-                    self.find_videos(value, titles)
+                    self.find_videos(value)
 
     def get_channel_id(self):
         '''
@@ -324,6 +337,10 @@ class YouTubeChannel:
         TODO: reduce fragility against API call failures for older videos as
         the current logic would not try to import those because newer videos
         were already ingested
+
+        :param member_id: the member ID of the pod for the service
+        :param data_store: the data store to import the data to
+        :param max_api_requests: the maximum number of API requests to make
         '''
 
         if bool(member_id) != bool(data_store):
@@ -497,7 +514,7 @@ class YouTube:
             await channel.scrape(member_id, data_store, filename=filename)
 
     async def import_videos(self, member_id: UUID = None, data_store: DataStore = None,
-                            max_requests: int = 100) -> None:
+                            max_api_requests: int = 100) -> None:
         '''
         Import the videos from the YouTube channel
         '''
@@ -508,10 +525,10 @@ class YouTube:
             )
 
         for channel in self.channels.values():
-            await channel.import_videos(member_id, data_store, max_requests)
+            await channel.import_videos(member_id, data_store, max_api_requests)
 
     async def get_videos(self, member_id: UUID = None, data_store: DataStore = None,
-                         max_requests: int = 100, filename: str = None):
+                         max_api_requests: int = 100, filename: str = None):
         '''
         Get videos from YouTube, either using scraping or the YouTube data API.
 
@@ -525,9 +542,9 @@ class YouTube:
         :param member_id: the member ID to use for the membership of the pod of
         the service
         :param data_store: The data store to use for storing the videos
-        :param max_requests: maximimum number of YouTube data API requests to send.
+        :param max_api_requests: maximimum number of YouTube data API requests to send.
         Each 'search' API call consumes 100 tokens out of the default limit of
-        YouTube for 10k tokens. The max_requests is per channel, so if there are
+        YouTube for 10k tokens. The max_api_requests is per channel, so if there are
         multiple channels, you should specify a fraction of 100 requests. This
         parameter is only used for import using the YouTube data API, not for
         when scraping the YouTube website.
@@ -552,5 +569,5 @@ class YouTube:
         if filename:
             raise ValueError('Importing from a file is not supported')
 
-        await self.import_videos(member_id, data_store, max_requests)
+        await self.import_videos(member_id, data_store, max_api_requests)
 
