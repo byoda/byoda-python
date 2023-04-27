@@ -46,11 +46,10 @@ async def twitter_update_task(server: PodServer):
 
     except Exception:
         _LOGGER.exception('Exception during twitter update')
-        raise
 
 
 def find_newest_tweet(account: Account, member: Member, graphql_url: str
-                      ) -> str:
+                      ) -> str | None:
     '''
     This function first looks for a local file under /byoda to see if
     the ID of the newest tweet is stored there. If it is, it returns

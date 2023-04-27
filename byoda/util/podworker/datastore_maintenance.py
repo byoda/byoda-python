@@ -20,7 +20,10 @@ async def backup_datastore(server: PodServer):
 
     _LOGGER.info('Backing up datastore')
 
-    await server.data_store.backend.backup_datastore(server)
+    try:
+        await server.data_store.backend.backup_datastore(server)
+    except Exception:
+        _LOGGER.exception('Backup of data store failed')
 
 
 async def database_maintenance(server: PodServer):
@@ -29,4 +32,7 @@ async def database_maintenance(server: PodServer):
     ie. for Sqlite3 it performs WAL compaction
     '''
 
-    await server.data_store.backend.maintain(server)
+    try:
+        await server.data_store.backend.maintain(server)
+    except Exception:
+        _LOGGER.exception('Maintenance of data store failed')

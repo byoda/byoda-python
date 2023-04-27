@@ -50,6 +50,8 @@ from byoda.util.podworker.datastore_maintenance import \
 from byoda.util.podworker.twitter import fetch_tweets
 from byoda.util.podworker.twitter import twitter_update_task
 
+from byoda.util.podworker.youtube import youtube_update_task
+
 
 _LOGGER = None
 
@@ -159,7 +161,7 @@ async def run_daemon_tasks(server: PodServer):
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )
-        every(interval).minutes.do(youtube_pdate_task, server)
+        every(interval).minutes.do(youtube_update_task, server)
 
     await run_startup_tasks(server)
 
