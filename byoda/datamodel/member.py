@@ -143,6 +143,7 @@ class Member:
         else:
             verify_signatures = True
 
+        filepath: str = self.paths.service_file(self.service_id)
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -156,14 +157,14 @@ class Member:
                         'Sideloading service contract only supported for '
                         'test cases'
                     )
-                filepath = local_service_contract
+                filepath: str = local_service_contract
             else:
                 if new_membership:
                     _LOGGER.debug('Setting up new membership')
-                    filepath = self.paths.service_file(self.service_id)
+                    filepath: str = self.paths.service_file(self.service_id)
                 else:
                     _LOGGER.debug('Setting up existing membership')
-                    filepath = self.paths.member_service_file(self.service_id)
+                    filepath: str = self.paths.member_service_file(self.service_id)
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
 
