@@ -240,23 +240,23 @@
                 "type": "array",
                 "items": {
                     "$ref": "/schemas/twitter_media"
-                },
-                "tweets": {
-                    "#accesscontrol": {
-                        "member": {
-                            "permissions": ["read", "delete", "append"]
-                        },
-                        "any_member": {
-                            "permissions": ["read"]
-                        },
-                        "service": {
-                            "permissions": ["read"]
-                        }
+                }
+            },
+            "tweets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
                     },
-                    "type": "array",
-                    "items": {
-                        "$ref": "/schemas/tweet"
+                    "any_member": {
+                        "permissions": ["read"]
+                    },
+                    "service": {
+                        "permissions": ["read"]
                     }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/tweet"
                 }
             }
         },

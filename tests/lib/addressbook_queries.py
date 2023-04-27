@@ -2308,3 +2308,192 @@ subscription (
 '''
 GRAPHQL_STATEMENTS['twitter_medias']['counter'] = SUBSCRIPTION_TWITTER_MEDIAS_COUNTER
 
+
+QUERY_TWEETS = '''
+query ($query_id: UUID!, $filters: tweetInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    tweets_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            tweet {
+                created_timestamp
+                asset_id
+                lang
+                creator
+                contents
+                response_to
+                conversation_id
+                geo
+                retweet_count
+                reply_count
+                like_count
+                quote_count
+                mentions
+                urls
+                references
+                media_ids
+                hashtags
+                assets
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets'] = {'query': QUERY_TWEETS}
+
+APPEND_TWEETS = '''
+mutation (
+                    $created_timestamp: DateTime!,
+                    $asset_id: String!,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String!,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    append_tweets (
+            created_timestamp: $created_timestamp,
+            asset_id: $asset_id,
+            lang: $lang,
+            creator: $creator,
+            contents: $contents,
+            response_to: $response_to,
+            conversation_id: $conversation_id,
+            geo: $geo,
+            retweet_count: $retweet_count,
+            reply_count: $reply_count,
+            like_count: $like_count,
+            quote_count: $quote_count,
+            mentions: $mentions,
+            urls: $urls,
+            references: $references,
+            media_ids: $media_ids,
+            hashtags: $hashtags,
+            assets: $assets,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['append'] = APPEND_TWEETS
+
+UPDATE_TWEETS = '''
+mutation (
+    $filters: tweetInputFilter!,
+                    $created_timestamp: DateTime,
+                    $asset_id: String,
+                    $lang: String,
+                    $creator: String,
+                    $contents: String,
+                    $response_to: String,
+                    $conversation_id: String,
+                    $geo: String,
+                    $retweet_count: Int,
+                    $reply_count: Int,
+                    $like_count: Int,
+                    $quote_count: Int,
+                    $mentions: [String!],
+                    $urls: [String!],
+                    $references: [String!],
+                    $media_ids: [String!],
+                    $hashtags: [String!],
+                    $assets: [String!],
+) {
+    update_tweets(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        asset_id: $asset_id,
+        lang: $lang,
+        creator: $creator,
+        contents: $contents,
+        response_to: $response_to,
+        conversation_id: $conversation_id,
+        geo: $geo,
+        retweet_count: $retweet_count,
+        reply_count: $reply_count,
+        like_count: $like_count,
+        quote_count: $quote_count,
+        mentions: $mentions,
+        urls: $urls,
+        references: $references,
+        media_ids: $media_ids,
+        hashtags: $hashtags,
+        assets: $assets,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['update'] = UPDATE_TWEETS
+
+DELETE_FROM_TWEETS = '''
+mutation ($filters: tweetInputFilter!) {
+    delete_from_tweets(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['tweets']['delete'] = DELETE_FROM_TWEETS
+
+SUBSCRIPTION_TWEETS_UPDATES = '''
+subscription (
+    $filters: tweetInputFilter) {
+    tweets_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            created_timestamp
+            asset_id
+            lang
+            creator
+            contents
+            response_to
+            conversation_id
+            geo
+            retweet_count
+            reply_count
+            like_count
+            quote_count
+            mentions
+            urls
+            references
+            media_ids
+            hashtags
+            assets
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['tweets']['updates'] = SUBSCRIPTION_TWEETS_UPDATES
+
+SUBSCRIPTION_TWEETS_COUNTER = '''
+subscription (
+    $filter: tweetsCounterFilter) {
+    tweets_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['tweets']['counter'] = SUBSCRIPTION_TWEETS_COUNTER
+

@@ -259,22 +259,6 @@ sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}
 if [ -f /var/tmp/service-${SERVICE_ID}.key ]; then
     sudo chown ${NGINX_USER}:${NGINX_USER} /var/tmp/service-${SERVICE_ID}.key
 fi
-
-if [ ! -f /etc/default/svcserver-${SERVICE_ID} ]; then
-    sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
-    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/default/svcserver-${SERVICE_ID}
-fi
-
-if [ ! -f /etc/systemd/system/svcserver-${SERVICE_ID}.service ]; then
-    sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
-    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service
-fi
-
-sudo systemctl daemon-reload
-sudo systemctl start svcserver-${SERVICE_ID}
-sleep 5
-sudo systemctl status svcserver-${SERVICE_ID}
-sudo systemctl enable svcserver-${SERVICE_ID}
 ```
 
 The service daemon will create an Nginx configuration file under /etc/nginx/conf.d
