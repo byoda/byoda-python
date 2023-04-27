@@ -15,8 +15,9 @@ fi
 
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
+WIPE_MEMBERSHIPS=0
 KEEP_LOGS=0
-args=$(getopt -l "help" -l "wipe-all" -l "wipe-member-data" -l "keep-logs" -l "tag" -o "t:" -- "$@")
+args=$(getopt -l "help" -l "wipe-all" -l "wipe-member-data" -l "wipe-memberships" -l "keep-logs" -l "tag" -o "t:" -- "$@")
 
 eval set -- "$args"
 
@@ -32,6 +33,9 @@ while [ $# -ge 1 ]; do
             ;;
         --wipe-member-data)
             WIPE_MEMBER_DATA=1
+            ;;
+        --wipe-memberships)
+            WIPE_MEMBERSHIPS=1
             ;;
         --keep-logs)
             KEEP_LOGS=1
@@ -49,6 +53,7 @@ while [ $# -ge 1 ]; do
             echo ""
             echo "--help/-h             shows this helptext"
             echo "--wipe-all            wipe all of the data of the pod and creates a new account ID before launching te container"
+            echo "--wipe-memberships    wipe all membership data and secrets of the pod before launching te container"
             echo "--wipe-member-data    wipe all membership data of the pod before launching te container"
             echo "--keep-logs           do not delete the logs of the pod"
             echo "--tag [latest | dev ] use the dev or latest tag of the container"
@@ -183,12 +188,23 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
             echo "Wiping Azure storage failed, you may have to run 'az login' first"
             exit 1
         fi
-    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+    elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
-        # az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login \
-        #    --pattern private/network-${NETWORK}-account-pod-member-*.key
-        # az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
-        #     --pattern network-${NETWORK}/account-pod/service-*/*
+        az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login \
+           --pattern private/network-${NETWORK}-account-pod-member-*.key
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+            --pattern network-${NETWORK}/account-pod/service-*/*
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+            --pattern private/network-${NETWORK}/account-pod/data/*
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+            --pattern network-${NETWORK}/services/service-contract.json
+
+        if [ $? -ne 0 ]; then
+            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            exit 1
+        fi
+    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        echo "Wiping data and service contracts for all memberships of the pod"
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
             --pattern private/network-${NETWORK}/account-pod/data/*
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
@@ -213,10 +229,19 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         fi
         echo "Wiping all data of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
-    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+    elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
-        # gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
-        # gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
+        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
+        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
+        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
+        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+
+        if [ $? -ne 0 ]; then
+            echo "Wiping GCP storage failed, you may have to run 'az login' first"
+            exit 1
+        fi
+    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        echo "Wiping data and service contracts for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
         gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
@@ -244,13 +269,25 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         echo "Wiping all data of the pod"
         aws s3 rm -f s3://${BUCKET_PREFIX}-private/private --recursive
         aws s3 rm -f s3://${BUCKET_PREFIX}-private/network-${NETWORK} --recursive
-    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+    elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
         echo "Wiping data and secrets for memberships not supported on AWS yet"
         exit 1
-        # aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
-        # aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
+        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
+        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
+        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
+        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+
+        if [ $? -ne 0 ]; then
+            echo "Wiping AWS storage failed, you may have to run 'aws login' first"
+            exit 1
+        fi
+    elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        # echo "Wiping data and service contracts for all memberships of the pod"
+        # TODO
+        echo "Wiping data and secrets for memberships not supported on AWS yet"
+        exit 1
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
         aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
 
