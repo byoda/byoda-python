@@ -26,6 +26,9 @@ from byoda.datastore.data_store import DataStoreType, DataStore
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.data_import.youtube import YouTube
+from byoda.data_import.twitter import Twitter
+
 from byoda import config
 
 from .server import Server
@@ -65,6 +68,10 @@ class PodServer(Server):
         self.bootstrapping: bool = bootstrapping
 
         self.data_store: DataStore = None
+
+        # These are used by the podworker for importing data
+        self.twitter_client: Twitter | None = None
+        self.youtube_client: YouTube | None = None
 
     async def load_secrets(self, password: str = None):
         '''

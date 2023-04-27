@@ -4,6 +4,14 @@ Import data from Youtube
 
 Takes as input environment variables
 YOUTUBE_CHANNEL_NAME
+YOUTUBE_API_KEY
+
+This module supports two ways for ingesting YouTube videos:
+- scraping the website. This is limited to the videos shown on the main page
+of a channel. If the YouTube API key environment variable is not set then
+this method will be used.
+- Calling the YouTube Data API. This requires a YouTube Data API key. If the
+YouTube API key environment variable is set then this method will be used.
 
 Instructions to set up YouTube Data API key:
 https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd
@@ -203,7 +211,7 @@ class YouTubeVideo:
         )
         if data and len(data):
             _LOGGER.debug(
-                f'YouTube video {self.video_id} is already in the BYODA membership'
+                f'YouTube video {self.video_id} has already been imported'
             )
             return False
 
@@ -219,6 +227,8 @@ class YouTubeVideo:
             ]
 
         await data_store.append(member_id, YouTube.DATASTORE_CLASS_NAME, asset)
+
+        _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
         return True
 
@@ -439,7 +449,7 @@ class YouTubeChannel:
                 if not result:
                     _LOGGER.debug(
                         f'Found duplicate video ID {video.video_id}, '
-                        f'ending import for channel {self.channel_name}'
+                        f'stopping import for channel {self.channel_name}'
                     )
                     return True
 
@@ -558,7 +568,9 @@ class YouTube:
             )
 
         if not self.integration_enabled:
-            _LOGGER.info('YouTube integration is enabled')
+            raise ValueError('YouTube integration is not enabled')
+
+        _LOGGER.info('YouTube integration is enabled')
 
         if not self.youtube_api_integration_enabled():
             await self.scrape_videos(

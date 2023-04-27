@@ -19,6 +19,7 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
+import os
 import sys
 import asyncio
 
@@ -32,8 +33,8 @@ from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
-from byoda.data_import.twitter import Twitter
 from byoda.data_import.youtube import YouTube
+from byoda.data_import.twitter import Twitter
 
 from byoda.servers.pod_server import PodServer
 
@@ -112,14 +113,21 @@ async def run_startup_tasks(server: PodServer):
     server.twitter_client = None
 
     try:
-        if (ADDRESSBOOK_ID in account.memberships
-                and Twitter.twitter_integration_enabled()):
-            _LOGGER.info('Enabling Twitter integration')
-            server.twitter_client = Twitter.client()
-            user = server.twitter_client.get_user()
-            server.twitter_client.extract_user_data(user)
+        if ADDRESSBOOK_ID in account.memberships:
+            member = account.memberships[ADDRESSBOOK_ID]
+            if YouTube.youtube_integration_enabled():
+                server.youtube_client: YouTube = YouTube()
+                await server.youtube_client.get_videos(
+                    member.member_id, server.data_store
+                )
 
-            fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
+            if Twitter.twitter_integration_enabled():
+                _LOGGER.info('Enabling Twitter integration')
+                server.twitter_client = Twitter.client()
+                user = server.twitter_client.get_user()
+                server.twitter_client.extract_user_data(user)
+
+                fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
@@ -145,6 +153,13 @@ async def run_daemon_tasks(server: PodServer):
     if Twitter.twitter_integration_enabled():
         _LOGGER.debug('Scheduling twitter update task')
         every(180).seconds.do(twitter_update_task, server)
+
+    if YouTube.youtube_integration_enabled():
+        interval = os.environ["YOUTUBE_UPDATE_INTERVAL"]
+        _LOGGER.debug(
+            f'Scheduling youtube update task to run every {interval} minutes'
+        )
+        every(interval).minutes.do(youtube_pdate_task, server)
 
     await run_startup_tasks(server)
 
