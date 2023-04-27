@@ -164,7 +164,9 @@ class Member:
                     filepath: str = self.paths.service_file(self.service_id)
                 else:
                     _LOGGER.debug('Setting up existing membership')
-                    filepath: str = self.paths.member_service_file(self.service_id)
+                    filepath: str = self.paths.member_service_file(
+                        self.service_id
+                    )
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
 

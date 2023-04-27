@@ -110,13 +110,13 @@ mutation(
 GRAPHQL_STATEMENTS['network_invite']['mutate'] = MUTATE_NETWORK_INVITE
 
 
-QUERY_NETWORK_INBOUND = '''
-query ($query_id: UUID!, $filters: networkInboundInputFilter,
+QUERY_NETWORK_LINK_INBOUND = '''
+query ($query_id: UUID!, $filters: networkLinkInboundInputFilter,
         $first: Int, $after: String,
         $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
         $origin_member_id: UUID, $origin_signature: String
         $signature_format_version: Int) {
-    network_inbound_connection(
+    network_link_inbound_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
             relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
             query_id: $query_id, origin_member_id: $origin_member_id,
@@ -125,7 +125,7 @@ query ($query_id: UUID!, $filters: networkInboundInputFilter,
         edges {
             cursor
             origin
-            network_inbound {
+            network_link_inbound {
                 created_timestamp
                 member_id
                 relation
@@ -141,9 +141,9 @@ query ($query_id: UUID!, $filters: networkInboundInputFilter,
 }
 '''
 
-GRAPHQL_STATEMENTS['network_inbound'] = {'query': QUERY_NETWORK_INBOUND}
+GRAPHQL_STATEMENTS['network_link_inbound'] = {'query': QUERY_NETWORK_LINK_INBOUND}
 
-MUTATE_NETWORK_INBOUND = '''
+MUTATE_NETWORK_LINK_INBOUND = '''
 mutation(
                     $created_timestamp: DateTime,
                     $member_id: UUID,
@@ -151,7 +151,7 @@ mutation(
                     $signature: String,
                     $signature_expiration: DateTime,
 ) {
-    mutate_network_inbound(
+    mutate_network_link_inbound(
                     created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     relation: $relation,
@@ -161,7 +161,7 @@ mutation(
 }
 '''
 
-GRAPHQL_STATEMENTS['network_inbound']['mutate'] = MUTATE_NETWORK_INBOUND
+GRAPHQL_STATEMENTS['network_link_inbound']['mutate'] = MUTATE_NETWORK_LINK_INBOUND
 
 
 QUERY_ASSET_LINK = '''
@@ -240,8 +240,8 @@ query ($query_id: UUID!, $filters: assetReactionInputFilter,
                 created_timestamp
                 member_id
                 asset_id
+                asset_class
                 relation
-                signature
             }
         }
         page_info {
@@ -259,15 +259,15 @@ mutation(
                     $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
+                    $asset_class: UUID,
                     $relation: String,
-                    $signature: String,
 ) {
     mutate_asset_reaction(
                     created_timestamp: $created_timestamp,
                     member_id: $member_id,
                     asset_id: $asset_id,
+                    asset_class: $asset_class,
                     relation: $relation,
-                    signature: $signature,
     )
 }
 '''
@@ -384,12 +384,15 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 created_timestamp
                 asset_id
                 asset_type
+                asset_url
+                thumbnails
                 locale
                 creator
-                created
+                published_timestamp
                 content_warnings
                 copyright_years
                 publisher
+                publisher_asset_id
                 title
                 subject
                 contents
@@ -397,6 +400,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 annotations
                 forum
                 root_asset_id
+                root_asset_class
                 response_to_asset_id
             }
         }
@@ -415,12 +419,15 @@ mutation(
                     $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -428,18 +435,22 @@ mutation(
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     mutate_asset(
                     created_timestamp: $created_timestamp,
                     asset_id: $asset_id,
                     asset_type: $asset_type,
+                    asset_url: $asset_url,
+                    thumbnails: $thumbnails,
                     locale: $locale,
                     creator: $creator,
-                    created: $created,
+                    published_timestamp: $published_timestamp,
                     content_warnings: $content_warnings,
                     copyright_years: $copyright_years,
                     publisher: $publisher,
+                    publisher_asset_id: $publisher_asset_id,
                     title: $title,
                     subject: $subject,
                     contents: $contents,
@@ -447,6 +458,7 @@ mutation(
                     annotations: $annotations,
                     forum: $forum,
                     root_asset_id: $root_asset_id,
+                    root_asset_class: $root_asset_class,
                     response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -751,8 +763,8 @@ GRAPHQL_STATEMENTS['network_invites']['updates'] = SUBSCRIPTION_NETWORK_INVITES_
 
 SUBSCRIPTION_NETWORK_INVITES_COUNTER = '''
 subscription (
-    $filters: networkInvitesCounterFilter) {
-    network_invites_counter(filters: $filters) {
+    $filter: networkInvitesCounterFilter) {
+    network_invites_counter(filter: $filter) {
         class_name
         data
     }
@@ -762,7 +774,7 @@ GRAPHQL_STATEMENTS['network_invites']['counter'] = SUBSCRIPTION_NETWORK_INVITES_
 
 
 QUERY_NETWORK_LINKS_INBOUND = '''
-query ($query_id: UUID!, $filters: networkInboundInputFilter,
+query ($query_id: UUID!, $filters: networkLinkInboundInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
         $remote_member_id: UUID, $timestamp: DateTime,
         $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
@@ -774,7 +786,7 @@ query ($query_id: UUID!, $filters: networkInboundInputFilter,
         edges {
             cursor
             origin
-            network_inbound {
+            network_link_inbound {
                 created_timestamp
                 member_id
                 relation
@@ -814,7 +826,7 @@ GRAPHQL_STATEMENTS['network_links_inbound']['append'] = APPEND_NETWORK_LINKS_INB
 
 UPDATE_NETWORK_LINKS_INBOUND = '''
 mutation (
-    $filters: networkInboundInputFilter!,
+    $filters: networkLinkInboundInputFilter!,
                     $created_timestamp: DateTime,
                     $member_id: UUID,
                     $relation: String,
@@ -835,7 +847,7 @@ mutation (
 GRAPHQL_STATEMENTS['network_links_inbound']['update'] = UPDATE_NETWORK_LINKS_INBOUND
 
 DELETE_FROM_NETWORK_LINKS_INBOUND = '''
-mutation ($filters: networkInboundInputFilter!) {
+mutation ($filters: networkLinkInboundInputFilter!) {
     delete_from_network_links_inbound(filters: $filters)
 }
 '''
@@ -844,7 +856,7 @@ GRAPHQL_STATEMENTS['network_links_inbound']['delete'] = DELETE_FROM_NETWORK_LINK
 
 SUBSCRIPTION_NETWORK_LINKS_INBOUND_UPDATES = '''
 subscription (
-    $filters: networkInboundInputFilter) {
+    $filters: networkLinkInboundInputFilter) {
     network_links_inbound_updates(filters: $filters) {
         action
         class_name
@@ -862,8 +874,8 @@ GRAPHQL_STATEMENTS['network_links_inbound']['updates'] = SUBSCRIPTION_NETWORK_LI
 
 SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER = '''
 subscription (
-    $filters: networkLinksInboundCounterFilter) {
-    network_links_inbound_counter(filters: $filters) {
+    $filter: networkLinksInboundCounterFilter) {
+    network_links_inbound_counter(filter: $filter) {
         class_name
         data
     }
@@ -979,8 +991,8 @@ GRAPHQL_STATEMENTS['asset_links']['updates'] = SUBSCRIPTION_ASSET_LINKS_UPDATES
 
 SUBSCRIPTION_ASSET_LINKS_COUNTER = '''
 subscription (
-    $filters: assetLinksCounterFilter) {
-    asset_links_counter(filters: $filters) {
+    $filter: assetLinksCounterFilter) {
+    asset_links_counter(filter: $filter) {
         class_name
         data
     }
@@ -1006,8 +1018,8 @@ query ($query_id: UUID!, $filters: assetReactionInputFilter,
                 created_timestamp
                 member_id
                 asset_id
+                asset_class
                 relation
-                signature
             }
         }
         page_info {
@@ -1025,15 +1037,15 @@ mutation (
                     $created_timestamp: DateTime!,
                     $member_id: UUID!,
                     $asset_id: UUID!,
+                    $asset_class: UUID,
                     $relation: String!,
-                    $signature: String,
 ) {
     append_asset_reactions_received (
             created_timestamp: $created_timestamp,
             member_id: $member_id,
             asset_id: $asset_id,
+            asset_class: $asset_class,
             relation: $relation,
-            signature: $signature,
     )
 }
 '''
@@ -1046,16 +1058,16 @@ mutation (
                     $created_timestamp: DateTime,
                     $member_id: UUID,
                     $asset_id: UUID,
+                    $asset_class: UUID,
                     $relation: String,
-                    $signature: String,
 ) {
     update_asset_reactions_received(
         filters: $filters,
         created_timestamp: $created_timestamp,
         member_id: $member_id,
         asset_id: $asset_id,
+        asset_class: $asset_class,
         relation: $relation,
-        signature: $signature,
     )
 }
 '''
@@ -1080,8 +1092,8 @@ subscription (
             created_timestamp
             member_id
             asset_id
+            asset_class
             relation
-            signature
         }
     }
 }
@@ -1090,8 +1102,8 @@ GRAPHQL_STATEMENTS['asset_reactions_received']['updates'] = SUBSCRIPTION_ASSET_R
 
 SUBSCRIPTION_ASSET_REACTIONS_RECEIVED_COUNTER = '''
 subscription (
-    $filters: assetReactionsReceivedCounterFilter) {
-    asset_reactions_received_counter(filters: $filters) {
+    $filter: assetReactionsReceivedCounterFilter) {
+    asset_reactions_received_counter(filter: $filter) {
         class_name
         data
     }
@@ -1273,8 +1285,8 @@ GRAPHQL_STATEMENTS['datalogs']['updates'] = SUBSCRIPTION_DATALOGS_UPDATES
 
 SUBSCRIPTION_DATALOGS_COUNTER = '''
 subscription (
-    $filters: datalogsCounterFilter) {
-    datalogs_counter(filters: $filters) {
+    $filter: datalogsCounterFilter) {
+    datalogs_counter(filter: $filter) {
         class_name
         data
     }
@@ -1300,12 +1312,15 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 created_timestamp
                 asset_id
                 asset_type
+                asset_url
+                thumbnails
                 locale
                 creator
-                created
+                published_timestamp
                 content_warnings
                 copyright_years
                 publisher
+                publisher_asset_id
                 title
                 subject
                 contents
@@ -1313,6 +1328,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 annotations
                 forum
                 root_asset_id
+                root_asset_class
                 response_to_asset_id
             }
         }
@@ -1331,12 +1347,15 @@ mutation (
                     $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1344,18 +1363,22 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     append_public_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
+            asset_url: $asset_url,
+            thumbnails: $thumbnails,
             locale: $locale,
             creator: $creator,
-            created: $created,
+            published_timestamp: $published_timestamp,
             content_warnings: $content_warnings,
             copyright_years: $copyright_years,
             publisher: $publisher,
+            publisher_asset_id: $publisher_asset_id,
             title: $title,
             subject: $subject,
             contents: $contents,
@@ -1363,6 +1386,7 @@ mutation (
             annotations: $annotations,
             forum: $forum,
             root_asset_id: $root_asset_id,
+            root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1376,12 +1400,15 @@ mutation (
                     $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1389,6 +1416,7 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     update_public_assets(
@@ -1396,12 +1424,15 @@ mutation (
         created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
+        asset_url: $asset_url,
+        thumbnails: $thumbnails,
         locale: $locale,
         creator: $creator,
-        created: $created,
+        published_timestamp: $published_timestamp,
         content_warnings: $content_warnings,
         copyright_years: $copyright_years,
         publisher: $publisher,
+        publisher_asset_id: $publisher_asset_id,
         title: $title,
         subject: $subject,
         contents: $contents,
@@ -1409,6 +1440,7 @@ mutation (
         annotations: $annotations,
         forum: $forum,
         root_asset_id: $root_asset_id,
+        root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1434,12 +1466,15 @@ subscription (
             created_timestamp
             asset_id
             asset_type
+            asset_url
+            thumbnails
             locale
             creator
-            created
+            published_timestamp
             content_warnings
             copyright_years
             publisher
+            publisher_asset_id
             title
             subject
             contents
@@ -1447,6 +1482,7 @@ subscription (
             annotations
             forum
             root_asset_id
+            root_asset_class
             response_to_asset_id
         }
     }
@@ -1456,8 +1492,8 @@ GRAPHQL_STATEMENTS['public_assets']['updates'] = SUBSCRIPTION_PUBLIC_ASSETS_UPDA
 
 SUBSCRIPTION_PUBLIC_ASSETS_COUNTER = '''
 subscription (
-    $filters: publicAssetsCounterFilter) {
-    public_assets_counter(filters: $filters) {
+    $filter: publicAssetsCounterFilter) {
+    public_assets_counter(filter: $filter) {
         class_name
         data
     }
@@ -1483,12 +1519,15 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 created_timestamp
                 asset_id
                 asset_type
+                asset_url
+                thumbnails
                 locale
                 creator
-                created
+                published_timestamp
                 content_warnings
                 copyright_years
                 publisher
+                publisher_asset_id
                 title
                 subject
                 contents
@@ -1496,6 +1535,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 annotations
                 forum
                 root_asset_id
+                root_asset_class
                 response_to_asset_id
             }
         }
@@ -1514,12 +1554,15 @@ mutation (
                     $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1527,18 +1570,22 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     append_service_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
+            asset_url: $asset_url,
+            thumbnails: $thumbnails,
             locale: $locale,
             creator: $creator,
-            created: $created,
+            published_timestamp: $published_timestamp,
             content_warnings: $content_warnings,
             copyright_years: $copyright_years,
             publisher: $publisher,
+            publisher_asset_id: $publisher_asset_id,
             title: $title,
             subject: $subject,
             contents: $contents,
@@ -1546,6 +1593,7 @@ mutation (
             annotations: $annotations,
             forum: $forum,
             root_asset_id: $root_asset_id,
+            root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1559,12 +1607,15 @@ mutation (
                     $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1572,6 +1623,7 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     update_service_assets(
@@ -1579,12 +1631,15 @@ mutation (
         created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
+        asset_url: $asset_url,
+        thumbnails: $thumbnails,
         locale: $locale,
         creator: $creator,
-        created: $created,
+        published_timestamp: $published_timestamp,
         content_warnings: $content_warnings,
         copyright_years: $copyright_years,
         publisher: $publisher,
+        publisher_asset_id: $publisher_asset_id,
         title: $title,
         subject: $subject,
         contents: $contents,
@@ -1592,6 +1647,7 @@ mutation (
         annotations: $annotations,
         forum: $forum,
         root_asset_id: $root_asset_id,
+        root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1617,12 +1673,15 @@ subscription (
             created_timestamp
             asset_id
             asset_type
+            asset_url
+            thumbnails
             locale
             creator
-            created
+            published_timestamp
             content_warnings
             copyright_years
             publisher
+            publisher_asset_id
             title
             subject
             contents
@@ -1630,6 +1689,7 @@ subscription (
             annotations
             forum
             root_asset_id
+            root_asset_class
             response_to_asset_id
         }
     }
@@ -1639,8 +1699,8 @@ GRAPHQL_STATEMENTS['service_assets']['updates'] = SUBSCRIPTION_SERVICE_ASSETS_UP
 
 SUBSCRIPTION_SERVICE_ASSETS_COUNTER = '''
 subscription (
-    $filters: serviceAssetsCounterFilter) {
-    service_assets_counter(filters: $filters) {
+    $filter: serviceAssetsCounterFilter) {
+    service_assets_counter(filter: $filter) {
         class_name
         data
     }
@@ -1666,12 +1726,15 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 created_timestamp
                 asset_id
                 asset_type
+                asset_url
+                thumbnails
                 locale
                 creator
-                created
+                published_timestamp
                 content_warnings
                 copyright_years
                 publisher
+                publisher_asset_id
                 title
                 subject
                 contents
@@ -1679,6 +1742,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 annotations
                 forum
                 root_asset_id
+                root_asset_class
                 response_to_asset_id
             }
         }
@@ -1697,12 +1761,15 @@ mutation (
                     $created_timestamp: DateTime!,
                     $asset_id: UUID!,
                     $asset_type: String!,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1710,18 +1777,22 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     append_network_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
+            asset_url: $asset_url,
+            thumbnails: $thumbnails,
             locale: $locale,
             creator: $creator,
-            created: $created,
+            published_timestamp: $published_timestamp,
             content_warnings: $content_warnings,
             copyright_years: $copyright_years,
             publisher: $publisher,
+            publisher_asset_id: $publisher_asset_id,
             title: $title,
             subject: $subject,
             contents: $contents,
@@ -1729,6 +1800,7 @@ mutation (
             annotations: $annotations,
             forum: $forum,
             root_asset_id: $root_asset_id,
+            root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1742,12 +1814,15 @@ mutation (
                     $created_timestamp: DateTime,
                     $asset_id: UUID,
                     $asset_type: String,
+                    $asset_url: String,
+                    $thumbnails: [String!],
                     $locale: String,
                     $creator: String,
-                    $created: DateTime,
+                    $published_timestamp: DateTime,
                     $content_warnings: [String!],
                     $copyright_years: [Int!],
                     $publisher: String,
+                    $publisher_asset_id: String,
                     $title: String,
                     $subject: String,
                     $contents: String,
@@ -1755,6 +1830,7 @@ mutation (
                     $annotations: [String!],
                     $forum: String,
                     $root_asset_id: UUID,
+                    $root_asset_class: String,
                     $response_to_asset_id: UUID,
 ) {
     update_network_assets(
@@ -1762,12 +1838,15 @@ mutation (
         created_timestamp: $created_timestamp,
         asset_id: $asset_id,
         asset_type: $asset_type,
+        asset_url: $asset_url,
+        thumbnails: $thumbnails,
         locale: $locale,
         creator: $creator,
-        created: $created,
+        published_timestamp: $published_timestamp,
         content_warnings: $content_warnings,
         copyright_years: $copyright_years,
         publisher: $publisher,
+        publisher_asset_id: $publisher_asset_id,
         title: $title,
         subject: $subject,
         contents: $contents,
@@ -1775,6 +1854,7 @@ mutation (
         annotations: $annotations,
         forum: $forum,
         root_asset_id: $root_asset_id,
+        root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
     )
 }
@@ -1800,12 +1880,15 @@ subscription (
             created_timestamp
             asset_id
             asset_type
+            asset_url
+            thumbnails
             locale
             creator
-            created
+            published_timestamp
             content_warnings
             copyright_years
             publisher
+            publisher_asset_id
             title
             subject
             contents
@@ -1813,6 +1896,7 @@ subscription (
             annotations
             forum
             root_asset_id
+            root_asset_class
             response_to_asset_id
         }
     }
@@ -1822,8 +1906,8 @@ GRAPHQL_STATEMENTS['network_assets']['updates'] = SUBSCRIPTION_NETWORK_ASSETS_UP
 
 SUBSCRIPTION_NETWORK_ASSETS_COUNTER = '''
 subscription (
-    $filters: networkAssetsCounterFilter) {
-    network_assets_counter(filters: $filters) {
+    $filter: networkAssetsCounterFilter) {
+    network_assets_counter(filter: $filter) {
         class_name
         data
     }
