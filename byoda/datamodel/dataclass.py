@@ -347,11 +347,12 @@ class SchemaDataScalar(SchemaDataItem):
         self.is_counter: bool = Property.COUNTER in self.properties
         self.is_index: bool = Property.INDEX in self.properties
 
-        if (self.is_counter and not (self.type == DataType.UUID or
-                self.type == DataType.STRING)):
+        if (self.is_counter and not (
+                self.type in (DataType.UUID, DataType.STRING, DataType.DATETIME,
+                              DataType.INTEGER))):
             _LOGGER.exception(
-                f'Only UUIDs and strings can be counters: {self.name}, '
-                f'{self.type}'
+                f'Only UUIDs, strings and datetimes can be counters: '
+                f'{self.name}, {self.type}'
             )
             raise ValueError('Only UUIDs and strings can be counters')
 

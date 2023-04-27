@@ -2,9 +2,10 @@
 
 import os
 import sys
+import shutil
 import unittest
 
-import orjson
+from uuid import uuid4
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
@@ -25,6 +26,7 @@ from byoda.util.fastapi import setup_api
 from byoda import config
 
 from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
@@ -32,7 +34,7 @@ from tests.lib.defines import BASE_URL
 
 _LOGGER = None
 
-TEST_DIR = '/tmp/byoda-tests/podserver'
+TEST_DIR = '/tmp/byoda-tests/yt-import'
 TEST_FILE: str = 'tests/collateral/yt-channel-videos.html'
 
 API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
@@ -40,42 +42,18 @@ API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        try:
+            shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(TEST_DIR)
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = 'TEST_CLIENT'
 
-        network: Network = config.server.network
-        server = config.server
-
-        global BASE_URL
-        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
-
-        with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
-            network_data['account_id'] = orjson.loads(file_desc.read())
-
-        account = Account(network_data['account_id'], network)
-        account.password = network_data.get('account_secret')
-        await account.load_secrets()
-
-        server.account = account
-
-        await config.server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
-        )
-
-        await server.get_registered_services()
-
-        app = setup_api(
-            'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
-                AccountRouter, MemberRouter, AuthTokenRouter,
-                AccountDataRouter
-            ]
-        )
-
-        for account_member in account.memberships.values():
-            account_member.enable_graphql_api(app)
+        config.server.account: Account = await setup_account(network_data)
 
         os.environ[YouTube.ENVIRON_CHANNEL] = ''
         os.environ[YouTube.ENVIRON_API_KEY] = ''

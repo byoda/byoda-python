@@ -130,7 +130,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/network_inbound"
+                    "$ref": "/schemas/network_link_inbound"
                 }
 
             },
@@ -281,7 +281,7 @@
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
             },
-            "network_links_inbound": {
+            "network_link_inbound": {
                 "$id": "/schemas/network_inbound",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "The relation another member has with you",
