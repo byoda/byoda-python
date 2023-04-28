@@ -18,6 +18,8 @@ from byoda.datatypes import CounterFilter
 
 from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datamodel.dataclass import SchemaDataScalar
+from byoda.datamodel.dataclass import SchemaDataArray
+
 from byoda.datamodel.datafilter import DataFilterSet
 
 from .table import Table
@@ -105,8 +107,9 @@ class SqlTable(Table):
         await self.sql_store.execute(stmt, self.member_id)
 
         # When a table has been modified in a new version of the schema,
-        # new columns may have been added.  We need to add them to the
-        # table
+        # new columns may have been added and the above 'CREATE TABLE'
+        # would not add them to existing tables. So we need to add them to
+        # the table here.
         rows = await self.sql_store.execute(
             f'PRAGMA table_info("{self.table_name}");',
             self.member_id, fetchall=True
@@ -114,12 +117,13 @@ class SqlTable(Table):
         sql_columns = {row['name']: row['type'] for row in rows}
 
         for column in self.columns.values():
-            if isinstance(column, SchemaDataScalar):
+            if type(column) in (SchemaDataScalar, SchemaDataArray):
                 await self.reconcile_column(
                     column, sql_columns.get(column.storage_name)
                 )
 
-    async def reconcile_column(self, column: SchemaDataItem,
+    async def reconcile_column(self,
+                               column: SchemaDataScalar | SchemaDataArray,
                                current_sql_type: str | None):
         '''
         Ensure a field in the data class is present in the table, has the
@@ -142,7 +146,10 @@ class SqlTable(Table):
             )
             await self.sql_store.execute(stmt, self.member_id)
 
-        if (column.is_index or column.is_counter or column.format == 'uuid'):
+        if (isinstance(column, SchemaDataScalar)
+                and (column.is_index
+                     or column.is_counter
+                     or column.format == 'uuid')):
             stmt = (
                 f'CREATE INDEX IF NOT EXISTS '
                 f'BYODA_IDX_{self.table_name}_{column.name} '
