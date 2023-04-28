@@ -498,14 +498,20 @@ class YouTube:
 
     @staticmethod
     def youtube_integration_enabled() -> bool:
-        return os.environ.get(YouTube.ENVIRON_CHANNEL) is not None
+        result = os.environ.get(YouTube.ENVIRON_CHANNEL) is not None
+
+        _LOGGER.debug(f'YouTube integration enabled: {result}')
+
+        return result
 
     @staticmethod
     def youtube_api_integration_enabled() -> bool:
         integration_enabled = YouTube.youtube_integration_enabled()
         api_enabled = os.environ.get(YouTube.ENVIRON_API_KEY)
 
-        return integration_enabled and api_enabled
+        result = integration_enabled and api_enabled
+        _LOGGER.debug(f'YouTube API integration enabled: {result}')
+        return result
 
     async def scrape_videos(self, member_id: UUID = None, data_store: DataStore = None,
                             filename: str = None) -> None:

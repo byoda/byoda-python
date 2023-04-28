@@ -157,7 +157,7 @@ async def run_daemon_tasks(server: PodServer):
         every(180).seconds.do(twitter_update_task, server)
 
     if YouTube.youtube_integration_enabled():
-        interval = os.environ["YOUTUBE_UPDATE_INTERVAL"]
+        interval = os.environ["YOUTUBE_IMPORT_INTERVAL"]
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )
