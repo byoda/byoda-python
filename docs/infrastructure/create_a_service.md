@@ -236,6 +236,7 @@ pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 # by nginx so it can read the private key
 sudo chown www-data:www-data /var/tmp/service-${SERVICE_ID}.key
 
+
 ## 6: Get the service up and running
 The service server can be run as a container
 ```

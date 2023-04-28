@@ -45,7 +45,7 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
-class Property(Enum):
+class DataProperty(Enum):
     # flask8: noqa=E221
     COUNTER     = 'counter'
     INDEX       = 'index'
@@ -102,11 +102,11 @@ class SchemaDataItem:
         self.defined_class: bool | None = None
 
         self.fields: list[SchemaDataItem] | None = None
-        self.properties: set(Property) = set()
+        self.properties: set(DataProperty) = set()
 
         # Properties for the class, currently only used by SchemaDataScalar
         for property in schema_data.get(MARKER_PROPERTIES, []):
-            self.properties.add(Property(property))
+            self.properties.add(DataProperty(property))
 
         # Create index on this item in an array of SchemaDataObject
         self.is_index: bool = False
@@ -344,8 +344,8 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter: bool = Property.COUNTER in self.properties
-        self.is_index: bool = Property.INDEX in self.properties
+        self.is_counter: bool = DataProperty.COUNTER in self.properties
+        self.is_index: bool = DataProperty.INDEX in self.properties
 
         if (self.is_counter and not (
                 self.type in (DataType.UUID, DataType.STRING, DataType.DATETIME,
@@ -395,10 +395,10 @@ class SchemaDataObject(SchemaDataItem):
         self.required_fields: list[str] = schema_data.get('required', [])
         self.defined_class: bool = False
 
-        if Property.COUNTER in self.properties:
+        if DataProperty.COUNTER in self.properties:
             raise ValueError('Counters are not supported for objects')
 
-        if Property.INDEX in self.properties:
+        if DataProperty.INDEX in self.properties:
             raise ValueError('Index is not supported for objects')
 
         if self.item_id:
@@ -490,10 +490,10 @@ class SchemaDataArray(SchemaDataItem):
 
         self.defined_class: bool = False
 
-        if Property.COUNTER in self.properties:
+        if DataProperty.COUNTER in self.properties:
             raise ValueError('Counters are not supported for arrays')
 
-        if Property.INDEX in self.properties:
+        if DataProperty.INDEX in self.properties:
             raise ValueError('Index is not supported for arraus')
 
 
