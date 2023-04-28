@@ -633,6 +633,17 @@
                         "description": "ID of asset that this asset is a response to",
                         "type": "string",
                         "format": "uuid"
+                    },
+                    "encoding_status": {
+                        "description": "status of the encoding process",
+                        "type": "string"
+                    },
+                    "encoding_profiles": {
+                        "description": "encoding profile used for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]

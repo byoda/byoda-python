@@ -263,7 +263,14 @@ class YouTubeChannel:
                 data = file_desc.read()
         else:
             async with aiohttp.ClientSession() as session:
-                url = YouTube.CHANNEL_URL.format(channel_name=self.name)
+                # Channel URLs with whitespace never include the '@' symbol
+                if ' ' in self.name:
+                    url = YouTube.CHANNEL_URL.format(channel_name=self.name)
+                else:
+                    # Some channels without whitespace may require the '@' symbol,
+                    # ie. the 'besmart' channel
+                    url = YouTube.CHANNEL_URL_WITH_AT.format(channel_name=self.name)
+
                 _LOGGER.debug(f'Scraping YouTube channel at {url}')
                 async with session.get(url) as response:
                     if response.status != 200:
@@ -470,6 +477,7 @@ class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     SCRAPE_URL: str = 'https://www.youtube.com'
+    CHANNEL_URL_WITH_AT: str = SCRAPE_URL + '/@{channel_name}'
     CHANNEL_URL: str = SCRAPE_URL + '/{channel_name}'
     CHANNEL_VIDEOS_URL: str = SCRAPE_URL + '/channel/{channel_id}/videos'
     CHANNEL_SCRAPE_REGEX = re.compile(r'var ytInitialData = (.*?);')
