@@ -115,8 +115,8 @@ async def run_startup_tasks(server: PodServer):
     server.twitter_client = None
 
     try:
-        if ADDRESSBOOK_ID in account.memberships:
-            member = account.memberships[ADDRESSBOOK_ID]
+        member = account.memberships.get(ADDRESSBOOK_ID)
+        if member:
             if YouTube.youtube_integration_enabled():
                 server.youtube_client: YouTube = YouTube()
                 await server.youtube_client.get_videos(
@@ -130,6 +130,9 @@ async def run_startup_tasks(server: PodServer):
                 server.twitter_client.extract_user_data(user)
 
                 fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
+        else:
+            _LOGGER.debug('Did not find membership of address book')
+
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
@@ -161,7 +164,7 @@ async def run_daemon_tasks(server: PodServer):
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )
-        every(interval).minutes.do(youtube_update_task, server)
+        every(int(interval)).minutes.do(youtube_update_task, server)
 
     await run_startup_tasks(server)
 

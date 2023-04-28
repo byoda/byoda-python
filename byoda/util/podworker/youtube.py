@@ -21,8 +21,10 @@ NEWEST_TWEET_FILE = 'newest_tweet.txt'
 
 async def youtube_update_task(server: PodServer):
     await server.account.load_memberships()
-    member: Member = server.account.memberships[ADDRESSBOOK_SERVICE_ID]
-
+    member: Member = server.account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+    if not member:
+        _LOGGER.info('Not a member of the address book service')
+        
     try:
         if server.youtube_client:
             _LOGGER.debug('Running YouTube metadata update')
@@ -30,7 +32,7 @@ async def youtube_update_task(server: PodServer):
                 member.member_id, server.data_store
             )
         else:
-            _LOGGER.debug('Skipping Twitter update as it is not enabled')
+            _LOGGER.debug('Skipping YouTube update as it is not enabled')
 
     except Exception:
         _LOGGER.exception('Exception during Youtube metadata update')
