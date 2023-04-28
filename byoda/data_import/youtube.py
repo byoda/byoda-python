@@ -94,6 +94,8 @@ class YouTubeVideo:
 
         self.publisher = 'YouTube'
         self.asset_type: str = 'video'
+        self.encoding_status = 'external'
+        self.encoding_profiles = ['youtube']
         self.asset_id: UUID = uuid4()
         self.locale: str | None = None
         self.annotations: list[str] = []
@@ -262,7 +264,13 @@ class YouTubeChannel:
             with open(filename, 'r') as file_desc:
                 data = file_desc.read()
         else:
-            async with aiohttp.ClientSession() as session:
+            headers = {
+                'User-Agent': (
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                    '(KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
+                )
+            }
+            async with aiohttp.ClientSession(headers=headers) as session:
                 # Channel URLs with whitespace never include the '@' symbol
                 if ' ' in self.name:
                     url = YouTube.CHANNEL_URL.format(channel_name=self.name)
@@ -325,6 +333,7 @@ class YouTubeChannel:
             if video_id:
                 if video_id not in self.videos:
                     self.videos[video_id] = YouTubeVideo.from_scrape(data)
+                    self.videos[video_id].channel_creator = self.name
 
                 return
 
@@ -494,7 +503,9 @@ class YouTube:
         'asset_type': 'asset_type',
         'asset_id': 'asset_id',
         'locale': 'locale',
-        'publisher': 'publisher'
+        'publisher': 'publisher',
+        'encoding_status': 'encoding_status',
+        'encoding_profiles': 'encoding_profiles',
     }
 
     def __init__(self, api_key: str | None = None):
