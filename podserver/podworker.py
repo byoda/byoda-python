@@ -117,12 +117,6 @@ async def run_startup_tasks(server: PodServer):
     try:
         member = account.memberships.get(ADDRESSBOOK_ID)
         if member:
-            if YouTube.youtube_integration_enabled():
-                server.youtube_client: YouTube = YouTube()
-                await server.youtube_client.get_videos(
-                    member.member_id, server.data_store
-                )
-
             if Twitter.twitter_integration_enabled():
                 _LOGGER.info('Enabling Twitter integration')
                 server.twitter_client = Twitter.client()

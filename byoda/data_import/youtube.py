@@ -264,11 +264,22 @@ class YouTubeChannel:
         else:
             async with aiohttp.ClientSession() as session:
                 url = YouTube.CHANNEL_URL.format(channel_name=self.name)
+                _LOGGER.debug(f'Scraping YouTube channel at {url}')
                 async with session.get(url) as response:
+                    if response.status != 200:
+                        _LOGGER.warning(
+                            f'HTTP scrape for {url} failed: {response.status}'
+                        )
+                        return
+
                     data = await response.text()
 
         soup = BeautifulSoup(data, 'html.parser')
         script = soup.find('script', string=YouTube.CHANNEL_SCRAPE_REGEX)
+
+        if not script:
+            _LOGGER.warning('Did not find text in HTML scrape')
+            return
 
         raw_data = YouTube.CHANNEL_SCRAPE_REGEX.search(
             script.text
@@ -459,7 +470,7 @@ class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     SCRAPE_URL: str = 'https://www.youtube.com'
-    CHANNEL_URL: str = SCRAPE_URL + '/@{channel_name}'
+    CHANNEL_URL: str = SCRAPE_URL + '/{channel_name}'
     CHANNEL_VIDEOS_URL: str = SCRAPE_URL + '/channel/{channel_id}/videos'
     CHANNEL_SCRAPE_REGEX = re.compile(r'var ytInitialData = (.*?);')
     DATASTORE_CLASS_NAME: str = 'public_assets'

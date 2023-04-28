@@ -26,8 +26,6 @@ from byoda.datastore.data_store import DataStoreType, DataStore
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.data_import.youtube import YouTube
-from byoda.data_import.twitter import Twitter
 
 from byoda import config
 
@@ -42,6 +40,8 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 Member = TypeVar('Member')
 Account = TypeVar('Account')
 JWT = TypeVar('JWT')
+YouTube = TypeVar('YouTube')
+Twitter = TypeVar('Twitter')
 
 
 class PodServer(Server):
