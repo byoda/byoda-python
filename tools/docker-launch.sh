@@ -69,7 +69,7 @@ done
 ###
 ### Pick up local settings for this byoda pod
 ###
-echo "Loading settings from settings.sh"
+echo "Loading settings from byoda-settings.sh"
 source ~/byoda-settings.sh
 
 if [[ "${TAG}" != "latest" && "${TAG}" != "dev" ]]; then
@@ -388,6 +388,9 @@ sudo docker run -d \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \
     -e "ROOT_DIR=/byoda" \
+    -e "YOUTUBE_CHANNEL=${YOUTUBE_CHANNEL}" \
+    -e "YOUTUBE_API_KEY=${YOUTUBE_API_KEY}" \
+    -e "YOUTUBE_IMPORT_INTERVAL=${YOUTUBE_IMPORT_INTERVAL}" \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
     -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
     -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
