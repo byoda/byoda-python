@@ -40,9 +40,12 @@ from byoda.util.paths import Paths
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
-from byoda import config
+from byoda.exceptions import ByodaRuntimeError
 
 from byoda.util.logger import Logger
+
+from byoda import config
+
 
 MAX_WAIT = 15 * 60
 MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
@@ -162,7 +165,7 @@ async def main():
             # to be up and running, even if it may not have returned
             # any data
             member_db.add_member(member_id)
-        except (HTTPError, RequestConnectionError) as exc:
+        except (HTTPError, RequestConnectionError, ByodaRuntimeError) as exc:
             _LOGGER.info(
                 f'Not adding member back to the list because we failed '
                 f'to connect to {url}: {exc}'
