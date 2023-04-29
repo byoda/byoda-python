@@ -108,7 +108,6 @@ class ApiClient:
         # HACK: disable client pools as it generates RuntimeError
         # for 'eventloop is already closed'
         if pool not in config.client_pools or True:
-            # The hostname might be of the form 'dir.{networ}'
             if (parsed_url.hostname.startswith('dir.')
                     or parsed_url.hostname.startswith('proxy.')
                     or network_name not in parsed_url.hostname):
