@@ -382,6 +382,7 @@ You can now point your browser to your pod: <https://byoda.example.org> (or the 
 ## Youtube import
 
 To enable the import of the metadata of YouTube videos from your YouTube channel, set the environment variable ```YOUTUBE_CHANNEL``` to the name of the your channel. There are two ways that the pod can import your videos:
+
 - Scraping from the YouTube website: with this method, only the videos on the main page of your channel get imported.
 - Using the YouTube Data API. This requires you to create a YouTube DATA API key. You can follow [these instructions](https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd) to create the API key. Then set the ```YOUTUBE_API_KEY``` environment variable and restart the pod container.
 

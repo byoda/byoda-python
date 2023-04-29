@@ -143,13 +143,20 @@ async def main(argv):
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
     parser.add_argument(
+        '--custom-domain', '-u', type=str,
+        default=os.environ.get('CUSTOM_DOMAIN')
+    )
+    parser.add_argument(
         '--debug', default=False, action='store_true'
     )
 
     args = parser.parse_args(argv[1:])
 
     if not args.member_id:
-        raise ValueError('No member id given')
+        raise ValueError('No member id given or set as environment variable')
+
+    if not args.password:
+        raise ValueError('No password given or set as environment variable')
 
     global _LOGGER
     if args.debug:
@@ -163,14 +170,15 @@ async def main(argv):
             loglevel=logging.WARNING
         )
 
-    network = args.network
-    service_id = args.service_id
-    member_id = args.member_id
-    password = args.password
-    object_name = args.object
-    action = args.action
-    depth = args.depth
-    remote_member_id = args.remote_member_id
+    network: str = args.network
+    service_id: str = args.service_id
+    member_id: str = args.member_id
+    password: str = args.password
+    object_name: str = args.object
+    action: str = args.action
+    depth: str = args.depth
+    remote_member_id: str = args.remote_member_id
+    custom_domain: str = args.custom_domain
 
     relations = None
     if args.relations:
@@ -191,8 +199,15 @@ async def main(argv):
             ", ".join(GRAPHQL_STATEMENTS[object_name])
         )
 
-    base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
-    ws_base_url: str = f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
+    if not custom_domain:
+        # We need to use the proxy because the pod uses an SSL cert signed
+        # by the private CA
+        base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
+        ws_base_url: str = \
+            f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
+    else:
+        base_url: str = f'https://{custom_domain}/api'
+        ws_base_url: str = f'wss://{custom_domain}/ws-api'
 
     auth_header = await get_jwt_header(
         member_id, base_url=base_url, secret=password,
@@ -247,6 +262,7 @@ async def main(argv):
 
 async def call_http(graphql_url: str, object_name: str, action: str,
                     vars: dict, auth_header: str) -> None:
+    _LOGGER.debug(f'Calling URL {graphql_url}')
     response = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS[object_name][action],
         vars=vars, headers=auth_header, timeout=30
@@ -275,6 +291,7 @@ async def call_http(graphql_url: str, object_name: str, action: str,
 
 async def call_websocket(graphql_url: str, object_name: str, action: str,
                          auth_header: str) -> None:
+    _LOGGER.debug(f'Calling URL {graphql_url}')
     transport = WebsocketsTransport(
         url=graphql_url,
         subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],

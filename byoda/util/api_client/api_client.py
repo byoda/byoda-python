@@ -6,10 +6,12 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 '''
 
 import logging
+
 from uuid import UUID
 from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
+from urllib.parse import urlparse
 
 import orjson
 import aiohttp
@@ -58,7 +60,7 @@ class ApiClient:
     '''
 
     def __init__(self, api: str, secret: Secret = None, service_id: int = None,
-                 timeout: int = 10, port: int = None):
+                 timeout: int = 10, port: int = None, network_name: str = None):
         '''
         Maintains a pool of connections for different destinations
 
@@ -67,6 +69,7 @@ class ApiClient:
         '''
 
         server: Server = config.server
+
         if hasattr(server, 'local_storage'):
             storage = server.local_storage
         else:
@@ -74,13 +77,14 @@ class ApiClient:
 
         self.port = port
 
+        parsed_url = urlparse(api)
         # We maintain a cache of sessions based on the authentication
         # requirements of the remote host and whether to use for verifying
         # the TLS server cert the root CA of the network or the regular CAs.
         self.session = None
         if not secret:
             if not port:
-                if api.startswith('http://'):
+                if parsed_url.scheme == 'http':
                     self.port = 80
                     pool = 'noauth-http'
                 else:
@@ -104,10 +108,14 @@ class ApiClient:
         # HACK: disable client pools as it generates RuntimeError
         # for 'eventloop is already closed'
         if pool not in config.client_pools or True:
-            if api.startswith('https://dir') or api.startswith('https://proxy'):
+            # The hostname might be of the form 'dir.{networ}'
+            if (parsed_url.hostname.startswith('dir.')
+                    or parsed_url.hostname.startswith('proxy.')
+                    or network_name not in parsed_url.hostname):
                 # For calls by Accounts and Services to the directory server,
-                # we do not have to set the root CA as the directory server
-                # uses a Let's Encrypt cert
+                # to the proxy server, or servers not in the DNS domain of
+                # the byoda network, we do not have to set the root CA as the
+                # these use certs signed by a public CA
                 _LOGGER.debug(
                     'Not using byoda certchain for server cert '
                     f'verification of {api}'
@@ -174,8 +182,6 @@ class ApiClient:
                 updated_headers = {}
             updated_headers['Content-Type'] = 'application/json'
 
-        client = ApiClient(api, secret=secret, service_id=service_id)
-
         api = Paths.resolve(
             api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
@@ -184,6 +190,11 @@ class ApiClient:
             f'Calling {method} {api} with query parameters {params} '
             f'and data: {data}'
         )
+
+        client = ApiClient(
+            api, secret=secret, service_id=service_id, network_name=network_name
+        )
+
         try:
             response: aiohttp.ClientResponse = await client.session.request(
                 method, api, params=params, data=processed_data,
