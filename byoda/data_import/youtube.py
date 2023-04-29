@@ -429,7 +429,7 @@ class YouTubeChannel:
                 self.api_client.close()
                 _LOGGER.debug(
                     f'Empty page token, ending import after {len(self.videos)} videos '
-                    f'for channel {self.channel_name}'
+                    f'for channel {self.name}'
                 )
                 return
 
@@ -437,7 +437,7 @@ class YouTubeChannel:
                 self.api_client.close()
                 _LOGGER.debug(
                     f'Max of {max_api_requests} API requests reached '
-                    f'for channel {self.channel_name}, ending import '
+                    f'for channel {self.name}, ending import '
                 )
                 return
 
@@ -445,7 +445,7 @@ class YouTubeChannel:
                 self.api_client.close()
                 _LOGGER.info(
                     f'Max retries exceeded, ending import after {len(self.videos)} videos '
-                    f'for channel {self.channel_name}'
+                    f'for channel {self.name}'
                 )
                 return
 
@@ -476,7 +476,7 @@ class YouTubeChannel:
                 if not result:
                     _LOGGER.debug(
                         f'Found duplicate video ID {video.video_id}, '
-                        f'stopping import for channel {self.channel_name}'
+                        f'stopping import for channel {self.name}'
                     )
                     return True
 
