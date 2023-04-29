@@ -402,6 +402,8 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
+                encoding_status
+                encoding_profiles
             }
         }
         page_info {
@@ -437,6 +439,8 @@ mutation(
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     mutate_asset(
                     created_timestamp: $created_timestamp,
@@ -460,6 +464,8 @@ mutation(
                     root_asset_id: $root_asset_id,
                     root_asset_class: $root_asset_class,
                     response_to_asset_id: $response_to_asset_id,
+                    encoding_status: $encoding_status,
+                    encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -1576,6 +1582,8 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
+                encoding_status
+                encoding_profiles
             }
         }
         page_info {
@@ -1611,6 +1619,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     append_public_assets (
             created_timestamp: $created_timestamp,
@@ -1634,6 +1644,8 @@ mutation (
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
+            encoding_status: $encoding_status,
+            encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -1664,6 +1676,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     update_public_assets(
         filters: $filters,
@@ -1688,6 +1702,8 @@ mutation (
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
+        encoding_status: $encoding_status,
+        encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -1730,6 +1746,8 @@ subscription (
             root_asset_id
             root_asset_class
             response_to_asset_id
+            encoding_status
+            encoding_profiles
         }
     }
 }
@@ -1783,6 +1801,8 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
+                encoding_status
+                encoding_profiles
             }
         }
         page_info {
@@ -1818,6 +1838,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     append_service_assets (
             created_timestamp: $created_timestamp,
@@ -1841,6 +1863,8 @@ mutation (
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
+            encoding_status: $encoding_status,
+            encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -1871,6 +1895,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     update_service_assets(
         filters: $filters,
@@ -1895,6 +1921,8 @@ mutation (
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
+        encoding_status: $encoding_status,
+        encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -1937,6 +1965,8 @@ subscription (
             root_asset_id
             root_asset_class
             response_to_asset_id
+            encoding_status
+            encoding_profiles
         }
     }
 }
@@ -1990,6 +2020,8 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
+                encoding_status
+                encoding_profiles
             }
         }
         page_info {
@@ -2025,6 +2057,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     append_network_assets (
             created_timestamp: $created_timestamp,
@@ -2048,6 +2082,8 @@ mutation (
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
+            encoding_status: $encoding_status,
+            encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -2078,6 +2114,8 @@ mutation (
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
+                    $encoding_status: String,
+                    $encoding_profiles: [String!],
 ) {
     update_network_assets(
         filters: $filters,
@@ -2102,6 +2140,8 @@ mutation (
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
+        encoding_status: $encoding_status,
+        encoding_profiles: $encoding_profiles,
     )
 }
 '''
@@ -2144,6 +2184,8 @@ subscription (
             root_asset_id
             root_asset_class
             response_to_asset_id
+            encoding_status
+            encoding_profiles
         }
     }
 }
