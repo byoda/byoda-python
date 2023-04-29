@@ -112,8 +112,11 @@ async def main():
         _LOGGER.debug(f'Processing member_id {member_id}')
         try:
             data = member_db.get_meta(member_id)
-        except (TypeError, KeyError) as exc:
-            _LOGGER.warning(f'Invalid data for member: {member_id}: {exc}')
+        except TypeError as exc:
+            _LOGGER.exception(f'Invalid data for member: {member_id}: {exc}')
+            continue
+        except KeyError as exc:
+            _LOGGER.info(f'Member not found: {member_id}: {exc}')
             continue
 
         member_db.add_meta(
