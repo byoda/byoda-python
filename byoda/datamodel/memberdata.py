@@ -399,10 +399,13 @@ class MemberData(dict):
             )
 
         data_store = server.data_store
+        _LOGGER.debug('Collecting data')
         data = await data_store.query(member.member_id, class_name, filter_set)
         for data_item in data or []:
             data_item[ORIGIN_KEY] = member.member_id
             all_data.append(data_item)
+
+        _LOGGER.debug(f'Got {len(data)} items of data')
 
         return all_data
 

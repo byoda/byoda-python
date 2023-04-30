@@ -300,12 +300,15 @@ class Query:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
+        _LOGGER.debug('Calling memberdata.get_data()')
         data = await MemberDataClassByoda.get_data(
             {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
             remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
             origin_member_id=origin_member_id, origin_signature=origin_signature
         )
 
+        _LOGGER.debug('Received data from memberdata.get_data()')
+        
         if after:
             cursor_seen: bool = False
         else:
@@ -314,6 +317,7 @@ class Query:
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
         cursor = ''
+        _LOGGER.debug('Prepping edges')
         for obj in data or []:
             required_field_names = [
 {%       for field_name in root_class.required_fields %}
@@ -334,14 +338,21 @@ class Query:
                 edges.append(edge)
             else:
                 total_skipped += 1
+                _LOGGER.debug('Skipping because not seen cursor yet')
                 if cursor == after:
                     cursor_seen = True
+                    _LOGGER.debug('Seen cursor, starting to add edges')
 
+            _LOGGER.debug(f'Cursor seen: {cursor_seen}')
             if first and len(edges) == first:
+                _LOGGER.debug('Done: len(edges): {len(edges)}, first: {first}')
                 break
+
+            _LOGGER.debug('Reached last line of "for" loop')
 
         has_next_page = False
         if total_skipped + len(edges) < len(data):
+            _LOGGER.debug('Setting next page to True')
             has_next_page = True
 
         info = page_info(end_cursor=cursor, has_next_page=has_next_page)
