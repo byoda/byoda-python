@@ -19,7 +19,7 @@ from byoda.datamodel.network import Network
 
 from byoda.datastore.document_store import DocumentStoreType
 
-from byoda.storage.filestorage import FileStorage
+from byoda.datatypes import CloudType
 
 from byoda.servers.service_server import ServiceServer
 
@@ -73,8 +73,8 @@ async def setup():
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
-        cloud_type=None,
-        bucket_prefix=None,
+        cloud_type=CloudType.LOCAL,
+        bucket_prefix='byoda',
         root_dir=app_config['svcserver']['root_dir']
     )
 
