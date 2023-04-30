@@ -63,11 +63,11 @@ async def setup():
         root_dir=app_config['dirserver']['root_dir']
     )
 
+    config.server = server
+
     await network.load_network_secrets()
 
     await server.connect_db(app_config['dirserver']['dnsdb'])
-
-    config.server = server
 
     await server.get_registered_services()
     await server.load_secrets()
