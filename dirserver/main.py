@@ -56,7 +56,7 @@ async def setup():
     )
     server = DirectoryServer(network)
 
-    await config.server.set_document_store(
+    await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType.LOCAL,
         bucket_prefix='byoda',
