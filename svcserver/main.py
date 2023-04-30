@@ -19,6 +19,8 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.datamodel.network import Network
 
+from byoda.datastore.document_store import DocumentStoreType
+
 from .routers import service as ServiceRouter
 from .routers import member as MemberRouter
 from .routers import search as SearchRouter
@@ -54,12 +56,18 @@ async def setup():
     network = Network(
         app_config['svcserver'], app_config['application']
     )
-    await network.load_network_secrets()
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
 
     config.server = ServiceServer(network, app_config)
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=None,
+        bucket_prefix=None,
+        root_dir=app_config['svcserver']['root_dir']
+    )
 
     await config.server.load_network_secrets()
 
