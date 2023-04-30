@@ -23,6 +23,8 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.service_server import ServiceServer
 
+from byoda.util.paths import Paths
+
 from .routers import service as ServiceRouter
 from .routers import member as MemberRouter
 from .routers import search as SearchRouter
@@ -58,8 +60,10 @@ async def setup():
     network = Network(
         app_config['svcserver'], app_config['application']
     )
-    network.paths.storage_driver = await FileStorage.setup([
-        'svcserver']['root_dir']
+
+    network.paths = Paths(
+        network=network.name,
+        root_directory=app_config['svcserver']['root_dir']
     )
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
