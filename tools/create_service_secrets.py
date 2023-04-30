@@ -22,7 +22,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.servers.server import Server
 
-from byoda.secrets import NetworkRootCaSecret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 
 from byoda import config
 

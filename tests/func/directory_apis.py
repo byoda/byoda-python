@@ -35,11 +35,11 @@ from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.message_signature import SignatureType
 
-from byoda.secrets import Secret
-from byoda.secrets import AccountSecret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import ServiceSecret
-from byoda.secrets import ServiceDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.storage.filestorage import FileStorage
 

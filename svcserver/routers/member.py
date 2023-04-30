@@ -29,8 +29,8 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datastore.certstore import CertStore
 
-from byoda.secrets import Secret
-from byoda.secrets import MembersCaSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.models import CertChainRequestModel
 from byoda.models import CertSigningRequestModel
