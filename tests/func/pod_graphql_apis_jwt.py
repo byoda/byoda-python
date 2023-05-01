@@ -323,7 +323,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result['data']['update_network_assets'], 1)
 
-        for count in range(1, 100):
+        for count in range(1, 2500):
             vars = {
                 'query_id': uuid4(),
                 'created_timestamp': str(

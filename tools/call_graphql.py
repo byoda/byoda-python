@@ -142,6 +142,8 @@ async def main(argv):
     parser.add_argument('--filter-compare', type=str, default=None)
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
+    parser.add_argument('--first', type=int, default=None)
+    parser.add_argument('--after', type=str, default=None)
     parser.add_argument(
         '--custom-domain', '-u', type=str,
         default=os.environ.get('CUSTOM_DOMAIN')
@@ -157,6 +159,12 @@ async def main(argv):
 
     if not args.password:
         raise ValueError('No password given or set as environment variable')
+
+    if (args.first or args.after) and args.action != 'query':
+        raise ValueError(
+            'Pagination is only supported for queries, '
+            'not mutations or subscriptions'
+        )
 
     global _LOGGER
     if args.debug:
@@ -179,6 +187,8 @@ async def main(argv):
     depth: str = args.depth
     remote_member_id: str = args.remote_member_id
     custom_domain: str = args.custom_domain
+    first: int = args.first
+    after: str = args.after
 
     relations = None
     if args.relations:
@@ -238,6 +248,9 @@ async def main(argv):
         vars['depth'] = depth
         if relations:
             vars['relations'] = relations
+
+    vars['first'] = first
+    vars['after'] = after
 
     if remote_member_id:
         vars['remote_member_id'] = remote_member_id
