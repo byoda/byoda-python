@@ -11,6 +11,8 @@ provides global variables
 import aiohttp
 import requests
 
+from ssl import SSLContext
+
 DEFAULT_NETWORK = 'byoda.net'
 
 
@@ -42,3 +44,7 @@ client_pools: dict[str, aiohttp.ClientSession] = {}
 
 # Pool of requests sessions, used by podworker as it can't use asyncio.
 sync_client_pools: dict[str, requests.Session] = {}
+
+# This cache avoids having to load cert/key for each request that uses
+# client SSL auth
+ssl_contexts: dict[str, SSLContext] = {}

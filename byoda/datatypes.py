@@ -61,6 +61,7 @@ class IdType(Enum):
     MEMBER               = 'members-'
     SERVICE              = 'service-'
     APP                  = 'apps-'
+    ANONYMOUS            = 'anonymous'
 
     @staticmethod
     def by_value_lengths():

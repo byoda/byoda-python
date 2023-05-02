@@ -105,7 +105,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        pass
+        await GraphQlClient.close_all()
 
     async def test_graphql_addressbook_jwt(self):
         pod_account = config.server.account
@@ -323,7 +323,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result['data']['update_network_assets'], 1)
 
-        for count in range(1, 2500):
+        for count in range(1, 200):
             vars = {
                 'query_id': uuid4(),
                 'created_timestamp': str(
@@ -355,10 +355,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
 
-        self.assertEqual(len(data), 101)
+        self.assertEqual(len(data), 201)
 
         cursor = ''
-        for looper in range(0, 7):
+        for looper in range(0, 14):
             vars = {
                 'query_id': uuid4(),
                 'first': 15,
@@ -373,12 +373,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(result.get('errors'))
             more_data = result['data']['network_assets_connection']['edges']
             cursor = more_data[-1]['cursor']
-            if looper < 6:
+            if looper < 13:
                 self.assertEqual(len(more_data), 15)
                 self.assertEqual(data[looper * 15], more_data[0])
                 self.assertEqual(data[looper * 15 + 14], more_data[14])
 
-        self.assertEqual(len(more_data), 11)
+        self.assertEqual(len(more_data), 6)
 
         #
         # First query with depth = 1 shows only local results
@@ -398,7 +398,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 101)
+        self.assertEqual(len(data), 201)
 
         #
         # Confirm we are not already in the network_links of the Azure pod
@@ -533,7 +533,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertGreaterEqual(len(data), 101)
+        self.assertGreaterEqual(len(data), 202)
 
         #
         # Now we make sure the local pod and the Azure pod have data for
@@ -676,7 +676,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertGreaterEqual(len(data), 104)
+        self.assertGreaterEqual(len(data), 204)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
 
     if not info.context or not info.context['request']:
         raise HTTPException(
-            status_code=403, detail='No authentication provided'
+            status_code=403, detail='Invalid request object'
         )
 
     try:
@@ -54,9 +54,16 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
+
+
         if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authentication for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        elif auth.id_type == ByodaIdType.ANONYMOUS:
+            _LOGGER.debug(
+                f'Authentication for anonymous user: '
                 f'{auth.is_authenticated}'
             )
         else:
@@ -69,11 +76,6 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             status_code=400, detail='Authentication failed'
         )
 
-    if not auth.is_authenticated:
-        raise HTTPException(
-            status_code=403, detail='No authentication provided'
-        )
-
     try:
         # Check whether the authenticated client is authorized to request
         # the data
@@ -83,6 +85,11 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authorization for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        elif auth.id_type == ByodaIdType.ANONYMOUS:
+            _LOGGER.debug(
+                f'Authorization for anonymous user: '
                 f'{auth.is_authenticated}'
             )
         else:
@@ -308,7 +315,7 @@ class Query:
         )
 
         _LOGGER.debug('Received data from memberdata.get_data()')
-        
+
         if after:
             cursor_seen: bool = False
         else:

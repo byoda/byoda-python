@@ -39,6 +39,10 @@ class GraphQlClient:
         return response
 
     @staticmethod
+    async def close_all():
+        await ApiClient.close_all()
+
+    @staticmethod
     def call_sync(url: str, query: bytes,
                   vars: dict = None, headers: dict = None,
                   secret: Secret = None, timeout: int = 10

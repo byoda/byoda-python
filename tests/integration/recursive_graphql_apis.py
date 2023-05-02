@@ -126,7 +126,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        pass
+        await GraphQlClient.close_all()
 
     async def test_graphql_addressbook_jwt(self):
         pod_account = config.server.account

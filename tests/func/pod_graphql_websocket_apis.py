@@ -107,7 +107,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        pass
+        await GraphQlClient.close_all()
 
     async def test_graphql_websocket_append_no_filter(self):
         pod_account = config.server.account

@@ -84,19 +84,19 @@ class ApiClient:
         self.session = None
         if not secret:
             if not port:
-                if parsed_url.scheme == 'http':
+                if parsed_url.scheme == f'http-{parsed_url.hostname}':
                     self.port = 80
-                    pool = 'noauth-http'
+                    pool = f'noauth-http-{parsed_url.hostname}'
                 else:
-                    pool = 'noauth-https'
+                    pool = f'noauth-https-{parsed_url.hostname}'
                     self.port = 443
 
         elif isinstance(secret, ServiceSecret):
-            pool = f'service-{service_id}'
+            pool = f'service-{service_id}-{parsed_url.hostname}'
         elif isinstance(secret, MemberSecret):
-            pool = 'member'
+            pool = f'member-{parsed_url.hostname}'
         elif isinstance(secret, AccountSecret):
-            pool = 'account'
+            pool = f'account-{parsed_url.hostname}'
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
@@ -105,42 +105,48 @@ class ApiClient:
 
         self.ssl_context = None
 
-        # HACK: disable client pools as it generates RuntimeError
-        # for 'eventloop is already closed'
-        if pool not in config.client_pools or True:
-            if (parsed_url.hostname.startswith('dir.')
-                    or parsed_url.hostname.startswith('proxy.')
-                    or network_name not in parsed_url.hostname):
-                # For calls by Accounts and Services to the directory server,
-                # to the proxy server, or servers not in the DNS domain of
-                # the byoda network, we do not have to set the root CA as the
-                # these use certs signed by a public CA
-                _LOGGER.debug(
-                    'Not using byoda certchain for server cert '
-                    f'verification of {api}'
-                )
+        self.host = parsed_url.hostname
+        if (parsed_url.hostname.startswith('dir.')
+                or parsed_url.hostname.startswith('proxy.')
+                or network_name not in parsed_url.hostname):
+            # For calls by Accounts and Services to the directory server,
+            # to the proxy server, or servers not in the DNS domain of
+            # the byoda network, we do not have to set the root CA as the
+            # these use certs signed by a public CA
+            _LOGGER.debug(
+                'Not using byoda certchain for server cert '
+                f'verification of {api}'
+            )
+            self.ssl_context = config.ssl_contexts.get('default')
+            if not self.ssl_context:
                 self.ssl_context = ssl.create_default_context()
-            else:
-                ca_filepath = storage.local_path + server.network.root_ca.cert_file
+                config.ssl_contexts['default'] = self.ssl_context
+        else:
+            ca_filepath = storage.local_path + server.network.root_ca.cert_file
+
+            self.ssl_context = config.ssl_contexts.get(pool)
+            if not self.ssl_context:
                 self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
-                _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
+                config.ssl_contexts[pool] = self.ssl_context
 
-            if secret:
-                if not storage:
-                    # Hack: podserver and svcserver use different attributes
-                    storage = server.storage_driver
+            _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
-                cert_filepath = storage.local_path + secret.cert_file
-                key_filepath = secret.get_tmp_private_key_filepath()
+        if secret:
+            if not storage:
+                # Hack: podserver and svcserver use different attributes
+                storage = server.storage_driver
 
-                _LOGGER.debug(
-                    f'Setting client cert/key to {cert_filepath}, {key_filepath}'
-                )
-                self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
+            cert_filepath = storage.local_path + secret.cert_file
+            key_filepath = secret.get_tmp_private_key_filepath()
 
+            _LOGGER.debug(
+                f'Setting client cert/key to {cert_filepath}, {key_filepath}'
+            )
+            self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
+
+        if pool not in config.client_pools:
             timeout_setting = aiohttp.ClientTimeout(total=timeout)
             self.session = aiohttp.ClientSession(timeout=timeout_setting)
-
             config.client_pools[pool] = self.session
         else:
             self.session = config.client_pools[pool]
@@ -204,14 +210,21 @@ class ApiClient:
                 aiohttp.client_exceptions.ClientConnectorError) as exc:
             raise ByodaRuntimeError(exc)
 
-        await client.session.close()
-
         if response.status >= 400:
             raise ByodaRuntimeError(
                 f'Failure to call API {api}: {response.status}'
             )
 
         return response
+
+    @staticmethod
+    async def close_all():
+        '''
+        Closes all aiohttp sessions to avoid warnings at the end of the calling program
+        '''
+
+        for session in config.client_pools.values():
+            await session.close()
 
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,

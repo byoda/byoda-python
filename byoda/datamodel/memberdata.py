@@ -405,7 +405,7 @@ class MemberData(dict):
             data_item[ORIGIN_KEY] = member.member_id
             all_data.append(data_item)
 
-        _LOGGER.debug(f'Got {len(data)} items of data')
+        _LOGGER.debug(f'Got {len(data or [])} items of data')
 
         return all_data
 
