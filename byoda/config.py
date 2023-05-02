@@ -8,6 +8,8 @@ provides global variables
 :license    : GPLv3
 '''
 
+from typing import TypeVar
+
 import aiohttp
 import requests
 
@@ -15,6 +17,7 @@ from ssl import SSLContext
 
 DEFAULT_NETWORK = 'byoda.net'
 
+HttpSession = TypeVar('HttpSession')
 
 # Enable various debugging options in the pod, including
 # whether the GraphQL web page should be enabled.

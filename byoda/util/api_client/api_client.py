@@ -17,6 +17,10 @@ import orjson
 import aiohttp
 import ssl
 
+from datetime import datetime
+from datetime import timezone
+from collections import namedtuple
+
 import requests
 
 from byoda.secrets.secret import Secret
@@ -24,9 +28,10 @@ from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
 
+from byoda.util.paths import Paths
+
 from byoda.exceptions import ByodaRuntimeError
 
-from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,8 +55,8 @@ class HttpMethod(Enum):
     DELETE      = 'delete'
     HEAD        = 'head'
 
-config.client_pools = dict()
 
+HttpSession = namedtuple('HttpSession', ['session', 'last_used'])
 
 class ApiClient:
     '''
@@ -147,9 +152,13 @@ class ApiClient:
         if pool not in config.client_pools:
             timeout_setting = aiohttp.ClientTimeout(total=timeout)
             self.session = aiohttp.ClientSession(timeout=timeout_setting)
-            config.client_pools[pool] = self.session
+
+            # TODO: create podworker job to prune old sessions
+            config.client_pools[pool] = HttpSession(
+                session=self.session, last_used=datetime.now(tz=timezone.utc)
+            )
         else:
-            self.session = config.client_pools[pool]
+            self.session: aiohttp.ClientSession = config.client_pools[pool].session
 
     @staticmethod
     async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
@@ -223,8 +232,14 @@ class ApiClient:
         Closes all aiohttp sessions to avoid warnings at the end of the calling program
         '''
 
-        for session in config.client_pools.values():
-            await session.close()
+        for pool, httpsession in config.client_pools.items():
+            await httpsession.session.close()
+
+        pools = list(config.client_pools.keys())
+        for pool in pools:
+            del config.client_pools[pool]
+    
+        config.client_pools: dict[str, aiohttp.ClientSession] = {}
 
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,

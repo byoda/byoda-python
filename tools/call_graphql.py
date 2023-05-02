@@ -46,6 +46,8 @@ from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
+DEFAULT_PAGE_SIZE = 100
+
 
 async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
@@ -142,7 +144,7 @@ async def main(argv):
     parser.add_argument('--filter-compare', type=str, default=None)
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
-    parser.add_argument('--first', type=int, default=None)
+    parser.add_argument('--first', type=int, default=DEFAULT_PAGE_SIZE)
     parser.add_argument('--after', type=str, default=None)
     parser.add_argument(
         '--custom-domain', '-u', type=str,
