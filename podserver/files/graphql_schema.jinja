@@ -363,6 +363,7 @@ class Query:
             has_next_page = True
 
         info = page_info(end_cursor=cursor, has_next_page=has_next_page)
+        _LOGGER.debug('Returning data')
         return {{ root_class.name }}_page(total_count=len(data), edges=edges, page_info=info)
 
 

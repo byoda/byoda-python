@@ -63,7 +63,8 @@ async def main(argv):
 
     args = parser.parse_args(argv[1:])
 
-    if not args.member_id:
+    args.custom_domain = 'azure.byoda.me'
+    if not args.member_id and not args.custom_domain:
         raise ValueError('No member id given or set as environment variable')
 
     global _LOGGER
@@ -104,11 +105,11 @@ async def main(argv):
         # We need to use the proxy because the pod uses an SSL cert signed
         # by the private CA
         base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
-        ws_base_url: str = \
-            f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
+        # ws_base_url: str = \
+        #    f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
     else:
         base_url: str = f'https://{custom_domain}/api'
-        ws_base_url: str = f'wss://{custom_domain}/ws-api'
+        # ws_base_url: str = f'wss://{custom_domain}/ws-api'
 
     graphql_url = f'{base_url}/v1/data/service-{service_id}'
 
@@ -137,7 +138,7 @@ async def main(argv):
         )
 
     if action == 'query':
-        await call_http(graphql_url, object_name, 'query', vars)
+        await call_http(graphql_url, object_name, vars)
     else:
         raise ValueError(
             f'Only queries are supported at this time, not {action}'
@@ -151,12 +152,17 @@ async def call_http(graphql_url: str, object_name: str, vars: dict) -> None:
                       fetch_schema_from_transport=False) as session:
 
         try:
-            response = await session.execute(
-                GRAPHQL_STATEMENTS[object_name]['query'], variable_values=vars
-            )
-            print('Data returned by GraphQL: ')
+            command = GRAPHQL_STATEMENTS[object_name]['query']
+            query = '''
+           
+            '''
+            response = await session.execute(command, variable_values=vars)
+
             print(response)
-        except (ValueError) as exc:
+        except TypeError as exc:
+            _LOGGER.exception(f'Failed to executre command: {exc}')
+            raise
+        except ValueError as exc:
             _LOGGER.error(
                 f'Failed to parse response: {exc}: {await response.text()}'
             )

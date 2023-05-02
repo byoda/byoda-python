@@ -8,6 +8,7 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
+import re
 import logging
 
 from byoda.datatypes import IdType
@@ -16,9 +17,10 @@ from byoda.requestauth.requestauth import RequestAuth
 
 _LOGGER = logging.getLogger(__name__)
 
+url_service_regex = re.compile('''data\/service-(\d+)$''')
 
 class AnonymousRequestAuth(RequestAuth):
-    async def authenticate(self):
+    async def authenticate(self, url: str):
         '''
         Get the authentication info for the client that made the API call.
         :returns: whether the client successfully authenticated

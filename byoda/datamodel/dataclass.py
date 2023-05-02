@@ -297,7 +297,7 @@ class SchemaDataItem:
         '''
 
         _LOGGER.debug(f'Checking authorization for operation {operation}')
-        if service_id != auth.service_id:
+        if auth.is_authenticated and service_id != auth.service_id:
             _LOGGER.debug(
                 f'GraphQL API for service ID {service_id} called with credentials '
                 f'for service: {auth.service_id}'

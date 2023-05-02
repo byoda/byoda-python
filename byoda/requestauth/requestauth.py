@@ -137,6 +137,8 @@ class RequestAuth:
         self.member_id: UUID = None
         self.domain: str = None
 
+        self. id: UUID | None = None
+
         self.tls_status: TlsStatus = None
         self.client_dn: str = None
         self.issuing_ca_dn: str = None
@@ -302,7 +304,7 @@ class RequestAuth:
             request.client.host, request_method
         )
 
-        if auth and auth.service_id != service_id:
+        if auth.is_authenticated and auth.service_id != service_id:
             raise HTTPException(
                 status_code=401,
                 detail=f'credential is not for service {service_id}'
@@ -351,6 +353,7 @@ class RequestAuth:
             id_type = jwt.issuer_type
         else:
             _LOGGER.debug('Anonymous request, no client-cert or JWT provided')
+            id_type = IdType.ANONYMOUS
 
         if id_type == IdType.ACCOUNT:
             raise HTTPException(
@@ -378,7 +381,7 @@ class RequestAuth:
             )
         elif id_type == IdType.ANONYMOUS:
             from .anonymousrequest_auth import AnonymousRequestAuth
-            auth = AnonymousRequestAuth()
+            auth = AnonymousRequestAuth(remote_addr, method)
         else:
             raise ValueError(
                 f'Invalid authentication type in common name {client_dn}'
