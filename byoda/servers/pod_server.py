@@ -10,8 +10,6 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from byoda.util.api_client.restapi_client import RestApiClient
-from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
@@ -26,6 +24,10 @@ from byoda.datastore.data_store import DataStoreType, DataStore
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
+
+from byoda.util.paths import Paths
 
 from byoda import config
 
@@ -204,6 +206,8 @@ class PodServer(Server):
         # Note call_graphql tool does not set up the data store
         if self.data_store:
             await self.data_store.close()
+
+        await ApiClient.close_all()
 
     def accepts_jwts(self):
         return True

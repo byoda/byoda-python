@@ -51,7 +51,7 @@ DEFAULT_PAGE_SIZE = 100
 
 async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
-        os.environ['ROOT_DIR'] = '/byoda'
+        os.environ['ROOT_DIR'] = '/tmp/byoda'
 
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
@@ -155,12 +155,11 @@ async def main(argv):
     )
 
     args = parser.parse_args(argv[1:])
+    args.custom_domain = 'azure.byoda.me'
+    args.object = 'public_assets'
 
-    if not args.member_id:
+    if not args.member_id and not args.custom_domain:
         raise ValueError('No member id given or set as environment variable')
-
-    if not args.password:
-        raise ValueError('No password given or set as environment variable')
 
     if (args.first or args.after) and args.action != 'query':
         raise ValueError(
@@ -221,10 +220,14 @@ async def main(argv):
         base_url: str = f'https://{custom_domain}/api'
         ws_base_url: str = f'wss://{custom_domain}/ws-api'
 
-    auth_header = await get_jwt_header(
-        member_id, base_url=base_url, secret=password,
-        member_token=True
-    )
+    if password:
+        auth_header: str = await get_jwt_header(
+            member_id, base_url=base_url, secret=password,
+            member_token=True
+        )
+    else:
+        auth_header: str = None
+        _LOGGER.debug('No password given, making anonymous GraphQL request')
 
     if args.action in ('query', 'mutate', 'update', 'append', 'delete'):
         websockets: bool = False
