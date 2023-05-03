@@ -155,8 +155,6 @@ async def main(argv):
     )
 
     args = parser.parse_args(argv[1:])
-    args.custom_domain = 'azure.byoda.me'
-    args.object = 'public_assets'
 
     if not args.member_id and not args.custom_domain:
         raise ValueError('No member id given or set as environment variable')
