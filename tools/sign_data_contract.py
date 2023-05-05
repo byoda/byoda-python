@@ -16,11 +16,15 @@ import argparse
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
-
-from byoda.servers.service_server import ServiceServer
 from byoda.datamodel.service import RegistrationStatus
 
+from byoda.datastore.document_store import DocumentStoreType
+
 from byoda.storage.filestorage import FileStorage
+
+from byoda.servers.service_server import ServiceServer
+
+from byoda.datatypes import CloudType
 
 from byoda.util.message_signature import SignatureType
 from byoda.util.logger import Logger
@@ -28,8 +32,8 @@ from byoda.util.paths import Paths
 
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpMethod
-from byoda.secrets import ServiceSecret
-from byoda.secrets import NetworkDataSecret
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.network_data_secret import NetworkDataSecret
 
 from byoda import config
 
@@ -71,7 +75,14 @@ async def main(argv):
     network.paths = Paths(
         root_directory=root_dir, network=network.name
     )
-    config.server = ServiceServer(network, app_config)
+    config.server: ServiceServer = ServiceServer(network, app_config)
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType('LOCAL'),
+        bucket_prefix='byoda',
+        root_dir=root_dir
+    )
     await config.server.load_network_secrets()
 
     service = await load_service(args, config.server.network, password)
@@ -128,6 +139,7 @@ async def load_service(args, network: Network, password: str):
     '''
     Load service and its secrets
     '''
+
     service = Service(network=network)
     await service.examine_servicecontract(args.contract)
 
@@ -140,7 +152,11 @@ async def load_service(args, network: Network, password: str):
     return service
 
 
-def create_service_signature(service):
+def create_service_signature(service: Service):
+    '''
+    Creates the signature of the service for the schema
+    '''
+
     schema = service.schema.json_schema
 
     if SignatureType.SERVICE.value in service.schema.json_schema['signatures']:
@@ -156,7 +172,7 @@ def create_service_signature(service):
     _LOGGER.debug(f'Added service signature {schema["signatures"]["service"]}')
 
 
-async def create_network_signature(service, args, password) -> bool:
+async def create_network_signature(service: Service, args, password: str) -> bool:
     '''
     Add network signature to the service schema/data contract,
     either locally or by a directory server over the network

@@ -38,9 +38,12 @@ from byoda.datacache.counter_cache import CounterCache
 from byoda.storage import FileStorage
 
 
-from byoda.secrets import ServiceCaSecret, ServiceDataSecret
-from byoda.secrets import MemberSecret, MemberDataSecret
-from byoda.secrets import Secret, MembersCaSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.requestauth.jwt import JWT
 
@@ -140,6 +143,7 @@ class Member:
         else:
             verify_signatures = True
 
+        filepath: str = self.paths.service_file(self.service_id)
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -153,14 +157,16 @@ class Member:
                         'Sideloading service contract only supported for '
                         'test cases'
                     )
-                filepath = local_service_contract
+                filepath: str = local_service_contract
             else:
                 if new_membership:
                     _LOGGER.debug('Setting up new membership')
-                    filepath = self.paths.service_file(self.service_id)
+                    filepath: str = self.paths.service_file(self.service_id)
                 else:
                     _LOGGER.debug('Setting up existing membership')
-                    filepath = self.paths.member_service_file(self.service_id)
+                    filepath: str = self.paths.member_service_file(
+                        self.service_id
+                    )
 
                 _LOGGER.debug(f'Setting service contract file to {filepath}')
 

@@ -45,9 +45,10 @@ class GraphQlAPI(Enum):
     SEARCH    = 'search'
     DELETE    = 'delete'
 
-class Property(Enum):
+class DataProperty(Enum):
     # flask8: noqa=E221
     COUNTER     = 'counter'
+    INDEX       = 'index'
 
 # Translation from jsondata data type to Python data type in the Jinja template
 PYTHON_SCALAR_TYPE_MAP = {
@@ -101,14 +102,17 @@ class SchemaDataItem:
         self.defined_class: bool | None = None
 
         self.fields: list[SchemaDataItem] | None = None
-        self.properties: set(Property) = set()
+        self.properties: set(DataProperty) = set()
 
         # Properties for the class, currently only used by SchemaDataScalar
         for property in schema_data.get(MARKER_PROPERTIES, []):
-            self.properties.add(Property(property))
+            self.properties.add(DataProperty(property))
 
-        # Currently only used for SchemaDataScalar instances, to keep
-        # counter per unique value of the item in an SchemaDataArray
+        # Create index on this item in an array of SchemaDataObject
+        self.is_index: bool = False
+
+        # Keep counter per unique value of the item in an SchemaDataArray
+        # Setting this will also cause the item to be indexed
         self.is_counter: bool = False
 
         self.type: DataType = DataType(schema_data['type'])
@@ -293,7 +297,7 @@ class SchemaDataItem:
         '''
 
         _LOGGER.debug(f'Checking authorization for operation {operation}')
-        if service_id != auth.service_id:
+        if auth.is_authenticated and service_id != auth.service_id:
             _LOGGER.debug(
                 f'GraphQL API for service ID {service_id} called with credentials '
                 f'for service: {auth.service_id}'
@@ -340,13 +344,15 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter = Property.COUNTER in self.properties
+        self.is_counter: bool = DataProperty.COUNTER in self.properties
+        self.is_index: bool = DataProperty.INDEX in self.properties
 
-        if (self.is_counter and not (self.type == DataType.UUID or
-                self.type == DataType.STRING)):
+        if (self.is_counter and not (
+                self.type in (DataType.UUID, DataType.STRING, DataType.DATETIME,
+                              DataType.INTEGER))):
             _LOGGER.exception(
-                f'Only UUIDs and strings can be counters: {self.name}, '
-                f'{self.type}'
+                f'Only UUIDs, strings and datetimes can be counters: '
+                f'{self.name}, {self.type}'
             )
             raise ValueError('Only UUIDs and strings can be counters')
 
@@ -388,6 +394,12 @@ class SchemaDataObject(SchemaDataItem):
         self.fields: dict[str, SchemaDataItem] = {}
         self.required_fields: list[str] = schema_data.get('required', [])
         self.defined_class: bool = False
+
+        if DataProperty.COUNTER in self.properties:
+            raise ValueError('Counters are not supported for objects')
+
+        if DataProperty.INDEX in self.properties:
+            raise ValueError('Index is not supported for objects')
 
         if self.item_id:
             self.defined_class = True
@@ -477,6 +489,13 @@ class SchemaDataArray(SchemaDataItem):
         super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
+
+        if DataProperty.COUNTER in self.properties:
+            raise ValueError('Counters are not supported for arrays')
+
+        if DataProperty.INDEX in self.properties:
+            raise ValueError('Index is not supported for arraus')
+
 
         items = schema_data.get('items')
         if not items:

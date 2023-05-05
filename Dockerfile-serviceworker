@@ -54,4 +54,4 @@ COPY . byoda-python/
 CMD  cd /opt/byoda/byoda-python && \
     pipenv run python3 svcserver/svcworker.py \
         1> /var/log/byoda/svcworker-stdout.log \
-        2> /var/log/byoda/svcworker-stderr.log \
+        2> /var/log/byoda/svcworker-stderr.log

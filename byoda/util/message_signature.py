@@ -11,9 +11,9 @@ import base64
 from enum import Enum
 from datetime import datetime
 
-from byoda.secrets import DataSecret
-from byoda.secrets import ServiceDataSecret
-from byoda.secrets import NetworkDataSecret
+from byoda.secrets.data_secret import DataSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.network_data_secret import NetworkDataSecret
 
 _LOGGER = logging.getLogger(__name__)
 

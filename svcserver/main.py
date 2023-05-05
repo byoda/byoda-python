@@ -15,9 +15,15 @@ from byoda.util.fastapi import setup_api, add_cors
 from byoda.util.logger import Logger
 from byoda import config
 
+from byoda.datamodel.network import Network
+
+from byoda.datastore.document_store import DocumentStoreType
+
+from byoda.datatypes import CloudType
+
 from byoda.servers.service_server import ServiceServer
 
-from byoda.datamodel.network import Network
+from byoda.util.paths import Paths
 
 from .routers import service as ServiceRouter
 from .routers import member as MemberRouter
@@ -54,12 +60,23 @@ async def setup():
     network = Network(
         app_config['svcserver'], app_config['application']
     )
-    await network.load_network_secrets()
+
+    network.paths = Paths(
+        network=network.name,
+        root_directory=app_config['svcserver']['root_dir']
+    )
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
 
     config.server = ServiceServer(network, app_config)
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType.LOCAL,
+        bucket_prefix='byoda',
+        root_dir=app_config['svcserver']['root_dir']
+    )
 
     await config.server.load_network_secrets()
 

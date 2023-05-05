@@ -12,7 +12,18 @@ export PRIVATE_KEY_SECRET="changeme"
 export AWS_ACCESS_KEY_ID="changeme"
 export AWS_SECRET_ACCESS_KEY="changeme"
 
-# To impport your Twitter public tweets, sign up for Twitter Developer
+# To import the metadata of your YouTube videos, edit the following variables.
+# Use quotes "" if the name of the channel contains whitespace
+export YOUTUBE_CHANNEL=
+
+# To import using the YouTube Data API instead of scraping youtube.com, set
+# the this variable to your API key:
+export YOUTUBE_API_KEY=
+
+# To manage how often the import process runs, set the following variable
+export YOUTUBE_IMPORT_INTERVAL=240
+
+# To import your Twitter public tweets, sign up for Twitter Developer
 # program at https://developer.twitter.com/ and set the following three
 # environment variables (more instructions in
 # https://github.com/StevenHessing/byoda-python/README.md)

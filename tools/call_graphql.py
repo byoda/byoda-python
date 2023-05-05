@@ -46,10 +46,12 @@ from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
+DEFAULT_PAGE_SIZE = 100
+
 
 async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
-        os.environ['ROOT_DIR'] = '/byoda'
+        os.environ['ROOT_DIR'] = '/tmp/byoda'
 
     os.environ['BUCKET_PREFIX'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
@@ -142,14 +144,26 @@ async def main(argv):
     parser.add_argument('--filter-compare', type=str, default=None)
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
+    parser.add_argument('--first', type=int, default=DEFAULT_PAGE_SIZE)
+    parser.add_argument('--after', type=str, default=None)
+    parser.add_argument(
+        '--custom-domain', '-u', type=str,
+        default=os.environ.get('CUSTOM_DOMAIN')
+    )
     parser.add_argument(
         '--debug', default=False, action='store_true'
     )
 
     args = parser.parse_args(argv[1:])
 
-    if not args.member_id:
-        raise ValueError('No member id given')
+    if not args.member_id and not args.custom_domain:
+        raise ValueError('No member id given or set as environment variable')
+
+    if (args.first or args.after) and args.action != 'query':
+        raise ValueError(
+            'Pagination is only supported for queries, '
+            'not mutations or subscriptions'
+        )
 
     global _LOGGER
     if args.debug:
@@ -163,14 +177,17 @@ async def main(argv):
             loglevel=logging.WARNING
         )
 
-    network = args.network
-    service_id = args.service_id
-    member_id = args.member_id
-    password = args.password
-    object_name = args.object
-    action = args.action
-    depth = args.depth
-    remote_member_id = args.remote_member_id
+    network: str = args.network
+    service_id: str = args.service_id
+    member_id: str = args.member_id
+    password: str = args.password
+    object_name: str = args.object
+    action: str = args.action
+    depth: str = args.depth
+    remote_member_id: str = args.remote_member_id
+    custom_domain: str = args.custom_domain
+    first: int = args.first
+    after: str = args.after
 
     relations = None
     if args.relations:
@@ -191,13 +208,24 @@ async def main(argv):
             ", ".join(GRAPHQL_STATEMENTS[object_name])
         )
 
-    base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
-    ws_base_url: str = f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
+    if not custom_domain:
+        # We need to use the proxy because the pod uses an SSL cert signed
+        # by the private CA
+        base_url: str = f'https://proxy.{network}/{service_id}/{member_id}/api'
+        ws_base_url: str = \
+            f'wss://proxy.{network}/{service_id}/{member_id}/ws-api'
+    else:
+        base_url: str = f'https://{custom_domain}/api'
+        ws_base_url: str = f'wss://{custom_domain}/ws-api'
 
-    auth_header = await get_jwt_header(
-        member_id, base_url=base_url, secret=password,
-        member_token=True
-    )
+    if password:
+        auth_header: str = await get_jwt_header(
+            member_id, base_url=base_url, secret=password,
+            member_token=True
+        )
+    else:
+        auth_header: str = None
+        _LOGGER.debug('No password given, making anonymous GraphQL request')
 
     if args.action in ('query', 'mutate', 'update', 'append', 'delete'):
         websockets: bool = False
@@ -224,6 +252,9 @@ async def main(argv):
         if relations:
             vars['relations'] = relations
 
+    vars['first'] = first
+    vars['after'] = after
+
     if remote_member_id:
         vars['remote_member_id'] = remote_member_id
 
@@ -247,6 +278,7 @@ async def main(argv):
 
 async def call_http(graphql_url: str, object_name: str, action: str,
                     vars: dict, auth_header: str) -> None:
+    _LOGGER.debug(f'Calling URL {graphql_url}')
     response = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS[object_name][action],
         vars=vars, headers=auth_header, timeout=30
@@ -275,6 +307,7 @@ async def call_http(graphql_url: str, object_name: str, action: str,
 
 async def call_websocket(graphql_url: str, object_name: str, action: str,
                          auth_header: str) -> None:
+    _LOGGER.debug(f'Calling URL {graphql_url}')
     transport = WebsocketsTransport(
         url=graphql_url,
         subprotocols=[WebsocketsTransport.GRAPHQLWS_SUBPROTOCOL],

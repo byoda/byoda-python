@@ -10,7 +10,7 @@ provides helper functions to authenticate the client making the request
 
 import logging
 
-from fastapi import Header, HTTPException, Request
+from fastapi import HTTPException
 
 from byoda import config
 
@@ -18,22 +18,6 @@ from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import ByodaMissingAuthInfo
 
 _LOGGER = logging.getLogger(__name__)
-
-
-# TODO: remove, obsolete code?
-class MemberRequestAuth_Fast(RequestAuth):
-    '''
-    Wrapper for FastApi dependency
-    '''
-
-    def __init__(self, request: Request,
-                 x_client_ssl_verify: TlsStatus | None = Header(None),
-                 x_client_ssl_subject: str | None = Header(None),
-                 x_client_ssl_issuing_ca: str | None = Header(None)):
-        super().__init__(
-            x_client_ssl_verify or TlsStatus.NONE, x_client_ssl_subject,
-            x_client_ssl_issuing_ca, request.client.host
-        )
 
 
 class MemberRequestAuth(RequestAuth):
@@ -46,7 +30,6 @@ class MemberRequestAuth(RequestAuth):
         API is the owner of the private key for the certificate it presented
         so we trust the HTTP headers set by the reverse proxy
 
-        :param service_id: the service identifier for the service
         :returns: whether the client successfully authenticated
         :raises: HTTPException
         '''

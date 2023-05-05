@@ -23,13 +23,13 @@ There are two ways to install the pod:
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public'). The bucket names have to be globally unique so you may have to try different strings.
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Follow the cloud-specific instructions for creating the VM to run the pod on
-        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
         - [Azure](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-        -  [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
+        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+        - [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
     - The 443 and 444 ports for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
-        - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
+        - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
     - TCP ports 443 and port 444 on your server must be available for the pod to use and must be accessible from the Internet
@@ -40,14 +40,15 @@ To launch the pod:
 - Log in to your VM or server.
 - Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/byoda/byoda-python.git)
 
-```
+```bash
 sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host sqlite3 libnng1
 
 git clone https://github.com/byoda/byoda-python.git
 ```
 
 If (and only if) you created a new VM in a public cloud for your pod then create a swap file:
-```
+
+```bash
 SWAP=$(free | grep -i swap | awk '{ print $4;}')
 if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
     sudo fallocate -l 512m /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
@@ -65,7 +66,7 @@ fi
   - Make sure to save the values for ACCOUNT_SECRET and PRIVATE_KEY_SECRET to a secure place as without them, you have no way to recover the data in your pod if things go haywire.
   - You can ignore the other variables that can be set in this file. They'll be discussed in other sections of the documentation
 
-```
+```bash
 sudo mkdir /byoda 2>/dev/null
 cd byoda-python
 cp tools/docker-launch.sh tools/byoda-settings.sh ~
@@ -74,7 +75,7 @@ vi ~/byoda-settings.sh
 
 - Now run the docker-launch.sh script
 
-```
+```bash
 ~/docker-launch.sh
 ```
 
@@ -97,7 +98,6 @@ Now that we have all the bits and pieces in place, let's first see what services
 
 ```bash
 curl -s https://dir.byoda.net/api/v1/network/services | jq .
-
 ```
 
 Currently there is only a test service called 'address book'. We can use curl to confirm that the pod has discovered this service in the network:
@@ -379,9 +379,31 @@ The procedure to use a custom domain is:
 
 You can now point your browser to your pod: <https://byoda.example.org> (or the dns record you actually created.)
 
-## Twitter integration
+## Youtube import
 
-To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is free and takes about a minute. You then go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the docker-launch.sh script and edit the following variables:
+To enable the import of the metadata of YouTube videos from your YouTube channel, set the environment variable ```YOUTUBE_CHANNEL``` to the name of the your channel. There are two ways that the pod can import your videos:
+
+- Scraping from the YouTube website: with this method, only the videos on the main page of your channel get imported.
+- Using the YouTube Data API. This requires you to create a YouTube DATA API key. You can follow [these instructions](https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd) to create the API key. Then set the ```YOUTUBE_API_KEY``` environment variable and restart the pod container.
+
+YouTube applies a quota of 10000 'credits' per day. The 'search' API that the podworker uses consumes 100 credits so you do not want to call the API more than 100 times per day. By default, the pod worker runs an import once per 4 hours. You can set the ```YOUTUBE_IMPORT_INTERVAL``` environment to the interval in minutes that you want the podworker to run the import process. YouTube returns a maximum of 50 videos per API call. If you have more than 50 videos in your channel then the pod worker will call the API multiple times until it has imported all videos or until it finds a video that has already been imported. So the first time you run the importer, it could make multiple API calls but in subsequent runs it would call the API just once per run.
+
+To set the environment variables, you can edit the ```byoda-settings.sh``` file that gets sourced by the ```docker-launch.sh script```
+
+```bash
+# To import your YouTube videos, edit the following variables:
+export YOUTUBE_CHANNEL=
+
+# To import using the YouTube API instead of scraping it from the YouTube website,
+# set the following variable to your API key:
+export YOUTUBE_API_KEY=
+
+# To manage how often the import process runs, set the following variable
+export YOUTUBE_IMPORT_INTERVAL=240
+```
+
+## Twitter integration
+To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is unfortunately no longer free .After signing up, you go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the ```byoda-settings.sh``` script and edit the following variables:
 
 ```bash
 # Set this to the API key you generated on the Twitter Dev portal
@@ -401,7 +423,7 @@ When you launch the pod with these settings, a worker process in the pod will re
 cd byoda-python
 export PYTHONPATH=.
 source tools/set_env.sh
-tools/call_graphql.py --object tweets --action query
+pipenv run tools/call_graphql.py --object tweets --action query
 ```
 
 When it is importing tweets, the worker in the pod will call a backend server of the 'address book' service to upload metadata about the tweets. This provides the data for a search API. At this time, you can call it to look for mentions or hashtags.

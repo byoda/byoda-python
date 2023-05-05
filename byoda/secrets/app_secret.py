@@ -17,7 +17,7 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 
-from . import Secret
+from .secret import Secret
 
 _LOGGER = logging.getLogger(__name__)
 

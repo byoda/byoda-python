@@ -345,15 +345,15 @@ class MemberData(dict):
         # For queries for objects we implement pagination and identify
         # those APIs by appending _connection to the name for the
         # data class
-        key = info.path.key
-        if key.endswith('_connection'):
-            key = key[:-1 * len('_connection')]
+        class_name = info.path.key
+        if class_name.endswith('_connection'):
+            class_name = class_name[:-1 * len('_connection')]
 
         filter_set = DataFilterSet(filters)
 
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'get',
-            'graphql', key, relations=relations, filters=filter_set,
+            'graphql', class_name, relations=relations, filters=filter_set,
             depth=depth, timestamp=timestamp,
             remote_member_id=remote_member_id,
             origin_member_id=origin_member_id,
@@ -382,7 +382,7 @@ class MemberData(dict):
                 # We need to insert origin_member_id, origin_signature
                 # and timestamp in the received query
                 all_data = await proxy.proxy_request(
-                    key, query, info, query_id, depth,
+                    class_name, query, info, query_id, depth,
                     relations, origin_member_id=origin_member_id,
                     origin_signature=origin_signature,
                     timestamp=timestamp
@@ -391,7 +391,7 @@ class MemberData(dict):
                 # origin_member_id, origin_signature and timestamp must
                 # already be set
                 all_data = await proxy.proxy_request(
-                    key, query, info, query_id, depth, relations
+                    class_name, query, info, query_id, depth, relations
                 )
 
             _LOGGER.debug(
@@ -399,10 +399,13 @@ class MemberData(dict):
             )
 
         data_store = server.data_store
-        data = await data_store.query(member.member_id, key, filter_set)
+        _LOGGER.debug('Collecting data')
+        data = await data_store.query(member.member_id, class_name, filter_set)
         for data_item in data or []:
             data_item[ORIGIN_KEY] = member.member_id
             all_data.append(data_item)
+
+        _LOGGER.debug(f'Got {len(data or [])} items of data')
 
         return all_data
 

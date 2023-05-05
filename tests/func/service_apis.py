@@ -30,9 +30,9 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.service import Service
 
-from byoda.secrets import Secret
-from byoda.secrets import MemberSecret
-from byoda.secrets import MemberDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
 

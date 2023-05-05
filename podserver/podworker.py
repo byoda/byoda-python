@@ -19,6 +19,7 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 :license    : GPLv3
 '''
 
+import os
 import sys
 import asyncio
 
@@ -32,6 +33,9 @@ from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
+from byoda.data_import.youtube import YouTube
+from byoda.data_import.twitter import Twitter
+
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
@@ -42,6 +46,12 @@ from podserver.util import get_environment_vars
 
 from byoda.util.podworker.datastore_maintenance import \
     backup_datastore, database_maintenance
+
+from byoda.util.podworker.twitter import fetch_tweets
+from byoda.util.podworker.twitter import twitter_update_task
+
+from byoda.util.podworker.youtube import youtube_update_task
+
 
 _LOGGER = None
 
@@ -98,6 +108,30 @@ async def main(argv):
     await run_daemon_tasks(server)
 
 
+async def run_startup_tasks(server: PodServer):
+    _LOGGER.debug('Running podworker startup tasks')
+
+    account: Account = server.account
+    server.twitter_client = None
+
+    try:
+        member = account.memberships.get(ADDRESSBOOK_ID)
+        if member:
+            if Twitter.twitter_integration_enabled():
+                _LOGGER.info('Enabling Twitter integration')
+                server.twitter_client = Twitter.client()
+                user = server.twitter_client.get_user()
+                server.twitter_client.extract_user_data(user)
+
+                fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
+        else:
+            _LOGGER.debug('Did not find membership of address book')
+
+    except Exception:
+        _LOGGER.exception('Exception during startup')
+        raise
+
+
 async def run_daemon_tasks(server: PodServer):
     '''
     Run the tasks defined for the podworker
@@ -114,6 +148,19 @@ async def run_daemon_tasks(server: PodServer):
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
     every(10).minutes.do(database_maintenance, server)
+
+    if Twitter.twitter_integration_enabled():
+        _LOGGER.debug('Scheduling twitter update task')
+        every(180).seconds.do(twitter_update_task, server)
+
+    if YouTube.youtube_integration_enabled():
+        interval = os.environ["YOUTUBE_IMPORT_INTERVAL"]
+        _LOGGER.debug(
+            f'Scheduling youtube update task to run every {interval} minutes'
+        )
+        every(int(interval)).minutes.do(youtube_update_task, server)
+
+    await run_startup_tasks(server)
 
     while True:
         try:

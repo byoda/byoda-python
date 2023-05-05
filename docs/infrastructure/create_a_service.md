@@ -226,17 +226,16 @@ fi
 cd ${BYODA_HOME}
 mkdir -p ${SERVICE_DIR}
 sudo mv ${BYODA_HOME}/${SERVICE_CONTRACT} ${SERVICE_DIR}
-# Delete any existing unencrypted private key for the service to avoid
-# permissions/ownership issues with the 'create_service_secrets' tool
 sudo chown $USER:$USER  /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
-tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
+pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
-# Delete the unencrypted private key to avoid permissions/ownership issues
-# when the service server starts
-sudo rm -f /var/tmp/service-${SERVICE_ID}.key
+# Set file ownership of the unencrypted private key to the user/group used
+# by nginx so it can read the private key
+sudo chown www-data:www-data /var/tmp/service-${SERVICE_ID}.key
+
 
 ## 6: Get the service up and running
 The service server can be run as a container
@@ -261,22 +260,6 @@ sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}
 if [ -f /var/tmp/service-${SERVICE_ID}.key ]; then
     sudo chown ${NGINX_USER}:${NGINX_USER} /var/tmp/service-${SERVICE_ID}.key
 fi
-
-if [ ! -f /etc/default/svcserver-${SERVICE_ID} ]; then
-    sudo cp docs/files/svcserver.default /etc/default/svcserver-${SERVICE_ID}
-    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/default/svcserver-${SERVICE_ID}
-fi
-
-if [ ! -f /etc/systemd/system/svcserver-${SERVICE_ID}.service ]; then
-    sudo cp docs/files/svcserver-systemd.service /etc/systemd/system/svcserver-${SERVICE_ID}.service
-    sed -i "s|SERVICE_ID|$SERVICE_ID|" /etc/systemd/system/svcserver-${SERVICE_ID}.service
-fi
-
-sudo systemctl daemon-reload
-sudo systemctl start svcserver-${SERVICE_ID}
-sleep 5
-sudo systemctl status svcserver-${SERVICE_ID}
-sudo systemctl enable svcserver-${SERVICE_ID}
 ```
 
 The service daemon will create an Nginx configuration file under /etc/nginx/conf.d

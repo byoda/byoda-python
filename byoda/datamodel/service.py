@@ -36,15 +36,17 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType
 from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 
-from byoda.secrets import Secret, CSR
-from byoda.secrets import CaSecret
-from byoda.secrets import NetworkServicesCaSecret
-from byoda.secrets import NetworkDataSecret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import MembersCaSecret
-from byoda.secrets import AppsCaSecret
-from byoda.secrets import ServiceSecret
-from byoda.secrets import ServiceDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.secret import CSR
+
+from byoda.secrets.ca_secret import CaSecret
+from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
+from byoda.secrets.network_data_secret import NetworkDataSecret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.appsca_secret import AppsCaSecret
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda import config
 

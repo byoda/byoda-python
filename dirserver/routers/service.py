@@ -46,10 +46,10 @@ from byoda.models.ipaddress import IpAddressResponseModel
 from byoda.datastore.certstore import CertStore
 from byoda.datastore.dnsdb import DnsDb
 
-from byoda.secrets import Secret
-from byoda.secrets import ServiceCaSecret
-from byoda.secrets import ServiceDataSecret
-from byoda.secrets import NetworkServicesCaSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.serviceca_secret import ServiceCaSecret
+from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 
 from byoda.util.paths import Paths
 from byoda.util.message_signature import SignatureType

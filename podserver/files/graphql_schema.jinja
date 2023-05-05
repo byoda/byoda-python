@@ -44,7 +44,7 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
 
     if not info.context or not info.context['request']:
         raise HTTPException(
-            status_code=403, detail='No authentication provided'
+            status_code=403, detail='Invalid request object'
         )
 
     try:
@@ -54,9 +54,16 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             info.context['request'], {{ service_id }}
         )
         info.context['auth'] = auth
+
+
         if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authentication for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        elif auth.id_type == ByodaIdType.ANONYMOUS:
+            _LOGGER.debug(
+                f'Authentication for anonymous user: '
                 f'{auth.is_authenticated}'
             )
         else:
@@ -69,11 +76,6 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
             status_code=400, detail='Authentication failed'
         )
 
-    if not auth.is_authenticated:
-        raise HTTPException(
-            status_code=403, detail='No authentication provided'
-        )
-
     try:
         # Check whether the authenticated client is authorized to request
         # the data
@@ -83,6 +85,11 @@ async def authenticate(root, info, data_operation: DataOperationType_Byoda, dept
         if auth.id_type == ByodaIdType.MEMBER:
             _LOGGER.debug(
                 f'Authorization for member {auth.member_id}: '
+                f'{auth.is_authenticated}'
+            )
+        elif auth.id_type == ByodaIdType.ANONYMOUS:
+            _LOGGER.debug(
+                f'Authorization for anonymous user: '
                 f'{auth.is_authenticated}'
             )
         else:
@@ -300,11 +307,14 @@ class Query:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
+        _LOGGER.debug('Calling memberdata.get_data()')
         data = await MemberDataClassByoda.get_data(
             {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
             remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
             origin_member_id=origin_member_id, origin_signature=origin_signature
         )
+
+        _LOGGER.debug('Received data from memberdata.get_data()')
 
         if after:
             cursor_seen: bool = False
@@ -314,6 +324,7 @@ class Query:
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
         cursor = ''
+        _LOGGER.debug('Prepping edges')
         for obj in data or []:
             required_field_names = [
 {%       for field_name in root_class.required_fields %}
@@ -334,17 +345,25 @@ class Query:
                 edges.append(edge)
             else:
                 total_skipped += 1
+                _LOGGER.debug('Skipping because not seen cursor yet')
                 if cursor == after:
                     cursor_seen = True
+                    _LOGGER.debug('Seen cursor, starting to add edges')
 
+            _LOGGER.debug(f'Cursor seen: {cursor_seen}')
             if first and len(edges) == first:
+                _LOGGER.debug('Done: len(edges): {len(edges)}, first: {first}')
                 break
+
+            _LOGGER.debug('Reached last line of "for" loop')
 
         has_next_page = False
         if total_skipped + len(edges) < len(data):
+            _LOGGER.debug('Setting next page to True')
             has_next_page = True
 
         info = page_info(end_cursor=cursor, has_next_page=has_next_page)
+        _LOGGER.debug('Returning data')
         return {{ root_class.name }}_page(total_count=len(data), edges=edges, page_info=info)
 
 

@@ -105,9 +105,9 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     account = Account(network_data['account_id'], server.network)
     await account.paths.create_account_directory()
 
-    server.account = account
+    server.account: Account = account
 
-    account.password = network_data.get('account_secret')
+    account.password: str = network_data.get('account_secret')
 
     await account.create_account_secret()
 

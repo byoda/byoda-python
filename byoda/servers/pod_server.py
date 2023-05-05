@@ -10,21 +10,24 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from byoda.util.api_client.restapi_client import RestApiClient
-from byoda.util.paths import Paths
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
 
-from byoda.secrets import AccountSecret
-from byoda.secrets import MemberSecret
-from byoda.secrets import DataSecret
+from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.data_secret import DataSecret
 
 from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType, DataStore
 
 from byoda.storage.filestorage import FileStorage
+
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
+
+from byoda.util.paths import Paths
 
 from byoda import config
 
@@ -39,6 +42,8 @@ RegistrationStatus = TypeVar('RegistrationStatus')
 Member = TypeVar('Member')
 Account = TypeVar('Account')
 JWT = TypeVar('JWT')
+YouTube = TypeVar('YouTube')
+Twitter = TypeVar('Twitter')
 
 
 class PodServer(Server):
@@ -65,6 +70,10 @@ class PodServer(Server):
         self.bootstrapping: bool = bootstrapping
 
         self.data_store: DataStore = None
+
+        # These are used by the podworker for importing data
+        self.twitter_client: Twitter | None = None
+        self.youtube_client: YouTube | None = None
 
     async def load_secrets(self, password: str = None):
         '''
@@ -197,6 +206,8 @@ class PodServer(Server):
         # Note call_graphql tool does not set up the data store
         if self.data_store:
             await self.data_store.close()
+
+        await ApiClient.close_all()
 
     def accepts_jwts(self):
         return True

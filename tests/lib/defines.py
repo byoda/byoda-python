@@ -22,7 +22,7 @@ AZURE_POD_SECRET_FILE = \
     'tests/collateral/local/azure-pod-account-secret.passwd'
 
 GCP_POD_ACCOUNT_ID = '55e43ddf-5bb8-4ba3-8dc4-82a663f55e4e'
-GCP_POD_MEMBER_ID = 'c01310a7-a864-444f-be8e-64aef72b6288'
+GCP_POD_MEMBER_ID = '4e72517d-c205-4cc3-9cd7-e892a93f788a'
 GCP_POD_CUSTOM_DOMAIN = 'gcp.byoda.me'
 
 AWS_POD_ACCOUNT_ID = '1be0bc85-534a-40fc-8427-973603b7bf08'

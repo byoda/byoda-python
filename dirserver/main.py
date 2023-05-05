@@ -10,14 +10,19 @@ import os
 import sys
 import yaml
 
-from byoda.util.fastapi import setup_api
+from byoda.datamodel.network import Network
 
-from byoda.util.logger import Logger
-from byoda import config
+from byoda.datastore.document_store import DocumentStoreType
+
+from byoda.datatypes import CloudType
 
 from byoda.servers.directory_server import DirectoryServer
 
-from byoda.datamodel.network import Network
+from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger
+
+from byoda import config
 
 from .routers import account as AccountRouter
 from .routers import service as ServiceRouter
@@ -49,11 +54,20 @@ async def setup():
     network = Network(
         app_config['dirserver'], app_config['application']
     )
-    await network.load_network_secrets()
     server = DirectoryServer(network)
-    await server.connect_db(app_config['dirserver']['dnsdb'])
+
+    await server.set_document_store(
+        DocumentStoreType.OBJECT_STORE,
+        cloud_type=CloudType.LOCAL,
+        bucket_prefix='byoda',
+        root_dir=app_config['dirserver']['root_dir']
+    )
 
     config.server = server
+
+    await network.load_network_secrets()
+
+    await server.connect_db(app_config['dirserver']['dnsdb'])
 
     await server.get_registered_services()
     await server.load_secrets()

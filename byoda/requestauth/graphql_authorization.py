@@ -59,19 +59,19 @@ async def authorize_graphql_request(operation: DataOperationType,
     # data_classes contain the access permissions for the class
     data_classes = member.schema.data_classes
 
-    key = get_query_key(info.path)
+    class_name = get_query_class_name(info.path)
 
-    if key not in data_classes:
+    if class_name not in data_classes:
         raise ValueError(
-            f'Request for data element {key} that is not included at the '
-            'root level of the service contract'
+            f'Request for data element {class_name} that is not included at '
+            'the root level of the service contract'
         )
 
     auth: RequestAuth = info.context['auth']
 
-    _LOGGER.debug(f'Authorizing request for data element {key}')
+    _LOGGER.debug(f'Authorizing request for data element {class_name}')
 
-    data_class: SchemaDataItem = data_classes[key]
+    data_class: SchemaDataItem = data_classes[class_name]
     access_allowed = await data_class.authorize_access(
         operation, auth, service_id, depth
     )
@@ -91,7 +91,7 @@ async def authorize_graphql_request(operation: DataOperationType,
     return access_allowed
 
 
-def get_query_key(path: list[str]) -> str:
+def get_query_class_name(path: list[str]) -> str:
     '''
     Gets the name of the data element from the service contract that is
     requested in the GraphQL query.

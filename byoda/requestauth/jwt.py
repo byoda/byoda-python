@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 import jwt as py_jwt
 
 
-from byoda.secrets import Secret
+from byoda.secrets.secret import Secret
 
 from byoda.datatypes import IdType
 

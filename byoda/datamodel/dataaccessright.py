@@ -348,10 +348,10 @@ class AnonymousDataAccessRight(DataAccessRight):
             _LOGGER.debug(f'This pod is not a member of service {service_id}')
             return False
 
-        if service_id == auth.service_id:
+        if not auth.service_id or service_id == auth.service_id:
             _LOGGER.debug(
                 'Authorization success for request by an anonymous client to '
-                f'service {service_id}'
+                f'service {service_id} for operation {operation.value}'
             )
             return True
 

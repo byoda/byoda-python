@@ -14,7 +14,7 @@ from cryptography import x509
 
 from byoda.datatypes import IdType
 
-from byoda.secrets import Secret, CertChain
+from byoda.secrets.secret import Secret, CertChain
 
 _LOGGER = logging.getLogger(__name__)
 

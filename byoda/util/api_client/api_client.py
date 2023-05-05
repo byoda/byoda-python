@@ -6,14 +6,20 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 '''
 
 import logging
+
 from uuid import UUID
 from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
+from urllib.parse import urlparse
 
 import orjson
 import aiohttp
 import ssl
+
+from datetime import datetime
+from datetime import timezone
+from collections import namedtuple
 
 import requests
 
@@ -22,9 +28,10 @@ from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
 
+from byoda.util.paths import Paths
+
 from byoda.exceptions import ByodaRuntimeError
 
-from byoda.util.paths import Paths
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,8 +55,8 @@ class HttpMethod(Enum):
     DELETE      = 'delete'
     HEAD        = 'head'
 
-config.client_pools = dict()
 
+HttpSession = namedtuple('HttpSession', ['session', 'last_used'])
 
 class ApiClient:
     '''
@@ -58,7 +65,7 @@ class ApiClient:
     '''
 
     def __init__(self, api: str, secret: Secret = None, service_id: int = None,
-                 timeout: int = 10, port: int = None):
+                 timeout: int = 10, port: int = None, network_name: str = None):
         '''
         Maintains a pool of connections for different destinations
 
@@ -67,6 +74,7 @@ class ApiClient:
         '''
 
         server: Server = config.server
+
         if hasattr(server, 'local_storage'):
             storage = server.local_storage
         else:
@@ -74,25 +82,26 @@ class ApiClient:
 
         self.port = port
 
+        parsed_url = urlparse(api)
         # We maintain a cache of sessions based on the authentication
         # requirements of the remote host and whether to use for verifying
         # the TLS server cert the root CA of the network or the regular CAs.
         self.session = None
         if not secret:
             if not port:
-                if api.startswith('http://'):
+                if parsed_url.scheme == f'http-{parsed_url.hostname}':
                     self.port = 80
-                    pool = 'noauth-http'
+                    pool = f'noauth-http-{parsed_url.hostname}'
                 else:
-                    pool = 'noauth-https'
+                    pool = f'noauth-https-{parsed_url.hostname}'
                     self.port = 443
 
         elif isinstance(secret, ServiceSecret):
-            pool = f'service-{service_id}'
+            pool = f'service-{service_id}-{parsed_url.hostname}'
         elif isinstance(secret, MemberSecret):
-            pool = 'member'
+            pool = f'member-{parsed_url.hostname}'
         elif isinstance(secret, AccountSecret):
-            pool = 'account'
+            pool = f'account-{parsed_url.hostname}'
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
@@ -101,42 +110,55 @@ class ApiClient:
 
         self.ssl_context = None
 
-        # HACK: disable client pools as it generates RuntimeError
-        # for 'eventloop is already closed'
-        if pool not in config.client_pools or True:
-            if api.startswith('https://dir') or api.startswith('https://proxy'):
-                # For calls by Accounts and Services to the directory server,
-                # we do not have to set the root CA as the directory server
-                # uses a Let's Encrypt cert
-                _LOGGER.debug(
-                    'Not using byoda certchain for server cert '
-                    f'verification of {api}'
-                )
+        self.host = parsed_url.hostname
+        if (parsed_url.hostname.startswith('dir.')
+                or parsed_url.hostname.startswith('proxy.')
+                or network_name not in parsed_url.hostname):
+            # For calls by Accounts and Services to the directory server,
+            # to the proxy server, or servers not in the DNS domain of
+            # the byoda network, we do not have to set the root CA as the
+            # these use certs signed by a public CA
+            _LOGGER.debug(
+                'Not using byoda certchain for server cert '
+                f'verification of {api}'
+            )
+            self.ssl_context = config.ssl_contexts.get('default')
+            if not self.ssl_context:
                 self.ssl_context = ssl.create_default_context()
-            else:
-                ca_filepath = storage.local_path + server.network.root_ca.cert_file
+                config.ssl_contexts['default'] = self.ssl_context
+        else:
+            ca_filepath = storage.local_path + server.network.root_ca.cert_file
+
+            self.ssl_context = config.ssl_contexts.get(pool)
+            if not self.ssl_context:
                 self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
-                _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
+                config.ssl_contexts[pool] = self.ssl_context
 
-            if secret:
-                if not storage:
-                    # Hack: podserver and svcserver use different attributes
-                    storage = server.storage_driver
+            _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
-                cert_filepath = storage.local_path + secret.cert_file
-                key_filepath = secret.get_tmp_private_key_filepath()
+        if secret:
+            if not storage:
+                # Hack: podserver and svcserver use different attributes
+                storage = server.storage_driver
 
-                _LOGGER.debug(
-                    f'Setting client cert/key to {cert_filepath}, {key_filepath}'
-                )
-                self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
+            cert_filepath = storage.local_path + secret.cert_file
+            key_filepath = secret.get_tmp_private_key_filepath()
 
+            _LOGGER.debug(
+                f'Setting client cert/key to {cert_filepath}, {key_filepath}'
+            )
+            self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
+
+        if pool not in config.client_pools:
             timeout_setting = aiohttp.ClientTimeout(total=timeout)
             self.session = aiohttp.ClientSession(timeout=timeout_setting)
 
-            config.client_pools[pool] = self.session
+            # TODO: create podworker job to prune old sessions
+            config.client_pools[pool] = HttpSession(
+                session=self.session, last_used=datetime.now(tz=timezone.utc)
+            )
         else:
-            self.session = config.client_pools[pool]
+            self.session: aiohttp.ClientSession = config.client_pools[pool].session
 
     @staticmethod
     async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
@@ -174,8 +196,6 @@ class ApiClient:
                 updated_headers = {}
             updated_headers['Content-Type'] = 'application/json'
 
-        client = ApiClient(api, secret=secret, service_id=service_id)
-
         api = Paths.resolve(
             api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
@@ -184,6 +204,11 @@ class ApiClient:
             f'Calling {method} {api} with query parameters {params} '
             f'and data: {data}'
         )
+
+        client = ApiClient(
+            api, secret=secret, service_id=service_id, network_name=network_name
+        )
+
         try:
             response: aiohttp.ClientResponse = await client.session.request(
                 method, api, params=params, data=processed_data,
@@ -194,14 +219,27 @@ class ApiClient:
                 aiohttp.client_exceptions.ClientConnectorError) as exc:
             raise ByodaRuntimeError(exc)
 
-        await client.session.close()
-
         if response.status >= 400:
             raise ByodaRuntimeError(
                 f'Failure to call API {api}: {response.status}'
             )
 
         return response
+
+    @staticmethod
+    async def close_all():
+        '''
+        Closes all aiohttp sessions to avoid warnings at the end of the calling program
+        '''
+
+        for pool, httpsession in config.client_pools.items():
+            await httpsession.session.close()
+
+        pools = list(config.client_pools.keys())
+        for pool in pools:
+            del config.client_pools[pool]
+    
+        config.client_pools: dict[str, aiohttp.ClientSession] = {}
 
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,

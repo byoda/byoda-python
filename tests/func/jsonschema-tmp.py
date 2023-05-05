@@ -38,7 +38,8 @@ from byoda.datamodel.service import Service
 from byoda.datatypes import CloudType
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
-from byoda.secrets import MemberSecret, MemberDataSecret
+from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.servers.pod_server import PodServer
 

@@ -61,6 +61,7 @@ class IdType(Enum):
     MEMBER               = 'members-'
     SERVICE              = 'service-'
     APP                  = 'apps-'
+    ANONYMOUS            = 'anonymous'
 
     @staticmethod
     def by_value_lengths():
@@ -173,9 +174,10 @@ class TlsStatus(str, Enum):
     'FAILED' requests should never make it to the application service
     '''
 
-    NONE        = 'NONE'        # noqa: E221
-    SUCCESS     = 'SUCCESS'     # noqa: E221
-    FAILED      = 'FAILED'      # noqa: E221
+    # flake8: noqa=E221
+    NONE        = 'NONE'
+    SUCCESS     = 'SUCCESS'
+    FAILED      = 'FAILED'
 
 
 class CsrSource(Enum):

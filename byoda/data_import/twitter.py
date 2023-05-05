@@ -1,10 +1,15 @@
 '''
 Import data from Twitter
 
+NOTE: We only support Twitter import using an API key,
+which Twitter has started requiring a $100/m developer
+account for. We do not yet support scraping Twitter
+
 Requires enabling Twitter Development API. Sign up at
 https://developer.twitter.com/en
 
 Takes as input environment variables
+TWITTER_USERNAME
 TWITTER_API_KEY
 TWITTER_KEY_SECRET
 
