@@ -23,13 +23,13 @@ There are two ways to install the pod:
         - Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private' and '-public', (ie.: 'mybyoda-private' and 'mybyoda-public'). The bucket names have to be globally unique so you may have to try different strings.
         - Disable public access to the '-private' bucket or storage-account. If the cloud has the option available, specify uniform access for all objects.
     - Follow the cloud-specific instructions for creating the VM to run the pod on
-        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
         - [Azure](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-        -  [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
+        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+        - [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
     - The 443 and 444 ports for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
     - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
-        - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
+        - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
         - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
 2. Install the pod as a docker container in a server in your home.
     - TCP ports 443 and port 444 on your server must be available for the pod to use and must be accessible from the Internet

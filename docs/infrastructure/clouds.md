@@ -1,13 +1,8 @@
 ### Info on running pods on public clouds
 
 Supported clouds: AWS, Azure and GCP.
-Please review the features and requirements for the free services of the three clouds carefully to avoid unexpected costs.
 
-AWS: https://aws.amazon.com/free
-- 12 months free:
-  - t2/t3.micro VM (1 CPU core, 1GB DRAM)
-- always free:
-   - CDN 1TB
+Please review the features and requirements for the free services of the three clouds carefully to avoid unexpected costs.
 
 Azure: https://azure.microsoft.com/en-us/free/
 - credits: $200, one month expiration
@@ -17,6 +12,13 @@ Azure: https://azure.microsoft.com/en-us/free/
   - 15GB/m data out
 - always free
   - 5GB/m data out
+
+
+AWS: https://aws.amazon.com/free
+- 12 months free:
+  - t2/t3.micro VM (1 CPU core, 1GB DRAM)
+- always free:
+   - CDN 1TB
 
 GCP: https://cloud.google.com/free/
 - credits: $300, 90 days expiration
