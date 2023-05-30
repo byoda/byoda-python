@@ -76,10 +76,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server.network = network
 
         await config.server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType('LOCAL'),
-            bucket_prefix='byoda',
-            root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
+            private_bucket='byoda', restricted_bucket='byoda',
+            public_bucket='byoda', root_dir=TEST_DIR
         )
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)
@@ -129,10 +128,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server.network.account = 'pod'
 
         await config.server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType('LOCAL'),
-            bucket_prefix='byoda',
-            root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
+            private_bucket='byoda', restricted_bucket='byoda',
+            public_bucket='byoda', root_dir=TEST_DIR
         )
 
         # Need to set role to allow loading of unsigned services
@@ -235,10 +233,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.server = PodServer(network)
         config.server.network = network
         await config.server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            cloud_type=CloudType('LOCAL'),
-            bucket_prefix='byoda',
-            root_dir=TEST_DIR
+            DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
+            private_bucket='byoda', restricted_bucket='byoda',
+            public_bucket='byoda', root_dir=TEST_DIR
         )
 
         key = rsa.generate_private_key(

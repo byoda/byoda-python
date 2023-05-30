@@ -3,10 +3,11 @@
 There are 4 phases/steps to set up a service
 
 ## 1: Install required software
+
 Install nginx as reverse proxy as per the [instructions of F5/Nginx](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/)
 
 Then install the nginx.conf file
-```
+```bash
 sudo cp docs/files/nginx-service.conf /etc/nginx/nginx.conf
 sudo nginx -s reload
 ```
@@ -14,7 +15,8 @@ sudo nginx -s reload
 Services typically need to store data about their members. With Byoda, services are not allowed to persist data (with just a very few exceptions) about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
 
 To install Redis, first install docker as per the [Docker instructions](https://docs.docker.com/engine/install/ubuntu/) and then launch the redis container.
-```
+
+```bash
 sudo mkdir -p /opt/redis/config
 sudo docker run -d --restart unless-stopped \
     -p 6379:6379 \
@@ -27,6 +29,7 @@ You can review the configuration in /opt/redis/config/redis.conf for any changes
 ## 2: Pick a value for the service ID
 
 Each service must have a unique integer value for the SERVICE_ID. Here are the rules to the values:
+
 - 0: reserved for the 'private' service that each network must support
 - 1 <= value < 16384 : do not use, only standard services that each network must support can use these values
 - 16384 <= value < 2**32-2**16 : service contracts with these values are subject to both automated and manual review (note, manual review is not yet implemented).
@@ -34,15 +37,17 @@ Each service must have a unique integer value for the SERVICE_ID. Here are the r
 
 You can see what services are currently using what Service IDs you can call the network/nervices API, ie.
 
-```
+```bash
 export BYODA_NETWORK=byoda.net
 curl https://dir.${BYODA_NETWORK}/api/v1/network/services
 ```
+
 Note that this API uses pagination so you may have to use the 'skip=<n>' query parameter to iterate over all services
 
 ## 3: Developing the schema
 
 ### The JSON file
+
 The schema is a JSON file with a JSON Schema embedded. We have not yet published a JSON Schema for this JSON file.
 
 The JSON file at the top-level must have the following keys:
@@ -61,6 +66,7 @@ The JSON file at the top-level must have the following keys:
 We use the python [fastjsonschema](https://horejsek.github.io/python-fastjsonschema/) module for validating data against the JSON Schema, which states support for JSON Schema draft 4, 5, and 7.
 We do not support the full specification of JSON Schema for the translation to the GraphQL API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
 of the following support:
+
 - At the root level of the schema, we support the following keys:
   - $id: must be a string with value: "https://<service-UUID>.services.byoda.net/service/<name of your service>. The name of your service must match the "name" field at the top level of the schema. The service-UUID must match the UUID assigned to your service.
   - $schema: Must be set to "https://json-schema.org/draft-07/schema#"
@@ -71,22 +77,27 @@ of the following support:
   - properties: see below
 
 ### Versioning
+
 The integer value for the version key the JSON file must be 1 or higher. When you submit the JSON file to the directory server, the version must be increased by 1 from the previously successfully submitted JSON file. Submitting a JSON file to get the network signature for the schema with the version unchanged from a previous successful request will fail.
 
 ### Data objects
+
 The keys of properties directly under the JSON Schema (so not under $defs) must be the name of classes and the keys for each class must be:
+
   - description: What the data stored in this class is used for
   - type: must be "object" or "array"
   - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
   - the name of the object must not start with '#', '_', 'byoda', or 'BYODA'
 
 If the type is "object" then it must have a key "properties" with as value an object with the keys:
+
   - description: What the data stored in this property is used for
   - #accesscontrol: see below for more information
   - type: must be a scalar, (ie. "string" or "number") or an array
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
 IF the type is "array" then the following keys are supported:
+
   - description: Required field. What the data stored in this property is used for
   - #accesscontrol: Optional field. See below for more information
   - items: must be an object with a key with one of these two values:
@@ -94,6 +105,7 @@ IF the type is "array" then the following keys are supported:
     - $ref: a string that must match one of the classes defined under $defs (see below)
 
 A data structure under $defs must have the following keys:
+
 - $id: string with "/schemas/<class-name>"
 - $schema: Must be set to "https://json-schema.org/draft-07/schema#"
 - description: What the data stored in this class is used for
@@ -110,6 +122,7 @@ starts with 'BYODA_'. If you include these data structures in your schema then i
 fields and specific type.
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
 from the addressbook.json service contract to your contract.
+
 - member, with definitions:
     - "#access control": {"member": ["read"]}
     - "properties" dict k/vs:
@@ -121,6 +134,7 @@ from the addressbook.json service contract to your contract.
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
 ### Data Access control
+
 The Pod controls access to the data for the services stored in the Pod based on access controls that
 are defined in the service contract for each of the services. After evaluating the data requested by a client
 against these access controls, the Pod may return no data or some or all of the requested data.
@@ -149,15 +163,16 @@ The access controls can only be defined for the 'properties' defined for the 'js
 ## 4: Create the secrets for a service
 
 Each service has the following secrets:
+
 - ServiceCA: signed by the Network Services CA, which s operated by the network
 - Service: The TLS secret used both for the web server and as client TLS cert for outbound connections
 - AppsCA: signed by the Service CA, used to sign secrets for 'apps' supported by the service. (but 'Apps' are currently not yet implemented/supported)
 - MembersCA: signed by the Service CA, signs Certificate Signing Requests (CSRs) from pods that want to join the service using the POST /api/v1/service/member API
 - ServiceData: Signed by the Service CA. This is the secret used to sign documents, such as the service schema/data contract so that others can verify its authenticity
 
-We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _*Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA*_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and they need to be re-generated!
+We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and they need to be re-generated!
 
-```
+``` bash
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
@@ -175,7 +190,7 @@ sudo chown -R ${USER}:${USER} ${BYODA_HOME}
 mv ${BYODA_HOME}/$SERVICE_CONTRACT ${SERVICE_DIR}
 
 cd ${BYODA_HOME}
-git clone https://github.com/StevenHessing/byoda-python
+git clone https://github.com/byoda/byoda-python
 cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 sudo pip3 install passgen
@@ -185,13 +200,15 @@ tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network $
 ```
 
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
-```
+
+``` bash
 cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
 Now you can copy all secrets except the private key of the ServiceCA to the server you want to host the service.
-```
+
+``` bash
 SERVER_IP=<IP address of your server>
 
 ssh ${SERVER_IP} "sudo mkdir -p ${SERVICE_DIR}; sudo chown -R ${USER}:${USER} ${BYODA_HOME}"
@@ -204,9 +221,9 @@ ssh ${SERVER_IP} "rm ${SERVICE_DIR}/private/network-${BYODA_NETWORK}-service-${S
 
 There are two signatures for a schema: the ServiceData secret provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
 
-As you just created the ServiceData secret in step #2, you can generate the service signature but you'll have to ask the directory server of the network to provide the network signature by calling the PATCH /api/v1/network/service API. Both steps are implemented by the '[tools/sign_data_contract.py](https://github.com/StevenHessing/byoda-python/blob/master/tools/sign_data_contract.py)' script. Before you can run the tool, you have to create a config.yml, that later will also be used when you start the server. Copy the config-sample.yml file in the byoda-python directory to config.yml, remove the 'dirserver' block and edit the configuration as appropriate.
+As you just created the ServiceData secret in step #2, you can generate the service signature but you'll have to ask the directory server of the network to provide the network signature by calling the PATCH /api/v1/network/service API. Both steps are implemented by the '[tools/sign_data_contract.py](https://github.com/byoda/byoda-python/blob/master/tools/sign_data_contract.py)' script. Before you can run the tool, you have to create a config.yml, that later will also be used when you start the server. Copy the config-sample.yml file in the byoda-python directory to config.yml, remove the 'dirserver' block and edit the configuration as appropriate.
 
-```
+```bash
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
@@ -235,11 +252,13 @@ pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 # Set file ownership of the unencrypted private key to the user/group used
 # by nginx so it can read the private key
 sudo chown www-data:www-data /var/tmp/service-${SERVICE_ID}.key
-
+```
 
 ## 6: Get the service up and running
+
 The service server can be run as a container
-```
+
+```bash
 mkdir -p /var/log/byoda
 docker run -d   --name byoda-service \
     --restart=unless-stopped \
@@ -252,8 +271,6 @@ docker run -d   --name byoda-service \
     -v ${BYODA_HOME}/byoda-python/config.yml:${BYODA_HOME}/byoda-python/config.yml \
     byoda/byoda-service:latest
 
-
-```
 NGINX_USER=www-data
 mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
 sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
@@ -266,14 +283,16 @@ The service daemon will create an Nginx configuration file under /etc/nginx/conf
 and make nginx load that new configuration.
 
 To test the service certificate signed by the root CA of the network, you can use openssl and/or curl:
-```
+
+```bash
 openssl s_client -connect service.service-0.byoda.net:443 -CAfile root-ca.pem
 
 curl  https://service.service-0.byoda.net/network-byoda.net-service-0-data-cert.pem -o network-byoda.net-service-0-data-cert.pem --cacert root-ca.pem
 ```
 
 Now we need to install the service worker. The service worker collects information from the person object of members of the service and stores it in Redis. The service uses this data to host an API that allows you to find people based on their email address
-```
+
+```bash
 mkdir -p /var/log/byoda
 docker run -d   --name byoda-serviceworker \
     --restart=unless-stopped \
@@ -284,4 +303,5 @@ docker run -d   --name byoda-serviceworker \
 ```
 
 ### Developing the service
+
 The reference svcserver and the svcworker implement a pattern where the svcserver writes a member UUID to a Redis key whenever a pod registers the membership with the svcserver. The Redis key has a list as its value. The svcworker periodically takes a member UUID from the head of the list and pushes it to the back of the list. The svcworker can then query data from the pod of that member and store any data listed as cachable in the service contract in Redis

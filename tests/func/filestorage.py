@@ -9,9 +9,17 @@ the headers that would normally be set by the reverse proxy
 TODO: include instructions on how to set up credentials to the AWS, Azure and
 GCP clouds so this test case can use those credentials
 
+For Azure, run:
+  az login --use-device-code
+
 For Google Cloud run:
-  gcloud auth logi
+  gcloud auth login
   gcloud config set project <project>
+
+For AWS, create a ~/.aws/credentias file with as contents:
+  [default]
+  aws_access_key_id = <your-access-key-id>
+  aws_secret_access_key = <your-secret-access-key>
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -31,7 +39,8 @@ from byoda.storage.gcp import GcpFileStorage
 from byoda.util.logger import Logger
 
 from byoda.storage import FileStorage
-from byoda.datatypes import StorageType, CloudType
+from byoda.datatypes import StorageType
+from byoda.datatypes import CloudType
 
 ROOT_DIR = '/tmp/byoda-tests/filestorage'
 CLOUD_STORAGE_TYPES = (AzureFileStorage, AwsFileStorage, GcpFileStorage)
@@ -44,21 +53,46 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_gcp_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.GCP, 'byoda', ROOT_DIR
+            CloudType.GCP, 'byoda-private', 'byoda-restricted-00155daaf7ad',
+            'byoda-public', ROOT_DIR
         )
         await run_file_tests(self, storage)
+
+        bucket = storage.get_bucket(StorageType.RESTRICTED)
+        self.assertEqual(bucket, 'byoda-restricted-00155daaf7ad')
+
+        bucket = storage.get_bucket(StorageType.PUBLIC)
+        self.assertEqual(bucket, 'byoda-public')
 
     async def test_azure_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.AZURE, 'byoda', ROOT_DIR
+            CloudType.AZURE, 'byodaprivate:byoda',
+            'byodaprivate:restricted-xjfwiq', 'byodaprivate:public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
+        bucket = storage.get_bucket(StorageType.RESTRICTED)
+        self.assertEqual(bucket, 'byodaprivate.blob.core.windows.net')
+
+        bucket = storage.get_bucket(StorageType.PUBLIC)
+        self.assertEqual(bucket, 'byodaprivate.blob.core.windows.net')
+
     async def test_aws_storage(self):
         storage = await FileStorage.get_storage(
-            CloudType.AWS, 'byoda', ROOT_DIR
+            CloudType.AWS, 'byoda-private', 'byoda-restricted-000d3a3b236d',
+            'byoda-public', ROOT_DIR
         )
         await run_file_tests(self, storage)
+
+        bucket = storage.get_bucket(StorageType.RESTRICTED)
+        self.assertEqual(
+            bucket, 'byoda-restricted-000d3a3b236d.s3-us-east-2.amazonaws.com'
+        )
+
+        bucket = storage.get_bucket(StorageType.PUBLIC)
+        self.assertEqual(
+            bucket, 'byoda-public.s3-us-east-2.amazonaws.com'
+        )
 
     async def test_local_storage(self):
         storage = FileStorage(ROOT_DIR)
@@ -99,9 +133,12 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
     test.assertEqual(len(subdirs), 1)
 
     if type(storage) in CLOUD_STORAGE_TYPES:
-        url = storage.get_url() + 'test/profile'
+        url = storage.get_url(StorageType.PRIVATE) + 'test/profile'
+
+        # This fails because anonymous access to private storage is
+        # not allowed
         response = requests.get(url, allow_redirects=False)
-        test.assertIn(response.status_code, (302, 403, 409))
+        test.assertIn(response.status_code, (302, 403, 404, 409))
 
         with open('/bin/ls', 'rb') as file_desc:
             await storage.write(
@@ -112,6 +149,18 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
         await storage.delete(
             'test/file_descriptor_write', storage_type=StorageType.PUBLIC
         )
+
+        # Now test public and restricted storage
+        asset_id: str = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+        filename: str = f'{asset_id}/profile'
+        for storage_type in (StorageType.PUBLIC, StorageType.RESTRICTED):
+            await storage.copy(
+                '/profile', filename, storage_type=storage_type
+            )
+            test.assertTrue(
+                await storage.exists(filename, storage_type=storage_type)
+            )
+            await storage.delete(filename, storage_type=storage_type)
 
     await storage.delete('test/profile')
     await storage.delete('test/anothersubdir/profile-write')

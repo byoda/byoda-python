@@ -73,7 +73,9 @@ class Server:
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,
-                                 bucket_prefix: str = None,
+                                 private_bucket: str = None,
+                                 restricted_bucket: str = None,
+                                 public_bucket: str = None,
                                  root_dir: str = None) -> None:
 
         self.cloud = cloud_type
@@ -82,7 +84,8 @@ class Server:
             f'Setting document store to {store_type} on cloud {cloud_type}'
         )
         self.document_store = await DocumentStore.get_document_store(
-            store_type, cloud_type=cloud_type, bucket_prefix=bucket_prefix,
+            store_type, cloud_type=cloud_type, private_bucket=private_bucket,
+            restricted_bucket=restricted_bucket, public_bucket=public_bucket,
             root_dir=root_dir
         )
 

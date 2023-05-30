@@ -17,13 +17,19 @@ variable is set. Otherwise, data of existing memberships could be lost
 
 Suported environment variables:
 CLOUD: 'AWS', 'AZURE', 'GCP', 'LOCAL'
-BUCKET_PREFIX
+PUBLIC_BUCKET (*)
+RESTRICTED_BUCKET (*)
+PUBLIC_BUCKET (*)
 NETWORK
 ACCOUNT_ID
 ACCOUNT_SECRET
 PRIVATE_KEY_SECRET: secret to protect the private key
 LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ROOT_DIR: where files need to be cached (if object storage is used) or stored
+
+(*) Because Azure Storage Accounts work different than AWS/GCP S3 buckets, for
+Azure we use a single storage account with three containers instead of 3
+buckets
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -92,7 +98,9 @@ async def main(argv):
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
             server.cloud,
-            bucket_prefix=data['bucket_prefix'],
+            private_bucket=data['private_bucket'],
+            restricted_bucket=data['restricted_bucket'],
+            public_bucket=data['public_bucket'],
             root_dir=data['root_dir']
         )
 
@@ -167,13 +175,26 @@ async def main(argv):
             public_cloud_endpoint=network.paths.storage_driver.get_url(
                 storage_type=StorageType.PUBLIC
             ),
+            restricted_cloud_endpoint=network.paths.storage_driver.get_url(
+                storage_type=StorageType.RESTRICTED
+            ),
             private_cloud_endpoint=network.paths.storage_driver.get_url(
                 storage_type=StorageType.PRIVATE
             ),
+            cloud=server.cloud.value,
             port=PodServer.HTTP_PORT,
             root_dir=server.network.paths.root_directory,
             custom_domain=server.custom_domain,
-            shared_webserver=server.shared_webserver
+            shared_webserver=server.shared_webserver,
+            public_bucket=network.paths.storage_driver.get_bucket(
+                StorageType.PUBLIC
+            ),
+            restricted_bucket=network.paths.storage_driver.get_bucket(
+                StorageType.RESTRICTED
+            ),
+            private_bucket=network.paths.storage_driver.get_bucket(
+                StorageType.PRIVATE
+            ),
         )
 
         nginx_config.create(htaccess_password=account.password)

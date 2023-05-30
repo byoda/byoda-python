@@ -11,6 +11,9 @@ if [ -d ".git" ]; then
             export TAG=dev
         fi
     fi
+else
+    echo "Not in a git repository"
+    exit 1
 fi
 
 WIPE_ALL=0
@@ -79,8 +82,8 @@ fi
 
 echo "Using Byoda container byoda-pod:${TAG}"
 
-if [[ "${BUCKET_PREFIX}" == "changeme" || "${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
-    echo "Set the BUCKET_PREFIX, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
+if [[ "${PRIVATE_BUCKET}" == "changeme" || "${RESTRICTED_BUCKET}" == "changeme" || "${PUBLIC_BUCKET}" == "changeme" ||"${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
+    echo "Set the PRIVATE_BUCKET, RESTRICTED_BUCKET, PUBLIC_BUCKET, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
 
@@ -162,17 +165,9 @@ echo "System info:"
 echo "    ${SYSTEM_MFCT}"
 echo "    ${SYSTEM_VERSION}"
 
-PRIVATE_BUCKET="${BUCKET_PREFIX}-private"
-PUBLIC_BUCKET="${BUCKET_PREFIX}-public"
-
-
-
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
     echo "Running in cloud: ${CLOUD}"
-    # In Azure we don't have the '-' between prefix and private/public
-    PRIVATE_BUCKET=${BUCKET_PREFIX}private
-    PUBLIC_BUCKET=${BUCKET_PREFIX}public
     echo "Wiping ${BYODA_ROOT_DIR}"
     sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
@@ -182,21 +177,22 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
             echo "azure-cli not found, please install it with 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'"
             exit 1
         fi
-        echo "Wiping all data of the pod"
-        az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login
+        STORAGE_ACCOUNT=$(echo ${PRIVATE_BUCKET} | cut -f 1 -d ':')
+        echo "Wiping all data of the pod on storage account"
+        az storage blob delete-batch -s byoda --account-name ${STORAGE_ACCOUNT} --auth-mode login
         if [ $? -ne 0 ]; then
-            echo "Wiping Azure storage failed, you may have to run 'az login' first"
+            echo "Wiping the Azure storage account ${STORAGE_ACCOUNT} failed, you may have to run 'az login' first"
             exit 1
         fi
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
-        az storage blob delete-batch -s byoda --account-name ${BUCKET_PREFIX}private --auth-mode login \
+        az storage blob delete-batch -s byoda --account-name ${PRIVATE_BUCKET} --auth-mode login \
            --pattern private/network-${NETWORK}-account-pod-member-*.key
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern network-${NETWORK}/account-pod/service-*/*
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern private/network-${NETWORK}/account-pod/data/*
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern network-${NETWORK}/services/service-contract.json
 
         if [ $? -ne 0 ]; then
@@ -205,11 +201,11 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern private/network-${NETWORK}/account-pod/data/*
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern network-${NETWORK}/account-pod/service-*/service-contract.json
-        az storage blob delete-batch --auth-mode login -s byoda --account-name ${BUCKET_PREFIX}private \
+        az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern network-${NETWORK}/services/service-contract.json
 
         if [ $? -ne 0 ]; then
@@ -230,13 +226,15 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
             exit 1
         fi
         echo "Wiping all data of the pod"
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/*
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/*
+        gcloud alpha storage rm --recursive gs://${RESTRICTED_BUCKET}/*
+        gcloud alpha storage rm --recursive gs://${PUBLIC_BUCKET}/*
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}-account-pod-member-*.key
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/network-${NETWORK}/account-pod/service-*/*
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping GCP storage failed, you may have to run 'az login' first"
@@ -244,9 +242,9 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/service-contract.json
-        gcloud alpha storage rm --recursive gs://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+        gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
+        gcloud alpha storage rm --recursive gs://${RESTRICTED_BUCKET}/network-${NETWORK}/account-pod/service-*/service-contract.json
+        gcloud alpha storage rm --recursive gs://${PUBLIC_BUCKET}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping GCP storage failed, you may have to run 'az login' first"
@@ -270,17 +268,17 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
             exit 1
         fi
         echo "Wiping all data of the pod"
-        aws s3 rm -f s3://${BUCKET_PREFIX}-private/private --recursive
-        aws s3 rm -f s3://${BUCKET_PREFIX}-private/network-${NETWORK} --recursive
+        aws s3 rm -f s3://${PRIVATE_BUCKET}private/private --recursive
+        aws s3 rm -f s3://${PRIVATE_BUCKET}private/network-${NETWORK} --recursive
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
         echo "Wiping data and secrets for memberships not supported on AWS yet"
         exit 1
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}-account-pod-member-*.key
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/*
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/private/network-${NETWORK}-account-pod-member-*.key
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/network-${NETWORK}/account-pod/service-*/*
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping AWS storage failed, you may have to run 'aws login' first"
@@ -291,9 +289,9 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         # TODO
         echo "Wiping data and secrets for memberships not supported on AWS yet"
         exit 1
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/private/network-${NETWORK}/account-pod/data/*
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/account-pod/service-*/service-contract.json
-        aws s3 rm --recursive s3://${BUCKET_PREFIX}-private/network-${NETWORK}/services/*
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/network-${NETWORK}/account-pod/service-*/service-contract.json
+        aws s3 rm --recursive s3://${PRIVATE_BUCKET}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping AWS storage failed, you may have to run 'aws login' first"
@@ -371,16 +369,17 @@ if [[ "${CLOUD}" != "LOCAL" ]]; then
 fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
-sudo docker pull byoda/byoda-pod:${TAG}
 
 sudo docker run -d \
     --name byoda --restart=unless-stopped \
+    --pull always \
     -e "LOGLEVEL=${LOGLEVEL}" \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
+    -e "BACKUP_INTERVAL=${BACKUP_INTERVAL}" \
     -e "CLOUD=${CLOUD}" \
-    -e "BUCKET_PREFIX=${BUCKET_PREFIX}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
+    -e "RESTRICTED_BUCKET=${RESTRICTED_BUCKET}" \
     -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
     -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \

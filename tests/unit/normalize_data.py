@@ -41,7 +41,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
         os.environ['ROOT_DIR'] = TEST_DIR
-        os.environ['BUCKET_PREFIX'] = 'byoda'
+        os.environ['PRIVATE_BUCKET'] = 'byoda'
+        os.environ['RESTRICTED_BUCKET'] = 'byoda'
+        os.environ['PUBLIC_BUCKET'] = 'byoda'
         os.environ['CLOUD'] = 'LOCAL'
         os.environ['NETWORK'] = 'byoda.net'
         os.environ['ACCOUNT_ID'] = str(get_test_uuid())

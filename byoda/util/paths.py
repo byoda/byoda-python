@@ -75,7 +75,7 @@ class Paths:
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
-    # Downloads
+    # Cert Downloads
     NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                               # noqa
     NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                             # noqa
     SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
@@ -97,6 +97,10 @@ class Paths:
     PODGRAPHQL_PROXY_API    = 'https://proxy.{network}/{service_id}/{member_id}/api/v1/data/service-{service_id}'     # noqa
     PODACCOUNT_API          = 'https://{account_id}.accounts.{network}/api/v1/pod/account'                            # noqa
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
+
+    # Content download URLs
+    RESTRICTED_ASSET_POD_URL  = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'                                      # noqa
+    RESTRICTED_ASSET_CDN_URL  = 'https://cdn.byoda.io/restricted/{asset_id}/{filename}?service_id={service_id}&member_id={member_id}&asset_id={asset_id}'  # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

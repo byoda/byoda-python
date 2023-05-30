@@ -117,11 +117,14 @@ class PodServer(Server):
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,
-                                 bucket_prefix: str = None,
+                                 private_bucket: str = None,
+                                 restricted_bucket: str = None,
+                                 public_bucket: str = None,
                                  root_dir: str = None) -> None:
 
         await super().set_document_store(
-            store_type, cloud_type, bucket_prefix, root_dir
+            store_type, cloud_type, private_bucket, restricted_bucket,
+            public_bucket, root_dir
         )
 
         self.local_storage = await FileStorage.setup(root_dir)

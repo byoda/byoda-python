@@ -32,8 +32,6 @@ from byoda import config
 
 from byoda.util.logger import Logger
 
-from byoda.datatypes import CloudType
-
 from byoda.datamodel.network import Network
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -53,7 +51,9 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     if not os.environ.get('ROOT_DIR'):
         os.environ['ROOT_DIR'] = '/tmp/byoda'
 
-    os.environ['BUCKET_PREFIX'] = 'byoda'
+    os.environ['PRIVATE_BUCKET'] = 'byoda'
+    os.environ['RESTRICTED_BUCKET'] = 'byoda'
+    os.environ['PUBLIC_BUCKET'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(uuid4())
@@ -62,18 +62,19 @@ async def setup_network(test_dir: str) -> dict[str, str]:
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
-    network_data = get_environment_vars()
+    data = get_environment_vars()
 
     config.server = PodServer(bootstrapping=False)
 
     await config.server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+        DocumentStoreType.OBJECT_STORE, config.server.cloud,
+        private_bucket=data['private_bucket'],
+        restricted_bucket=data['restricted_bucket'],
+        public_bucket=data['public_bucket'],
+        root_dir=data['root_dir']
     )
 
-    network = Network(network_data, network_data)
+    network = Network(data, data)
     await network.load_network_secrets()
 
     config.test_case = True
@@ -82,7 +83,7 @@ async def setup_network(test_dir: str) -> dict[str, str]:
 
     config.server.paths = network.paths
 
-    return network_data
+    return data
 
 
 async def get_jwt_header(id: UUID, base_url: str = BASE_URL,
@@ -144,7 +145,7 @@ async def main(argv):
     parser.add_argument('--filter-compare', type=str, default=None)
     parser.add_argument('--filter-value', type=str, default=None)
     parser.add_argument('--remote-member-id', '-m', type=str, default=None)
-    parser.add_argument('--first', type=int, default=DEFAULT_PAGE_SIZE)
+    parser.add_argument('--first', type=int, default=None)
     parser.add_argument('--after', type=str, default=None)
     parser.add_argument(
         '--custom-domain', '-u', type=str,
@@ -155,6 +156,9 @@ async def main(argv):
     )
 
     args = parser.parse_args(argv[1:])
+
+    if args.action == 'query' and args.first is None:
+        first = DEFAULT_PAGE_SIZE
 
     if not args.member_id and not args.custom_domain:
         raise ValueError('No member id given or set as environment variable')

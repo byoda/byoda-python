@@ -13,6 +13,7 @@ import logging
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 import boto3
+from botocore import exceptions as aws_exceptions
 
 from byoda.datatypes import StorageType, CloudType
 
@@ -27,13 +28,15 @@ class AwsFileStorage(FileStorage):
     Provides access to AWS S3 object storage
     '''
 
-    def __init__(self, bucket_prefix: str, root_dir: str) -> None:
+    def __init__(self, private_bucket: str, restricted_bucket: str,
+                 public_bucket: str, root_dir: str) -> None:
         '''
         Abstraction of storage of files on S3 object storage. Do not call this
         constructor directly but call the AwaFileStorage.setup() factory method
 
-        :param bucket_prefix: prefix of the S3 bucket, to which '-private' and
-        '-public' will be appended
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
@@ -47,28 +50,33 @@ class AwsFileStorage(FileStorage):
         super().__init__(root_dir, cloud_type=CloudType.AWS)
 
         self.buckets = {
-            StorageType.PRIVATE.value: f'{bucket_prefix}-private',
-            StorageType.PUBLIC.value: f'{bucket_prefix}-public',
+            StorageType.PRIVATE.value: private_bucket,
+            StorageType.RESTRICTED.value: restricted_bucket,
+            StorageType.PUBLIC.value: public_bucket,
         }
 
         _LOGGER.debug(
             'Initialized boto S3 client for buckets '
-            f'{self.buckets[StorageType.PRIVATE.value]} and '
+            f'{self.buckets[StorageType.PRIVATE.value]}, '
+            f'{self.buckets[StorageType.RESTRICTED.value]}, and '
             f'{self.buckets[StorageType.PUBLIC.value]}'
         )
 
     @staticmethod
-    async def setup(bucket_prefix: str, root_dir: str):
+    async def setup(private_bucket: str, restricted_bucket: str,
+                    public_bucket: str, root_dir: str):
         '''
         Factory for AwsFileStorage
 
-        :param bucket_prefix: prefix of the storage account, to which
-        'private' and 'public' will be appended
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
 
-        return AwsFileStorage(bucket_prefix, root_dir)
+        return AwsFileStorage(private_bucket, restricted_bucket,
+                              public_bucket, root_dir)
 
     async def close_clients(self):
         '''
@@ -209,13 +217,32 @@ class AwsFileStorage(FileStorage):
         if filepath is None:
             filepath = ''
 
-        data = self.driver.head_bucket(Bucket=self.buckets[storage_type.value])
+        bucket = self.get_bucket(storage_type)
+        return f'https://{bucket}/{filepath}'
+
+    def get_bucket(self, storage_type: StorageType = StorageType.PRIVATE
+                   ) -> str:
+        '''
+        Get the bucket name for the private, restricted, or public storage
+
+        :param storage_type: return the url for the private or public storage
+        :returns: str
+        '''
+
+        bucket: str = self.buckets[storage_type.value]
+
+        try:
+            data = self.driver.head_bucket(Bucket=bucket)
+        except aws_exceptions.ClientError:
+            _LOGGER.exception(f'Bucket not found: {bucket}')
+            raise
+
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
-        return (
-            f'https://{self.buckets[storage_type.value]}.s3-{region}'
-            f'.amazonaws.com/{filepath}'
-        )
+        bucket_fqdn = \
+            f'{self.buckets[storage_type.value]}.s3-{region}.amazonaws.com'
+
+        return bucket_fqdn
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE

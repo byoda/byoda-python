@@ -66,6 +66,10 @@ class MemberRequestAuthOptionalFast(RequestAuth):
             return
 
         if self.id_type != IdType.MEMBER:
+            _LOGGER.debug(
+                f'Authentication with {self.id_type} cert instead of '
+                f'member cert'
+            )
             raise HTTPException(status_code=403)
 
         try:
@@ -74,6 +78,7 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
+            _LOGGER.debug('Invalid cert')
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True
@@ -124,11 +129,16 @@ class MemberRequestAuthFast(RequestAuth):
                 self.authorization
             )
         except ByodaMissingAuthInfo:
+            _LOGGER.debug('No authentication provided')
             raise HTTPException(
                 status_code=403, detail='Authentication failed'
             )
 
         if self.id_type != IdType.MEMBER:
+            _LOGGER.debug(
+                f'Authentication with {self.id_type} cert instead of '
+                f'member cert'
+            )
             raise HTTPException(status_code=403)
 
         try:
@@ -137,6 +147,7 @@ class MemberRequestAuthFast(RequestAuth):
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
+            _LOGGER.debug('Invalid member cert')
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True

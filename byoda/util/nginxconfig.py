@@ -55,9 +55,11 @@ class NginxConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
                  alias: str, network: str, public_cloud_endpoint: str,
-                 private_cloud_endpoint: str, port: int,
-                 service_id: int = None, root_dir: str = '/byoda',
-                 custom_domain: str = None, shared_webserver: bool = False):
+                 restricted_cloud_endpoint: str, private_cloud_endpoint: str,
+                 cloud: str, port: int, service_id: int = None,
+                 root_dir: str = '/byoda', custom_domain: str = None,
+                 shared_webserver: bool = False, public_bucket: str = None,
+                 restricted_bucket: str = None, private_bucket: str = None):
         '''
         Manages nginx configuration files for virtual servers
 
@@ -71,15 +73,21 @@ class NginxConfig(TargetConfig):
         configuration file
         :param filename: name of the nginx configuration file to be
         created
-        :param public_cloud_endpoint: FQDN for the endpoint of the
+        :param public_cloud_endpoint: URL for the endpoint of the
         public bucket
-        :param private_cloud_endpoint: FQDN for the endpoint of the
+        :param restricted_cloud_endpoint: URL for the endpoint of the
+        private bucket
+        :param private_cloud_endpoint: URL for the endpoint of the
         private bucket
         :param service_id: service ID for the membership, if applicable
         :param custom_domain: a custom domain to use for the virtual server
         :param shared_webserver: set to False if the nginx service is only
         used for the podserver, set to True if an nginx server outside
         of the pod is used.
+        :param public_bucket: the FQDN for the AWS/GCP bucket or Azure storage
+        :param restricted_bucket: the FQDN for the AWS/GCP bucket or Azure storage
+        :param private_bucket: the FQDN for the AWS/GCP bucket or Azure storage
+        account
         '''
 
         self.identifier: str = str(identifier)
@@ -90,13 +98,18 @@ class NginxConfig(TargetConfig):
         self.key_filepath: str = key_filepath
         self.network: str = network
         self.public_cloud_endpoint: str = public_cloud_endpoint
+        self.restricted_cloud_endpoint: str = restricted_cloud_endpoint
         self.private_cloud_endpoint: str = private_cloud_endpoint
+        self.cloud: str = cloud
         self.directory: str = directory
         self.filename: str = filename
         self.root_dir: str = root_dir
         self.port: int = port
         self.custom_domain: str = custom_domain
         self.shared_webserver: bool = shared_webserver
+        self.public_bucket: str = public_bucket
+        self.restricted_bucket: str = restricted_bucket
+        self.private_bucket: str = private_bucket
 
         if self.subdomain == IdType.ACCOUNT.value:
             self.config_filepath = f'{directory}/account.conf'
@@ -138,13 +151,19 @@ class NginxConfig(TargetConfig):
             alias=self.alias,
             network=self.network,
             public_cloud_endpoint=self.public_cloud_endpoint,
+            restricted_cloud_endpoint=self.restricted_cloud_endpoint,
             private_cloud_endpoint=self.private_cloud_endpoint,
+            cloud=self.cloud,
             root_dir=self.root_dir,
             service_id=self.service_id,
             port=self.port,
             custom_domain=self.custom_domain,
-            shared_webserver=self.shared_webserver
+            shared_webserver=self.shared_webserver,
+            public_bucket=self.public_bucket,
+            restricted_bucket=self.restricted_bucket,
+            private_bucket=self.private_bucket,
         )
+
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
 

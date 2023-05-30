@@ -27,6 +27,6 @@ GCP: https://cloud.google.com/free/
   - 5GB storage, 1GB data out (except China & Australia)
 
 Instructions on how to create a VM and storage account are available for:
-- [AWS](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
-- [Azure](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-- [GCP](https://github.com/StevenHessing/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
+- [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
+- [Azure](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
+- [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)

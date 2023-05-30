@@ -338,7 +338,7 @@ class MemberData(dict):
             if (auth.id_type != IdType.MEMBER or
                     auth.member_id != member.member_id):
                 raise ByodaValueError(
-                    'Received a recursive query without signture '
+                    'Received a recursive query without signature '
                     'submitted by someone else than ourselves'
                 )
 

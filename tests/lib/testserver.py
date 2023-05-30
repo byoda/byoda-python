@@ -29,7 +29,6 @@ from byoda.datamodel.account import Account
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
@@ -53,6 +52,7 @@ from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import status as StatusRouter
 from podserver.routers import accountdata as AccountDataRouter
+from podserver.routers import content_token as ContentTokenRouter
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -73,7 +73,7 @@ app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', [], [
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
-        AccountDataRouter
+        AccountDataRouter, ContentTokenRouter
     ]
 )
 
@@ -92,37 +92,37 @@ async def setup():
     ###
     ###
 
-    network_data = get_environment_vars()
+    data = get_environment_vars()
 
     ###
     ### Test change     # noqa: E266
     ###
     config.test_case = "TEST_SERVER"
 
-    if network_data['root_dir']:
+    if data['root_dir']:
         try:
-            shutil.rmtree(network_data['root_dir'])
+            shutil.rmtree(data['root_dir'])
         except FileNotFoundError:
             pass
 
-        os.makedirs(network_data['root_dir'])
+        os.makedirs(data['root_dir'])
     else:
-        network_data['root_dir'] = TEST_DIR
+        data['root_dir'] = TEST_DIR
     ###
     ###
     ###
 
     server: PodServer = PodServer(
-        bootstrapping=bool(network_data.get('bootstrap'))
+        bootstrapping=bool(data.get('bootstrap'))
     )
 
     config.server = server
 
     # Remaining environment variables used:
-    server.custom_domain = network_data['custom_domain']
-    server.shared_webserver = network_data['shared_webserver']
+    server.custom_domain = data['custom_domain']
+    server.shared_webserver = data['shared_webserver']
 
-    if str(network_data['debug']).lower() in ('true', 'debug', '1'):
+    if str(data['debug']).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
         # use tools like call_graphql.py to debug the server
@@ -134,7 +134,7 @@ async def setup():
     ### Test change     # noqa: E266
     ###
     global LOG_FILE
-    LOG_FILE = network_data['root_dir'] + '/pod.log'
+    LOG_FILE = data['root_dir'] + '/pod.log'
     ###
     ###
     ###
@@ -142,17 +142,18 @@ async def setup():
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], json_out=False, debug=config.debug,
-        loglevel=network_data['loglevel'], logfile=LOG_FILE
+        loglevel=data['loglevel'], logfile=LOG_FILE
     )
 
     await server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+        DocumentStoreType.OBJECT_STORE, server.cloud,
+        private_bucket=data['private_bucket'],
+        restricted_bucket=data['restricted_bucket'],
+        public_bucket=data['public_bucket'],
+        root_dir=data['root_dir']
     )
 
-    network = Network(network_data, network_data)
+    network = Network(data, data)
     await network.load_network_secrets()
 
     server.network = network
@@ -161,14 +162,14 @@ async def setup():
     ###
     ### Test change     # noqa: E266
     ###
-    network_data['account_id'] = get_test_uuid()
-    write_account_id(network_data)
+    data['account_id'] = get_test_uuid()
+    write_account_id(data)
     ###
     ###
     ###
 
-    account = Account(network_data['account_id'], network)
-    account.password = network_data.get('account_secret')
+    account = Account(data['account_id'], network)
+    account.password = data.get('account_secret')
 
     ###
     ### Test change     # noqa: E266
@@ -204,7 +205,7 @@ async def setup():
     service = [
         service
         for service in services
-        if service['name'] == 'addressbook'
+        if service['name'] == 'byoda-tube'
     ][0]
 
     member_id = get_test_uuid()

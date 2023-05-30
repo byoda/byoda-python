@@ -181,7 +181,7 @@ class SqlTable(Table):
 
         raise NotImplementedError
 
-    async def delete(self, data_filter_set: DataFilterSet):
+    async def delete(self, data_filters: DataFilterSet):
         '''
         Delete data matching the specified criteria
         '''
@@ -242,7 +242,7 @@ class SqlTable(Table):
         return column.lstrip('_')
 
     @staticmethod
-    def convert_to_sql_type(column: str, value: object) -> object:
+    def convert_to_storage_type(column: str, value: object) -> object:
         '''
         Converts the value to the type expected by the database
         '''
@@ -303,7 +303,7 @@ class SqlTable(Table):
             # Add the column to the list of columns
             stmt += f'{column.storage_name}, '
 
-            value = self.convert_to_sql_type(column, value)
+            value = self.convert_to_storage_type(column, value)
 
             values[column.storage_name] = value
 

@@ -19,8 +19,8 @@ from byoda.datatypes import CloudType, StorageType
 
 _LOGGER = logging.getLogger(__name__)
 
-PUBLIC_POSTFIX = '/public'
-LOCAL_URL = 'http://localhost'
+PUBLIC_POSTFIX: str = 'public'
+RESTRICTED_POSTFIX: str = 'restricted'
 
 
 class OpenMode(Enum):
@@ -66,23 +66,24 @@ class FileStorage:
         '''
         Factory for FileStorage
 
-        :param bucket_prefix: prefix of the storage account, to which
-        'private' and 'public' will be appended
-        :param cache_path: path to the cache on the local file system
+        :param root_dir: directory on the local file system under which files
+        will be stored
         '''
 
         return FileStorage(root_dir)
 
     @staticmethod
-    async def get_storage(cloud: CloudType, bucket_prefix: str,
-                          root_dir: str):
+    async def get_storage(cloud: CloudType, private_bucket, restricted_bucket,
+                          public_bucket, root_dir: str):
         '''
         Factory for FileStorage and classes derived from it
 
         For GCP, the environment variable
         :param cloud: the cloud that we are looking to use for object
         storage
-        :param bucket: the bucket storing the data
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: the directory on the local file system that
         will be used to cache content
         :returns: instance of FileStorage or a class derived from it
@@ -92,13 +93,18 @@ class FileStorage:
 
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
-            storage = await AwsFileStorage.setup(bucket_prefix, root_dir)
+            storage = await AwsFileStorage.setup(
+                private_bucket, restricted_bucket, public_bucket, root_dir)
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
-            storage = await AzureFileStorage.setup(bucket_prefix, root_dir)
+            storage = await AzureFileStorage.setup(
+                private_bucket, restricted_bucket, public_bucket, root_dir
+            )
         elif cloud == CloudType.GCP:
             from .gcp import GcpFileStorage
-            storage = await GcpFileStorage.setup(bucket_prefix, root_dir)
+            storage = await GcpFileStorage.setup(
+                private_bucket, restricted_bucket, public_bucket, root_dir
+            )
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
             storage = await FileStorage.setup(root_dir)
@@ -133,9 +139,15 @@ class FileStorage:
                 dirpath = relative_path
             else:
                 dirpath = self.local_path + relative_path
+        elif storage_type == StorageType.RESTRICTED:
+            dirpath = (
+                self.local_path.rstrip('/') + '/' + RESTRICTED_POSTFIX +
+                '/' + relative_path
+            )
         else:
             dirpath = (
-                self.local_path.rstrip('/') + PUBLIC_POSTFIX + relative_path
+                self.local_path.rstrip('/') + '/' + PUBLIC_POSTFIX +
+                '/' + relative_path
             )
 
         if create_dir:
@@ -335,9 +347,7 @@ class FileStorage:
     def get_url(self, filepath: str = None,
                 storage_type: StorageType = StorageType.PRIVATE) -> str:
         '''
-        Get the URL for the public storage bucket. With local storage,
-        which should only be used for testing, we assume that there
-        is a web server running on 'localhost'
+        Get the URL for the local storage.
 
         :param filepath: path to the file
         :param storage_type: return the url for the private or public storage
@@ -347,10 +357,29 @@ class FileStorage:
         if not filepath:
             filepath = '/'
 
-        if storage_type == StorageType.PUBLIC:
-            filepath = PUBLIC_POSTFIX + '/' + filepath
+        bucket = self.get_bucket(storage_type=storage_type)
 
-        return LOCAL_URL + filepath
+        filepath = f'{bucket}/{filepath}'
+
+        return filepath
+
+    def get_bucket(self, storage_type: StorageType = StorageType.PRIVATE
+                   ) -> str:
+        '''
+        Get the bucket name for the storage type
+
+        :param storage_type: return the bucket name for the private,
+        restricted, or public storage
+        :returns: str
+        '''
+
+        path = self.local_path
+        if storage_type == StorageType.PUBLIC:
+            path += PUBLIC_POSTFIX
+        elif storage_type == StorageType.RESTRICTED:
+            path += RESTRICTED_POSTFIX
+
+        return path
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE
@@ -386,24 +415,24 @@ class FileStorage:
         return os.stat.getmtime(dirpath + filename)
 
     async def copy(self, src: str, dest: str,
-                   storage_type: StorageType = StorageType.PRIVATE) -> None:
+                   storage_type: StorageType = StorageType.PRIVATE,
+                   exist_ok=True) -> None:
         '''
         Copies a file on the local file system
         '''
-        src_dirpath, src_filename = self.get_full_path(
-            src, storage_type=storage_type
-        )
+
         dest_dirpath, dest_filename = self.get_full_path(
             dest, storage_type=storage_type
         )
 
-        result = shutil.copyfile(
-            src_dirpath + '/' + src_filename,
-            dest_dirpath + '/' + dest_filename
-        )
+        dest_filepath = dest_dirpath + '/' + dest_filename
+        if os.path.exists(dest_filename) and not exist_ok:
+            raise FileExistsError(dest_filepath)
+
+        result = shutil.copyfile(src, dest_filepath)
 
         _LOGGER.debug(
-            f'Copied {src_dirpath}/{src_filename} to '
+            f'Copied src to '
             f'{dest_dirpath}/{dest_filename} on the local file '
             f'system: {result}'
         )

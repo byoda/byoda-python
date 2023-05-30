@@ -40,20 +40,6 @@ server {
         auth_basic_user_file /etc/nginx/htaccess.db;
     }
 
-    location /api/v1/pod/authtoken {
-        proxy_pass http://127.0.0.1:{{ port }};
-
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Forwarded-Host $server_name;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
-        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
-        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
-        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
-    }
 
     location /logs/ {
         auth_basic  "Log Area";
@@ -89,27 +75,9 @@ server {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
 
-{% endif -%}
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:{{ port }};
-
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Forwarded-Host $server_name;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
-        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
-        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
-        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
-    }
-
     location /ws-api/ {
         proxy_pass http://127.0.0.1:8000/api/;
 
-        proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
@@ -126,10 +94,108 @@ server {
         proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
 
+{% endif %}
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:{{ port }};
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
+        proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
+        proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
+    }
 
     location /public/ {
+{% if cloud == 'LOCAL' %}
+        root {{ root_dir }};
+{% else %}
         proxy_pass {{ public_cloud_endpoint }};
+        proxy_cache byoda;
+
+        # https://nginx.org/en/docs/http/ngx_http_slice_module.html
+        slice 1m;
+        proxy_cache_key   $uri$is_args$args$slice_range;
+        proxy_set_header  Range $slice_range;
+
+        # Avoid object storage thinking we want authenticated access
+        proxy_set_header Authorization '';
+
+{% endif %}
+{% if cloud == 'Azure' %}
+        proxy_set_header x-ms-version 2021-12-02;
+        proxy_set_header Host {{ public_bucket}};
+{% elif cloud == 'GCP' %}
+        proxy_set_header Host storage.googleapis.com;
+        proxy_hide_header alt-svc;
+        proxy_hide_header X-GUploader-UploadID;
+        proxy_hide_header alternate-protocol;
+        proxy_hide_header x-goog-hash;
+        proxy_hide_header x-goog-generation;
+        proxy_hide_header x-goog-metageneration;
+        proxy_hide_header x-goog-stored-content-encoding;
+        proxy_hide_header x-goog-stored-content-length;
+        proxy_hide_header x-goog-storage-class;
+        proxy_hide_header x-xss-protection;
+        # proxy_hide_header accept-ranges;
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie;
+{% elif cloud == 'AWS' %}
+{% endif %}
     }
+
+    location /restricted/ {
+{% if cloud == 'LOCAL' %}
+        root {{ root_dir }};
+{% else %}
+        proxy_pass {{ restricted_cloud_endpoint }};
+        proxy_cache byoda;
+
+        # https://nginx.org/en/docs/http/ngx_http_slice_module.html
+        slice 1m;
+        proxy_cache_key   $uri$is_args$args$slice_range;
+        proxy_set_header  Range $slice_range;
+
+        # Avoid object storage thinking we want authenticated access
+        proxy_set_header Authorization '';
+{% endif %}
+        auth_request /api/v1/pod/content/asset;
+        set $original_url $uri;
+        set $original_args $args;
+
+{% if cloud == 'Azure' %}
+        proxy_set_header x-ms-version 2021-12-02;
+        proxy_set_header Host {{ restricted_bucket }};
+{% elif cloud == 'GCP' %}
+        proxy_set_header Host storage.googleapis.com;
+        proxy_hide_header alt-svc;
+        proxy_hide_header X-GUploader-UploadID;
+        proxy_hide_header alternate-protocol;
+        proxy_hide_header x-goog-hash;
+        proxy_hide_header x-goog-generation;
+        proxy_hide_header x-goog-metageneration;
+        proxy_hide_header x-goog-stored-content-encoding;
+        proxy_hide_header x-goog-stored-content-length;
+        proxy_hide_header x-goog-storage-class;
+        proxy_hide_header x-xss-protection;
+        # proxy_hide_header accept-ranges;
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie;
+{% elif cloud == 'AWS' %}
+{% endif %}
+    }
+
+    location /api/v1/pod/content/asset {
+        internal;
+        proxy_set_header Original-URL $original_url;
+        proxy_pass http://127.0.0.1:8000/api/v1/pod/content/asset?$original_args;
+    }
+
 }
 
 
@@ -189,9 +255,5 @@ server {
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
         proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
-    }
-
-    location /public/ {
-        proxy_pass {{ public_cloud_endpoint }};
     }
 }

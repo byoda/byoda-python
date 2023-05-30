@@ -3,7 +3,9 @@ Functions shared between the pod server and the pod worker
 
 Suported environment variables:
 CLOUD: 'AWS', 'LOCAL'
-BUCKET_PREFIX
+PRIVATE_BUCKET
+RESTRICTED_BUCKET
+PUBLIC_BUCKET
 NETWORK
 ACCOUNT_ID
 ACCOUNT_SECRET
@@ -30,7 +32,9 @@ def get_environment_vars() -> dict:
     '''
     Parses environment variables. Returns dict with:
       - cloud: CloudType
-      - bucket_prefix: str
+      - private_bucket: str
+      - restricted_bucket: str
+      - public_bucket: str
       - network: str
       - account_id: str
       - account_secret: str
@@ -45,7 +49,9 @@ def get_environment_vars() -> dict:
 
     data = {
         'cloud': CloudType(os.environ.get('CLOUD', 'LOCAL')),
-        'bucket_prefix': os.environ.get('BUCKET_PREFIX'),
+        'private_bucket': os.environ.get('PRIVATE_BUCKET'),
+        'restricted_bucket': os.environ.get('RESTRICTED_BUCKET'),
+        'public_bucket': os.environ.get('PUBLIC_BUCKET'),
         'network': os.environ.get('NETWORK', config.DEFAULT_NETWORK),
         'account_id': os.environ.get('ACCOUNT_ID'),
         'account_secret': os.environ.get('ACCOUNT_SECRET'),

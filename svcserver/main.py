@@ -74,7 +74,9 @@ async def setup():
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType.LOCAL,
-        bucket_prefix='byoda',
+        private_bucket='byoda',
+        restricted_bucket='byoda',
+        public_bucket='byoda',
         root_dir=app_config['svcserver']['root_dir']
     )
 
