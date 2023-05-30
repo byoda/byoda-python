@@ -369,6 +369,9 @@ class Member:
         if not self.member_id:
             self.load_secrets()
 
+        server: PodServer = config.server
+        cloud: str = server.cloud.value
+
         nginx_config = NginxConfig(
             directory=NGINX_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
@@ -383,14 +386,27 @@ class Member:
             public_cloud_endpoint=self.paths.storage_driver.get_url(
                 storage_type=StorageType.PUBLIC
             ),
+            restricted_cloud_endpoint=self.paths.storage_driver.get_url(
+                storage_type=StorageType.RESTRICTED
+            ),
             private_cloud_endpoint=self.paths.storage_driver.get_url(
                 storage_type=StorageType.PRIVATE
             ),
+            cloud=cloud,
             port=PodServer.HTTP_PORT,
             service_id=self.service_id,
             root_dir=config.server.network.paths.root_directory,
             custom_domain=None,
             shared_webserver=config.server.shared_webserver,
+            public_bucket=self.paths.storage_driver.get_bucket(
+                StorageType.PUBLIC
+            ),
+            restricted_bucket=self.paths.storage_driver.get_bucket(
+                StorageType.RESTRICTED
+            ),
+            private_bucket=self.paths.storage_driver.get_bucket(
+                StorageType.PRIVATE
+            ),
         )
 
         nginx_config.create()

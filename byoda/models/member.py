@@ -66,16 +66,19 @@ class MemberRequestModel(BaseModel):
 
 class UploadResponseModel(BaseModel):
     service_id: int
-    location: str
+    asset_id: UUID
+    locations: list[str]
 
     def __repr__(self):
         return (
-            '<UploadResponseModel={service_id: int, location: str}>'
+            '<UploadResponseModel='
+            '{service_id: int, asset_id: UUID, locations: list[str]}>'
         )
 
     def as_dict(self):
         return {
             'service_id': self.service_id,
-            'location': self.location,
+            'asset_id': self.asset_id,
+            'locations': self.locations,
 
         }

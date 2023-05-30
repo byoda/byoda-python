@@ -154,7 +154,7 @@ Each network has the following secrets:
 On a private server, preferably air-gapped:
 ```
 cd ${BYODA_HOME}
-git clone https://github.com/StevenHessing/byoda-python
+git clone https://github.com/byoda/byoda-python
 cd byoda-python
 pipenv shell
 
@@ -203,7 +203,7 @@ Clone the repo:
 BYODA_HOME=/opt/byoda
 sudo mkdir ${BYODA_HOME}
 sudo chown -R $USER:$USER ${BYODA_HOME}
-git clone https://github.com/StevenHessing/byoda-python
+git clone https://github.com/byoda/byoda-python
 cd byoda-python
 cp config-sample.yml config.yml
 ```

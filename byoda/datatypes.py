@@ -84,6 +84,7 @@ class VisibilityType(Enum):
     MEMBER               = 'member'
     KNOWN                = 'known'
     PUBLIC               = 'public'
+    RESTRICTED           = 'restricted'
 
 class HttpRequestMethod(Enum):
     GET         = 'GET'
@@ -127,10 +128,15 @@ class PubSubMessageAction(Enum):
     DELETE      = 'delete'
     MUTATE      = 'mutate'
 
-class StorageType(Enum):
-    PRIVATE = 'private'
-    PUBLIC = 'public'
 
+# StorageType is used for storing files using instances of classes derived
+# from FileStorage
+class StorageType(Enum):
+    PRIVATE     = 'private'
+    PUBLIC      = 'public'
+    RESTRICTED  = 'restricted'
+
+# The following are used for the 'type' parameter in the service schema
 class DataType(Enum):
     # flake8: noqa=E221
     STRING    = 'string'
@@ -144,6 +150,7 @@ class DataType(Enum):
     REFERENCE = 'reference'
 
 
+# DataOperationType is a parameter for data objects in the service schema
 class DataOperationType(Enum):
     # flake8: noqa=E221
     CREATE      = 'create'
@@ -157,6 +164,7 @@ class DataOperationType(Enum):
     MUTATE      = 'mutate'
 
 
+# Search type is a parameter for data objects in the service schema
 class SearchType(Enum):
     # flake8: noqa=E221
     EXACT      = 'exact'
@@ -216,6 +224,14 @@ class AuthSource(Enum):
     NONE            = 'none'
     CERT            = 'cert'
     TOKEN           = 'token'
+
+
+class IngestStatus(Enum):
+    NONE            = None
+    EXTERNAL        = 'external'
+    UPLOADED        = 'uploaded'
+    ENCODING        = 'encoding'
+    DONE            = 'done'
 
 
 # MemberStatus is used for the MemberDB.status attribute

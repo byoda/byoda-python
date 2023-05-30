@@ -41,7 +41,9 @@ class DocumentStore:
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,
                                  cloud_type: CloudType = None,
-                                 bucket_prefix: str = None,
+                                 private_bucket: str = None,
+                                 restricted_bucket: str = None,
+                                 public_bucket: str = None,
                                  root_dir: str = None):
         '''
         Factory for initiating a document store
@@ -49,13 +51,15 @@ class DocumentStore:
 
         storage = DocumentStore()
         if storage_type == DocumentStoreType.OBJECT_STORE:
-            if not (cloud_type and bucket_prefix):
+            if not (cloud_type and private_bucket and restricted_bucket and
+                    public_bucket):
                 raise ValueError(
-                    f'Must specify cloud_type and bucket_prefix for document '
-                    f'storage {storage_type}'
+                    f'Must specify cloud_type and public/restricted/private '
+                    f'buckets for document storage {storage_type}'
                 )
             storage.backend = await FileStorage.get_storage(
-                cloud_type, bucket_prefix, root_dir
+                cloud_type, private_bucket, restricted_bucket, public_bucket,
+                root_dir
             )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')

@@ -2,14 +2,6 @@
 Bring your own data & algorithm backend storage for the server running on
 Google Cloud Platform.
 
-For Azure, we use 'Managed Identity' assigned to a VM for authentication
-
-Assigning a managed identity to an existing VM using aAzure CLL:
-  az vm identity assign -g <resource-group> -n <vm-name>
-
-Azure rights to assign:
-  Storage Blob Data Contributor
-
 :maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
@@ -37,16 +29,15 @@ class GcpFileStorage(FileStorage):
     Provides access to GCS (Google Cloud Storage)
     '''
 
-    def __init__(self, bucket_prefix: str, root_dir: str) -> None:
+    def __init__(self, private_bucket: str, restricted_bucket: str,
+                 public_bucket: str, root_dir: str) -> None:
         '''
         Abstraction of storage of files on GCS object storage. Do not call
         this constructor but call the GcpFileStorage.setup() factory method
 
-        :param bucket_prefix: prefix of the GCS bucket, to which '-private' and
-        '-public' will be appended
-        :param cache_path: path to the cache on the local file system. If no
-        cache_path is specified, a local cache will not be used. This is the
-        configuration to use when running multiple pods in parallel
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
@@ -57,10 +48,9 @@ class GcpFileStorage(FileStorage):
 
         self.domain = 'storage.cloud.google.com'
         self.buckets: dict[str:str] = {
-            StorageType.PRIVATE.value:
-                f'{bucket_prefix}-{StorageType.PRIVATE.value}',
-            StorageType.PUBLIC.value:
-                f'{bucket_prefix}-{StorageType.PUBLIC.value}'
+            StorageType.PRIVATE.value: private_bucket,
+            StorageType.RESTRICTED.value: restricted_bucket,
+            StorageType.PUBLIC.value: public_bucket
         }
         # We keep a cache of Buckets. We call them 'clients' to
         # remain consistent with the implementations for AWS and Azure
@@ -80,17 +70,21 @@ class GcpFileStorage(FileStorage):
         )
 
     @staticmethod
-    async def setup(bucket_prefix: str, root_dir: str = None):
+    async def setup(private_bucket: str, restricted_bucket: str,
+                    public_bucket: str, root_dir: str = None):
         '''
-        Factory for AzureFileStorage
+        Factory for GcpFileStorage
 
-        :param bucket_prefix: prefix of the GCS bucket, to which '-private' and
-        '-public' will be appended
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
 
-        return GcpFileStorage(bucket_prefix, root_dir)
+        return GcpFileStorage(
+            private_bucket, restricted_bucket, public_bucket, root_dir
+        )
 
     def _get_blob_client(self, filepath: str,
                          storage_type: StorageType = StorageType.PRIVATE
@@ -244,6 +238,16 @@ class GcpFileStorage(FileStorage):
             f'https://{self.domain}/{self.buckets[storage_type.value]}/' +
             filepath
         )
+
+    def get_bucket(self, storage_type: StorageType = StorageType.PRIVATE) -> str:
+        '''
+        Get the name of the bucket
+
+        :param storage_type: private, restricted or public storage
+        :returns: str
+        '''
+
+        return self.domain
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE

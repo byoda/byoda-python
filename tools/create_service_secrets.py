@@ -48,7 +48,9 @@ async def main(argv):
     network_data = {
         'private_key_password': args.password,
         'cloud': 'LOCAL',
-        'bucket_prefix': None,
+        'private_bucket': None,
+        'restricted_bucket': None,
+        'public_bucket': None,
         'roles': [],
         'network': args.network,
         'root_dir': args.root_directory,

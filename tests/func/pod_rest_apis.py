@@ -98,6 +98,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         for account_member in account.memberships.values():
             account_member.enable_graphql_api(app)
 
+    @classmethod
+    async def asyncTearDown(self):
+        await GraphQlClient.close_all()
+
     async def test_pod_rest_api_tls_client_cert(self):
         pod_account = config.server.account
         account_id = pod_account.account_id
@@ -126,11 +130,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 1)
 
-        # Get the service ID for the addressbook service
+        # Get the service ID for the byoda-tube service
         service_id = None
         version = None
         for service in data['services']:
-            if service['name'] == 'addressbook':
+            if service['name'] == 'byoda-tube':
                 service_id = service['service_id']
                 version = service['latest_contract_version']
 
@@ -149,9 +153,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(data['member_id'], str))
         self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
-        self.assertEqual(data['name'], 'addressbook')
+        self.assertEqual(data['name'], 'byoda-tube')
         self.assertEqual(data['owner'], 'Steven Hessing')
-        self.assertEqual(data['website'], 'https://www.byoda.org/')
+        self.assertEqual(data['website'], 'https://byoda.tube/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
             data['description'], ('A simple network to maintain contacts')
@@ -285,9 +289,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(data['member_id'], str))
         self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
-        self.assertEqual(data['name'], 'addressbook')
+        self.assertEqual(data['name'], 'byoda-tube')
         self.assertEqual(data['owner'], 'Steven Hessing')
-        self.assertEqual(data['website'], 'https://www.byoda.org/')
+        self.assertEqual(data['website'], 'https://byoda.tube/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
             data['description'], 'A simple network to maintain contacts'
@@ -302,16 +306,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 409)
 
+        asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
         API = (
             BASE_URL +
             f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
-            '/visibility/public/filename/ls.bin'
+            f'/asset_id/{asset_id}/visibility/public'
         )
         response = requests.post(
             API,
             files=[
                 (
-                    'file', ('ls.bin', open('/bin/ls', 'rb'))
+                    'files', ('ls.bin', open('/bin/ls', 'rb'))
+                ),
+                (
+                    'files', ('date.bin', open('/bin/date', 'rb'))
                 )
             ],
             timeout=120, headers=member_auth_header
@@ -319,9 +327,42 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
 
-        self.assertEqual(
-            data['location'], 'http://localhost/public/ls.bin'
+        expected_locations = [
+            f'/tmp/byoda-tests/podserver/public/{asset_id}/ls.bin',
+            f'/tmp/byoda-tests/podserver/public/{asset_id}/date.bin',
+        ]
+        for location in data['locations']:
+            self.assertTrue(location in expected_locations)
+            self.assertTrue(os.path.exists(location))
+
+        asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+        API = (
+            BASE_URL +
+            f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
+            f'/asset_id/{asset_id}/visibility/restricted'
         )
+        response = requests.post(
+            API,
+            files=[
+                (
+                    'files', ('ls.bin', open('/bin/ls', 'rb'))
+                ),
+                (
+                    'files', ('date.bin', open('/bin/date', 'rb'))
+                )
+            ],
+            timeout=120, headers=member_auth_header
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        expected_locations = [
+            f'/tmp/byoda-tests/podserver/restricted/{asset_id}/ls.bin',
+            f'/tmp/byoda-tests/podserver/restricted/{asset_id}/date.bin',
+        ]
+        for location in data['locations']:
+            self.assertTrue(location in expected_locations)
+            self.assertTrue(os.path.exists(location))
 
     async def test_auth_token_request(self):
         pod_account = config.server.account

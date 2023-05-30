@@ -122,10 +122,7 @@ class ApiClient:
                 'Not using byoda certchain for server cert '
                 f'verification of {api}'
             )
-            self.ssl_context = config.ssl_contexts.get('default')
-            if not self.ssl_context:
-                self.ssl_context = ssl.create_default_context()
-                config.ssl_contexts['default'] = self.ssl_context
+            self.ssl_context = ssl.create_default_context()
         else:
             ca_filepath = storage.local_path + server.network.root_ca.cert_file
 
@@ -238,14 +235,12 @@ class ApiClient:
         pools = list(config.client_pools.keys())
         for pool in pools:
             del config.client_pools[pool]
-    
+
         config.client_pools: dict[str, aiohttp.ClientSession] = {}
 
     @staticmethod
     def _get_sync_session(api: str, secret: Secret, service_id: int,
                           timeout: int):
-        sessions = dict[str, requests.Session]
-
         server: Server = config.server
         if hasattr(server, 'local_storage'):
             storage = server.local_storage

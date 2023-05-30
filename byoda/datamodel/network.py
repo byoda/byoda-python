@@ -118,10 +118,14 @@ class Network:
         self.private_key_password: str = server['private_key_password']
 
         if ServerRole.Pod in self.roles:
-            self.bucket_prefix: str | None = server['bucket_prefix']
+            self.private_bucket: str | None = server['private_bucket']
+            self.restricted_bucket: str | None = server['restricted_bucket']
+            self.public_bucket: str | None = server['public_bucket']
             self.account: str | None = 'pod'
         else:
-            self.bucket_prefix: str | None = None
+            self.private_bucket: str | None = None
+            self.restricted_bucket: str | None = None
+            self.public_bucket: str | None = None
             self.account: str | None = None
 
         self.cloud: str = server.get('cloud', 'LOCAL')
@@ -264,9 +268,6 @@ class Network:
 
     async def load_network_secrets(self, root_ca: NetworkRootCaSecret = None,
                                    storage_driver: FileStorage = None) -> None:
-
-        # FileStorage.get_storage ignores bucket_prefix parameter
-        # when local storage is used.
 
         if not storage_driver:
             storage_driver: FileStorage = config.server.document_store.backend

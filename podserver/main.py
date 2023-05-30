@@ -9,7 +9,9 @@ existing memberships.
 
 Suported environment variables:
 CLOUD: 'AWS', 'LOCAL'
-BUCKET_PREFIX
+PRIVATE_BUCKET
+RESTRICTED_BUCKET
+PUBLIC_BUCKET
 NETWORK
 ACCOUNT_ID
 ACCOUNT_SECRET
@@ -48,6 +50,7 @@ from .routers import member as MemberRouter
 from .routers import authtoken as AuthTokenRouter
 from .routers import status as StatusRouter
 from .routers import accountdata as AccountDataRouter
+from .routers import content_token as ContentTokenRouter
 
 _LOGGER = None
 LOG_FILE = '/var/www/wwwroot/logs/pod.log'
@@ -60,7 +63,7 @@ app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', [], [
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
-        AccountDataRouter
+        AccountDataRouter, ContentTokenRouter
     ]
 )
 
@@ -101,7 +104,9 @@ async def setup():
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
+        private_bucket=network_data['private_bucket'],
+        restricted_bucket=network_data['restricted_bucket'],
+        public_bucket=network_data['public_bucket'],
         root_dir=network_data['root_dir']
     )
 

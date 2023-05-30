@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.mypy_cache
+
+.git
+.gitignore
+.vscode
+
+build
+tests/collateral/local

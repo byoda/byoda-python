@@ -2,8 +2,16 @@
 ### Start of variables that you can configure
 ###
 
+# How often should backups be created? This only applies to pods
+# running in public clouds. As it incurs some (fairly minor) traffic
+# costs, we set the interval to 4 hours (= 240 minutes)
+export BACKUP_INTERVAL=240
+
 # Set to "IGNORE" when not using cloud storage
-export BUCKET_PREFIX="changeme"
+export PRIVATE_BUCKET="changeme"
+export RESTRICTED_BUCKET="changeme"
+export PUBLIC_BUCKET="changeme"
+
 # Set the following two variables to long random strings
 export ACCOUNT_SECRET="changeme"
 export PRIVATE_KEY_SECRET="changeme"
@@ -26,7 +34,7 @@ export YOUTUBE_IMPORT_INTERVAL=240
 # To import your Twitter public tweets, sign up for Twitter Developer
 # program at https://developer.twitter.com/ and set the following three
 # environment variables (more instructions in
-# https://github.com/StevenHessing/byoda-python/README.md)
+# https://github.com/byoda/byoda-python/README.md)
 export TWITTER_API_KEY=
 export TWITTER_KEY_SECRET=
 export TWITTER_USERNAME=

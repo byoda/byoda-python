@@ -70,6 +70,10 @@ class ServiceRequestAuthFast(RequestAuth):
             )
 
         if self.id_type != IdType.SERVICE:
+            _LOGGER.debug(
+                f'Authentication with {self.id_type} cert instead of '
+                f'service cert'
+            )
             raise HTTPException(
                 status_code=403,
                 detail='Must authenticate with a credential for a service'
@@ -85,6 +89,7 @@ class ServiceRequestAuthFast(RequestAuth):
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
+            _LOGGER.debug('Invalid service cert')
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True
@@ -136,6 +141,10 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
             return
 
         if self.id_type != IdType.SERVICE:
+            _LOGGER.debug(
+                f'Authentication with {self.id_type} cert instead of '
+                f'service cert'
+            )
             raise HTTPException(
                 status_code=403,
                 detail='Must authenticate with a credential for a service'
@@ -151,6 +160,7 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
+            _LOGGER.debug('Invalid service cert')
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True

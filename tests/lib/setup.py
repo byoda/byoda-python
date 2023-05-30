@@ -39,7 +39,9 @@ def mock_environment_vars(test_dir: str):
     '''
 
     os.environ['ROOT_DIR'] = test_dir
-    os.environ['BUCKET_PREFIX'] = 'byoda'
+    os.environ['PRIVATE_BUCKET'] = 'byoda'
+    os.environ['RESTRICTED_BUCKET'] = 'byoda'
+    os.environ['PUBLIC_BUCKET'] = 'byoda'
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(get_test_uuid())
@@ -56,32 +58,33 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
     config.debug = True
 
-    network_data = get_environment_vars()
+    data = get_environment_vars()
 
     if delete_tmp_dir:
         try:
-            shutil.rmtree(network_data['root_dir'])
+            shutil.rmtree(data['root_dir'])
         except FileNotFoundError:
             pass
 
-    os.makedirs(network_data['root_dir'], exist_ok=True)
+    os.makedirs(data['root_dir'], exist_ok=True)
 
-    shutil.copy('tests/collateral/addressbook.json', network_data['root_dir'])
+    shutil.copy('tests/collateral/addressbook.json', data['root_dir'])
 
     server: PodServer = PodServer(
         cloud_type=CloudType.LOCAL,
-        bootstrapping=bool(network_data.get('bootstrap'))
+        bootstrapping=bool(data.get('bootstrap'))
     )
     config.server = server
 
-    await config.server.set_document_store(
-        DocumentStoreType.OBJECT_STORE,
-        cloud_type=CloudType(network_data['cloud']),
-        bucket_prefix=network_data['bucket_prefix'],
-        root_dir=network_data['root_dir']
+    await server.set_document_store(
+        DocumentStoreType.OBJECT_STORE, server.cloud,
+        private_bucket=data['private_bucket'],
+        restricted_bucket=data['restricted_bucket'],
+        public_bucket=data['public_bucket'],
+        root_dir=data['root_dir']
     )
 
-    network = Network(network_data, network_data)
+    network = Network(data, data)
     await network.load_network_secrets()
 
     config.test_case = True
@@ -91,10 +94,10 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
     config.server.paths = network.paths
 
-    return network_data
+    return data
 
 
-async def setup_account(network_data: dict[str, str]) -> Account:
+async def setup_account(data: dict[str, str]) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     PubSubNng.cleanup()
@@ -102,12 +105,12 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     server = config.server
     local_storage: FileStorage = server.local_storage
 
-    account = Account(network_data['account_id'], server.network)
+    account = Account(data['account_id'], server.network)
     await account.paths.create_account_directory()
 
     server.account: Account = account
 
-    account.password: str = network_data.get('account_secret')
+    account.password: str = data.get('account_secret')
 
     await account.create_account_secret()
 
@@ -131,7 +134,7 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     service = [
         service
         for service in services
-        if service['name'] == 'addressbook'
+        if service['name'] == 'byoda-tube'
     ][0]
 
     global ADDRESSBOOK_SERVICE_ID
@@ -148,26 +151,25 @@ async def setup_account(network_data: dict[str, str]) -> Account:
     return account
 
 
-def get_account_id(network_data: dict[str, str]) -> str:
+def get_account_id(data: dict[str, str]) -> str:
     '''
     Gets the account ID used by the test POD server
 
-    :param network_data: The dict as returned by
-    podserver.util.get_environment_vars
+    :param data: The dict as returned by podserver.util.get_environment_vars
     :returns: the account ID
     '''
 
-    with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
+    with open(f'{data["root_dir"]}/account_id', 'rb') as file_desc:
         account_id = orjson.loads(file_desc.read())
 
     return account_id
 
 
-def write_account_id(network_data: dict[str, str]):
+def write_account_id(data: dict[str, str]):
     '''
     Writes the account ID to a local file so that test clients
     can use the same account ID as the test podserver
     '''
 
-    with open(f'{network_data["root_dir"]}/account_id', 'wb') as file_desc:
-        file_desc.write(orjson.dumps(network_data['account_id']))
+    with open(f'{data["root_dir"]}/account_id', 'wb') as file_desc:
+        file_desc.write(orjson.dumps(data['account_id']))

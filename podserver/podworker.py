@@ -6,7 +6,9 @@ data secrets
 
 Suported environment variables:
 CLOUD: 'AWS', 'AZURE', 'GCP', 'LOCAL'
-BUCKET_PREFIX
+PRIVATE_BUCKET
+RESTRICTED_BUCKET
+PUBLIC_BUCKET
 NETWORK
 ACCOUNT_ID
 ACCOUNT_SECRET
@@ -81,11 +83,13 @@ async def main(argv):
         server = config.server
 
         await server.set_document_store(
-            DocumentStoreType.OBJECT_STORE,
-            server.cloud,
-            bucket_prefix=data['bucket_prefix'],
+            DocumentStoreType.OBJECT_STORE, server.cloud,
+            private_bucket=data['private_bucket'],
+            restricted_bucket=data['restricted_bucket'],
+            public_bucket=data['public_bucket'],
             root_dir=data['root_dir']
         )
+
         network = Network(data, data)
         await network.load_network_secrets()
 
@@ -115,6 +119,7 @@ async def run_startup_tasks(server: PodServer):
     server.twitter_client = None
 
     try:
+        await server.account.load_memberships()
         member = account.memberships.get(ADDRESSBOOK_ID)
         if member:
             if Twitter.twitter_integration_enabled():
@@ -144,7 +149,8 @@ async def run_daemon_tasks(server: PodServer):
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
-        every(240).minutes.do(backup_datastore, server)
+        interval: int = int(os.environ.get("BACKUP_INTERVAL", 240))
+        every(interval).minutes.do(backup_datastore, server)
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
     every(10).minutes.do(database_maintenance, server)
@@ -154,7 +160,7 @@ async def run_daemon_tasks(server: PodServer):
         every(180).seconds.do(twitter_update_task, server)
 
     if YouTube.youtube_integration_enabled():
-        interval = os.environ["YOUTUBE_IMPORT_INTERVAL"]
+        interval: int = int(os.environ.get('YOUTUBE_IMPORT_INTERVAL', 240))
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )

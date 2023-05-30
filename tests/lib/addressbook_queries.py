@@ -275,6 +275,57 @@ mutation(
 GRAPHQL_STATEMENTS['asset_reaction']['mutate'] = MUTATE_ASSET_REACTION
 
 
+QUERY_CONTENT_RESTRICTION_KEY = '''
+query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    content_restriction_key_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            content_restriction_key {
+                key_id
+                key
+                not_before
+                not_after
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_key'] = {'query': QUERY_CONTENT_RESTRICTION_KEY}
+
+MUTATE_CONTENT_RESTRICTION_KEY = '''
+mutation(
+                    $key_id: Int,
+                    $key: String,
+                    $not_before: DateTime,
+                    $not_after: DateTime,
+) {
+    mutate_content_restriction_key(
+                    key_id: $key_id,
+                    key: $key,
+                    not_before: $not_before,
+                    not_after: $not_after,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_key']['mutate'] = MUTATE_CONTENT_RESTRICTION_KEY
+
+
 QUERY_DATALOG = '''
 query ($query_id: UUID!, $filters: datalogInputFilter,
         $first: Int, $after: String,
@@ -386,6 +437,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_type
                 asset_url
                 thumbnails
+                monetizations
                 locale
                 creator
                 published_timestamp
@@ -399,6 +451,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 keywords
                 annotations
                 forum
+                channel_id
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
@@ -423,6 +476,7 @@ mutation(
                     $asset_type: String,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -436,6 +490,7 @@ mutation(
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -448,6 +503,7 @@ mutation(
                     asset_type: $asset_type,
                     asset_url: $asset_url,
                     thumbnails: $thumbnails,
+                    monetizations: $monetizations,
                     locale: $locale,
                     creator: $creator,
                     published_timestamp: $published_timestamp,
@@ -461,6 +517,7 @@ mutation(
                     keywords: $keywords,
                     annotations: $annotations,
                     forum: $forum,
+                    channel_id: $channel_id,
                     root_asset_id: $root_asset_id,
                     root_asset_class: $root_asset_class,
                     response_to_asset_id: $response_to_asset_id,
@@ -624,6 +681,57 @@ mutation(
 '''
 
 GRAPHQL_STATEMENTS['twitter_media']['mutate'] = MUTATE_TWITTER_MEDIA
+
+
+QUERY_CHANNEL = '''
+query ($query_id: UUID!, $filters: channelInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    channel_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            channel {
+                created_timestamp
+                channel_id
+                name
+                description
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['channel'] = {'query': QUERY_CHANNEL}
+
+MUTATE_CHANNEL = '''
+mutation(
+                    $created_timestamp: DateTime,
+                    $channel_id: UUID,
+                    $name: String,
+                    $description: String,
+) {
+    mutate_channel(
+                    created_timestamp: $created_timestamp,
+                    channel_id: $channel_id,
+                    name: $name,
+                    description: $description,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['channel']['mutate'] = MUTATE_CHANNEL
 
 
 QUERY_TWEET = '''
@@ -1136,6 +1244,111 @@ subscription (
 GRAPHQL_STATEMENTS['network_links_inbound']['counter'] = SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER
 
 
+QUERY_CHANNELS = '''
+query ($query_id: UUID!, $filters: channelInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    channels_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            channel {
+                created_timestamp
+                channel_id
+                name
+                description
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['channels'] = {'query': QUERY_CHANNELS}
+
+APPEND_CHANNELS = '''
+mutation (
+                    $created_timestamp: DateTime,
+                    $channel_id: UUID,
+                    $name: String,
+                    $description: String,
+) {
+    append_channels (
+            created_timestamp: $created_timestamp,
+            channel_id: $channel_id,
+            name: $name,
+            description: $description,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['channels']['append'] = APPEND_CHANNELS
+
+UPDATE_CHANNELS = '''
+mutation (
+    $filters: channelInputFilter!,
+                    $created_timestamp: DateTime,
+                    $channel_id: UUID,
+                    $name: String,
+                    $description: String,
+) {
+    update_channels(
+        filters: $filters,
+        created_timestamp: $created_timestamp,
+        channel_id: $channel_id,
+        name: $name,
+        description: $description,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['channels']['update'] = UPDATE_CHANNELS
+
+DELETE_FROM_CHANNELS = '''
+mutation ($filters: channelInputFilter!) {
+    delete_from_channels(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['channels']['delete'] = DELETE_FROM_CHANNELS
+
+SUBSCRIPTION_CHANNELS_UPDATES = '''
+subscription (
+    $filters: channelInputFilter) {
+    channels_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            created_timestamp
+            channel_id
+            name
+            description
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['channels']['updates'] = SUBSCRIPTION_CHANNELS_UPDATES
+
+SUBSCRIPTION_CHANNELS_COUNTER = '''
+subscription (
+    $filter: channelsCounterFilter) {
+    channels_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['channels']['counter'] = SUBSCRIPTION_CHANNELS_COUNTER
+
+
 QUERY_ASSET_LINKS = '''
 query ($query_id: UUID!, $filters: assetLinkInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -1566,6 +1779,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_type
                 asset_url
                 thumbnails
+                monetizations
                 locale
                 creator
                 published_timestamp
@@ -1579,6 +1793,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 keywords
                 annotations
                 forum
+                channel_id
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
@@ -1603,6 +1818,7 @@ mutation (
                     $asset_type: String!,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -1616,6 +1832,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -1628,6 +1845,7 @@ mutation (
             asset_type: $asset_type,
             asset_url: $asset_url,
             thumbnails: $thumbnails,
+            monetizations: $monetizations,
             locale: $locale,
             creator: $creator,
             published_timestamp: $published_timestamp,
@@ -1641,6 +1859,7 @@ mutation (
             keywords: $keywords,
             annotations: $annotations,
             forum: $forum,
+            channel_id: $channel_id,
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
@@ -1660,6 +1879,7 @@ mutation (
                     $asset_type: String,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -1673,6 +1893,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -1686,6 +1907,7 @@ mutation (
         asset_type: $asset_type,
         asset_url: $asset_url,
         thumbnails: $thumbnails,
+        monetizations: $monetizations,
         locale: $locale,
         creator: $creator,
         published_timestamp: $published_timestamp,
@@ -1699,6 +1921,7 @@ mutation (
         keywords: $keywords,
         annotations: $annotations,
         forum: $forum,
+        channel_id: $channel_id,
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
@@ -1730,6 +1953,7 @@ subscription (
             asset_type
             asset_url
             thumbnails
+            monetizations
             locale
             creator
             published_timestamp
@@ -1743,6 +1967,7 @@ subscription (
             keywords
             annotations
             forum
+            channel_id
             root_asset_id
             root_asset_class
             response_to_asset_id
@@ -1785,6 +2010,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_type
                 asset_url
                 thumbnails
+                monetizations
                 locale
                 creator
                 published_timestamp
@@ -1798,6 +2024,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 keywords
                 annotations
                 forum
+                channel_id
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
@@ -1822,6 +2049,7 @@ mutation (
                     $asset_type: String!,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -1835,6 +2063,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -1847,6 +2076,7 @@ mutation (
             asset_type: $asset_type,
             asset_url: $asset_url,
             thumbnails: $thumbnails,
+            monetizations: $monetizations,
             locale: $locale,
             creator: $creator,
             published_timestamp: $published_timestamp,
@@ -1860,6 +2090,7 @@ mutation (
             keywords: $keywords,
             annotations: $annotations,
             forum: $forum,
+            channel_id: $channel_id,
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
@@ -1879,6 +2110,7 @@ mutation (
                     $asset_type: String,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -1892,6 +2124,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -1905,6 +2138,7 @@ mutation (
         asset_type: $asset_type,
         asset_url: $asset_url,
         thumbnails: $thumbnails,
+        monetizations: $monetizations,
         locale: $locale,
         creator: $creator,
         published_timestamp: $published_timestamp,
@@ -1918,6 +2152,7 @@ mutation (
         keywords: $keywords,
         annotations: $annotations,
         forum: $forum,
+        channel_id: $channel_id,
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
@@ -1949,6 +2184,7 @@ subscription (
             asset_type
             asset_url
             thumbnails
+            monetizations
             locale
             creator
             published_timestamp
@@ -1962,6 +2198,7 @@ subscription (
             keywords
             annotations
             forum
+            channel_id
             root_asset_id
             root_asset_class
             response_to_asset_id
@@ -2004,6 +2241,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_type
                 asset_url
                 thumbnails
+                monetizations
                 locale
                 creator
                 published_timestamp
@@ -2017,6 +2255,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 keywords
                 annotations
                 forum
+                channel_id
                 root_asset_id
                 root_asset_class
                 response_to_asset_id
@@ -2041,6 +2280,7 @@ mutation (
                     $asset_type: String!,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -2054,6 +2294,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -2066,6 +2307,7 @@ mutation (
             asset_type: $asset_type,
             asset_url: $asset_url,
             thumbnails: $thumbnails,
+            monetizations: $monetizations,
             locale: $locale,
             creator: $creator,
             published_timestamp: $published_timestamp,
@@ -2079,6 +2321,7 @@ mutation (
             keywords: $keywords,
             annotations: $annotations,
             forum: $forum,
+            channel_id: $channel_id,
             root_asset_id: $root_asset_id,
             root_asset_class: $root_asset_class,
             response_to_asset_id: $response_to_asset_id,
@@ -2098,6 +2341,7 @@ mutation (
                     $asset_type: String,
                     $asset_url: String,
                     $thumbnails: [String!],
+                    $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
@@ -2111,6 +2355,7 @@ mutation (
                     $keywords: [String!],
                     $annotations: [String!],
                     $forum: String,
+                    $channel_id: UUID,
                     $root_asset_id: UUID,
                     $root_asset_class: String,
                     $response_to_asset_id: UUID,
@@ -2124,6 +2369,7 @@ mutation (
         asset_type: $asset_type,
         asset_url: $asset_url,
         thumbnails: $thumbnails,
+        monetizations: $monetizations,
         locale: $locale,
         creator: $creator,
         published_timestamp: $published_timestamp,
@@ -2137,6 +2383,7 @@ mutation (
         keywords: $keywords,
         annotations: $annotations,
         forum: $forum,
+        channel_id: $channel_id,
         root_asset_id: $root_asset_id,
         root_asset_class: $root_asset_class,
         response_to_asset_id: $response_to_asset_id,
@@ -2168,6 +2415,7 @@ subscription (
             asset_type
             asset_url
             thumbnails
+            monetizations
             locale
             creator
             published_timestamp
@@ -2181,6 +2429,7 @@ subscription (
             keywords
             annotations
             forum
+            channel_id
             root_asset_id
             root_asset_class
             response_to_asset_id
@@ -2202,6 +2451,111 @@ subscription (
 }
 '''
 GRAPHQL_STATEMENTS['network_assets']['counter'] = SUBSCRIPTION_NETWORK_ASSETS_COUNTER
+
+
+QUERY_CONTENT_RESTRICTION_KEYS = '''
+query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    content_restriction_keys_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            content_restriction_key {
+                key_id
+                key
+                not_before
+                not_after
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_keys'] = {'query': QUERY_CONTENT_RESTRICTION_KEYS}
+
+APPEND_CONTENT_RESTRICTION_KEYS = '''
+mutation (
+                    $key_id: Int,
+                    $key: String,
+                    $not_before: DateTime,
+                    $not_after: DateTime,
+) {
+    append_content_restriction_keys (
+            key_id: $key_id,
+            key: $key,
+            not_before: $not_before,
+            not_after: $not_after,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_keys']['append'] = APPEND_CONTENT_RESTRICTION_KEYS
+
+UPDATE_CONTENT_RESTRICTION_KEYS = '''
+mutation (
+    $filters: contentRestrictionKeyInputFilter!,
+                    $key_id: Int,
+                    $key: String,
+                    $not_before: DateTime,
+                    $not_after: DateTime,
+) {
+    update_content_restriction_keys(
+        filters: $filters,
+        key_id: $key_id,
+        key: $key,
+        not_before: $not_before,
+        not_after: $not_after,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_keys']['update'] = UPDATE_CONTENT_RESTRICTION_KEYS
+
+DELETE_FROM_CONTENT_RESTRICTION_KEYS = '''
+mutation ($filters: contentRestrictionKeyInputFilter!) {
+    delete_from_content_restriction_keys(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['content_restriction_keys']['delete'] = DELETE_FROM_CONTENT_RESTRICTION_KEYS
+
+SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_UPDATES = '''
+subscription (
+    $filters: contentRestrictionKeyInputFilter) {
+    content_restriction_keys_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            key_id
+            key
+            not_before
+            not_after
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['content_restriction_keys']['updates'] = SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_UPDATES
+
+SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_COUNTER = '''
+subscription (
+    $filter: contentRestrictionKeysCounterFilter) {
+    content_restriction_keys_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['content_restriction_keys']['counter'] = SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_COUNTER
 
 
 QUERY_TWITTER_MEDIAS = '''

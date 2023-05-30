@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python
+export PYTHONPATH=$PYTHONPATH:/podserver/byoda-python:/podserver/bento4/bin
 
 cd /podserver/byoda-python
 
@@ -8,7 +8,9 @@ cd /podserver/byoda-python
 
 echo "DEBUG: $DEBUG"
 echo "CLOUD: $CLOUD"
-echo "BUCKET_PREFIX: $BUCKET_PREFIX"
+echo "PRIVATE_BUCKET: $PRIVATE_BUCKET"
+echo "RESTRICTED_BUCKET: $RESTRICTED_BUCKET"
+echo "PUBLIC_BUCKET: $PUBLIC_BUCKET"
 echo "LOGLEVEL: $LOGLEVEL"
 echo "PYTHONPATH: $PYTHONPATH"
 echo "NETWORK: $NETWORK"

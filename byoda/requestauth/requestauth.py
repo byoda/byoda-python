@@ -190,13 +190,14 @@ class RequestAuth:
             self.tls_status = TlsStatus(self.tls_status)
 
         if self.tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS):
+            _LOGGER.debug(f'Auth failure: TLS status {self.tls_status}')
             raise HTTPException(
                 status_code=403,
                 detail=f'Client TLS status is {self.tls_status}'
             )
 
         if self.tls_status == TlsStatus.NONE and not self.authorization:
-            return
+            raise ByodaMissingAuthInfo('No credentials provided')
 
         if client_dn:
             try:

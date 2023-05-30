@@ -132,7 +132,20 @@
                 "items": {
                     "$ref": "/schemas/network_link_inbound"
                 }
-
+            },
+            "channels": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/channel"
+                }
             },
             "asset_links": {
                 "#accesscontrol": {
@@ -223,6 +236,17 @@
                 "type": "array",
                 "items": {
                     "$ref": "/schemas/asset"
+                }
+            },
+            "content_restriction_keys": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/content_restriction_key"
                 }
             },
             "twitter_medias": {
@@ -424,6 +448,32 @@
                 },
                 "required": ["created_timestamp", "member_id", "asset_id", "relation"]
             },
+            "content_restriction_key": {
+                "$id": "/schemas/content_restriction_key",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "keys used to manage access to restricted content",
+                "type": "object",
+                "properties": {
+                    "key_id": {
+                        "description": "identifier for the key",
+                        "type": "integer"
+                    },
+                    "key": {
+                        "description": "key used to create content tokens",
+                        "type": "string"
+                    },
+                    "not_before": {
+                        "description": "time before which the key is not valid",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "not_after": {
+                        "description": "time after which the key is not valid",
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "datalog": {
                 "$id": "/schemas/datalog",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -551,6 +601,13 @@
                             "type": "string"
                         }
                     },
+                    "monetizations": {
+                        "description": "enabled monetizations for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "locale": {
                         "description": "locale for the metadata, ie. en_US",
                         "type": "string"
@@ -618,6 +675,11 @@
                         "description": "forum, if any, that the asset was posted to",
                         "type": "string"
                     },
+                    "channel_id": {
+                        "description": "UUID of the channel, if any, that the asset was posted to",
+                        "type": "string",
+                        "format": "uuid"
+                    },
                     "root_asset_id": {
                         "#properties": ["counter", "index"],
                         "description": "ID of asset is the root of the thread",
@@ -640,6 +702,13 @@
                     },
                     "encoding_profiles": {
                         "description": "encoding profile used for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "chapters": {
+                        "description": "chapters in format start_time:end_time:title",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -803,6 +872,32 @@
                 },
                 "required": ["media_key"]
             },
+            "channel": {
+                "$id": "/schemas/channel",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a Tube channel, enabling creators to group videos under different channels",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the asset was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "channel_id": {
+                        "description": "The uuid of the channel",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "description": "name of the channel",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "description of the channel",
+                        "type": "string"
+                    }
+                }
+            },
             "tweet": {
                 "$id": "/schemas/tweet",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -905,15 +1000,17 @@
             }
         }
     },
-    "name": "addressbook",
+    "name": "byoda-tube",
     "owner": "Steven Hessing",
     "service_id": 4294929430,
     "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
-    "website": "https://www.byoda.org/",
+    "website": "https://byoda.tube/",
     "cors_origins": [
         "www.byoda.net",
-        "addressbook.byoda.org"
+        "addressbook.byoda.org",
+        "byoda.tube",
+        "www.byoda.tube"
     ]
 }

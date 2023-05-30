@@ -59,7 +59,9 @@ async def setup():
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType.LOCAL,
-        bucket_prefix='byoda',
+        private_bucket='byoda',
+        restricted_bucket='byoda',
+        public_bucket='byoda',
         root_dir=app_config['dirserver']['root_dir']
     )
 

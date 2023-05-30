@@ -14,6 +14,8 @@ Azure SDK documentation
 container_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.containerclient?view=azure-python       # noqa: E501
 blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python                 # noqa: E501
 
+Azure Storage has limitation of 250 storage accounts per subscription per region: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits   # noqa: E501
+
 :maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
@@ -21,6 +23,7 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 
 import logging
 from tempfile import TemporaryFile
+from collections import namedtuple
 
 from azure.identity.aio import DefaultAzureCredential
 
@@ -28,12 +31,18 @@ from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import ContainerClient, BlobClient
 from azure.core.exceptions import ResourceNotFoundError
 
-from byoda.datatypes import StorageType, CloudType
+from byoda.datatypes import StorageType
+from byoda.datatypes import CloudType
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
 
 _LOGGER = logging.getLogger(__name__)
+
+# Azure supports 'containers' are the root level of the storage account. We
+# mimic S3 buckets by combining a storage account and a container and set
+# ACLs at the container level.
+AzureBucket = namedtuple('AzureBucket', ['storage_account', 'container'])
 
 
 class AzureFileStorage(FileStorage):
@@ -41,13 +50,15 @@ class AzureFileStorage(FileStorage):
     Provides access to Azure object (aka 'blob') storage
     '''
 
-    def __init__(self, bucket_prefix: str, root_dir: str) -> None:
+    def __init__(self, private_bucket: str, restricted_bucket: str,
+                 public_bucket: str, root_dir: str) -> None:
         '''
         Abstraction of storage of files on Azure storage accounts. Do not call
         this constructor but call the AzureFileStorage.setup() factory method
 
-        :param bucket_prefix: prefix of the storage account, to which
-        'private' and 'public' will be appended
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
@@ -58,39 +69,79 @@ class AzureFileStorage(FileStorage):
         super().__init__(root_dir, cloud_type=CloudType.AZURE)
 
         domain = 'blob.core.windows.net'
-        self.buckets: dict[str:str] = {
-            StorageType.PRIVATE.value:
-                f'{bucket_prefix}{StorageType.PRIVATE.value}.{domain}',
-            StorageType.PUBLIC.value:
-                f'{bucket_prefix}{StorageType.PUBLIC.value}.{domain}'
-        }
+        self.buckets: dict[str, AzureBucket] = {}
+
+        if ':' in private_bucket:
+            storage_account, container = private_bucket.split(':')
+            self.buckets[StorageType.PRIVATE.value]: AzureBucket = \
+                AzureBucket(f'{storage_account}.{domain}', container)
+        else:
+            raise ValueError(
+                'Bucket must have format <storage-account>:<container>: ',
+                private_bucket
+            )
+
+        if ':' in restricted_bucket:
+            storage_account, container = restricted_bucket.split(':')
+            self.buckets[StorageType.RESTRICTED.value]: AzureBucket = \
+                AzureBucket(f'{storage_account}.{domain}', container)
+        else:
+            raise ValueError(
+                'Bucket must have format <storage-account>:<container>: ',
+                restricted_bucket
+            )
+
+        if ':' in public_bucket:
+            storage_account, container = public_bucket.split(':')
+            self.buckets[StorageType.PUBLIC.value]: AzureBucket = \
+                AzureBucket(f'{storage_account}.{domain}', container)
+        else:
+            raise ValueError(
+                'Bucket must have format <storage-account>:<container>: ',
+                public_bucket
+            )
+
         # We pre-authenticate for the byoda container on each storage account
         self.clients: dict[StorageType, ContainerClient] = {
             StorageType.PRIVATE.value: ContainerClient(
-                self.buckets[StorageType.PRIVATE.value], 'byoda',
+                self.buckets[StorageType.PRIVATE.value].storage_account,
+                self.buckets[StorageType.PRIVATE.value].container,
+                credential=self.credential
+            ),
+            StorageType.RESTRICTED.value: ContainerClient(
+                self.buckets[StorageType.RESTRICTED.value].storage_account,
+                self.buckets[StorageType.RESTRICTED.value].container,
                 credential=self.credential
             ),
             StorageType.PUBLIC.value: ContainerClient(
-                self.buckets[StorageType.PUBLIC.value], 'byoda',
+                self.buckets[StorageType.PUBLIC.value].storage_account,
+                self.buckets[StorageType.PUBLIC.value].container,
                 credential=self.credential
             ),
         }
 
     @staticmethod
-    async def setup(bucket_prefix: str, root_dir: str = None):
+    async def setup(private_bucket: str, restricted_bucket: str,
+                    public_bucket: str, root_dir: str = None):
         '''
         Factory for AzureFileStorage
 
-        :param bucket_prefix: prefix of the storage account, to which
-        'private' and 'public' will be appended
+        :param private_bucket:
+        :param restricted_bucket:
+        :param public_bucket:
         :param root_dir: directory on local file system for any operations
         involving local storage
         '''
 
-        storage = AzureFileStorage(bucket_prefix, root_dir)
+        storage = AzureFileStorage(
+            private_bucket, restricted_bucket, public_bucket, root_dir
+        )
 
         if not await storage.clients[StorageType.PRIVATE.value].exists():
             await storage.clients[StorageType.PRIVATE.value].create_container()
+
+        if not await storage.clients[StorageType.RESTRICTED.value].exists():
+            await storage.clients[StorageType.RESTRICTED.value].create_container()
 
         if not await storage.clients[StorageType.PUBLIC.value].exists():
             await storage.clients[StorageType.PUBLIC.value].create_container()
@@ -288,7 +339,26 @@ class AzureFileStorage(FileStorage):
         if filepath is None:
             filepath = ''
 
-        return f'https://{self.buckets[storage_type.value]}/{filepath}'
+        bucket: AzureBucket = self.buckets[storage_type.value]
+
+        result = (
+            f'https://{bucket.storage_account}/{bucket.container}/{filepath}'
+        )
+
+        return result
+
+    def get_bucket(self, storage_type: StorageType = StorageType.PRIVATE
+                   ) -> str:
+        '''
+        Returns the name of the storage account
+
+        :param storage_type: return the url for the private or public storage
+        :returns: name of the storage account
+        '''
+
+        bucket: AzureBucket = self.buckets[storage_type.value]
+
+        return bucket.storage_account
 
     async def create_directory(self, directory: str, exist_ok: bool = True,
                                storage_type: StorageType = StorageType.PRIVATE
@@ -312,16 +382,16 @@ class AzureFileStorage(FileStorage):
         Note that we only store data in local cache for the private container
 
         :param source: location of the file on the local file system
-        :param dest: key for the S3 object to copy the file to
+        :param dest: key for the storage account object to copy the file to
         :parm file_mode: how the file should be opened
         '''
 
-        blob_client = self._get_blob_client(dest)
+        blob_client = self._get_blob_client(dest, storage_type=storage_type)
         file_desc = super().open(source, OpenMode.READ, file_mode.BINARY)
         await blob_client.upload_blob(file_desc, overwrite=exist_ok)
 
         _LOGGER.debug(
-            f'Uploaded {source} to "byoda/{dest}" on Azure storage account '
+            f'Uploaded {source} to "{dest}" on Azure storage account '
             f'{self.buckets[storage_type.value]}'
         )
 

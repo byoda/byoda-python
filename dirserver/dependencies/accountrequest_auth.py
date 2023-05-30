@@ -127,9 +127,14 @@ class AccountRequestOptionalAuthFast(RequestAuth):
             )
         except ByodaMissingAuthInfo:
             # This class does not require authentication so we just return
+            _LOGGER.debug('No TLS client cert used for authentication')
             return
 
         if self.id_type != IdType.ACCOUNT:
+            _LOGGER.debug(
+                f'Authentication with {self.id_type} cert instead of '
+                f'account cert'
+            )
             raise HTTPException(
                 status_code=403,
                 detail='Must authenticate with a credential for an account'
@@ -141,6 +146,7 @@ class AccountRequestOptionalAuthFast(RequestAuth):
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
+            _LOGGER.debug('Invalid account credential')
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True

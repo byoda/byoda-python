@@ -10,6 +10,8 @@
 import logging
 import orjson
 
+from uuid import UUID
+
 from fastapi import APIRouter
 from fastapi import UploadFile
 from fastapi import Depends
@@ -226,11 +228,11 @@ async def put_member(request: Request, service_id: int, version: int,
     return member.as_dict()
 
 
-@router.post('/member/upload/service_id/{service_id}/visibility/{visibility}/filename/{filename}',      # noqa: E501
+@router.post('/member/upload/service_id/{service_id}/asset_id/{asset_id}/visibility/{visibility}',      # noqa: E501
              response_model=UploadResponseModel)
-async def post_member_upload(request: Request, file: UploadFile,
-                             service_id: int, visibility: VisibilityType,
-                             filename: str = None,
+async def post_member_upload(request: Request, files: list[UploadFile],
+                             service_id: int, asset_id: UUID,
+                             visibility: VisibilityType,
                              auth: PodApiRequestAuth =
                              Depends(PodApiRequestAuth)):
     '''
@@ -265,32 +267,37 @@ async def post_member_upload(request: Request, file: UploadFile,
         )
 
     # Make sure we have the latest updates of memberships
-    storage_driver = config.server.storage_driver
+    storage_driver: FileStorage = config.server.storage_driver
 
     _LOGGER.debug(
-        f'Uploading file {file.filename} for service {service_id} with '
-        f'visibility {visibility}'
+        f'Uploading {len(files)} files for asset {asset_id} for '
+        'service {service_id} with visibility {visibility}'
     )
 
-    storage_type = StorageType.PRIVATE
     if visibility in (VisibilityType.KNOWN, VisibilityType.PUBLIC):
-        storage_type = StorageType.PUBLIC
+        storage_type: StorageType = StorageType.PUBLIC
+    elif visibility == VisibilityType.RESTRICTED:
+        storage_type: StorageType = StorageType.RESTRICTED
+    else:
+        storage_type: StorageType = StorageType.PRIVATE
 
-    if not filename:
-        filename = file.file
+    locations: list[str] = []
+    for file in files:
+        _LOGGER.debug(f'Uploading file {file.filename}')
+        filepath = f'{asset_id}/{file.filename}'
+        await storage_driver.write(
+            filepath, data=None,
+            file_descriptor=file.file, storage_type=storage_type
+        )
 
-    await storage_driver.write(
-        filename, data=None,
-        file_descriptor=file.file,
-        storage_type=storage_type
-    )
-
-    location = storage_driver.get_url(
-        filepath=filename, storage_type=storage_type
-    )
+        location = storage_driver.get_url(
+            filepath=filepath, storage_type=storage_type
+        )
+        locations.append(location)
 
     _LOGGER.debug(f'Returning info about file uploaded to {location}')
     return {
         'service_id': service_id,
-        'location': location,
+        'asset_id': asset_id,
+        'locations': locations,
     }
