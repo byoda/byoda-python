@@ -208,10 +208,19 @@ async def setup():
         if service['name'] == 'byoda-tube'
     ][0]
 
+    local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
+    if local_service_contract:
+        dest = TEST_DIR + '/' + local_service_contract
+        dest_dir = os.path.dirname(dest)
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copyfile(
+            local_service_contract, TEST_DIR + '/' + local_service_contract
+        )
+
     member_id = get_test_uuid()
     await account.join(
         service['service_id'], service['version'], server.local_storage,
-        member_id=member_id
+        member_id=member_id, local_service_contract=local_service_contract
     )
     ###
     ###

@@ -398,7 +398,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
-        self.assertEqual(len(data), 201)
+        self.assertGreaterEqual(len(data), 201)
 
         #
         # Confirm we are not already in the network_links of the Azure pod

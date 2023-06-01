@@ -206,7 +206,7 @@ class Member:
         # accepted, which may differ from the latest schema version offered
         # by the service
         try:
-            if new_membership:
+            if new_membership and not local_service_contract:
                 await self.service.download_schema(
                     save=True, filepath=filepath
                 )

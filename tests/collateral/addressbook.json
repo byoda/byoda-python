@@ -133,6 +133,70 @@
                     "$ref": "/schemas/network_link_inbound"
                 }
             },
+            "incoming_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "verified_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "public_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "service_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "any_member": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "network_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "network": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
             "channels": {
                 "#accesscontrol": {
                     "member": {
@@ -594,6 +658,10 @@
                         "type": "string",
                         "format": "uri"
                     },
+                    "asset_merkle_root_hash": {
+                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
+                        "type": "string"
+                    },
                     "thumbnails": {
                         "description": "thumbnails for the asset, format: 'name_H_W_url'",
                         "type": "array",
@@ -665,7 +733,7 @@
                         }
                     },
                     "annotations": {
-                        "description": "comma-separated list of annotations",
+                        "description": "annotations for the asset, things like 'genre:action' or 'city:San Francisco'",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -682,7 +750,7 @@
                     },
                     "root_asset_id": {
                         "#properties": ["counter", "index"],
-                        "description": "ID of asset is the root of the thread",
+                        "description": "ID of asset that is the root of the thread",
                         "type": "string",
                         "format": "uuid"
                     },
@@ -716,6 +784,104 @@
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
+            },
+            "claim": {
+                "type": "object",
+                "required": [
+                    "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
+                    "object_fields", "requester_id", "requester_type",
+                    "signature", "signature_timestamp", "signature_format_version",
+                    "signature_URL", "renewal_URL", "cert_fingerprint", "cert_expiration"],
+                "properties": {
+                    "claim_id": {
+                        "description": "The UUID of the claim, unique to the signer of the claim",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "claims": {
+                        "description": "The claims that are validated by the issuer",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "issuer": {
+                        "description": "The UUID of the claim issuer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "issuer_type": {
+                        "description": "what type of entity issued this claim",
+                        "type": "string",
+                        "enum": ["member", "service", "app", "network"]
+                    },
+                    "object_type": {
+                        "description": "The name of the array storing the object of the claim, ie. 'public_assets' and not 'asset'. The array must store objects that have a data property 'asset_id'",
+                        "type": "string"
+                    },
+                    "keyfield": {
+                        "description": "name of the field used to identify the object, ie. 'asset_id'. The field must be of type 'UUID'",
+                        "type": "string"
+                    },
+                    "keyfield_id": {
+                        "description": "The UUID of the keyfield of the claim",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "object_fields": {
+                        "description": "The fields covered by the signature of the object with ID 'object_id' stored in the array 'object_type'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "requester_id": {
+                        "description": "The UUID of the entity that requested the claim to be signed by the issuer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "requester_type": {
+                        "description": "what type of entity requested this claim to be signed by the issuer",
+                        "type": "string",
+                        "enum": ["member", "service", "app", "network"]
+                    },
+                    "signature": {
+                        "description": "base64-encoding signature for the values for the 'object_fields' of the object with uuid 'object_id' of type 'object_class'",
+                        "type": "string"
+                    },
+                    "signature_timestamp": {
+                        "description": "Date & time for when the signature was created",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "signature_format_version": {
+                        "description": "The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py",
+                        "type": "number"
+                    },
+                    "signature_URL": {
+                        "description": "URL to visit to get additional info about the signature",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "renewal_URL": {
+                        "description": "URL to request new signature of the asset",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "confirmation_URL": {
+                        "description": "URL of API to call to confirm the cmail signature has not been revoked",
+                        "type": "string",
+                        "format": "url"
+                    },
+                    "cert_fingerprint": {
+                        "description": "the SHA2-256 fingerprint of the certificate used to sign the claim",
+                        "type": "string"
+                    },
+                    "cert_expiration": {
+                        "description": "the timestamp when the cert used to create the signature expires",
+                        "type": "string"
+                    }
+                }
             },
             "twitter_account": {
                 "#accesscontrol": {

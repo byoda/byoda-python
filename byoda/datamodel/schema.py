@@ -165,35 +165,37 @@ class Schema:
         Load a schema from a dict
         '''
 
-        if verify_contract_signatures:
-            try:
-                self._service_signature = ServiceSignature.from_dict(
-                    self.json_schema['signatures'].get(
-                        SignatureType.SERVICE.value
-                    ),
-                    data_secret=self.service_data_secret
+        if not verify_contract_signatures:
+            return
 
-                )
-            except ValueError:
-                _LOGGER.exception(
-                    'No Service signature in contract for service '
-                    f'{self.service_id}'
-                )
-                raise
+        try:
+            self._service_signature = ServiceSignature.from_dict(
+                self.json_schema['signatures'].get(
+                    SignatureType.SERVICE.value
+                ),
+                data_secret=self.service_data_secret
 
-            try:
-                self._network_signature = NetworkSignature.from_dict(
-                    self.json_schema['signatures'].get(
-                        SignatureType.NETWORK.value
-                    ),
-                    data_secret=self.network_data_secret
-                )
-            except ValueError:
-                _LOGGER.exception(
-                    'No Network signature in contract for service '
-                    f'{self.service_id}'
-                )
-                raise
+            )
+        except ValueError:
+            _LOGGER.exception(
+                'No Service signature in contract for service '
+                f'{self.service_id}'
+            )
+            raise
+
+        try:
+            self._network_signature = NetworkSignature.from_dict(
+                self.json_schema['signatures'].get(
+                    SignatureType.NETWORK.value
+                ),
+                data_secret=self.network_data_secret
+            )
+        except ValueError:
+            _LOGGER.exception(
+                'No Network signature in contract for service '
+                f'{self.service_id}'
+            )
+            raise
 
     async def save(self, filepath: str, storage_driver: FileStorage):
         '''

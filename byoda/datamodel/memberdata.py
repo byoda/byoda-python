@@ -39,7 +39,7 @@ from byoda.datacache.counter_cache import CounterFilter
 
 from byoda.requestauth.requestauth import RequestAuth
 
-from byoda.secrets.secret import InvalidSignature
+from byoda.secrets.data_secret import InvalidSignature
 
 from byoda.storage import FileMode
 from byoda.storage.pubsub import PubSub

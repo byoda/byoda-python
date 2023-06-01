@@ -163,7 +163,8 @@ class GraphQlProxy:
             )
 
         self.updated_query = (
-            match.group(1) + f'"depth": {str(self.updated_depth)}'.encode('utf-8')
+            match.group(1) +
+            f'"depth": {str(self.updated_depth)}'.encode('utf-8')
         )
 
         self.updated_query += f', "query_id": "{query_id}"'.encode('utf-8')

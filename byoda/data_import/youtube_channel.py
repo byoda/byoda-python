@@ -176,6 +176,8 @@ class YouTubeChannel:
             # 2: We have already ingested the asset with encoding_status
             # 'external' and we now want to ingest the AV streams for the
             # channel
+            status = IngestStatus.NONE.value
+            
             if video_id in already_ingested_videos:
                 if not ingest_videos:
                     _LOGGER.debug(
@@ -204,9 +206,9 @@ class YouTubeChannel:
                     status = IngestStatus.NONE.value
 
             video = YouTubeVideo.scrape(video_id)
-            video.ingest_status = status
 
             if video:
+                video.ingest_status = status
                 self.videos[video_id] = video
 
     def get_channel_id(self):
