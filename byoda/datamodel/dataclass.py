@@ -28,6 +28,8 @@ from byoda.storage.pubsub import PubSub
 
 from byoda import config
 
+from byoda.exceptions import ByodaDataClassReferenceNotFound
+
 from .dataaccessright import DataAccessRight
 
 
@@ -208,7 +210,7 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = None):
+    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = {}):
         '''
         Factory for instances of classes derived from SchemaDataItem
         '''
@@ -224,7 +226,7 @@ class SchemaDataItem:
 
         if item_type == 'object':
             item = SchemaDataObject(
-                class_name, schema_data, schema)
+                class_name, schema_data, schema, classes=classes)
         elif item_type == 'array':
             item = SchemaDataArray(
                 class_name, schema_data, schema, classes=classes
@@ -240,6 +242,28 @@ class SchemaDataItem:
         '''
 
         return value
+
+
+    @staticmethod
+    def _parse_reference(uri: str) -> str:
+        '''
+        Parses, reviews and extracts the referenced class from the url
+        '''
+
+        url = urlparse(uri)
+        if not url.path.startswith('/schemas/'):
+            raise ValueError(
+                f'Data reference {uri} must start with "/schemas/"'
+            )
+        if url.path.count('/') > 2:
+            raise ValueError(
+                f'Data reference {uri} must have path with no more '
+                'than 2 "/"s'
+            )
+
+        referenced_class = uri.split('/')[-1]
+
+        return referenced_class
 
     def parse_access_controls(self) -> None:
         '''
@@ -381,7 +405,8 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
+    def __init__(self, class_name: str, schema_data: dict, schema: Schema,
+                 classes: dict[str, SchemaDataItem]) -> None:
         super().__init__(class_name, schema_data, schema)
 
         # 'Defined' classes are objects under the '$defs' object
@@ -407,7 +432,7 @@ class SchemaDataObject(SchemaDataItem):
         for field, field_properties in schema_data['properties'].items():
             if field_properties['type'] == 'object':
                 raise ValueError(
-                    f'Nested objects or arrays under object {class_name} are '
+                    f'Nested objects under object {class_name} are '
                     'not yet supported'
                 )
             elif field_properties['type'] == 'array':
@@ -422,7 +447,7 @@ class SchemaDataObject(SchemaDataItem):
                         'object'
                     )
 
-            item = SchemaDataItem.create(field, field_properties, schema)
+            item = SchemaDataItem.create(field, field_properties, schema, classes)
 
             self.fields[field] = item
 
@@ -496,7 +521,6 @@ class SchemaDataArray(SchemaDataItem):
         if DataProperty.INDEX in self.properties:
             raise ValueError('Index is not supported for arraus')
 
-
         items = schema_data.get('items')
         if not items:
             raise ValueError(
@@ -505,29 +529,17 @@ class SchemaDataArray(SchemaDataItem):
             )
 
         if 'type' in items:
-            # This is an array of scalars
+            # This is an array of scalars or objects
             self.items = DataType(items['type'])
             self.referenced_class = SchemaDataItem.create(
-                None, schema_data['items'], schema
+                None, schema_data['items'], schema, classes
             )
         elif '$ref' in items:
             # This is an array of objects of the referenced class
             self.items = DataType.REFERENCE
-            reference = items['$ref']
-            url = urlparse(reference)
-            if not url.path.startswith('/schemas/'):
-                raise ValueError(
-                    f'Data reference {reference} must start with "/schemas/"'
-                )
-            if url.path.count('/') > 2:
-                raise ValueError(
-                    f'Data reference {reference} must have path with no more '
-                    'than 2 "/"s'
-                )
-
-            referenced_class = reference.split('/')[-1]
-            if referenced_class not in classes:
-                raise ValueError(
+            referenced_class = SchemaDataArray._parse_reference(items['$ref'])
+            if referenced_class not in classes or []:
+                raise ByodaDataClassReferenceNotFound(
                     f'Unknown class {referenced_class} referenced by {class_name}'
                 )
 

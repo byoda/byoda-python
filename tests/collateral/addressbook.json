@@ -632,159 +632,6 @@
                 },
                 "required": ["created_timestamp", "remote_addr", "operation", "object"]
             },
-            "asset": {
-                "$id": "/schemas/asset",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
-                "type": "object",
-                "properties": {
-                    "created_timestamp": {
-                        "description": "time the asset was added to the pod",
-                        "format": "date-time",
-                        "type": "string"
-                    },
-                    "asset_id": {
-                            "description": "The UUID of the asset",
-                            "type": "string",
-                            "format": "uuid",
-                            "#properties": ["index", "counter"]
-                    },
-                    "asset_type": {
-                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
-                        "type": "string"
-                    },
-                    "asset_url": {
-                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "asset_merkle_root_hash": {
-                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
-                        "type": "string"
-                    },
-                    "thumbnails": {
-                        "description": "thumbnails for the asset, format: 'name_H_W_url'",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "monetizations": {
-                        "description": "enabled monetizations for the asset",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "locale": {
-                        "description": "locale for the metadata, ie. en_US",
-                        "type": "string"
-                    },
-                    "creator": {
-                        "description": "creator of the asset",
-                        "type": "string",
-                        "#properties": ["index"]
-                    },
-                    "published_timestamp": {
-                        "description": "date-time of first publication of the content",
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "content_warnings": {
-                        "description": "list of terms with potential triggers, such as violence, or cursing",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "copyright_years": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    },
-                    "publisher": {
-                        "#properties": ["index", "counter"],
-                        "description": "the publisher of the asset",
-                        "type": "string"
-                    },
-                    "publisher_asset_id": {
-                        "description": "Identifier of the asset set by the publisher",
-                        "type": "string",
-                        "#properties": ["index"]
-                    },
-                    "title": {
-                        "description": "title of the asset",
-                        "type": "string"
-                    },
-                    "subject": {
-                        "description": "a brief description of the asset",
-                        "type": "string"
-                    },
-                    "contents": {
-                        "description": "text for the asset",
-                        "type": "string"
-                    },
-                    "keywords": {
-                        "description": "comma-separated list of keywords",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "annotations": {
-                        "description": "annotations for the asset, things like 'genre:action' or 'city:San Francisco'",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "forum": {
-                        "description": "forum, if any, that the asset was posted to",
-                        "type": "string"
-                    },
-                    "channel_id": {
-                        "description": "UUID of the channel, if any, that the asset was posted to",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "root_asset_id": {
-                        "#properties": ["counter", "index"],
-                        "description": "ID of asset that is the root of the thread",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "root_asset_class": {
-                        "description": "top-level class of the root asset in the schema (ie. public_asset)",
-                        "type": "string"
-                    },
-                    "response_to_asset_id": {
-                        "#properties": ["counter", "index"],
-                        "description": "ID of asset that this asset is a response to",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "encoding_status": {
-                        "description": "status of the encoding process",
-                        "type": "string"
-                    },
-                    "encoding_profiles": {
-                        "description": "encoding profile used for the asset",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "chapters": {
-                        "description": "chapters in format start_time:end_time:title",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "required": ["created_timestamp", "asset_id", "asset_type"]
-            },
             "claim": {
                 "type": "object",
                 "required": [
@@ -882,6 +729,166 @@
                         "type": "string"
                     }
                 }
+            },
+            "asset": {
+                "$id": "/schemas/asset",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the asset was added to the pod",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "asset_id": {
+                            "description": "The UUID of the asset",
+                            "type": "string",
+                            "format": "uuid",
+                            "#properties": ["index", "counter"]
+                    },
+                    "asset_type": {
+                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "type": "string"
+                    },
+                    "asset_url": {
+                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "asset_merkle_root_hash": {
+                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
+                        "type": "string"
+                    },
+                    "thumbnails": {
+                        "description": "thumbnails for the asset, format: 'name_H_W_url'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "monetizations": {
+                        "description": "enabled monetizations for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "locale": {
+                        "description": "locale for the metadata, ie. en_US",
+                        "type": "string"
+                    },
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string",
+                        "#properties": ["index"]
+                    },
+                    "published_timestamp": {
+                        "description": "date-time of first publication of the content",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "content_warnings": {
+                        "description": "list of terms with potential triggers, such as violence, or cursing",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "claims": {
+                        "description": "list of claims for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
+                        }
+                    },
+                    "copyright_years": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "publisher": {
+                        "#properties": ["index", "counter"],
+                        "description": "the publisher of the asset",
+                        "type": "string"
+                    },
+                    "publisher_asset_id": {
+                        "description": "Identifier of the asset set by the publisher",
+                        "type": "string",
+                        "#properties": ["index"]
+                    },
+                    "title": {
+                        "description": "title of the asset",
+                        "type": "string"
+                    },
+                    "subject": {
+                        "description": "a brief description of the asset",
+                        "type": "string"
+                    },
+                    "contents": {
+                        "description": "text for the asset",
+                        "type": "string"
+                    },
+                    "keywords": {
+                        "description": "comma-separated list of keywords",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "annotations": {
+                        "description": "annotations for the asset, things like 'genre:action' or 'city:San Francisco'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "forum": {
+                        "description": "forum, if any, that the asset was posted to",
+                        "type": "string"
+                    },
+                    "channel_id": {
+                        "description": "UUID of the channel, if any, that the asset was posted to",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "root_asset_id": {
+                        "#properties": ["counter", "index"],
+                        "description": "ID of asset that is the root of the thread",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "root_asset_class": {
+                        "description": "top-level class of the root asset in the schema (ie. public_asset)",
+                        "type": "string"
+                    },
+                    "response_to_asset_id": {
+                        "#properties": ["counter", "index"],
+                        "description": "ID of asset that this asset is a response to",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "encoding_status": {
+                        "description": "status of the encoding process",
+                        "type": "string"
+                    },
+                    "encoding_profiles": {
+                        "description": "encoding profile used for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "chapters": {
+                        "description": "chapters in format start_time:end_time:title",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["created_timestamp", "asset_id", "asset_type"]
             },
             "twitter_account": {
                 "#accesscontrol": {

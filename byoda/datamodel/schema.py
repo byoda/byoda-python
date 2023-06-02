@@ -26,18 +26,20 @@ from byoda.datamodel.dataclass import DataType
 from byoda.datamodel.dataclass import DataOperationType
 from byoda.datamodel.dataclass import GraphQlAPI
 
+from byoda.storage import FileStorage
+
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.data_secret import DataSecret
+
 
 from byoda.util.message_signature import MessageSignature
 from byoda.util.message_signature import ServiceSignature
 from byoda.util.message_signature import NetworkSignature
 from byoda.util.message_signature import SignatureType
 
-from byoda.secrets.secret import Secret
-from byoda.secrets.data_secret import DataSecret
-
-from byoda.storage import FileStorage
+from byoda.exceptions import ByodaDataClassReferenceNotFound
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -304,13 +306,30 @@ class Schema:
         # TODO: SECURITY check that urlparse.netloc matches the entity_id for
         # the service
 
-        defs = self.json_schema['jsonschema'].get("$defs", {})
-        for class_name, class_properties in defs.items():
-            _LOGGER.debug(f'Parsing defined class {class_name}')
-            dataclass = SchemaDataItem.create(
-                class_name, class_properties, self
+        classes = self.json_schema['jsonschema'].get("$defs", {})
+
+        for tries in (1, 2, 3):
+            classes_todo = {}
+            for class_name, class_properties in classes.items():
+                _LOGGER.debug(f'Parsing defined class {class_name}')
+                try:
+                    dataclass = SchemaDataItem.create(
+                        class_name, class_properties, self, self.data_classes
+                    )
+                    self.data_classes[class_name] = dataclass
+                except ByodaDataClassReferenceNotFound:
+                    classes_todo[class_name] = class_properties
+
+            classes = deepcopy(classes_todo)
+            _LOGGER.debug(
+                f'classes remaining after first iteration: {len(classes)}'
             )
-            self.data_classes[class_name] = dataclass
+
+        if classes_todo:
+            raise ValueError(
+                'Could not resolve circular class definition for classes: '
+                ', '.join(classes_todo.keys())
+            )
 
         properties = self.json_schema['jsonschema']['properties']
         for class_name, class_properties in properties.items():

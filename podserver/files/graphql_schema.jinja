@@ -482,7 +482,11 @@ class Mutation:
     @strawberry.field
     async def update_{{ root_class.name }}(self, info: Info, filters: {{ root_class.referenced_class.name }}_input_filter,
 {%       for field_name, field in root_class.referenced_class.fields.items()%}
+{%         if not field.referenced_class or not field.referenced_class.referenced_class %}
         {{ field_name }}: Optional[{{ field.python_type }}] = None,
+{%         else %}{# if not field.referenced_class #}
+        {{ field_name }}: Optional[{{ field.python_type }}_input] = None,
+{%         endif %}{# if not field.referenced_class #}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         ) -> int:
         _LOGGER.debug('Root query for update_{{ root_class.name }}')
