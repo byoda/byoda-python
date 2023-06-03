@@ -126,6 +126,8 @@ server {
         # Avoid object storage thinking we want authenticated access
         proxy_set_header Authorization '';
 
+        default_type application/dash+xml;
+
 {% endif %}
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
@@ -167,6 +169,8 @@ server {
         auth_request /api/v1/pod/content/asset;
         set $original_url $uri;
         set $original_args $args;
+
+        default_type application/dash+xml;
 
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
