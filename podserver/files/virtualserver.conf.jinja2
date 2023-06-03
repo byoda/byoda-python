@@ -126,12 +126,19 @@ server {
         # Avoid object storage thinking we want authenticated access
         proxy_set_header Authorization '';
 
-        default_type application/dash+xml;
 
 {% endif %}
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
         proxy_set_header Host {{ public_bucket}};
+        proxy_hide_header x-ms-request-id;
+        proxy_hide_header x-ms-version;
+        proxy_hide_header x-ms-creation-time;
+        proxy_hide_header x-ms-blob-content-md5;
+        proxy_hide_header x-ms-lease-status;
+        proxy_hide_header x-ms-lease-state;
+        proxy_hide_header x-ms-blob-type;
+        proxy_hide_header x-ms-server-encrypted;
 {% elif cloud == 'GCP' %}
         proxy_set_header Host storage.googleapis.com;
         proxy_hide_header alt-svc;
@@ -165,16 +172,29 @@ server {
 
         # Avoid object storage thinking we want authenticated access
         proxy_set_header Authorization '';
+
+        proxy_hide_header Content-Type;
+        add_header Content-Type application/dash+xml;
+
 {% endif %}
         auth_request /api/v1/pod/content/asset;
         set $original_url $uri;
         set $original_args $args;
 
-        default_type application/dash+xml;
+        proxy_hide_header Content-Type;
+        add_header Content-Type application/dash+xml;
 
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
         proxy_set_header Host {{ restricted_bucket }};
+        proxy_hide_header x-ms-request-id;
+        proxy_hide_header x-ms-version;
+        proxy_hide_header x-ms-creation-time;
+        proxy_hide_header x-ms-blob-content-md5;
+        proxy_hide_header x-ms-lease-status;
+        proxy_hide_header x-ms-lease-state;
+        proxy_hide_header x-ms-blob-type;
+        proxy_hide_header x-ms-server-encrypted;
 {% elif cloud == 'GCP' %}
         proxy_set_header Host storage.googleapis.com;
         proxy_hide_header alt-svc;
