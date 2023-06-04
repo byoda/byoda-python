@@ -29,6 +29,8 @@ from azure.identity.aio import DefaultAzureCredential
 
 # Import the client object from the SDK library
 from azure.storage.blob.aio import ContainerClient, BlobClient
+from azure.storage.blob import ContentSettings
+
 from azure.core.exceptions import ResourceNotFoundError
 
 from byoda.datatypes import StorageType
@@ -141,7 +143,7 @@ class AzureFileStorage(FileStorage):
             await storage.clients[StorageType.PRIVATE.value].create_container()
 
         if not await storage.clients[StorageType.RESTRICTED.value].exists():
-            await storage.clients[StorageType.RESTRICTED.value].create_container()
+            await storage.clients[StorageType.RESTRICTED.value].create_container()  # noqa: E501
 
         if not await storage.clients[StorageType.PUBLIC.value].exists():
             await storage.clients[StorageType.PUBLIC.value].create_container()
@@ -244,7 +246,8 @@ class AzureFileStorage(FileStorage):
     async def write(self, filepath: str, data: str | bytes = None,
                     file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
-                    storage_type: StorageType = StorageType.PRIVATE) -> None:
+                    storage_type: StorageType = StorageType.PRIVATE,
+                    content_type: str = None) -> None:
         '''
         Writes data to Azure Blob storage.
 
@@ -283,6 +286,14 @@ class AzureFileStorage(FileStorage):
             f'wrote to blob "byoda/{filepath}" for '
             f'bucket {self.buckets[storage_type.value]}'
         )
+
+        # TODO: test case for setting content-type
+        if not content_type:
+            content_type = FileStorage.get_content_type(filepath)
+
+        if content_type:
+            blob_headers = ContentSettings(content_type=content_type)
+            await blob_client.set_http_headers(blob_headers)
 
     async def exists(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
@@ -375,11 +386,10 @@ class AzureFileStorage(FileStorage):
     async def copy(self, source: str, dest: str,
                    file_mode: FileMode = FileMode.BINARY,
                    storage_type: StorageType = StorageType.PRIVATE,
-                   exist_ok=True) -> None:
+                   exist_ok: bool = True, content_type: str = None) -> None:
         '''
         Copies a file from the local file system to the Azure storage account
 
-        Note that we only store data in local cache for the private container
 
         :param source: location of the file on the local file system
         :param dest: key for the storage account object to copy the file to
@@ -394,6 +404,14 @@ class AzureFileStorage(FileStorage):
             f'Uploaded {source} to "{dest}" on Azure storage account '
             f'{self.buckets[storage_type.value]}'
         )
+
+        # TODO: test case for setting content-type
+        if not content_type:
+            content_type = FileStorage.get_content_type(source)
+
+        if content_type:
+            blob_headers = ContentSettings(content_type=content_type)
+            await blob_client.set_http_headers(blob_headers)
 
     async def get_folders(self, folder_path: str, prefix: str = None,
                           storage_type: StorageType = StorageType.PRIVATE

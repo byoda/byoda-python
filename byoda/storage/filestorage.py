@@ -15,7 +15,9 @@ import logging
 from enum import Enum
 from typing import BinaryIO
 
-from byoda.datatypes import CloudType, StorageType
+from byoda.datatypes import CloudType
+from byoda.datatypes import StorageType
+from byoda.datatypes import ContentTypes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -456,3 +458,11 @@ class FileStorage:
                     folders.append(directory)
 
         return folders
+
+    @staticmethod
+    def get_content_type(filepath) -> str:
+        _, file_extension = os.path.splitext(filepath)
+        content_type = ContentTypes.get(
+            file_extension, 'application/octet-stream'
+        )
+        return content_type

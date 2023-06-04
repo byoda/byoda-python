@@ -136,9 +136,18 @@ class StorageType(Enum):
     PUBLIC      = 'public'
     RESTRICTED  = 'restricted'
 
+
+# ContentType is used by cloud storage drivers to specify the content type
+# For local storage, nginx takes care of setting the content type
+ContentTypes: dict[str, str] = {
+    '.mp4': 'video/mp4',
+    '.m4a': 'audio/mp4',
+    '.mpd': 'application/dash+xml',
+    '.m3u8': 'application/vnd.apple.mpegurl',
+}
+
 # The following are used for the 'type' parameter in the service schema
 class DataType(Enum):
-    # flake8: noqa=E221
     STRING    = 'string'
     INTEGER   = 'integer'
     NUMBER    = 'number'
