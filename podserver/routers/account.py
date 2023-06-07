@@ -48,8 +48,8 @@ async def get_account(request: Request,
         private_bucket = 'LOCAL'
         public_bucket = '/var/www/wwwroot/public'
     else:
-        private_bucket = doc_store.backend.buckets[StorageType.PRIVATE.value]
-        public_bucket = doc_store.backend.buckets[StorageType.PUBLIC.value]
+        private_bucket = doc_store.backend.get_url(StorageType.PRIVATE.value)
+        public_bucket = doc_store.backend.get_url(StorageType.PUBLIC.value)
 
     bootstrap = os.environ.get('BOOTSTRAP')
     if not bootstrap:
