@@ -302,7 +302,7 @@
                     "$ref": "/schemas/asset"
                 }
             },
-            "content_restriction_keys": {
+            "restricted_content_keys": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
@@ -310,7 +310,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/content_restriction_key"
+                    "$ref": "/schemas/restricted_content_key"
                 }
             },
             "twitter_medias": {
@@ -512,8 +512,8 @@
                 },
                 "required": ["created_timestamp", "member_id", "asset_id", "relation"]
             },
-            "content_restriction_key": {
-                "$id": "/schemas/content_restriction_key",
+            "restricted_content_key": {
+                "$id": "/schemas/restricted_content_key",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "keys used to manage access to restricted content",
                 "type": "object",

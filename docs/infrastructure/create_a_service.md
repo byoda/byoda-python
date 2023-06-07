@@ -176,13 +176,13 @@ Each service has the following secrets:
 
 We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and they need to be re-generated!
 
-``` bash
+```bash
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=<service contract file>   # should be only the filename, no path included
 
-export SERVICE_ID=$(python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
+export SERVICE_ID=$(python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))') && echo ${SERVICE_ID}
 
 # Here we update the 'service_id' in the service schema to match a newly generated random service ID
 sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
@@ -205,14 +205,14 @@ tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network $
 
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
 
-``` bash
+```bash
 cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
 Now you can copy all secrets except the private key of the ServiceCA to the server you want to host the service.
 
-``` bash
+```bash
 SERVER_IP=<IP address of your server>
 
 ssh ${SERVER_IP} "sudo mkdir -p ${SERVICE_DIR}; sudo chown -R ${USER}:${USER} ${BYODA_HOME}"

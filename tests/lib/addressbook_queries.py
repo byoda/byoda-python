@@ -276,13 +276,13 @@ mutation(
 GRAPHQL_STATEMENTS['asset_reaction']['mutate'] = MUTATE_ASSET_REACTION
 
 
-QUERY_CONTENT_RESTRICTION_KEY = '''
-query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
+QUERY_RESTRICTED_CONTENT_KEY = '''
+query ($query_id: UUID!, $filters: restrictedContentKeyInputFilter,
         $first: Int, $after: String,
         $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
         $origin_member_id: UUID, $origin_signature: String
         $signature_format_version: Int) {
-    content_restriction_key_connection(
+    restricted_content_key_connection(
             filters: $filters, first: $first, after: $after, depth: $depth,
             relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
             query_id: $query_id, origin_member_id: $origin_member_id,
@@ -291,7 +291,7 @@ query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
         edges {
             cursor
             origin
-            content_restriction_key {
+            restricted_content_key {
                 key_id
                 key
                 not_before
@@ -306,16 +306,16 @@ query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_key'] = {'query': QUERY_CONTENT_RESTRICTION_KEY}
+GRAPHQL_STATEMENTS['restricted_content_key'] = {'query': QUERY_RESTRICTED_CONTENT_KEY}
 
-MUTATE_CONTENT_RESTRICTION_KEY = '''
+MUTATE_RESTRICTED_CONTENT_KEY = '''
 mutation(
                     $key_id: Int,
                     $key: String,
                     $not_before: DateTime,
                     $not_after: DateTime,
 ) {
-    mutate_content_restriction_key(
+    mutate_restricted_content_key(
                     key_id: $key_id,
                     key: $key,
                     not_before: $not_before,
@@ -324,7 +324,7 @@ mutation(
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_key']['mutate'] = MUTATE_CONTENT_RESTRICTION_KEY
+GRAPHQL_STATEMENTS['restricted_content_key']['mutate'] = MUTATE_RESTRICTED_CONTENT_KEY
 
 
 QUERY_DATALOG = '''
@@ -3657,12 +3657,12 @@ subscription (
 GRAPHQL_STATEMENTS['network_assets']['counter'] = SUBSCRIPTION_NETWORK_ASSETS_COUNTER
 
 
-QUERY_CONTENT_RESTRICTION_KEYS = '''
-query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
+QUERY_RESTRICTED_CONTENT_KEYS = '''
+query ($query_id: UUID!, $filters: restrictedContentKeyInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
         $remote_member_id: UUID, $timestamp: DateTime,
         $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
-    content_restriction_keys_connection(filters: $filters, first: $first, after: $after,
+    restricted_content_keys_connection(filters: $filters, first: $first, after: $after,
         depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
         query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
         signature_format_version: $signature_format_version) {
@@ -3670,7 +3670,7 @@ query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
         edges {
             cursor
             origin
-            content_restriction_key {
+            restricted_content_key {
                 key_id
                 key
                 not_before
@@ -3685,16 +3685,16 @@ query ($query_id: UUID!, $filters: contentRestrictionKeyInputFilter,
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_keys'] = {'query': QUERY_CONTENT_RESTRICTION_KEYS}
+GRAPHQL_STATEMENTS['restricted_content_keys'] = {'query': QUERY_RESTRICTED_CONTENT_KEYS}
 
-APPEND_CONTENT_RESTRICTION_KEYS = '''
+APPEND_RESTRICTED_CONTENT_KEYS = '''
 mutation (
                     $key_id: Int,
                     $key: String,
                     $not_before: DateTime,
                     $not_after: DateTime,
 ) {
-    append_content_restriction_keys (
+    append_restricted_content_keys (
             key_id: $key_id,
             key: $key,
             not_before: $not_before,
@@ -3703,17 +3703,17 @@ mutation (
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_keys']['append'] = APPEND_CONTENT_RESTRICTION_KEYS
+GRAPHQL_STATEMENTS['restricted_content_keys']['append'] = APPEND_RESTRICTED_CONTENT_KEYS
 
-UPDATE_CONTENT_RESTRICTION_KEYS = '''
+UPDATE_RESTRICTED_CONTENT_KEYS = '''
 mutation (
-    $filters: contentRestrictionKeyInputFilter!,
+    $filters: restrictedContentKeyInputFilter!,
                     $key_id: Int,
                     $key: String,
                     $not_before: DateTime,
                     $not_after: DateTime,
 ) {
-    update_content_restriction_keys(
+    update_restricted_content_keys(
         filters: $filters,
         key_id: $key_id,
         key: $key,
@@ -3723,20 +3723,20 @@ mutation (
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_keys']['update'] = UPDATE_CONTENT_RESTRICTION_KEYS
+GRAPHQL_STATEMENTS['restricted_content_keys']['update'] = UPDATE_RESTRICTED_CONTENT_KEYS
 
-DELETE_FROM_CONTENT_RESTRICTION_KEYS = '''
-mutation ($filters: contentRestrictionKeyInputFilter!) {
-    delete_from_content_restriction_keys(filters: $filters)
+DELETE_FROM_RESTRICTED_CONTENT_KEYS = '''
+mutation ($filters: restrictedContentKeyInputFilter!) {
+    delete_from_restricted_content_keys(filters: $filters)
 }
 '''
 
-GRAPHQL_STATEMENTS['content_restriction_keys']['delete'] = DELETE_FROM_CONTENT_RESTRICTION_KEYS
+GRAPHQL_STATEMENTS['restricted_content_keys']['delete'] = DELETE_FROM_RESTRICTED_CONTENT_KEYS
 
-SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_UPDATES = '''
+SUBSCRIPTION_RESTRICTED_CONTENT_KEYS_UPDATES = '''
 subscription (
-    $filters: contentRestrictionKeyInputFilter) {
-    content_restriction_keys_updates(filters: $filters) {
+    $filters: restrictedContentKeyInputFilter) {
+    restricted_content_keys_updates(filters: $filters) {
         action
         class_name
         data {
@@ -3748,18 +3748,18 @@ subscription (
     }
 }
 '''
-GRAPHQL_STATEMENTS['content_restriction_keys']['updates'] = SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_UPDATES
+GRAPHQL_STATEMENTS['restricted_content_keys']['updates'] = SUBSCRIPTION_RESTRICTED_CONTENT_KEYS_UPDATES
 
-SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_COUNTER = '''
+SUBSCRIPTION_RESTRICTED_CONTENT_KEYS_COUNTER = '''
 subscription (
-    $filter: contentRestrictionKeysCounterFilter) {
-    content_restriction_keys_counter(filter: $filter) {
+    $filter: restrictedContentKeysCounterFilter) {
+    restricted_content_keys_counter(filter: $filter) {
         class_name
         data
     }
 }
 '''
-GRAPHQL_STATEMENTS['content_restriction_keys']['counter'] = SUBSCRIPTION_CONTENT_RESTRICTION_KEYS_COUNTER
+GRAPHQL_STATEMENTS['restricted_content_keys']['counter'] = SUBSCRIPTION_RESTRICTED_CONTENT_KEYS_COUNTER
 
 
 QUERY_TWITTER_MEDIAS = '''
