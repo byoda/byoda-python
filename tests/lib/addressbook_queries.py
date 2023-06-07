@@ -9,7 +9,6 @@ using the 'podserver/files/grahphql_schema.jinja' template
 :license    : GPLv3
 '''
 
-
 GRAPHQL_STATEMENTS = {}
 
 
@@ -715,6 +714,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 ingest_status
                 encoding_profiles
                 chapters
+                screen_orientation_horizontal
             }
         }
         page_info {
@@ -758,6 +758,7 @@ mutation(
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     mutate_asset(
                     created_timestamp: $created_timestamp,
@@ -789,6 +790,7 @@ mutation(
                     ingest_status: $ingest_status,
                     encoding_profiles: $encoding_profiles,
                     chapters: $chapters,
+                    screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -2896,6 +2898,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 ingest_status
                 encoding_profiles
                 chapters
+                screen_orientation_horizontal
             }
         }
         page_info {
@@ -2936,6 +2939,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     append_public_assets (
             created_timestamp: $created_timestamp,
@@ -2964,6 +2968,7 @@ mutation (
             ingest_status: $ingest_status,
             encoding_profiles: $encoding_profiles,
             chapters: $chapters,
+            screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -2999,6 +3004,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     update_public_assets(
         filters: $filters,
@@ -3028,6 +3034,7 @@ mutation (
         ingest_status: $ingest_status,
         encoding_profiles: $encoding_profiles,
         chapters: $chapters,
+        screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -3075,6 +3082,7 @@ subscription (
             ingest_status
             encoding_profiles
             chapters
+            screen_orientation_horizontal
         }
     }
 }
@@ -3168,6 +3176,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 ingest_status
                 encoding_profiles
                 chapters
+                screen_orientation_horizontal
             }
         }
         page_info {
@@ -3208,6 +3217,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     append_service_assets (
             created_timestamp: $created_timestamp,
@@ -3236,6 +3246,7 @@ mutation (
             ingest_status: $ingest_status,
             encoding_profiles: $encoding_profiles,
             chapters: $chapters,
+            screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -3271,6 +3282,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     update_service_assets(
         filters: $filters,
@@ -3300,6 +3312,7 @@ mutation (
         ingest_status: $ingest_status,
         encoding_profiles: $encoding_profiles,
         chapters: $chapters,
+        screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -3347,6 +3360,7 @@ subscription (
             ingest_status
             encoding_profiles
             chapters
+            screen_orientation_horizontal
         }
     }
 }
@@ -3440,6 +3454,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 ingest_status
                 encoding_profiles
                 chapters
+                screen_orientation_horizontal
             }
         }
         page_info {
@@ -3480,6 +3495,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     append_network_assets (
             created_timestamp: $created_timestamp,
@@ -3508,6 +3524,7 @@ mutation (
             ingest_status: $ingest_status,
             encoding_profiles: $encoding_profiles,
             chapters: $chapters,
+            screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -3543,6 +3560,7 @@ mutation (
                     $ingest_status: String,
                     $encoding_profiles: [String!],
                     $chapters: [String!],
+                    $screen_orientation_horizontal: Boolean,
 ) {
     update_network_assets(
         filters: $filters,
@@ -3572,6 +3590,7 @@ mutation (
         ingest_status: $ingest_status,
         encoding_profiles: $encoding_profiles,
         chapters: $chapters,
+        screen_orientation_horizontal: $screen_orientation_horizontal,
     )
 }
 '''
@@ -3619,6 +3638,7 @@ subscription (
             ingest_status
             encoding_profiles
             chapters
+            screen_orientation_horizontal
         }
     }
 }

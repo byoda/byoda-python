@@ -177,7 +177,7 @@ class YouTubeChannel:
             # 'external' and we now want to ingest the AV streams for the
             # channel
             status = IngestStatus.NONE.value
-            
+
             if video_id in already_ingested_videos:
                 if not ingest_videos:
                     _LOGGER.debug(

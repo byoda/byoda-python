@@ -999,6 +999,10 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "screen_orientation_horizontal": {
+                        "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
+                        "type": "boolean"
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
