@@ -173,7 +173,7 @@ class YouTubeChannel:
 
             # We scrape if either:
             # 1: We haven't processed the video before
-            # 2: We have already ingested the asset with encoding_status
+            # 2: We have already ingested the asset with ingest_status
             # 'external' and we now want to ingest the AV streams for the
             # channel
             status = IngestStatus.NONE.value
@@ -189,7 +189,7 @@ class YouTubeChannel:
                 try:
                     status = IngestStatus(
                         already_ingested_videos[video_id].get(
-                            'encoding_status'
+                            'ingest_status'
                         )
                     )
                 except ValueError:

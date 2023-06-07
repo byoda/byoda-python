@@ -759,6 +759,47 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue('append_public_claims' in data)
         self.assertEqual(data['append_public_claims'], 1)
 
+        # Create a thumbnail for the asset
+        vars = {
+            'thumbnail_id': get_test_uuid(),
+            'url': 'https://go.to/thumbnail',
+            'height': 360,
+            'width': 640,
+            'preference': 'default',
+            'video_id': asset_id,
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_video_thumbnails']['append'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('append_public_video_thumbnails' in data)
+        self.assertEqual(data['append_public_video_thumbnails'], 1)
+
+        # Create a chapter for the asset
+        vars = {
+            'chapter_id': get_test_uuid(),
+            'start': 0,
+            'end': 300,
+            'title': 'some chapter title',
+            'video_id': asset_id,
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_video_chapters']['append'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('append_public_video_chapters' in data)
+        self.assertEqual(data['append_public_video_chapters'], 1)
+
         # Get the asset with its claim
         vars = {
             'filters': {'asset_id': {'eq': str(asset_id)}},
@@ -774,10 +815,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertEqual(data['public_assets_connection']['total_count'], 1)
-        network_asset = data['public_assets_connection']['edges'][0]['asset']
-        self.assertEqual(len(network_asset['public_claims']), 1)
+        public_asset = data['public_assets_connection']['edges'][0]['asset']
+
+        self.assertEqual(len(public_asset['public_claims']), 1)
         self.assertEqual(
-            network_asset['public_claims'][0]['claims'], ['non-violent']
+            public_asset['public_claims'][0]['claims'], ['non-violent']
+        )
+
+        self.assertEqual(len(public_asset['public_video_thumbnails']), 1)
+        self.assertEqual(
+            public_asset['public_video_thumbnails'][0]['preference'], 'default'
+        )
+
+        self.assertEqual(len(public_asset['public_video_chapters']), 1)
+        self.assertEqual(
+            public_asset['public_video_chapters'][0]['title'], 'some chapter title'
         )
 
         # Confirm that there is a claim for the asset

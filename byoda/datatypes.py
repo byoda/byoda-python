@@ -241,6 +241,7 @@ class IngestStatus(Enum):
     UPLOADED        = 'uploaded'
     ENCODING        = 'encoding'
     DONE            = 'done'
+    PUBLISHED       = 'published'
 
 
 # MemberStatus is used for the MemberDB.status attribute
