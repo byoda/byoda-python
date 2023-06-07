@@ -46,9 +46,11 @@ async def get_account(request: Request,
     doc_store = account.document_store
     if doc_store.backend.cloud_type == CloudType.LOCAL:
         private_bucket = 'LOCAL'
-        public_bucket = '/var/www/wwwroot/public'
+        restricted_bucket = '/byoda/restricted'
+        public_bucket = '/byoda/public'
     else:
         private_bucket = doc_store.backend.get_url(StorageType.PRIVATE.value)
+        restricted_bucket = doc_store.backend.get_url(StorageType.RESTRICTED.value)
         public_bucket = doc_store.backend.get_url(StorageType.PUBLIC.value)
 
     bootstrap = os.environ.get('BOOTSTRAP')
@@ -90,6 +92,7 @@ async def get_account(request: Request,
         "started": server.started,
         "cloud": doc_store.backend.cloud_type,
         "private_bucket": private_bucket,
+        "restricted_bucket": restricted_bucket,
         "public_bucket": public_bucket,
         "loglevel": os.environ.get('LOGLEVEL', 'INFO'),
         "private_key_secret": account.private_key_password,
