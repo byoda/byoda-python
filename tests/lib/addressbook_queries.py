@@ -416,6 +416,99 @@ mutation(
 GRAPHQL_STATEMENTS['datalog']['mutate'] = MUTATE_DATALOG
 
 
+QUERY_CLAIM = '''
+query ($query_id: UUID!, $filters: claimInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    claim_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            claim {
+                claim_id
+                claims
+                issuer
+                issuer_type
+                object_type
+                keyfield
+                keyfield_id
+                object_fields
+                requester_id
+                requester_type
+                signature
+                signature_timestamp
+                signature_format_version
+                signature_url
+                renewal_url
+                confirmation_url
+                cert_fingerprint
+                cert_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['claim'] = {'query': QUERY_CLAIM}
+
+MUTATE_CLAIM = '''
+mutation(
+                    $claim_id: UUID,
+                    $claims: [String!],
+                    $issuer: UUID,
+                    $issuer_type: String,
+                    $object_type: String,
+                    $keyfield: String,
+                    $keyfield_id: UUID,
+                    $object_fields: [String!],
+                    $requester_id: UUID,
+                    $requester_type: String,
+                    $signature: String,
+                    $signature_timestamp: DateTime,
+                    $signature_format_version: String,
+                    $signature_url: String,
+                    $renewal_url: String,
+                    $confirmation_url: String,
+                    $cert_fingerprint: String,
+                    $cert_expiration: String,
+) {
+    mutate_claim(
+                    claim_id: $claim_id,
+                    claims: $claims,
+                    issuer: $issuer,
+                    issuer_type: $issuer_type,
+                    object_type: $object_type,
+                    keyfield: $keyfield,
+                    keyfield_id: $keyfield_id,
+                    object_fields: $object_fields,
+                    requester_id: $requester_id,
+                    requester_type: $requester_type,
+                    signature: $signature,
+                    signature_timestamp: $signature_timestamp,
+                    signature_format_version: $signature_format_version,
+                    signature_url: $signature_url,
+                    renewal_url: $renewal_url,
+                    confirmation_url: $confirmation_url,
+                    cert_fingerprint: $cert_fingerprint,
+                    cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['claim']['mutate'] = MUTATE_CLAIM
+
+
 QUERY_ASSET = '''
 query ($query_id: UUID!, $filters: assetInputFilter,
         $first: Int, $after: String,
@@ -436,12 +529,14 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_id
                 asset_type
                 asset_url
+                asset_merkle_root_hash
                 thumbnails
                 monetizations
                 locale
                 creator
                 published_timestamp
                 content_warnings
+                public_claims
                 copyright_years
                 publisher
                 publisher_asset_id
@@ -457,6 +552,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 response_to_asset_id
                 encoding_status
                 encoding_profiles
+                chapters
             }
         }
         page_info {
@@ -475,12 +571,14 @@ mutation(
                     $asset_id: UUID,
                     $asset_type: String,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
                     $creator: String,
                     $published_timestamp: DateTime,
                     $content_warnings: [String!],
+                    $public_claims: [claim!],
                     $copyright_years: [Int!],
                     $publisher: String,
                     $publisher_asset_id: String,
@@ -496,18 +594,21 @@ mutation(
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     mutate_asset(
                     created_timestamp: $created_timestamp,
                     asset_id: $asset_id,
                     asset_type: $asset_type,
                     asset_url: $asset_url,
+                    asset_merkle_root_hash: $asset_merkle_root_hash,
                     thumbnails: $thumbnails,
                     monetizations: $monetizations,
                     locale: $locale,
                     creator: $creator,
                     published_timestamp: $published_timestamp,
                     content_warnings: $content_warnings,
+                    public_claims: $public_claims,
                     copyright_years: $copyright_years,
                     publisher: $publisher,
                     publisher_asset_id: $publisher_asset_id,
@@ -523,6 +624,7 @@ mutation(
                     response_to_asset_id: $response_to_asset_id,
                     encoding_status: $encoding_status,
                     encoding_profiles: $encoding_profiles,
+                    chapters: $chapters,
     )
 }
 '''
@@ -1244,6 +1346,573 @@ subscription (
 GRAPHQL_STATEMENTS['network_links_inbound']['counter'] = SUBSCRIPTION_NETWORK_LINKS_INBOUND_COUNTER
 
 
+QUERY_INCOMING_CLAIMS = '''
+query ($query_id: UUID!, $filters: claimInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    incoming_claims_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            claim {
+                claim_id
+                claims
+                issuer
+                issuer_type
+                object_type
+                keyfield
+                keyfield_id
+                object_fields
+                requester_id
+                requester_type
+                signature
+                signature_timestamp
+                signature_format_version
+                signature_url
+                renewal_url
+                confirmation_url
+                cert_fingerprint
+                cert_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['incoming_claims'] = {'query': QUERY_INCOMING_CLAIMS}
+
+APPEND_INCOMING_CLAIMS = '''
+mutation (
+                    $claim_id: UUID!,
+                    $claims: [String!],
+                    $issuer: UUID!,
+                    $issuer_type: String!,
+                    $object_type: String!,
+                    $keyfield: String!,
+                    $keyfield_id: UUID!,
+                    $object_fields: [String!]!,
+                    $requester_id: UUID!,
+                    $requester_type: String!,
+                    $signature: String!,
+                    $signature_timestamp: DateTime!,
+                    $signature_format_version: String!,
+                    $signature_url: String!,
+                    $renewal_url: String!,
+                    $confirmation_url: String!,
+                    $cert_fingerprint: String!,
+                    $cert_expiration: String!,
+) {
+    append_incoming_claims (
+            claim_id: $claim_id,
+            claims: $claims,
+            issuer: $issuer,
+            issuer_type: $issuer_type,
+            object_type: $object_type,
+            keyfield: $keyfield,
+            keyfield_id: $keyfield_id,
+            object_fields: $object_fields,
+            requester_id: $requester_id,
+            requester_type: $requester_type,
+            signature: $signature,
+            signature_timestamp: $signature_timestamp,
+            signature_format_version: $signature_format_version,
+            signature_url: $signature_url,
+            renewal_url: $renewal_url,
+            confirmation_url: $confirmation_url,
+            cert_fingerprint: $cert_fingerprint,
+            cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['incoming_claims']['append'] = APPEND_INCOMING_CLAIMS
+
+UPDATE_INCOMING_CLAIMS = '''
+mutation (
+    $filters: claimInputFilter!,
+                    $claim_id: UUID,
+                    $claims: [String!],
+                    $issuer: UUID,
+                    $issuer_type: String,
+                    $object_type: String,
+                    $keyfield: String,
+                    $keyfield_id: UUID,
+                    $object_fields: [String!],
+                    $requester_id: UUID,
+                    $requester_type: String,
+                    $signature: String,
+                    $signature_timestamp: DateTime,
+                    $signature_format_version: String,
+                    $signature_url: String,
+                    $renewal_url: String,
+                    $confirmation_url: String,
+                    $cert_fingerprint: String,
+                    $cert_expiration: String,
+) {
+    update_incoming_claims(
+        filters: $filters,
+        claim_id: $claim_id,
+        claims: $claims,
+        issuer: $issuer,
+        issuer_type: $issuer_type,
+        object_type: $object_type,
+        keyfield: $keyfield,
+        keyfield_id: $keyfield_id,
+        object_fields: $object_fields,
+        requester_id: $requester_id,
+        requester_type: $requester_type,
+        signature: $signature,
+        signature_timestamp: $signature_timestamp,
+        signature_format_version: $signature_format_version,
+        signature_url: $signature_url,
+        renewal_url: $renewal_url,
+        confirmation_url: $confirmation_url,
+        cert_fingerprint: $cert_fingerprint,
+        cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['incoming_claims']['update'] = UPDATE_INCOMING_CLAIMS
+
+DELETE_FROM_INCOMING_CLAIMS = '''
+mutation ($filters: claimInputFilter!) {
+    delete_from_incoming_claims(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['incoming_claims']['delete'] = DELETE_FROM_INCOMING_CLAIMS
+
+SUBSCRIPTION_INCOMING_CLAIMS_UPDATES = '''
+subscription (
+    $filters: claimInputFilter) {
+    incoming_claims_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            claim_id
+            claims
+            issuer
+            issuer_type
+            object_type
+            keyfield
+            keyfield_id
+            object_fields
+            requester_id
+            requester_type
+            signature
+            signature_timestamp
+            signature_format_version
+            signature_url
+            renewal_url
+            confirmation_url
+            cert_fingerprint
+            cert_expiration
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['incoming_claims']['updates'] = SUBSCRIPTION_INCOMING_CLAIMS_UPDATES
+
+SUBSCRIPTION_INCOMING_CLAIMS_COUNTER = '''
+subscription (
+    $filter: incomingClaimsCounterFilter) {
+    incoming_claims_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['incoming_claims']['counter'] = SUBSCRIPTION_INCOMING_CLAIMS_COUNTER
+
+
+QUERY_VERIFIED_CLAIMS = '''
+query ($query_id: UUID!, $filters: claimInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    verified_claims_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            claim {
+                claim_id
+                claims
+                issuer
+                issuer_type
+                object_type
+                keyfield
+                keyfield_id
+                object_fields
+                requester_id
+                requester_type
+                signature
+                signature_timestamp
+                signature_format_version
+                signature_url
+                renewal_url
+                confirmation_url
+                cert_fingerprint
+                cert_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['verified_claims'] = {'query': QUERY_VERIFIED_CLAIMS}
+
+APPEND_VERIFIED_CLAIMS = '''
+mutation (
+                    $claim_id: UUID!,
+                    $claims: [String!],
+                    $issuer: UUID!,
+                    $issuer_type: String!,
+                    $object_type: String!,
+                    $keyfield: String!,
+                    $keyfield_id: UUID!,
+                    $object_fields: [String!]!,
+                    $requester_id: UUID!,
+                    $requester_type: String!,
+                    $signature: String!,
+                    $signature_timestamp: DateTime!,
+                    $signature_format_version: String!,
+                    $signature_url: String!,
+                    $renewal_url: String!,
+                    $confirmation_url: String!,
+                    $cert_fingerprint: String!,
+                    $cert_expiration: String!,
+) {
+    append_verified_claims (
+            claim_id: $claim_id,
+            claims: $claims,
+            issuer: $issuer,
+            issuer_type: $issuer_type,
+            object_type: $object_type,
+            keyfield: $keyfield,
+            keyfield_id: $keyfield_id,
+            object_fields: $object_fields,
+            requester_id: $requester_id,
+            requester_type: $requester_type,
+            signature: $signature,
+            signature_timestamp: $signature_timestamp,
+            signature_format_version: $signature_format_version,
+            signature_url: $signature_url,
+            renewal_url: $renewal_url,
+            confirmation_url: $confirmation_url,
+            cert_fingerprint: $cert_fingerprint,
+            cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['verified_claims']['append'] = APPEND_VERIFIED_CLAIMS
+
+UPDATE_VERIFIED_CLAIMS = '''
+mutation (
+    $filters: claimInputFilter!,
+                    $claim_id: UUID,
+                    $claims: [String!],
+                    $issuer: UUID,
+                    $issuer_type: String,
+                    $object_type: String,
+                    $keyfield: String,
+                    $keyfield_id: UUID,
+                    $object_fields: [String!],
+                    $requester_id: UUID,
+                    $requester_type: String,
+                    $signature: String,
+                    $signature_timestamp: DateTime,
+                    $signature_format_version: String,
+                    $signature_url: String,
+                    $renewal_url: String,
+                    $confirmation_url: String,
+                    $cert_fingerprint: String,
+                    $cert_expiration: String,
+) {
+    update_verified_claims(
+        filters: $filters,
+        claim_id: $claim_id,
+        claims: $claims,
+        issuer: $issuer,
+        issuer_type: $issuer_type,
+        object_type: $object_type,
+        keyfield: $keyfield,
+        keyfield_id: $keyfield_id,
+        object_fields: $object_fields,
+        requester_id: $requester_id,
+        requester_type: $requester_type,
+        signature: $signature,
+        signature_timestamp: $signature_timestamp,
+        signature_format_version: $signature_format_version,
+        signature_url: $signature_url,
+        renewal_url: $renewal_url,
+        confirmation_url: $confirmation_url,
+        cert_fingerprint: $cert_fingerprint,
+        cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['verified_claims']['update'] = UPDATE_VERIFIED_CLAIMS
+
+DELETE_FROM_VERIFIED_CLAIMS = '''
+mutation ($filters: claimInputFilter!) {
+    delete_from_verified_claims(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['verified_claims']['delete'] = DELETE_FROM_VERIFIED_CLAIMS
+
+SUBSCRIPTION_VERIFIED_CLAIMS_UPDATES = '''
+subscription (
+    $filters: claimInputFilter) {
+    verified_claims_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            claim_id
+            claims
+            issuer
+            issuer_type
+            object_type
+            keyfield
+            keyfield_id
+            object_fields
+            requester_id
+            requester_type
+            signature
+            signature_timestamp
+            signature_format_version
+            signature_url
+            renewal_url
+            confirmation_url
+            cert_fingerprint
+            cert_expiration
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['verified_claims']['updates'] = SUBSCRIPTION_VERIFIED_CLAIMS_UPDATES
+
+SUBSCRIPTION_VERIFIED_CLAIMS_COUNTER = '''
+subscription (
+    $filter: verifiedClaimsCounterFilter) {
+    verified_claims_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['verified_claims']['counter'] = SUBSCRIPTION_VERIFIED_CLAIMS_COUNTER
+
+
+QUERY_PUBLIC_CLAIMS = '''
+query ($query_id: UUID!, $filters: claimInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    public_claims_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            claim {
+                claim_id
+                claims
+                issuer
+                issuer_type
+                object_type
+                keyfield
+                keyfield_id
+                object_fields
+                requester_id
+                requester_type
+                signature
+                signature_timestamp
+                signature_format_version
+                signature_url
+                renewal_url
+                confirmation_url
+                cert_fingerprint
+                cert_expiration
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['public_claims'] = {'query': QUERY_PUBLIC_CLAIMS}
+
+APPEND_PUBLIC_CLAIMS = '''
+mutation (
+                    $claim_id: UUID!,
+                    $claims: [String!],
+                    $issuer: UUID!,
+                    $issuer_type: String!,
+                    $object_type: String!,
+                    $keyfield: String!,
+                    $keyfield_id: UUID!,
+                    $object_fields: [String!]!,
+                    $requester_id: UUID!,
+                    $requester_type: String!,
+                    $signature: String!,
+                    $signature_timestamp: DateTime!,
+                    $signature_format_version: String!,
+                    $signature_url: String!,
+                    $renewal_url: String!,
+                    $confirmation_url: String!,
+                    $cert_fingerprint: String!,
+                    $cert_expiration: String!,
+) {
+    append_public_claims (
+            claim_id: $claim_id,
+            claims: $claims,
+            issuer: $issuer,
+            issuer_type: $issuer_type,
+            object_type: $object_type,
+            keyfield: $keyfield,
+            keyfield_id: $keyfield_id,
+            object_fields: $object_fields,
+            requester_id: $requester_id,
+            requester_type: $requester_type,
+            signature: $signature,
+            signature_timestamp: $signature_timestamp,
+            signature_format_version: $signature_format_version,
+            signature_url: $signature_url,
+            renewal_url: $renewal_url,
+            confirmation_url: $confirmation_url,
+            cert_fingerprint: $cert_fingerprint,
+            cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['public_claims']['append'] = APPEND_PUBLIC_CLAIMS
+
+UPDATE_PUBLIC_CLAIMS = '''
+mutation (
+    $filters: claimInputFilter!,
+                    $claim_id: UUID,
+                    $claims: [String!],
+                    $issuer: UUID,
+                    $issuer_type: String,
+                    $object_type: String,
+                    $keyfield: String,
+                    $keyfield_id: UUID,
+                    $object_fields: [String!],
+                    $requester_id: UUID,
+                    $requester_type: String,
+                    $signature: String,
+                    $signature_timestamp: DateTime,
+                    $signature_format_version: String,
+                    $signature_url: String,
+                    $renewal_url: String,
+                    $confirmation_url: String,
+                    $cert_fingerprint: String,
+                    $cert_expiration: String,
+) {
+    update_public_claims(
+        filters: $filters,
+        claim_id: $claim_id,
+        claims: $claims,
+        issuer: $issuer,
+        issuer_type: $issuer_type,
+        object_type: $object_type,
+        keyfield: $keyfield,
+        keyfield_id: $keyfield_id,
+        object_fields: $object_fields,
+        requester_id: $requester_id,
+        requester_type: $requester_type,
+        signature: $signature,
+        signature_timestamp: $signature_timestamp,
+        signature_format_version: $signature_format_version,
+        signature_url: $signature_url,
+        renewal_url: $renewal_url,
+        confirmation_url: $confirmation_url,
+        cert_fingerprint: $cert_fingerprint,
+        cert_expiration: $cert_expiration,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['public_claims']['update'] = UPDATE_PUBLIC_CLAIMS
+
+DELETE_FROM_PUBLIC_CLAIMS = '''
+mutation ($filters: claimInputFilter!) {
+    delete_from_public_claims(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['public_claims']['delete'] = DELETE_FROM_PUBLIC_CLAIMS
+
+SUBSCRIPTION_PUBLIC_CLAIMS_UPDATES = '''
+subscription (
+    $filters: claimInputFilter) {
+    public_claims_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            claim_id
+            claims
+            issuer
+            issuer_type
+            object_type
+            keyfield
+            keyfield_id
+            object_fields
+            requester_id
+            requester_type
+            signature
+            signature_timestamp
+            signature_format_version
+            signature_url
+            renewal_url
+            confirmation_url
+            cert_fingerprint
+            cert_expiration
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['public_claims']['updates'] = SUBSCRIPTION_PUBLIC_CLAIMS_UPDATES
+
+SUBSCRIPTION_PUBLIC_CLAIMS_COUNTER = '''
+subscription (
+    $filter: publicClaimsCounterFilter) {
+    public_claims_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['public_claims']['counter'] = SUBSCRIPTION_PUBLIC_CLAIMS_COUNTER
+
+
 QUERY_CHANNELS = '''
 query ($query_id: UUID!, $filters: channelInputFilter,
         $first: Int, $after: String, $depth: Int, $relations: [String!],
@@ -1778,12 +2447,33 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_id
                 asset_type
                 asset_url
+                asset_merkle_root_hash
                 thumbnails
                 monetizations
                 locale
                 creator
                 published_timestamp
                 content_warnings
+                public_claims {
+                    claim_id
+                    claims
+                    issuer
+                    issuer_type
+                    object_type
+                    keyfield
+                    keyfield_id
+                    object_fields
+                    requester_id
+                    requester_type
+                    signature
+                    signature_timestamp
+                    signature_format_version
+                    signature_url
+                    renewal_url
+                    confirmation_url
+                    cert_fingerprint
+                    cert_expiration
+                }
                 copyright_years
                 publisher
                 publisher_asset_id
@@ -1799,6 +2489,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 response_to_asset_id
                 encoding_status
                 encoding_profiles
+                chapters
             }
         }
         page_info {
@@ -1817,6 +2508,7 @@ mutation (
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -1838,12 +2530,14 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     append_public_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             asset_url: $asset_url,
+            asset_merkle_root_hash: $asset_merkle_root_hash,
             thumbnails: $thumbnails,
             monetizations: $monetizations,
             locale: $locale,
@@ -1865,6 +2559,7 @@ mutation (
             response_to_asset_id: $response_to_asset_id,
             encoding_status: $encoding_status,
             encoding_profiles: $encoding_profiles,
+            chapters: $chapters,
     )
 }
 '''
@@ -1878,6 +2573,7 @@ mutation (
                     $asset_id: UUID,
                     $asset_type: String,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -1899,6 +2595,7 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     update_public_assets(
         filters: $filters,
@@ -1906,6 +2603,7 @@ mutation (
         asset_id: $asset_id,
         asset_type: $asset_type,
         asset_url: $asset_url,
+        asset_merkle_root_hash: $asset_merkle_root_hash,
         thumbnails: $thumbnails,
         monetizations: $monetizations,
         locale: $locale,
@@ -1927,6 +2625,7 @@ mutation (
         response_to_asset_id: $response_to_asset_id,
         encoding_status: $encoding_status,
         encoding_profiles: $encoding_profiles,
+        chapters: $chapters,
     )
 }
 '''
@@ -1952,6 +2651,7 @@ subscription (
             asset_id
             asset_type
             asset_url
+            asset_merkle_root_hash
             thumbnails
             monetizations
             locale
@@ -1973,6 +2673,7 @@ subscription (
             response_to_asset_id
             encoding_status
             encoding_profiles
+            chapters
         }
     }
 }
@@ -2009,12 +2710,33 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_id
                 asset_type
                 asset_url
+                asset_merkle_root_hash
                 thumbnails
                 monetizations
                 locale
                 creator
                 published_timestamp
                 content_warnings
+                public_claims {
+                    claim_id
+                    claims
+                    issuer
+                    issuer_type
+                    object_type
+                    keyfield
+                    keyfield_id
+                    object_fields
+                    requester_id
+                    requester_type
+                    signature
+                    signature_timestamp
+                    signature_format_version
+                    signature_url
+                    renewal_url
+                    confirmation_url
+                    cert_fingerprint
+                    cert_expiration
+                }
                 copyright_years
                 publisher
                 publisher_asset_id
@@ -2030,6 +2752,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 response_to_asset_id
                 encoding_status
                 encoding_profiles
+                chapters
             }
         }
         page_info {
@@ -2048,6 +2771,7 @@ mutation (
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -2069,12 +2793,14 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     append_service_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             asset_url: $asset_url,
+            asset_merkle_root_hash: $asset_merkle_root_hash,
             thumbnails: $thumbnails,
             monetizations: $monetizations,
             locale: $locale,
@@ -2096,6 +2822,7 @@ mutation (
             response_to_asset_id: $response_to_asset_id,
             encoding_status: $encoding_status,
             encoding_profiles: $encoding_profiles,
+            chapters: $chapters,
     )
 }
 '''
@@ -2109,6 +2836,7 @@ mutation (
                     $asset_id: UUID,
                     $asset_type: String,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -2130,6 +2858,7 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     update_service_assets(
         filters: $filters,
@@ -2137,6 +2866,7 @@ mutation (
         asset_id: $asset_id,
         asset_type: $asset_type,
         asset_url: $asset_url,
+        asset_merkle_root_hash: $asset_merkle_root_hash,
         thumbnails: $thumbnails,
         monetizations: $monetizations,
         locale: $locale,
@@ -2158,6 +2888,7 @@ mutation (
         response_to_asset_id: $response_to_asset_id,
         encoding_status: $encoding_status,
         encoding_profiles: $encoding_profiles,
+        chapters: $chapters,
     )
 }
 '''
@@ -2183,6 +2914,7 @@ subscription (
             asset_id
             asset_type
             asset_url
+            asset_merkle_root_hash
             thumbnails
             monetizations
             locale
@@ -2204,6 +2936,7 @@ subscription (
             response_to_asset_id
             encoding_status
             encoding_profiles
+            chapters
         }
     }
 }
@@ -2240,12 +2973,33 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 asset_id
                 asset_type
                 asset_url
+                asset_merkle_root_hash
                 thumbnails
                 monetizations
                 locale
                 creator
                 published_timestamp
                 content_warnings
+                public_claims {
+                    claim_id
+                    claims
+                    issuer
+                    issuer_type
+                    object_type
+                    keyfield
+                    keyfield_id
+                    object_fields
+                    requester_id
+                    requester_type
+                    signature
+                    signature_timestamp
+                    signature_format_version
+                    signature_url
+                    renewal_url
+                    confirmation_url
+                    cert_fingerprint
+                    cert_expiration
+                }
                 copyright_years
                 publisher
                 publisher_asset_id
@@ -2261,6 +3015,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 response_to_asset_id
                 encoding_status
                 encoding_profiles
+                chapters
             }
         }
         page_info {
@@ -2279,6 +3034,7 @@ mutation (
                     $asset_id: UUID!,
                     $asset_type: String!,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -2300,12 +3056,14 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     append_network_assets (
             created_timestamp: $created_timestamp,
             asset_id: $asset_id,
             asset_type: $asset_type,
             asset_url: $asset_url,
+            asset_merkle_root_hash: $asset_merkle_root_hash,
             thumbnails: $thumbnails,
             monetizations: $monetizations,
             locale: $locale,
@@ -2327,6 +3085,7 @@ mutation (
             response_to_asset_id: $response_to_asset_id,
             encoding_status: $encoding_status,
             encoding_profiles: $encoding_profiles,
+            chapters: $chapters,
     )
 }
 '''
@@ -2340,6 +3099,7 @@ mutation (
                     $asset_id: UUID,
                     $asset_type: String,
                     $asset_url: String,
+                    $asset_merkle_root_hash: String,
                     $thumbnails: [String!],
                     $monetizations: [String!],
                     $locale: String,
@@ -2361,6 +3121,7 @@ mutation (
                     $response_to_asset_id: UUID,
                     $encoding_status: String,
                     $encoding_profiles: [String!],
+                    $chapters: [String!],
 ) {
     update_network_assets(
         filters: $filters,
@@ -2368,6 +3129,7 @@ mutation (
         asset_id: $asset_id,
         asset_type: $asset_type,
         asset_url: $asset_url,
+        asset_merkle_root_hash: $asset_merkle_root_hash,
         thumbnails: $thumbnails,
         monetizations: $monetizations,
         locale: $locale,
@@ -2389,6 +3151,7 @@ mutation (
         response_to_asset_id: $response_to_asset_id,
         encoding_status: $encoding_status,
         encoding_profiles: $encoding_profiles,
+        chapters: $chapters,
     )
 }
 '''
@@ -2414,6 +3177,7 @@ subscription (
             asset_id
             asset_type
             asset_url
+            asset_merkle_root_hash
             thumbnails
             monetizations
             locale
@@ -2435,6 +3199,7 @@ subscription (
             response_to_asset_id
             encoding_status
             encoding_profiles
+            chapters
         }
     }
 }

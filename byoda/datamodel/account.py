@@ -6,6 +6,7 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
+import os
 import logging
 from uuid import UUID
 from typing import TypeVar
@@ -359,7 +360,15 @@ class Account:
 
         member = Member(service_id, self, member_id=member_id)
 
-        await member.setup(new_membership=False)
+        local_service_contract = os.environ.get('LOCAL_SERVICE_CONTRACT')
+        if not config.debug:
+            raise ValueError(
+                'LOCAL_SERVICE_CONTRACT is set but config.debug is not set'
+            )
+
+        await member.setup(
+            local_service_contract=local_service_contract, new_membership=False
+        )
 
         data_store: DataStore = config.server.data_store
         await data_store.backend.setup_member_db(

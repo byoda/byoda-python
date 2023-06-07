@@ -13,6 +13,7 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import shutil
 import unittest
 import requests
 
@@ -43,6 +44,7 @@ from podserver.routers import accountdata as AccountDataRouter
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import get_account_id
+from tests.lib.setup import get_test_uuid
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import BASE_URL
@@ -51,6 +53,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
 from tests.lib.auth import get_azure_pod_jwt
+from tests.lib.auth import get_member_auth_header
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -79,6 +82,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         network_data['account_id'] = get_account_id(network_data)
+
+        local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
+        if local_service_contract:
+            dest = TEST_DIR + '/' + local_service_contract
+            dest_dir = os.path.dirname(dest)
+            os.makedirs(dest_dir, exist_ok=True)
+            shutil.copyfile(
+                local_service_contract, TEST_DIR + '/' + local_service_contract
+            )
 
         account = Account(network_data['account_id'], network)
         account.password = network_data.get('account_secret')
@@ -278,7 +290,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(data)
         self.assertIsNotNone(result.get('errors'))
 
-        # add network_link for the 'remote member'
         asset_id = uuid4()
         vars = {
             'created_timestamp': str(
@@ -677,6 +688,143 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
         self.assertGreaterEqual(len(data), 204)
+
+    async def test_graphql_addressbook_claims(self):
+        service_id = ADDRESSBOOK_SERVICE_ID
+        auth_header = await get_member_auth_header(service_id)
+
+        url = BASE_URL + f'/v1/data/service-{service_id}'
+
+        # Create a network asset
+        asset_id = get_test_uuid()
+        vars = {
+            'created_timestamp': str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
+            'asset_type': 'post',
+            'asset_id': str(asset_id),
+            'creator': 'Pod API Test',
+            'created': str(datetime.now(tz=timezone.utc).isoformat()),
+            'title': 'test asset',
+            'subject': 'just a test asset',
+            'contents': 'some utf-8 markdown string',
+            'keywords': ["just", "testing"]
+        }
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_assets']['append'], vars=vars,
+            timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertEqual(data['append_public_assets'], 1)
+        self.assertIsNone(result.get('errors'))
+
+        # Create a claim for the asset
+        vars = {
+            'claim_id': get_test_uuid(),
+            'claims': ['non-violent'],
+            'issuer': get_test_uuid(),
+            'issuer_type': 'app',
+            'object_type': 'network_asset',
+            'keyfield': 'asset_id',
+            'keyfield_id': asset_id,
+            'object_fields': [
+                'creator', 'asset_id', 'asset_type', 'title',
+                'subject', 'contents', 'keywords'
+            ],
+            'requester_id': get_test_uuid(),
+            'requester_type': 'member',
+            'signature': 'bollocks',
+            'signature_timestamp': str(
+                datetime.now(tz=timezone.utc).isoformat()
+            ),
+            'signature_format_version': '0.0.0',
+            'signature_url': 'https://no.content/',
+            'renewal_url': 'https://no.content/',
+            'confirmation_url': 'https://no.content/',
+            'cert_fingerprint': 'aa00',
+            'cert_expiration': str(datetime.now(tz=timezone.utc).isoformat()),
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_claims']['append'],
+            vars=vars, timeout=120, headers=auth_header
+        )
+        result = await response.json()
+
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertIsNone(result.get('errors'))
+        self.assertTrue('append_public_claims' in data)
+        self.assertEqual(data['append_public_claims'], 1)
+
+        # Get the asset with its claim
+        vars = {
+            'filters': {'asset_id': {'eq': str(asset_id)}},
+            'query_id': uuid4(),
+        }
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_assets']['query'], vars=vars,
+            timeout=1200, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertEqual(data['public_assets_connection']['total_count'], 1)
+        network_asset = data['public_assets_connection']['edges'][0]['asset']
+        self.assertEqual(len(network_asset['public_claims']), 1)
+        self.assertEqual(
+            network_asset['public_claims'][0]['claims'], ['non-violent']
+        )
+
+        # Confirm that there is a claim for the asset
+        vars = {
+            'filters': {'keyfield_id': {'eq': str(asset_id)}},
+            'query_id': uuid4(),
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_claims']['query'], vars=vars,
+            timeout=1200, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertEqual(data['public_claims_connection']['total_count'], 1)
+
+        # Delete the asset with its claim
+        vars = {
+            'filters': {'asset_id': {'eq': str(asset_id)}},
+            'query_id': uuid4(),
+        }
+
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_assets']['delete'], vars=vars,
+            timeout=1200, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        self.assertIsNotNone(data)
+        self.assertEqual(data['delete_from_public_assets'], 1)
+
+        # Confirm the claim for the asset no longer exists
+        vars = {
+            'filters': {'keyfield_id': {'eq': str(asset_id)}},
+            'query_id': uuid4(),
+        }
+        response = await GraphQlClient.call(
+            url, GRAPHQL_STATEMENTS['public_claims']['query'], vars=vars,
+            timeout=1200, headers=auth_header
+        )
+        result = await response.json()
+        self.assertIsNone(result.get('errors'))
+        data = result.get('data')
+        # TODO: this test case is forward-looking when deletes also delete all
+        # data linked to the deleted objects
+        self.assertEqual(data['public_claims_connection']['total_count'], 1)
 
 
 if __name__ == '__main__':

@@ -111,15 +111,15 @@ A data structure under $defs must have the following keys:
 - description: What the data stored in this class is used for
 - type: must be "object"
 - #properties: optional field with a list of strings. Each string must be one of the supported values:
+  - primary_key: use this field to match nested objects to this object. Only one field in an object can have this property set
+  - index: maintain an index for this field
   - counter: maintain counters for this field. Only supported for fields of type UUID and string
 - properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
   - type: must be a scalar, ie. "string" or "number" or an array.
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
-There are some data structures that the BYODA pod uses for various purposes. The name of these data structures
-starts with 'BYODA_'. If you include these data structures in your schema then it must have a set of defined
-fields and specific type.
+There are some data structures that the BYODA pod uses for various purposes. These data structures are required to be present in your service schema with the corresponding fields and data types.
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
 from the addressbook.json service contract to your contract.
 
@@ -129,7 +129,11 @@ from the addressbook.json service contract to your contract.
       - "joined": { "format": "date-time", "type": "string"}
       - "member_id": {"type": "string"}
 - network_links of type array using the /schemas/network_link as reference
-- memberlogs of type array using the /schemas/memberlog as reference
+- datalogs of type array using the /schemas/memberlog as reference
+- incoming_claims: claims from other people that you haven't verified yet
+- verified_claims: claims from other people that you have verified
+
+For arrays of objects that themselves have arrays of child objects, you need to specify the "#reference_field" property in each definition of the array of a child object field of the child object should be used to match against the field with the 'primary_key' property of the parent object. In SQL terms, the 'primary_key' field will get a _'foreign key'_ relation with the child object. See the 'public_claims' field of the 'public_assets' array of objects in addressbook.json for an example.
 
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 

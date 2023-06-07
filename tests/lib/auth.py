@@ -56,6 +56,28 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     return auth_header
 
 
+async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID) -> str:
+    account: Account = config.server.account
+    await account.load_memberships()
+    member = account.memberships.get(service_id)
+
+    password = os.environ['ACCOUNT_SECRET']
+
+    data = {
+        'username': str(member.member_id)[:8],
+        'password': password,
+        'service_id': ADDRESSBOOK_SERVICE_ID
+    }
+    url = f'{BASE_URL}/v1/pod/authtoken'.format(PORT=config.server.HTTP_PORT)
+    response = requests.post(url, json=data)
+
+    result = response.json()
+    auth_header = {
+        'Authorization': f'bearer {result["auth_token"]}'
+    }
+    return auth_header
+
+
 async def get_azure_pod_jwt(account: Account, test_dir: str
                             ) -> tuple[str, str]:
     '''

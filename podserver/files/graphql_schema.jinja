@@ -184,10 +184,26 @@ class {{ root_class.name }}:
 
 {%     endfor %}{# for field in root_class.fields.values() #}
 
+    @staticmethod
+    def from_dict(data: dict):
+        {{ root_class.name }}_instance = {{ root_class.name }}(
+{%     for field in root_class.fields.values() %}
+            data.get('{{ field.name }}'),
+{%     endfor %}{# for field in root_class.fields.values() #}
+        )
+        return {{ root_class.name }}_instance
+
 @strawberry.input
 class {{ root_class.name }}_input:
 {%     for field in root_class.fields.values() %}
+{%         if not field.referenced_class or field.items.value != 'reference' %}
     {{field.name }}: {{ field.python_type }}
+{%         endif %}{# if not field.referenced_class or field.items.value != 'reference' #}
+{%     endfor %}{# for field in root_class.fields.values() #}
+{%     for field in root_class.fields.values() %}
+{%         if field.referenced_class and field.items.value == 'reference' %}
+    {{ field.name }}: Optional[List[{{ field.referenced_class.name }}_input]] = None
+{%         endif %}{# if field.referenced_class and field.items.value == 'reference' #}
 {%     endfor %}{# for field in root_class.fields.values() #}
 
 {# avoid classes referenced by multiple root classes from being included multiple times #}
@@ -197,17 +213,19 @@ class {{ root_class.name }}_input:
 @strawberry.input
 class {{ root_class.name }}_input_filter:
 {%       for field_name, field in root_class.fields.items() %}
-{%         if field.type == DataType.STRING %}
+{%         if not field.referenced_class or field.items.value != 'reference' %}
+{%           if field.type == DataType.STRING %}
     {{ field_name }}: Optional[string_query_operator_input] = None
-{%         elif field.type == DataType.DATETIME %}
+{%           elif field.type == DataType.DATETIME %}
     {{ field_name }}: Optional[datetime_query_operator_input] = None
-{%         elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
+{%           elif field.type in (DataType.INTEGER, DataType.NUMBER) %}
     {{ field_name }}: Optional[number_query_operator_input] = None
-{%         elif field.type == DataType.UUID %}
+{%           elif field.type == DataType.UUID %}
     {{ field_name }}: Optional[uuid_query_operator_input] = None
-{%         elif field.type == DataType.ARRAY %}
+{%           elif field.type == DataType.ARRAY %}
     {{ field_name }}: Optional[List[str]] = None
-{%         endif %}{# if field.python_type == "str" #}
+{%           endif %}{# if field.python_type == "str" #}
+{%         endif %}{# if not field.referenced_class or field.items.value != 'reference' #}
 {%       endfor %}{# for field_name, field in root_class.fields.items() #}
 {%       set ns.classes_seen = ns.classes_seen + class_name_deliminated %}
 {%     endif %} {#  if class_name_deliminated not in ns.classes_seen #}
@@ -309,7 +327,8 @@ class Query:
 
         _LOGGER.debug('Calling memberdata.get_data()')
         data = await MemberDataClassByoda.get_data(
-            {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
+            {{ service_id }}, '{{ root_class.name }}', info,
+            depth=depth, relations=relations, filters=filters,
             remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
             origin_member_id=origin_member_id, origin_signature=origin_signature
         )
@@ -325,13 +344,13 @@ class Query:
         total_skipped:int  = 0
         cursor = ''
         _LOGGER.debug('Prepping edges')
-        for obj in data or []:
-            required_field_names = [
+        required_field_names = [
 {%       for field_name in root_class.required_fields %}
                 '{{ field_name }}',
 {%       endfor %}{# for field_name in {{ root_class.required_fields }} #}
-            ]
+        ]
 
+        for obj in data or []:
             origin = obj.pop(BYODA_ORIGIN_KEY)
             cursor = get_cursor_hash(obj, origin, required_field_names)
             if cursor_seen:
@@ -396,7 +415,8 @@ class Query:
             raise HTTPException(status_code=400, detail='Authentication failed')
 
         data = await MemberDataClassByoda.get_data(
-            {{ service_id }}, info, depth=depth, relations=relations, filters=filters,
+            {{ service_id }}, '{{ root_class.name }}', info,
+            depth=depth, relations=relations, filters=filters,
             remote_member_id=remote_member_id, timestamp=timestamp, query_id=query_id,
             origin_member_id=origin_member_id, origin_signature=origin_signature,
             signature_format_version=signature_format_version,
@@ -410,16 +430,28 @@ class Query:
         edges: List[{{ root_class.name }}_edge] = []
         total_skipped:int  = 0
         cursor = ''
+        required_field_names = [
+{%       for field_name in root_class.referenced_class.required_fields %}
+            '{{ field_name }}',
+{%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
+        ]
         for obj in data or []:
             info.context['data'] = obj
-            required_field_names = [
-{%       for field_name in root_class.referenced_class.required_fields %}
-                '{{ field_name }}',
-{%       endfor %}{# for field_name in {{ root_class.referenced_class.required_fields }} #}
-            ]
             origin = obj.pop(BYODA_ORIGIN_KEY)
             cursor = get_cursor_hash(obj, origin, required_field_names)
             if cursor_seen:
+{%       for field_name, field in root_class.referenced_class.fields.items() %}
+{%         if field.referenced_class and field.items.value == 'reference' %}
+                suppl_data = await MemberDataClassByoda.get_simple_data(
+                    {{ service_id }}, '{{ field.name }}', '{{field.referenced_class_field }}', obj.get('{{ root_class.referenced_class.primary_key }}')
+                )
+                info.context['data']['{{ field_name }}'] = [
+                    {{ field.referenced_class.name }}.from_dict(item)
+                    for item in suppl_data or []
+                ]
+{%         endif %}{# if field.referenced_class and field.items.value == 'reference' #}
+{%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
+
                 {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
                     info.context['data'].get('{{ field_name }}'),
@@ -482,11 +514,11 @@ class Mutation:
     @strawberry.field
     async def update_{{ root_class.name }}(self, info: Info, filters: {{ root_class.referenced_class.name }}_input_filter,
 {%       for field_name, field in root_class.referenced_class.fields.items()%}
-{%         if not field.referenced_class or not field.referenced_class.referenced_class %}
+{%         if not field.referenced_class or field.items.value != 'reference' %}
         {{ field_name }}: Optional[{{ field.python_type }}] = None,
-{%         else %}{# if not field.referenced_class #}
-        {{ field_name }}: Optional[{{ field.python_type }}_input] = None,
-{%         endif %}{# if not field.referenced_class #}
+{%         else %}{# if not field.referenced_class or field.items.value != 'reference' #}
+        {{ field_name }}: Optional[List[{{ field.referenced_class.name }}_input]] = None,
+{%         endif %}{# if not field.referenced_class or field.items.value != 'reference' #}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         ) -> int:
         _LOGGER.debug('Root query for update_{{ root_class.name }}')
@@ -519,7 +551,11 @@ class Mutation:
 {%       endfor %}
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
 {%          if field_name not in root_class.referenced_class.required_fields %}
+{%            if not field.referenced_class or field.items.value != 'reference' %}
             {{ field_name }}: Optional[{{ field.python_type }}] = None,
+{%            else %}{# if not field.referenced_class or field.items.value != 'reference' #}
+            {{ field_name }}: Optional[List[{{ field.referenced_class.name }}_input]] = None,
+{%            endif %}{# if not field.referenced_class or field.items.value != 'reference' #}
 {%          endif %}
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items()#}
             remote_member_id: Optional[UUID] = None, depth: int = 0
@@ -540,7 +576,7 @@ class Mutation:
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
         }
         object_count = await MemberDataClassByoda.append_data(
-            {{ service_id }}, info, remote_member_id=remote_member_id, depth=depth
+            {{ service_id }}, '{{ root_class.name }}', info, remote_member_id=remote_member_id, depth=depth
         )
 
         return object_count
@@ -555,7 +591,7 @@ class Mutation:
             )
             raise HTTPException(status_code=400, detail='Authentication failed')
 
-        object_count = await MemberDataClassByoda.delete_array_data({{ service_id }}, info, filters)
+        object_count = await MemberDataClassByoda.delete_array_data({{ service_id }}, '{{ root_class.name }}', info, filters)
 
         return object_count
 {%     endif %}{# if root_class.type == DataType.OBJECT #}

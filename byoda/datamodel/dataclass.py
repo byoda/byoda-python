@@ -49,6 +49,7 @@ class GraphQlAPI(Enum):
 
 class DataProperty(Enum):
     # flask8: noqa=E221
+    PRIMARY_KEY = 'primary_key'
     COUNTER     = 'counter'
     INDEX       = 'index'
 
@@ -104,6 +105,7 @@ class SchemaDataItem:
         self.defined_class: bool | None = None
 
         self.fields: list[SchemaDataItem] | None = None
+
         self.properties: set(DataProperty) = set()
 
         # Properties for the class, currently only used by SchemaDataScalar
@@ -111,17 +113,32 @@ class SchemaDataItem:
             self.properties.add(DataProperty(property))
 
         # Create index on this item in an array of SchemaDataObject
-        self.is_index: bool = False
+        self.is_index: bool = DataProperty.INDEX in self.properties
 
         # Keep counter per unique value of the item in an SchemaDataArray
         # Setting this will also cause the item to be indexed
-        self.is_counter: bool = False
+        self.is_counter: bool = DataProperty.COUNTER in self.properties
 
         self.type: DataType = DataType(schema_data['type'])
 
         # Used by SchemaDataArray to point to the class the entries
         # of the array have
         self.referenced_class: str = None
+
+        # Used by SchemaDataArray so it knows which field to match
+        # with in 'join's of two tables
+        self.referenced_class_field: str = None
+
+        # Which field of an object to use for 'join's of two tables
+        self.primary_key: str = None
+
+        # Is this the field that should be used to match for 'joins'
+        # with other tables?
+        self.is_primary_key: bool = DataProperty.PRIMARY_KEY in self.properties
+
+        # Used for fields of a SchemaDataObject listed as 'required'. All
+        # fields with property primary_key are also required
+        self.required: bool = self.is_primary_key
 
         self.python_type, self.graphql_type = self.get_types(
             class_name, self.schema_data
@@ -138,6 +155,11 @@ class SchemaDataItem:
         self.pubsub_class: PubSub | None = None
 
         self.access_rights: list[DataAccessRight] = {}
+
+        # When authorizing requests, we don't have to review the access
+        # rights of children when they don't have access rights defined.
+        # TODO: Until this is implemented, we default to True
+        self.child_has_accessrights: bool = True
 
         self.parse_access_controls()
 
@@ -210,9 +232,16 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = {}):
+    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = {},
+               pubsub: bool = True):
         '''
         Factory for instances of classes derived from SchemaDataItem
+
+        :param class_name: name of the class
+        :param schema_data: json-schema blurb for the class
+        :param schema: Schema instance
+        :param classes: dictionary of classes already created
+        :param pubsub: whether to create a PubSub instance for the class
         '''
 
         item_type = schema_data.get('type')
@@ -229,7 +258,7 @@ class SchemaDataItem:
                 class_name, schema_data, schema, classes=classes)
         elif item_type == 'array':
             item = SchemaDataArray(
-                class_name, schema_data, schema, classes=classes
+                class_name, schema_data, schema, classes=classes, pubsub=pubsub
             )
         else:
             item = SchemaDataScalar(class_name, schema_data, schema)
@@ -368,8 +397,11 @@ class SchemaDataScalar(SchemaDataItem):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
 
-        self.is_counter: bool = DataProperty.COUNTER in self.properties
-        self.is_index: bool = DataProperty.INDEX in self.properties
+        if self.is_primary_key and self.type != DataType.UUID:
+            raise ValueError(
+                f'Primary key {self.name} must be of type UUID'
+            )
+
 
         if (self.is_counter and not (
                 self.type in (DataType.UUID, DataType.STRING, DataType.DATETIME,
@@ -426,6 +458,9 @@ class SchemaDataObject(SchemaDataItem):
         if DataProperty.INDEX in self.properties:
             raise ValueError('Index is not supported for objects')
 
+        if DataProperty.PRIMARY_KEY in self.properties:
+            raise ValueError('An object can not be a primary key')
+
         if self.item_id:
             self.defined_class = True
 
@@ -447,9 +482,17 @@ class SchemaDataObject(SchemaDataItem):
                         'object'
                     )
 
-            item = SchemaDataItem.create(field, field_properties, schema, classes)
+            item = SchemaDataItem.create(
+                field, field_properties, schema, classes, pubsub=False
+            )
 
             self.fields[field] = item
+
+            if item.is_primary_key:
+                self.primary_key = item.name
+
+            if field in self.required_fields:
+                item.required = True
 
         _LOGGER.debug(f'Created object class {class_name}'
                       )
@@ -510,7 +553,18 @@ class SchemaDataObject(SchemaDataItem):
 
 class SchemaDataArray(SchemaDataItem):
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
-                 classes: dict[str, SchemaDataItem]) -> None:
+                 classes: dict[str, SchemaDataItem], pubsub: bool =True
+                 ) -> None:
+        '''
+        Constructor
+
+        :param class_name: name of the class
+        :param schema_data: json-schema blurb for the class
+        :param schema: Schema instance
+        :param classes: dictionary of classes already created
+        :param pubsib: whether to create a PubSub instance for the class
+        '''
+
         super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
@@ -544,11 +598,12 @@ class SchemaDataArray(SchemaDataItem):
                 )
 
             self.referenced_class = classes[referenced_class]
+            self.referenced_class_field = schema_data.get('#reference_field')
 
             # The Pub/Sub for communicating changes to data using this class
-            # instance. We only track changes for arrays that reference
-            # another class
-            if config.test_case != "TEST_CLIENT":
+            # instance. We only track changes for arrays at the top-level
+            # of the schema
+            if pubsub and config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
                     self.name, self, schema, is_sender=True
                 )

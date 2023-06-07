@@ -169,34 +169,6 @@
                     "$ref": "/schemas/claim"
                 }
             },
-            "service_claims": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "any_member": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/claim"
-                }
-            },
-            "network_claims": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "network": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/claim"
-                }
-            },
             "channels": {
                 "#accesscontrol": {
                     "member": {
@@ -638,7 +610,8 @@
                     "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
                     "object_fields", "requester_id", "requester_type",
                     "signature", "signature_timestamp", "signature_format_version",
-                    "signature_URL", "renewal_URL", "cert_fingerprint", "cert_expiration"],
+                    "signature_url", "renewal_url", "confirmation_url",
+                    "cert_fingerprint", "cert_expiration"],
                 "properties": {
                     "claim_id": {
                         "description": "The UUID of the claim, unique to the signer of the claim",
@@ -667,10 +640,12 @@
                         "type": "string"
                     },
                     "keyfield": {
+                        "#properties": ["index"],
                         "description": "name of the field used to identify the object, ie. 'asset_id'. The field must be of type 'UUID'",
                         "type": "string"
                     },
                     "keyfield_id": {
+                        "#properties": ["index"],
                         "description": "The UUID of the keyfield of the claim",
                         "type": "string",
                         "format": "uuid"
@@ -703,19 +678,19 @@
                     },
                     "signature_format_version": {
                         "description": "The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py",
-                        "type": "number"
+                        "type": "string"
                     },
-                    "signature_URL": {
+                    "signature_url": {
                         "description": "URL to visit to get additional info about the signature",
                         "type": "string",
                         "format": "uri"
                     },
-                    "renewal_URL": {
+                    "renewal_url": {
                         "description": "URL to request new signature of the asset",
                         "type": "string",
                         "format": "uri"
                     },
-                    "confirmation_URL": {
+                    "confirmation_url": {
                         "description": "URL of API to call to confirm the cmail signature has not been revoked",
                         "type": "string",
                         "format": "url"
@@ -733,7 +708,7 @@
             "asset": {
                 "$id": "/schemas/asset",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
+                "description": "an asset like a tweet, a message, a video, etc.",
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
@@ -745,7 +720,7 @@
                             "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid",
-                            "#properties": ["index", "counter"]
+                            "#properties": ["primary_key", "index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -795,12 +770,13 @@
                             "type": "string"
                         }
                     },
-                    "claims": {
+                    "public_claims": {
                         "description": "list of claims for the asset",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/claim"
-                        }
+                        },
+                        "#reference_field": "keyfield_id"
                     },
                     "copyright_years": {
                         "type": "array",

@@ -191,16 +191,19 @@ class Member:
                     self.network, service_id=self.service_id,
                 )
 
-                await self.service.download_data_secret(
-                    save=True, failhard=False
-                )
-
             self.network.services[self.service_id] = self.service
         else:
             _LOGGER.debug(
                 f'Membership for {self.service_id} already in memory'
             )
             self.service = self.network.services[self.service_id]
+
+        if not self.service.data_secret:
+            await self.service.download_data_secret(
+                save=True, failhard=False
+            )
+
+        self.service_data_secret: ServiceDataSecret = self.service.data_secret
 
         # This is the schema a.k.a data contract that we have previously
         # accepted, which may differ from the latest schema version offered
@@ -691,7 +694,7 @@ class Member:
         if await self.storage_driver.exists(filepath):
             schema = await Schema.get_schema(
                 filepath, self.storage_driver,
-                service_data_secret=self.service_data_secret,
+                service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
                 verify_contract_signatures=verify_signatures
             )

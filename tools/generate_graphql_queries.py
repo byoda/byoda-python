@@ -9,7 +9,6 @@ Tool to generate GraphQL queries for a schema.
 :license    : GPLv3
 '''
 
-import os
 import sys
 import orjson
 import argparse
@@ -30,7 +29,10 @@ def main(argv):
     parser.add_argument(
         '--out', '-o', type=str, default='tests/lib/addressbook_queries.py'
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    if args.language != 'python':
+        raise ValueError('Only python is supported at this time')
 
     with open(args.schema) as file_desc:
         text = file_desc.read()
@@ -50,8 +52,6 @@ def main(argv):
         trim_blocks=True,
         autoescape=True
     )
-    if args.language != 'python':
-        raise ValueError('Only Python is supported at this time')
 
     template_file = 'graphql_queries.py.jinja'
     template = environment.get_template(template_file)
@@ -66,4 +66,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main(sys.argv[1:])

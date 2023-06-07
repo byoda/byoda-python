@@ -41,6 +41,8 @@ from byoda.util.message_signature import SignatureType
 
 from byoda.exceptions import ByodaDataClassReferenceNotFound
 
+from byoda import config
+
 _LOGGER = logging.getLogger(__name__)
 
 Service = TypeVar('Service')
@@ -183,7 +185,9 @@ class Schema:
                 'No Service signature in contract for service '
                 f'{self.service_id}'
             )
-            raise
+            if not (config.debug
+                    and os.environ.get('LOCAL_SERVICE_CONTRACT')):
+                raise
 
         try:
             self._network_signature = NetworkSignature.from_dict(
@@ -197,7 +201,9 @@ class Schema:
                 'No Network signature in contract for service '
                 f'{self.service_id}'
             )
-            raise
+            if not (config.debug
+                    and os.environ.get('LOCAL_SERVICE_CONTRACT')):
+                raise
 
     async def save(self, filepath: str, storage_driver: FileStorage):
         '''
@@ -308,7 +314,7 @@ class Schema:
 
         classes = self.json_schema['jsonschema'].get("$defs", {})
 
-        for tries in (1, 2, 3):
+        for _ in (1, 2, 3):
             classes_todo = {}
             for class_name, class_properties in classes.items():
                 _LOGGER.debug(f'Parsing defined class {class_name}')

@@ -9,8 +9,6 @@ Helper functions to set up tests
 import os
 import shutil
 
-from uuid import UUID
-
 import orjson
 
 from byoda import config
@@ -97,7 +95,9 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     return data
 
 
-async def setup_account(data: dict[str, str]) -> Account:
+async def setup_account(data: dict[str, str],
+                        local_service_contract: str = 'addressbook.json'
+                        ) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     PubSubNng.cleanup()
@@ -145,7 +145,7 @@ async def setup_account(data: dict[str, str]) -> Account:
     member_id = get_test_uuid()
     await account.join(
         ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, local_storage,
-        member_id=member_id, local_service_contract='addressbook.json'
+        member_id=member_id, local_service_contract=local_service_contract
     )
 
     return account
