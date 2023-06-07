@@ -133,6 +133,34 @@
                     "$ref": "/schemas/network_link_inbound"
                 }
             },
+            "public_video_thumbnails": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/video_thumbnail"
+                }
+            },
+            "public_video_chapters": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/video_chapter"
+                }
+            },
             "incoming_claims": {
                 "#accesscontrol": {
                     "member": {
@@ -604,8 +632,107 @@
                 },
                 "required": ["created_timestamp", "remote_addr", "operation", "object"]
             },
-            "claim": {
+            "annotation": {
+                "$id": "/schemas/annotation",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "type": "object",
+                "description": "An annotation for an asset. The 'key' field is optional, in which case the 'value' field acts as a tag",
+                "required": ["annotation_id", "asset_id", "value"],
+                "properties": {
+                    "annotation_id": {
+                        "description": "The UUID of the annotation",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "key": {
+                        "description": "The key for the annotation",
+                        "type": "string"
+                    },
+                    "asset_id": {
+                        "description": "The ID of the public_asset that this annotation is for",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "video_chapter": {
+                "$id": "/schemas/video-chapter",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A chapter in a video",
+                "required": ["chapter_id", "start", "end", "video_id"],
+                "properties": {
+                    "chapter_id": {
+                        "description": "The UUID of the video chapter",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "start": {
+                        "description": "The start of the chapter, as an offset in seconds from the start of the video",
+                        "type": "number"
+                    },
+                    "end": {
+                        "description": "The start of the chapter, as an offset in seconds from the start of the video",
+                        "type": "number"
+                    },
+                    "title": {
+                        "description": "The title of the chapter",
+                        "type": "string"
+                    },
+                    "video_id": {
+                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "video_thumbnail": {
+                "$id": "/schemas/video-chapter",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A chapter in a video",
+                "required": ["thumbnail_id", "url", "width", "height", "video_id"],
+                "properties": {
+                    "thumbnail_id": {
+                        "description": "The UUID of the video thumbnail",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "url": {
+                        "description": "The URL of the thumbnail",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "width": {
+                        "description": "The width of the thumbnail",
+                        "type": "number"
+                    },
+                    "height": {
+                        "description": "The height of the thumbnail",
+                        "type": "number"
+                    },
+                    "preference": {
+                        "description": "The preference of the thumbnail, ie. 'default', 'high', 'medium', 'low'",
+                        "type": "string"
+                    },
+                    "video_id": {
+                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "claim": {
+                "$id": "/schemas/claim",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A claim signed by a party.",
                 "required": [
                     "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
                     "object_fields", "requester_id", "requester_type",
@@ -616,7 +743,8 @@
                     "claim_id": {
                         "description": "The UUID of the claim, unique to the signer of the claim",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
                     },
                     "claims": {
                         "description": "The claims that are validated by the issuer",
@@ -735,12 +863,21 @@
                         "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
                         "type": "string"
                     },
-                    "thumbnails": {
-                        "description": "thumbnails for the asset, format: 'name_H_W_url'",
+                    "public_video_thumbnails": {
+                        "description": "list of thumbnails for the asset",
                         "type": "array",
                         "items": {
-                            "type": "string"
-                        }
+                            "$ref": "/schemas/video_thumbnail"
+                        },
+                        "#reference_field": "video_id"
+                    },
+                    "public_video_chapters": {
+                        "description": "list of video chapters for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/video_chapter"
+                        },
+                        "#reference_field": "video_id"
                     },
                     "monetizations": {
                         "description": "enabled monetizations for the asset",
@@ -845,12 +982,12 @@
                         "type": "string",
                         "format": "uuid"
                     },
-                    "encoding_status": {
-                        "description": "status of the encoding process",
+                    "ingest_status": {
+                        "description": "status of the ingest process",
                         "type": "string"
                     },
                     "encoding_profiles": {
-                        "description": "encoding profile used for the asset",
+                        "description": "DEPRECATED: encoding profile used for the asset",
                         "type": "array",
                         "items": {
                             "type": "string"

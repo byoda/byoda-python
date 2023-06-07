@@ -763,7 +763,6 @@ class MemberData(dict):
         server: PodServer = config.server
         member: Member = server.account.memberships[service_id]
 
-
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'append',
             'graphql', class_name, depth=depth,
