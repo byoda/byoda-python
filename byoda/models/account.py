@@ -23,6 +23,7 @@ class AccountResponseModel(BaseModel):
     started: datetime
     cloud: CloudType
     private_bucket: str
+    restricted_bucket: str
     public_bucket: str
     root_directory: str
     loglevel: str

@@ -29,8 +29,8 @@ class MessageSignature:
         '''
         Constructor
 
-        :raises ValueError: if the class of the secret does not match the
-                            type of signature
+        :raises: ValueError if the class of the secret does not match the
+        type of signature
         '''
 
         if hash_algorithm != 'SHA256':

@@ -97,17 +97,9 @@ class YouTubeChannel:
                 )
             }
             async with aiohttp.ClientSession(headers=headers) as session:
-                # Channel URLs with whitespace never include the '@' symbol
-                if ' ' in self.name:
-                    url = YouTubeChannel.CHANNEL_URL.format(
-                        channel_name=self.name
-                    )
-                else:
-                    # Some channels without whitespace may require the '@'
-                    # symbol, ie. the 'besmart' channel
-                    url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
-                        channel_name=self.name
-                    )
+                url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
+                    channel_name=self.name.lstrip('@')
+                ).replace(' ', '')
 
                 _LOGGER.debug(f'Scraping YouTube channel at {url}')
                 async with session.get(url) as response:
@@ -173,9 +165,11 @@ class YouTubeChannel:
 
             # We scrape if either:
             # 1: We haven't processed the video before
-            # 2: We have already ingested the asset with encoding_status
+            # 2: We have already ingested the asset with ingest_status
             # 'external' and we now want to ingest the AV streams for the
             # channel
+            status = IngestStatus.NONE.value
+
             if video_id in already_ingested_videos:
                 if not ingest_videos:
                     _LOGGER.debug(
@@ -187,7 +181,7 @@ class YouTubeChannel:
                 try:
                     status = IngestStatus(
                         already_ingested_videos[video_id].get(
-                            'encoding_status'
+                            'ingest_status'
                         )
                     )
                 except ValueError:
@@ -204,9 +198,9 @@ class YouTubeChannel:
                     status = IngestStatus.NONE.value
 
             video = YouTubeVideo.scrape(video_id)
-            video.ingest_status = status
 
             if video:
+                video.ingest_status = status
                 self.videos[video_id] = video
 
     def get_channel_id(self):

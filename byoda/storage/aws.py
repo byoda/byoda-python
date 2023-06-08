@@ -132,7 +132,8 @@ class AwsFileStorage(FileStorage):
     async def write(self, filepath: str, data: str = None,
                     file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
-                    storage_type: StorageType = StorageType.PRIVATE) -> None:
+                    storage_type: StorageType = StorageType.PRIVATE,
+                    content_type: str = None) -> None:
         '''
         Writes data to S3 storage.
 
@@ -167,8 +168,14 @@ class AwsFileStorage(FileStorage):
             file_descriptor.seek(0)
 
         key = self._get_key(filepath)
+
+        # TODO: test case for setting content-type
+        if not content_type:
+            content_type = FileStorage.get_content_type(filepath)
+
         self.driver.upload_fileobj(
-            file_descriptor, self.buckets[storage_type.value], key
+            file_descriptor, self.buckets[storage_type.value], key,
+            ExtraArgs={'ContentType': content_type}
         )
 
         _LOGGER.debug(f'Wrote {key} of {len(data or [])} bytes to AWS S3')
@@ -256,7 +263,7 @@ class AwsFileStorage(FileStorage):
     async def copy(self, source: str, dest: str,
                    file_mode: FileMode = FileMode.BINARY,
                    storage_type: StorageType = StorageType.PRIVATE,
-                   exist_ok=True) -> None:
+                   exist_ok: bool = True, content_type: str = None) -> None:
         '''
         Copies a file from the local file system to the S3 object storage
 
@@ -267,8 +274,14 @@ class AwsFileStorage(FileStorage):
 
         key = self._get_key(dest)
         dirpath, filename = self.get_full_path(source, create_dir=False)
+
+        # TODO: test case for setting content-type
+        if not content_type:
+            content_type = FileStorage.get_content_type(source)
+
         self.driver.upload_file(
-            dirpath + filename, self.buckets[storage_type.value], key
+            dirpath + filename, self.buckets[storage_type.value], key,
+            ExtraArgs={'ContentType': content_type}
         )
         _LOGGER.debug(
             f'Uploaded {source} to S3 key {self.buckets[storage_type.value]}'

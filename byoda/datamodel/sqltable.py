@@ -297,7 +297,7 @@ class SqlTable(Table):
             value = data.get(column.name)
             # We only include columns for which a value is available
             # in the 'data' dict
-            if not value:
+            if value is None:
                 continue
 
             # Add the column to the list of columns
@@ -309,7 +309,7 @@ class SqlTable(Table):
 
         stmt = stmt.rstrip(', ') + f') {separator} ('
         for column in self.columns.values():
-            if data.get(column.name):
+            if data.get(column.name) is not None:
                 stmt += f':{column.storage_name}, '
 
         stmt = stmt.rstrip(', ') + ') '

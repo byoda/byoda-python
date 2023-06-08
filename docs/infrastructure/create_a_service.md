@@ -111,15 +111,15 @@ A data structure under $defs must have the following keys:
 - description: What the data stored in this class is used for
 - type: must be "object"
 - #properties: optional field with a list of strings. Each string must be one of the supported values:
+  - primary_key: use this field to match nested objects to this object. Only one field in an object can have this property set
+  - index: maintain an index for this field
   - counter: maintain counters for this field. Only supported for fields of type UUID and string
 - properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
   - type: must be a scalar, ie. "string" or "number" or an array.
   - format: any value for this key is used for data validation but is not translated into the GraphQL API
 
-There are some data structures that the BYODA pod uses for various purposes. The name of these data structures
-starts with 'BYODA_'. If you include these data structures in your schema then it must have a set of defined
-fields and specific type.
+There are some data structures that the BYODA pod uses for various purposes. These data structures are required to be present in your service schema with the corresponding fields and data types.
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
 from the addressbook.json service contract to your contract.
 
@@ -129,7 +129,11 @@ from the addressbook.json service contract to your contract.
       - "joined": { "format": "date-time", "type": "string"}
       - "member_id": {"type": "string"}
 - network_links of type array using the /schemas/network_link as reference
-- memberlogs of type array using the /schemas/memberlog as reference
+- datalogs of type array using the /schemas/memberlog as reference
+- incoming_claims: claims from other people that you haven't verified yet
+- verified_claims: claims from other people that you have verified
+
+For arrays of objects that themselves have arrays of child objects, you need to specify the "#reference_field" property in each definition of the array of a child object field of the child object should be used to match against the field with the 'primary_key' property of the parent object. In SQL terms, the 'primary_key' field will get a _'foreign key'_ relation with the child object. See the 'public_claims' field of the 'public_assets' array of objects in addressbook.json for an example.
 
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
@@ -172,13 +176,13 @@ Each service has the following secrets:
 
 We create the service secrets using the 'tools/create_service_secrets.py' script. It is best practice to create and store the ServiceCA secret on an off-line server. _Make sure to carefully review the output of the script as it contains the password needed to decrypt the private key for the Service CA_. You need to save this password in a password manager and you may need it in the future when your service secrets expire and they need to be re-generated!
 
-``` bash
+```bash
 export BYODA_HOME=/opt/byoda
 export BYODA_DOMAIN=byoda.net
 
 export SERVICE_CONTRACT=<service contract file>   # should be only the filename, no path included
 
-export SERVICE_ID=$(python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))')
+export SERVICE_ID=$(python3 -c 'import random; print(pow(2,32)-random.randint(1,pow(2,16)))') && echo ${SERVICE_ID}
 
 # Here we update the 'service_id' in the service schema to match a newly generated random service ID
 sudo apt install moreutils      # for the 'sponge' tool that we use on the next line
@@ -201,14 +205,14 @@ tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network $
 
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
 
-``` bash
+```bash
 cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.
 Now you can copy all secrets except the private key of the ServiceCA to the server you want to host the service.
 
-``` bash
+```bash
 SERVER_IP=<IP address of your server>
 
 ssh ${SERVER_IP} "sudo mkdir -p ${SERVICE_DIR}; sudo chown -R ${USER}:${USER} ${BYODA_HOME}"

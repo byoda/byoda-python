@@ -133,6 +133,70 @@
                     "$ref": "/schemas/network_link_inbound"
                 }
             },
+            "public_video_thumbnails": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/video_thumbnail"
+                }
+            },
+            "public_video_chapters": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/video_chapter"
+                }
+            },
+            "incoming_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "verified_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
+            "public_claims": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append"]
+                    },
+                    "anonymous": {
+                        "permissions": ["read"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/claim"
+                }
+            },
             "channels": {
                 "#accesscontrol": {
                     "member": {
@@ -238,7 +302,7 @@
                     "$ref": "/schemas/asset"
                 }
             },
-            "content_restriction_keys": {
+            "restricted_content_keys": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
@@ -246,7 +310,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/content_restriction_key"
+                    "$ref": "/schemas/restricted_content_key"
                 }
             },
             "twitter_medias": {
@@ -448,8 +512,8 @@
                 },
                 "required": ["created_timestamp", "member_id", "asset_id", "relation"]
             },
-            "content_restriction_key": {
-                "$id": "/schemas/content_restriction_key",
+            "restricted_content_key": {
+                "$id": "/schemas/restricted_content_key",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "description": "keys used to manage access to restricted content",
                 "type": "object",
@@ -568,10 +632,211 @@
                 },
                 "required": ["created_timestamp", "remote_addr", "operation", "object"]
             },
+            "annotation": {
+                "$id": "/schemas/annotation",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "An annotation for an asset. The 'key' field is optional, in which case the 'value' field acts as a tag",
+                "required": ["annotation_id", "asset_id", "value"],
+                "properties": {
+                    "annotation_id": {
+                        "description": "The UUID of the annotation",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "key": {
+                        "description": "The key for the annotation",
+                        "type": "string"
+                    },
+                    "asset_id": {
+                        "description": "The ID of the public_asset that this annotation is for",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "video_chapter": {
+                "$id": "/schemas/video-chapter",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A chapter in a video",
+                "required": ["chapter_id", "start", "end", "video_id"],
+                "properties": {
+                    "chapter_id": {
+                        "description": "The UUID of the video chapter",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "start": {
+                        "description": "The start of the chapter, as an offset in seconds from the start of the video",
+                        "type": "number"
+                    },
+                    "end": {
+                        "description": "The start of the chapter, as an offset in seconds from the start of the video",
+                        "type": "number"
+                    },
+                    "title": {
+                        "description": "The title of the chapter",
+                        "type": "string"
+                    },
+                    "video_id": {
+                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "video_thumbnail": {
+                "$id": "/schemas/video-chapter",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A chapter in a video",
+                "required": ["thumbnail_id", "url", "width", "height", "video_id"],
+                "properties": {
+                    "thumbnail_id": {
+                        "description": "The UUID of the video thumbnail",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "url": {
+                        "description": "The URL of the thumbnail",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "width": {
+                        "description": "The width of the thumbnail",
+                        "type": "number"
+                    },
+                    "height": {
+                        "description": "The height of the thumbnail",
+                        "type": "number"
+                    },
+                    "preference": {
+                        "description": "The preference of the thumbnail, ie. 'default', 'high', 'medium', 'low'",
+                        "type": "string"
+                    },
+                    "video_id": {
+                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    }
+                }
+            },
+            "claim": {
+                "$id": "/schemas/claim",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "type": "object",
+                "description": "A claim signed by a party.",
+                "required": [
+                    "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
+                    "object_fields", "requester_id", "requester_type",
+                    "signature", "signature_timestamp", "signature_format_version",
+                    "signature_url", "renewal_url", "confirmation_url",
+                    "cert_fingerprint", "cert_expiration"],
+                "properties": {
+                    "claim_id": {
+                        "description": "The UUID of the claim, unique to the signer of the claim",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "claims": {
+                        "description": "The claims that are validated by the issuer",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "issuer": {
+                        "description": "The UUID of the claim issuer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "issuer_type": {
+                        "description": "what type of entity issued this claim",
+                        "type": "string",
+                        "enum": ["member", "service", "app", "network"]
+                    },
+                    "object_type": {
+                        "description": "The name of the array storing the object of the claim, ie. 'public_assets' and not 'asset'. The array must store objects that have a data property 'asset_id'",
+                        "type": "string"
+                    },
+                    "keyfield": {
+                        "#properties": ["index"],
+                        "description": "name of the field used to identify the object, ie. 'asset_id'. The field must be of type 'UUID'",
+                        "type": "string"
+                    },
+                    "keyfield_id": {
+                        "#properties": ["index"],
+                        "description": "The UUID of the keyfield of the claim",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "object_fields": {
+                        "description": "The fields covered by the signature of the object with ID 'object_id' stored in the array 'object_type'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "requester_id": {
+                        "description": "The UUID of the entity that requested the claim to be signed by the issuer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "requester_type": {
+                        "description": "what type of entity requested this claim to be signed by the issuer",
+                        "type": "string",
+                        "enum": ["member", "service", "app", "network"]
+                    },
+                    "signature": {
+                        "description": "base64-encoding signature for the values for the 'object_fields' of the object with uuid 'object_id' of type 'object_class'",
+                        "type": "string"
+                    },
+                    "signature_timestamp": {
+                        "description": "Date & time for when the signature was created",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "signature_format_version": {
+                        "description": "The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py",
+                        "type": "string"
+                    },
+                    "signature_url": {
+                        "description": "URL to visit to get additional info about the signature",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "renewal_url": {
+                        "description": "URL to request new signature of the asset",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "confirmation_url": {
+                        "description": "URL of API to call to confirm the cmail signature has not been revoked",
+                        "type": "string",
+                        "format": "url"
+                    },
+                    "cert_fingerprint": {
+                        "description": "the SHA2-256 fingerprint of the certificate used to sign the claim",
+                        "type": "string"
+                    },
+                    "cert_expiration": {
+                        "description": "the timestamp when the cert used to create the signature expires",
+                        "type": "string"
+                    }
+                }
+            },
             "asset": {
                 "$id": "/schemas/asset",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "an asset likedraft/2020-12 a tweet, a message, a video, etc.",
+                "description": "an asset like a tweet, a message, a video, etc.",
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
@@ -583,7 +848,7 @@
                             "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid",
-                            "#properties": ["index", "counter"]
+                            "#properties": ["primary_key", "index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -594,12 +859,25 @@
                         "type": "string",
                         "format": "uri"
                     },
-                    "thumbnails": {
-                        "description": "thumbnails for the asset, format: 'name_H_W_url'",
+                    "asset_merkle_root_hash": {
+                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
+                        "type": "string"
+                    },
+                    "public_video_thumbnails": {
+                        "description": "list of thumbnails for the asset",
                         "type": "array",
                         "items": {
-                            "type": "string"
-                        }
+                            "$ref": "/schemas/video_thumbnail"
+                        },
+                        "#reference_field": "video_id"
+                    },
+                    "public_video_chapters": {
+                        "description": "list of video chapters for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/video_chapter"
+                        },
+                        "#reference_field": "video_id"
                     },
                     "monetizations": {
                         "description": "enabled monetizations for the asset",
@@ -628,6 +906,14 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "public_claims": {
+                        "description": "list of claims for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
+                        },
+                        "#reference_field": "keyfield_id"
                     },
                     "copyright_years": {
                         "type": "array",
@@ -665,7 +951,7 @@
                         }
                     },
                     "annotations": {
-                        "description": "comma-separated list of annotations",
+                        "description": "annotations for the asset, things like 'genre:action' or 'city:San Francisco'",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -682,7 +968,7 @@
                     },
                     "root_asset_id": {
                         "#properties": ["counter", "index"],
-                        "description": "ID of asset is the root of the thread",
+                        "description": "ID of asset that is the root of the thread",
                         "type": "string",
                         "format": "uuid"
                     },
@@ -696,23 +982,27 @@
                         "type": "string",
                         "format": "uuid"
                     },
-                    "encoding_status": {
-                        "description": "status of the encoding process",
+                    "ingest_status": {
+                        "description": "status of the ingest process",
                         "type": "string"
                     },
                     "encoding_profiles": {
-                        "description": "encoding profile used for the asset",
+                        "description": "DEPRECATED: encoding profile used for the asset",
                         "type": "array",
                         "items": {
                             "type": "string"
                         }
                     },
                     "chapters": {
-                        "description": "chapters in format start_time:end_time:title",
+                        "description": "DEPRECATED, replaced with public_video_chapters",
                         "type": "array",
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "screen_orientation_horizontal": {
+                        "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
+                        "type": "boolean"
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]

@@ -6,13 +6,11 @@ Cert manipulation
 :license    : GPLv3
 '''
 
-import os
 import logging
 import re
 import tempfile
 import subprocess
 from uuid import UUID
-from copy import copy
 from typing import TypeVar
 from datetime import datetime, timedelta
 
@@ -22,12 +20,6 @@ from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import utils
-
-
-# Imports that enable code to import from this module
-from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from certvalidator import CertificateValidator
 from certvalidator import ValidationContext
@@ -43,10 +35,6 @@ from .certchain import CertChain
 _LOGGER = logging.getLogger(__name__)
 
 _RSA_KEYSIZE = 3072
-_RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
-
-_BYODA_DIR = '/.byoda/'
-_ROOT_DIR = os.environ['HOME'] + _BYODA_DIR
 
 VALID_SIGNATURE_ALGORITHMS = set(
     [
@@ -428,90 +416,6 @@ class Secret:
             f'cert {certfile} and root CA {rootfile}'
         )
 
-    def sign_message(self, message: str, hash_algorithm: str = 'SHA256'
-                     ) -> bytes:
-        '''
-        Sign a message message
-
-        :returns: signature for the message
-        :raises: ValueError, NotImplementedError
-        '''
-
-        if isinstance(message, str):
-            message = message.encode('utf-8')
-        elif not isinstance(message, bytes):
-            raise ValueError(
-                f'Message must be of type string or bytes, not {type(message)}'
-            )
-
-        chosen_hash = hashes.SHA256()
-
-        digest = Secret._get_digest(message, chosen_hash)
-
-        signature = self.private_key.sign(
-            digest,
-            padding.PSS(
-                mgf=padding.MGF1(chosen_hash),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            utils.Prehashed(chosen_hash)
-        )
-
-        return signature
-
-    def verify_message_signature(self, message: str, signature: bytes,
-                                 hash_algorithm: str = 'SHA256') -> None:
-        '''
-        Verify the signature for a message
-
-        :raises: InvalidSignature if the signature is invalid, ValueError
-                 if the input is invalid
-        '''
-
-        if isinstance(message, str):
-            message = message.encode('utf-8')
-        elif not isinstance(message, bytes):
-            raise ValueError(
-                f'Message must be of type string or bytes, not {type(message)}'
-            )
-
-        if hash_algorithm != 'SHA256':
-            raise NotImplementedError(
-                'Only SHA256 is supported as hash algorithm'
-            )
-
-        chosen_hash = hashes.SHA256()
-        digest = Secret._get_digest(message, chosen_hash)
-
-        self.cert.public_key().verify(
-            signature,
-            digest,
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            utils.Prehashed(chosen_hash)
-        )
-
-    @staticmethod
-    def _get_digest(message: bytes, chosen_hash: hashes) -> bytes:
-        '''
-        Generates a digest hash for any length of message
-        '''
-
-        hasher = hashes.Hash(chosen_hash)
-        message = copy(message)
-        while message:
-            if len(message) > _RSA_SIGN_MAX_MESSAGE_LENGTH:
-                hasher.update(message[:_RSA_SIGN_MAX_MESSAGE_LENGTH])
-                message = message[_RSA_SIGN_MAX_MESSAGE_LENGTH:]
-            else:
-                hasher.update(message)
-                message = None
-        digest = hasher.finalize()
-
-        return digest
-
     async def cert_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
@@ -772,7 +676,7 @@ class Secret:
         Returns the SHA256 fingerprint of the certificate
         '''
 
-        return self.cert.fingerprint(hashes.SHA256)
+        return self.cert.fingerprint(hashes.SHA256())
 
     def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
                              ) -> str:

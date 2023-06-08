@@ -14,9 +14,13 @@ import shutil
 import secrets
 import filecmp
 import unittest
+
+from uuid import UUID
 from copy import copy
 from random import randint
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -30,6 +34,7 @@ from byoda.util.logger import Logger
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
+from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
@@ -39,6 +44,7 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.datatypes import CloudType
+from byoda.datatypes import IdType
 
 from byoda.datatypes import ServerRole
 
@@ -225,6 +231,52 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data_secret.decrypt_file(protected_file, out_file)
         compare_check = filecmp.cmp(source_file, out_file)
         self.assertTrue(compare_check)
+
+        object_fields: list[str] = [
+            'asset_id', 'asset_name', 'asset_type', 'asset_url',
+            'creator', 'published_timestamp', 'annotations', 'creator',
+        ]
+
+        asset_id: UUID = get_test_uuid()
+        requester_id: UUID = get_test_uuid()
+        claim = Claim.build(
+            ['claim A', 'claim B'], 'test', IdType.APP,
+            'public_assets', 'asset_id', asset_id,
+            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            'https://renewal', 'https://confirmation'
+        )
+        asset_data = {
+            'asset_id': asset_id,
+            'asset_name': 'test asset',
+            'asset_type': 'video',
+            'asset_url': 'https://www.byoda.org',
+            'creator': 'test',
+            'published_timestamp': datetime.now(timezone.utc).isoformat(),
+            'annotations': ['test1', 'test2'],
+        }
+
+        signature = claim.create_signature(asset_data, data_secret)
+
+        verify_claim = Claim.build(
+            ['claim A', 'claim B'], 'test', IdType.APP,
+            'public_assets', 'asset_id', asset_id,
+            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            'https://renewal', 'https://confirmation'
+        )
+        verify_claim.claim_id = claim.claim_id
+        verify_claim.signature_timestamp = claim.signature_timestamp
+        verify_claim.signature_format_version = claim.signature_format_version
+        verify_claim.cert_expiration = claim.cert_expiration
+        verify_claim.cert_fingerprint = claim.cert_fingerprint
+
+        verify_claim.signature = signature
+        verify_claim.verify_signature(asset_data, data_secret)
+        self.assertTrue(verify_claim.verified)
+
+        data = claim.as_dict()
+        new_claim = Claim.from_dict(data)
+        new_claim.verify_signature(asset_data, data_secret)
+        self.assertTrue(new_claim.verified)
 
     async def test_message_signature(self):
         # Test creation of the CA hierarchy

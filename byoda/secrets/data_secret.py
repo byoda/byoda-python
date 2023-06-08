@@ -6,14 +6,19 @@ Cert manipulation
 :license    : GPLv3
 '''
 
-import os
 import struct
 import logging
+
+from copy import copy
 from datetime import datetime, timedelta
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.fernet import Fernet
+
+# Imports that enable code to import from this module
+from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from byoda.storage.filestorage import FileStorage
 
@@ -23,8 +28,9 @@ from .secret import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
-_BYODA_DIR = '/.byoda/'
-_ROOT_DIR = os.environ['HOME'] + _BYODA_DIR
+# This is not a limit to the data getting signed or verified, but
+# a limit to the amount of data fed to the hasher at each iteration
+_RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
 
 
 class DataSecret(Secret):
@@ -203,6 +209,91 @@ class DataSecret(Secret):
             'Initializing new Fernet instance from decrypted shared secret'
         )
         self.fernet = Fernet(self.shared_key)
+
+    def sign_message(self, message: str, hash_algorithm: str = 'SHA256'
+                     ) -> bytes:
+        '''
+        Sign a message
+
+        :returns: signature for the message
+        :raises: ValueError, NotImplementedError
+        '''
+
+        if isinstance(message, str):
+            message = message.encode('utf-8')
+        elif not isinstance(message, bytes):
+            raise ValueError(
+                f'Message must be of type string or bytes, not {type(message)}'
+            )
+
+        chosen_hash = hashes.SHA256()
+
+        digest = DataSecret._get_digest(message, chosen_hash)
+
+        signature = self.private_key.sign(
+            digest,
+            padding.PSS(
+                mgf=padding.MGF1(chosen_hash),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            utils.Prehashed(chosen_hash)
+        )
+
+        return signature
+
+    def verify_message_signature(self, message: str, signature: bytes,
+                                 hash_algorithm: str = 'SHA256') -> None:
+        '''
+        Verify the signature for a message
+
+        :raises: InvalidSignature if the signature is invalid, ValueError
+                 if the input is invalid
+        '''
+
+        if isinstance(message, str):
+            message = message.encode('utf-8')
+        elif not isinstance(message, bytes):
+            raise ValueError(
+                f'Message must be of type string or bytes, not {type(message)}'
+            )
+
+        if hash_algorithm == 'SHA256':
+            chosen_hash = hashes.SHA256()
+        else:
+            raise NotImplementedError(
+                'Only SHA256 is supported as hash algorithm'
+            )
+
+        digest = DataSecret._get_digest(message, chosen_hash)
+
+        self.cert.public_key().verify(
+            signature,
+            digest,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            utils.Prehashed(chosen_hash)
+        )
+
+    @staticmethod
+    def _get_digest(message: bytes, chosen_hash: hashes) -> bytes:
+        '''
+        Generates a digest hash for any length of message
+        '''
+
+        hasher = hashes.Hash(chosen_hash)
+        message = copy(message)
+        while message:
+            if len(message) > _RSA_SIGN_MAX_MESSAGE_LENGTH:
+                hasher.update(message[:_RSA_SIGN_MAX_MESSAGE_LENGTH])
+                message = message[_RSA_SIGN_MAX_MESSAGE_LENGTH:]
+            else:
+                hasher.update(message)
+                message = None
+        digest = hasher.finalize()
+
+        return digest
 
     async def download(self, url: str) -> str | None:
         '''

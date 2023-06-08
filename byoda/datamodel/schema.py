@@ -26,18 +26,22 @@ from byoda.datamodel.dataclass import DataType
 from byoda.datamodel.dataclass import DataOperationType
 from byoda.datamodel.dataclass import GraphQlAPI
 
+from byoda.storage import FileStorage
+
 from byoda.secrets.network_data_secret import NetworkDataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
+from byoda.secrets.secret import Secret
+from byoda.secrets.data_secret import DataSecret
+
 
 from byoda.util.message_signature import MessageSignature
 from byoda.util.message_signature import ServiceSignature
 from byoda.util.message_signature import NetworkSignature
 from byoda.util.message_signature import SignatureType
 
-from byoda.secrets.secret import Secret
-from byoda.secrets.data_secret import DataSecret
+from byoda.exceptions import ByodaDataClassReferenceNotFound
 
-from byoda.storage import FileStorage
+from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -165,34 +169,40 @@ class Schema:
         Load a schema from a dict
         '''
 
-        if verify_contract_signatures:
-            try:
-                self._service_signature = ServiceSignature.from_dict(
-                    self.json_schema['signatures'].get(
-                        SignatureType.SERVICE.value
-                    ),
-                    data_secret=self.service_data_secret
+        if not verify_contract_signatures:
+            return
 
-                )
-            except ValueError:
-                _LOGGER.exception(
-                    'No Service signature in contract for service '
-                    f'{self.service_id}'
-                )
+        try:
+            self._service_signature = ServiceSignature.from_dict(
+                self.json_schema['signatures'].get(
+                    SignatureType.SERVICE.value
+                ),
+                data_secret=self.service_data_secret
+
+            )
+        except ValueError:
+            _LOGGER.exception(
+                'No Service signature in contract for service '
+                f'{self.service_id}'
+            )
+            if not (config.debug
+                    and os.environ.get('LOCAL_SERVICE_CONTRACT')):
                 raise
 
-            try:
-                self._network_signature = NetworkSignature.from_dict(
-                    self.json_schema['signatures'].get(
-                        SignatureType.NETWORK.value
-                    ),
-                    data_secret=self.network_data_secret
-                )
-            except ValueError:
-                _LOGGER.exception(
-                    'No Network signature in contract for service '
-                    f'{self.service_id}'
-                )
+        try:
+            self._network_signature = NetworkSignature.from_dict(
+                self.json_schema['signatures'].get(
+                    SignatureType.NETWORK.value
+                ),
+                data_secret=self.network_data_secret
+            )
+        except ValueError:
+            _LOGGER.exception(
+                'No Network signature in contract for service '
+                f'{self.service_id}'
+            )
+            if not (config.debug
+                    and os.environ.get('LOCAL_SERVICE_CONTRACT')):
                 raise
 
     async def save(self, filepath: str, storage_driver: FileStorage):
@@ -302,13 +312,34 @@ class Schema:
         # TODO: SECURITY check that urlparse.netloc matches the entity_id for
         # the service
 
-        defs = self.json_schema['jsonschema'].get("$defs", {})
-        for class_name, class_properties in defs.items():
-            _LOGGER.debug(f'Parsing defined class {class_name}')
-            dataclass = SchemaDataItem.create(
-                class_name, class_properties, self
+        classes = self.json_schema['jsonschema'].get("$defs", {})
+
+        for _ in (1, 2, 3):
+            classes_todo = {}
+            for class_name, class_properties in classes.items():
+                _LOGGER.debug(f'Parsing defined class {class_name}')
+                try:
+                    dataclass = SchemaDataItem.create(
+                        class_name, class_properties, self, self.data_classes
+                    )
+                    self.data_classes[class_name] = dataclass
+                except ByodaDataClassReferenceNotFound:
+                    _LOGGER.debug(
+                        f'Adding class {class_name} for creation '
+                        'in the next iteration'
+                    )
+                    classes_todo[class_name] = class_properties
+
+            classes = deepcopy(classes_todo)
+            _LOGGER.debug(
+                f'classes remaining after first iteration: {len(classes)}'
             )
-            self.data_classes[class_name] = dataclass
+
+        if classes_todo:
+            raise ValueError(
+                'Could not resolve circular class definition for classes: '
+                ', '.join(classes_todo.keys())
+            )
 
         properties = self.json_schema['jsonschema']['properties']
         for class_name, class_properties in properties.items():

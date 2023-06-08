@@ -1,5 +1,10 @@
 '''
 Class for modeling an element of data of a member
+
+This class has several static methods that are called from the
+code generated from 'graphql_schema.jinja' to process the
+data as requested in the call to the GraphQL interface.
+
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
@@ -39,7 +44,7 @@ from byoda.datacache.counter_cache import CounterFilter
 
 from byoda.requestauth.requestauth import RequestAuth
 
-from byoda.secrets.secret import InvalidSignature
+from byoda.secrets.data_secret import InvalidSignature
 
 from byoda.storage import FileMode
 from byoda.storage.pubsub import PubSub
@@ -264,7 +269,46 @@ class MemberData(dict):
         )
 
     @staticmethod
-    async def get_data(service_id: int, info: Info, depth: int = 0,
+    async def get_simple_data(service_id, class_name: str, keyfield: str,
+                              keyfield_id: UUID) -> list[dict]:
+        '''
+        Returns the requested data implementing recursion or filtering. This
+        method assumes authentication and authorization for the accessed data
+        has already been performed
+
+        :param service_id: the service being queried
+        :param class_name: the name of the data class for which to retrieve
+        data
+        :param keyfield: the name of the field to filter on
+        :param keyfield_id: the value of the field to filter on
+        '''
+
+        if not keyfield_id:
+            raise ValueError('Did not get a value for keyfield_id parameter')
+
+        _LOGGER.debug(
+            f'Retrieving data for service_id {service_id}, '
+            f'class_name {class_name} '
+            f'keyfield {keyfield} with data {keyfield_id}'
+        )
+
+        server = config.server
+
+        await server.account.load_memberships()
+        member: Member = server.account.memberships[service_id]
+
+        data_store = server.data_store
+
+        filter_set = DataFilterSet({keyfield: {'eq': keyfield_id}})
+        data = await data_store.query(member.member_id, class_name, filter_set)
+
+        _LOGGER.debug(f'Collected {len(data or [])} items of data')
+
+        return data
+
+    @staticmethod
+    async def get_data(service_id: int, class_name: str, info: Info,
+                       depth: int = 0,
                        relations: list[str] = None,
                        filters: list[str] = None,
                        timestamp: datetime | None = None,
@@ -341,13 +385,6 @@ class MemberData(dict):
                     'Received a recursive query without signature '
                     'submitted by someone else than ourselves'
                 )
-
-        # For queries for objects we implement pagination and identify
-        # those APIs by appending _connection to the name for the
-        # data class
-        class_name = info.path.key
-        if class_name.endswith('_connection'):
-            class_name = class_name[:-1 * len('_connection')]
 
         filter_set = DataFilterSet(filters)
 
@@ -698,7 +735,7 @@ class MemberData(dict):
         return object_count
 
     @staticmethod
-    async def append_data(service_id, info: Info,
+    async def append_data(service_id, class_name: str, info: Info,
                           remote_member_id: UUID | None = None,
                           depth: int = 0) -> int:
         '''
@@ -725,11 +762,6 @@ class MemberData(dict):
 
         server: PodServer = config.server
         member: Member = server.account.memberships[service_id]
-
-        # By convention implemented in the Jinja template, the called
-        # mutate 'function' starts with the string 'mutate' so to find out
-        # what mutation was invoked, we want what comes after it.
-        class_name = info.path.key[len('append_'):].lower()
 
         await member.data.add_log_entry(
             info.context['request'], info.context['auth'], 'append',
@@ -795,7 +827,8 @@ class MemberData(dict):
             return object_count
 
     @staticmethod
-    async def delete_array_data(service_id: int, info: Info, filters) -> dict:
+    async def delete_array_data(service_id: int, class_name: str, info: Info,
+                                filters: DataFilterSet) -> dict:
         '''
         Deletes one or more objects from an array.
 
@@ -822,11 +855,6 @@ class MemberData(dict):
             f'Got graphql invocation for {info.path.typename} '
             f'for object {info.path.key}'
         )
-
-        # By convention implemented in the Jinja template, the called mutate
-        # 'function' starts with the string 'delete_from' so we to find out
-        # what mutation was invoked, we want what comes after it.
-        class_name = info.path.key[len('delete_from_'):].lower()
 
         server = config.server
         member = server.account.memberships[service_id]

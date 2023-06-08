@@ -6,6 +6,7 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 '''
 
 import logging
+import asyncio
 
 from uuid import UUID
 from enum import Enum
@@ -213,8 +214,9 @@ class ApiClient:
             )
         except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
                 aiohttp.client_exceptions.ClientConnectorCertificateError,
-                aiohttp.client_exceptions.ClientConnectorError) as exc:
-            raise ByodaRuntimeError(exc)
+                aiohttp.client_exceptions.ClientConnectorError,
+                asyncio.exceptions.TimeoutError) as exc:
+            raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
 
         if response.status >= 400:
             raise ByodaRuntimeError(

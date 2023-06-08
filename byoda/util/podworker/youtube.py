@@ -14,7 +14,6 @@ from calendar import timegm
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.member import Member
 
 from byoda.datastore.data_store import DataStore

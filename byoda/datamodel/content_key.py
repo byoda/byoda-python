@@ -31,7 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_KEY_START_DELAY: int = 86400
 DEFAULT_KEY_EXPIRATION_DELAY: int = DEFAULT_KEY_START_DELAY + 86400
 
-RESTRICTED_CONTENT_KEYS_TABLE: str = 'content_restriction_keys'
+RESTRICTED_CONTENT_KEYS_TABLE: str = 'restricted_content_keys'
 
 class ContentKeyStatus(Enum):
     # flake8: noqa=E221
@@ -42,7 +42,7 @@ class ContentKeyStatus(Enum):
 
 class ContentKey:
     '''
-    Manage keys in the 'content_restriction_keys' table and/or
+    Manage keys in the 'restricted_content_keys' table and/or
     under the /opt/byoda/keys directory
     '''
 

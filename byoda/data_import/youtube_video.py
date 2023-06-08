@@ -13,6 +13,7 @@ import subprocess
 
 from enum import Enum
 from uuid import UUID, uuid4
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from dateutil import parser as dateutil_parser
 
@@ -82,6 +83,10 @@ TARGET_AUDIO_STREAMS = {
 }
 
 
+@dataclass
+class Annotation:
+    value: str
+    key: str | None = None
 
 class YouTubeThumbnailSize(Enum):
     # flake8: noqa=E221
@@ -257,8 +262,8 @@ class YouTubeFormat:
 class YouTubeThumbnail:
     def __init__(self, size: str, data: dict):
         self.url: str = data.get('url')
-        self.width: int = data.get('width')
-        self.height: int = data.get('height')
+        self.width: int = data.get('width', 0)
+        self.height: int = data.get('height', 0)
         self.preference: int = data.get('preference')
         self.id: str = data.get('id')
 
@@ -284,6 +289,7 @@ class YouTubeThumbnail:
             'url': self.url,
             'width': self.width,
             'height': self.height,
+            'preference': self.preference,
             'size': self.size
         }
 
@@ -308,6 +314,8 @@ class YouTubeVideoChapter:
 class YouTubeVideo:
     VIDEO_URL: str = 'https://www.youtube.com/watch?v={video_id}'
     DATASTORE_CLASS_NAME: str = 'public_assets'
+    DATASTORE_CLASS_NAME_THUMBNAILS: str = 'public_video_thumbnails'
+    DATASTORE_CLASS_NAME_CHAPTERS: str = 'public_video_chapters'
     DATASTORE_FIELD_MAPPINGS: dict[str, str] = {
         'video_id': 'publisher_asset_id',
         'title': 'title',
@@ -321,7 +329,7 @@ class YouTubeVideo:
         'asset_id': 'asset_id',
         'locale': 'locale',
         'publisher': 'publisher',
-        'ingest_status': 'encoding_status',
+        'ingest_status': 'ingest_status',
     }
 
     def __init__(self):
@@ -509,8 +517,8 @@ class YouTubeVideo:
             if self.video_id in already_ingested_videos:
                 update = True
                 ingested_video: str = already_ingested_videos[self.video_id]
-                current_status: str = ingested_video['encoding_status']
-                if current_status == IngestStatus.DONE.value:
+                current_status: str = ingested_video['ingest_status']
+                if current_status == IngestStatus.PUBLISHED.value:
                     return False
 
             tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
@@ -536,7 +544,7 @@ class YouTubeVideo:
                 member_id=member.member_id, service_id=member.service_id,
                 asset_id=self.asset_id, filename='video.mpd'
             )
-            self.ingest_status = IngestStatus.DONE.value
+            self.ingest_status = IngestStatus.PUBLISHED.value
         else:
             self.ingest_status = IngestStatus.EXTERNAL.value
 
@@ -547,9 +555,6 @@ class YouTubeVideo:
                 asset[mapping] = value
 
 
-        asset['thumbnails']: list[str] = [
-            str(thumbnail) for thumbnail in self.thumbnails.values()
-        ]
 
         if update:
             data_filter = DataFilterSet(
@@ -561,9 +566,44 @@ class YouTubeVideo:
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME,
                 data_filter_set=data_filter
             )
+            asset_filter = DataFilterSet({'asset_id': {'eq': self.asset_id}})
+            await data_store.delete(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
+                data_filter_set=asset_filter
+            )
+            await data_store.delete(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
+                data_filter_set=asset_filter
+            )
 
-        await data_store.append(member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset)
+        await data_store.append(
+            member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
+        )
+        for thumbnail in self.thumbnails.values():
+            data: dict = thumbnail.as_dict()
+            data.update(
+                {
+                    'thumbnail_id': uuid4(),
+                    'video_id': self.asset_id
+                }
+            )
+            await data_store.append(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
+                data
 
+            )
+        for chapter in self.chapters:
+            data: dict = chapter.as_dict()
+            data.update(
+                {
+                    'thumbnail_id': uuid4(),
+                    'video_id': self.asset_id
+                }
+            )
+            await data_store.append(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
+                data
+            )
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
         return not update

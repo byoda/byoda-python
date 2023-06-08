@@ -386,7 +386,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await client.close_async()
 
-
 async def perform_append(member_id: UUID, relation: str) -> object:
     await asyncio.sleep(1)
     url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'

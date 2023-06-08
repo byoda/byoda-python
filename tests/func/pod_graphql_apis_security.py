@@ -97,7 +97,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        pass
+        await GraphQlClient.close_all()
 
     async def test_graphql_addressbook_tls_cert(self):
         url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
