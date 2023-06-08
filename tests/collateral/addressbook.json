@@ -994,7 +994,7 @@
                         }
                     },
                     "chapters": {
-                        "description": "chapters in format start_time:end_time:title",
+                        "description": "DEPRECATED, replaced with public_video_chapters",
                         "type": "array",
                         "items": {
                             "type": "string"

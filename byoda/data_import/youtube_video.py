@@ -601,7 +601,7 @@ class YouTubeVideo:
                 }
             )
             await data_store.append(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
                 data
             )
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
