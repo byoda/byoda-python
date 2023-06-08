@@ -361,7 +361,7 @@ class Account:
         member = Member(service_id, self, member_id=member_id)
 
         local_service_contract = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        if not config.debug:
+        if local_service_contract and not config.debug:
             raise ValueError(
                 'LOCAL_SERVICE_CONTRACT is set but config.debug is not set'
             )
