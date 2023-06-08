@@ -97,17 +97,9 @@ class YouTubeChannel:
                 )
             }
             async with aiohttp.ClientSession(headers=headers) as session:
-                # Channel URLs with whitespace never include the '@' symbol
-                if ' ' in self.name:
-                    url = YouTubeChannel.CHANNEL_URL.format(
-                        channel_name=self.name
-                    )
-                else:
-                    # Some channels without whitespace may require the '@'
-                    # symbol, ie. the 'besmart' channel
-                    url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
-                        channel_name=self.name
-                    )
+                url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
+                    channel_name=self.name.lstrip('@')
+                ).replace(' ', '')
 
                 _LOGGER.debug(f'Scraping YouTube channel at {url}')
                 async with session.get(url) as response:
