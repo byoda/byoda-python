@@ -324,6 +324,10 @@ class Schema:
                     )
                     self.data_classes[class_name] = dataclass
                 except ByodaDataClassReferenceNotFound:
+                    _LOGGER.debug(
+                        f'Adding class {class_name} for creation '
+                        'in the next iteration'
+                    )
                     classes_todo[class_name] = class_properties
 
             classes = deepcopy(classes_todo)
