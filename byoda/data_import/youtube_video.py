@@ -581,7 +581,12 @@ class YouTubeVideo:
         )
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()
-            data.update({'video_id': self.asset_id})
+            data.update(
+                {
+                    'thumbnail_id': uuid4(),
+                    'video_id': self.asset_id
+                }
+            )
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data
@@ -589,7 +594,12 @@ class YouTubeVideo:
             )
         for chapter in self.chapters:
             data: dict = chapter.as_dict()
-            data.update({'video_id': self.asset_id})
+            data.update(
+                {
+                    'thumbnail_id': uuid4(),
+                    'video_id': self.asset_id
+                }
+            )
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data
