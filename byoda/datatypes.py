@@ -61,6 +61,7 @@ class IdType(Enum):
     MEMBER               = 'members-'
     SERVICE              = 'service-'
     APP                  = 'apps-'
+    APP_DATA             = 'app-data-'
     ANONYMOUS            = 'anonymous'
 
     @staticmethod

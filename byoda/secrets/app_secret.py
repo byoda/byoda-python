@@ -58,7 +58,7 @@ class AppSecret(Secret):
         self.ca: bool = False
         self.id_type: IdType = IdType.MEMBER
 
-    async def create_csr(self, network: str, member_id: UUID,
+    async def create_csr(self, network: str, app_id: UUID,
                          renew: bool = False) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
@@ -72,11 +72,11 @@ class AppSecret(Secret):
         a private key or cert
         '''
 
-        self.member_id = member_id
+        self.app_id = app_id
 
         # TODO: SECURITY: add constraints
         common_name = (
-            f'{member_id}.{self.id_type.value}{self.service_id}.{network}'
+            f'{app_id}.{self.id_type.value}{self.service_id}.{network}'
         )
 
         return await super().create_csr(common_name, ca=self.ca, renew=renew)

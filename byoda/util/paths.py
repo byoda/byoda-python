@@ -62,6 +62,14 @@ class Paths:
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
     SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
 
+    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{name}/'                                # noqa
+    APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-cert.pem'             # noqa
+    APP_KEY_FILE                 = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-cert.key'             # noqa
+    APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-certchain.pem'        # noqa
+    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-cert.pem'        # noqa
+    APP_DATA_KEY_FILE            = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-cert.key'        # noqa
+    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-certchain.pem'   # noqa
+
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
     MEMBER_CERT_FILE               = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-cert.pem'                  # noqa

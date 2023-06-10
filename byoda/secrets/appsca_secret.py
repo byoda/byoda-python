@@ -25,11 +25,11 @@ Network = TypeVar('Network')
 
 class AppsCaSecret(CaSecret):
     # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=180)
 
     # CSRs that we are willing to sign
-    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365}
+    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
 
     def __init__(self,  service_id: int, network: Network):
         '''
