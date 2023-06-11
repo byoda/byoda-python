@@ -31,6 +31,7 @@ from byoda.datatypes import AuthSource
 
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.appsca_secret import AppsCaSecret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
@@ -520,6 +521,44 @@ class RequestAuth:
                 detail=(
                     f'Incorrect c_cn {self.client_cn} issued by '
                     f'{self.issuing_ca_cn} for service {self.service_id} on '
+                    f'network {network.name}'
+                )
+            ) from exc
+
+    def check_app_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the M-TLS client certificate was signed using the cert chain
+        for apps of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Member cert gets signed by Service Member CA
+            apps_ca_secret = AppsCaSecret(
+                service_id, network=network
+            )
+            entity_id = apps_ca_secret.review_commonname(self.client_cn)
+            self.member_id = entity_id.id
+            self.id = self.member_id
+            self.service_id = entity_id.service_id
+
+            # The Member CA cert gets signed by the Service CA
+            service_ca_secret = ServiceCaSecret(service_id, network=network)
+            service_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
                     f'network {network.name}'
                 )
             ) from exc

@@ -53,12 +53,11 @@ router = APIRouter(
 )
 
 
-@router.post('/member', response_model=SignedMemberCertResponseModel,
+@router.post('/register', response_model=SignedMemberCertResponseModel,
              status_code=201)
-async def post_member(request: Request, csr: CertSigningRequestModel,
-                      auth: MemberRequestAuthOptionalFast =
-                      Depends(MemberRequestAuthOptionalFast)
-                      ):
+async def post_app(request: Request, csr: CertSigningRequestModel,
+                   auth: AppRequestAuthOptionalFast =
+                   Depends(AppRequestAuthOptionalFast)):
     '''
     Submit a Certificate Signing Request for the Member certificate
     and get the cert signed by the Service Members CA
@@ -67,7 +66,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'POST Member API called from {request.client.host}')
+    _LOGGER.debug(f'POST App API called from {request.client.host}')
 
     await auth.authenticate()
 
@@ -167,17 +166,17 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     }
 
 
-@router.put('/member/version/{schema_version}',
+@router.put('/app',
             response_model=IpAddressResponseModel)
-async def put_member(request: Request, schema_version: int,
-                     certchain: CertChainRequestModel,
-                     auth: MemberRequestAuthFast = Depends(
-                        MemberRequestAuthFast)):
+async def put_app(request: Request,
+                  certchain: CertChainRequestModel,
+                  auth: AppRequestAuthFast = Depends(
+                      AppRequestAuthFast)):
     '''
-    Registers a known pod with its IP address and its data cert
+    Registers a known app with its IP address and its data cert
     '''
 
-    _LOGGER.debug(f'PUT Member API called from {request.client.host}')
+    _LOGGER.debug(f'PUT App API called from {request.client.host}')
 
     await auth.authenticate()
 
@@ -197,9 +196,9 @@ async def put_member(request: Request, schema_version: int,
     # We use a trick here to make sure we get unique filenames for the
     # member data secret by replacing the service_id in the template
     # with the member_id
-    member_data_secret = Secret(
+    app_data_secret = Secret(
         cert_file=paths.get(
-            Paths.MEMBER_DATA_CERT_FILE, service_id=auth.member_id
+            Paths.APP_DATA_CERT_FILE, service_id=auth.member_id
         ),
         key_file=paths.get(
             Paths.MEMBER_DATA_KEY_FILE, service_id=auth.member_id
@@ -208,17 +207,11 @@ async def put_member(request: Request, schema_version: int,
     )
     # from_string() concats the cert and the certchain together
     # so we can use it here with just providing the certchain parameter
-    member_data_secret.from_string(certchain.certchain)
-    await member_data_secret.save(overwrite=True)
-
-    config.server.member_db.add_meta(
-        auth.member_id, auth.remote_addr, schema_version, certchain.certchain,
-        MemberStatus.REGISTERED
-    )
+    app_data_secret.from_string(certchain.certchain)
+    await app_data_secret.save(overwrite=True)
 
     _LOGGER.debug(
-        f'Updating registration for member_id {auth.member_id} with '
-        f'schema version {schema_version} and '
+        f'Updating registration for app_id {auth.app_id} with '
         f'remote address {auth.remote_addr}'
     )
     return {

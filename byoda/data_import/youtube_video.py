@@ -433,15 +433,22 @@ class YouTubeVideo:
             video.published_time: datetime = dateutil_parser.parse(
                 video_info['upload_date']
             )
-            video.channel_creator = video_info.get('channel', video.channel_creator)
+            video.channel_creator = video_info.get(
+                'channel', video.channel_creator
+            )
             video.channel_id = video_info.get('channel_id')
 
             for thumbnail in video_info.get('thumbnails') or []:
                 thumbnail = YouTubeThumbnail(None, thumbnail)
-                if thumbnail.size:
+                if thumbnail.size and thumbnail.url:
                     # We only want to store thumbnails for which
-                    # we know the size
+                    # we know the size and have a URL
                     video.thumbnails[thumbnail.size] = thumbnail
+                else:
+                    _LOGGER.debug(
+                        f'Not importing thumbnail without size '
+                        f'({thumbnail.size}) or URL ({thumbnail.url})'
+                    )
 
             for chapter in video_info.get('chapters') or []:
                 chapter = YouTubeVideoChapter(chapter)
