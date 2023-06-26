@@ -66,7 +66,7 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'POST App API called from {request.client.host}')
+    _LOGGER.debug(f'POST App register API called from {request.client.host}')
 
     await auth.authenticate()
 
@@ -104,29 +104,26 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
                 )
             )
 
-        if entity_id.id_type != IdType.MEMBER:
+        if entity_id.id_type != IdType.APP:
             raise HTTPException(
                 status_code=403,
-                detail='A TLS cert of a member must be used with this API'
+                detail='A TLS cert of an app must be used with this API'
             )
 
-        _LOGGER.debug(f'Signing csr for existing member {entity_id.id}')
+        _LOGGER.debug(f'Signing csr for existing app {entity_id.id}')
     else:
-        # TODO: security: consider tracking member UUIDs to avoid
-        # race condition between CSR signature and member registration
-        # with the Directory server
         ips = server.dns_resolver.resolve(common_name)
         if ips:
             _LOGGER.debug(
-                'Attempt to submit CSR for existing member without '
+                'Attempt to submit CSR for existing app without '
                 'authentication'
             )
             raise HTTPException(
                 status_code=401, detail=(
-                    'Must use TLS client cert when renewing a member cert'
+                    'Must use TLS client cert when renewing an app cert'
                 )
             )
-        _LOGGER.debug(f'Signing csr for new member {entity_id.id}')
+        _LOGGER.debug(f'Signing csr for new app {entity_id.id}')
     # End of Authorization
 
     if entity_id.service_id is None:
@@ -139,11 +136,11 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
             404, f'Incorrect service_id in common name {common_name}'
         )
 
-    # The Network Services CA signs the CSRs for Service CAs
-    certstore = CertStore(service.members_ca)
+    # The App CA signs the CSRs for Apps
+    certstore = CertStore(service.apps_ca)
 
     certchain = certstore.sign(
-        csr.csr, IdType.MEMBER, request.client.host
+        csr.csr, IdType.APP, request.client.host
     )
 
     # Get the certs as strings so we can return them
@@ -154,11 +151,6 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.info(f'Signed certificate with commonname {common_name}')
 
-    config.server.member_db.add_meta(
-        entity_id.id, request.client.host, None, cert_chain,
-        MemberStatus.SIGNED
-    )
-
     return {
         'signed_cert': signed_cert,
         'cert_chain': cert_chain,
@@ -166,7 +158,7 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     }
 
 
-@router.put('/app',
+@router.put('/register',
             response_model=IpAddressResponseModel)
 async def put_app(request: Request,
                   certchain: CertChainRequestModel,
@@ -198,10 +190,10 @@ async def put_app(request: Request,
     # with the member_id
     app_data_secret = Secret(
         cert_file=paths.get(
-            Paths.APP_DATA_CERT_FILE, service_id=auth.member_id
+            Paths.APP_DATA_CERT_FILE, service_id=auth.app_id
         ),
         key_file=paths.get(
-            Paths.MEMBER_DATA_KEY_FILE, service_id=auth.member_id
+            Paths.MEMBER_DATA_KEY_FILE, service_id=auth.app_id
         ),
         storage_driver=network.paths.storage_driver
     )
