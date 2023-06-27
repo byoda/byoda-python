@@ -52,21 +52,20 @@ def setup_api(title: str, description: str, version: str,
     return app
 
 
-def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True):
+def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True,
+             debug: bool = False):
     '''
     Add CORS headers to the app
     '''
 
     network: Network = config.server.network
 
-    # SECURITY: remove below 2 lines when in production
-    cors_origins.append('https://byoda-pod-manger.web.app')
-    cors_origins.append('https://addressbook.byoda.org')
-    cors_origins.append('*')
-
-    proxy_url = f'https://proxy.{network.name}'
-    if allow_proxy and proxy_url not in cors_origins:
-        cors_origins.append(proxy_url)
+    if debug:
+        cors_origins = ['*']
+    else:
+        proxy_url = f'https://proxy.{network.name}'
+        if allow_proxy and proxy_url not in cors_origins:
+            cors_origins.append(proxy_url)
 
     _LOGGER.debug(
         f'Adding CORS middleware for origins {", ".join(cors_origins)}'
@@ -78,4 +77,6 @@ def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True):
         allow_credentials=True,
         allow_methods=['*'],
         allow_headers=['*'],
+        expose_headers=['*'],
+        max_age=86400,
     )

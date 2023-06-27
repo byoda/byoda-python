@@ -22,7 +22,6 @@ from fastapi import HTTPException
 from cryptography import x509
 
 from byoda.datatypes import IdType
-from byoda.datatypes import MemberStatus
 from byoda.datatypes import AuthSource
 
 from byoda.datamodel.network import Network

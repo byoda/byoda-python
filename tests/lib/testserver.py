@@ -244,4 +244,4 @@ async def setup():
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
 
     _LOGGER.debug('Going to add CORS Origins')
-    add_cors(app, cors_origins)
+    add_cors(app, cors_origins, allow_proxy=True, debug=True)
