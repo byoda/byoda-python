@@ -203,7 +203,7 @@ server {
         proxy_set_header Authorization '';
 
 {% endif %}
-        auth_request /api/v1/pod/content/asset;
+        # auth_request /api/v1/pod/content/asset;
         set $original_url $uri;
         set $original_args $args;
 
