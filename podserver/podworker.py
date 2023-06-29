@@ -46,13 +46,13 @@ from byoda import config
 
 from podserver.util import get_environment_vars
 
-from .podworker.datastore_maintenance import \
+from podworker.datastore_maintenance import \
     backup_datastore, database_maintenance
 
-from .podworker.twitter import fetch_tweets
-from .podworker.twitter import twitter_update_task
+from podworker.twitter import fetch_tweets
+from podworker.twitter import twitter_update_task
 
-from .podworker.youtube import youtube_update_task
+from podworker.youtube import youtube_update_task
 
 
 _LOGGER = None
