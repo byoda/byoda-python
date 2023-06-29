@@ -203,9 +203,10 @@ server {
         proxy_set_header Authorization '';
 
 {% endif %}
+        # Disable auth on content_token for now
         # auth_request /api/v1/pod/content/asset;
-        set $original_url $uri;
-        set $original_args $args;
+        # set $original_url $uri;
+        # set $original_args $args;
 
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;

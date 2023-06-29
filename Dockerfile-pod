@@ -69,7 +69,8 @@ RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
     /etc/nginx/ssl \
-    /var/cache/nginx/{proxy_temp,objectstorage} \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/objectstorage \
     /var/www/wwwroot/logs \
     byoda-python
 

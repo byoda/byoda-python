@@ -107,8 +107,8 @@ class Paths:
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
 
     # Content download URLs
-    RESTRICTED_ASSET_POD_URL  = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'                                      # noqa
-    RESTRICTED_ASSET_CDN_URL  = 'https://cdn.byoda.io/restricted/{asset_id}/{filename}?service_id={service_id}&member_id={member_id}&asset_id={asset_id}'  # noqa
+    RESTRICTED_ASSET_POD_URL  = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa
+    RESTRICTED_ASSET_CDN_URL  = 'https://cdn.byoda.io/restricted/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,
