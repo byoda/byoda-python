@@ -295,6 +295,7 @@ class YouTubeThumbnail:
 
 class YouTubeVideoChapter:
     def __init__(self, chapter_info: dict[str, float | str]):
+        self.chapter_id = uuid4()
         self.start_time: float = chapter_info.get('start_time')
         self.end_time: float = chapter_info.get('end_time')
         self.title: str = chapter_info.get('title')
@@ -305,6 +306,7 @@ class YouTubeVideoChapter:
         '''
 
         return {
+            'chapter_id': self.chapter_id,
             'start_time': self.start_time,
             'end_time': self.end_time,
             'title': self.title

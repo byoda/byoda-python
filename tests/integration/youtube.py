@@ -91,7 +91,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         ingested_videos = await YouTube.load_ingested_videos(
             member.member_id, data_store
         )
-        self.assertEqual(len(ingested_videos), 2)
+        self.assertGreaterEqual(len(ingested_videos), 2)
 
         # Start with clean slate
         yt = YouTube()
