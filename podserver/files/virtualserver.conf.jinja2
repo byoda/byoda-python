@@ -205,7 +205,7 @@ server {
 {% endif %}
         # Disable auth on content_token for now
         # auth_request /api/v1/pod/content/asset;
-        # set $original_url $uri;
+        set $original_url $uri;
         set $original_args $args;
 
 {% if cloud == 'Azure' %}

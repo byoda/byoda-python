@@ -371,8 +371,8 @@ class YouTubeVideo:
                         f'({thumbnail.size}) or URL ({thumbnail.url})'
                     )
 
-            for chapter in video_info.get('chapters') or []:
-                chapter = YouTubeVideoChapter(chapter)
+            for chapter_data in video_info.get('chapters') or []:
+                chapter = YouTubeVideoChapter(chapter_data)
                 video.chapters.append(chapter)
 
             for format_data in video_info.get('formats') or []:
