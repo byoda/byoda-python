@@ -72,8 +72,9 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         data_store: DataStore = server.data_store
         storage_driver: FileStorage = server.storage_driver
 
-        # os.environ[YouTube.ENVIRON_CHANNEL] = 'Dathes:ALL'
-        os.environ[YouTube.ENVIRON_CHANNEL] = 'History Matters'
+        channel: str = 'Dathes'
+        os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
+        # os.environ[YouTube.ENVIRON_CHANNEL] = 'History Matters'
 
         yt = YouTube()
         ingested_videos = await YouTube.load_ingested_videos(
@@ -82,7 +83,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(ingested_videos), 0)
 
         await yt.get_videos(ingested_videos)
-        self.assertGreater(len(yt.channels['History Matters'].videos), 1)
+        self.assertGreater(len(yt.channels[channel].videos), 1)
 
         await yt.persist_videos(
             member, data_store, storage_driver, ingested_videos

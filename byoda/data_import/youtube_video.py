@@ -480,7 +480,8 @@ class YouTubeVideo:
             data: dict = thumbnail.as_dict()
             data['video_id'] = self.asset_id
             if ingest_asset:
-                thumbnail.ingest()
+                _LOGGER.debug('Starting ingest of thumbnails')
+                await thumbnail.ingest(self.asset_id, storage_driver)
                 data['url'] = thumbnail.url
 
             await data_store.append(
@@ -571,7 +572,7 @@ class YouTubeVideo:
             if current_status == IngestStatus.PUBLISHED.value:
                 return False
 
-        tmp_dir = self._get_tempdir(storage_driver.local_path)
+        tmp_dir = self._get_tempdir(storage_driver)
 
         self.download(
             TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
@@ -604,10 +605,10 @@ class YouTubeVideo:
         tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
 
         os.makedirs(tmp_dir, exist_ok=True)
-        return tmp_dir()
+        return tmp_dir
 
     def _delete_tempdir(self, storage_driver: FileStorage) -> None:
-        tmp_dir = self.get_tempdir(storage_driver)
+        tmp_dir = self._get_tempdir(storage_driver)
         shutil.rmtree(tmp_dir)
 
     def filter_encoding_profiles(

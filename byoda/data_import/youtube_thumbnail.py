@@ -9,12 +9,13 @@ Model a thumbnail of a Youtube video
 import os
 import logging
 
-
 from enum import Enum
 from uuid import uuid4
 from uuid import UUID
 from tempfile import SpooledTemporaryFile
 from urllib.parse import urlparse, ParseResult
+
+import orjson
 
 from aiohttp import ClientSession as HttpClientSession
 
@@ -74,13 +75,14 @@ class YouTubeThumbnail:
         _LOGGER.debug(f'Downloading thumbnail {self.url}')
 
         with SpooledTemporaryFile() as file_desc:
-            async with HttpClientSession.get(self.url) as response:
-                async for chunk in response.content.iter_chunked(8192):
-                    file_desc.write(chunk)
+            async with HttpClientSession() as session:
+                async with session.get(self.url) as response:
+                    async for chunk in response.content.iter_chunked(8192):
+                        file_desc.write(chunk)
 
             file_desc.seek(0)
 
-            parsed_url = urlparse(self.url)
+            parsed_url: ParseResult = urlparse(self.url)
             filename = os.path.basename(parsed_url.path)
             filepath = f'{video_id}/{filename}'
 
@@ -96,6 +98,3 @@ class YouTubeThumbnail:
 
             _LOGGER.debug(f'New URL for thumbnail: {self.url}')
             return self.url
-
-
-

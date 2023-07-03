@@ -212,8 +212,8 @@ class FileStorage:
 
         return data
 
-    async def write(self, filepath: str, data: bytes, file_descriptor=None,
-                    file_mode: FileMode = FileMode.BINARY,
+    async def write(self, filepath: str, data: bytes = None,
+                    file_descriptor=None, file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes a str or bytes to the local file system
