@@ -721,7 +721,7 @@
                         "type": "string"
                     },
                     "video_id": {
-                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "description": "The asset ID of the public_asset video that this chapter belongs to",
                         "type": "string",
                         "format": "uuid",
                         "#properties": ["index"]

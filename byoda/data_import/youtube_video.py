@@ -463,7 +463,7 @@ class YouTubeVideo:
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME,
                 data_filter_set=data_filter
             )
-            asset_filter = DataFilterSet({'asset_id': {'eq': self.asset_id}})
+            asset_filter = DataFilterSet({'video_id': {'eq': self.asset_id}})
             await data_store.delete(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data_filter_set=asset_filter

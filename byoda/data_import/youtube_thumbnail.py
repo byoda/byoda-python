@@ -25,6 +25,9 @@ from byoda.storage.filestorage import FileStorage
 
 _LOGGER = logging.getLogger(__name__)
 
+MAX_SPOOLED_FILE: int = 1024 * 1024
+CHUNK_SIZE: int = 64 * 1024
+
 class YouTubeThumbnailSize(Enum):
     # flake8: noqa=E221
     DEFAULT         = 'default'
@@ -74,10 +77,11 @@ class YouTubeThumbnail:
 
         _LOGGER.debug(f'Downloading thumbnail {self.url}')
 
-        with SpooledTemporaryFile() as file_desc:
+        with SpooledTemporaryFile(max_size=MAX_SPOOLED_FILE) as file_desc:
             async with HttpClientSession() as session:
                 async with session.get(self.url) as response:
-                    async for chunk in response.content.iter_chunked(8192):
+                    async for chunk in response.content.iter_chunked(
+                            CHUNK_SIZE):
                         file_desc.write(chunk)
 
             file_desc.seek(0)
