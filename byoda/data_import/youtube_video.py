@@ -176,11 +176,11 @@ class YouTubeFormat:
         format.ext = data.get('ext')
         format.protocol = data.get('protocol')
         format.audio_codec = data.get('acodec')
-        if format.audio_codec.lower() == 'none':
+        if format.audio_codec and format.audio_codec.lower() == 'none':
             format.audio_codec = None
 
         format.video_codec = data.get('vcodec')
-        if format.video_codec.lower() == 'none':
+        if format.video_codec and format.video_codec.lower() == 'none':
             format.video_codec = None
 
         format.container = data.get('container')
