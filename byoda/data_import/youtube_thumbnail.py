@@ -63,6 +63,7 @@ class YouTubeThumbnail:
         '''
 
         return {
+            'thumbnail_id': self.thumbnail_id,
             'url': self.url,
             'width': self.width,
             'height': self.height,
