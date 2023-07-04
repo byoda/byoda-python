@@ -15,13 +15,15 @@ from uuid import UUID
 from tempfile import SpooledTemporaryFile
 from urllib.parse import urlparse, ParseResult
 
-import orjson
-
 from aiohttp import ClientSession as HttpClientSession
+
+from byoda.datamodel.member import Member
+
+from byoda.storage.filestorage import FileStorage
 
 from byoda.datatypes import StorageType
 
-from byoda.storage.filestorage import FileStorage
+from byoda.util.paths import Paths
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +73,8 @@ class YouTubeThumbnail:
             'size': self.size
         }
 
-    async def ingest(self, video_id: UUID, storage_driver: FileStorage) -> str:
+    async def ingest(self, video_id: UUID, storage_driver: FileStorage, member: Member
+                     ) -> str:
         '''
         Downloads the thumbnail to the local file system
         '''
@@ -97,8 +100,9 @@ class YouTubeThumbnail:
                 storage_type=StorageType.PUBLIC
             )
 
-            self.url = storage_driver.get_url(
-                filepath, storage_type=StorageType.PUBLIC
+            self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
+                service_id=member.service_id, member_id=member.member_id,
+                asset_id=video_id, filename=filename
             )
 
             _LOGGER.debug(f'New URL for thumbnail: {self.url}')

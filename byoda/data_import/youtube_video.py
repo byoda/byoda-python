@@ -481,7 +481,7 @@ class YouTubeVideo:
             data['video_id'] = self.asset_id
             if ingest_asset:
                 _LOGGER.debug('Starting ingest of thumbnails')
-                await thumbnail.ingest(self.asset_id, storage_driver)
+                await thumbnail.ingest(self.asset_id, storage_driver, member)
                 data['url'] = thumbnail.url
 
             await data_store.append(
