@@ -149,7 +149,7 @@ async def run_daemon_tasks(server: PodServer):
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
-        interval: int = int(os.environ.get("BACKUP_INTERVAL", 240))
+        interval: int = int(os.environ.get("BACKUP_INTERVAL", 240) or 240)
         every(interval).minutes.do(backup_datastore, server)
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
@@ -160,7 +160,9 @@ async def run_daemon_tasks(server: PodServer):
         every(180).seconds.do(twitter_update_task, server)
 
     if YouTube.youtube_integration_enabled():
-        interval: int = int(os.environ.get('YOUTUBE_IMPORT_INTERVAL', 240))
+        interval: int = int(
+            os.environ.get('YOUTUBE_IMPORT_INTERVAL', 240) or 240
+        )
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )

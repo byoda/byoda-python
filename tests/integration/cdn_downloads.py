@@ -18,7 +18,6 @@ import sys
 import unittest
 
 from uuid import uuid4, UUID
-
 import requests
 
 from byoda.util.logger import Logger
@@ -199,14 +198,10 @@ def get_token(url: str, asset_id: UUID, cloud: str) -> tuple[int, str]:
         'token': 'placeholder'
     }
 
-    try:
-        result = requests.get(
-            url, params=query_params,
-            verify='tests/collateral/network-byoda.net-root-ca-cert.pem'
-        )
-    except urllib3.exceptions.ConnectionTimeoutError:
-        if cloud != 'local':
-            raise
+    result = requests.get(
+        url, params=query_params,
+        verify='tests/collateral/network-byoda.net-root-ca-cert.pem'
+    )
 
     data = result.json()
     key_id: int = data.get('key_id')

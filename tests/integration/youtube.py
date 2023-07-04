@@ -12,17 +12,23 @@ import sys
 import shutil
 import unittest
 
+from datetime import datetime, timezone
+
 from byoda.datamodel.account import Account
+
+from byoda.datatypes import IngestStatus
 
 from byoda.datastore.data_store import DataStore
 
+from byoda.data_import.youtube import YouTube
+
 from byoda.storage.filestorage import FileStorage
 
-from byoda.data_import.youtube import YouTube
+from byoda.util.api_client.api_client import ApiClient
+
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.api_client.api_client import ApiClient
 
 from byoda.util.logger import Logger
 
@@ -82,8 +88,16 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(ingested_videos), 0)
 
+        ingested_videos = {
+            '2BqKA3DOilk': {
+                'ingest_status': IngestStatus.PUBLISHED.value
+            },
+            'OD08BC26QaM': {
+                'ingest_status': IngestStatus.EXTERNAL.value
+            },
+        }
         await yt.get_videos(ingested_videos)
-        self.assertGreater(len(yt.channels[channel].videos), 1)
+        self.assertGreaterEqual(len(yt.channels[channel].videos), 1)
 
         await yt.persist_videos(
             member, data_store, storage_driver, ingested_videos
@@ -119,21 +133,35 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_CHANNEL] = 'Dathes'
         yt = YouTube()
 
-        ingested_videos = await YouTube.load_ingested_videos(
+        already_ingested_videos = await YouTube.load_ingested_videos(
             member.member_id, data_store
         )
-        self.assertEqual(len(ingested_videos), 0)
+        self.assertEqual(len(already_ingested_videos), 0)
 
-        await yt.get_videos(ingested_videos)
+        already_ingested_videos = {
+            '2BqKA3DOilk': {
+                'ingest_status': IngestStatus.PUBLISHED.value,
+                'published_timestamp': datetime.now(timezone.utc)
+            },
+            'OD08BC26QaM': {
+                'ingest_status': IngestStatus.EXTERNAL.value,
+                'published_timestamp': datetime.now(timezone.utc)
+            },
+        }
+
+        await yt.get_videos(already_ingested_videos)
 
         await yt.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, data_store, storage_driver, already_ingested_videos
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
             member.member_id, data_store
         )
-        self.assertEqual(len(ingested_videos), 2)
+
+        # We are not ingesting A/V tracks in this test so only
+        # expect 1 ingested video
+        self.assertEqual(len(ingested_videos), 1)
 
         # Start with clean slate
         yt = YouTube()
@@ -141,7 +169,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
 
         await yt.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, data_store, storage_driver, already_ingested_videos
         )
 
 

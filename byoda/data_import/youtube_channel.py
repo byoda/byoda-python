@@ -152,56 +152,82 @@ class YouTubeChannel:
                     self.find_videos(
                         item, already_ingested_videos, ingest_videos
                     )
-        elif isinstance(data, dict):
-            video_id = data.get('videoId')
-            if not video_id:
-                for value in data.values():
-                    if type(value) in (dict, list):
-                        self.find_videos(
-                            value, already_ingested_videos, self.ingest_videos
-                        )
 
+        if not isinstance(data, dict):
+            return
+
+        video_id = data.get('videoId')
+
+        if not video_id:
+            for value in data.values():
+                if type(value) in (dict, list):
+                    self.find_videos(
+                        value, already_ingested_videos, self.ingest_videos
+                    )
+
+            return
+
+        _LOGGER.debug(f'Processing video {video_id}')
+
+        # We scrape if either:
+        # 1: We haven't processed the video before
+        # 2: We have already ingested the asset with ingest_status
+        # 'external' and we now want to ingest the AV streams for the
+        # channel
+        status = IngestStatus.NONE.value
+
+        if video_id in already_ingested_videos:
+            if not ingest_videos:
+                _LOGGER.debug(
+                    f'Skipping video {video_id} as it is already '
+                    'ingested and we are not importing AV streams'
+                )
                 return
 
-            # We scrape if either:
-            # 1: We haven't processed the video before
-            # 2: We have already ingested the asset with ingest_status
-            # 'external' and we now want to ingest the AV streams for the
-            # channel
-            status = IngestStatus.NONE.value
-
-            if video_id in already_ingested_videos:
-                if not ingest_videos:
-                    _LOGGER.debug(
-                        f'Skipping video {video_id} as it is already '
-                        'ingested and we are not importing AV streams'
+            try:
+                status = IngestStatus(
+                    already_ingested_videos[video_id].get(
+                        'ingest_status'
                     )
-                    return
+                )
+            except ValueError:
+                status = IngestStatus.NONE
 
-                try:
-                    status = IngestStatus(
-                        already_ingested_videos[video_id].get(
-                            'ingest_status'
-                        )
-                    )
-                except ValueError:
-                    status = IngestStatus.NONE.value
+            if status == IngestStatus.EXTERNAL and not ingest_videos:
+                _LOGGER.debug(
+                    f'We already ingested {video_id} with status {status}, '
+                    'we are not ingesting videos so skipping this video'
+                )
+                return
+            elif status == IngestStatus.PUBLISHED:
+                _LOGGER.debug(
+                    f'Skipping video {video_id} that we already ingested '
+                    'earlier in this run'
+                )
+                return
 
-                if status == IngestStatus.EXTERNAL.value and not ingest_videos:
-                    _LOGGER.debug(
-                        f'AV streams for {video_id} already ingested with '
-                        f'status {status}, skipping'
-                    )
-                    return
-            else:
-                if ingest_videos:
-                    status = IngestStatus.NONE.value
+            _LOGGER.debug(
+                f'Ingesting AV streams for already ingested video {video_id} '
+                f'with ingest status {status}'
+            )
+        else:
+            if ingest_videos:
+                status = IngestStatus.NONE
 
-            video = YouTubeVideo.scrape(video_id)
+        video = YouTubeVideo.scrape(video_id)
 
-            if video:
-                video.ingest_status = status
-                self.videos[video_id] = video
+        if video:
+            # Video IDs may appear multiple times in scraped data
+            # so we set the ingest status for the class instance
+            # AND for the dict of already ingested videos
+            video.ingest_status = IngestStatus.PUBLISHED.value
+
+            if video_id not in already_ingested_videos:
+                already_ingested_videos[video_id] = {}
+            already_ingested_videos[video_id]['ingest_status'] = \
+                video.ingest_status
+
+            self.videos[video_id] = video
 
     def get_channel_id(self):
         '''
@@ -225,7 +251,7 @@ class YouTubeChannel:
 
         self.channel_id = response['items'][0]['id']['channelId']
 
-    async def import_videos(self, already_imported_videos: dict[str, str],
+    async def import_videos(self, already_ingested_videos: dict[str, str],
                             max_api_requests: int = 1000):
         '''
         Imports the videos from the YouTube data API. It processes the newest
@@ -253,11 +279,11 @@ class YouTubeChannel:
             1970, 1, 1, tzinfo=timezone.utc
         )
 
-        if already_imported_videos:
+        if already_ingested_videos:
             published_timestamp = max(
                 [
                     asset['published_timestamp']
-                    for asset in already_imported_videos.values()
+                    for asset in already_ingested_videos.values()
                 ]
             )
             published_timestamp += timedelta(seconds=1)
@@ -279,7 +305,7 @@ class YouTubeChannel:
                 return
 
             await self._import_video_data(
-                response.get('items', []), already_imported_videos
+                response.get('items', []), already_ingested_videos
             )
 
             page_token: str = response.get('nextPageToken')
@@ -288,11 +314,11 @@ class YouTubeChannel:
                 break
 
         # 2: get videos older than what we already have
-        if already_imported_videos:
+        if already_ingested_videos:
             published_timestamp = min(
                 [
                     asset['published_timestamp']
-                    for asset in already_imported_videos.values()
+                    for asset in already_ingested_videos.values()
                 ]
             ) - timedelta(seconds=1)
             page_token: str | None = None
@@ -311,7 +337,9 @@ class YouTubeChannel:
                 if not response:
                     return
 
-                await self._import_video_data(response.get('items', []), {})
+                await self._import_video_data(
+                    response.get('items', []), already_ingested_videos
+                )
 
                 page_token: str = response.get('nextPageToken')
                 if not page_token:
@@ -343,9 +371,15 @@ class YouTubeChannel:
             published_at: datetime = \
                 YouTubeVideo.get_publish_datetime_from_api(video_data)
 
+            if video_id in already_ingested_videos:
+                ingest_status = already_ingested_videos[video_id].get(
+                    'ingest_status'
+                )
+            else:
+                ingest_status = 'none'
+
             if (video_id in already_ingested_videos and (
-                    not self.ingest_videos or
-                    already_ingested_videos[video_id] != 'external')):
+                    not self.ingest_videos or ingest_status != 'external')):
                 continue
 
             video: YouTubeVideo = YouTubeVideo.scrape(video_id)
