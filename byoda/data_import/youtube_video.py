@@ -424,14 +424,13 @@ class YouTubeVideo:
         :param ingest_status: the new ingest state
         '''
 
+        if isinstance(ingest_status, str):
+            ingest_status = IngestStatus(ingest_status)
+
         _LOGGER.debug(
             f'Video {self.video_id} transitioned from {self.ingest_status} '
             f'to {ingest_status}'
         )
-
-        if isinstance(ingest_status, str):
-            ingest_status = IngestStatus(ingest_status)
-
         self.ingest_status = ingest_status.value
 
     async def persist(self, member: Member, data_store: DataStore,

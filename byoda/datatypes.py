@@ -284,6 +284,7 @@ class IngestStatus(Enum):
     PACKAGING       = 'packaging'
     UPLOADING       = 'uploading'
     INGESTED        = 'ingested'
+    QUEUED_START    = 'queued_start'
 
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):

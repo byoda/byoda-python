@@ -223,7 +223,7 @@ class YouTubeChannel:
             # Video IDs may appear multiple times in scraped data
             # so we set the ingest status for the class instance
             # AND for the dict of already ingested videos
-            video.ingest_status = IngestStatus.STARTING.value
+            video._transition_state(IngestStatus.QUEUED_START)
 
             if video_id not in already_ingested_videos:
                 already_ingested_videos[video_id] = {}

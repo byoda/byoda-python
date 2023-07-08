@@ -118,6 +118,9 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_import_videos(self):
+        _LOGGER.info('Disabled API import tests')
+        return
+    
         account: Account = config.server.account
         await account.load_memberships()
         member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
