@@ -143,11 +143,11 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         already_ingested_videos = {
             '2BqKA3DOilk': {
-                'ingest_status': IngestStatus.PUBLISHED.value,
+                'ingest_status': IngestStatus.PUBLISHED,
                 'published_timestamp': datetime.now(timezone.utc)
             },
             'OD08BC26QaM': {
-                'ingest_status': IngestStatus.EXTERNAL.value,
+                'ingest_status': IngestStatus.EXTERNAL,
                 'published_timestamp': datetime.now(timezone.utc)
             },
         }
