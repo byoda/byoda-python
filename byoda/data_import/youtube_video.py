@@ -417,7 +417,7 @@ class YouTubeVideo:
 
         return published_at
 
-    def _transition_state(self, ingest_status: IngestStatus):
+    def _transition_state(self, ingest_status: IngestStatus | str):
         '''
         Transition the ingest state of the video
 
@@ -428,6 +428,10 @@ class YouTubeVideo:
             f'Video {self.video_id} transitioned from {self.ingest_status} '
             f'to {ingest_status}'
         )
+
+        if isinstance(ingest_status, str):
+            ingest_status = IngestStatus(ingest_status)
+
         self.ingest_status = ingest_status.value
 
     async def persist(self, member: Member, data_store: DataStore,
@@ -468,9 +472,9 @@ class YouTubeVideo:
                     f'Ingesting asset for YouTube video {self.video_id} failed'
                 )
                 raise
-            self._transition_state(IngestStatus.INGESTED.value)
+            self._transition_state(IngestStatus.INGESTED)
         else:
-            self._transition_state(IngestStatus.EXTERNAL.value)
+            self._transition_state(IngestStatus.EXTERNAL)
 
         asset = {}
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
@@ -521,7 +525,7 @@ class YouTubeVideo:
             )
 
         if self.ingest_status != IngestStatus.EXTERNAL.value:
-            self._transition_state(IngestStatus.PUBLISHED.value)
+            self._transition_state(IngestStatus.PUBLISHED)
 
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
@@ -545,7 +549,7 @@ class YouTubeVideo:
 
         os.makedirs(work_dir, exist_ok=True)
 
-        self._transition_state(IngestStatus.DOWNLOADING.value)
+        self._transition_state(IngestStatus.DOWNLOADING)
 
         ydl_opts = {
             'quiet': True,
