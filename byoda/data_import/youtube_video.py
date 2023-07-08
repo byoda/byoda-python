@@ -417,18 +417,18 @@ class YouTubeVideo:
 
         return published_at
 
-    def _transition_state(self, ingest_state: IngestStatus):
+    def _transition_state(self, ingest_status: IngestStatus):
         '''
         Transition the ingest state of the video
 
-        :param ingest_state: the new ingest state
+        :param ingest_status: the new ingest state
         '''
 
         _LOGGER.debug(
-            f'Video {self.video_id} transitioned from {self.ingest_state} '
-            f'to {ingest_state}'
+            f'Video {self.video_id} transitioned from {self.ingest_status} '
+            f'to {ingest_status}'
         )
-        self.ingest_state = ingest_state.value
+        self.ingest_status = ingest_status.value
 
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
