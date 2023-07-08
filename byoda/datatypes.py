@@ -279,7 +279,11 @@ class IngestStatus(Enum):
     ENCODING        = 'encoding'
     DONE            = 'done'
     PUBLISHED       = 'published'
-
+    STARTING        = 'starting'
+    DOWNLOADING     = 'downloading'
+    PACKAGING       = 'packaging'
+    UPLOADING       = 'uploading'
+    INGESTED        = 'ingested'
 
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):

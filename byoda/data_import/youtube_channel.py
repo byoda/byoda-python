@@ -63,13 +63,20 @@ class YouTubeChannel:
 
         # The strategy here is simple: we try to store all videos. persist()
         # first checks whether the video is already in the data store and only
-        # adds it if it is not.
+        # adds it if it is not. If the asset exists and has ingest status
+        # 'external' and this channel is configured to download AV tracks
+        # then the existing asset will be updated
         for video in self.videos.values():
-            await video.persist(
-                member, data_store, storage_driver,
-                self.ingest_videos, already_ingested_videos,
-                bento4_directory
-            )
+            try:
+                await video.persist(
+                    member, data_store, storage_driver,
+                    self.ingest_videos, already_ingested_videos,
+                    bento4_directory
+                )
+            except ValueError:
+                _LOGGER.exception(
+                    'Could not persist video %s', video.video_id
+                )
 
     async def scrape(self, already_ingested_videos: dict[str, dict] = {},
                      filename: str = None) -> None:
@@ -177,13 +184,6 @@ class YouTubeChannel:
         status = IngestStatus.NONE.value
 
         if video_id in already_ingested_videos:
-            if not ingest_videos:
-                _LOGGER.debug(
-                    f'Skipping video {video_id} as it is already '
-                    'ingested and we are not importing AV streams'
-                )
-                return
-
             try:
                 status = IngestStatus(
                     already_ingested_videos[video_id].get(
@@ -193,10 +193,10 @@ class YouTubeChannel:
             except ValueError:
                 status = IngestStatus.NONE
 
-            if status == IngestStatus.EXTERNAL and not ingest_videos:
+            if not ingest_videos and status == IngestStatus.EXTERNAL:
                 _LOGGER.debug(
-                    f'We already ingested {video_id} with status {status}, '
-                    'we are not ingesting videos so skipping this video'
+                    f'Skipping video {video_id} as it is already '
+                    'ingested and we are not importing AV streams'
                 )
                 return
             elif status == IngestStatus.PUBLISHED:
@@ -207,7 +207,7 @@ class YouTubeChannel:
                 return
 
             _LOGGER.debug(
-                f'Ingesting AV streams for already ingested video {video_id} '
+                f'Ingesting AV streams video {video_id} '
                 f'with ingest status {status}'
             )
         else:
@@ -220,7 +220,7 @@ class YouTubeChannel:
             # Video IDs may appear multiple times in scraped data
             # so we set the ingest status for the class instance
             # AND for the dict of already ingested videos
-            video.ingest_status = IngestStatus.PUBLISHED.value
+            video.ingest_status = IngestStatus.STARTING.value
 
             if video_id not in already_ingested_videos:
                 already_ingested_videos[video_id] = {}

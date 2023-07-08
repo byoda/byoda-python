@@ -442,10 +442,17 @@ class YouTubeVideo:
 
         update: bool = False
         if ingest_asset:
-            update = await self._ingest_av_tracks(
-                member, storage_driver, already_ingested_videos,
-                bento4_directory
-            )
+            try:
+                update = await self._ingest_av_tracks(
+                    member, storage_driver, already_ingested_videos,
+                    bento4_directory
+                )
+            except ValueError:
+                _LOGGER.exception(
+                    f'Ingesting asset for YouTube video {self.video_id} failed'
+                )
+                raise
+            self.ingest_status = IngestStatus.INGESTED.value
         else:
             self.ingest_status = IngestStatus.EXTERNAL.value
 
@@ -496,6 +503,10 @@ class YouTubeVideo:
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
                 data
             )
+
+        if self.ingest_status != IngestStatus.EXTERNAL.value:
+            self.ingest_status = IngestStatus.PUBLISHED.value
+
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
         return not update
@@ -517,6 +528,8 @@ class YouTubeVideo:
             work_dir = f'/tmp/{self.video_id}'
 
         os.makedirs(work_dir, exist_ok=True)
+
+        self.ingest_status = IngestStatus.DOWNLOADING.value
 
         ydl_opts = {
             'quiet': True,
@@ -562,22 +575,61 @@ class YouTubeVideo:
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :returns: True if the video was updated, False if it was created
+        :raises: ValueError if the ingest status of the video is invalid
         '''
 
+        _LOGGER.debug(f'Ingesting AV for video {self.video_id}')
         update: bool = False
         if self.video_id in already_ingested_videos:
-            update = True
             ingested_video: str = already_ingested_videos[self.video_id]
-            current_status: str = ingested_video['ingest_status']
-            if current_status == IngestStatus.PUBLISHED.value:
+            try:
+                current_status: str = IngestStatus(
+                    ingested_video['ingest_status']
+                )
+            except ValueError:
+                _LOGGER.warning(
+                    f'Video {self.video_id} has an invalid ingest status '
+                    f'{ingested_video["ingest_status"]}, skipping ingest'
+                )
+                raise
+
+            if current_status == IngestStatus.PUBLISHED:
                 return False
+
+            if current_status == IngestStatus.EXTERNAL:
+                update = True
 
         tmp_dir = self._get_tempdir(storage_driver)
 
         self.download(
             TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
         )
+
         pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
+
+        self.ingest_status = IngestStatus.PACKAGING.value
+
+        self.upload(pkg_dir, storage_driver)
+
+        self._delete_tempdir(storage_driver)
+
+        self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
+            member_id=member.member_id, service_id=member.service_id,
+            asset_id=self.asset_id, filename='video.mpd'
+        )
+
+        return update
+
+    def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
+        '''
+        Uploads the packaged video to the object storage
+
+        :param pkg_dir: directory where the packaged video is located
+        :param storage_driver: the storage driver to upload the video with
+        :param asset_id: the ID of the asset
+        '''
+
+        self.ingest_status = IngestStatus.UPLOADING.value
 
         for filename in os.listdir(pkg_dir):
             source = f'{pkg_dir}/{filename}'
@@ -586,20 +638,10 @@ class YouTubeVideo:
                 f'Copying {source} to {dest} on RESTRICTED storage'
             )
 
-            await storage_driver.copy(
+            storage_driver.copy(
                 source, dest, storage_type=StorageType.RESTRICTED,
                 exist_ok=True
             )
-
-        self._delete_tempdir(storage_driver)
-
-        self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
-            member_id=member.member_id, service_id=member.service_id,
-            asset_id=self.asset_id, filename='video.mpd'
-        )
-        self.ingest_status = IngestStatus.PUBLISHED.value
-
-        return update
 
     def _get_tempdir(self, storage_driver: FileStorage) -> str:
         tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
@@ -665,6 +707,8 @@ class YouTubeVideo:
             f'Packaging MPEG-DASH and HLS manifests for asset {self.video_id}'
             f'for files: {", ".join(file_names)}'
         )
+
+        self.ingest_status = IngestStatus.PACKAGING.value
 
         result = subprocess.run(
             [
