@@ -456,6 +456,9 @@ class YouTubeVideo:
         update: bool = False
         if ingest_asset:
             try:
+                _LOGGER.debug(
+                    f'Ingesting AV tracks for video {self.video_id}'
+                )
                 update = await self._ingest_av_tracks(
                     member, storage_driver, already_ingested_videos,
                     bento4_directory

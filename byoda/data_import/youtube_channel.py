@@ -67,6 +67,9 @@ class YouTubeChannel:
         # 'external' and this channel is configured to download AV tracks
         # then the existing asset will be updated
         for video in self.videos.values():
+            _LOGGER.debug(
+                'Persisting video {video.video.id} for channel {self.name}'
+            )
             try:
                 await video.persist(
                     member, data_store, storage_driver,
