@@ -11,6 +11,7 @@ import shutil
 import logging
 import subprocess
 
+from enum import Enum
 from uuid import UUID, uuid4
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -281,7 +282,7 @@ class YouTubeVideo:
         # Data for the Byoda table with assets
         self.publisher = 'YouTube'
         self.asset_type: str = 'video'
-        self.ingest_status: str = IngestStatus.NONE.value
+        self.ingest_status: IngestStatus = IngestStatus.NONE
 
         # This is the default profile. If we ingest the asset from
         # YouTube then this will be overwritten with info about the
@@ -431,7 +432,7 @@ class YouTubeVideo:
             f'Video {self.video_id} transitioned from {self.ingest_status} '
             f'to {ingest_status}'
         )
-        self.ingest_status = ingest_status.value
+        self.ingest_status = ingest_status
 
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
@@ -479,7 +480,10 @@ class YouTubeVideo:
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
             value = getattr(self, field)
             if value:
-                asset[mapping] = value
+                if isinstance(value, Enum):
+                    asset[mapping] = value.value
+                else:
+                    asset[mapping] = value
 
         if update:
             data_filter = DataFilterSet(
@@ -523,7 +527,7 @@ class YouTubeVideo:
                 data
             )
 
-        if self.ingest_status != IngestStatus.EXTERNAL.value:
+        if self.ingest_status != IngestStatus.EXTERNAL:
             self._transition_state(IngestStatus.PUBLISHED)
 
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
@@ -600,11 +604,13 @@ class YouTubeVideo:
         _LOGGER.debug(f'Ingesting AV for video {self.video_id}')
         update: bool = False
         if self.video_id in already_ingested_videos:
-            ingested_video: str = already_ingested_videos[self.video_id]
+            ingested_video: dict = already_ingested_videos[self.video_id]
             try:
-                current_status: str = IngestStatus(
+                current_status: str | IngestStatus = \
                     ingested_video['ingest_status']
-                )
+
+                if isinstance(current_status, str):
+                    current_status = IngestStatus(current_status)
             except ValueError:
                 _LOGGER.warning(
                     f'Video {self.video_id} has an invalid ingest status '
@@ -646,7 +652,7 @@ class YouTubeVideo:
         :param asset_id: the ID of the asset
         '''
 
-        self.ingest_status = IngestStatus.UPLOADING.value
+        self._transition_state(IngestStatus.UPLOADING)
 
         for filename in os.listdir(pkg_dir):
             source = f'{pkg_dir}/{filename}'

@@ -184,15 +184,15 @@ class YouTubeChannel:
         # 2: We have already ingested the asset with ingest_status
         # 'external' and we now want to ingest the AV streams for the
         # channel
-        status = IngestStatus.NONE.value
+        status = IngestStatus.NONE
 
         if video_id in already_ingested_videos:
             try:
-                status = IngestStatus(
-                    already_ingested_videos[video_id].get(
+                status = already_ingested_videos[video_id].get(
                         'ingest_status'
                     )
-                )
+                if isinstance(status, str):
+                    status = IngestStatus(status)
             except ValueError:
                 status = IngestStatus.NONE
 
@@ -378,8 +378,10 @@ class YouTubeChannel:
                 ingest_status = already_ingested_videos[video_id].get(
                     'ingest_status'
                 )
+                if isinstance(ingest_status, str):
+                    ingest_status = IngestStatus(ingest_status)
             else:
-                ingest_status = 'none'
+                ingest_status = IngestStatus.NONE
 
             if (video_id in already_ingested_videos and (
                     not self.ingest_videos or ingest_status != 'external')):
