@@ -829,7 +829,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(public_asset['public_video_chapters']), 1)
         self.assertEqual(
-            public_asset['public_video_chapters'][0]['title'], 'some chapter title'
+            public_asset['public_video_chapters'][0]['title'],
+            'some chapter title'
         )
 
         # Confirm that there is a claim for the asset
