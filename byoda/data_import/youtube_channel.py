@@ -68,7 +68,7 @@ class YouTubeChannel:
         # then the existing asset will be updated
         for video in self.videos.values():
             _LOGGER.debug(
-                'Persisting video {video.video.id} for channel {self.name}'
+                f'Persisting video {video.video.id} for channel {self.name}'
             )
             try:
                 await video.persist(

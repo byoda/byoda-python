@@ -472,7 +472,10 @@ class YouTubeVideo:
                     f'Ingesting asset for YouTube video {self.video_id} failed'
                 )
                 raise
-            self._transition_state(IngestStatus.INGESTED)
+
+            # We now set state to PUBLISHED because we can need that value
+            # to be written to the database
+            self._transition_state(IngestStatus.PUBLISHED)
         else:
             self._transition_state(IngestStatus.EXTERNAL)
 
@@ -526,9 +529,6 @@ class YouTubeVideo:
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
                 data
             )
-
-        if self.ingest_status != IngestStatus.EXTERNAL:
-            self._transition_state(IngestStatus.PUBLISHED)
 
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
