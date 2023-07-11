@@ -632,7 +632,7 @@ class YouTubeVideo:
 
         pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
 
-        self.upload(pkg_dir, storage_driver)
+        await self.upload(pkg_dir, storage_driver)
 
         self._delete_tempdir(storage_driver)
 
@@ -643,7 +643,7 @@ class YouTubeVideo:
 
         return update
 
-    def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
+    async def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
         '''
         Uploads the packaged video to the object storage
 
@@ -661,7 +661,7 @@ class YouTubeVideo:
                 f'Copying {source} to {dest} on RESTRICTED storage'
             )
 
-            storage_driver.copy(
+            await storage_driver.copy(
                 source, dest, storage_type=StorageType.RESTRICTED,
                 exist_ok=True
             )
