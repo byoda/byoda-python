@@ -707,6 +707,11 @@ class YouTubeVideo:
                     'replacement'
                 )
 
+        _LOGGER.debug(
+            f'Tracks selected to ingest for video {self.video_id}: '
+            f'{", ".join(included_profiles)}'
+        )
+
         return included_profiles
 
     def package_streams(self, work_dir: str, bento4_dir: str = BENTO4_DIR
