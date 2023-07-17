@@ -51,7 +51,7 @@ ORIGNAL_URL_HEADER = 'original-url'
 @router.get('/asset')
 async def get_asset(request: Request, service_id: int = None,
                     member_id: UUID = None,
-                    asset_id: UUID = None, key_id: int = None):
+                    asset_id: UUID = None):
 
     '''
     This is an internal API called by a sub-request in nginx. It is
@@ -60,17 +60,32 @@ async def get_asset(request: Request, service_id: int = None,
 
     _LOGGER.debug(
         f'Received request for token check, service_id={service_id}, '
-        f'key_id={key_id}, member_id={member_id}, asset_id={asset_id}, '
+        f'member_id={member_id}, asset_id={asset_id}, '
+        f'key_id={request.headers.get("X-Authorizationkeyid")}, '
         f'token={request.headers.get("Authorization")}'
     )
 
-    if not service_id or not member_id or not asset_id or not key_id:
+    if not service_id or not member_id or not asset_id:
         _LOGGER.debug('Missing query parameters')
         raise HTTPException(
             403, 'Must specify service_id, member_id, asset_id, and key_id'
         )
 
     token: str = request.headers.get('Authorization')
+    key_id: str = request.headers.get('X-Authorizationkeyid')
+
+    if not key_id:
+        _LOGGER.debug('No Key ID provided in X-Authorizationkeyid header')
+        raise HTTPException(403, 'No key_id provided')
+
+    try:
+        key_id = int(key_id)
+    except ValueError:
+        _LOGGER.debug(
+            f'Key ID {key_id} provided in X-Authorizationkeyid header is '
+            'not an integer'
+        )
+        raise HTTPException(403, 'key_id is not an integer')
 
     if not token:
         _LOGGER.debug('No token provided in Authorization header')
@@ -79,23 +94,6 @@ async def get_asset(request: Request, service_id: int = None,
     if token.startswith('Bearer ') or token.startswith('bearer '):
         token = token[7:]
         _LOGGER.debug(f'Extracted token: {token}')
-
-    # Original URL header is set by nginx when it performs the sub-request
-    # to authenticate the request
-    original_url: str = request.headers.get(ORIGNAL_URL_HEADER)
-    parsed_url: ParseResult = urlparse(original_url)
-    if not parsed_url.path:
-        _LOGGER.debug(f'Missing asset_id in URL: {original_url}')
-        raise HTTPException(403, f'Missing asset_id in URL: {original_url}')
-
-    # Here we check that the requested file is under a folder with as
-    # name the asset_id. This is to prevent that a user can request
-    # all restricted content with just one content token.
-    # sample url path: /restricted/<asset_id>/<filename>
-    path_elems = parsed_url.path.split('/')
-    if not path_elems or str(asset_id) != path_elems[2]:
-        _LOGGER.debug(f'Invalid asset_id in URL: {original_url}')
-        raise HTTPException(403, f'Invalid asset_id in URL: {original_url}')
 
     server: PodServer = config.server
     account: Account = server.account
