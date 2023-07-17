@@ -204,7 +204,7 @@ server {
         proxy_set_header X-AuthorizationKeyId '';
 
 {% endif %}
-        auth_request /api/v1/pod/content/asset?service_id=${arg_service_id}&member_id=${arg_member_id}&asset_id=${arg_asset_id};
+        auth_request /api/v1/pod/content/asset?service_id=${service_id}&member_id=${member_id}&asset_id=${asset_id};
 
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
