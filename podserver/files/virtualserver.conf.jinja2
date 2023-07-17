@@ -164,7 +164,7 @@ server {
             #
             # Custom headers and headers various browsers *should* be OK with but aren't
             #
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId';
             #
             # Tell client that this pre-flight info is valid for 20 days
             #
@@ -176,14 +176,14 @@ server {
         if ($request_method = 'POST') {
             add_header 'Access-Control-Allow-Origin' '*' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
+            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
         }
         if ($request_method = 'GET') {
             add_header 'Access-Control-Allow-Origin' '*' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
+            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
         }
     }
 
@@ -201,6 +201,7 @@ server {
 
         # Avoid object storage thinking we want authenticated access
         proxy_set_header Authorization '';
+        proxy_set_header X-AuthorizationKeyId '';
 
 {% endif %}
         # Disable auth on content_token for now
@@ -243,7 +244,7 @@ server {
             #
             # Custom headers and headers various browsers *should* be OK with but aren't
             #
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId';
             #
             # Tell client that this pre-flight info is valid for 20 days
             #
@@ -255,14 +256,14 @@ server {
         if ($request_method = 'POST') {
             add_header 'Access-Control-Allow-Origin' '*' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Rang,Authorizatione' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Rang,Authorization,X-AuthorizationKeyId' always;
+            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
         }
         if ($request_method = 'GET') {
             add_header 'Access-Control-Allow-Origin' '*' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
+            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
         }
     }
 
