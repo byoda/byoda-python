@@ -150,21 +150,20 @@ class TestWebServer(unittest.TestCase):
                             f'for cloud {cloud}: url={url}'
                         )
                         response = requests.get(url, verify=ssl_root)
-                        # Disabled while content_token is disabled
-                        # self.assertEqual(response.status_code, 403)
-                        self.assertEqual(response.status_code, 200)
+                        self.assertEqual(response.status_code, 403)
 
                         asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
                         key_id, token = get_token(url, asset_id, cloud)
                         response = requests.get(
                             url, verify=ssl_root,
-                            headers={'Authorization': f'Bearer {token}'},
+                            headers={
+                                'Authorization': f'Bearer {token}',
+                                'X-Authorizationkeyid': str(key_id)
+                            },
                             params={
-                                'key_id': key_id,
                                 'service_id': ADDRESSBOOK_SERVICE_ID,
                                 'asset_id': str(asset_id),
                                 'member_id': MEMBER_IDS[cloud],
-
                             }
                         )
                         self.assertEqual(response.status_code, 200)
