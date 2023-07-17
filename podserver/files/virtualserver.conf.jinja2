@@ -204,10 +204,7 @@ server {
         proxy_set_header X-AuthorizationKeyId '';
 
 {% endif %}
-        # Disable auth on content_token for now
-        # auth_request /api/v1/pod/content/asset;
-        set $original_url $uri;
-        set $original_args $args;
+        auth_request /api/v1/pod/content/asset;
 
 {% if cloud == 'Azure' %}
         proxy_set_header x-ms-version 2021-12-02;
@@ -269,8 +266,7 @@ server {
 
     location /api/v1/pod/content/asset {
         internal;
-        proxy_set_header Original-URL $original_url;
-        proxy_pass http://127.0.0.1:8000/api/v1/pod/content/asset?$original_args;
+        proxy_pass http://127.0.0.1:8000/api/v1/pod/content/asset?${args};
     }
 
 }
