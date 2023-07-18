@@ -374,8 +374,6 @@ class Query:
                 _LOGGER.debug('Done: len(edges): {len(edges)}, first: {first}')
                 break
 
-            _LOGGER.debug('Reached last line of "for" loop')
-
         has_next_page = False
         if total_skipped + len(edges) < len(data):
             _LOGGER.debug('Setting next page to True')

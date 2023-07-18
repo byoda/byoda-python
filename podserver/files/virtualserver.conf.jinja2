@@ -191,7 +191,7 @@ server {
 {% if cloud == 'LOCAL' %}
         root {{ root_dir }};
 {% else %}
-        proxy_pass {{ restricted_cloud_endpoint }}/${asset_id}/${filename};
+        proxy_pass {{ restricted_cloud_endpoint }}${asset_id}/${filename};
         proxy_cache byoda;
 
         # https://nginx.org/en/docs/http/ngx_http_slice_module.html
