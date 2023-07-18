@@ -67,11 +67,11 @@ URLS: dict[str, dict[str, str]] = {
             'public': 'https://byoda-public.s3.us-east-2.amazonaws.com/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-member': {
-            'restricted': f'https://{AWS_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AWS_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AWS_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{AWS_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AWS_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AWS_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
@@ -85,11 +85,11 @@ URLS: dict[str, dict[str, str]] = {
             'public': 'https://storage.googleapis.com/byoda-public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-member': {
-            'restricted': f'https://{GCP_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{GCP_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{GCP_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{GCP_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{GCP_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{GCP_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
@@ -99,11 +99,11 @@ URLS: dict[str, dict[str, str]] = {
     },
     'local': {
         'pod-member': {
-            'restricted': f'https://{HOME_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{HOME_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{HOME_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{HOME_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{HOME_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{HOME_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
