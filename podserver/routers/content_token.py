@@ -50,8 +50,8 @@ ORIGNAL_URL_HEADER = 'original-url'
 
 @router.get('/asset')
 async def get_asset(request: Request, service_id: int = None,
-                    member_id: UUID = None,
-                    asset_id: UUID = None):
+                    member_id: UUID = None, asset_id: UUID = None,
+                    token: str = None, key_id: int = None):
 
     '''
     This is an internal API called by a sub-request in nginx. It is
@@ -61,8 +61,7 @@ async def get_asset(request: Request, service_id: int = None,
     _LOGGER.debug(
         f'Received request for token check, service_id={service_id}, '
         f'member_id={member_id}, asset_id={asset_id}, '
-        f'key_id={request.headers.get("X-Authorizationkeyid")}, '
-        f'token={request.headers.get("Authorization")}'
+        f'key_id={key_id}, token={token}'
     )
 
     if not service_id or not member_id or not asset_id:
@@ -71,21 +70,9 @@ async def get_asset(request: Request, service_id: int = None,
             403, 'Must specify service_id, member_id, asset_id, and key_id'
         )
 
-    token: str = request.headers.get('Authorization')
-    key_id: str = request.headers.get('X-Authorizationkeyid')
-
-    if not key_id:
+    if key_id is None:
         _LOGGER.debug('No Key ID provided in X-Authorizationkeyid header')
         raise HTTPException(403, 'No key_id provided')
-
-    try:
-        key_id = int(key_id)
-    except ValueError:
-        _LOGGER.debug(
-            f'Key ID {key_id} provided in X-Authorizationkeyid header is '
-            'not an integer'
-        )
-        raise HTTPException(403, 'key_id is not an integer')
 
     if not token:
         _LOGGER.debug('No token provided in Authorization header')
