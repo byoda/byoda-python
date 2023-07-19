@@ -97,6 +97,9 @@ class Secret:
 
         self.common_name: str = None
         self.service_id: str | None = None
+        # Subject Alternative Name, usually same as common name
+        # except for App Data certs
+        self.san: str = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -179,7 +182,7 @@ class Secret:
         :raises: (none)
         '''
 
-        subject = issuer = self._get_cert_name()
+        subject = issuer = self._generate_cert_name()
 
         if expire:
             if isinstance(expire, int):
@@ -222,8 +225,9 @@ class Secret:
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-    async def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
-                         ca: bool = False, renew: bool = False) -> CSR:
+    async def create_csr(self, common_name: str, san: str = None,
+                         key_size: int = _RSA_KEYSIZE, ca: bool = False,
+                         renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
@@ -244,10 +248,14 @@ class Secret:
 
         # TODO: SECURITY: add constraints
         self.common_name = common_name
+        if san:
+            self.san = san
+        else:
+            self.san = self.common_name
 
         _LOGGER.debug(
             f'Generating a private key with key size {key_size} '
-            f'and commonname {common_name}'
+            f'and commonname {self.common_name}'
         )
 
         if renew:
@@ -261,21 +269,19 @@ class Secret:
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
         csr = x509.CertificateSigningRequestBuilder().subject_name(
-            self._get_cert_name()
+            self._generate_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=self.max_path_length
             ), critical=True,
         ).add_extension(
-            x509.SubjectAlternativeName(
-                [x509.DNSName(self.common_name)]
-            ),
-            critical=False
+            x509.SubjectAlternativeName([x509.DNSName(self.san)]),
+            critical=True
         ).sign(self.private_key, hashes.SHA256())
 
         return csr
 
-    def _get_cert_name(self):
+    def _generate_cert_name(self):
         '''
         Generate an X509.Name instance for a cert
 

@@ -25,18 +25,18 @@ Network = TypeVar('Network')
 
 class AppsCaSecret(CaSecret):
     # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=90)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=180)
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=1080)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=1800)
 
     # CSRs that we are willing to sign
     ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
 
     def __init__(self,  service_id: int, network: Network):
         '''
-        Class for the Service Apps CA secret. Either paths or network
-        parameters must be provided. If paths parameter is not provided,
-        the cert_file and private_key_file attributes of the instance must
-        be set before the save() or load() apps are called
+        Class for the Apps CA secret. Either paths or network parameters must
+        be provided. If paths parameter is not provided, the cert_file and
+        private_key_file attributes of the instance must be set before the
+        save() or load() apps are called
 
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified

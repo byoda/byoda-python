@@ -100,9 +100,6 @@ class CaSecret(Secret):
         :raises: ValueError, NotImplementedError, PermissionError
         '''
 
-        if not self.ca:
-            raise NotImplementedError('Only CAs need to review CNs')
-
         if not self.private_key_file:
             raise ValueError('CSR received while we do not have a private key')
 
