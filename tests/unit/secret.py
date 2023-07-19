@@ -38,6 +38,7 @@ from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -278,6 +279,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         new_claim.verify_signature(asset_data, data_secret)
         self.assertTrue(new_claim.verified)
 
+        app_data_secret = AppDataSecret.create_csr()
     async def test_message_signature(self):
         # Test creation of the CA hierarchy
         network = await Network.create(NETWORK, TEST_DIR, 'byoda')

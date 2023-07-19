@@ -99,7 +99,7 @@ class Secret:
         self.service_id: str | None = None
         # Subject Alternative Name, usually same as common name
         # except for App Data certs
-        self.san: str = None
+        self.sans: list[str] = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -225,7 +225,7 @@ class Secret:
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-    async def create_csr(self, common_name: str, san: str = None,
+    async def create_csr(self, common_name: str, sans: str | list[str] = [],
                          key_size: int = _RSA_KEYSIZE, ca: bool = False,
                          renew: bool = False) -> CSR:
         '''
@@ -248,10 +248,14 @@ class Secret:
 
         # TODO: SECURITY: add constraints
         self.common_name = common_name
-        if san:
-            self.san = san
-        else:
-            self.san = self.common_name
+        self.sans = [common_name]
+        if sans:
+            if isinstance(sans, list):
+                self.sans.extend(sans)
+            elif isinstance(sans, str):
+                self.sans.append(sans)
+            else:
+                raise ValueError('sans parameter must be a list or str')
 
         _LOGGER.debug(
             f'Generating a private key with key size {key_size} '
@@ -268,16 +272,20 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
-        csr = x509.CertificateSigningRequestBuilder().subject_name(
+        csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
             self._generate_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=self.max_path_length
             ), critical=True,
-        ).add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(self.san)]),
-            critical=True
-        ).sign(self.private_key, hashes.SHA256())
+        )
+        for san in self.sans:
+            csr_builder = csr_builder.add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(san)]),
+                critical=True
+            )
+
+        csr = csr_builder.sign(self.private_key, hashes.SHA256())
 
         return csr
 
