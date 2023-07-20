@@ -25,11 +25,14 @@ Network = TypeVar('Network')
 
 
 class AppDataSecret(DataSecret):
-    def __init__(self, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network, fqdn: str):
         '''
         Class for the app-data secret. This secret is used to sign
         data such as claims
 
+        :param service_id: identifier for the service
+        :param network: network instance
+        :param fqdn: the FQDN of the website for the app
         :raises: (none)
         '''
 
@@ -37,24 +40,22 @@ class AppDataSecret(DataSecret):
         self.paths.service_id: int = int(service_id)
 
         super().__init__(
-            cert_file=self.paths.get(Paths.APP_DATA_CERT_FILE),
-            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE),
+            cert_file=self.paths.get(Paths.APP_DATA_CERTCHAIN_FILE, fqdn=fqdn),
+            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE, fqdn=fqdn),
             storage_driver=self.paths.storage_driver
         )
 
         self.service_id: int = int(service_id)
         self.network: str = self.paths.network
         self.id_type: IdType = IdType.APP_DATA
+        self.fqdn: str = fqdn
 
-        self.accepted_csrs: dict[IdType, int] = ()
-
-    async def create_csr(self, app_id: UUID, service_id: int = None,
-                         renew: bool = False) -> CertificateSigningRequest:
+    async def create_csr(self, app_id: UUID, renew: bool = False
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 
         :param app_id: identifier for the app
-        :param service_id: identifier for the service
         :param renew: should any existing private key be used to
         renew an existing certificate
         :returns: csr
@@ -62,14 +63,13 @@ class AppDataSecret(DataSecret):
         a private key or cert
         '''
 
-        if service_id:
-            self.service_id = int(service_id)
-
+        self.app_id: UUID = app_id
         # TODO: SECURITY: add constraints
         common_name = (
             f'{app_id}.{self.id_type.value}{self.service_id}.{self.network}'
         )
 
         return await super().create_csr(
-            common_name, key_size=4096, ca=self.ca, renew=renew
+            common_name, sans=[self.fqdn], key_size=4096, ca=self.ca,
+            renew=renew
         )

@@ -97,6 +97,8 @@ class Secret:
 
         self.common_name: str = None
         self.service_id: str | None = None
+        self.id_type: IdType = None
+
         # Subject Alternative Name, usually same as common name
         # except for App Data certs
         self.sans: list[str] = None
@@ -116,6 +118,8 @@ class Secret:
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
         self.max_path_length: int = None
+
+        self.accepted_csrs: dict[IdType, int] = ()
 
     async def create(self, common_name: str, issuing_ca: CaSecret = None,
                      expire: int = None, key_size: int = _RSA_KEYSIZE,
@@ -272,18 +276,20 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
+        san_names = []
+        for san in self.sans:
+            san_names.append(x509.DNSName(san))
+
         csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
             self._generate_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=self.max_path_length
             ), critical=True,
+        ).add_extension(
+            x509.SubjectAlternativeName(san_names),
+            critical=True
         )
-        for san in self.sans:
-            csr_builder = csr_builder.add_extension(
-                x509.SubjectAlternativeName([x509.DNSName(san)]),
-                critical=True
-            )
 
         csr = csr_builder.sign(self.private_key, hashes.SHA256())
 

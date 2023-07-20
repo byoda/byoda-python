@@ -137,7 +137,8 @@ class CaSecret(Secret):
 
         return common_name
 
-    def review_subjectalternative_name(self, csr) -> str:
+    def review_subjectalternative_name(self, csr, max_dns_names: int = 1
+                                       ) -> str:
         '''
         Extracts the subject alternative name extension of the CSR
         '''
@@ -147,10 +148,13 @@ class CaSecret(Secret):
         )
         dnsnames = extention.value.get_values_for_type(x509.DNSName)
 
-        if len(dnsnames) != 1:
+        if not dnsnames:
+            raise ValueError('CSR can not have no DNS names')
+
+        if len(dnsnames) > max_dns_names:
             raise ValueError(
-                f'Only 1 DNS name allow for SubjectAlternativeName, '
-                f'found: {", ".join(dnsnames)}'
+                f'Only {max_dns_names} DNSs name allow for '
+                f'SubjectAlternativeName, found: {", ".join(dnsnames)}'
             )
 
         return dnsnames[0]

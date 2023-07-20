@@ -62,13 +62,10 @@ class Paths:
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
     SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
 
-    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{name}/'                                # noqa
-    APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-cert.pem'             # noqa
-    APP_KEY_FILE                 = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-cert.key'             # noqa
-    APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{name}/app-{name}-certchain.pem'        # noqa
-    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-cert.pem'        # noqa
-    APP_DATA_KEY_FILE            = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-cert.key'        # noqa
-    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{name}/app-data-{name}-certchain.pem'   # noqa
+    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{fqdn}/'                                # noqa
+    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-cert.pem'        # noqa
+    APP_DATA_KEY_FILE            = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-cert.key'        # noqa
+    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-certchain.pem'   # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
@@ -140,7 +137,8 @@ class Paths:
             self.storage_driver = FileStorage(self._root_directory)
 
     def get(self, path_template: str, service_id: int = None,
-            member_id: UUID = None, account_id: UUID = None):
+            member_id: UUID = None, account_id: UUID = None,
+            fqdn: str = None) -> str:
         '''
         Gets the file/path for the specified path_type
 
@@ -168,6 +166,7 @@ class Paths:
             account=self._account,
             service_id=service_id,
             member_id=member_id,
+            fqdn=fqdn,
         )
 
         return path
