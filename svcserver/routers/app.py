@@ -25,24 +25,24 @@ from byoda.datatypes import AuthSource
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
-from byoda.datastore.certstore import CertStore
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.appsca_secret import AppsCaSecret
 
-from byoda.models import CertChainRequestModel
+from byoda.storage.filestorage import FileStorage
 from byoda.models import CertSigningRequestModel
-from byoda.models import SignedMemberCertResponseModel
-from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
 
+from byoda.servers.service_server import ServiceServer
+
 from byoda import config
 
-from ..dependencies.apprequest_auth import AppRequestAuthFast
 from ..dependencies.apprequest_auth import AppRequestAuthOptionalFast
 
 _LOGGER = logging.getLogger(__name__)
+
+MAX_CSR_LENGTH = 16384
 
 router = APIRouter(
     prefix='/api/v1/service/app',
@@ -50,8 +50,7 @@ router = APIRouter(
 )
 
 
-@router.post('/register', response_model=SignedMemberCertResponseModel,
-             status_code=201)
+@router.post('/register', status_code=201)
 async def post_app(request: Request, csr: CertSigningRequestModel,
                    auth: AppRequestAuthOptionalFast =
                    Depends(AppRequestAuthOptionalFast)):
@@ -70,6 +69,13 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     server: ServiceServer = config.server
     service: Service = server.service
     network: Network = server.network
+    paths: Paths = network.paths
+    storage_driver: FileStorage = server.storage_driver
+
+    if len(csr.csr) > MAX_CSR_LENGTH:
+        raise HTTPException(
+            status_code=401, detail='CSR too long'
+        )
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
@@ -90,6 +96,8 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
                 'CSR'
             )
         )
+
+    filepath: str = Paths.get(Paths.APP_DATA_CSR_FILE, fqdn=common_name)
 
     if auth.is_authenticated:
         if auth.auth_source != AuthSource.CERT:
@@ -117,15 +125,12 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
             )
         _LOGGER.debug(f'CSR for existing app {csr_entity_id.id}')
     else:
-        ips = server.dns_resolver.resolve(common_name)
-        if ips:
-            _LOGGER.debug(
-                'Attempt to submit CSR for existing app without '
-                'authentication'
-            )
+        if await storage_driver.exists(filepath):
             raise HTTPException(
-                status_code=401, detail=(
-                    'Must use TLS client cert when renewing an app cert'
+                status_code=403,
+                detail=(
+                    'Requests for renewal of an app data cert must use '
+                    'authentication'
                 )
             )
 
@@ -144,22 +149,6 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
 
     # We do not sign the CSR here, as this is an off-line process
     # The App CA signs the CSRs for Apps
-    certstore = CertStore(service.apps_ca)
 
-    certchain = certstore.sign(
-        csr.csr, IdType.APP, request.client.host
-    )
-
-    # Get the certs as strings so we can return them
-    signed_cert = certchain.cert_as_string()
-    cert_chain = certchain.cert_chain_as_string()
-
-    service_data_cert_chain = service.data_secret.cert_as_pem()
-
-    _LOGGER.info(f'Signed certificate with commonname {common_name}')
-
-    return {
-        'signed_cert': signed_cert,
-        'cert_chain': cert_chain,
-        'service_data_cert_chain': service_data_cert_chain,
-    }
+    storage_driver.write(filepath, csr.csr)
+    _LOGGER.info(f'Saved CSR with commonname {common_name}')
