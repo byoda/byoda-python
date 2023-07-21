@@ -75,7 +75,7 @@ async def main(argv):
     parser.add_argument('--type', '-t', type=str, default='app_data')
     parser.add_argument('--fqdn', '-f', type=str)
     parser.add_argument('--password', '-p', type=str)
-    parser.add_argument('--out_dir', '-o', type=str, default='.')
+    parser.add_argument('--out_dir', '-o', type=str, default='/tmp')
     parser.add_argument(
         '--debug', default=False, action='store_true'
     )

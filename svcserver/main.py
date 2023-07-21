@@ -29,6 +29,7 @@ from .routers import service as ServiceRouter
 from .routers import member as MemberRouter
 from .routers import search as SearchRouter
 from .routers import status as StatusRouter
+from .routers import app as AppRouter
 
 _LOGGER = None
 
@@ -39,7 +40,7 @@ with open(config_file) as file_desc:
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
     'network', 'v0.0.1', [],
-    [ServiceRouter, MemberRouter, SearchRouter, StatusRouter]
+    [ServiceRouter, MemberRouter, SearchRouter, StatusRouter, AppRouter]
 )
 
 

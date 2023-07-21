@@ -550,9 +550,9 @@ class RequestAuth:
             self.id = self.member_id
             self.service_id = entity_id.service_id
 
-            # The Member CA cert gets signed by the Service CA
-            service_ca_secret = ServiceCaSecret(service_id, network=network)
-            service_ca_secret.review_commonname(self.issuing_ca_cn)
+            # The App CA cert gets signed by the Service App CA
+            apps_ca_secret = AppsCaSecret(service_id, network=network)
+            apps_ca_secret.review_commonname(self.issuing_ca_cn)
         except ValueError as exc:
             raise HTTPException(
                 status_code=403,
