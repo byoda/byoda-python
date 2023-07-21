@@ -570,7 +570,7 @@ class Member:
         # Register with the service to get our CSR signed
         csr = await secret.create_csr()
 
-        payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+        payload = {'csr': secret.csr_as_pem(csr)}
         resp = await RestApiClient.call(
             self.paths.get(Paths.SERVICEMEMBER_API),
             HttpMethod.POST, data=payload

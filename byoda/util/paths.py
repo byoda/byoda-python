@@ -62,11 +62,11 @@ class Paths:
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
     SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
 
-    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{fqdn}/'                                 # noqa
-    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-cert.pem'         # noqa
-    APP_DATA_KEY_FILE            = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-cert.key'         # noqa
-    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-certchain.pem'    # noqa
-    APP_DATA_CSR_FILE            = 'private/network-{network}/service-{service_id}/apps/app-{fqdn}/app-data-{fqdn}-csr.pem'  # noqa
+    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{app_id}/'                                   # noqa
+    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-cert.pem'         # noqa
+    APP_DATA_KEY_FILE            = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-cert.key'         # noqa
+    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-certchain.pem'    # noqa
+    APP_DATA_CSR_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}-csr.pem'               # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
@@ -77,7 +77,7 @@ class Paths:
     MEMBER_DATA_DIR                = 'private/network-{network}/account-{account}/data/network-{network}-member-{member_id}'                                    # noqa
     MEMBER_DATA_FILE               = 'data-{service_id}-{member_id}.db'                                                                                         # noqa
     MEMBER_QUERY_CACHE_FILE        = 'querycache-{service_id}-{member_id}.db'                                                                                   # noqa
-    MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                   # noqa
+    MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                 # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
@@ -140,7 +140,7 @@ class Paths:
 
     def get(self, path_template: str, service_id: int = None,
             member_id: UUID = None, account_id: UUID = None,
-            fqdn: str = None) -> str:
+            app_id: UUID = None) -> str:
         '''
         Gets the file/path for the specified path_type
 
@@ -168,7 +168,7 @@ class Paths:
             account=self._account,
             service_id=service_id,
             member_id=member_id,
-            fqdn=fqdn,
+            app_id=app_id
         )
 
         return path

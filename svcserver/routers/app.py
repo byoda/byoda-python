@@ -69,6 +69,7 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     server: ServiceServer = config.server
     service: Service = server.service
     network: Network = server.network
+    paths = service.paths
     storage_driver: FileStorage = server.storage_driver
 
     if len(csr.csr) > MAX_CSR_LENGTH:
@@ -96,7 +97,7 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
             )
         )
 
-    filepath: str = Paths.get(Paths.APP_DATA_CSR_FILE, fqdn=common_name)
+    filepath: str = paths.get(Paths.APP_DATA_CSR_FILE, app_id=csr_entity_id.id)
 
     if auth.is_authenticated:
         if auth.auth_source != AuthSource.CERT:
@@ -115,6 +116,11 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
             )
 
         if csr_entity_id.id != auth.app_id:
+            # TODO: create and sign App TLS cert so it can be used to
+            # authenticate
+            # SECURITY: when allowing M-TLS auth, check that the app_id and
+            # the service ID are identical in the CSRs for both the
+            # app cert and the app data cert
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -147,5 +153,5 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
         )
 
     # We do not sign the CSR here, as this is an off-line process
-    storage_driver.write(filepath, csr.csr)
-    _LOGGER.info(f'Saved CSR with commonname {common_name}')
+    await storage_driver.write(filepath, csr.csr)
+    _LOGGER.info(f'Saved CSR with commonname {common_name} to {filepath}')

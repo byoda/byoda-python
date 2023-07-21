@@ -106,7 +106,7 @@ async def main(argv):
 
     secret = AppDataSecret(args.service_id, config.server.network, args.fqdn)
     csr = await secret.create_csr(args.app_id)
-    csr_pem = secret.csr_as_pem(csr).decode('utf-8')
+    csr_pem = secret.csr_as_pem(csr)
 
     _LOGGER.debug(f'Saving CSR to {csr_filepath}')
     with open(csr_filepath, 'w') as file_desc:
@@ -120,7 +120,7 @@ async def main(argv):
 
     resp = await RestApiClient.call(
         secret.paths.get(Paths.SERVICEAPP_API),
-        HttpMethod.POST, data=csr_pem
+        HttpMethod.POST, data={'csr': csr_pem}
     )
     if resp.status != 201:
         raise RuntimeError('Certificate signing request failed')

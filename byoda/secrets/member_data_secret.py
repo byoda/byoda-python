@@ -34,10 +34,11 @@ class MemberDataSecret(DataSecret):
         '''
         Class for the member-data secret. This secret is used to encrypt
         data of an member of a service.
+
         :param member_id: the UUID for the membership
         :param service_id: the service id
         :param account: the account of the member
-        :returns: ValueError if both 'paths' and 'network' parameters are
+        :raises: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''

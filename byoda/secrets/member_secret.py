@@ -30,8 +30,11 @@ class MemberSecret(Secret):
         '''
         Class for the member secret of an account for a service
 
-        :returns: (none)
-        :raises: (none)
+        :param member_id: the UUID for the membership
+        :param service_id: the service id
+        :param account: the account of the member
+        :raises: ValueError if both 'paths' and 'network' parameters are
+        specified
         '''
 
         self.member_id = None

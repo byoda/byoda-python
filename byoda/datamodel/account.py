@@ -205,7 +205,7 @@ class Account:
                 )
             else:
                 csr = await secret.create_csr(self.account_id)
-                payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+                payload = {'csr': secret.csr_as_pem(csr)}
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 _LOGGER.debug(f'Getting CSR signed from {url}')

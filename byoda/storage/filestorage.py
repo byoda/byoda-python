@@ -213,7 +213,8 @@ class FileStorage:
         return data
 
     async def write(self, filepath: str, data: bytes = None,
-                    file_descriptor=None, file_mode: FileMode = FileMode.BINARY,
+                    file_descriptor=None,
+                    file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Writes a str or bytes to the local file system
@@ -238,6 +239,8 @@ class FileStorage:
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
+
+        os.makedirs(dirpath, exist_ok=True)
 
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'w{file_mode.value}'

@@ -80,7 +80,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     common_name = Secret.extract_commonname(csr_x509)
 
     try:
-        entity_id = MembersCaSecret.review_commonname_by_parameters(
+        csr_entity_id = MembersCaSecret.review_commonname_by_parameters(
             common_name, network.name, service.service_id
         )
     except PermissionError:
@@ -105,13 +105,13 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
                 )
             )
 
-        if entity_id.id_type != IdType.MEMBER:
+        if csr_entity_id.id_type != IdType.MEMBER:
             raise HTTPException(
                 status_code=403,
                 detail='A TLS cert of a member must be used with this API'
             )
 
-        _LOGGER.debug(f'Signing csr for existing member {entity_id.id}')
+        _LOGGER.debug(f'Signing csr for existing member {csr_entity_id.id}')
     else:
         # TODO: security: consider tracking member UUIDs to avoid
         # race condition between CSR signature and member registration
@@ -127,15 +127,15 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
                     'Must use TLS client cert when renewing a member cert'
                 )
             )
-        _LOGGER.debug(f'Signing csr for new member {entity_id.id}')
+        _LOGGER.debug(f'Signing csr for new member {csr_entity_id.id}')
     # End of Authorization
 
-    if entity_id.service_id is None:
+    if csr_entity_id.service_id is None:
         raise ValueError(
             f'No service id found in common name {common_name}'
         )
 
-    if entity_id.service_id != service.service_id:
+    if csr_entity_id.service_id != service.service_id:
         raise HTTPException(
             404, f'Incorrect service_id in common name {common_name}'
         )
@@ -156,7 +156,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     _LOGGER.info(f'Signed certificate with commonname {common_name}')
 
     config.server.member_db.add_meta(
-        entity_id.id, request.client.host, None, cert_chain,
+        csr_entity_id.id, request.client.host, None, cert_chain,
         MemberStatus.SIGNED
     )
 

@@ -326,14 +326,14 @@ class Secret:
 
         return commonname
 
-    def csr_as_pem(self, csr):
+    def csr_as_pem(self, csr) -> str:
         '''
         Returns the BASE64 encoded byte string for the CSR
 
         :returns: bytes with the PEM-encoded certificate
         :raises: (none)
         '''
-        return csr.public_bytes(serialization.Encoding.PEM)
+        return csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
 
     async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
