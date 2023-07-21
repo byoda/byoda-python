@@ -744,7 +744,7 @@ class Secret:
         _LOGGER.debug('Saving private key to %s', filepath)
 
         private_key_pem = self.private_key_as_pem()
-        with open(filepath, 'wb') as file_desc:
+        with open(filepath, 'w') as file_desc:
             file_desc.write(private_key_pem)
 
         return filepath
