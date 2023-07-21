@@ -669,17 +669,25 @@ class Secret:
                 file_mode=FileMode.BINARY
             )
 
-    def private_key_as_bytes(self, password: str) -> bytes:
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.BestAvailableEncryption(
-                str.encode(password)
+    def private_key_as_bytes(self, password: str = None) -> bytes:
+        if password:
+            private_key_pem = self.private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.BestAvailableEncryption(
+                    str.encode(password)
+                )
             )
-        )
+        else:
+            private_key_pem = self.private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+
         return private_key_pem
 
-    def private_key_as_pem(self, password: str) -> str:
+    def private_key_as_pem(self, password: str = None) -> str:
         '''
         Returns the private key in PEM format
         '''
