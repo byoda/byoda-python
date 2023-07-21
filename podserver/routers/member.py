@@ -83,6 +83,7 @@ async def post_member(request: Request, service_id: int, version: int,
                       auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
     '''
     Become a member of a service.
+
     :param service_id: service_id of the service
     :param version: version of the service schema
     :raises: HTTPException 409

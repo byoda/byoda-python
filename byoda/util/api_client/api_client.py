@@ -198,10 +198,15 @@ class ApiClient:
             api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
         )
-        _LOGGER.debug(
-            f'Calling {method} {api} with query parameters {params} '
-            f'and data: {data}'
-        )
+        if method == 'GET':
+            _LOGGER.debug(
+                f'Calling {method} {api} with query parameters {params} '
+                f'and data: {data}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Calling {method} {api} with query parameters {params} '
+            )
 
         client = ApiClient(
             api, secret=secret, service_id=service_id, network_name=network_name

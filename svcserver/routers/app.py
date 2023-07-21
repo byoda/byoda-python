@@ -45,12 +45,12 @@ _LOGGER = logging.getLogger(__name__)
 MAX_CSR_LENGTH = 16384
 
 router = APIRouter(
-    prefix='/api/v1/service/app',
+    prefix='/api/v1/service',
     dependencies=[]
 )
 
 
-@router.post('/register', status_code=201)
+@router.post('/app', status_code=201)
 async def post_app(request: Request, csr: CertSigningRequestModel,
                    auth: AppRequestAuthOptionalFast =
                    Depends(AppRequestAuthOptionalFast)):
@@ -62,14 +62,13 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'POST App register API called from {request.client.host}')
+    _LOGGER.debug(f'POST App API called from {request.client.host}')
 
     await auth.authenticate()
 
     server: ServiceServer = config.server
     service: Service = server.service
     network: Network = server.network
-    paths: Paths = network.paths
     storage_driver: FileStorage = server.storage_driver
 
     if len(csr.csr) > MAX_CSR_LENGTH:
@@ -148,7 +147,5 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
         )
 
     # We do not sign the CSR here, as this is an off-line process
-    # The App CA signs the CSRs for Apps
-
     storage_driver.write(filepath, csr.csr)
     _LOGGER.info(f'Saved CSR with commonname {common_name}')

@@ -601,7 +601,7 @@ class Secret:
     async def save(self, password: str = 'byoda', overwrite: bool = False,
                    storage_driver: FileStorage = None):
         '''
-        Save a cert and private key to their respective files
+        Save a cert and private key (if we have it) to their respective files
 
         :param password: password to decrypt the private_key
         :param overwrite: should any existing files be overwritten
@@ -619,12 +619,6 @@ class Secret:
                 f'Can not save cert because the certificate '
                 f'already exists at {self.cert_file}'
             )
-        if (not overwrite and self.private_key
-                and await storage_driver.exists(self.private_key_file)):
-            raise PermissionError(
-                f'Can not save the private key because the key already '
-                f'exists at {self.private_key_file}'
-            )
 
         _LOGGER.debug(
             f'Saving cert to {self.cert_file} with fingerprint '
@@ -639,18 +633,59 @@ class Secret:
         )
 
         if self.private_key:
-            private_key_pem = self.private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.BestAvailableEncryption(
-                    str.encode(password)
-                )
+            await self.save_private_key(
+                password=password, overwrite=overwrite,
+                storage_driver=storage_driver
             )
+
+    async def save_private_key(self, password: str = 'byoda',
+                               overwrite: bool = False,
+                               storage_driver: FileStorage = None):
+        '''
+        Save a private key (if we have it) to their respective files
+
+        :param password: password to decrypt the private_key
+        :param overwrite: should any existing files be overwritten
+        :param storage_driver: the storage driver to use
+        :returns: (none)
+        :raises: PermissionError if the file for the cert and/or key
+        already exist and overwrite == False
+        '''
+        if not storage_driver:
+            storage_driver = self.storage_driver
+
+        if (not overwrite and self.private_key
+                and await storage_driver.exists(self.private_key_file)):
+            raise PermissionError(
+                f'Can not save the private key because the key already '
+                f'exists at {self.private_key_file}'
+            )
+
+        if self.private_key:
             _LOGGER.debug(f'Saving private key to {self.private_key_file}')
+            private_key_pem = self.private_key_as_bytes(password)
             await storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
             )
+
+    def private_key_as_bytes(self, password: str) -> bytes:
+        private_key_pem = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.BestAvailableEncryption(
+                str.encode(password)
+            )
+        )
+        return private_key_pem
+
+    def private_key_as_pem(self, password: str) -> str:
+        '''
+        Returns the private key in PEM format
+        '''
+
+        private_key_bytes = self.private_key_as_bytes(password)
+        return private_key_bytes.decode('utf-8')
 
     def certchain_as_pem(self) -> str:
         '''
@@ -669,18 +704,6 @@ class Secret:
             data += cert.public_bytes(serialization.Encoding.PEM)
 
         return data.decode('utf-8')
-
-    def private_key_as_pem(self) -> bytes:
-        '''
-        Returns the private key in PEM format
-        '''
-
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        return private_key_pem
 
     def cert_as_pem(self) -> bytes:
         '''

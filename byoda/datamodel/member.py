@@ -300,7 +300,6 @@ class Member:
         )
 
         if member_id:
-            _LOGGER.debug(f'Reviewing existing member_id: {member_id}')
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
             elif isinstance(member_id, UUID):

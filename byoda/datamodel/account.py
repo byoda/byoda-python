@@ -122,8 +122,7 @@ class Account:
                                     accounts_ca: NetworkAccountsCaSecret
                                     = None, renew: bool = False):
         '''
-        Creates the TLS secret for an account. TODO: create Let's Encrypt
-        cert
+        Creates the TLS secret for an account.
         '''
 
         if not self.tls_secret:

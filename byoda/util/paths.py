@@ -97,6 +97,7 @@ class Paths:
     NETWORKSERVICES_API     = 'https://dir.{network}/api/v1/network/services'                                         # noqa
     NETWORKMEMBER_API       = 'https://dir.{network}/api/v1/network/member'                                           # noqa
     SERVICEMEMBER_API       = 'https://service.service-{service_id}.{network}/api/v1/service/member'                  # noqa
+    SERVICEAPP_API          = 'https://service.service-{service_id}.{network}/api/v1/service/app'                     # noqa
     SERVICEEMAILSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/email'            # noqa
     SERVICEASSETSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/asset'            # noqa
     PODGRAPHQL_API          = 'https://{member_id}}.members-{service_id}.{network}/api/v1/data/service-{service_id}'  # noqa

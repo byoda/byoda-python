@@ -242,11 +242,11 @@ async def run_bootstrap_tasks(account: Account):
         try:
             await account.create_account_secret()
             _LOGGER.info('Created new account secret during bootstrap')
-        except Exception:
-            _LOGGER.exception('Exception during startup')
+        except Exception as exc:
+            _LOGGER.exception(f'Exception during startup: {exc}')
             raise
-    except Exception:
-        _LOGGER.exception('Exception during startup')
+    except Exception as exc:
+        _LOGGER.exception(f'Exception during startup: {exc}')
         raise
 
     try:
