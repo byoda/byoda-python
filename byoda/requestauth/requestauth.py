@@ -250,10 +250,6 @@ class RequestAuth:
                 )
             )
 
-        # SECURITY: we need to check the intermediate CA CN
-        # as currently any Member CA can sign certs for other
-        # services!
-
         self.id, subdomain = self.client_cn.split('.')[0:2]
         self.domain = self.client_cn.split('.', 3)[-2]
         if '-' in subdomain:

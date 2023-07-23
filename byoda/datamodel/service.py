@@ -132,7 +132,9 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
-        _LOGGER.debug('Instantiated Service object for service')
+        _LOGGER.debug(
+            f'Instantiated Service object for service {self.service_id}'
+        )
 
 
     async def examine_servicecontract(self, filepath: str) -> None:

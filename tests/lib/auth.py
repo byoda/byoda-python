@@ -106,7 +106,8 @@ async def get_azure_pod_jwt(account: Account, test_dir: str
     await secret.load()
     jwt = JWT.create(
         AZURE_POD_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
-        service_id=ADDRESSBOOK_SERVICE_ID
+        service_id=ADDRESSBOOK_SERVICE_ID,
+        audience=IdType.MEMBER, audience_id=AZURE_POD_MEMBER_ID
     )
     azure_member_auth_header = {
         'Authorization': f'bearer {jwt.encoded}'

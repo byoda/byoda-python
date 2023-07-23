@@ -288,7 +288,8 @@ class Account:
 
         jwt = JWT.create(
             self.account_id, IdType.ACCOUNT, self.tls_secret,
-            self.network.name, expiration_days=expiration_days
+            self.network.name, expiration_days=expiration_days,
+            audience_type=IdType.ACCOUNT, audience_id=self.account_id
         )
         return jwt
 

@@ -47,7 +47,9 @@ class JWT:
     @staticmethod
     def create(identifier: UUID, id_type: IdType, secret: Secret,
                network_name: str, service_id: int = None,
-               expiration_days: int = JWT_EXPIRATION_DAYS) -> str:
+               expiration_days: int = JWT_EXPIRATION_DAYS,
+               audience_type: IdType, audience_id: UUID | int
+               ) -> str:
         '''
         Creates an authorization token
 
@@ -58,6 +60,7 @@ class JWT:
         _LOGGER.debug('Creating a JWT')
         jwt = JWT(network_name)
 
+        jwt.audience.apend(f'urn: {jwt.audience_type.value}-{jwt.audience_id}')
         jwt.issuer_id = identifier
         jwt.issuer_type = id_type
 
