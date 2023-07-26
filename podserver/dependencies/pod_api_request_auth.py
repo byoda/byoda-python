@@ -82,7 +82,7 @@ class PodApiRequestAuth(RequestAuth):
         '''
 
         try:
-            await super().authenticate(
+            jwt = await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
@@ -108,11 +108,14 @@ class PodApiRequestAuth(RequestAuth):
                 )
             )
 
-        account = config.server.account
+        server: PodServer = config.server
+        account = server.account
 
         if self.id_type == IdType.ACCOUNT:
             if self.auth_source == AuthSource.CERT:
                 self.check_account_cert(config.server.network)
+            else:
+                jwt.check_scope(IdType.ACCOUNT, account.account_id)
 
             if self.account_id != account.account_id:
                 _LOGGER.warning(
@@ -121,12 +124,10 @@ class PodApiRequestAuth(RequestAuth):
                 raise HTTPException(
                     status_code=401, detail='Authentication failure'
                 )
-        else:
-            if self.auth_source == AuthSource.CERT:
-                self.check_member_cert(service_id, config.server.network)
-
+        elif self.id_type == IdType.MEMBER:
             await account.load_memberships()
             member: Member = account.memberships.get(service_id)
+
             if not member:
                 _LOGGER.warning(
                     f'Authentication failure for service {service_id}'
@@ -135,5 +136,14 @@ class PodApiRequestAuth(RequestAuth):
                 raise HTTPException(
                     status_code=401, detail='Authentication failure'
                 )
+
+            if self.auth_source == AuthSource.CERT:
+                self.check_member_cert(service_id, config.server.network)
+            else:
+                jwt.check_scope(IdType.MEMBER, member.member_id)
+        else:
+            raise HTTPException(
+                status_code=400, detail='Invalid id type in JWT'
+            )
 
         self.is_authenticated = True

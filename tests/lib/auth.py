@@ -66,6 +66,7 @@ async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID) -> str:
     data = {
         'username': str(member.member_id)[:8],
         'password': password,
+        'target_type': IdType.MEMBER.value,
         'service_id': ADDRESSBOOK_SERVICE_ID
     }
     url = f'{BASE_URL}/v1/pod/authtoken'.format(PORT=config.server.HTTP_PORT)
@@ -107,7 +108,7 @@ async def get_azure_pod_jwt(account: Account, test_dir: str
     jwt = JWT.create(
         AZURE_POD_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
         service_id=ADDRESSBOOK_SERVICE_ID,
-        audience=IdType.MEMBER, audience_id=AZURE_POD_MEMBER_ID
+        scope_type=IdType.MEMBER, scope_id=AZURE_POD_MEMBER_ID
     )
     azure_member_auth_header = {
         'Authorization': f'bearer {jwt.encoded}'

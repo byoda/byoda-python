@@ -8,7 +8,10 @@ Schema for server to server APIs
 
 import logging
 
+from uuid import UUID
 from pydantic import BaseModel
+
+from byoda.datatypes import IdType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,6 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 class AuthRequestModel(BaseModel):
     username: str
     password: str
+    target_type: IdType
+    app_id: UUID | None
     service_id: int | None = None
 
     def __repr__(self):

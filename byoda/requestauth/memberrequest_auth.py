@@ -12,6 +12,8 @@ import logging
 
 from fastapi import HTTPException
 
+from byoda.datatypes import IdType
+
 from byoda import config
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
@@ -37,7 +39,7 @@ class MemberRequestAuth(RequestAuth):
         server = config.server
 
         try:
-            await super().authenticate(
+            jwt = await super().authenticate(
                 tls_status, client_dn, issuing_ca_dn,
                 client_cert, authorization
             )
@@ -53,6 +55,10 @@ class MemberRequestAuth(RequestAuth):
 
         if client_dn:
             self.check_member_cert(self.service_id, server.network)
+        else:
+            await server.account.load_memberships()
+            member = config.server.account.memberships.get(jwt.service_id)
+            jwt.check_scope(IdType.MEMBER, member.member_id)
 
         self.is_authenticated = True
 

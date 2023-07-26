@@ -226,7 +226,7 @@ class Member:
                     'a member of'
                 )
 
-        # FIXME: 13 lines aobe this, we already downloaded the service
+        # FIXME: 13 lines above this, we already downloaded the service
         # DataSecret and assigned it to self.service_data_secret
 
         # We need the service data secret to verify the signature of the
@@ -559,8 +559,8 @@ class Member:
 
         jwt = JWT.create(
             self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
-            service_id=self.service_id, expiration_days=expiration_days,
-            audience=IdType.MEMBER, audience_id=self.member_id
+            service_id=self.service_id, scope_type=IdType.MEMBER,
+            scope_id=self.member_id, expiration_days=expiration_days,
         )
 
         return jwt

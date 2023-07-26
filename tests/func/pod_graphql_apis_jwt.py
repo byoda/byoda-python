@@ -25,6 +25,7 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
 
+from byoda.datatypes import IdType
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
@@ -130,6 +131,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = {
             'username': str(account_member.member_id)[:8],
             'password': password,
+            'target_type': IdType.MEMBER.value,
             'service_id': ADDRESSBOOK_SERVICE_ID
         }
         url = f'{BASE_URL}/v1/pod/authtoken'
