@@ -15,11 +15,12 @@ import os
 import sys
 import unittest
 
-import orjson
+from uuid import uuid4
 
+import orjson
 import requests
 
-from uuid import uuid4
+from gql import Client, gql
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -47,6 +48,8 @@ from tests.lib.setup import mock_environment_vars
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_VERSION
+
+from tests.lib.util import get_test_uuid
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
@@ -400,6 +403,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(isinstance(data.get("auth_token"), str))
+        await call_graphql_api(self, account_jwt, expect_result=False)
 
         # and then we get a member JWT using username/password
         response = requests.post(
@@ -414,8 +418,50 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        account_jwt = data.get('auth_token')
+        member_jwt = data.get('auth_token')
+        self.assertTrue(isinstance(member_jwt, str))
+        await call_graphql_api(self, member_jwt, expect_result=True)
+
+        # and then we get a service JWT using username/password
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': password,
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.SERVICE.value,
+
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        service_jwt = data.get('auth_token')
         self.assertTrue(isinstance(account_jwt, str))
+
+        data = await call_rest_api(self, service_jwt, 403)
+        await call_graphql_api(self, service_jwt, expect_result=False)
+
+        # and then we get a app JWT using username/password
+        response = requests.post(
+            f'{BASE_URL}/v1/pod/authtoken',
+            json={
+                'username': str(account_member.member_id)[:8],
+                'password': password,
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.APP.value,
+                'app_id': str(get_test_uuid())
+
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        app_jwt = data.get('auth_token')
+        self.assertTrue(isinstance(account_jwt, str))
+
+        data = await call_rest_api(self, app_jwt, 403)
+        await call_graphql_api(self, app_jwt, expect_result=False)
+
+        # Test failure cases
         response = requests.post(
             f'{BASE_URL}/v1/pod/authtoken',
             json={
@@ -481,6 +527,37 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = response.json()
         self.assertEqual(response.status_code, 401)
         self.assertTrue('auth_token' not in data)
+
+
+async def call_rest_api(test, auth_header, expected_status_code,
+                        json_reponse: bool = True) -> str | dict:
+    api = f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}'
+    response = requests.get(
+        api, timeout=120, headers={'Authorization': f'bearer {auth_header}'}
+    )
+
+    test.assertEqual(response.status_code, expected_status_code)
+    if json_reponse:
+        return response.json()
+
+    return response.text()
+
+
+async def call_graphql_api(test, auth_header, expect_result=True):
+    graphql_url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+    response = await GraphQlClient.call(
+        graphql_url, GRAPHQL_STATEMENTS['person']['query'],
+        headers={'Authorization': f'bearer {auth_header}'},
+        vars={'query_id': get_test_uuid()}, timeout=30
+    )
+    result = await response.json()
+
+    if expect_result:
+        test.assertIsNone(result.get('errors'))
+        test.assertIsNotNone(result.get('data'))
+    else:
+        test.assertIsNotNone(result.get('errors'))
+        test.assertIsNone(result.get('data'))
 
 
 if __name__ == '__main__':

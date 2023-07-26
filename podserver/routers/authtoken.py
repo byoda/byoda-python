@@ -87,7 +87,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.tls_secret,
             member.network.name, service_id=member.service_id,
-            scope_type=IdType.APP, scope_id=member.service_id,
+            scope_type=auth_request.target_type, scope_id=member.service_id,
         )
     elif auth_request.target_type == IdType.APP:
         if not auth_request.service_id:
@@ -99,7 +99,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.tls_secret,
             member.network.name, service_id=member.service_id,
-            scope_type=IdType.APP, scope_id=auth_request.app_id,
+            scope_type=auth_request.target_type, scope_id=auth_request.app_id,
         )
     else:
         raise HTTPException(400, 'Invalid target for the JWT')

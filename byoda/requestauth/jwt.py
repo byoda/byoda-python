@@ -126,6 +126,7 @@ class JWT:
         :param audience_type: the type of the audience that the JWT is valid
         for
         '''
+        
         scope = f'urn: {scope_id}.{scope_type.value}'
         if service_id:
             scope += f'{service_id}'
@@ -162,7 +163,10 @@ class JWT:
         else:
             self.scope_type = IdType(subdomain)
 
-        self.scope_id = UUID(hostname)
+        if self.scope_type == IdType.SERVICE:
+            self.scope_id = int(hostname)
+        else:
+            self.scope_id = UUID(hostname)
 
     def check_scope(self, scope_type: IdType, scope_id: UUID | int) -> None:
         '''
