@@ -40,10 +40,13 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
     data = {
         'username': str(id)[:8],
-        'password': secret
+        'password': secret,
     }
     if service_id is not None:
         data['service_id'] = service_id
+        data['target_type'] = IdType.MEMBER.value
+    else:
+        data['target_type'] = IdType.ACCOUNT.value
 
     response = requests.post(url, json=data)
 

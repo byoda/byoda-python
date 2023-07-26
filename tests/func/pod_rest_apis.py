@@ -25,6 +25,8 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
 
+from byoda.datatypes import IdType
+
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
@@ -123,7 +125,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data['started'].startswith('202'))
         self.assertEqual(data['cloud'], 'LOCAL')
         self.assertEqual(data['private_bucket'], 'LOCAL')
-        self.assertEqual(data['public_bucket'], '/var/www/wwwroot/public')
+        self.assertEqual(data['public_bucket'], '/byoda/public')
+        self.assertEqual(data['restricted_bucket'], '/byoda/restricted')
         self.assertEqual(data['root_directory'], '/tmp/byoda-tests/podserver')
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
@@ -229,6 +232,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(account_member.member_id)[:8],
                 'password': os.environ['ACCOUNT_SECRET'],
+                'target_type': IdType.MEMBER.value,
                 'service_id': ADDRESSBOOK_SERVICE_ID
             }
         )
@@ -251,7 +255,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'{BASE_URL}/v1/pod/authtoken',
             json={
                 'username': str(pod_account.account_id)[:8],
-                'password': os.environ['ACCOUNT_SECRET']
+                'password': os.environ['ACCOUNT_SECRET'],
+                'target_type': IdType.ACCOUNT.value,
             }
         )
         self.assertEqual(response.status_code, 200)
@@ -270,7 +275,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data['started'].startswith('202'))
         self.assertEqual(data['cloud'], 'LOCAL')
         self.assertEqual(data['private_bucket'], 'LOCAL')
-        self.assertEqual(data['public_bucket'], '/var/www/wwwroot/public')
+        self.assertEqual(data['public_bucket'], '/byoda/public')
+        self.assertEqual(data['restricted_bucket'], '/byoda/restricted')
         self.assertEqual(data['root_directory'], '/tmp/byoda-tests/podserver')
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
@@ -376,6 +382,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(pod_account.account_id)[:8],
                 'password': password,
+                'target_type': IdType.ACCOUNT.value,
             }
         )
         self.assertEqual(response.status_code, 200)
@@ -400,7 +407,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(account_member.member_id)[:8],
                 'password': password,
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
+
             }
         )
         self.assertEqual(response.status_code, 200)
@@ -409,7 +418,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(account_jwt, str))
         response = requests.post(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={'username': '', 'password': ''}
+            json={
+                'username': '',
+                'password': '',
+                'target_type': IdType.ACCOUNT.value,
+            }
         )
         self.assertEqual(response.status_code, 401)
         data = response.json()
@@ -420,7 +433,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': 'wrong',
                 'password': os.environ['ACCOUNT_SECRET'],
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
+
             }
         )
         self.assertEqual(response.status_code, 401)
@@ -432,7 +447,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(account_member.member_id)[:8],
                 'password': 'wrong',
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
             }
         )
         self.assertEqual(response.status_code, 401)
@@ -444,7 +460,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': 'wrong',
                 'password': 'wrong',
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
+
             }
         )
         data = response.json()
@@ -456,7 +474,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': '',
                 'password': '',
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
             }
         )
         data = response.json()

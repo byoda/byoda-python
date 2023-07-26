@@ -29,6 +29,7 @@ from byoda.util.message_signature import MessageSignature
 
 from byoda.datastore.data_store import DataStoreType
 
+from byoda.datatypes import IdType
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.secrets.member_data_secret import MemberDataSecret
@@ -138,7 +139,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             json={
                 'username': str(account_member.member_id)[:8],
                 'password': os.environ['ACCOUNT_SECRET'],
-                'service_id': ADDRESSBOOK_SERVICE_ID
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.MEMBER.value,
             }
         )
         self.assertEqual(response.status_code, 200)

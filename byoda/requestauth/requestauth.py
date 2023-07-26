@@ -21,7 +21,6 @@ from jwt.exceptions import PyJWTError
 
 from byoda.datamodel.network import Network
 
-from byoda.servers.service_server import ServiceServer
 from byoda.servers.pod_server import PodServer
 from byoda.servers.server import Server
 

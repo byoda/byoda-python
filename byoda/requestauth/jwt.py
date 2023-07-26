@@ -152,14 +152,16 @@ class JWT:
         if domain != network_name:
             raise ValueError(f'Network {domain} does not equal {network_name}')
 
-        id_type_value, service_id = subdomain.split('-')
+        if '-' in subdomain:
+            id_type_value, service_id = subdomain.split('-')
+            if int(service_id) != self.service_id:
+                raise ValueError(
+                    f'Service id {service_id} does not equal {self.service_id}'
+                )
+            self.scope_type = IdType(f'{id_type_value}-')
+        else:
+            self.scope_type = IdType(subdomain)
 
-        if int(service_id) != self.service_id:
-            raise ValueError(
-                f'Service id {service_id} does not equal {self.service_id}'
-            )
-
-        self.scope_type = IdType(f'{id_type_value}-')
         self.scope_id = UUID(hostname)
 
     def check_scope(self, scope_type: IdType, scope_id: UUID | int) -> None:

@@ -26,7 +26,6 @@ import requests
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport
 
-from byoda.util.api_client.graphql_client import GraphQlClient
 
 from byoda import config
 
@@ -34,11 +33,15 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 
+from byoda.datatypes import IdType
+
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
 from podserver.util import get_environment_vars
+
+from byoda.util.api_client.graphql_client import GraphQlClient
 
 from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 from tests.lib.defines import BASE_URL
@@ -103,6 +106,7 @@ async def get_jwt_header(id: UUID, base_url: str = BASE_URL,
         'username': str(id)[:8],
         'password': secret,
         'service_id': service_id,
+        'target_type': IdType.MEMBER.value,
     }
     _LOGGER.debug(f'Calling URL: {url} with data {json.dumps(data)}')
     response = requests.post(url, json=data)

@@ -31,6 +31,7 @@ class AuthRequestModel(BaseModel):
             'username': self.username,
             'password': self.password,
             'service_id': self.service_id,
+            'app_id': self.app_id,
         }
 
 
