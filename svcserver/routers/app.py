@@ -98,7 +98,9 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
         )
 
     if csr_entity_id.id_type == IdType.APP:
-        csr_filepath: str = paths.get(Paths.APP_CSR_FILE, app_id=csr_entity_id.id)
+        csr_filepath: str = paths.get(
+            Paths.APP_CSR_FILE, app_id=csr_entity_id.id
+        )
         cert_filepath: str = paths.get(
             Paths.APP_CERT_FILE, app_id=csr_entity_id.id
         )
