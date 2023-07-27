@@ -40,8 +40,8 @@ class AppDataSecret(DataSecret):
         self.paths.service_id: int = int(service_id)
 
         super().__init__(
-            cert_file=self.paths.get(Paths.APP_DATA_CERT_FILE, fqdn=fqdn),
-            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE, fqdn=fqdn),
+            cert_file=self.paths.get(Paths.APP_DATA_CERT_FILE, app_id=fqdn),
+            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE, app_id=fqdn),
             storage_driver=self.paths.storage_driver
         )
 

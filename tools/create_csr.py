@@ -17,8 +17,10 @@ import sys
 import asyncio
 import logging
 import argparse
-from uuid import uuid4
+from uuid import uuid4, UUID
 
+from byoda.secrets.secret import Secret
+from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
 
 from byoda import config
@@ -82,12 +84,6 @@ async def main(argv):
 
     args = parser.parse_args(argv[1:])
 
-    if args.type != 'app_data':
-        raise NotImplementedError('Only App Data secrets are supported')
-
-    if args.type == 'app_data' and not args.fqdn:
-        raise ValueError('The FQDN must be specified for an App Data secret')
-
     global _LOGGER
     if args.debug:
         _LOGGER = Logger.getLogger(
@@ -98,22 +94,45 @@ async def main(argv):
             sys.argv[0], json_out=False, loglevel=logging.WARNING
         )
 
-    csr_filepath = f'{args.out_dir}/app-{args.fqdn}.csr'
-    if os.path.exists(csr_filepath):
-        raise FileExistsError(f'CSR file {csr_filepath} already exists')
+    if args.type != 'app':
+        raise NotImplementedError(
+            'Only App (Data) secrets are supported'
+        )
+
+    if args.type == 'app' and not args.fqdn:
+        raise ValueError('The FQDN must be specified for an App (Data) secret')
 
     await prep_network(None, args.network)
 
+    secret = AppSecret(args.service_id, config.server.network, args.fqdn)
+    csr_filepath = f'{args.out_dir}/app-{args.fqdn}.csr'
+    create_csr(
+        secret, csr_filepath, args.app_id, args.fqdn, args.out_dir,
+        args.password
+    )
+
     secret = AppDataSecret(args.service_id, config.server.network, args.fqdn)
-    csr = await secret.create_csr(args.app_id)
+    csr_filepath = f'{args.out_dir}/app-data-{args.fqdn}.csr'
+    create_csr(
+        secret, csr_filepath, args.app_id, args.fqdn, args.out_dir,
+        args.password
+    )
+
+
+async def create_csr(secret: Secret, csr_filepath: str, app_id: UUID,
+                     fqdn: str, out_dir: str, password: str):
+    if os.path.exists(csr_filepath):
+        raise FileExistsError(f'CSR file {csr_filepath} already exists')
+
+    csr = await secret.create_csr(app_id)
     csr_pem = secret.csr_as_pem(csr)
 
     _LOGGER.debug(f'Saving CSR to {csr_filepath}')
     with open(csr_filepath, 'w') as file_desc:
         file_desc.write(csr_pem)
 
-    private_key_pem = secret.private_key_as_pem(args.password)
-    key_filepath = f'{args.out_dir}/app-{args.fqdn}.key'
+    private_key_pem = secret.private_key_as_pem(password)
+    key_filepath = f'{out_dir}/app-{fqdn}.key'
     _LOGGER.debug(f'Saving private key to {key_filepath}')
     with open(key_filepath, 'w') as file_desc:
         file_desc.write(private_key_pem)
@@ -124,7 +143,6 @@ async def main(argv):
     )
     if resp.status != 201:
         raise RuntimeError('Certificate signing request failed')
-
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))

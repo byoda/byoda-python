@@ -69,7 +69,7 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
     server: ServiceServer = config.server
     service: Service = server.service
     network: Network = server.network
-    paths = service.paths
+    paths: Paths = service.paths
     storage_driver: FileStorage = server.storage_driver
 
     if len(csr.csr) > MAX_CSR_LENGTH:
@@ -97,7 +97,17 @@ async def post_app(request: Request, csr: CertSigningRequestModel,
             )
         )
 
-    filepath: str = paths.get(Paths.APP_DATA_CSR_FILE, app_id=csr_entity_id.id)
+    if csr_entity_id.id_type == IdType.APP:
+        filepath: str = paths.get(Paths.APP_CSR_FILE, app_id=csr_entity_id.id)
+    elif csr_entity_id.id_type == IdType.APP_DATA:
+        filepath: str = paths.get(
+            Paths.APP_DATA_CSR_FILE, app_id=csr_entity_id.id
+        )
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail='This API only signs APP and APP_DATA CSRs'
+        )
 
     if auth.is_authenticated:
         if auth.auth_source != AuthSource.CERT:

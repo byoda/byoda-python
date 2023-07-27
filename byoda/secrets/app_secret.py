@@ -1,0 +1,126 @@
+'''
+Cert manipulation for apps
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022, 2023
+:license    : GPLv3
+'''
+
+import logging
+from uuid import UUID
+from copy import copy
+from typing import TypeVar
+
+from cryptography.x509 import CertificateSigningRequest
+
+from byoda.util.paths import Paths
+
+from byoda.datatypes import IdType
+
+from .secret import Secret
+
+_LOGGER = logging.getLogger(__name__)
+
+Account = TypeVar('Account')
+Network = TypeVar('Network')
+
+
+class AppSecret(Secret):
+    def __init__(self, app_id: UUID, service_id: int, account: Account):
+        '''
+        Class for the App secret for a service
+
+        :param app_id: the UUID for the App
+        :param service_id: the service id
+        :param account: (FIXME: not really used but still necessary)
+        :raises: ValueError if both 'paths' and 'network' parameters are
+        specified
+        '''
+
+        self.app_id = None
+        if app_id:
+            self.app_id: UUID = app_id
+
+        service_id = int(service_id)
+
+        self.paths: Paths = copy(account.paths)
+        self.paths.service_id: int = service_id
+
+        # secret.review_commonname requires self.network to be string
+        self.network: str = account.network.name
+
+        super().__init__(
+            cert_file=self.paths.get(
+                Paths.APP_CERT_FILE, service_id=service_id, app_id=self.app_id,
+            ),
+            key_file=self.paths.get(
+                Paths.APP_KEY_FILE, service_id=service_id, app_id=self.app_id,
+            ),
+            storage_driver=self.paths.storage_driver
+        )
+
+        self.service_id: int = service_id
+        self.id_type: IdType = IdType.APP
+
+    async def create_csr(self, renew: bool = False
+                         ) -> CertificateSigningRequest:
+        '''
+        Creates an RSA private key and X.509 CSR
+
+        :param app_id: identifier of the app for the service
+        :param renew: if True, renew the secret using the existing private key
+        :returns: csr
+        :raises: ValueError if the Secret instance already has
+        a private key or cert
+        '''
+
+        # TODO: SECURITY: add constraints
+        common_name: str = AppSecret.create_commonname(
+            self.app_id, self.service_id, self.network
+        )
+        return await super().create_csr(common_name, ca=self.ca, renew=renew)
+
+    @staticmethod
+    def create_commonname(app_id: UUID, service_id: int, network: str):
+        '''
+        generates the FQDN for the common name in the app TLS secret
+        '''
+
+        if not isinstance(app_id, UUID):
+            app_id = UUID(app_id)
+
+        service_id = int(service_id)
+        if not isinstance(network, str):
+            raise TypeError(
+                f'Network parameter must be a string, not a {type(network)}'
+            )
+
+        common_name = (
+            f'{app_id}.{IdType.APP.value}{service_id}.{network}'
+        )
+
+        return common_name
+
+    async def load(self, with_private_key: bool = True,
+                   password: str = 'byoda'):
+        await super().load(
+            with_private_key=with_private_key, password=password
+        )
+        self.app_id = UUID(self.common_name.split('.')[0])
+
+    def save_tmp_private_key(self):
+        '''
+        Save the private key for the AppSecret so nginx and the python
+        requests module can use it.
+        '''
+        return super().save_tmp_private_key(
+            filepath=self.get_tmp_private_key_filepath()
+        )
+
+    def get_tmp_private_key_filepath(self) -> str:
+        '''
+        Gets the location where on local storage the unprotected private
+        key is stored
+        '''
+
+        return f'/var/tmp/private-app-{self.app_id}.key'
