@@ -17,7 +17,7 @@ import sys
 import asyncio
 import logging
 import argparse
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.app_secret import AppSecret
@@ -104,27 +104,31 @@ async def main(argv):
 
     await prep_network(None, args.network)
 
-    secret = AppSecret(args.service_id, config.server.network, args.fqdn)
+    secret = AppSecret(args.app_id, args.service_id, config.server.network)
     csr_filepath = f'{args.out_dir}/app-{args.fqdn}.csr'
-    create_csr(
-        secret, csr_filepath, args.app_id, args.fqdn, args.out_dir,
+    key_filepath = f'{args.out_dir}/app-{args.fqdn}.key'
+    await create_csr(
+        secret, csr_filepath, key_filepath, args.fqdn, args.out_dir,
         args.password
     )
 
-    secret = AppDataSecret(args.service_id, config.server.network, args.fqdn)
+    secret = AppDataSecret(args.app_id, args.service_id, config.server.network)
     csr_filepath = f'{args.out_dir}/app-data-{args.fqdn}.csr'
-    create_csr(
-        secret, csr_filepath, args.app_id, args.fqdn, args.out_dir,
+    key_filepath = f'{args.out_dir}/app-data-{args.fqdn}.key'
+    await create_csr(
+        secret, csr_filepath, key_filepath, args.fqdn, args.out_dir,
         args.password
     )
 
+    await RestApiClient.close_all()
 
-async def create_csr(secret: Secret, csr_filepath: str, app_id: UUID,
+
+async def create_csr(secret: Secret, csr_filepath: str, key_filepath: str,
                      fqdn: str, out_dir: str, password: str):
     if os.path.exists(csr_filepath):
         raise FileExistsError(f'CSR file {csr_filepath} already exists')
 
-    csr = await secret.create_csr(app_id)
+    csr = await secret.create_csr(fqdn)
     csr_pem = secret.csr_as_pem(csr)
 
     _LOGGER.debug(f'Saving CSR to {csr_filepath}')
@@ -132,7 +136,7 @@ async def create_csr(secret: Secret, csr_filepath: str, app_id: UUID,
         file_desc.write(csr_pem)
 
     private_key_pem = secret.private_key_as_pem(password)
-    key_filepath = f'{out_dir}/app-{fqdn}.key'
+
     _LOGGER.debug(f'Saving private key to {key_filepath}')
     with open(key_filepath, 'w') as file_desc:
         file_desc.write(private_key_pem)

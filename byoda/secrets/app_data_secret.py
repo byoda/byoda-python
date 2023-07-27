@@ -25,7 +25,7 @@ Network = TypeVar('Network')
 
 
 class AppDataSecret(DataSecret):
-    def __init__(self, service_id: int, network: Network, fqdn: str):
+    def __init__(self, app_id: UUID, service_id: int, network: Network):
         '''
         Class for the app-data secret. This secret is used to sign
         data such as claims
@@ -36,21 +36,25 @@ class AppDataSecret(DataSecret):
         :raises: (none)
         '''
 
+        self.app_id: UUID = app_id
+        service_id = int(service_id)
+
+        self.fqdn: str | None = None
+
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = int(service_id)
+        self.paths.service_id: int = service_id
 
         super().__init__(
-            cert_file=self.paths.get(Paths.APP_DATA_CERT_FILE, app_id=fqdn),
-            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE, app_id=fqdn),
+            cert_file=self.paths.get(Paths.APP_DATA_CERT_FILE, app_id=app_id),
+            key_file=self.paths.get(Paths.APP_DATA_KEY_FILE, app_id=app_id),
             storage_driver=self.paths.storage_driver
         )
 
-        self.service_id: int = int(service_id)
-        self.network: str = self.paths.network
+        self.service_id: int = service_id
+        self.network: str = network.name
         self.id_type: IdType = IdType.APP_DATA
-        self.fqdn: str = fqdn
 
-    async def create_csr(self, app_id: UUID, renew: bool = False
+    async def create_csr(self, fqdn: str, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
@@ -63,13 +67,37 @@ class AppDataSecret(DataSecret):
         a private key or cert
         '''
 
-        self.app_id: UUID = app_id
+        self.fqdn: str = fqdn
+
         # TODO: SECURITY: add constraints
-        common_name = (
-            f'{app_id}.{self.id_type.value}{self.service_id}.{self.network}'
+
+        common_name = AppDataSecret.create_commonname(
+            self.app_id, self.service_id, self.network
         )
 
         return await super().create_csr(
             common_name, sans=[self.fqdn], key_size=4096, ca=self.ca,
             renew=renew
         )
+
+    @staticmethod
+    def create_commonname(app_id: UUID, service_id: int, network: str):
+        '''
+        generates the FQDN for the common name in the app TLS secret
+        '''
+
+        if not isinstance(app_id, UUID):
+            app_id = UUID(app_id)
+
+        service_id = int(service_id)
+
+        if not isinstance(network, str):
+            raise TypeError(
+                f'Network parameter must be a string, not type {type(network)}'
+            )
+
+        common_name = (
+            f'{app_id}.{IdType.APP_DATA.value}{service_id}.{network}'
+        )
+
+        return common_name

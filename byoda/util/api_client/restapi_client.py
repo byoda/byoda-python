@@ -78,6 +78,10 @@ class RestApiClient:
         return response
 
     @staticmethod
+    async def close_all():
+        await ApiClient.close_all()
+
+    @staticmethod
     def call_sync(api: str, method: HttpMethod = HttpMethod.GET,
                   secret: Secret = None, params: dict = None,
                   data: dict = None, service_id: int = None,

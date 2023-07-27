@@ -234,10 +234,23 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(compare_check)
 
         #
+        # Tests for App secret
+        #
+        app_id: UUID = get_test_uuid()
+        fqdn = 'testapp.com'
+        app_secret = AppDataSecret(app_id, SERVICE_ID, network)
+        csr = await app_secret.create_csr(fqdn)
+        cert_chain = service.apps_ca.sign_csr(csr)
+
+        await cert_chain.save(
+            app_secret.cert_file, config.server.storage_driver
+        )
+
+        #
         # Tests for App Data secret
         #
-        app_data_secret = AppDataSecret(SERVICE_ID, network, 'testapp.com')
-        csr = await app_data_secret.create_csr(get_test_uuid())
+        app_data_secret = AppDataSecret(app_id, SERVICE_ID, network)
+        csr = await app_data_secret.create_csr(fqdn)
         cert_chain = service.apps_ca.sign_csr(csr)
 
         await cert_chain.save(

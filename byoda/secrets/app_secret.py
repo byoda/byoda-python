@@ -26,7 +26,7 @@ Network = TypeVar('Network')
 
 
 class AppSecret(Secret):
-    def __init__(self, app_id: UUID, service_id: int, account: Account):
+    def __init__(self, app_id: UUID, service_id: int, network: Network):
         '''
         Class for the App secret for a service
 
@@ -37,32 +37,25 @@ class AppSecret(Secret):
         specified
         '''
 
-        self.app_id = None
-        if app_id:
-            self.app_id: UUID = app_id
-
+        self.app_id: UUID = app_id
         service_id = int(service_id)
 
-        self.paths: Paths = copy(account.paths)
+        self.fqdn: str | None = None
+
+        self.paths: Paths = copy(network.paths)
         self.paths.service_id: int = service_id
 
-        # secret.review_commonname requires self.network to be string
-        self.network: str = account.network.name
-
         super().__init__(
-            cert_file=self.paths.get(
-                Paths.APP_CERT_FILE, service_id=service_id, app_id=self.app_id,
-            ),
-            key_file=self.paths.get(
-                Paths.APP_KEY_FILE, service_id=service_id, app_id=self.app_id,
-            ),
+            cert_file=self.paths.get(Paths.APP_CERT_FILE, app_id=self.app_id),
+            key_file=self.paths.get(Paths.APP_KEY_FILE, app_id=self.app_id),
             storage_driver=self.paths.storage_driver
         )
 
         self.service_id: int = service_id
+        self.network: str = network.name
         self.id_type: IdType = IdType.APP
 
-    async def create_csr(self, renew: bool = False
+    async def create_csr(self, fqdn: str, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
@@ -74,11 +67,16 @@ class AppSecret(Secret):
         a private key or cert
         '''
 
+        self.fqdn: str = fqdn
+
         # TODO: SECURITY: add constraints
         common_name: str = AppSecret.create_commonname(
             self.app_id, self.service_id, self.network
         )
-        return await super().create_csr(common_name, ca=self.ca, renew=renew)
+        return await super().create_csr(
+            common_name, sans=[self.fqdn], key_size=4096, ca=self.ca,
+            renew=renew
+        )
 
     @staticmethod
     def create_commonname(app_id: UUID, service_id: int, network: str):
@@ -90,6 +88,7 @@ class AppSecret(Secret):
             app_id = UUID(app_id)
 
         service_id = int(service_id)
+
         if not isinstance(network, str):
             raise TypeError(
                 f'Network parameter must be a string, not a {type(network)}'
