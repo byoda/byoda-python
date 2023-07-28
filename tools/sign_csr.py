@@ -63,16 +63,20 @@ async def prep_network(test_dir: str, network_name: str = DEFAULT_NETWORK
     os.environ['PRIVATE_KEY_SECRET'] = 'dummmy'     # Not used
     os.environ['BOOTSTRAP'] = 'dummy'               # Not used
 
-    return await setup_network(delete_tmp_dir=True)
+    return await setup_network(delete_tmp_dir=False)
 
 
 async def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root_dir', '-r', type=str)
+    parser.add_argument('--network', '-n', type=str, default=DEFAULT_NETWORK)
+    parser.add_argument('--root-dir', '-r', type=str)
     parser.add_argument('--csr-file', '-c', type=str)
     parser.add_argument('--type', '-t', type=str, default='app')
     parser.add_argument('--password', '-p', type=str)
     parser.add_argument('--out_dir', '-o', type=str, default='.')
+    parser.add_argument(
+        '--service-id', '-s', type=str, default=DEFAULT_SERVICE_ID
+    )
     parser.add_argument(
         '--debug', default=False, action='store_true'
     )
@@ -94,12 +98,12 @@ async def main(argv):
             'Only App (Data) secrets are supported'
         )
 
-    await prep_network(args.byoda_dir, args.network)
+    await prep_network(args.root_dir, args.network)
 
     secret = AppsCaSecret(args.service_id, config.server.network)
     await secret.load(with_private_key=True, password=args.password)
 
-    with open(args.csr_file, 'r') as file_desc:
+    with open(args.csr_file, 'rb') as file_desc:
         csr_data = file_desc.read()
 
     csr = x509.load_pem_x509_csr(csr_data)
@@ -111,9 +115,12 @@ async def main(argv):
         )
 
     cert_chain = secret.sign_csr(csr, 730)
-    cert_filepath = f'{args.out_dir}/{entity_id.id_type}{entity_id.id}.pem'
+    cert_filepath = \
+        f'{args.out_dir}/{entity_id.id_type.value}{entity_id.id}.pem'
+
     with open(cert_filepath, 'w') as file_desc:
-        file_desc.write(cert_chain.cert_chain_as_string())
+        file_desc.write(str(cert_chain))
+
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))
