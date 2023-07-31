@@ -860,7 +860,7 @@
                         "format": "uri"
                     },
                     "asset_merkle_root_hash": {
-                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
+                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by taking the asset_url and replace the filename in that url with 'merkle-tree.db'",
                         "type": "string"
                     },
                     "public_video_thumbnails": {

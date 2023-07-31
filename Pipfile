@@ -59,6 +59,7 @@ install = "*"
 beautifulsoup4 = "*"
 google-api-python-client = "*"
 yt-dlp = "==2023.06.22"
+pymerkle = "*"
 
 [dev-packages]
 flake8 = "*"
