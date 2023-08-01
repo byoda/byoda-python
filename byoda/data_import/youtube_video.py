@@ -33,6 +33,7 @@ from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
 
 from byoda.util.paths import Paths
+from byoda.util.merkletree import ByoMerkleTree
 
 from .youtube_thumbnail import YouTubeThumbnail
 from .youtube_streams import TARGET_AUDIO_STREAMS, TARGET_VIDEO_STREAMS
@@ -334,7 +335,7 @@ class YouTubeVideo:
                 with open(cache_file, 'w') as file_desc:
                     file_desc.write(
                         orjson.dumps(
-                            video_info, orjson.OPT_INDENT_2
+                            video_info, option=orjson.OPT_INDENT_2
                         ).decode('utf-8')
                     )
 
@@ -463,7 +464,7 @@ class YouTubeVideo:
                 _LOGGER.debug(
                     f'Ingesting AV tracks for video {self.video_id}'
                 )
-                update = await self._ingest_av_tracks(
+                update = await self._ingest_assets(
                     member, storage_driver, already_ingested_videos,
                     bento4_directory
                 )
@@ -512,16 +513,12 @@ class YouTubeVideo:
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()
             data['video_id'] = self.asset_id
-            if ingest_asset:
-                _LOGGER.debug('Starting ingest of thumbnails')
-                await thumbnail.ingest(self.asset_id, storage_driver, member)
-                data['url'] = thumbnail.url
 
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data
-
             )
+
         for chapter in self.chapters:
             data: dict = chapter.as_dict()
             data['video_id'] = self.asset_id
@@ -583,10 +580,9 @@ class YouTubeVideo:
 
         return work_dir
 
-    async def _ingest_av_tracks(self, member: Member,
-                                storage_driver: FileStorage,
-                                already_ingested_videos: dict[str, dict],
-                                bento4_directory: str) -> bool:
+    async def _ingest_assets(self, member: Member, storage_driver: FileStorage,
+                             already_ingested_videos: dict[str, dict],
+                             bento4_directory: str) -> bool:
         '''
         Downloads to audio and video files of the asset and stores them
         on object storage
@@ -634,6 +630,19 @@ class YouTubeVideo:
 
         await self.upload(pkg_dir, storage_driver)
 
+        for thumbnail in self.thumbnails.values():
+            _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
+            await thumbnail.ingest(
+                self.asset_id, storage_driver, member, pkg_dir
+            )
+
+        tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
+        tree_filename: str = tree.save(pkg_dir)
+        await storage_driver.copy(
+            f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
+            storage_type=StorageType.RESTRICTED, exist_ok=True
+        )
+
         self._delete_tempdir(storage_driver)
 
         self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
@@ -645,7 +654,7 @@ class YouTubeVideo:
 
     async def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
         '''
-        Uploads the packaged video to the object storage
+        Uploads the packaged video to object storage
 
         :param pkg_dir: directory where the packaged video is located
         :param storage_driver: the storage driver to upload the video with

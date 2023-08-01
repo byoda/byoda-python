@@ -16,6 +16,8 @@ import logging
 
 import base64
 
+import orjson
+
 from pymerkle import BaseMerkleTree
 from pymerkle.utils import decompose
 
@@ -24,6 +26,10 @@ from pymerkle.hasher import MerkleHasher
 _LOGGER = logging.getLogger(__name__)
 
 BLOCKSIZE: int = 1024 * 1024
+
+JSON_LEAF_DIGESTS_KEY: str = 'leaf_digests'
+
+MERKLE_FILENAME: str = 'merkle-tree.json'
 
 
 class Node:
@@ -151,16 +157,15 @@ class Node:
         return out
 
 
-class AssetMerkleTree(BaseMerkleTree):
-    MERKLE_FILENAME = 'merkle-tree.db'
-
-    def __init__(self, directory: str, algorithm: str = 'sha256', **opts):
+class ByoMerkleTree(BaseMerkleTree):
+    def __init__(self, directory: str = None, algorithm: str = 'sha256',
+                 **opts):
         '''
         Initializes the merkle tree for the asset folder
         '''
         self.directory: str = directory
         self.filepath: str = \
-            f'{self.directory}/{AssetMerkleTree.MERKLE_FILENAME}'
+            f'{self.directory}/{MERKLE_FILENAME}'
 
         self.root = None
         self.leaves = []
@@ -443,11 +448,103 @@ class AssetMerkleTree(BaseMerkleTree):
 
         return list(reversed(subroots))
 
+    def append_entry_by_digest(self, digest: bytes):
+        '''
+        Append a leaf node to the merkle tree by digest
+
+        :param digest: digest of the data to append
+        '''
+
+        index = self._store_leaf(None, digest)
+
+        return index
+
+    def digests_as_json(self) -> str:
+        '''
+        Returns the json representation of the digests of the leaves of the
+        tree.
+        '''
+
+        data = {
+            JSON_LEAF_DIGESTS_KEY: [
+                base64.b64encode(leaf.digest).decode('utf-8')
+                for leaf in self.leaves
+            ]
+        }
+        return orjson.dumps(data, option=orjson.OPT_INDENT_2).decode('utf-8')
+
     @staticmethod
-    def calculate(directory: str, blocksize: int = BLOCKSIZE):
-        tree = AssetMerkleTree(directory)
-        for file in os.listdir(tree.directory):
-            if file == 'merkle-tree.db':
+    def load_from_file(directory: str, filename: str = MERKLE_FILENAME
+                       ) -> None:
+        '''
+        Factory for ByoMerkleTree, populating the tree with the digests
+        read from a file
+
+        :param directory:
+        :param filename:
+        '''
+
+        filepath: str = f'{directory}/{filename}'
+
+        _LOGGER.debug(f'Reading merkle leaf digests from {filepath}')
+        with open(filepath, 'r') as file_desc:
+            text = file_desc.read()
+
+        data: list[str] = orjson.loads(text)
+
+        if JSON_LEAF_DIGESTS_KEY not in data:
+            raise ValueError(f'No leaf digests found in {filepath}')
+
+        leafs = [
+            base64.b64decode(digest) for digest in data[JSON_LEAF_DIGESTS_KEY]
+        ]
+        tree = ByoMerkleTree.from_digests(leafs)
+
+        return tree
+
+    @staticmethod
+    def from_digests(digests: list[bytes], algorithm: str = 'sha256'):
+        '''
+        Factory for a Merkle tree generated from a list of digests instead
+        of from files
+
+        :param digests:
+        :param algorithm:
+        '''
+
+        tree = ByoMerkleTree(algorithm=algorithm)
+        for digest in digests:
+            tree.append_entry_by_digest(digest)
+
+        return tree
+
+    def save(self, directory: str, filename: str = MERKLE_FILENAME) -> str:
+        '''
+        Save the digests of the leaf nodes to a JSON file
+
+        :param filepath: full path to the file to save
+        :returns: name of the saved file, without any path
+        :raises: IOError
+        '''
+
+        text = self.digests_as_json()
+        filepath: str = f'{directory}/{filename}'
+
+        _LOGGER.debug(f'Writing merkle leaf digests to {filepath}')
+        with open(filepath, 'w') as file_desc:
+            file_desc.write(text)
+
+        return filename
+
+    @staticmethod
+    def calculate(directory: str, blocksize: int = BLOCKSIZE,
+                  algorithm: str = 'sha256'):
+        tree = ByoMerkleTree(directory, algorithm=algorithm)
+        _LOGGER.debug(
+            f'Creating merkle tree from files in direcory {directory}'
+        )
+        for file in sorted(os.listdir(tree.directory)):
+            if file == MERKLE_FILENAME:
                 continue
 
             filepath = f'{tree.directory}/{file}'
@@ -457,11 +554,6 @@ class AssetMerkleTree(BaseMerkleTree):
                 data = os.read(file_desc, blocksize)
                 if not data:
                     break
-
-                if filepath.endswith('139.m4a'):
-                    hasher: MerkleHasher = MerkleHasher('sha256')
-                    digest = hasher.hash_buff(data)
-                    print(f'Block digest {digest.hex()}')
 
                 tree.append_entry(data)
                 blocks += 1
@@ -477,15 +569,17 @@ class AssetMerkleTree(BaseMerkleTree):
         Find the data node in the merkle tree for the data.
 
         :param data: the data that included previously in the Merkle tree
+        :raises: TypeError, KeyError
         '''
 
         if not isinstance(data, bytes):
             raise TypeError('data must be of type bytes')
+
         hasher: MerkleHasher = MerkleHasher('sha256')
         digest = hasher.hash_buff(data)
-        print(f'Block digest {digest.hex()}')
-        for leaf in self.leaves:
-            if leaf.digest == digest:
-                return leaf
+
+        for node in self.leaves:
+            if node.digest == digest:
+                return node
 
         raise KeyError(f'No node found for data with digest {digest.hex()}')

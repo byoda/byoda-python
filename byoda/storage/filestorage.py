@@ -431,8 +431,15 @@ class FileStorage:
         )
 
         dest_filepath = dest_dirpath + '/' + dest_filename
+
         if os.path.exists(dest_filename) and not exist_ok:
             raise FileExistsError(dest_filepath)
+
+        # This mimics cloud storage where directories automagically
+        # appear when you copy a file to them, eventhough they are
+        # not real directories like we have on file systems
+        if not os.path.exists(dest_dirpath):
+            os.makedirs(dest_dirpath, exist_ok=True)
 
         result = shutil.copyfile(src, dest_filepath)
 

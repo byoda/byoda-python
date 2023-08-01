@@ -73,37 +73,42 @@ class YouTubeThumbnail:
             'size': self.size
         }
 
-    async def ingest(self, video_id: UUID, storage_driver: FileStorage, member: Member
-                     ) -> str:
+    async def ingest(self, video_id: UUID, storage_driver: FileStorage, member: Member,
+                     work_dir: str) -> str:
         '''
-        Downloads the thumbnail to the local file system
+        Downloads the thumbnail to the local file system and saves it to
+        (cloud) storage. This function does not delete the temporary file
+        it creates in the working directory
+
+        :param video_id: the UUID of the video in the personal data store
+        :param storage_driver: the storage driver to persist the thumbnail to
+        :param member: the member to which the video belongs
+        :param work_dir: the directory to store the thumbnail temporarily in
         '''
 
         _LOGGER.debug(f'Downloading thumbnail {self.url}')
 
-        with SpooledTemporaryFile(max_size=MAX_SPOOLED_FILE) as file_desc:
+        parsed_url: ParseResult = urlparse(self.url)
+        filename: str = os.path.basename(parsed_url.path)
+        with open(f'{work_dir}/{filename}', 'wb') as file_desc:
             async with HttpClientSession() as session:
                 async with session.get(self.url) as response:
                     async for chunk in response.content.iter_chunked(
                             CHUNK_SIZE):
                         file_desc.write(chunk)
 
-            file_desc.seek(0)
-
-            parsed_url: ParseResult = urlparse(self.url)
-            filename = os.path.basename(parsed_url.path)
-            filepath = f'{video_id}/{filename}'
-
+        with open(f'{work_dir}/{filename}', 'rb') as file_desc:
+            filepath: str = f'{video_id}/{filename}'
             _LOGGER.debug(f'Copying thumbnail to storage: {filepath}')
             await storage_driver.write(
                 filepath, file_descriptor=file_desc,
                 storage_type=StorageType.PUBLIC
             )
 
-            self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
-                service_id=member.service_id, member_id=member.member_id,
-                asset_id=video_id, filename=filename
-            )
+        self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
+            service_id=member.service_id, member_id=member.member_id,
+            asset_id=video_id, filename=filename
+        )
 
-            _LOGGER.debug(f'New URL for thumbnail: {self.url}')
-            return self.url
+        _LOGGER.debug(f'New URL for thumbnail: {self.url}')
+        return self.url
