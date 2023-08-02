@@ -2,6 +2,7 @@
 
 import os
 import sys
+import base64
 import shutil
 import unittest
 
@@ -48,6 +49,12 @@ class TestAccountManager(unittest.TestCase):
         new_tree = ByoMerkleTree.load_from_file(TEST_DIR)
         self.assertEqual(original_tree.root.digest, new_tree.root.digest)
         self.assertEqual(original_tree.get_size(), new_tree.get_size())
+
+        self.assertEqual(original_tree.get_state(), new_tree.root.digest)
+        self.assertEqual(
+            original_tree.as_string(),
+            base64.b64encode(new_tree.root.digest).decode('utf-8')
+        )
 
 
 if __name__ == '__main__':

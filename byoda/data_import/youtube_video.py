@@ -252,6 +252,7 @@ class YouTubeVideo:
         'locale': 'locale',
         'publisher': 'publisher',
         'ingest_status': 'ingest_status',
+        'merkle_root_hash': 'asset_merkle_root_hash',
     }
 
     def __init__(self):
@@ -294,6 +295,8 @@ class YouTubeVideo:
         self.annotations: list[str] = []
 
         self.created_time: datetime = datetime.now(tz=timezone.utc)
+
+        self.merkle_root_hash: str | None = None
 
         # If this has a value then it is not a video but a
         # playlist
@@ -637,6 +640,8 @@ class YouTubeVideo:
             )
 
         tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
+        self.merkle_root_hash = tree.as_string()
+
         tree_filename: str = tree.save(pkg_dir)
         await storage_driver.copy(
             f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
