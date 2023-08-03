@@ -52,14 +52,12 @@ pynng = "*"
 setuptools = "==65.5.1"
 future = "*"
 wheel = "*"
-trio = "*"
 gql = {extras = ["aiohttp", "websockets"], version = "*"}
 install = "*"
 beautifulsoup4 = "*"
 google-api-python-client = "*"
 yt-dlp = "==2023.06.22"
 pymerkle = "*"
-bump-pydantic = "*"
 strawberry-graphql = {version = "==0.127.4", extras = ["fastapi"]}
 
 [dev-packages]
