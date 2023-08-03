@@ -15,7 +15,6 @@ from starlette_context.middleware import RawContextMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from byoda.datamodel.network import Network
 

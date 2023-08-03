@@ -250,5 +250,3 @@ app = setup_api(
     ],
     lifespan=lifespan
 )
-
-
