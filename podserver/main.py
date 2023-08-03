@@ -141,6 +141,7 @@ async def lifespan(app: FastAPI):
 
     _LOGGER.debug('Going to add CORS Origins')
     add_cors(app, cors_origins, allow_proxy=True, debug=config.debug)
+    yield
 
 # TODO: re-intro CORS origin ACL:
 # account.tls_secret.common_name
