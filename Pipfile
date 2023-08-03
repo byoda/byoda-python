@@ -26,7 +26,6 @@ websockets = "*"
 cryptography = "*"
 htpasswd = "*"
 uvicorn = {version = "*", extras = [ "standard",]}
-strawberry-graphql = {version = "==0.106.3", extras = ["fastapi"]}
 redis = "*"
 hiredis = "*"
 rfc3339-validator = "*"
@@ -61,6 +60,7 @@ google-api-python-client = "*"
 yt-dlp = "==2023.06.22"
 pymerkle = "*"
 bump-pydantic = "*"
+strawberry-graphql = {version = "==0.127.4", extras = ["fastapi"]}
 
 [dev-packages]
 flake8 = "*"
