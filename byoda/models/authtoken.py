@@ -20,7 +20,7 @@ class AuthRequestModel(BaseModel):
     username: str
     password: str
     target_type: IdType
-    app_id: UUID | None
+    app_id: UUID | None = None
     service_id: int | None = None
 
     def __repr__(self):

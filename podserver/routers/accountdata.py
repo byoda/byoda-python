@@ -10,7 +10,6 @@ memberdata API
 import logging
 
 from fastapi import APIRouter
-from fastapi import Depends
 from fastapi import Request
 from fastapi import HTTPException
 
@@ -23,7 +22,7 @@ from byoda.datatypes import IdType
 
 from byoda import config
 
-from ..dependencies.pod_api_request_auth import PodApiRequestAuth
+from ..dependencies.pod_api_request_auth import AuthDep
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,9 +33,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
     '/account/data/service_id/{service_id}',
     response_model=AccountDataDownloadResponseModel
 )
-async def get_accountdata(request: Request, service_id: int,
-                          auth: PodApiRequestAuth = Depends(
-                              PodApiRequestAuth)):
+async def get_accountdata(request: Request, service_id: int, auth: AuthDep):
     '''
     Get metadata for the membership of a service.
 

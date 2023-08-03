@@ -27,6 +27,10 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 import os
 import sys
 
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
 from byoda import config
 from byoda.util.logger import Logger
 
@@ -57,19 +61,9 @@ LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
-# TODO: re-intro CORS origin ACL:
-# account.tls_secret.common_name
-app = setup_api(
-    'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', [], [
-        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
-        AccountDataRouter, ContentTokenRouter
-    ]
-)
 
-
-@app.on_event('startup')
-async def setup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
 
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -147,3 +141,14 @@ async def setup():
 
     _LOGGER.debug('Going to add CORS Origins')
     add_cors(app, cors_origins, allow_proxy=True, debug=config.debug)
+
+# TODO: re-intro CORS origin ACL:
+# account.tls_secret.common_name
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', [], [
+        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
+        AccountDataRouter, ContentTokenRouter
+    ],
+    lifespan=lifespan
+)

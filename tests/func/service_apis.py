@@ -131,7 +131,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
             'v0.0.1', [],
-            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter]
+            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter],
+            lifespan=None
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,

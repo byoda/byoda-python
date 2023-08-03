@@ -8,8 +8,6 @@
 
 from uuid import UUID
 from logging import getLogger
-from urllib.parse import urlparse
-from urllib.parse import ParseResult
 
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
@@ -134,8 +132,7 @@ async def get_asset(request: Request, service_id: int = None,
 
 @router.get('/token')
 async def content_token(request: Request, service_id: int, asset_id: UUID,
-                        signedby: UUID, token: str
-                        ) -> ContentKeyResponseModel:
+                        signedby: UUID, token: str) -> ContentKeyResponseModel:
     '''
     API to request a token for restricted content
     '''

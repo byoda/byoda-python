@@ -14,7 +14,6 @@ from uuid import UUID
 
 from fastapi import APIRouter
 from fastapi import UploadFile
-from fastapi import Depends
 from fastapi import Request
 from fastapi import HTTPException
 
@@ -35,7 +34,7 @@ from byoda import config
 
 from byoda.servers.pod_server import PodServer
 
-from ..dependencies.pod_api_request_auth import PodApiRequestAuth
+from ..dependencies.pod_api_request_auth import AuthDep
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,8 +45,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
     '/member/service_id/{service_id}',
     response_model=MemberResponseModel
 )
-async def get_member(request: Request, service_id: int,
-                     auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def get_member(request: Request, service_id: int, auth: AuthDep):
     '''
     Get metadata for the membership of a service.
 
@@ -80,7 +78,7 @@ async def get_member(request: Request, service_id: int,
 @router.post('/member/service_id/{service_id}/version/{version}',
              response_model=MemberResponseModel)
 async def post_member(request: Request, service_id: int, version: int,
-                      auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+                      auth: AuthDep):
     '''
     Become a member of a service.
 
@@ -122,7 +120,7 @@ async def post_member(request: Request, service_id: int, version: int,
 @router.put('/member/service_id/{service_id}/version/{version}',
             response_model=MemberResponseModel)
 async def put_member(request: Request, service_id: int, version: int,
-                     auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+                     auth: AuthDep):
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service
@@ -233,9 +231,7 @@ async def put_member(request: Request, service_id: int, version: int,
              response_model=UploadResponseModel)
 async def post_member_upload(request: Request, files: list[UploadFile],
                              service_id: int, asset_id: UUID,
-                             visibility: VisibilityType,
-                             auth: PodApiRequestAuth =
-                             Depends(PodApiRequestAuth)):
+                             visibility: VisibilityType, auth: AuthDep):
     '''
     Upload a file so it can be used as media for a post or tweet.
 

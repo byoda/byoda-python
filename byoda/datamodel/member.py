@@ -727,13 +727,14 @@ class Member:
 
         self.app = app
 
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=self.schema.cors_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        # TODO: reenable CORS
+        # app.add_middleware(
+        #    CORSMiddleware,
+        #    allow_origins=self.schema.cors_origins,
+        #    allow_credentials=True,
+        #    allow_methods=["*"],
+        #    allow_headers=["*"],
+        #)
 
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming

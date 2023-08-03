@@ -21,6 +21,10 @@ from tests.lib.util import get_test_uuid
 ###
 ###
 
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
 from byoda import config
 from byoda.util.logger import Logger
 
@@ -67,19 +71,9 @@ TEST_DIR = '/tmp/byoda-tests/podserver'
 ###
 ###
 
-# TODO: re-intro CORS origin ACL:
-# account.tls_secret.common_name
-app = setup_api(
-    'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', [], [
-        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
-        AccountDataRouter, ContentTokenRouter
-    ]
-)
 
-
-@app.on_event('startup')
-async def setup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     PubSubNng.cleanup()
@@ -225,7 +219,6 @@ async def setup():
     ###
     ###
     ###
-    # await server.get_registered_services()
 
     cors_origins = [
         f'https://proxy.{network.name}',
@@ -244,4 +237,18 @@ async def setup():
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
 
     _LOGGER.debug('Going to add CORS Origins')
-    add_cors(app, cors_origins, allow_proxy=True, debug=True)
+    # add_cors(app, cors_origins, allow_proxy=True, debug=True)
+    yield
+
+# TODO: re-intro CORS origin ACL:
+# account.tls_secret.common_name
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', [], [
+        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
+        AccountDataRouter, ContentTokenRouter
+    ],
+    lifespan=lifespan
+)
+
+

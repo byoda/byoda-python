@@ -91,7 +91,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'v0.0.1', [account.tls_secret.common_name], [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
-            ]
+            ],
+            lifespan=None
         )
 
         for account_member in account.memberships.values():

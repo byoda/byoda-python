@@ -237,7 +237,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'password': os.environ['ACCOUNT_SECRET'],
                 'target_type': IdType.MEMBER.value,
                 'service_id': ADDRESSBOOK_SERVICE_ID
-            }
+            },
+            headers={'Content-Type': 'application/json'}
         )
 
         self.assertEqual(response.status_code, 200)
@@ -386,7 +387,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'username': str(pod_account.account_id)[:8],
                 'password': password,
                 'target_type': IdType.ACCOUNT.value,
-            }
+            },
+            headers={'Content-Type': 'application/json'}
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()

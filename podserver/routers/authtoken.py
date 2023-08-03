@@ -9,7 +9,7 @@
 
 import logging
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -23,7 +23,7 @@ from byoda.models import AuthTokenResponseModel
 
 from byoda import config
 
-from ..dependencies.pod_api_request_auth import PodApiRequestAuth
+from ..dependencies.pod_api_request_auth import AuthDep
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -111,8 +111,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
              response_model=AuthTokenResponseModel,
              status_code=200)
 async def post_member_auth_token(request: Request, service_id: int,
-                                 auth: PodApiRequestAuth =
-                                 Depends(PodApiRequestAuth)):
+                                 auth: AuthDep):
     '''
     Get the JWT for a pod member, using username/password
     '''

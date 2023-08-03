@@ -34,7 +34,8 @@ _LOGGER = None
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
     'v0.0.1', [],
-    [AccountRouter, ServiceRouter, MemberRouter, StatusRouter]
+    [AccountRouter, ServiceRouter, MemberRouter, StatusRouter],
+    lifespan=None
 )
 
 
