@@ -37,6 +37,11 @@ class SqlTable(Table):
     service
     '''
 
+    __slots__ = [
+        'class_name', 'sql_store', 'member_id', 'table_name', 'type',
+        'referenced_class', 'columns'
+    ]
+
     def __init__(self, data_class: SchemaDataItem, sql_store: Sql,
                  member_id: UUID):
         '''

@@ -13,15 +13,11 @@ the headers that would normally be set by the reverse proxy
 
 import sys
 import unittest
-import requests
 
-from uuid import UUID, uuid4
-from datetime import datetime, timezone
+from uuid import uuid4
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
-
-from byoda.datatypes import MARKER_NETWORK_LINKS
 
 from byoda.datastore.data_store import DataStoreType
 
@@ -39,7 +35,6 @@ from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
-from tests.lib.util import get_test_uuid
 from tests.lib.setup import get_account_id
 
 from tests.lib.defines import BASE_URL
@@ -86,7 +81,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
+            'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
             ],

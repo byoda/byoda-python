@@ -21,7 +21,7 @@ from .secret import Secret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class AccountSecret(Secret):
@@ -30,6 +30,7 @@ class AccountSecret(Secret):
     of the pod
     '''
 
+    __slots__ = ['account_id', 'account', 'network', 'paths_account_id']
     # When should the secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
@@ -45,14 +46,14 @@ class AccountSecret(Secret):
         :raises: (none)
         '''
 
-        self.account_id = account_id
+        self.account_id: UUID | str = account_id
         if account_id and not isinstance(account_id, UUID):
             self.account_id = UUID(account_id)
 
-        self.paths = copy(network.paths)
-        self.account = str(account)
-        self.paths.account = self.account
-        self.paths_account_id = self.account_id
+        self.paths: Paths = copy(network.paths)
+        self.account: str = str(account)
+        self.paths.account: str = self.account
+        self.paths_account_id: UUID = self.account_id
 
         super().__init__(
             cert_file=self.paths.get(Paths.ACCOUNT_CERT_FILE),
@@ -60,9 +61,9 @@ class AccountSecret(Secret):
             storage_driver=self.paths.storage_driver
         )
 
-        self.account = self.paths.account
-        self.network = network
-        self.id_type = IdType.ACCOUNT
+        self.account: str = self.paths.account
+        self.network: Network = network
+        self.id_type: IdType = IdType.ACCOUNT
 
     async def create_csr(self, account_id: UUID = None, renew: bool = False
                          ) -> CertificateSigningRequest:

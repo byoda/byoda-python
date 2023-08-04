@@ -70,6 +70,19 @@ CLAIM_FIELDS = {
 
 
 class Claim:
+    '''
+    Class for managing claims and their signatures
+    '''
+
+    __slots__ = [
+        'claim_id', 'claims', 'issuer', 'issuer_type', 'object_type',
+        'keyfield', 'keyfield_id', 'object_fields', 'requester_id',
+        'requester_type', 'signature', 'signature_timestamp',
+        'signature_format_version', 'signature_url', 'renewal_url',
+        'confirmation_url', 'cert_fingerprint', 'cert_expiration',
+        'secret', 'verified'
+    ]
+
     def __init__(self):
         self.claim_id: UUID | None = None
         self.claims: list[str] | None = None

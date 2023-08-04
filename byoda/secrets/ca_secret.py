@@ -45,6 +45,8 @@ CSR = x509.CertificateSigningRequest
 
 
 class CaSecret(Secret):
+    __slots__ = []
+
     # When should a CA secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
@@ -78,13 +80,9 @@ class CaSecret(Secret):
 
         super().__init__(cert_file, key_file, storage_driver)
 
-        self.is_root_cert: bool = False
-
         # X.509 constraints
         self.ca: bool = True
         self.max_path_length: int = 0
-
-        self.signs_ca_certs: bool = False
 
         # These are the different identity types of the
         # certificates for which this secret will sign

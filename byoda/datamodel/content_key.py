@@ -46,6 +46,10 @@ class ContentKey:
     under the /opt/byoda/keys directory
     '''
 
+    __slots__ = [
+        'key', 'key_id', 'not_before', 'not_after', 'table', 'status'
+    ]
+    
     def __init__(self, key: str, key_id: int, not_before: datetime,
                  not_after: datetime, table: Table = None):
         '''

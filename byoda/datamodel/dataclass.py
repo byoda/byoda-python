@@ -83,6 +83,16 @@ class SchemaDataItem:
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
+    __slots__ = [
+        'name', 'schema_data', 'description', 'item_id', 'schema_id',
+        'service_id', 'schema_url', 'enabled_apis', 'defined_class',
+        'fields', 'properties', 'is_index', 'is_counter', 'type',
+        'referenced_class', 'referenced_class_field', 'primary_key',
+        'is_primary_key', 'required', 'python_type', 'graphql_type',
+        'storage_name', 'storage_type', 'pubsub_class', 'access_rights',
+        'child_has_accessrights'
+    ]
+
     def __init__(self, class_name: str, schema_data: dict[str:object], schema: Schema) -> None:
         '''
         Constructor
@@ -378,6 +388,10 @@ class SchemaDataItem:
         return None
 
 class SchemaDataScalar(SchemaDataItem):
+    __slots__ = [
+        'format'
+    ]
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
         super().__init__(class_name, schema_data, schema)
 
@@ -437,6 +451,8 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
+    __slots__ = ['required_fields']
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem]) -> None:
         super().__init__(class_name, schema_data, schema)
@@ -552,6 +568,8 @@ class SchemaDataObject(SchemaDataItem):
 
 
 class SchemaDataArray(SchemaDataItem):
+    __slots__ = ['items']
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem], pubsub: bool =True
                  ) -> None:

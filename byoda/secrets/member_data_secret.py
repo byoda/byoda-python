@@ -29,6 +29,8 @@ Account = TypeVar('Account')
 
 
 class MemberDataSecret(DataSecret):
+    __slots__ = ['member_id', 'network', 'service_id']
+
     def __init__(self, member_id: UUID, service_id: int,
                  account: Account | None = None):
         '''

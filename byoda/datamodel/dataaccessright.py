@@ -29,6 +29,13 @@ class DataAccessRight:
     of an object in the service contract / JSON Schema
     '''
 
+    __slots__ = [
+        'distance', 'relations', 'source_signature_required',
+        'anonimized_responses', 'search_condition', 'search_match',
+        'search_casesensitive', 'data_operation', 'distance', 'relations',
+        'casesensitive'
+    ]
+
     def __init__(self, permission_data: str | dict):
         self.distance: int | None = None
         self.relations: set(str) | None = None

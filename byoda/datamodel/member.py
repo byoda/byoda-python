@@ -76,6 +76,15 @@ class Member:
     This class is expected to only be used in the podserver
     '''
 
+    __slots__ = [
+        'member_id', 'service_id', 'account', 'network', 'service', 'schema',
+        'data', 'paths', 'document_store', 'data_store', 'query_cache',
+        'counter_cache', 'storage_driver', 'private_key_password', 'app',
+        'tls_secret', 'data_secret', 'service_data_secret',
+        'service_ca_secret', 'service_ca_certchain'
+
+    ]
+
     def __init__(self, service_id: int, account: Account,
                  local_service_contract: str = None, member_id: UUID = None
                  ) -> None:
@@ -728,7 +737,6 @@ class Member:
         self.app = app
 
         update_cors_origins(self.schema.cors_origins)
-
 
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming

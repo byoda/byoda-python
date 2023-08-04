@@ -76,6 +76,10 @@ class MemberData(dict):
     by the schema of services
     '''
 
+    __slots__ = [
+        'member', 'unvalidated_data', 'paths'
+    ]
+
     def __init__(self, member: Member):
         self.member: Member = member
         self.unvalidated_data: dict = None

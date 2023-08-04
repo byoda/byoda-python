@@ -25,6 +25,8 @@ Network = TypeVar('Network')
 
 
 class AppDataSecret(DataSecret):
+    __slots__ = ['app_id', 'service_id', 'network', 'fqdn']
+
     def __init__(self, app_id: UUID, service_id: int, network: Network):
         '''
         Class for the app-data secret. This secret is used to sign

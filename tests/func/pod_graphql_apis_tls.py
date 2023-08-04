@@ -86,7 +86,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
+            'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
             ],

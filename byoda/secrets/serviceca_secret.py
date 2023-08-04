@@ -26,6 +26,8 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceCaSecret(CaSecret):
+    __slots__ = ['service_id', 'network']
+
     # When should the Network Services CA secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)

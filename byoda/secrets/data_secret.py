@@ -49,6 +49,10 @@ class DataSecret(Secret):
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    __slots__ = [
+        'shared_key', 'protected_shared_key', 'fernet'
+    ]
+
     # When should the secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
@@ -59,11 +63,11 @@ class DataSecret(Secret):
         super().__init__(cert_file, key_file, storage_driver)
 
         # the key to use for Fernet encryption/decryption
-        self.shared_key = None
+        self.shared_key: bytes = None
 
         # The shared key encrypted with the private key of
         # this secret
-        self.protected_shared_key = None
+        self.protected_shared_key: bytes = None
 
         self.fernet = None
 

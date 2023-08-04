@@ -36,6 +36,8 @@ class FileMode(Enum):
 
 
 class FileStorage:
+    __slots__ = ['cloud_type', 'local_path']
+
     '''
     Class that abstracts storing data in object storage while
     keeping a local copy for fast reads.

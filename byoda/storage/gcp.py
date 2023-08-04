@@ -25,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GcpFileStorage(FileStorage):
+    __slots__ = ['_client', 'domain', 'buckets', 'clients']
     '''
     Provides access to GCS (Google Cloud Storage)
     '''

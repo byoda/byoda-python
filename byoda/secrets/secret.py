@@ -30,6 +30,8 @@ from byoda.storage.filestorage import FileStorage, FileMode
 from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 
+from byoda.util.paths import Paths
+
 from .certchain import CertChain
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +69,13 @@ class Secret:
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    __slots__ = [
+        'private_key', 'private_key_file', 'cert', 'cert_file', 'paths',
+        'password', 'common_name', 'service_id', 'id_type', 'sans',
+        'storage_driver', 'cert_chain', 'is_root_cert', 'ca',
+        'signs_ca_certs', 'max_path_length', 'accepted_csrs'
+    ]
+
     # When should the secret be renewed
     RENEW_WANTED = datetime.now() + timedelta(days=90)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
@@ -90,6 +99,12 @@ class Secret:
 
         self.cert: Certificate = None
         self.cert_file: str = cert_file
+
+        # Some derived classes already set self.paths before
+        # calling super().__init__() so we don't want to overwrite
+        # that
+        if not hasattr(self, 'paths'):
+            self.paths: Paths | None = None
 
         # The password to use for saving the private key
         # to a file
@@ -117,6 +132,7 @@ class Secret:
         # X.509 constraints
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
+        self.signs_ca_certs: bool = False
         self.max_path_length: int = None
 
         self.accepted_csrs: dict[IdType, int] = ()

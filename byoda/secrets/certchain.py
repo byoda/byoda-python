@@ -18,6 +18,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CertChain:
+    __slots__ = [
+        'signed_cert', 'cert_chain'
+    ]
+
     def __init__(self, signed_cert: Certificate,
                  cert_chain: list[Certificate]):
         '''

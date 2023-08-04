@@ -54,6 +54,16 @@ class Network:
     key of the network.
     '''
 
+    __slots__ = [
+        'accounts_ca', 'services_ca', 'tls_secret',
+        'services', 'service_summaries',
+        'service_ca', 'member_ca', 'root_ca',
+        'account_id', 'account_secret', 'member_secrets',
+        'account', 'name', 'root_dir', 'private_key_password',
+        'dnsdb', 'paths', 'roles', 'cloud', 'data_secret',
+        'private_bucket', 'restricted_bucket', 'public_bucket',
+    ]
+
     # Limit for restricted services
     MAX_RESTRICTED_SERVICE_ID = 65535
     # Pods should only accept test service IDs when running in DEBUG mode
@@ -84,7 +94,7 @@ class Network:
         self.service_summaries: dict[int:dict] = dict()
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
-        self.services_ca: ServiceCaSecret = None
+        self.service_ca: ServiceCaSecret = None
         self.tls_secret: ServiceSecret = None
         self.member_ca: MembersCaSecret = None
 
@@ -92,7 +102,6 @@ class Network:
         self.account_id = None
         self.account_secret = None
         self.member_secrets = set()
-        self.services = dict()
         self.account = None
 
         self.name: str = application.get('network', config.DEFAULT_NETWORK)

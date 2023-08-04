@@ -26,6 +26,8 @@ Network = TypeVar('Network')
 
 
 class AppSecret(Secret):
+    __slots__ = ['app_id', 'service_id', 'network', 'fqdn']
+
     def __init__(self, app_id: UUID, service_id: int, network: Network):
         '''
         Class for the App secret for a service

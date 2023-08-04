@@ -34,6 +34,8 @@ class AppsCaSecret(CaSecret):
     # CSRs that we are willing to sign
     ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
 
+    __slots__ = ['network', 'service_id']
+
     def __init__(self,  service_id: int, network: Network):
         '''
         Class for the Apps CA secret. Either paths or network parameters must

@@ -53,6 +53,16 @@ CODEGEN_DIRECTORY = 'podserver/codegen'
 
 
 class Schema:
+    # TODO: figure out why enabling __slots__ throws an error on
+    # service_id
+    # __slots__ = [
+    #     'json_schema', 'data_classes', 'gql_schema', 'verified_signatures',
+    #     'service_id', 'version', 'name', 'owner', 'website', 'supportemail',
+    #     'description', 'cors_origins', 'schema_id', 'validator',
+    #     '_verified_signatures', '_service_signature', '_network_signature',
+    #     'validator', 'service_data_secret', 'network_data_secret',
+    # ]
+
     def __init__(self, schema: dict):
         '''
         Construct a schema. The number of class properties is kept

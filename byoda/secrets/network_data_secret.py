@@ -20,6 +20,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkDataSecret(DataSecret):
+    __slots__ = ['network']
+
     def __init__(self, paths: Paths):
         '''
         Class for the Network Data secret. This secret is used to sign
@@ -39,14 +41,10 @@ class NetworkDataSecret(DataSecret):
         )
 
         # X.509 constraints
-        self.ca = False
-        self.max_path_length = None
+        self.ca: bool = False
+        self.max_path_length: int | None = None
 
-        self.is_root_cert = False
-        self.issuing_ca = None
-        self.id_type = IdType.NETWORK_DATA
-
-        self.accepted_csrs = ()
+        self.id_type: IdType = IdType.NETWORK_DATA
 
     async def create(self, expire: int = 1085):
         '''

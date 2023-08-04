@@ -103,7 +103,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', [], [AccountRouter, ServiceRouter, MemberRouter]
+            'v0.0.1', [AccountRouter, ServiceRouter, MemberRouter]
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,

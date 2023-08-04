@@ -58,6 +58,11 @@ class Account:
     This class is expected to only be used in the podserver
     '''
 
+    __slots__ = [
+        'account', 'password', 'account_id', 'document_store', 'network',
+        'private_key_password', 'data_secret', 'tls_secret', 'paths',
+        'memberships'
+    ]
     def __init__(self,  account_id: str, network: Network,
                  account: str = 'pod'):
         '''

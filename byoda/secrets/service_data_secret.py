@@ -23,6 +23,8 @@ Network = TypeVar('Network')
 
 
 class ServiceDataSecret(DataSecret):
+    __slots__ = ['service_id', 'network']
+
     def __init__(self, service_id: int, network: Network):
         '''
         Class for the account-data secret. This secret is used to encrypt

@@ -59,6 +59,7 @@ google-api-python-client = "*"
 yt-dlp = "==2023.06.22"
 pymerkle = "*"
 strawberry-graphql = {version = "==0.127.4", extras = ["fastapi"]}
+pyyaml = "*"
 
 [dev-packages]
 flake8 = "*"

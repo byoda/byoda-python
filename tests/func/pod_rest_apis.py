@@ -20,8 +20,6 @@ from uuid import uuid4
 import orjson
 import requests
 
-from gql import Client, gql
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
@@ -94,10 +92,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
+            'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
-            ]
+            ],
+            lifespan=None
         )
 
         for account_member in account.memberships.values():

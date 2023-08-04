@@ -24,6 +24,11 @@ class SignatureType(Enum):
 
 
 class MessageSignature:
+    __slots__ = [
+        'message', 'signature', 'base64_signature', 'timestamp',
+        'hash_algorithm', 'data_secret', 'certificate_cn', 'verified'
+    ]
+
     def __init__(self, data_secret: DataSecret,
                  hash_algorithm: str = 'SHA256'):
         '''

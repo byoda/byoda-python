@@ -228,7 +228,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         # directly call PubSubNng() so that we can set the process_id
         pubs = [
             PubSub.setup('test', data_class, schema, is_sender=True),
-            PubSubNng(data_class, schema, is_sender=True, process_id=1),
+            PubSubNng(data_class, schema, False, is_sender=True, process_id=1),
         ]
 
         sub = PubSub.setup('test', data_class, schema, is_sender=False)

@@ -26,6 +26,8 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceSecret(Secret):
+    __slots__ = ['network', 'service_id']
+
     def __init__(self, service_id: int, network: Network):
         '''
         Class for the service secret

@@ -27,6 +27,10 @@ class PubSubMessage():
     Generic class for PubSub messages
     '''
 
+    __slots__ = [
+        'action', 'class_name', 'data_class', 'data', 'type'
+    ]
+
     def __init__(self, message_type: PubSubMessageType):
         self.type: PubSubMessageType = message_type
 

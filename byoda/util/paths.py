@@ -20,6 +20,12 @@ class Paths:
     Filesystem path management. Provides a uniform interface
     to the location of various files
     '''
+
+    __slots__ = [
+        '_root_directory', '_account', '_network', 'service_id',
+        'storage_driver', 'account_id'
+    ]
+
     # Default value for the pirectory prepended to paths
     _ROOT_DIR = os.environ['HOME'] + '/.byoda/'
 

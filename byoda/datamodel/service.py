@@ -73,6 +73,12 @@ class Service:
     and by pods
     '''
 
+    __slots__ = [
+        'name', 'service_id', 'schema', 'signed', 'private_key_password',
+        'registration_status', 'service_ca', 'members_ca', 'apps_ca',
+        'tls_secret', 'data_secret', 'network', 'paths', 'storage_driver'
+    ]
+
     def __init__(self, network: Network = None, service_id: int = None,
                  storage_driver: FileStorage = None):
         '''

@@ -180,7 +180,6 @@ ContentTypes: dict[str, str] = {
     '.txt': 'text/plain',
     '.pdf': 'application/pdf',
     '.json': 'application/json',
-
 }
 
 # The following are used for the 'type' parameter in the service schema

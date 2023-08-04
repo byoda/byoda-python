@@ -39,7 +39,7 @@ with open(config_file) as file_desc:
 
 app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
-    'network', 'v0.0.1', [],
+    'network', 'v0.0.1',
     [ServiceRouter, MemberRouter, SearchRouter, StatusRouter, AppRouter],
     lifespan=None
 )
