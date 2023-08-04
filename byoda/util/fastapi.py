@@ -13,6 +13,7 @@ from starlette.middleware import Middleware
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.exceptions import ExceptionMiddleware
 
 from fastapi import FastAPI
 
@@ -23,10 +24,14 @@ from byoda import config
 _LOGGER = logging.getLogger(__name__)
 
 
-def setup_api(title: str, description: str, version: str,
-              cors_origins: list[str], routers: list, lifespan: callable
-              ) -> FastAPI:
+def setup_api(title: str, description: str, version: str, routers: list,
+              lifespan: callable) -> FastAPI:
     middleware = [
+        Middleware(
+            CORSMiddleware, allow_origins=[], allow_credentials=True,
+            allow_methods=['*'], allow_headers=['*'], expose_headers=['*'],
+            max_age=86400
+        ),
         Middleware(
             RawContextMiddleware,
             plugins=(
@@ -41,10 +46,6 @@ def setup_api(title: str, description: str, version: str,
         middleware=middleware, debug=True, lifespan=lifespan
     )
 
-    # TODO: reenable CORS
-    # if cors_origins:
-    #    add_cors(app, cors_origins)
-
     # FastAPIInstrumentor.instrument_app(app)
     # PrometheusInstrumentator().instrument(app).expose(app)
 
@@ -54,31 +55,29 @@ def setup_api(title: str, description: str, version: str,
     return app
 
 
-def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True,
-             debug: bool = False):
+def update_cors_origins(hosts: str | list[str]):
     '''
-    Add CORS headers to the app
+    Updates the starlette CORS middleware to add the provided hosts
+
+    :param hosts: list of hosts to add
     '''
 
-    network: Network = config.server.network
+    if not hosts:
+        _LOGGER.debug('No CORS hosts to add')
+        return
 
-    if debug:
-        cors_origins = ['*']
-    else:
-        proxy_url = f'https://proxy.{network.name}'
-        if allow_proxy and proxy_url not in cors_origins:
-            cors_origins.append(proxy_url)
+    if isinstance(hosts, str):
+        hosts = [hosts]
 
-    _LOGGER.debug(
-        f'Adding CORS middleware for origins {", ".join(cors_origins)}'
-    )
+    app: FastAPI = config.app
+    for middleware in app.user_middleware:
+        if middleware.cls == CORSMiddleware:
+            for host in hosts:
+                if host not in middleware.options['allow_origins']:
+                    _LOGGER.debug(f'Adding CORS host: {host}')
+                    # app.user_middleware is a reference to
+                    # app.middleware_stack.app
+                    middleware.options['allow_origins'].append(host)
+            return
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=['*'],
-        allow_headers=['*'],
-        expose_headers=['*'],
-        max_age=86400,
-    )
+    raise KeyError('CORS middleware not found')

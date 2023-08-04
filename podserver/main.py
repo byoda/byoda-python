@@ -45,7 +45,7 @@ from byoda.datastore.data_store import DataStoreType
 
 from byoda.storage.pubsub_nng import PubSubNng
 
-from byoda.util.fastapi import setup_api, add_cors
+from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
 
@@ -123,10 +123,10 @@ async def lifespan(app: FastAPI):
 
     await server.get_registered_services()
 
-    cors_origins = [
+    cors_origins = set(
         f'https://proxy.{network.name}',
         f'https://{account.tls_secret.common_name}'
-    ]
+    )
 
     if server.custom_domain:
         cors_origins.append(f'https://{server.custom_domain}')
@@ -139,18 +139,19 @@ async def lifespan(app: FastAPI):
         account_member.enable_graphql_api(app)
         cors_origins.append(f'https://{account_member.tls_secret.common_name}')
 
-    _LOGGER.debug('Going to add CORS Origins')
-    # TODO: reenable CORS
-    # add_cors(app, cors_origins, allow_proxy=True, debug=config.debug)
+    _LOGGER.debug('Lifespan startup complete')
+    update_cors_origins(cors_origins)
     yield
 
-# TODO: re-intro CORS origin ACL:
-# account.tls_secret.common_name
+    _LOGGER.info('Shutting down pod server')
+
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', [], [
+    'v0.0.1', [
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
         AccountDataRouter, ContentTokenRouter
     ],
     lifespan=lifespan
 )
+
+config.app = app

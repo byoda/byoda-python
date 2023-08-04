@@ -15,6 +15,7 @@ import requests
 
 from ssl import SSLContext
 
+
 DEFAULT_NETWORK = 'byoda.net'
 
 HttpSession = TypeVar('HttpSession')
@@ -33,6 +34,12 @@ extra_log_data = {}
 # The configuration of the server, its peers and the networks
 # it is supporting
 server = None
+
+# The FastAPI app,
+app = None
+
+# The set of CORS servers that are allowed to access the API
+cors_origins = set()
 
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
