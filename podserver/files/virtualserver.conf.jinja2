@@ -5,8 +5,6 @@ server {
     listen       443 ssl http2;
 {% endif %}
 
-    set $cloud_path '';
-
 {% if subdomain == 'accounts' and custom_domain %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
@@ -26,6 +24,7 @@ server {
 {% if subdomain == 'accounts' %}
     location / {
         root   /var/www/wwwroot/;
+        set $cloud_path '/var/www/wwwroot/';
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
@@ -33,6 +32,7 @@ server {
 
     location /logs {
         root   /var/www/wwwroot/;
+        set $cloud_path '/var/www/wwwroot/';
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
@@ -121,6 +121,7 @@ server {
     location /public/ {
 {% if cloud == 'LOCAL' %}
         root {{ root_dir }};
+        set $cloud_path '{{ root_dir }}';
 {% else %}
         proxy_pass {{ public_cloud_endpoint }};
         set $cloud_path '{{ public_cloud_endpoint }}';
@@ -199,6 +200,7 @@ server {
     location ~ "/restricted/(?<service_id>\d{1,12})/(?<member_id>[0-9a-fA-E\-]{36})/(?<asset_id>[0-9a-fA-E\-]{36})/(?<filename>[^\?]*)\?{0,1}" {
 {% if cloud == 'LOCAL' %}
         root {{ root_dir }};
+        set $cloud_path '{{ root_dir }}';
 {% else %}
         proxy_pass {{ restricted_cloud_endpoint }}${asset_id}/${filename};
         set $cloud_path '{{ restricted_cloud_endpoint }}${asset_id}/${filename}';
@@ -292,8 +294,6 @@ server {
 
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 
-    set $cloud_path '';
-
     # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
     ssl_certificate_key {{ key_filepath }};
     ssl_certificate {{ cert_filepath }};
@@ -319,10 +319,12 @@ server {
 
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
+        set $cloud_path '{{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem';
     }
 
     location = /member-data-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
+        set $cloud_path '{{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem';
     }
 
     location /api/ {
