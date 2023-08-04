@@ -48,7 +48,7 @@ AzureBucket = namedtuple('AzureBucket', ['storage_account', 'container'])
 
 
 class AzureFileStorage(FileStorage):
-    __slots__ = ['credential', '_blob_clients', 'buckets']
+    __slots__ = ['credential', '_blob_clients', 'buckets', 'clients']
 
     '''
     Provides access to Azure object (aka 'blob') storage
