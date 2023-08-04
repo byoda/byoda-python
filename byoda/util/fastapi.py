@@ -72,7 +72,7 @@ def update_cors_origins(hosts: str | list[str]):
             for host in hosts:
                 if not host.startswith('https://'):
                     host = f'https://{host}'
-                    
+
                 if host not in middleware.options['allow_origins']:
                     _LOGGER.debug(f'Adding CORS host: {host}')
                     # app.user_middleware is a reference to

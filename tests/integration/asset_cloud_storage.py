@@ -25,7 +25,6 @@ from byoda.util.logger import Logger
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import AWS_RESTRICTED_BUCKET_FILE
 
 TEST_DIR = '/tmp/byoda-tests/cloud_assets'
 
@@ -41,7 +40,6 @@ class TestAssetStorage(unittest.IsolatedAsyncioTestCase):
                 parsed_url: ParseResult = urlparse(url)
                 service_id, member_id, asset_id, filename = \
                     parsed_url.path.split('/')[2:6]
-
 
                 self.assertEqual(member_id, AZURE_POD_MEMBER_ID)
                 self.assertEqual(service_id, str(ADDRESSBOOK_SERVICE_ID))
