@@ -124,12 +124,14 @@ async def lifespan(app: FastAPI):
     await server.get_registered_services()
 
     cors_origins = set(
-        f'https://proxy.{network.name}',
-        f'https://{account.tls_secret.common_name}'
+        [
+            f'https://proxy.{network.name}',
+            f'https://{account.tls_secret.common_name}'
+        ]
     )
 
     if server.custom_domain:
-        cors_origins.append(f'https://{server.custom_domain}')
+        cors_origins.add(f'https://{server.custom_domain}')
 
     await account.load_memberships()
 
@@ -137,7 +139,7 @@ async def lifespan(app: FastAPI):
         await account_member.create_query_cache()
         await account_member.create_counter_cache()
         account_member.enable_graphql_api(app)
-        cors_origins.append(f'https://{account_member.tls_secret.common_name}')
+        cors_origins.add(f'https://{account_member.tls_secret.common_name}')
 
     _LOGGER.debug('Lifespan startup complete')
     update_cors_origins(cors_origins)
