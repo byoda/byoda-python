@@ -42,6 +42,10 @@ from byoda.storage import FileStorage
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
 
+from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
+from tests.lib.defines import GCP_RESTRICTED_BUCKET_FILE
+from tests.lib.defines import AWS_RESTRICTED_BUCKET_FILE
+
 ROOT_DIR = '/tmp/byoda-tests/filestorage'
 CLOUD_STORAGE_TYPES = (AzureFileStorage, AwsFileStorage, GcpFileStorage)
 
@@ -52,22 +56,26 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.makedirs(ROOT_DIR, exist_ok=True)
 
     async def test_gcp_storage(self):
+        with open(GCP_RESTRICTED_BUCKET_FILE) as file_desc:
+            restricted_bucket = file_desc.read().strip()
         storage = await FileStorage.get_storage(
-            CloudType.GCP, 'byoda-private', 'byoda-restricted-00155daaf7ad',
+            CloudType.GCP, 'byoda-private', restricted_bucket,
             'byoda-public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
         bucket = storage.get_bucket(StorageType.RESTRICTED)
-        self.assertEqual(bucket, 'byoda-restricted-00155daaf7ad')
+        self.assertEqual(bucket, restricted_bucket)
 
         bucket = storage.get_bucket(StorageType.PUBLIC)
         self.assertEqual(bucket, 'byoda-public')
 
     async def test_azure_storage(self):
+        with open(AZURE_RESTRICTED_BUCKET_FILE) as file_desc:
+            restricted_bucket = file_desc.read().strip()
         storage = await FileStorage.get_storage(
             CloudType.AZURE, 'byodaprivate:byoda',
-            'byodaprivate:restricted-xjfwiq', 'byodaprivate:public', ROOT_DIR
+            restricted_bucket, 'byodaprivate:public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
@@ -78,15 +86,17 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bucket, 'byodaprivate.blob.core.windows.net')
 
     async def test_aws_storage(self):
+        with open(AWS_RESTRICTED_BUCKET_FILE) as file_desc:
+            restricted_bucket = file_desc.read().strip()
         storage = await FileStorage.get_storage(
-            CloudType.AWS, 'byoda-private', 'byoda-restricted-000d3a3b236d',
+            CloudType.AWS, 'byoda-private', restricted_bucket,
             'byoda-public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
         bucket = storage.get_bucket(StorageType.RESTRICTED)
         self.assertEqual(
-            bucket, 'byoda-restricted-000d3a3b236d.s3-us-east-2.amazonaws.com'
+            bucket, f'{restricted_bucket}.s3-us-east-2.amazonaws.com'
         )
 
         bucket = storage.get_bucket(StorageType.PUBLIC)

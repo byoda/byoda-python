@@ -5,6 +5,8 @@ server {
     listen       443 ssl http2;
 {% endif %}
 
+    set $cloud_path '';
+
 {% if subdomain == 'accounts' and custom_domain %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
@@ -55,16 +57,19 @@ server {
         set $cors "0";
         satisfy any;
         proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
     }
 
     location /redoc {
         set $cors "0";
         proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
     }
 
     location /openapi.json {
         set $cors "0";
         proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
     }
 {% else %}
     location = /member-cert.pem {
@@ -77,6 +82,7 @@ server {
 
     location /ws-api/ {
         proxy_pass http://127.0.0.1:8000/api/;
+        set $cloud_path 'http://127.0.0.1:8000/api/';
 
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -98,6 +104,7 @@ server {
 
     location /api/ {
         proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:8000';
 
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $server_name;
@@ -116,6 +123,8 @@ server {
         root {{ root_dir }};
 {% else %}
         proxy_pass {{ public_cloud_endpoint }};
+        set $cloud_path '{{ public_cloud_endpoint }}';
+
         proxy_cache byoda;
 
         # https://nginx.org/en/docs/http/ngx_http_slice_module.html
@@ -192,6 +201,8 @@ server {
         root {{ root_dir }};
 {% else %}
         proxy_pass {{ restricted_cloud_endpoint }}${asset_id}/${filename};
+        set $cloud_path '{{ restricted_cloud_endpoint }}${asset_id}/${filename}';
+
         proxy_cache byoda;
 
         # https://nginx.org/en/docs/http/ngx_http_slice_module.html
@@ -281,6 +292,8 @@ server {
 
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }};
 
+    set $cloud_path '';
+
     # byoda.util.secrets.Secret.save_tmp_private_key() writes unencrypted private key to /tmp
     ssl_certificate_key {{ key_filepath }};
     ssl_certificate {{ cert_filepath }};
@@ -314,6 +327,7 @@ server {
 
     location /api/ {
         proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $server_name;
