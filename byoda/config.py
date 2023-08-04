@@ -38,9 +38,6 @@ server = None
 # The FastAPI app,
 app = None
 
-# The set of CORS servers that are allowed to access the API
-cors_origins = set()
-
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
 request = requests.Session()

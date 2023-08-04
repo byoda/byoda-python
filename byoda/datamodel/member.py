@@ -14,8 +14,6 @@ from typing import TypeVar
 from datetime import datetime
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 
 from strawberry.fastapi import GraphQLRouter
 
@@ -50,6 +48,8 @@ from byoda.requestauth.jwt import JWT
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
+
+from byoda.util.fastapi import update_cors_origins
 
 from byoda.util.nginxconfig import NginxConfig
 from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
@@ -727,14 +727,8 @@ class Member:
 
         self.app = app
 
-        # TODO: reenable CORS
-        # app.add_middleware(
-        #    CORSMiddleware,
-        #    allow_origins=self.schema.cors_origins,
-        #    allow_credentials=True,
-        #    allow_methods=["*"],
-        #    allow_headers=["*"],
-        #)
+        update_cors_origins(self.schema.cors_origins)
+
 
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming

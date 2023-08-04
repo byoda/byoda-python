@@ -13,11 +13,8 @@ from starlette.middleware import Middleware
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.exceptions import ExceptionMiddleware
 
 from fastapi import FastAPI
-
-from byoda.datamodel.network import Network
 
 from byoda import config
 
@@ -76,7 +73,7 @@ def update_cors_origins(hosts: str | list[str]):
                 if host not in middleware.options['allow_origins']:
                     _LOGGER.debug(f'Adding CORS host: {host}')
                     # app.user_middleware is a reference to
-                    # app.middleware_stack.app
+                    # app.middleware_stack.app (or vice versa)
                     middleware.options['allow_origins'].append(host)
             return
 

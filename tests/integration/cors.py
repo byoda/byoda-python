@@ -72,7 +72,7 @@ def do_request(testcase, fqdn: str, api_prefix: str = '/'):
         resp.headers['access-control-allow-methods'],
         'DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT'
     )
-    testcase.assertEqual(resp.headers['access-control-max-age'], '600')
+    testcase.assertEqual(resp.headers['access-control-max-age'], '86400')
 
     testcase.assertEqual(
         resp.headers['access-control-allow-credentials'], 'true'
