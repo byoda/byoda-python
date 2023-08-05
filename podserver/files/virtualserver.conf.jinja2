@@ -130,7 +130,7 @@ server {
 
         # https://nginx.org/en/docs/http/ngx_http_slice_module.html
         slice 1m;
-        proxy_cache_key   $uri$is_args$args$slice_range;
+        proxy_cache_key   $uri$is_args$args$http_origin$slice_range;
         proxy_set_header  Range $slice_range;
 
         # Avoid object storage thinking we want authenticated access
@@ -209,7 +209,7 @@ server {
 
         # https://nginx.org/en/docs/http/ngx_http_slice_module.html
         slice 1m;
-        proxy_cache_key   $uri$is_args$args$slice_range;
+        proxy_cache_key   $uri$is_args$args$http_origin$slice_range;
         proxy_set_header  Range $slice_range;
 
         # Avoid object storage thinking we want authenticated access
