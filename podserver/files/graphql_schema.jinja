@@ -188,7 +188,7 @@ class {{ root_class.name }}:
     def from_dict(data: dict):
         {{ root_class.name }}_instance = {{ root_class.name }}(
 {%     for field in root_class.fields.values() %}
-            data.get('{{ field.name }}'),
+            {{ field.name }}=data.get('{{ field.name }}'),
 {%     endfor %}{# for field in root_class.fields.values() #}
         )
         return {{ root_class.name }}_instance
@@ -356,7 +356,7 @@ class Query:
             if cursor_seen:
                 {{ root_class.name }}_data = {{ root_class.name }}(
 {%       for field_name, field in root_class.fields.items() %}
-                    obj.get('{{ field_name }}'),
+                    {{ field_name }}=obj.get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.fields.items() #}
                 )
 
@@ -452,7 +452,7 @@ class Query:
 
                 {{ root_class.referenced_class.name }}_data = {{ root_class.referenced_class.name }}(
 {%       for field_name, field in root_class.referenced_class.fields.items() %}
-                    info.context['data'].get('{{ field_name }}'),
+                    {{ field_name}}=info.context['data'].get('{{ field_name }}'),
 {%       endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
                 )
                 edge = {{ root_class.name }}_edge(cursor=cursor, origin=origin, {{ root_class.referenced_class.name }}={{ root_class.referenced_class.name }}_data)
@@ -626,7 +626,7 @@ class Subscription:
                     class_name=message.class_name,
                     data={{ root_class.referenced_class.name }}(
 {%     for field_name, field in root_class.referenced_class.fields.items() %}
-                        message.data['{{ field_name }}'],
+                        {{ field_name }}=message.data['{{ field_name }}'],
 {%     endfor %}{# for field_name, field in root_class.referenced_class.fields.items() #}
                     )
                 )
