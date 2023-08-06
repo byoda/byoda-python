@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "2cb3aa1cf8369f4bc78fc6179ad778a38ea999e223a29063e3828765aebbd045"
+            "sha256": "b8f7987a44d63ec2ba132ada2a22b9837f60ebdffc0e3da91884a467afc9ffc9"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -191,7 +191,7 @@
                 "sha256:2163e1640ddb52b7a8c80d0a67a08587e5d245cc9c553a74a847056bc2976b15",
                 "sha256:8ca1e4fcf50d07413d66d1a5e416e42cfdf5851c981d679a09851a6853383b3c"
             ],
-            "markers": "python_version >= '3.6'",
+            "markers": "python_full_version <= '3.11.2'",
             "version": "==4.0.2"
         },
         "attrs": {
@@ -231,7 +231,7 @@
                 "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba",
                 "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8"
             ],
-            "markers": "python_version >= '3.7' and python_version < '4.0'",
+            "markers": "python_version >= '3.7' and python_version < '4'",
             "version": "==2.2.1"
         },
         "beautifulsoup4": {
@@ -907,7 +907,7 @@
                 "sha256:06d2aad0ac723e35b1cb47885d3e5c45e956a53bc1b209a9fc5369007fe46676",
                 "sha256:5766780452bd5ec8ba133f8bf287dc92713e3868ddd83aee4faab9fc3e303dc3"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4.0'",
+            "markers": "python_version >= '3.6' and python_version < '4'",
             "version": "==3.2.3"
         },
         "greenlet": {
@@ -1820,14 +1820,6 @@
             "markers": "python_version >= '3.7'",
             "version": "==2.4.0"
         },
-        "pygments": {
-            "hashes": [
-                "sha256:13fc09fa63bc8d8671a6d247e1eb303c4b343eaee81d861f3404db2935653692",
-                "sha256:1daff0494820c69bc8941e407aa20f577374ee88364ee10a98fdbe0aece96e29"
-            ],
-            "markers": "python_version >= '3.7'",
-            "version": "==2.16.1"
-        },
         "pyjwt": {
             "hashes": [
                 "sha256:57e28d156e3d5c10088e0c68abb90bfac3df82b40a71bd0daa20c65ccd5c23de",
@@ -1956,10 +1948,11 @@
         },
         "python-multipart": {
             "hashes": [
-                "sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43"
+                "sha256:e9925a80bb668529f1b67c7fdb0a5dacdd7cbfc6fb0bff3ea443fe22bdd62132",
+                "sha256:ee698bab5ef148b0a760751c261902cd096e57e10558e11aca17646b74ee1c18"
             ],
             "index": "pypi",
-            "version": "==0.0.5"
+            "version": "==0.0.6"
         },
         "pytz": {
             "hashes": [
@@ -2169,7 +2162,7 @@
                 "sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7",
                 "sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4.0'",
+            "markers": "python_version >= '3.6' and python_version < '4'",
             "version": "==4.9"
         },
         "s3transfer": {
@@ -2292,13 +2285,12 @@
             "version": "==0.3.6"
         },
         "strawberry-graphql": {
-            "extras": [],
             "hashes": [
-                "sha256:110e5b95aecb63825c9032fd95325f0a5a3e2ad3d8d6fb45ddb4669191e8ec67",
-                "sha256:2b1b694f914bd2f286f2c10ac6244ce14d6a7f83ef6f84ddfcdadcd246c5a473"
+                "sha256:5c4adf0b5005766fe63f9e7e17ac5d4811f36bf742ae1b6d05bf0c3b1ba1586b",
+                "sha256:93aa62bf6c84321c5006ed7f5df2cc26046872fe4edf6ce5f4177167ab34215a"
             ],
             "index": "pypi",
-            "version": "==0.128.0"
+            "version": "==0.199.3"
         },
         "tweepy": {
             "hashes": [
