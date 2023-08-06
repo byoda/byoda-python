@@ -10,7 +10,10 @@ import os
 import sys
 import yaml
 
-from byoda.util.fastapi import setup_api, add_cors
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from byoda.util.fastapi import setup_api, update_cors_origins
 
 from byoda.util.logger import Logger
 from byoda import config
@@ -33,20 +36,9 @@ from .routers import app as AppRouter
 
 _LOGGER = None
 
-config_file = os.environ.get('CONFIG_FILE', 'config.yml')
-with open(config_file) as file_desc:
-    app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
-app = setup_api(
-    'BYODA service server', 'A server hosting a service in a BYODA '
-    'network', 'v0.0.1',
-    [ServiceRouter, MemberRouter, SearchRouter, StatusRouter, AppRouter],
-    lifespan=None
-)
-
-
-@app.on_event('startup')
-async def setup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     config_file = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
@@ -91,4 +83,20 @@ async def setup():
 
     await config.server.service.register_service()
 
-    add_cors(app, app_config['svcserver']['cors_origins'])
+    update_cors_origins(app_config['svcserver']['cors_origins'])
+
+    _LOGGER.debug('Lifespan startup complete')
+
+    yield
+
+    _LOGGER.info('Shutting down server')
+
+
+app = setup_api(
+    'BYODA service server', 'A server hosting a service in a BYODA '
+    'network', 'v0.0.1',
+    [ServiceRouter, MemberRouter, SearchRouter, StatusRouter, AppRouter],
+    lifespan=lifespan
+)
+
+config.app = app
