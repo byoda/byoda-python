@@ -65,9 +65,11 @@ def update_cors_origins(hosts: str | list[str]):
 
     if isinstance(hosts, str):
         hosts = [hosts]
+    elif isinstance(hosts, set):
+        hosts = list(hosts)
 
     if config.debug:
-        hosts = ['*', 'http://localhost:3000']
+        hosts.append('http://localhost:3000')
 
     app: FastAPI = config.app
     for middleware in app.user_middleware or []:
