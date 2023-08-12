@@ -10,7 +10,10 @@ provides helper functions to authenticate the client making the request
 
 import logging
 
-from fastapi import Header, HTTPException, Request
+from typing import Annotated
+
+from fastapi import Request, HTTPException
+from fastapi import Header, Depends
 
 from byoda import config
 
@@ -82,3 +85,8 @@ class AppRequestAuthOptionalFast(RequestAuth):
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True
+
+
+AuthDep = Annotated[
+    AppRequestAuthOptionalFast, Depends(AppRequestAuthOptionalFast)
+]

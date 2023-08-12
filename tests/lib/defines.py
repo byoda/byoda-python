@@ -6,6 +6,8 @@ Static variable definitions used in various test cases
 :license
 '''
 
+COLLATERAL_DIR = 'tests/collateral'
+
 BASE_URL = 'http://localhost:{PORT}/api'
 # FastAPI has bug where websocket app needs to be under same path as the
 # HTTP app

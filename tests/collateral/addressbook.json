@@ -819,7 +819,7 @@
                         "format": "uri"
                     },
                     "confirmation_url": {
-                        "description": "URL of API to call to confirm the cmail signature has not been revoked",
+                        "description": "URL of API to call to confirm the signature has not been revoked",
                         "type": "string",
                         "format": "url"
                     },

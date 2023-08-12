@@ -74,7 +74,7 @@ async def main(argv):
         '--service_id', '-s', type=str, default=DEFAULT_SERVICE_ID
     )
     parser.add_argument('--app-id', '-a', type=str, default=uuid4())
-    parser.add_argument('--type', '-t', type=str, default='app_data')
+    parser.add_argument('--type', '-t', type=str, default='app')
     parser.add_argument('--fqdn', '-f', type=str)
     parser.add_argument('--password', '-p', type=str)
     parser.add_argument('--out_dir', '-o', type=str, default='/tmp')

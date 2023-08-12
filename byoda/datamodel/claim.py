@@ -344,7 +344,7 @@ class Claim:
 
         for field in sorted(self.object_fields):
             value = data.get(field)
-            if not value:
+            if value is None:
                 raise ValueError(f'Object data is missing field {field}')
 
             if type(value) in (str, int, float, UUID, datetime):

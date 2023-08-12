@@ -157,6 +157,3 @@ class MemberRequestAuthFast(RequestAuth):
 
 
 AuthDep = Annotated[MemberRequestAuthFast, Depends(MemberRequestAuthFast)]
-AuthOptionalDep = Annotated[
-    MemberRequestAuthOptionalFast, Depends(MemberRequestAuthOptionalFast)
-]

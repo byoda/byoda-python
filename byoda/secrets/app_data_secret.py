@@ -56,6 +56,21 @@ class AppDataSecret(DataSecret):
         self.network: str = network.name
         self.id_type: IdType = IdType.APP_DATA
 
+    async def load(self, with_private_key: bool = True,
+                   password: str = 'byoda'):
+        await super().load(
+            with_private_key=with_private_key, password=password
+        )
+        if self.app_id:
+            common_name_app_id: UUID = UUID(self.common_name.split('.')[0])
+            if self.app_id != common_name_app_id:
+                raise ValueError(
+                    f'The app_id {self.app_id} does not match the common '
+                    f'name in the certificate: {common_name_app_id}'
+                )
+        else:
+            self.app_id = UUID(self.common_name.split('.')[0])
+
     async def create_csr(self, fqdn: str, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''

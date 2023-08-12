@@ -272,7 +272,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         claim = Claim.build(
             ['claim A', 'claim B'], 'test', IdType.APP,
             'public_assets', 'asset_id', asset_id,
-            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
         )
         asset_data = {

@@ -1,8 +1,8 @@
 '''
-Directory server for Bring Your Own Data and Algorithms
+Proof of Concept moderation server for Bring Your Own Data and Algorithms
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2023
 :license    : GPLv3
 '''
 
@@ -20,7 +20,7 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType
 
-from byoda.servers.directory_server import DirectoryServer
+from byoda.servers.app_server import AppServer
 
 from byoda.util.fastapi import setup_api
 
@@ -28,9 +28,6 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
-from .routers import account as AccountRouter
-from .routers import service as ServiceRouter
-from .routers import member as MemberRouter
 from .routers import status as StatusRouter
 
 _LOGGER = None
@@ -46,13 +43,14 @@ async def lifespan(app: FastAPI):
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
-        logfile=app_config['dirserver'].get('logfile')
+        logfile=app_config['appserver'].get('logfile')
     )
 
     network = Network(
-        app_config['dirserver'], app_config['application']
+        app_config['appserver'], app_config['application']
     )
-    server = DirectoryServer(network)
+
+    server = AppServer(app_config['appserver']['app_id'], network, app_config)
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
@@ -60,17 +58,16 @@ async def lifespan(app: FastAPI):
         private_bucket='byoda',
         restricted_bucket='byoda',
         public_bucket='byoda',
-        root_dir=app_config['dirserver']['root_dir']
+        root_dir=app_config['appserver']['root_dir']
     )
 
     config.server = server
 
     await network.load_network_secrets()
 
-    await server.connect_db(app_config['dirserver']['dnsdb'])
-
-    await server.get_registered_services()
-    await server.load_secrets()
+    await server.load_secrets(
+        password=app_config['appserver']['private_key_password']
+    )
 
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
@@ -83,7 +80,7 @@ async def lifespan(app: FastAPI):
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', [AccountRouter, ServiceRouter, MemberRouter, StatusRouter],
+    'v0.0.1', [StatusRouter],
     lifespan=lifespan
 )
 

@@ -22,6 +22,7 @@ from .secret import Secret
 _LOGGER = logging.getLogger(__name__)
 
 Account = TypeVar('Account')
+Service = TypeVar('Service')
 Network = TypeVar('Network')
 
 
@@ -34,9 +35,6 @@ class AppSecret(Secret):
 
         :param app_id: the UUID for the App
         :param service_id: the service id
-        :param account: (FIXME: not really used but still necessary)
-        :raises: ValueError if both 'paths' and 'network' parameters are
-        specified
         '''
 
         self.app_id: UUID = app_id
@@ -107,7 +105,15 @@ class AppSecret(Secret):
         await super().load(
             with_private_key=with_private_key, password=password
         )
-        self.app_id = UUID(self.common_name.split('.')[0])
+        if self.app_id:
+            common_name_app_id: UUID = UUID(self.common_name.split('.')[0])
+            if self.app_id != common_name_app_id:
+                raise ValueError(
+                    f'The app_id {self.app_id} does not match the common '
+                    f'name in the certificate: {common_name_app_id}'
+                )
+        else:
+            self.app_id = UUID(self.common_name.split('.')[0])
 
     def save_tmp_private_key(self):
         '''

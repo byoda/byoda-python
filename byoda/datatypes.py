@@ -36,6 +36,7 @@ class ServerRole(Enum):
     ServiceCa            = 'services_ca'
     ServiceServer        = 'service'
     ContentServer        = 'content'
+    App                  = 'app'
     Pod                  = 'pod'
     Client               = 'client'
     Test                 = 'test'
@@ -45,6 +46,13 @@ class ServerType(Enum):
     POD         = 'pod'
     DIRECTORY   = 'directory'
     SERVICE     = 'service'
+    APP         = 'app'
+
+
+class ClaimStatus(Enum):
+    PENDING     = 'pending'
+    ACCEPTED    = 'accepted'
+    REJECTED    = 'rejected'
 
 
 class IdType(Enum):

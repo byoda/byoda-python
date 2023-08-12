@@ -68,15 +68,15 @@ class Paths:
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
     SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
 
-    APP_DIR                      = 'network-{network}/service-{service_id}/apps/app-{app_id}/'                                    # noqa
-    APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-{app_id}-cert.pem'               # noqa
-    APP_KEY_FILE                 = 'private/network-{network}/service-{service_id}//apps/app-{app_id}/app-{app_id}-cert.key'      # noqa
-    APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-{app_id}-certchain.pem'          # noqa
-    APP_CSR_FILE                 = 'private/network-{network}/service-{service_id}/apps/app-{app_id}-csr.pem'                     # noqa
-    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-cert.pem'          # noqa
-    APP_DATA_KEY_FILE            = 'private/network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-cert.key'  # noqa
-    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-data-{app_id}-certchain.pem'     # noqa
-    APP_DATA_CSR_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}-csr.pem'                # noqa
+    APP_DIR                      = 'network-{network}/service-{service_id}/apps'                                          # noqa
+    APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}-cert.pem'                    # noqa
+    APP_KEY_FILE                 = 'private/network-{network}/service-{service_id}//apps/app-{app_id}.key'                # noqa
+    APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-{app_id}-certchain.pem'  # noqa
+    APP_CSR_FILE                 = 'private/network-{network}/service-{service_id}/apps/app-{app_id}-csr.pem'             # noqa
+    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-data-{app_id}-cert.pem'               # noqa
+    APP_DATA_KEY_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}.key'            # noqa
+    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-data-{app_id}-certchain.pem'          # noqa
+    APP_DATA_CSR_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}-csr.pem'        # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
