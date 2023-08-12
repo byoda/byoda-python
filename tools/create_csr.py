@@ -76,7 +76,9 @@ async def main(argv):
     parser.add_argument('--app-id', '-a', type=str, default=uuid4())
     parser.add_argument('--type', '-t', type=str, default='app')
     parser.add_argument('--fqdn', '-f', type=str)
-    parser.add_argument('--password', '-p', type=str)
+    parser.add_argument(
+        '--password', '-p', type=str, default=os.environ.get('BYODA_PASSWORD')
+    )
     parser.add_argument('--out_dir', '-o', type=str, default='/tmp')
     parser.add_argument(
         '--debug', default=False, action='store_true'
