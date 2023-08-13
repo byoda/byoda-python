@@ -35,7 +35,8 @@ _LOGGER = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    with open('config.yml') as file_desc:
+    config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+    with open(config_file) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
     debug = app_config['application']['debug']
@@ -45,6 +46,8 @@ async def lifespan(app: FastAPI):
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['appserver'].get('logfile')
     )
+
+    os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
 
     network = Network(
         app_config['appserver'], app_config['application']

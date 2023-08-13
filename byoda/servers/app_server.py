@@ -56,8 +56,13 @@ class AppServer(Server):
         )
 
         self.local_storage: FileStorage = paths.storage_driver
-        self.claim_dir = app_config['appserver']['claim_dir']
-        self.claim_request_dir = app_config['appserver']['claim_request_dir']
+
+        self.fqdn = app_config['appserver']['fqdn']
+        
+        self.claim_dir: str = app_config['appserver']['claim_dir']
+        self.claim_request_dir: str = \
+            app_config['appserver']['claim_request_dir']
+        self.whitelist_dir: str = app_config['appserver']['whitelist_dir']
 
         network.paths: Paths = paths
 
@@ -67,17 +72,12 @@ class AppServer(Server):
         )
 
         self.app: App = App(self.app_id, self.service)
-        self.member_db: MemberDb = MemberDb(app_config['appserver']['cache'])
-        self.asset_db: AssetDb = AssetDb(app_config['appserver']['cache'])
 
     async def load_network_secrets(self, storage_driver: FileStorage = None):
         await self.network.load_network_secrets(storage_driver=storage_driver)
 
     async def load_secrets(self, password: str):
-        await self.app.load_secrets(
-            with_private_key=True,
-            password=password,
-        )
+        await self.app.load_secrets(with_private_key=True, password=password)
 
     async def load_schema(self, verify_contract_signatures: bool = True):
         schema_file = self.service.paths.get(Paths.SERVICE_FILE)

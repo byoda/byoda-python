@@ -18,21 +18,14 @@ import orjson
 
 from fastapi import APIRouter
 from fastapi import Request
-from fastapi import HTTPException
 
-from byoda.datatypes import ClaimStatus
-from byoda.datatypes import IdType
-
-from byoda.datamodel.app import App
 from byoda.datamodel.claim import Claim
+
+from byoda.datatypes import IdType
+from byoda.datatypes import ClaimStatus
 
 from byoda.models.claim_request import ClaimResponseModel
 from byoda.models.claim_request import AssetClaimRequestModel
-
-from byoda.datastore.assetdb import AssetDb
-from byoda.datastore.memberdb import MemberDb
-
-from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.app_server import AppServer
 
@@ -45,30 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix='/api/v1/moderate', dependencies=[])
 
 
-@router.get(
-    'member/{member_id}', response_model=ClaimResponseModel
-)
-async def get_member_moderation(request: Request, member_id: UUID):
-    '''
-    Get the moderation info of an asset
-
-    :param asset_id: the asset_id of the asset
-    :raises: HTTPException 404
-    '''
-
-    member_db: MemberDb = config.server.member_db
-
-    _LOGGER.debug(f'GET Moderation API called from {request.client.host}')
-    moderation = member_db.get_data(member_id)
-    if not moderation:
-        return HTTPException(
-            status_code=404, detail='No moderation found for asset'
-        )
-    return moderation.as_dict()
-
-
-@router.post('/asset',
-             response_model=ClaimResponseModel)
+@router.post('/asset', response_model=ClaimResponseModel)
 async def post_asset_moderation(request: Request,
                                 claim_request: AssetClaimRequestModel,
                                 auth: AuthDep):
@@ -85,19 +55,58 @@ async def post_asset_moderation(request: Request,
     await auth.authenticate()
 
     request_id: UUID = uuid4()
+
+    asset_id: UUID = claim_request.claim_data.asset_id
+
     data = claim_request.model_dump()
     data['request_id'] = str(request_id)
     data['request_timestamp'] = datetime.now(tz=timezone.utc)
     data['requester_id'] = auth.id
     data['requester_type'] = auth.id_type.value
-    data['request_status'] = ClaimStatus.PENDING.value
 
     server: AppServer = config.server
+    claim_signature: str | None = None
+    if os.path.exists(f'{server.whitelist_dir}/{auth.id}'):
+        data_fields = sorted(
+            claim_request.claim_data.model_dump().keys()
+        )
+        claim = Claim.build(
+            claim_request.claims, server.fqdn, IdType.APP,
+            claim_request.claim_data.asset_type, 'asset_id',
+            claim_request.claim_data.asset_id,
+            data_fields,
+            auth.id, auth.id_type,
+            f'https://{server.fqdn}/signature',
+            f'https://{server.fqdn}/renewal',
+            f'https://{server.fqdn}/confirmation'
+        )
+        claim.create_signature(
+            claim_request.claim_data.model_dump(), server.app.data_secret
+        )
+        claim_signature = claim.signature
+        data['request_status'] = ClaimStatus.ACCEPTED.value
+
+        signed_claim_data: dict = claim.as_dict()
+        signed_claim_data['claim_data'] = claim_request.claim_data.model_dump()
+
+        with open(f'{server.claim_dir}/{asset_id}', 'w') as claim_file:
+            claim_file.write(
+                orjson.dumps(
+                    signed_claim_data,
+                    option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
+                ).decode('utf-8')
+            )
+    else:
+        data['request_status'] = ClaimStatus.PENDING.value
+
     filepath: str = f'{server.claim_request_dir}/{request_id}.json'
     with open(filepath, 'wb') as claim_file:
         claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
-    return {
-        'claim_status': ClaimStatus.PENDING,
-        'claim_signature': None
-    }
+        return {
+            'status': ClaimStatus(data['request_status']),
+            'signature': claim_signature,
+            'request_id': request_id,
+        }
+
+

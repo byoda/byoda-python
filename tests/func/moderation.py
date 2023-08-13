@@ -18,13 +18,6 @@ import shutil
 import asyncio
 import unittest
 import requests
-from uuid import uuid4
-from copy import copy
-
-import orjson
-
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 
 from multiprocessing import Process
 import uvicorn
@@ -73,16 +66,25 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         app_config = TestApis.APP_CONFIG
         app_config['appserver']['root_dir'] = TEST_DIR
         try:
+            # shutil.rmtree(app_config['appserver']['claim_dir'])
+            # shutil.rmtree(app_config['appserver']['claim_request_dir'])
+            # shutil.rmtree(app_config['appserver']['whitelist_dir'])
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
             pass
+
+        os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
+        os.makedirs(app_config['appserver']['claim_dir'], exist_ok=True)
+        os.makedirs(
+            app_config['appserver']['claim_request_dir'], exist_ok=True
+        )
 
         paths = {
             'key': '/private/network-byoda.net/service-4294929430/apps/',
             'pem': '/network-byoda.net/service-4294929430/apps/'
         }
-        os.makedirs(f'{TEST_DIR}{paths["key"]}')
-        os.makedirs(f'{TEST_DIR}{paths["pem"]}')
+        os.makedirs(f'{TEST_DIR}{paths["key"]}', exist_ok=True)
+        os.makedirs(f'{TEST_DIR}{paths["pem"]}', exist_ok=True)
         files = (
             'app-05cbb871-ee50-4ba5-8dda-4879142fb67e-cert.pem',
             'app-data-05cbb871-ee50-4ba5-8dda-4879142fb67e-cert.pem',
@@ -139,22 +141,23 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
                 daemon=True
             )
             TestApis.PROCESS.start()
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
     @classmethod
     async def asyncTearDown(cls):
-        ApiClient.close_all()
+        await ApiClient.close_all()
         TestApis.PROCESS.terminate()
 
     def test_moderation_asset_post(self):
         API = BASE_URL + '/moderate/asset'
+        server: AppServer = config.server
 
-        uuid = get_test_uuid()
+        member_id = get_test_uuid()
         network_name = TestApis.APP_CONFIG['application']['network']
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={uuid}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',
+                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',
             'X-Client-SSL-Issuing-CA':
                 (
                     'CN=members-ca.members-ca-'
@@ -162,7 +165,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
                 )
         }
 
-        data = {
+        claim_data = {
             'claims': ['blah 5', 'gaap 4'],
             'claim_data': {
                 'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
@@ -190,11 +193,30 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
                 'annotations': [],
             }
         }
-        response = requests.post(API, headers=headers, json=data)
+        response = requests.post(API, headers=headers, json=claim_data)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data['claim_status'], 'pending')
-        self.assertEqual(data['claim_signature'], None)
+        self.assertEqual(data['status'], 'pending')
+        self.assertIsNone(data['signature'])
+        self.assertIsNotNone(data['request_id'])
+        request_file = f'{server.claim_request_dir}/{data["request_id"]}.json'
+        self.assertTrue(os.path.exists(request_file))
+
+        claim_data['claim_data']['asset_id'] = str(get_test_uuid())
+        whitelist_file = f'{server.whitelist_dir}/{member_id}'
+        with open(whitelist_file, 'w') as file_desc:
+            file_desc.write('')
+
+        response = requests.post(API, headers=headers, json=claim_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'accepted')
+        self.assertIsNotNone(data['signature'])
+        self.assertIsNotNone(data['request_id'])
+        request_file = f'{server.claim_request_dir}/{data["request_id"]}.json'
+        self.assertTrue(os.path.exists(request_file))
+        claim_file = f'{server.claim_dir}/{claim_data["claim_data"]["asset_id"]}'
+        self.assertTrue(os.path.exists(claim_file))
 
 
 if __name__ == '__main__':

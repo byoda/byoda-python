@@ -14,7 +14,6 @@ file system
 
 import os
 import sys
-import glob
 import asyncio
 import logging
 import argparse

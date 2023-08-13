@@ -20,12 +20,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ClaimResponseModel(BaseModel):
-    claim_status: ClaimStatus
-    claim_signature: str | None
+    status: ClaimStatus
+    request_id: UUID
+    signature: str | None
 
     def __repr__(self):
         return (
-            '<ClaimResponse=(claim_status: ClaimStatus, '
+            '<ClaimResponse=(request_id: UUID, '
+            'claim_status: ClaimStatus, '
             'claim_signature: str | None>'
         )
 

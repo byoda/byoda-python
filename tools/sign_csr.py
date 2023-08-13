@@ -72,7 +72,9 @@ async def main(argv):
     parser.add_argument('--root-dir', '-r', type=str)
     parser.add_argument('--csr-file', '-c', type=str)
     parser.add_argument('--type', '-t', type=str, default='app')
-    parser.add_argument('--password', '-p', type=str)
+    parser.add_argument(
+        '--password', '-p', type=str, default=os.environ.get('BYODA_PASSWORD')
+    )
     parser.add_argument('--out_dir', '-o', type=str, default='.')
     parser.add_argument(
         '--service-id', '-s', type=str, default=DEFAULT_SERVICE_ID
