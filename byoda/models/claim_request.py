@@ -11,10 +11,8 @@ import logging
 from uuid import UUID
 
 from pydantic import BaseModel
-from pydantic import HttpUrl
 
 from byoda.datatypes import ClaimStatus
-from byoda.datatypes import IdType
 
 _LOGGER = logging.getLogger(__name__)
 

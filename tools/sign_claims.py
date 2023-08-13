@@ -31,6 +31,7 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
+from byoda.datatypes import ClaimStatus
 
 from byoda.servers.app_server import AppServer
 
@@ -96,8 +97,8 @@ async def main(argv):
 
     files: list[str] = args.files
     confirmation_needed: bool = False
+    request_dir: str = server.get_claim_filepath(ClaimStatus.PENDING)
     if not files:
-        request_dir: str = app_config['appserver']['claim_request_dir']
         files = os.listdir(request_dir)
         # We sort by newest files first so we will look at the newest
         # request when there are multiple requests for the same asset
@@ -108,20 +109,16 @@ async def main(argv):
         confirmation_needed = True
 
     for filename in files:
-        out_dir: str = app_config['appserver']['claim_dir']
-        filepath = f'{app_config["appserver"]["claim_request_dir"]}/{filename}'
-
-        with open(filepath, 'rb') as file_desc:
+        request_file = request_dir + filename
+        with open(request_file, 'rb') as file_desc:
             raw_data = file_desc.read()
             data = orjson.loads(raw_data)
 
         claim_data = data['claim_data']
-        out_file = f'{out_dir}/{claim_data["asset_id"]}.json'
-        if data['request_status'] == 'rejected':
-            print(f'Skipping rejected claim: {data["request_id"]}')
-            continue
-
-        if is_duplicate_asset(filepath, out_file, data['requester_id']):
+        accepted_file = server.get_claim_filepath(
+            ClaimStatus.ACCEPTED, claim_data['asset_id']
+        )
+        if is_duplicate_asset(request_file, accepted_file, data['requester_id']):
             continue
 
         if confirmation_needed:
@@ -129,21 +126,28 @@ async def main(argv):
             print(raw_data.decode('utf-8'))
             print()
             confirmation = input('Sign this claim (Y(es)/R(eject)/S(kip))? ')
-            if confirmation.lower() not in ('y', 'yes'):
-                if confirmation.lower() in ('r', 'reject'):
-                    print(f'Rejecting claim: {data["request_id"]}')
-                    data['request_status'] = 'rejected'
-                    with open(filepath, 'wb') as file_desc:
-                        file_desc.write(
-                            orjson.dumps(
-                                data,
-                                option=orjson.OPT_SORT_KEYS |
-                                orjson.OPT_INDENT_2
-                            )
+            if confirmation.lower() in ('s', 'skip'):
+                print(
+                    f'Skipping claim: {data["request_id"]} in {request_file}'
+                )
+                continue
+            elif confirmation.lower() in ('r', 'reject'):
+                print(
+                    f'Rejecting claim: {data["request_id"]} in {request_file}'
+                )
+                data['request_status'] = 'rejected'
+                rejected_file = server.get_claim_filepath(
+                    ClaimStatus.REJECTED, data['request_id']
+                )
+                with open(rejected_file, 'wb') as file_desc:
+                    file_desc.write(
+                        orjson.dumps(
+                            data,
+                            option=orjson.OPT_SORT_KEYS |
+                            orjson.OPT_INDENT_2
                         )
-                else:
-                    print(f'Skipping claim: {data["request_id"]}')
-
+                    )
+                os.remove(request_file)
                 continue
 
         claim = Claim.build(
@@ -160,7 +164,7 @@ async def main(argv):
         signed_claim_data: dict = claim.as_dict()
         signed_claim_data['claim_data'] = claim_data
 
-        with open(out_file, 'w') as file_desc:
+        with open(accepted_file, 'w') as file_desc:
             file_desc.write(
                 orjson.dumps(
                     signed_claim_data,
@@ -168,8 +172,7 @@ async def main(argv):
                 ).decode('utf-8')
             )
 
-        with open(filepath, 'wb') as file_desc:
-            data
+        os.remove(request_file)
 
 
 def is_duplicate_asset(in_file: str, out_file: str, requester_id: UUID):

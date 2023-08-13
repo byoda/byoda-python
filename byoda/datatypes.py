@@ -50,9 +50,10 @@ class ServerType(Enum):
 
 
 class ClaimStatus(Enum):
-    PENDING     = 'pending'
-    ACCEPTED    = 'accepted'
-    REJECTED    = 'rejected'
+    PENDING     = 'pending'      # When claim is submitted
+    ACCEPTED    = 'accepted'     # when claim is accepted
+    WITHDRAWN   = 'withdrawn'    # when previously accepted claim is withdrawn
+    REJECTED    = 'rejected'     # when a submitted claim is rejected
 
 
 class IdType(Enum):

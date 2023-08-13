@@ -29,6 +29,7 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.servers.app_server import AppServer
 
 from byoda.datatypes import CloudType
+from byoda.datatypes import ClaimStatus
 
 from byoda.util.logger import Logger
 from byoda.util.api_client.api_client import ApiClient
@@ -66,18 +67,15 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         app_config = TestApis.APP_CONFIG
         app_config['appserver']['root_dir'] = TEST_DIR
         try:
-            # shutil.rmtree(app_config['appserver']['claim_dir'])
-            # shutil.rmtree(app_config['appserver']['claim_request_dir'])
-            # shutil.rmtree(app_config['appserver']['whitelist_dir'])
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
             pass
 
         os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
-        os.makedirs(app_config['appserver']['claim_dir'], exist_ok=True)
-        os.makedirs(
-            app_config['appserver']['claim_request_dir'], exist_ok=True
-        )
+
+        claim_dir = app_config['appserver']['claim_dir']
+        for status in ClaimStatus:
+            os.makedirs(f'{claim_dir}/{status.value}', exist_ok=True)
 
         paths = {
             'key': '/private/network-byoda.net/service-4294929430/apps/',
@@ -199,7 +197,9 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['status'], 'pending')
         self.assertIsNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
-        request_file = f'{server.claim_request_dir}/{data["request_id"]}.json'
+        request_file = server.get_claim_filepath(
+            ClaimStatus.PENDING, data['request_id']
+        )
         self.assertTrue(os.path.exists(request_file))
 
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
@@ -213,9 +213,13 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['status'], 'accepted')
         self.assertIsNotNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
-        request_file = f'{server.claim_request_dir}/{data["request_id"]}.json'
+        request_file = server.get_claim_filepath(
+            ClaimStatus.PENDING, data['request_id']
+        )
         self.assertTrue(os.path.exists(request_file))
-        claim_file = f'{server.claim_dir}/{claim_data["claim_data"]["asset_id"]}'
+        claim_file = server.get_claim_filepath(
+            ClaimStatus.ACCEPTED, claim_data['claim_data']['asset_id']
+        )
         self.assertTrue(os.path.exists(claim_file))
 
 

@@ -89,7 +89,10 @@ async def post_asset_moderation(request: Request,
         signed_claim_data: dict = claim.as_dict()
         signed_claim_data['claim_data'] = claim_request.claim_data.model_dump()
 
-        with open(f'{server.claim_dir}/{asset_id}', 'w') as claim_file:
+        accepted_claim_file: str = server.get_claim_filepath(
+            ClaimStatus.ACCEPTED, asset_id
+        )
+        with open(accepted_claim_file, 'w') as claim_file:
             claim_file.write(
                 orjson.dumps(
                     signed_claim_data,
@@ -99,8 +102,9 @@ async def post_asset_moderation(request: Request,
     else:
         data['request_status'] = ClaimStatus.PENDING.value
 
-    filepath: str = f'{server.claim_request_dir}/{request_id}.json'
-    with open(filepath, 'wb') as claim_file:
+    request_file = server.get_claim_filepath(ClaimStatus.PENDING, request_id)
+
+    with open(request_file, 'wb') as claim_file:
         claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
         return {

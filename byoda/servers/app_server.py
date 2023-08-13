@@ -15,15 +15,13 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 from byoda.datamodel.app import App
 
-from byoda.datastore.assetdb import AssetDb
-from byoda.datastore.memberdb import MemberDb
-
 from byoda.secrets.member_secret import MemberSecret
 
 from byoda.storage.filestorage import FileStorage
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
+from byoda.datatypes import ClaimStatus
 
 from byoda.requestauth.jwt import JWT
 
@@ -58,10 +56,8 @@ class AppServer(Server):
         self.local_storage: FileStorage = paths.storage_driver
 
         self.fqdn = app_config['appserver']['fqdn']
-        
+
         self.claim_dir: str = app_config['appserver']['claim_dir']
-        self.claim_request_dir: str = \
-            app_config['appserver']['claim_request_dir']
         self.whitelist_dir: str = app_config['appserver']['whitelist_dir']
 
         network.paths: Paths = paths
@@ -72,6 +68,24 @@ class AppServer(Server):
         )
 
         self.app: App = App(self.app_id, self.service)
+
+    def get_claim_filepath(self, status: ClaimStatus, id: UUID | str = None) -> str:
+        '''
+        Returns the file-path for a claim with a given status and id
+
+        :params status: status of the claim
+        :params id: id of the claim, either asset_id or member_id. If not
+        provided, the filepath for the status directory is returned with a
+        trailing '/'
+        :returns: filepath
+        :raises:
+        '''
+
+        filepath: str = f'{self.claim_dir}/{status.value}/'
+        if id:
+            filepath = f'{filepath}{id}.json'
+
+        return filepath
 
     async def load_network_secrets(self, storage_driver: FileStorage = None):
         await self.network.load_network_secrets(storage_driver=storage_driver)

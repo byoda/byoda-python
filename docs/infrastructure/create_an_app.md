@@ -104,7 +104,6 @@ appserver:
   name: 'modserver'
   root_dir: '/opt/byoda/modtest'
   fqdn: 'modtest.byoda.io'
-  claim_request_dir: '/opt/byoda/modtest/www/claim-requests'
   claim_dir: '/opt/byoda/modtest/www/claims/'
   logfile: '/var/log/byoda/modtest.log'
   roles:

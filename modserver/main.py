@@ -19,6 +19,7 @@ from byoda.datamodel.network import Network
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType
+from byoda.datatypes import ClaimStatus
 
 from byoda.servers.app_server import AppServer
 
@@ -48,6 +49,9 @@ async def lifespan(app: FastAPI):
     )
 
     os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
+    claim_dir = app_config['appserver']['claim_dir']
+    for status in ClaimStatus:
+        os.makedirs(f'{claim_dir}/{status.value}', exist_ok=True)
 
     network = Network(
         app_config['appserver'], app_config['application']
