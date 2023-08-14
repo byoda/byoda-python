@@ -14,6 +14,8 @@ from uuid import uuid4
 from datetime import datetime
 from datetime import timezone
 
+from urllib.parse import urlparse, ParseResult
+
 import orjson
 
 from fastapi import APIRouter
@@ -43,7 +45,7 @@ async def post_asset_moderation(request: Request,
                                 claim_request: AssetClaimRequestModel,
                                 auth: AuthDep):
     '''
-    Become a member of a service.
+    Request moderation of an asset
 
     :param claim_data: claim requested for signing
     :raises:
@@ -65,10 +67,27 @@ async def post_asset_moderation(request: Request,
     data['requester_type'] = auth.id_type.value
 
     server: AppServer = config.server
-    claim_signature: str | None = None
+    whitelisted: bool = False
     if os.path.exists(f'{server.whitelist_dir}/{auth.id}'):
+        _LOGGER.debug('Whitelisted moderation request for member {auth.id}')
+        whitelisted = True
+    else:
+        url = urlparse(claim_request.claim_data.asset_url)
+        if url.hostname.endswith('youtube.com'):
+            _LOGGER.debug(
+                'Whitelisting moderation request for URL '
+                f'{claim_request.claim_data.asset_url}'
+            )
+            whitelisted = True
+
+    claim_signature: str | None = None
+    if whitelisted:
         data_fields = sorted(
             claim_request.claim_data.model_dump().keys()
+        )
+        _LOGGER.debug(
+            f'Whitelisted moderation request for member {auth.id} '
+            'for playback URL'
         )
         claim = Claim.build(
             claim_request.claims, server.fqdn, IdType.APP,

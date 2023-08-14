@@ -12,7 +12,6 @@ import logging
 from enum import Enum
 from uuid import uuid4
 from uuid import UUID
-from tempfile import SpooledTemporaryFile
 from urllib.parse import urlparse, ParseResult
 
 from aiohttp import ClientSession as HttpClientSession
