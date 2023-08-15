@@ -129,7 +129,9 @@ class YouTube:
     async def persist_videos(self, member: Member, data_store: DataStore,
                              storage_driver: FileStorage = None,
                              already_ingested_assets: dict[str, any] = {},
-                             bento4_directory: str = None):
+                             bento4_directory: str = None,
+                             moderate_url: str = None,
+                             moderate_jwt_header: str = None):
         '''
         Persist the videos to storage. Videos are stored in the data store.
         If ingest of videos is enabled for this channel then the videos are
@@ -154,7 +156,8 @@ class YouTube:
 
             await channel.persist(
                 member, data_store, storage_driver, already_ingested_assets,
-                bento4_directory
+                bento4_directory, moderate_url=moderate_url,
+                moderate_jwt_header=moderate_jwt_header
             )
 
     async def scrape_videos(self,

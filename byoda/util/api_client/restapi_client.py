@@ -33,7 +33,8 @@ class RestApiClient:
     async def call(api: str, method: HttpMethod = HttpMethod.GET,
                    secret: Secret = None, params: dict = None,
                    data: dict = None, service_id: int = None,
-                   member_id: UUID = None, account_id: UUID = None
+                   member_id: UUID = None, account_id: UUID = None,
+                   headers: dict[str, str] = None
                    ) -> aiohttp.ClientResponse:
 
         '''
@@ -47,6 +48,7 @@ class RestApiClient:
         :param service_id:
         :param member_id:
         :param account_id:
+        :param headers: a list of HTTP headers to add to the request
         '''
 
         if method == HttpMethod.POST:

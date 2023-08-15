@@ -9,25 +9,15 @@ Schema for requesting claims
 import logging
 
 from uuid import UUID
+from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
 from byoda.datatypes import ClaimStatus
+from byoda.datatypes import IdType
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class ClaimResponseModel(BaseModel):
-    status: ClaimStatus
-    request_id: UUID
-    signature: str | None
-
-    def __repr__(self):
-        return (
-            '<ClaimResponse=(request_id: UUID, '
-            'claim_status: ClaimStatus, '
-            'claim_signature: str | None>'
-        )
 
 
 class AssetClaimDataModel(BaseModel):
@@ -54,3 +44,20 @@ class AssetClaimRequestModel(BaseModel):
             'claim_data: dict)>'
         )
 
+
+class ClaimResponseModel(BaseModel):
+    status: ClaimStatus
+    request_id: UUID
+    signature: Optional[str] | None = None
+    signature_timestamp: Optional[datetime] | None = None
+    issuer_type: Optional[IdType] | None = None
+    issuer_id: Optional[UUID] | None = None
+    cert_fingerprint: Optional[str] | None = None
+    cert_expiration: Optional[datetime] | None = None
+
+    def __repr__(self):
+        return (
+            '<ClaimResponse=(request_id: UUID, '
+            'claim_status: ClaimStatus, '
+            'claim_signature: str | None>'
+        )

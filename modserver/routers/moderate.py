@@ -69,10 +69,10 @@ async def post_asset_moderation(request: Request,
     server: AppServer = config.server
     whitelisted: bool = False
     if os.path.exists(f'{server.whitelist_dir}/{auth.id}'):
-        _LOGGER.debug('Whitelisted moderation request for member {auth.id}')
+        _LOGGER.debug(f'Whitelisted moderation request for member {auth.id}')
         whitelisted = True
     else:
-        url = urlparse(claim_request.claim_data.asset_url)
+        url: ParseResult = urlparse(claim_request.claim_data.asset_url)
         if url.hostname.endswith('youtube.com'):
             _LOGGER.debug(
                 'Whitelisting moderation request for URL '
@@ -85,10 +85,7 @@ async def post_asset_moderation(request: Request,
         data_fields = sorted(
             claim_request.claim_data.model_dump().keys()
         )
-        _LOGGER.debug(
-            f'Whitelisted moderation request for member {auth.id} '
-            'for playback URL'
-        )
+
         claim = Claim.build(
             claim_request.claims, server.fqdn, IdType.APP,
             claim_request.claim_data.asset_type, 'asset_id',
@@ -118,17 +115,27 @@ async def post_asset_moderation(request: Request,
                     option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
                 ).decode('utf-8')
             )
+        return {
+            'status': ClaimStatus(data['request_status']),
+            'request_id': request_id,
+            'signature': claim_signature,
+            'signature_timestamp': claim.signature_timestamp,
+            'issuer_id': claim.issuer_id,
+            'issuer_type': claim.issuer_type,
+            'cert_fingerprint': claim.cert_fingerprint,
+            'cert_expiration': claim.cert_expiration,
+        }
+
     else:
         data['request_status'] = ClaimStatus.PENDING.value
-
-    request_file = server.get_claim_filepath(ClaimStatus.PENDING, request_id)
-
-    with open(request_file, 'wb') as claim_file:
-        claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+        request_file = server.get_claim_filepath(
+            ClaimStatus.PENDING, request_id
+        )
+        with open(request_file, 'wb') as claim_file:
+            claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
         return {
             'status': ClaimStatus(data['request_status']),
-            'signature': claim_signature,
             'request_id': request_id,
         }
 

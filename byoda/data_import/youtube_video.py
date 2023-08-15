@@ -23,6 +23,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from byoda.datamodel.member import Member
+from byoda.datamodel.claim import Claim
 
 from byoda.datastore.data_store import DataStore
 from byoda.datamodel.datafilter import DataFilterSet
@@ -238,6 +239,7 @@ class YouTubeVideo:
     DATASTORE_CLASS_NAME: str = 'public_assets'
     DATASTORE_CLASS_NAME_THUMBNAILS: str = 'public_video_thumbnails'
     DATASTORE_CLASS_NAME_CHAPTERS: str = 'public_video_chapters'
+    DATASTORE_CLASS_NAME_CLAIMS: str = 'public_claims'
     DATASTORE_FIELD_MAPPINGS: dict[str, str] = {
         'video_id': 'publisher_asset_id',
         'title': 'title',
@@ -438,10 +440,55 @@ class YouTubeVideo:
         )
         self.ingest_status = ingest_status
 
+    def as_claim_data(self) -> dict:
+        '''
+        Returns a dict with the data to be signed for moderation by the
+        app server
+
+        :param member: the member
+        :returns: the data to be signed by the moderation server
+        '''
+
+        claim_data = {
+            'asset_id': self.asset_id,
+            'asset_type': self.asset_type,
+            'asset_url': self.url,
+            'asset_merkle_root_hash': self.merkle_root_hash,
+            'public_video_thumbnails': [
+                thumbnail.url for thumbnail in self.thumbnails.values()
+                ],
+            'creator': self.channel_creator,
+            'publisher': self.publisher,
+            'publisher_asset_id': self.video_id,
+            'title': self.title,
+            'contents': self.description,
+            'annotations': self.annotations
+        }
+
+        return claim_data
+
+    async def get_signed_claim(self, moderate_url: str, jwt_header: str
+                               ) -> Claim:
+        '''
+        Submits a claim request to the moderation server
+
+        :param moderate_url: URL of the moderation API of the moderation app
+        :param jwt header: JWT header to authenticate the request
+        :returns: the claim
+        '''
+
+        claim = await Claim.from_api(
+            moderate_url, jwt_header, ['youtube-moderated:1'],
+            self.as_claim_data()
+        )
+
+        return claim
+
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
                       already_ingested_videos: dict[str, dict],
-                      bento4_directory: str = None) -> bool:
+                      bento4_directory: str = None, claim: Claim = None
+                      ) -> bool:
         '''
         Adds or updates a video in the datastore.
 
@@ -453,6 +500,7 @@ class YouTubeVideo:
         and as value the data retrieved for the asset from the data store.
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
+        :param claim: a claim for the video signed by a moderate API
         :returns: True if the video was added, False if it already existed
         '''
 
@@ -509,9 +557,25 @@ class YouTubeVideo:
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
                 data_filter_set=asset_filter
             )
+            asset_filter = DataFilterSet(
+                {
+                    'keyfield': {
+                        'eq': YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS
+                    },
+                    'keyfield_id': {'eq': self.asset_id}
+                }
+            )
+            await data_store.delete(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
+                data_filter_set=asset_filter
+            )
 
         await data_store.append(
             member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
+        )
+        await data_store.append(
+            member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
+            claim.as_dict()
         )
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()

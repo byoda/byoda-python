@@ -155,7 +155,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',
+                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
             'X-Client-SSL-Issuing-CA':
                 (
                     'CN=members-ca.members-ca-'
@@ -168,20 +168,20 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             'claim_data': {
                 'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
                 'asset_type': 'public_assets',
-                'asset_url': 'https://cdn.byoda.io/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',
+                'asset_url': 'https://cdn.byoda.io/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',      # noqa: E501
                 'asset_merkle_root_hash':
                     'JM/gRbo5diTfTkuVLTPCjDE4ZWTwXRwHH8pwlJKkCXM=',
                 'public_video_thumbnails': [
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',          # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',                 # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
                 ],
                 'creator': 'Dathes',
                 'publisher': 'YouTube',
@@ -210,13 +210,15 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         response = requests.post(API, headers=headers, json=claim_data)
         self.assertEqual(response.status_code, 200)
         data = response.json()
+        self.assertIsNotNone(data['request_id'])
         self.assertEqual(data['status'], 'accepted')
         self.assertIsNotNone(data['signature'])
-        self.assertIsNotNone(data['request_id'])
-        request_file = server.get_claim_filepath(
-            ClaimStatus.PENDING, data['request_id']
-        )
-        self.assertTrue(os.path.exists(request_file))
+        self.assertIsNotNone(data['signature_timestamp'])
+        self.assertIsNotNone(data['issuer_id'])
+        self.assertIsNotNone(data['issuer_type'])
+        self.assertIsNotNone(data['cert_fingerprint'])
+        self.assertIsNotNone(data['cert_expiration'])
+
         claim_file = server.get_claim_filepath(
             ClaimStatus.ACCEPTED, claim_data['claim_data']['asset_id']
         )

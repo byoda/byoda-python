@@ -14,9 +14,13 @@ import unittest
 
 from datetime import datetime, timezone
 
+from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
 from byoda.datatypes import IngestStatus
+from byoda.datatypes import IdType
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.datastore.data_store import DataStore
 
@@ -26,9 +30,7 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.util.api_client.api_client import ApiClient
 
-
 from byoda.servers.pod_server import PodServer
-
 
 from byoda.util.logger import Logger
 
@@ -39,6 +41,8 @@ from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import MODTEST_URL, MODTEST_API_ID
 
 _LOGGER = None
 
@@ -77,6 +81,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
         data_store: DataStore = server.data_store
         storage_driver: FileStorage = server.storage_driver
+        network: Network = server.network
 
         channel: str = 'Dathes'
         # channel: str = 'History Matters'
@@ -99,8 +104,14 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
         self.assertGreaterEqual(len(yt.channels[channel].videos), 1)
 
+        jwt = JWT.create(
+            member.member_id, IdType.MEMBER, member.data_secret, network.name,
+            ADDRESSBOOK_SERVICE_ID, IdType.SERVICE, MODTEST_API_ID,
+            expiration_days=3
+        )
         await yt.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, data_store, storage_driver, ingested_videos,
+            moderate_url=MODTEST_URL, moderate_jwt_header=jwt.encoded
         )
 
         ingested_videos = await YouTube.load_ingested_videos(

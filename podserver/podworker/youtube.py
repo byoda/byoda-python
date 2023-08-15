@@ -9,12 +9,17 @@ Twitter functions for podworker
 import os
 
 import logging
+
+from uuid import UUID
 from time import gmtime
 from calendar import timegm
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.datamodel.member import Member
+from byoda.datamodel.network import Network
+
+from byoda.datatypes import IdType
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.datastore.data_store import DataStore
 
@@ -22,8 +27,10 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
 
+from byoda.servers.pod_server import PodServer
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import MODTEST_URL, MODTEST_API_ID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +57,12 @@ async def youtube_update_task(server: PodServer):
 
     data_store: DataStore = server.data_store
     storage_driver: FileStorage = server.storage_driver
+    network: Network = server.network
+    jwt = JWT.create(
+        member.member_id, IdType.MEMBER, member.data_secret, network.name,
+        ADDRESSBOOK_SERVICE_ID, IdType.SERVICE, MODTEST_API_ID,
+        expiration_days=3
+    )
 
     ingested_videos = await YouTube.load_ingested_videos(
         member.member_id, data_store
@@ -76,7 +89,8 @@ async def youtube_update_task(server: PodServer):
         _LOGGER.debug('Running YouTube metadata update')
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, data_store, storage_driver, ingested_videos,
+            moderate_url=MODTEST_URL, moderate_jwt_header=jwt.encoded
         )
         os.remove(LOCK_FILE)
 

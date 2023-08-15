@@ -21,6 +21,9 @@ import orjson
 
 from byoda.datamodel.datafilter import DataFilterSet
 
+from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
+
 from byoda.datastore.data_store import DataStore
 
 from byoda.secrets.data_secret import DataSecret
@@ -75,11 +78,12 @@ class Claim:
     '''
 
     __slots__ = [
-        'claim_id', 'claims', 'issuer', 'issuer_type', 'object_type',
-        'keyfield', 'keyfield_id', 'object_fields', 'requester_id',
-        'requester_type', 'signature', 'signature_timestamp',
-        'signature_format_version', 'signature_url', 'renewal_url',
-        'confirmation_url', 'cert_fingerprint', 'cert_expiration',
+        'claim_id', 'claims', 'issuer', 'issuer_id', 'issuer_type',
+        'object_type', 'keyfield', 'keyfield_id', 'object_fields',
+        'requester_id', 'requester_type', 'signature',
+        'signature_timestamp', 'signature_format_version',
+        'signature_url', 'renewal_url', 'confirmation_url',
+        'cert_fingerprint', 'cert_expiration',
         'secret', 'verified'
     ]
 
@@ -178,6 +182,34 @@ class Claim:
         return claim
 
     @staticmethod
+    async def from_api(url: str, jwt_header: str, claims: list[str],
+                       claim_data: dict[str, any]):
+        '''
+        Call the moderate API and return the signed claim
+        '''
+
+        resp = await RestApiClient.call(
+            url, HttpMethod.POST,
+            data={
+                'claims': claims,
+                'claim_data': claim_data
+                },
+            headers={
+                'Authorization': f'bearer {jwt_header}'
+            }
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f'Failed to call the moderation API {url}: {resp.status_code}'
+            )
+
+        data = await resp.json()
+
+        claim = Claim.from_dict(data)
+
+        return claim
+
+    @staticmethod
     def build(claims: list[str], issuer: str, issuer_type: IdType,
               object_type: str, keyfield: str, keyfield_id: UUID,
               object_fields: list[str],
@@ -196,6 +228,7 @@ class Claim:
 
         claim.claims = claims
         claim.issuer = issuer
+        claim.issuer_id: UUID | None = None
         claim.issuer_type = issuer_type
 
         claim.object_type = object_type
@@ -273,6 +306,7 @@ class Claim:
         if not secret:
             secret = self.secret
 
+        self.issuer_id = UUID(secret.common_name.split('.')[0])
         self.signature_timestamp = datetime.now(timezone.utc)
         self.cert_expiration = secret.cert.not_valid_after
         self.cert_fingerprint = secret.fingerprint().hex()

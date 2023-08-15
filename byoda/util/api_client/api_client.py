@@ -159,7 +159,7 @@ class ApiClient:
             self.session: aiohttp.ClientSession = config.client_pools[pool].session
 
     @staticmethod
-    async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
+    async def call(api: str, method: str | HttpMethod = 'GET', secret: Secret = None,
                    params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,

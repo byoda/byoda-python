@@ -30,6 +30,7 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from .routers import status as StatusRouter
+from .routers import moderate as ModerateRouter
 
 _LOGGER = None
 
@@ -87,7 +88,7 @@ async def lifespan(app: FastAPI):
 
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', [StatusRouter],
+    'v0.0.1', [StatusRouter, ModerateRouter],
     lifespan=lifespan
 )
 

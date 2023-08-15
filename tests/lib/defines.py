@@ -6,6 +6,8 @@ Static variable definitions used in various test cases
 :license
 '''
 
+from uuid import UUID
+
 COLLATERAL_DIR = 'tests/collateral'
 
 BASE_URL = 'http://localhost:{PORT}/api'
@@ -16,6 +18,9 @@ BASE_WS_URL = 'ws://localhost:{PORT}/api'
 ADDRESSBOOK_SERVICE_ID = 4294929430
 ADDRESSBOOK_VERSION = 1
 
+# Test moderation API server
+MODTEST_URL: str = 'https://modtest.byoda.io/api/v1/moderate/asset'
+MODTEST_API_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')
 
 AZURE_POD_ACCOUNT_ID = '6e31dd43-fc13-426f-a689-a401915c29cd'
 AZURE_POD_MEMBER_ID = '94f23c4b-1721-4ffe-bfed-90f86d07611a'

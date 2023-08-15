@@ -44,18 +44,18 @@ class JWT:
         # The scope is a data field that we add that the receiving
         # entity must match with its own ID(s) to see if the JWT
         # is intended for use with itself
-        self.scope: str = None
+        self.scope: str | None = None
 
         # Who should accept this JWT for authentication?
-        self.scope_type: IdType = None
+        self.scope_type: IdType | None = None
         self.scope_id: UUID | int
 
         self.secret: Secret = None
         self.service_id: int = None
 
-        self.encoded: str = None
-        self.decoded: dict[str:str] = None
-        self.verified = None
+        self.encoded: str | None = None
+        self.decoded: dict[str:str] | None = None
+        self.verified: bool | None = None
 
         self.network_name: str = network_name
 
@@ -126,7 +126,7 @@ class JWT:
         :param audience_type: the type of the audience that the JWT is valid
         for
         '''
-        
+
         scope = f'urn: {scope_id}.{scope_type.value}'
         if service_id:
             scope += f'{service_id}'
