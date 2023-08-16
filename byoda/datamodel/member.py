@@ -303,6 +303,7 @@ class Member:
                 'test cases'
             )
 
+        _LOGGER.debug('Creating membership')
         member = Member(
             service.service_id, account,
             local_service_contract=local_service_contract
@@ -317,7 +318,9 @@ class Member:
             elif isinstance(member_id, UUID):
                 member.member_id = member_id
             else:
-                raise ValueError(f'member_id {member_id} must have type UUID or str')
+                raise ValueError(
+                    f'member_id {member_id} must have type UUID or str'
+                )
         else:
             _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
@@ -616,7 +619,7 @@ class Member:
 
         return jwt
 
-    async def register(self, secret) -> None:
+    async def register(self, secret: MemberSecret | MemberDataSecret) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service. The pod will requests the service to sign its TLS CSR
@@ -642,12 +645,13 @@ class Member:
 
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
+        server: Server = config.server
+        await secret.save(
+            password=self.private_key_password, overwrite=True,
+            storage_driver=server.local_storage
+        )
+
         if isinstance(secret, MemberSecret):
-            server: Server = config.server
-            await secret.save(
-                password=self.private_key_password, overwrite=True,
-                storage_driver=server.local_storage
-            )
             secret.save_tmp_private_key()
             await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),
