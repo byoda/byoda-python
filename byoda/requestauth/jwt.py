@@ -196,7 +196,6 @@ class JWT:
         if self.service_id is not None:
             data['service_id'] = self.service_id
 
-        _LOGGER.debug(f'JWT pem encoded with {self.secret.cert_as_pem()}')
         jwt = py_jwt.encode(
             data, self.secret.private_key, algorithm=JWT_ALGO_PREFFERED
         )
@@ -234,7 +233,6 @@ class JWT:
         audience = f'urn: network-{network_name}'
 
         if secret:
-            _LOGGER.debug(f'Secret PEM: {secret.cert_as_pem()}')
             data = py_jwt.decode(
                 authorization, secret.cert.public_key(), leeway=10,
                 audience=audience, algorithms=JWT_ALGO_ACCEPTED

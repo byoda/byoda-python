@@ -72,6 +72,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         config.debug = True
+        config.tls_cert_file = '/tmp/cert.pem'
         with open(CONFIG_FILE) as file_desc:
             TestApis.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
@@ -135,22 +136,23 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         if not os.environ.get('SERVER_NAME') and config.server.network.name:
             os.environ['SERVER_NAME'] = config.server.network.name
-            app = setup_api(
-                'Byoda test dirserver', 'server for testing directory APIs',
-                'v0.0.1', [StatusRouter, ModerateRouter], lifespan=None
-            )
-            TestApis.PROCESS = Process(
-                target=uvicorn.run,
-                args=(app,),
-                kwargs={
-                    'host': '127.0.0.1',
-                    'port': TEST_PORT,
-                    'log_level': 'debug'
-                },
-                daemon=True
-            )
-            TestApis.PROCESS.start()
-            await asyncio.sleep(2)
+
+        app = setup_api(
+            'Byoda test dirserver', 'server for testing directory APIs',
+            'v0.0.1', [StatusRouter, ModerateRouter], lifespan=None
+        )
+        TestApis.PROCESS = Process(
+            target=uvicorn.run,
+            args=(app,),
+            kwargs={
+                'host': '127.0.0.1',
+                'port': TEST_PORT,
+                'log_level': 'debug'
+            },
+            daemon=True
+        )
+        TestApis.PROCESS.start()
+        await asyncio.sleep(2)
 
     @classmethod
     async def asyncTearDown(cls):
@@ -162,12 +164,15 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         server: AppServer = config.server
 
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network()
+        network_data = await setup_network(delete_tmp_dir=False)
 
         account = await setup_account(network_data)
 
         await account.load_memberships()
         member: Member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+
+        with open(config.tls_cert_file, 'wb') as file_desc:
+            file_desc.write(member.tls_secret.cert_as_pem())
 
         jwt = member.create_jwt(target_id=TEST_APP_ID, target_type=IdType.APP)
 
@@ -217,7 +222,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
         whitelist_file = f'{server.whitelist_dir}/{member.member_id}'
         with open(whitelist_file, 'w') as file_desc:
-            file_desc.write('')
+            file_desc.write('{"creator": "tests/func/moderation.py"}')
 
         response = requests.post(API, headers=headers, json=claim_data)
         self.assertEqual(response.status_code, 200)

@@ -129,20 +129,21 @@ class RequestAuth:
         # HttpRwquestMethod is None when request is
         # a GraphQL subscribe request coming over websockets
         self.method: HttpRequestMethod | None = method
-        self.client_cn: str = None
-        self.issuing_ca_cn: str = None
-        self.token: str = None
-        self.account_id: UUID = None
-        self.service_id: int = None
-        self.member_id: UUID = None
-        self.domain: str = None
+        self.client_cn: str | None = None
+        self.issuing_ca_cn: str | None = None
+        self.token: str | None = None
+        self.account_id: UUID | None = None
+        self.service_id: int | None = None
+        self.member_id: UUID | None = None
+        self.domain: str | None = None
 
-        self. id: UUID | None = None
+        self.id: UUID | None = None
 
-        self.tls_status: TlsStatus = None
-        self.client_dn: str = None
-        self.issuing_ca_dn: str = None
-        self.authorization: str = None
+        self.tls_status: TlsStatus | None = None
+        self.client_dn: str | None = None
+        self.issuing_ca_dn: str | None = None
+        self.authorization: str | None = None
+        self.jwt: JWT | None = None
 
     async def authenticate(self, tls_status: TlsStatus, client_dn: str | None,
                            issuing_ca_dn: str | None, client_cert: str | None,
@@ -663,11 +664,12 @@ class RequestAuth:
         # First we use the unverified JWT to find out
         # in which context we need to authenticate the client
         try:
-            unverified = await JWT.decode(
+            unverified_jwt = await JWT.decode(
                 authorization, None, network.name, download_remote_cert=False
             )
 
-            secret = await unverified._get_issuer_secret()
+            secret = await unverified_jwt._get_issuer_secret()
+            # TODO: next 2 lines can be removed?
             if not secret.cert:
                 await secret.load(with_private_key=False)
         except ExpiredSignatureError:
@@ -683,7 +685,7 @@ class RequestAuth:
             await JWT.decode(authorization, secret, network.name)
 
             # We now know we can trust the data we earlier parsed from the JWT
-            jwt: JWT = unverified
+            jwt: JWT = unverified_jwt
 
             self.service_id = jwt.service_id
             self.id_type = jwt.issuer_type

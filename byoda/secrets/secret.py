@@ -924,9 +924,11 @@ class Secret:
         _LOGGER.debug(f'Downloading secret from {url}')
 
         try:
-            if (config.debug and hasattr(config, 'tls_cert')
+            # FIXME: needs clean solution do get cert from test case
+            if (config.debug and hasattr(config, 'tls_cert_file')
                     and 'aaaaaaaa' in url):
-                cert_data = config.tls_cert
+                with open(config.tls_cert_file, 'rb') as file_desc:
+                    cert_data = file_desc.read()
             else:
                 ssl_context = ssl.create_default_context(
                     cafile=root_ca_filepath

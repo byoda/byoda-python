@@ -15,15 +15,18 @@ from typing import Annotated
 from fastapi import Request, HTTPException
 from fastapi import Header, Depends
 
-from byoda import config
-
 from byoda.datatypes import IdType
+from byoda.datatypes import AuthSource
+
+from byoda.requestauth.requestauth import RequestAuth, TlsStatus
+from byoda.requestauth.jwt import JWT
 
 from byoda.servers.server import Server
 
-from byoda.requestauth.requestauth import RequestAuth, TlsStatus
-
 from byoda.exceptions import ByodaMissingAuthInfo
+
+from byoda import config
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -126,7 +129,7 @@ class MemberRequestAuthFast(RequestAuth):
     async def authenticate(self):
         server: Server = config.server
         try:
-            await super().authenticate(
+            jwt = await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
@@ -139,16 +142,20 @@ class MemberRequestAuthFast(RequestAuth):
                 status_code=403, detail='Authentication failed'
             )
 
+        if jwt and self.auth_source == AuthSource.TOKEN:
+            self.jwt: JWT = jwt
+
         if self.id_type != IdType.MEMBER:
             _LOGGER.debug(
-                f'Authentication with {self.id_type} cert instead of '
+                f'Authentication with {self.id_type} cert/JWT instead of '
                 f'member cert'
             )
             raise HTTPException(status_code=403)
 
         try:
-            _LOGGER.debug('Checking the member cert')
-            self.check_member_cert(self.service_id, server.network)
+            if self.auth_source == AuthSource.CERT:
+                _LOGGER.debug('Checking the member cert')
+                self.check_member_cert(self.service_id, server.network)
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=exc.message)
         except PermissionError:
