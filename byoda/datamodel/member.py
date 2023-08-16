@@ -469,10 +469,6 @@ class Member:
             )
 
         _LOGGER.debug('Saving MemberSecret to local storage')
-        await self.data_secret.save(
-             password=self.private_key_password, overwrite=True,
-             storage_driver=local_storage
-        )
         await self.tls_secret.save(
              password=self.private_key_password, overwrite=True,
              storage_driver=local_storage
@@ -560,7 +556,7 @@ class Member:
 
     async def load_secrets(self) -> None:
         '''
-        Loads the membership secrets
+        Loads the membership secrets from the cloud
         '''
 
         self.tls_secret = MemberSecret(
@@ -625,6 +621,7 @@ class Member:
         and the service. The pod will requests the service to sign its TLS CSR
         '''
 
+        _LOGGER.debug('Registering the pod with the network and service')
         # Register with the service to get our CSR signed
         csr = await secret.create_csr()
 

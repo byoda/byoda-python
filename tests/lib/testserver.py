@@ -232,11 +232,21 @@ async def lifespan(app: FastAPI):
 
     await account.load_memberships()
 
-    for account_member in account.memberships.values():
-        await account_member.create_query_cache()
-        await account_member.create_counter_cache()
-        account_member.enable_graphql_api(app)
-        cors_origins.add(f'https://{account_member.tls_secret.common_name}')
+    for member in account.memberships.values():
+        await member.create_query_cache()
+        await member.create_counter_cache()
+        member.enable_graphql_api(app)
+        await member.tls_secret.save(
+            password=member.private_key_password,
+            storage_driver=server.local_storage,
+            overwrite=True
+        )
+        await member.data_secret.save(
+            password=member.private_key_password,
+            storage_driver=server.local_storage,
+            overwrite=True
+        )
+        cors_origins.add(f'https://{member.tls_secret.common_name}')
 
     _LOGGER.debug('Lifespan startup complete')
     update_cors_origins(cors_origins)
