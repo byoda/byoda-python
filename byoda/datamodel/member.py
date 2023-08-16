@@ -317,7 +317,7 @@ class Member:
             elif isinstance(member_id, UUID):
                 member.member_id = member_id
             else:
-                raise ValueError(f'member_id {member_id} must have type UUID')
+                raise ValueError(f'member_id {member_id} must have type UUID or str')
         else:
             _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
@@ -480,6 +480,11 @@ class Member:
             self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )
+
+        await self.data_secret.save(
+             password=self.private_key_password, overwrite=True,
+             storage_driver=local_storage
+        )
 
     async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
                              renew: bool = False) -> Secret:

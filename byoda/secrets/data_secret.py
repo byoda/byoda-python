@@ -24,6 +24,7 @@ from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.api_client.api_client import ApiClient, HttpMethod
 from byoda.util.paths import Paths
 
 from byoda import config
