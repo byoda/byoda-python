@@ -174,11 +174,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         with open(config.tls_cert_file, 'wb') as file_desc:
             file_desc.write(member.tls_secret.cert_as_pem())
 
-        jwt = member.create_jwt(target_id=TEST_APP_ID, target_type=IdType.APP)
-
-        headers = {
-            'Authorization': f'bearer {jwt.encoded}'
-        }
+        network_name = TestApis.APP_CONFIG['application']['network']
 
         claim_data = {
             'claims': ['blah 5', 'gaap 4'],
@@ -208,7 +204,22 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
                 'annotations': [],
             }
         }
-        response = requests.post(API, headers=headers, json=claim_data)
+
+        ssl_headers = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN={member.member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
+            'X-Client-SSL-Issuing-CA':
+                (
+                    'CN=members-ca.members-ca-'
+                    f'{ADDRESSBOOK_SERVICE_ID}.{network_name}'
+                )
+        }
+
+        #
+        # Test with SSL headers
+        #
+        response = requests.post(API, headers=ssl_headers, json=claim_data)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'pending')
@@ -219,12 +230,34 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(os.path.exists(request_file))
 
+        #
+        # Test with JWT
+        #
+        jwt = member.create_jwt(target_id=TEST_APP_ID, target_type=IdType.APP)
+        jwt_headers = {'Authorization': f'bearer {jwt.encoded}'}
+
+        # Make sure asset_id is unique
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
+        response = requests.post(API, headers=jwt_headers, json=claim_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'pending')
+        self.assertIsNone(data['signature'])
+        self.assertIsNotNone(data['request_id'])
+        request_file = server.get_claim_filepath(
+            ClaimStatus.PENDING, data['request_id']
+        )
+        self.assertTrue(os.path.exists(request_file))
+
+        #
+        # Test with SSL headers and whitelisted member
+        #
         whitelist_file = f'{server.whitelist_dir}/{member.member_id}'
         with open(whitelist_file, 'w') as file_desc:
             file_desc.write('{"creator": "tests/func/moderation.py"}')
 
-        response = requests.post(API, headers=headers, json=claim_data)
+        claim_data['claim_data']['asset_id'] = str(get_test_uuid())
+        response = requests.post(API, headers=ssl_headers, json=claim_data)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsNotNone(data['request_id'])
@@ -241,68 +274,12 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(os.path.exists(claim_file))
 
-    def test_moderation_asset_post_tls(self):
-        API = BASE_URL + '/moderate/asset'
-        server: AppServer = config.server
-
-        member_id = get_test_uuid()
-        network_name = TestApis.APP_CONFIG['application']['network']
-        headers = {
-            'X-Client-SSL-Verify': 'SUCCESS',
-            'X-Client-SSL-Subject':
-                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
-            'X-Client-SSL-Issuing-CA':
-                (
-                    'CN=members-ca.members-ca-'
-                    f'{ADDRESSBOOK_SERVICE_ID}.{network_name}'
-                )
-        }
-
-        claim_data = {
-            'claims': ['blah 5', 'gaap 4'],
-            'claim_data': {
-                'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
-                'asset_type': 'public_assets',
-                'asset_url': 'https://cdn.byoda.io/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',      # noqa: E501
-                'asset_merkle_root_hash':
-                    'JM/gRbo5diTfTkuVLTPCjDE4ZWTwXRwHH8pwlJKkCXM=',
-                'public_video_thumbnails': [
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',          # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',                 # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
-                ],
-                'creator': 'Dathes',
-                'publisher': 'YouTube',
-                'publisher_asset_id': '5Y9L5NBINV4',
-                'title': 'Big Buck Bunny',
-                'contents': '',
-                'annotations': [],
-            }
-        }
-        response = requests.post(API, headers=headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'pending')
-        self.assertIsNone(data['signature'])
-        self.assertIsNotNone(data['request_id'])
-        request_file = server.get_claim_filepath(
-            ClaimStatus.PENDING, data['request_id']
-        )
-        self.assertTrue(os.path.exists(request_file))
-
+        #
+        # Test with JWT and whitelisted member
+        #
+        # Make sure asset_id is unique
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
-        whitelist_file = f'{server.whitelist_dir}/{member_id}'
-        with open(whitelist_file, 'w') as file_desc:
-            file_desc.write('')
-
-        response = requests.post(API, headers=headers, json=claim_data)
+        response = requests.post(API, headers=jwt_headers, json=claim_data)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsNotNone(data['request_id'])
