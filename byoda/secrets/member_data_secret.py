@@ -161,17 +161,21 @@ class MemberDataSecret(DataSecret):
             cert_data = await DataSecret.download(
                 member_data_secret, url, network_name=network
             )
+            _LOGGER.debug(
+                f'Downloaded member data secret of {len(cert_data)} bytes '
+                f'from pod: {url}'
+            )
         except RuntimeError:
             # Pod may be down or disconnected, let's try the service server
             url = Paths.resolve(
                 Paths.SERVICE_MEMBER_DATACERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            _LOGGER.debug(
-                'Falling back to downloading member data secret from service '
-                'server'
-            )
             cert_data = await DataSecret.download(member_data_secret, url)
+            _LOGGER.debug(
+                'Falling back to downloading member data secret of '
+                f'{len(cert_data)} bytes from service server {url}'
+            )
 
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '
