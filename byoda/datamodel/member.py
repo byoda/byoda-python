@@ -340,6 +340,7 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
+        _LOGGER.debug('Creating member secrets')
         await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
@@ -462,6 +463,11 @@ class Member:
                 MemberSecret, members_ca
             )
 
+        _LOGGER.debug('Saving MemberSecret to local storage')
+        await self.data_secret.save(
+             password=self.private_key_password, overwrite=True,
+             storage_driver=local_storage
+        )
         await self.tls_secret.save(
              password=self.private_key_password, overwrite=True,
              storage_driver=local_storage
@@ -481,6 +487,7 @@ class Member:
                 MemberDataSecret, members_ca
             )
 
+        _LOGGER.debug('Saving MemberDataSecret to local storage')
         await self.data_secret.save(
              password=self.private_key_password, overwrite=True,
              storage_driver=local_storage
