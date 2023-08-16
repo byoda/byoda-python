@@ -41,7 +41,6 @@ from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import MODTEST_URL, MODTEST_API_ID
 
 _LOGGER = None

@@ -138,5 +138,3 @@ async def post_asset_moderation(request: Request,
             'status': ClaimStatus(data['request_status']),
             'request_id': request_id,
         }
-
-

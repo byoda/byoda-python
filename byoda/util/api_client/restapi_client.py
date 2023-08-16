@@ -74,7 +74,8 @@ class RestApiClient:
 
         response: aiohttp.ClientResponse = await ApiClient.call(
             api, method, secret=secret, params=params, data=data,
-            service_id=service_id, member_id=member_id, account_id=account_id,
+            headers=headers, service_id=service_id, member_id=member_id,
+            account_id=account_id,
         )
 
         return response

@@ -14,9 +14,9 @@ from copy import deepcopy
 from typing import TypeVar
 from urllib.parse import urlparse
 
+import ssl
 import orjson
 import aiohttp
-import ssl
 
 from datetime import datetime
 from datetime import timezone
@@ -24,7 +24,6 @@ from collections import namedtuple
 
 import requests
 
-from byoda.secrets.secret import Secret
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
@@ -39,6 +38,8 @@ _LOGGER = logging.getLogger(__name__)
 
 Server = TypeVar('Server')
 Network = TypeVar('Network')
+Secret = TypeVar('Secret')
+
 
 class ClientAuthType(Enum):
     # flake8: noqa=E221

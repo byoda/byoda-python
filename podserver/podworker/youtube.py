@@ -10,7 +10,6 @@ import os
 
 import logging
 
-from uuid import UUID
 from time import gmtime
 from calendar import timegm
 

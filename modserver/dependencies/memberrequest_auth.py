@@ -33,7 +33,8 @@ class MemberRequestAuthOptionalFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None),
+                 authorization: str | None = Header(None)):
         '''
         Get the optional authentication info for the client that made the API
         call.
@@ -45,7 +46,7 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         :raises: HTTPException
         '''
 
-        _LOGGER.debug('verifying authentication with a member cert')
+        _LOGGER.debug('verifying authentication with a member cert or JWT')
 
         super().__init__(request.client.host, request.method)
 
@@ -53,7 +54,7 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         self.x_client_ssl_subject: str = x_client_ssl_subject
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
-        self.authorization: str = None
+        self.authorization: str = authorization
 
     async def authenticate(self):
         server: Server = config.server
@@ -92,9 +93,11 @@ class MemberRequestAuthFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None),
+                 authorization: str | None = Header(None)):
+
         '''
-        Get the optional authentication info for the client that made the API
+        Get the authentication info for the client that made the API
         call.
 
         The reverse proxy has already validated that the client calling
@@ -104,7 +107,7 @@ class MemberRequestAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
-        _LOGGER.debug('verifying authentication with a member cert')
+        _LOGGER.debug('verifying authentication with a member cert or JWT')
         server: Server = config.server
 
         super().__init__(request.client.host, request.method)
@@ -113,13 +116,12 @@ class MemberRequestAuthFast(RequestAuth):
         self.x_client_ssl_subject: str | None = x_client_ssl_subject
         self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
+        self.authorization: str = authorization
 
         if server.service:
             self.service_id = server.service.service_id
         else:
             self.service_id = None
-
-        self.authorization: str = None
 
     async def authenticate(self):
         server: Server = config.server

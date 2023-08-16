@@ -21,7 +21,6 @@ from bs4 import BeautifulSoup
 from googleapiclient.discovery import Resource as YouTubeResource
 
 from byoda.datamodel.member import Member
-from byoda.datamodel.claim import Claim
 
 from byoda.datastore.data_store import DataStore
 
@@ -69,15 +68,6 @@ class YouTubeChannel:
         # 'external' and this channel is configured to download AV tracks
         # then the existing asset will be updated
         for video in self.videos.values():
-            if moderate_url and moderate_jwt_header:
-                _LOGGER.debug(
-                    f'Getting moderation claim for video {video.video_id} '
-                    f'signed by {moderate_url}'
-                )
-                claim: Claim = await video.get_signed_claim(
-                    moderate_url, moderate_jwt_header
-                )
-
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
@@ -85,7 +75,8 @@ class YouTubeChannel:
                 await video.persist(
                     member, data_store, storage_driver,
                     self.ingest_videos, already_ingested_videos,
-                    bento4_directory, claim
+                    bento4_directory, moderate_url=moderate_url,
+                    moderate_jwt_header=moderate_jwt_header
                 )
             except ValueError:
                 _LOGGER.exception(

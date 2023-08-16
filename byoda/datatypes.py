@@ -313,3 +313,8 @@ class MemberStatus(Enum):
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'
     REJECTED        = 'REJECTED'
+
+
+class DnsRecordType(Enum):
+    A = 'A'
+    TXT = 'TXT'

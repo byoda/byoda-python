@@ -487,7 +487,8 @@ class YouTubeVideo:
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
                       already_ingested_videos: dict[str, dict],
-                      bento4_directory: str = None, claim: Claim = None
+                      bento4_directory: str = None,
+                      moderate_url: str = None, moderate_jwt_header: str = None
                       ) -> bool:
         '''
         Adds or updates a video in the datastore.
@@ -519,6 +520,15 @@ class YouTubeVideo:
                     member, storage_driver, already_ingested_videos,
                     bento4_directory
                 )
+                if moderate_url and moderate_jwt_header:
+                    _LOGGER.debug(
+                        f'Getting moderation claim for video {self.video_id} '
+                        f'signed by {moderate_url}'
+                    )
+                    claim: Claim = await self.get_signed_claim(
+                        moderate_url, moderate_jwt_header
+                    )
+
             except ValueError:
                 _LOGGER.exception(
                     f'Ingesting asset for YouTube video {self.video_id} failed'
@@ -529,6 +539,9 @@ class YouTubeVideo:
             # to be written to the database
             self._transition_state(IngestStatus.PUBLISHED)
         else:
+            _LOGGER.debug(
+                f'Setting ingest status to EXTERNAL for {self.video_id}'
+            )
             self._transition_state(IngestStatus.EXTERNAL)
 
         asset = {}

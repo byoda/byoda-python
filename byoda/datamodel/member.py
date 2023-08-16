@@ -557,19 +557,45 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def create_jwt(self, expiration_days: int = 365) -> JWT:
+    def create_jwt(self, target_id: UUID = None, target_type: IdType = None,
+                   expiration_days: int = 365) -> JWT:
         '''
-        Creates a JWT for a member of a service. This JWT can be
-        used to authenticate against the:
-        - membership of the pod
-        - membership of the service of other pods
-        - service
+        Creates a JWT for a member of a service. Depending on the id_type,
+        this JWT can be used to authenticate against:
+        - membership of this pod
+        - a service
+        - an app
+
+        :params target_id: The UUID of the server that will use this JWT
+        to authenticate a request. If not provided, it will default to
+        the member_id of this Member instance
+        :param target_type: The type of server that will use this JWT to
+        authenticate a request. If not provided, it will default to
+        IdType.MEMBER
+        :param expiration_days:
+        :raises: ValueError
         '''
+
+        if not isinstance(expiration_days, int):
+            raise ValueError(
+                'expiration_days must be an integer, not '
+                f'{type(expiration_days)}'
+            )
+
+        if not (bool(target_id) or bool(target_type)):
+            raise ValueError(
+                'Either target_id or target_type must be set or neither '
+                f'must be set: {target_id} - {target_type}'
+            )
+
+        if not target_id:
+            target_id: UUID = self.member_id
+            target_type: IdType = IdType.MEMBER
 
         jwt = JWT.create(
             self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
-            service_id=self.service_id, scope_type=IdType.MEMBER,
-            scope_id=self.member_id, expiration_days=expiration_days,
+            service_id=self.service_id, scope_type=target_type,
+            scope_id=target_id, expiration_days=expiration_days,
         )
 
         return jwt

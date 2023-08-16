@@ -19,22 +19,12 @@ import passgen
 
 from cryptography.hazmat.primitives import serialization
 
-from byoda.datastore.dnsdb import DnsRecordType
-
-from byoda.storage import FileStorage
-
-from byoda.datatypes import CsrSource
-from byoda.datatypes import ServerType
-
 from byoda.datamodel.schema import Schema
 
-from byoda.util.api_client.api_client import ApiClient
-
-from byoda.util.message_signature import SignatureType
-from byoda.util.paths import Paths
-
 from byoda.datatypes import IdType
-from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
+from byoda.datatypes import CsrSource
+from byoda.datatypes import ServerType
+from byoda.datatypes import DnsRecordType
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.secret import CSR
@@ -47,6 +37,15 @@ from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.appsca_secret import AppsCaSecret
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
+
+from byoda.storage import FileStorage
+
+from byoda.util.api_client.api_client import ApiClient
+
+from byoda.util.message_signature import SignatureType
+from byoda.util.paths import Paths
+
+from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 
 from byoda import config
 
