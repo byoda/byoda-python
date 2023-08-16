@@ -24,8 +24,6 @@ from multiprocessing import Process
 
 import uvicorn
 
-from byoda.requestauth.jwt import JWT
-
 from byoda.datamodel.network import Network
 from byoda.datastore.document_store import DocumentStoreType
 

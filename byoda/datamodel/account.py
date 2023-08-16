@@ -63,6 +63,7 @@ class Account:
         'private_key_password', 'data_secret', 'tls_secret', 'paths',
         'memberships'
     ]
+
     def __init__(self,  account_id: str, network: Network,
                  account: str = 'pod'):
         '''
@@ -94,8 +95,8 @@ class Account:
 
         self.data_secret: DataSecret = AccountDataSecret(
             account_id=self.account_id, network=network
-
         )
+
         self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )

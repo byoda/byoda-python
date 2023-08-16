@@ -158,7 +158,9 @@ class MemberDataSecret(DataSecret):
                 Paths.MEMBER_DATACERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            cert_data = await DataSecret.download(member_data_secret, url)
+            cert_data = await DataSecret.download(
+                member_data_secret, url, network_name=network
+            )
         except RuntimeError:
             # Pod may be down or disconnected, let's try the service server
             url = Paths.resolve(

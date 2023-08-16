@@ -582,7 +582,7 @@ class Member:
                 f'{type(expiration_days)}'
             )
 
-        if not (bool(target_id) or bool(target_type)):
+        if bool(target_id) != bool(target_type):
             raise ValueError(
                 'Either target_id or target_type must be set or neither '
                 f'must be set: {target_id} - {target_type}'

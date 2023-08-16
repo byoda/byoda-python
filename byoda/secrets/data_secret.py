@@ -305,7 +305,8 @@ class DataSecret(Secret):
 
         return digest
 
-    async def download(self, url: str, ca_filepath: str = None) -> str | None:
+    async def download(self, url: str, ca_filepath: str = None,
+                       network_name: str | None = None) -> str | None:
         '''
         Downloads the data secret of a remote member
 
@@ -322,6 +323,8 @@ class DataSecret(Secret):
             )
 
         _LOGGER.debug(f'Downloading data secret from {url}')
-        cert_data = await Secret.download(url, ca_filepath=ca_filepath)
+        cert_data = await Secret.download(
+            url, root_ca_filepath=ca_filepath, network_name=network_name
+        )
 
         return cert_data

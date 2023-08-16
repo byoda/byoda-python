@@ -13,7 +13,8 @@ import subprocess
 
 from uuid import UUID
 from typing import TypeVar
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from urllib.parse import urlparse
 from urllib.parse import ParseResult
 
@@ -912,11 +913,14 @@ class Secret:
         return EntityId(id_type, identifier, cn_service_id)
 
     @staticmethod
-    async def download(url: str, root_ca_filepath: str | None = None
-                       ) -> str | None:
+    async def download(url: str, root_ca_filepath: str | None = None,
+                       network_name: str | None = None) -> str | None:
         '''
         Downloads the secret from the given URL
 
+        :param url:
+        :param root_ca_filepath: path (starting with '/') to the root CA file
+        :param network_name:
         :returns Secret : the downloaded data secret as a string
         :raises: (none)
         '''
@@ -930,9 +934,16 @@ class Secret:
                 with open(config.tls_cert_file, 'rb') as file_desc:
                     cert_data = file_desc.read()
             else:
-                ssl_context = ssl.create_default_context(
-                    cafile=root_ca_filepath
-                )
+                parsed_url: ParseResult = urlparse(url)
+                if (parsed_url.hostname.startswith('dir.')
+                        or parsed_url.hostname.startswith('proxy.')
+                        or (network_name
+                            and network_name not in parsed_url.hostname)):
+                    ssl_context = None
+                else:
+                    ssl_context = ssl.create_default_context(
+                        cafile=root_ca_filepath
+                    )
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, ssl=ssl_context) as response:
                         if response.status >= 400:
