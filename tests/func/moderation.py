@@ -19,17 +19,22 @@ import asyncio
 import unittest
 import requests
 
+from typing import TypeVar
 from multiprocessing import Process
+
 import uvicorn
 
-from byoda.datamodel.network import Network
+from byoda.requestauth.jwt import JWT
 
+from byoda.datamodel.network import Network
 from byoda.datastore.document_store import DocumentStoreType
+
 
 from byoda.servers.app_server import AppServer
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import ClaimStatus
+from byoda.datatypes import IdType
 
 from byoda.util.logger import Logger
 from byoda.util.api_client.api_client import ApiClient
@@ -42,14 +47,21 @@ from tests.lib.defines import COLLATERAL_DIR
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.util import get_test_uuid
 
+from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
+from tests.lib.setup import mock_environment_vars
+
 from modserver.routers import moderate as ModerateRouter
 from modserver.routers import status as StatusRouter
 
+Member = TypeVar('Member')
 
 CONFIG_FILE = 'tests/collateral/local/config-mod.yml'
 TEST_DIR = '/tmp/byoda-tests/mod_apis'
 TEST_PORT = 8000
 BASE_URL = f'http://localhost:{TEST_PORT}/api/v1'
+
+TEST_APP_ID: str = '05cbb871-ee50-4ba5-8dda-4879142fb67e'
 
 _LOGGER = None
 
@@ -59,6 +71,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
+        config.debug = True
         with open(CONFIG_FILE) as file_desc:
             TestApis.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
@@ -84,10 +97,8 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         os.makedirs(f'{TEST_DIR}{paths["key"]}', exist_ok=True)
         os.makedirs(f'{TEST_DIR}{paths["pem"]}', exist_ok=True)
         files = (
-            'app-05cbb871-ee50-4ba5-8dda-4879142fb67e-cert.pem',
-            'app-data-05cbb871-ee50-4ba5-8dda-4879142fb67e-cert.pem',
-            'app-05cbb871-ee50-4ba5-8dda-4879142fb67e.key',
-            'app-data-05cbb871-ee50-4ba5-8dda-4879142fb67e.key'
+            f'app-{TEST_APP_ID}-cert.pem', f'app-data-{TEST_APP_ID}-cert.pem',
+            f'app-{TEST_APP_ID}.key', f'app-data-{TEST_APP_ID}.key'
         )
         for file in files:
             file_type = file[-3:]
@@ -146,7 +157,86 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         await ApiClient.close_all()
         TestApis.PROCESS.terminate()
 
-    def test_moderation_asset_post(self):
+    async def test_moderation_asset_post_jwt(self):
+        API = BASE_URL + '/moderate/asset'
+        server: AppServer = config.server
+
+        mock_environment_vars(TEST_DIR)
+        network_data = await setup_network()
+
+        account = await setup_account(network_data)
+
+        await account.load_memberships()
+        member: Member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+
+        jwt = member.create_jwt(target_id=TEST_APP_ID, target_type=IdType.APP)
+
+        headers = {
+            'Authorization': f'bearer {jwt.encoded}'
+        }
+
+        claim_data = {
+            'claims': ['blah 5', 'gaap 4'],
+            'claim_data': {
+                'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
+                'asset_type': 'public_assets',
+                'asset_url': 'https://cdn.byoda.io/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',      # noqa: E501
+                'asset_merkle_root_hash':
+                    'JM/gRbo5diTfTkuVLTPCjDE4ZWTwXRwHH8pwlJKkCXM=',
+                'public_video_thumbnails': [
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',          # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',                 # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',               # noqa: E501
+                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
+                ],
+                'creator': 'Dathes',
+                'publisher': 'YouTube',
+                'publisher_asset_id': '5Y9L5NBINV4',
+                'title': 'Big Buck Bunny',
+                'contents': '',
+                'annotations': [],
+            }
+        }
+        response = requests.post(API, headers=headers, json=claim_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'pending')
+        self.assertIsNone(data['signature'])
+        self.assertIsNotNone(data['request_id'])
+        request_file = server.get_claim_filepath(
+            ClaimStatus.PENDING, data['request_id']
+        )
+        self.assertTrue(os.path.exists(request_file))
+
+        claim_data['claim_data']['asset_id'] = str(get_test_uuid())
+        whitelist_file = f'{server.whitelist_dir}/{member.member_id}'
+        with open(whitelist_file, 'w') as file_desc:
+            file_desc.write('')
+
+        response = requests.post(API, headers=headers, json=claim_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsNotNone(data['request_id'])
+        self.assertEqual(data['status'], 'accepted')
+        self.assertIsNotNone(data['signature'])
+        self.assertIsNotNone(data['signature_timestamp'])
+        self.assertIsNotNone(data['issuer_id'])
+        self.assertIsNotNone(data['issuer_type'])
+        self.assertIsNotNone(data['cert_fingerprint'])
+        self.assertIsNotNone(data['cert_expiration'])
+
+        claim_file = server.get_claim_filepath(
+            ClaimStatus.ACCEPTED, claim_data['claim_data']['asset_id']
+        )
+        self.assertTrue(os.path.exists(claim_file))
+
+    def test_moderation_asset_post_tls(self):
         API = BASE_URL + '/moderate/asset'
         server: AppServer = config.server
 

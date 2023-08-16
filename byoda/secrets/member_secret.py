@@ -28,16 +28,34 @@ Network = TypeVar('Network')
 class MemberSecret(Secret):
     __slots__ = ['member_id', 'network', 'service_id']
 
-    def __init__(self, member_id: UUID, service_id: int, account: Account):
+    def __init__(self, member_id: UUID, service_id: int, account: Account,
+                 paths: Paths = None, network_name: str = None):
         '''
         Class for the member secret of an account for a service
 
         :param member_id: the UUID for the membership
         :param service_id: the service id
         :param account: the account of the member
+        :param paths: Paths instance
         :raises: ValueError if both 'paths' and 'network' parameters are
         specified
         '''
+
+        if paths is None and account is None:
+            raise ValueError(
+                'Either paths or account must be specified'
+            )
+
+        if paths is None:
+            paths = account.paths
+
+        if network_name is None and account is None:
+            raise ValueError(
+                'Either network_name or account must be specified'
+            )
+
+        if network_name is None:
+            network_name = account.network.name
 
         self.member_id = None
         if member_id:
@@ -45,11 +63,11 @@ class MemberSecret(Secret):
 
         service_id = int(service_id)
 
-        self.paths: Paths = copy(account.paths)
+        self.paths: Paths = copy(paths)
         self.paths.service_id: int = service_id
 
         # secret.review_commonname requires self.network to be string
-        self.network: str = account.network.name
+        self.network: str = network_name
 
         super().__init__(
             cert_file=self.paths.get(
@@ -128,3 +146,48 @@ class MemberSecret(Secret):
         '''
 
         return f'/var/tmp/private-member-{self.member_id}.key'
+
+    @staticmethod
+    async def download(member_id: UUID, service_id: int, network_name: str,
+                       paths: Paths, root_ca_cert_file: str):
+        '''
+        Factory that downloads the member-data secret from the remote member
+
+        :returns: MemberDataSecret
+        '''
+
+        member_secret = MemberSecret(
+            member_id, service_id, None, paths=paths, network_name=network_name
+        )
+
+        try:
+            url = Paths.resolve(
+                Paths.MEMBER_CERT_DOWNLOAD, network=network_name,
+                service_id=service_id, member_id=member_id
+            )
+            cert_data = await Secret.download(
+                url, root_ca_filepath=root_ca_cert_file
+            )
+        except RuntimeError:
+            # Pod may be down or disconnected, let's try the service server
+            url = Paths.resolve(
+                Paths.SERVICE_MEMBER_DATACERT_DOWNLOAD, network=network_name,
+                service_id=service_id, member_id=member_id
+            )
+            _LOGGER.debug(
+                'Falling back to downloading member data secret from service '
+                'server'
+            )
+            cert_data = await Secret.download(
+                url, paths=paths, root_ca_filepath=root_ca_cert_file
+            )
+
+        _LOGGER.debug(
+            f'Downloaded member data secret for member {member_id} of '
+            f'service {service_id} in network {network_name}'
+        )
+
+        member_secret.from_string(cert_data)
+        await member_secret.save(overwrite=True)
+
+        return member_secret

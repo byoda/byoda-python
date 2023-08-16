@@ -6,13 +6,20 @@ Cert manipulation
 :license    : GPLv3
 '''
 
-import logging
 import re
+import logging
 import tempfile
 import subprocess
+
 from uuid import UUID
 from typing import TypeVar
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
+from urllib.parse import ParseResult
+
+import ssl
+import aiohttp
+import asyncio
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -31,6 +38,8 @@ from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
+
+from byoda import config
 
 from .certchain import CertChain
 
@@ -53,6 +62,7 @@ IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 CSR = x509.CertificateSigningRequest
 
 CaSecret = TypeVar('CaSecret')
+Server = TypeVar('Server')
 
 
 class Secret:
@@ -900,3 +910,39 @@ class Secret:
             )
 
         return EntityId(id_type, identifier, cn_service_id)
+
+    @staticmethod
+    async def download(url: str, root_ca_filepath: str | None = None
+                       ) -> str | None:
+        '''
+        Downloads the secret from the given URL
+
+        :returns Secret : the downloaded data secret as a string
+        :raises: (none)
+        '''
+
+        _LOGGER.debug(f'Downloading secret from {url}')
+
+        try:
+            if (config.debug and hasattr(config, 'tls_cert')
+                    and 'aaaaaaaa' in url):
+                cert_data = config.tls_cert
+            else:
+                ssl_context = ssl.create_default_context(
+                    cafile=root_ca_filepath
+                )
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, ssl=ssl_context) as response:
+                        if response.status >= 400:
+                            raise RuntimeError(
+                                f'Failure to GET {url}: {response.status}'
+                            )
+
+                        cert_data = await response.text()
+            return cert_data
+        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
+                aiohttp.client_exceptions.ClientConnectorCertificateError,
+                aiohttp.client_exceptions.ClientConnectorError,
+                asyncio.exceptions.TimeoutError) as exc:
+            _LOGGER.info(f'Failed to GET {url}: {exc}')
+            return None

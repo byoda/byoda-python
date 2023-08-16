@@ -10,7 +10,9 @@ import struct
 import logging
 
 from copy import copy
-from datetime import datetime, timedelta
+from typing import TypeVar
+from datetime import datetime
+from datetime import timedelta
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -22,9 +24,13 @@ from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.api_client.api_client import ApiClient, HttpMethod
+from byoda.util.paths import Paths
+
+from byoda import config
 
 from .secret import Secret
+
+Server = TypeVar('Server')
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -299,7 +305,7 @@ class DataSecret(Secret):
 
         return digest
 
-    async def download(self, url: str) -> str | None:
+    async def download(self, url: str, ca_filepath: str = None) -> str | None:
         '''
         Downloads the data secret of a remote member
 
@@ -307,11 +313,15 @@ class DataSecret(Secret):
         :raises: (none)
         '''
 
-        _LOGGER.debug(f'Downloading data secret from {url}')
-        resp = await ApiClient.call(url, HttpMethod.GET)
+        if not ca_filepath:
+            server: Server = config.server
+            paths: Paths = server.paths
+            ca_filepath = (
+                paths.storage_driver.local_path +
+                paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
+            )
 
-        if resp.status == 200:
-            cert_data = await resp.text()
-            return cert_data
-        else:
-            return None
+        _LOGGER.debug(f'Downloading data secret from {url}')
+        cert_data = await Secret.download(url, ca_filepath=ca_filepath)
+
+        return cert_data

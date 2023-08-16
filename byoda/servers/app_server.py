@@ -29,8 +29,6 @@ from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
 
-from byoda import config
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -48,19 +46,19 @@ class AppServer(Server):
         else:
             self.app_id: UUID = app_id
 
-        paths = Paths(
+        self.paths = Paths(
             network=network.name,
             root_directory=app_config['appserver']['root_dir']
         )
 
-        self.local_storage: FileStorage = paths.storage_driver
+        self.local_storage: FileStorage = self.paths.storage_driver
 
         self.fqdn = app_config['appserver']['fqdn']
 
         self.claim_dir: str = app_config['appserver']['claim_dir']
         self.whitelist_dir: str = app_config['appserver']['whitelist_dir']
 
-        network.paths: Paths = paths
+        network.paths: Paths = self.paths
 
         self.service = Service(
             network=self.network,
@@ -69,7 +67,8 @@ class AppServer(Server):
 
         self.app: App = App(self.app_id, self.service)
 
-    def get_claim_filepath(self, status: ClaimStatus, id: UUID | str = None) -> str:
+    def get_claim_filepath(self, status: ClaimStatus,
+                           id: UUID | str = None) -> str:
         '''
         Returns the file-path for a claim with a given status and id
 
@@ -121,16 +120,25 @@ class AppServer(Server):
 
     async def get_jwt_secret(self, jwt: JWT):
         '''
-        Load the secret used to sign the jwt. As a service is the CA for
-        member secrets, the service server should have access to the public
-        key of all member secrets
+        Load the secret used to sign the jwt.
         '''
         secret: MemberSecret = MemberSecret(
-            jwt.issuer_id, jwt.service_id, None,
-            config.server.service.network
+            jwt.issuer_id, jwt.service_id, None, paths=self.paths,
+            network_name=self.network.name
         )
 
-        await secret.load(with_private_key=False)
+        try:
+            await secret.load(with_private_key=False)
+        except FileNotFoundError:
+            local_root_ca_cert_filepath = (
+                self.paths.storage_driver.local_path.lstrip('/') +
+                self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
+            )
+            secret = await MemberSecret.download(
+                jwt.issuer_id, self.service.service_id,
+                self.service.network.name, self.paths,
+                root_ca_cert_file=local_root_ca_cert_filepath
+            )
 
         return secret
 
