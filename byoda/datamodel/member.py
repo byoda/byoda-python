@@ -454,11 +454,13 @@ class Member:
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
+            _LOGGER.debug('Loading member TLS secret')
             await self.tls_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
             self.member_id = self.tls_secret.member_id
         else:
+            _LOGGER.debug('Creating member TLS secret')
             self.tls_secret = await self._create_secret(
                 MemberSecret, members_ca
             )
@@ -478,11 +480,13 @@ class Member:
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
+            _LOGGER.debug('Loading member data secret')
             await self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
 
             )
         else:
+            _LOGGER.debug('Creating member data secret')
             self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )
