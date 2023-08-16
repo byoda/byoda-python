@@ -148,21 +148,26 @@ class MemberSecret(Secret):
         return f'/var/tmp/private-member-{self.member_id}.key'
 
     @staticmethod
-    async def download(member_id: UUID, service_id: int, network_name: str,
-                       paths: Paths, root_ca_cert_file: str):
+    async def download(member_id: UUID, service_id: int,
+                       network: Network | str, paths: Paths,
+                       root_ca_cert_file: str):
         '''
         Factory that downloads the member-data secret from the remote member
 
-        :returns: MemberDataSecret
+        :returns: MemberSecret
         '''
 
+        if isinstance(network, Network):
+            network = network.name
+
+        service_id = int(service_id)
         member_secret = MemberSecret(
-            member_id, service_id, None, paths=paths, network_name=network_name
+            member_id, service_id, None, paths=paths, network_name=network
         )
 
         try:
             url = Paths.resolve(
-                Paths.MEMBER_CERT_DOWNLOAD, network=network_name,
+                Paths.MEMBER_CERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
             cert_data = await Secret.download(
@@ -171,7 +176,7 @@ class MemberSecret(Secret):
         except RuntimeError:
             # Pod may be down or disconnected, let's try the service server
             url = Paths.resolve(
-                Paths.SERVICE_MEMBER_DATACERT_DOWNLOAD, network=network_name,
+                Paths.SERVICE_MEMBER_CERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
             _LOGGER.debug(
@@ -181,7 +186,10 @@ class MemberSecret(Secret):
             cert_data = await Secret.download(
                 url, paths=paths, root_ca_filepath=root_ca_cert_file
             )
-
+            _LOGGER.debug(
+                'Falling back to downloading member data secret of '
+                f'{len(cert_data or "")} bytes from service server {url}'
+            )
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '
             f'service {service_id} in network {network_name}'

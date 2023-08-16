@@ -958,4 +958,4 @@ class Secret:
                 aiohttp.client_exceptions.ClientConnectorError,
                 asyncio.exceptions.TimeoutError) as exc:
             _LOGGER.info(f'Failed to GET {url}: {exc}')
-            return None
+            raise RuntimeError(f'Could not GET {url}: {exc}')
