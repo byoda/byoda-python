@@ -105,7 +105,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
-            ADDRESSBOOK_SERVICE_ID, IdType.SERVICE, MODTEST_API_ID,
+            ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_API_ID,
             expiration_days=3
         )
         await yt.persist_videos(

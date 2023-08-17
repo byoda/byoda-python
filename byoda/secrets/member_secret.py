@@ -157,7 +157,7 @@ class MemberSecret(Secret):
         :returns: MemberSecret
         '''
 
-        if isinstance(network, Network):
+        if not isinstance(network, str):
             network = network.name
 
         service_id = int(service_id)
@@ -192,7 +192,7 @@ class MemberSecret(Secret):
             )
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '
-            f'service {service_id} in network {network_name}'
+            f'service {service_id} in network {network}'
         )
 
         member_secret.from_string(cert_data)
