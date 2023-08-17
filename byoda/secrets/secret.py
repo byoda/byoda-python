@@ -941,6 +941,9 @@ class Secret:
                             and network_name not in parsed_url.hostname)):
                     ssl_context = None
                 else:
+                    _LOGGER.debug(
+                        f'Setting SSL CA file to: {root_ca_filepath}'
+                    )
                     ssl_context = ssl.create_default_context(
                         cafile=root_ca_filepath
                     )
