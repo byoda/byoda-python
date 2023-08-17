@@ -59,7 +59,6 @@ async def lifespan(app: FastAPI):
     )
 
     server = AppServer(app_config['appserver']['app_id'], network, app_config)
-    await server.load_network_secrets()
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
