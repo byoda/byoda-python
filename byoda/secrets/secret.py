@@ -643,7 +643,7 @@ class Secret:
             storage_driver = self.storage_driver
 
         fingerprint = self.fingerprint().hex()
-        fingerprint_filename = f'{self.cert_file}-{fingerprint}
+        fingerprint_filename = f'{self.cert_file}-{fingerprint}'
         if (not overwrite and (await storage_driver.exists(self.cert_file)
                 or (with_fingerprint and
                 await storage_driver.exists(fingerprint_filename)))):
@@ -666,8 +666,7 @@ class Secret:
         if with_fingerprint:
             _LOGGER.debug(f'Saving cert to {fingerprint_filename}')
             await storage_driver.write(
-                f'{self.cert_file}/{fingerprint}', data,
-                file_mode=FileMode.BINARY
+                fingerprint_filename, data, file_mode=FileMode.BINARY
             )
 
         if self.private_key:

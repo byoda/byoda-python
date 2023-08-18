@@ -155,6 +155,7 @@ class FileStorage:
             )
 
         if create_dir:
+            _LOGGER.debug(f'Creating directory: {dirpath}')
             os.makedirs(dirpath, exist_ok=True)
 
         return dirpath, filename
