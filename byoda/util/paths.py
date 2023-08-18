@@ -66,8 +66,8 @@ class Paths:
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
-    SERVICE_MEMBER_CERT_FILE     = 'network-{network}/services/service-{service_id}/member-{member_id}-cert.pem'          # noqa
-    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-{member_id}-cert.pem'     # noqa
+    SERVICE_MEMBER_CERT_FILE     = 'network-{network}/services/service-{service_id}/member-certs/member-{member_id}-cert.pem'          # noqa
+    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-certs/member-data-{member_id}-cert.pem'     # noqa
 
     APP_DIR                      = 'network-{network}/service-{service_id}/apps'                                          # noqa
     APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}-cert.pem'                    # noqa
