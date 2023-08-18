@@ -608,7 +608,7 @@ class Member:
             target_type: IdType = IdType.MEMBER
 
         jwt = JWT.create(
-            self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
+            self.member_id, IdType.MEMBER, self.data_secret, self.network.name,
             service_id=self.service_id, scope_type=target_type,
             scope_id=target_id, expiration_days=expiration_days,
         )

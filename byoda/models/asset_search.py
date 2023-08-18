@@ -7,6 +7,8 @@ Schema for asset search API
 '''
 
 import logging
+
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -15,19 +17,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AssetSearchRequestModel(BaseModel):
-    hashtags: list[str] | None
-    mentions: list[str] | None
-    nickname: str | None
-    text: str | None
-    asset_id: str | None
+    hashtags: list[str] | None = None
+    mentions: list[str] = None
+    nickname: str | None = None
+    text: str | None = None
+    asset_id: UUID | None = None
 
     def __repr__(self):
         return ('<AssetSearch=(hashtag: str, handle: str, text: str)>')
-
-    def as_dict(self):
-        return {
-            'hashtag': self.hashtag,
-        }
 
 
 class AssetSubmitRequestModel(BaseModel):
@@ -43,11 +40,6 @@ class AssetSubmitRequestModel(BaseModel):
             'asset_id: str)>'
         )
 
-    def as_dict(self):
-        return {
-            'hashtag': self.hashtag,
-        }
-
 
 class AssetSearchResultsResponseModel(BaseModel):
     member_id: UUID
@@ -55,6 +47,3 @@ class AssetSearchResultsResponseModel(BaseModel):
 
     def __repr__(self):
         return ('<AssetSearchResults=(member_id: UUID, asset_id: str)>')
-
-    def as_dict(self):
-        return {'member_id': self.member_id, 'asset_id': self.asset_id}

@@ -14,6 +14,7 @@ It takes 3 steps for a pod to become a member of service:
 
 
 import logging
+
 from copy import copy
 
 from fastapi import APIRouter, Depends, Request
@@ -22,6 +23,7 @@ from fastapi import HTTPException
 from cryptography import x509
 
 from byoda.datatypes import IdType
+from byoda.datatypes import EntityId
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import AuthSource
 
@@ -181,8 +183,8 @@ async def put_member(request: Request, schema_version: int,
 
     await auth.authenticate()
 
-    network = config.server.network
-    service = config.server.service
+    network: Network = config.server.network
+    service: Service = config.server.service
 
     if service.service_id != auth.service_id:
         _LOGGER.debug(
@@ -191,15 +193,11 @@ async def put_member(request: Request, schema_version: int,
         )
         raise HTTPException(404)
 
-    paths = copy(network.paths)
-    paths.account = 'pod'
+    paths: Paths = copy(service.paths)
 
-    # We use a trick here to make sure we get unique filenames for the
-    # member data secret by replacing the service_id in the template
-    # with the member_id
     member_data_secret = Secret(
         cert_file=paths.get(
-            Paths.MEMBER_DATA_CERT_FILE, service_id=auth.member_id
+            Paths.SERVICE_MEMBER_DATACERT_FILE, member_id=auth.member_id
         ),
         key_file=paths.get(
             Paths.MEMBER_DATA_KEY_FILE, service_id=auth.member_id
@@ -209,6 +207,7 @@ async def put_member(request: Request, schema_version: int,
     # from_string() concats the cert and the certchain together
     # so we can use it here with just providing the certchain parameter
     member_data_secret.from_string(certchain.certchain)
+
     await member_data_secret.save(overwrite=True)
 
     config.server.member_db.add_meta(

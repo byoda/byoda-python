@@ -66,7 +66,8 @@ class Paths:
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
-    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
+    SERVICE_MEMBER_CERT_FILE     = 'network-{network}/services/service-{service_id}/member-{member_id}-cert.pem'          # noqa
+    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-{member_id}-cert.pem'     # noqa
 
     APP_DIR                      = 'network-{network}/service-{service_id}/apps'                                          # noqa
     APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}-cert.pem'                    # noqa
@@ -92,14 +93,15 @@ class Paths:
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
     # Cert Downloads
-    NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                               # noqa
-    NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                             # noqa
-    SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
-    SERVICE_CACERT_DOWNLOAD             = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-ca-certchain.pem'          # noqa
-    SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-data-certs/network-{network}-{member_id}-data-cert.pem'    # noqa
-    SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                            # noqa
-    MEMBER_CERT_DOWNLOAD                = 'https://{member_id}.members-{service_id}.{network}/member-cert.pem'                                              # noqa
-    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                         # noqa    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                         # noqa
+    NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                       # noqa
+    NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                     # noqa
+    SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'     # noqa
+    SERVICE_CACERT_DOWNLOAD             = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-ca-certchain.pem'  # noqa
+    SERVICE_MEMBER_CERT_DOWNLOAD        = 'https://service.service-{service_id}.{network}/member-certs/member-{member_id}-cert.pem'                 # noqa
+    SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-certs/member-data-{member_id}-cert.pem'            # noqa
+    SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                    # noqa
+    MEMBER_CERT_DOWNLOAD                = 'https://{member_id}.members-{service_id}.{network}/member-cert.pem'                                      # noqa
+    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                 # noqa
 
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa

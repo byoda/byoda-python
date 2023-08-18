@@ -131,7 +131,7 @@ class AppServer(Server):
             await secret.load(with_private_key=False)
         except FileNotFoundError:
             local_root_ca_cert_filepath = (
-                self.paths.storage_driver.local_path.lstrip('/') +
+                self.paths.storage_driver.local_path +
                 self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
             )
             secret = await MemberSecret.download(

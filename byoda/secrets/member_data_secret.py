@@ -20,6 +20,7 @@ from byoda.datatypes import IdType
 from byoda import config
 
 from .data_secret import DataSecret
+from .data_secret import Secret
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -185,3 +186,19 @@ class MemberDataSecret(DataSecret):
         member_data_secret.from_string(cert_data)
 
         return member_data_secret
+
+    def from_string(self, cert: str, certchain: str = None):
+        '''
+        Loads an X.509 cert and certchain from a string. If the cert has an
+        certchain then the certchain can either be included at the end
+        of the string of the cert or can be provided as a separate parameter
+
+        :param cert: the base64-encoded cert
+        :param certchain: the base64-encoded certchain
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        super().from_string(cert, certchain)
+
+        self.common_name = Secret.extract_commonname(self.cert)

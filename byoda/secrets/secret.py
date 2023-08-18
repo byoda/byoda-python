@@ -40,8 +40,6 @@ from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
 
-from byoda import config
-
 from .certchain import CertChain
 
 _LOGGER = logging.getLogger(__name__)
@@ -822,7 +820,7 @@ class Secret:
         '''
         Basic review for a common name
 
-        :returns: the common name with the domain name chopped off
+        :returns: the identifier parsed from the common_name
         :raises: ValueError
         '''
 
@@ -928,33 +926,27 @@ class Secret:
         _LOGGER.debug(f'Downloading secret from {url}')
 
         try:
-            # FIXME: needs clean solution do get cert from test case
-            if (config.debug and hasattr(config, 'tls_cert_file')
-                    and 'aaaaaaaa' in url):
-                with open(config.tls_cert_file, 'rb') as file_desc:
-                    cert_data = file_desc.read()
+            parsed_url: ParseResult = urlparse(url)
+            if (parsed_url.hostname.startswith('dir.')
+                    or parsed_url.hostname.startswith('proxy.')
+                    or (network_name
+                        and network_name not in parsed_url.hostname)):
+                ssl_context = None
             else:
-                parsed_url: ParseResult = urlparse(url)
-                if (parsed_url.hostname.startswith('dir.')
-                        or parsed_url.hostname.startswith('proxy.')
-                        or (network_name
-                            and network_name not in parsed_url.hostname)):
-                    ssl_context = None
-                else:
-                    _LOGGER.debug(
-                        f'Setting SSL CA file to: {root_ca_filepath}'
-                    )
-                    ssl_context = ssl.create_default_context(
-                        cafile=root_ca_filepath
-                    )
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, ssl=ssl_context) as response:
-                        if response.status >= 400:
-                            raise RuntimeError(
-                                f'Failure to GET {url}: {response.status}'
-                            )
+                _LOGGER.debug(
+                    f'Setting SSL CA file to: {root_ca_filepath}'
+                )
+                ssl_context = ssl.create_default_context(
+                    cafile=root_ca_filepath
+                )
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=ssl_context) as response:
+                    if response.status >= 400:
+                        raise RuntimeError(
+                            f'Failure to GET {url}: {response.status}'
+                        )
 
-                        cert_data = await response.text()
+                    cert_data = await response.text()
             return cert_data
         except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
                 aiohttp.client_exceptions.ClientConnectorCertificateError,
