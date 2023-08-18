@@ -624,13 +624,16 @@ class Secret:
         return x509.load_pem_x509_csr(csr)
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
-                   storage_driver: FileStorage = None):
+                   storage_driver: FileStorage = None,
+                   with_fingerprint: bool = True):
         '''
         Save a cert and private key (if we have it) to their respective files
 
         :param password: password to decrypt the private_key
         :param overwrite: should any existing files be overwritten
         :param storage_driver: the storage driver to use
+        :param with_fingerprint: save an additional copy of the cert with its
+        filename ending in '-<fingerprint>'
         :returns: (none)
         :raises: PermissionError if the file for the cert and/or key
         already exist and overwrite == False
@@ -639,15 +642,18 @@ class Secret:
         if not storage_driver:
             storage_driver = self.storage_driver
 
-        if not overwrite and await storage_driver.exists(self.cert_file):
+        fingerprint = self.fingerprint().hex()
+        fingerprint_filename = f'{self.cert_file}-{fingerprint}
+        if (not overwrite and (await storage_driver.exists(self.cert_file)
+                or (with_fingerprint and
+                await storage_driver.exists(fingerprint_filename)))):
             raise PermissionError(
-                f'Can not save cert because the certificate '
-                f'already exists at {self.cert_file}'
+                f'Can not save cert because the certificate already '
+                f'exists at {self.cert_file} or {fingerprint_filename}'
             )
 
         _LOGGER.debug(
-            f'Saving cert to {self.cert_file} with fingerprint '
-            f'{self.cert.fingerprint(hashes.SHA256()).hex()} '
+            f'Saving cert to {self.cert_file} with fingerprint {fingerprint}'
         )
         data = self.certchain_as_pem()
 
@@ -656,6 +662,13 @@ class Secret:
         await storage_driver.write(
             self.cert_file, data, file_mode=FileMode.BINARY
         )
+
+        if with_fingerprint:
+            _LOGGER.debug(f'Saving cert to {fingerprint_filename}')
+            await storage_driver.write(
+                f'{self.cert_file}/{fingerprint}', data,
+                file_mode=FileMode.BINARY
+            )
 
         if self.private_key:
             await self.save_private_key(
