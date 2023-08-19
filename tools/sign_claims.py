@@ -135,7 +135,7 @@ async def main(argv):
                 print(
                     f'Rejecting claim: {data["request_id"]} in {request_file}'
                 )
-                data['request_status'] = 'rejected'
+                data['status'] = 'rejected'
                 rejected_file = server.get_claim_filepath(
                     ClaimStatus.REJECTED, data['request_id']
                 )

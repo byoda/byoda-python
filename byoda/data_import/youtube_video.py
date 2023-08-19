@@ -528,7 +528,6 @@ class YouTubeVideo:
                     claim: Claim = await self.get_signed_claim(
                         moderate_url, moderate_jwt_header
                     )
-
             except ValueError:
                 _LOGGER.exception(
                     f'Ingesting asset for YouTube video {self.video_id} failed'
@@ -586,10 +585,14 @@ class YouTubeVideo:
         await data_store.append(
             member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
         )
-        await data_store.append(
-            member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
-            claim.as_dict()
-        )
+        if claim.signature:
+            await data_store.append(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
+                claim.as_dict()
+            )
+        else:
+            storage_driver.save(f'claim_requests/pending/{self.video_id}')
+
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()
             data['video_id'] = self.asset_id

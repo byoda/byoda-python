@@ -195,7 +195,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
                     'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
                 ],
                 'creator': 'Dathes',
-                'publisher': 'YouTube',
+                'publisher': 'NotYouTube',
                 'publisher_asset_id': '5Y9L5NBINV4',
                 'title': 'Big Buck Bunny',
                 'contents': '',
@@ -248,8 +248,31 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(os.path.exists(request_file))
 
         #
+        # Test with SSL headers and YouTube asset
+        #
+        claim_data['claim_data']['publisher'] = 'YouTube'
+        claim_data['claim_data']['asset_id'] = str(get_test_uuid())
+        response = requests.post(API, headers=ssl_headers, json=claim_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsNotNone(data['request_id'])
+        self.assertEqual(data['status'], 'accepted')
+        self.assertIsNotNone(data['signature'])
+        self.assertIsNotNone(data['signature_timestamp'])
+        self.assertIsNotNone(data['issuer_id'])
+        self.assertIsNotNone(data['issuer_type'])
+        self.assertIsNotNone(data['cert_fingerprint'])
+        self.assertIsNotNone(data['cert_expiration'])
+
+        claim_file = server.get_claim_filepath(
+            ClaimStatus.ACCEPTED, claim_data['claim_data']['asset_id']
+        )
+        self.assertTrue(os.path.exists(claim_file))
+
+        #
         # Test with SSL headers and whitelisted member
         #
+        claim_data['claim_data']['publisher'] = 'NotYouTube'
         whitelist_file = f'{server.whitelist_dir}/{member.member_id}'
         with open(whitelist_file, 'w') as file_desc:
             file_desc.write('{"creator": "tests/func/moderation.py"}')

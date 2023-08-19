@@ -14,8 +14,6 @@ from uuid import uuid4
 from datetime import datetime
 from datetime import timezone
 
-from urllib.parse import urlparse, ParseResult
-
 import orjson
 
 from fastapi import APIRouter
@@ -67,18 +65,18 @@ async def post_asset_moderation(request: Request,
     data['requester_type'] = auth.id_type.value
 
     server: AppServer = config.server
+
     whitelisted: bool = False
     if os.path.exists(f'{server.whitelist_dir}/{auth.id}'):
         _LOGGER.debug(f'Whitelisted moderation request for member {auth.id}')
         whitelisted = True
-    else:
-        url: ParseResult = urlparse(claim_request.claim_data.asset_url)
-        if url.hostname.endswith('youtube.com'):
-            _LOGGER.debug(
-                'Whitelisting moderation request for URL '
-                f'{claim_request.claim_data.asset_url}'
-            )
-            whitelisted = True
+    elif (claim_request.claim_data.publisher == 'YouTube'
+            and claim_request.claim_data.publisher_asset_id):
+        _LOGGER.debug(
+            'Whitelisting moderation request for YouTube video'
+            f'{claim_request.claim_data.publisher_asset_id}'
+        )
+        whitelisted = True
 
     claim_signature: str | None = None
     if whitelisted:
@@ -100,7 +98,7 @@ async def post_asset_moderation(request: Request,
             claim_request.claim_data.model_dump(), server.app.data_secret
         )
         claim_signature = claim.signature
-        data['request_status'] = ClaimStatus.ACCEPTED.value
+        data['status'] = ClaimStatus.ACCEPTED.value
 
         signed_claim_data: dict = claim.as_dict()
         signed_claim_data['claim_data'] = claim_request.claim_data.model_dump()
@@ -115,8 +113,9 @@ async def post_asset_moderation(request: Request,
                     option=orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2
                 ).decode('utf-8')
             )
+
         return {
-            'status': ClaimStatus(data['request_status']),
+            'status': ClaimStatus(data['status']),
             'request_id': request_id,
             'signature': claim_signature,
             'signature_timestamp': claim.signature_timestamp,
@@ -127,7 +126,7 @@ async def post_asset_moderation(request: Request,
         }
 
     else:
-        data['request_status'] = ClaimStatus.PENDING.value
+        data['status'] = ClaimStatus.PENDING.value
         request_file = server.get_claim_filepath(
             ClaimStatus.PENDING, request_id
         )
@@ -135,6 +134,6 @@ async def post_asset_moderation(request: Request,
             claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
         return {
-            'status': ClaimStatus(data['request_status']),
+            'status': ClaimStatus.PENDING,
             'request_id': request_id,
         }

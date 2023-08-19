@@ -16,21 +16,23 @@ from uuid import uuid4
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
+from dataclasses import dataclass
 
 import orjson
 
 from byoda.datamodel.datafilter import DataFilterSet
 
-from byoda.util.api_client.restapi_client import RestApiClient
-from byoda.util.api_client.restapi_client import HttpMethod
+from byoda.datatypes import ClaimStatus
+from byoda.datatypes import IdType
 
 from byoda.datastore.data_store import DataStore
 
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.data_secret import InvalidSignature
 
-from byoda.datatypes import IdType
 
+from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.restapi_client import HttpMethod
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,6 +95,9 @@ class Claim:
         self.issuer: str | None = None
         self.issuer_type: IdType | None
 
+        self.claim_status: ClaimStatus | None = None
+        self.request_id: UUID | None = None
+
         self.object_type: str | None = None
         self.keyfield: str | None = None
         self.keyfield_id: UUID | None = None
@@ -133,50 +138,57 @@ class Claim:
         '''
         claim = Claim()
 
-        claim.claim_id = claim_data['claim_id']
+        claim.claim_status = ClaimStatus(claim_data['status'])
+        claim.request_id = claim_data['request_id']
+        if isinstance(claim.request_id, str):
+            claim.request_id = UUID(claim.request_id
+                                    )
+        claim.claim_id = claim_data.get('claim_id')
         if isinstance(claim.claim_id, str):
             claim.claim_id = UUID(claim.claim_id)
 
-        claim.claims = claim_data['claims']
-        claim.issuer = claim_data['issuer']
+        claim.claims = claim_data.get('claims')
+        claim.issuer = claim_data.get('issuer')
 
-        claim.issuer_type = claim_data['issuer_type']
+        claim.issuer_type = claim_data.get('issuer_type')
         if isinstance(claim.issuer_type, str):
             claim.issuer_type = IdType(claim.issuer_type)
 
-        claim.object_type = claim_data['object_type']
-        claim.keyfield = claim_data['keyfield']
-        claim.keyfield_id = claim_data['keyfield_id']
+        claim.object_type = claim_data.get('object_type')
+        claim.keyfield = claim_data.get('keyfield')
+        claim.keyfield_id = claim_data.get('keyfield_id')
         if isinstance(claim.keyfield_id, str):
             claim.keyfield_id = UUID(claim.keyfield_id)
 
-        claim.object_fields = claim_data['object_fields']
+        claim.object_fields = claim_data.get('object_fields')
 
-        claim.requester_id = claim_data['requester_id']
+        claim.requester_id = claim_data.get('requester_id')
         if isinstance(claim.requester_id, str):
             claim.requester_id = UUID(claim.requester_id)
 
-        claim.requester_type = claim_data['requester_type']
+        claim.requester_type = claim_data.get('requester_type')
         if isinstance(claim.requester_type, str):
             claim.requester_type = IdType(claim.requester_type)
 
-        claim.signature = claim_data['signature']
+        claim.signature = claim_data.get('signature')
 
-        claim.signature_timestamp = claim_data['signature_timestamp']
+        claim.signature_timestamp = claim_data.get('signature_timestamp')
         if isinstance(claim.signature_timestamp, str):
             datetime.fromisoformat(claim_data['signature_timestamp'])
 
-        claim.signature_format_version = claim_data['signature_format_version']
+        claim.signature_format_version = claim_data.get(
+            'signature_format_version'
+        )
 
-        claim.signature_url = claim_data['signature_url']
-        claim.renewal_url = claim_data['renewal_url']
-        claim.confirmation_url = claim_data['confirmation_url']
+        claim.signature_url = claim_data.get('signature_url')
+        claim.renewal_url = claim_data.get('renewal_url')
+        claim.confirmation_url = claim_data.get('confirmation_url')
 
-        claim.cert_fingerprint = claim_data['cert_fingerprint']
-        claim.cert_expiration = claim_data['cert_expiration']
+        claim.cert_fingerprint = claim_data.get('cert_fingerprint')
+        claim.cert_expiration = claim_data.get('cert_expiration')
         if isinstance(claim.cert_expiration, str):
             claim.cert_expiration = datetime.fromisoformat(
-                claim_data['cert_expiration']
+                claim.cert_expiration
             )
 
         return claim
@@ -185,7 +197,12 @@ class Claim:
     async def from_api(url: str, jwt_header: str, claims: list[str],
                        claim_data: dict[str, any]):
         '''
-        Call the moderate API and return the signed claim
+        Factory for Claim. Call the moderate API and return the signed claim
+
+        :param jwt_header: JWT signed with member_data_secret and as audience
+        the app
+        :param claims: claims submitted for review
+        :claim_data: data for the claim
         '''
 
         resp = await RestApiClient.call(
@@ -198,7 +215,7 @@ class Claim:
                 'Authorization': f'bearer {jwt_header}'
             }
         )
-        if resp.status_code != 200:
+        if resp.status != 200:
             raise RuntimeError(
                 f'Failed to call the moderation API {url}: {resp.status_code}'
             )
@@ -387,3 +404,16 @@ class Claim:
                 sig_data += orjson.dumps(value, orjson.OPT_SORT_KEYS)
 
         return sig_data
+
+
+@dataclass(slots=True)
+class ClaimRequest:
+    '''
+    Class tracking requests for claim signatures
+    '''
+
+    status: ClaimStatus
+    request_id: UUID
+    request_timestamp: datetime
+    requester_id: UUID
+    requester_type: IdType = IdType.MEMBER
