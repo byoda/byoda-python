@@ -15,7 +15,7 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 from byoda.datamodel.app import App
 
-from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
@@ -122,9 +122,8 @@ class AppServer(Server):
         '''
         Load the secret used to sign the jwt.
         '''
-        secret: MemberSecret = MemberSecret(
-            jwt.issuer_id, jwt.service_id, None, paths=self.paths,
-            network_name=self.network.name
+        secret: MemberDataSecret = MemberDataSecret(
+            jwt.issuer_id, jwt.service_id, None
         )
 
         try:
@@ -134,10 +133,9 @@ class AppServer(Server):
                 self.paths.storage_driver.local_path +
                 self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
             )
-            secret = await MemberSecret.download(
+            secret = await secret.download(
                 jwt.issuer_id, self.service.service_id,
-                self.service.network.name, self.paths,
-                root_ca_cert_file=local_root_ca_cert_filepath
+                self.service.network.name
             )
 
         return secret

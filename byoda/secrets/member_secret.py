@@ -184,7 +184,7 @@ class MemberSecret(Secret):
                 'server'
             )
             cert_data = await Secret.download(
-                url, paths=paths, root_ca_filepath=root_ca_cert_file
+                url, root_ca_filepath=root_ca_cert_file
             )
             _LOGGER.debug(
                 'Falling back to downloading member data secret of '
