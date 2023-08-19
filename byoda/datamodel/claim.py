@@ -81,7 +81,8 @@ class Claim:
 
     __slots__ = [
         'claim_id', 'claims', 'issuer', 'issuer_id', 'issuer_type',
-        'object_type', 'keyfield', 'keyfield_id', 'object_fields',
+        'claim_status', 'request_id', 'object_type',
+        'keyfield', 'keyfield_id', 'object_fields',
         'requester_id', 'requester_type', 'signature',
         'signature_timestamp', 'signature_format_version',
         'signature_url', 'renewal_url', 'confirmation_url',
