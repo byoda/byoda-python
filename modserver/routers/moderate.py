@@ -114,17 +114,10 @@ async def post_asset_moderation(request: Request,
                 ).decode('utf-8')
             )
 
-        return {
-            'status': ClaimStatus(data['status']),
-            'request_id': request_id,
-            'signature': claim_signature,
-            'signature_timestamp': claim.signature_timestamp,
-            'issuer_id': server.app.data_secret.app_id,
-            'issuer_type': claim.issuer_type,
-            'cert_fingerprint': claim.cert_fingerprint,
-            'cert_expiration': claim.cert_expiration,
-        }
-
+        status: ClaimStatus = ClaimStatus(data['status'])
+        cert_fingerprint: str = claim.cert_fingerprint
+        cert_expiration = claim.cert_expiration
+        signature_timestamp: datetime = claim.signature_timestamp
     else:
         data['status'] = ClaimStatus.PENDING.value
         request_file = server.get_claim_filepath(
@@ -133,7 +126,21 @@ async def post_asset_moderation(request: Request,
         with open(request_file, 'wb') as claim_file:
             claim_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
-        return {
-            'status': ClaimStatus.PENDING,
-            'request_id': request_id,
-        }
+        status: ClaimStatus = ClaimStatus.PENDING
+        cert_fingerprint: str | None = None
+        cert_expiration: datetime | None = None
+        claim_signature: str | None = None
+        signature_timestamp: datetime | None = None
+
+    return {
+        'status': status,
+        'request_id': request_id,
+        'requester_id': auth.id,
+        'requester_type': auth.id_type,
+        'issuer_id': server.app.data_secret.app_id,
+        'issuer_type': IdType.APP,
+        'cert_fingerprint': cert_fingerprint,
+        'cert_expiration': cert_expiration,
+        'signature': claim_signature,
+        'signature_timestamp': signature_timestamp,
+    }

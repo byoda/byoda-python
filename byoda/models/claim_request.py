@@ -50,14 +50,9 @@ class ClaimResponseModel(BaseModel):
     request_id: UUID
     signature: Optional[str] | None = None
     signature_timestamp: Optional[datetime] | None = None
+    requester_id: UUID
+    requester_type: IdType
     issuer_type: Optional[IdType] | None = None
     issuer_id: Optional[UUID] | None = None
     cert_fingerprint: Optional[str] | None = None
     cert_expiration: Optional[datetime] | None = None
-
-    def __repr__(self):
-        return (
-            '<ClaimResponse=(request_id: UUID, '
-            'claim_status: ClaimStatus, '
-            'claim_signature: str | None>'
-        )

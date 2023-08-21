@@ -41,7 +41,8 @@ from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import MODTEST_URL, MODTEST_API_ID
+from tests.lib.defines import MODTEST_REQUEST_URL, MODTEST_API_ID
+from tests.lib.defines import moderate_claim_url
 
 _LOGGER = None
 
@@ -58,10 +59,20 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             pass
 
         os.makedirs(TEST_DIR)
+
+        asset_dir: str = f'{TEST_DIR}/tmp/5Y9L5NBINV4'
+        try:
+            shutil.rmtree(asset_dir)
+        except FileNotFoundError:
+            pass
+
+        shutil.copytree('tests/collateral/local/video_asset', asset_dir)
+
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = 'TEST_CLIENT'
+        config.test_dir = TEST_DIR
 
         config.server.account: Account = await setup_account(network_data)
 
@@ -110,7 +121,9 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
         await yt.persist_videos(
             member, data_store, storage_driver, ingested_videos,
-            moderate_url=MODTEST_URL, moderate_jwt_header=jwt.encoded
+            moderate_request_url=MODTEST_REQUEST_URL,
+            moderate_jwt_header=jwt.encoded,
+            moderate_claim_url=moderate_claim_url
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -186,11 +199,6 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
 
 
-async def main():
-    await setup_network(TEST_DIR)
-
-
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
     unittest.main()

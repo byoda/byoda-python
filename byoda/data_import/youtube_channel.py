@@ -54,8 +54,10 @@ class YouTubeChannel:
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage,
                       already_ingested_videos: dict[str, dict] = {},
-                      bento4_directory: str = None, moderate_url: str = None,
-                      moderate_jwt_header: str = None):
+                      bento4_directory: str | None = None,
+                      moderate_request_url: str | None = None,
+                      moderate_jwt_header: str | None = None,
+                      moderate_claim_url: str | None = None):
         '''
         persist any video not yet in the public_assets collection to that
         collection, including downloading the video, packaging it, and
@@ -72,12 +74,16 @@ class YouTubeChannel:
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
             try:
-                await video.persist(
+                result = await video.persist(
                     member, data_store, storage_driver,
                     self.ingest_videos, already_ingested_videos,
-                    bento4_directory, moderate_url=moderate_url,
-                    moderate_jwt_header=moderate_jwt_header
+                    bento4_directory,
+                    moderate_request_url=moderate_request_url,
+                    moderate_jwt_header=moderate_jwt_header,
+                    moderate_claim_url=moderate_claim_url,
                 )
+                if result is None:
+                    _LOGGER.debug(f'Failed to persist video {video.video_id}')
             except ValueError:
                 _LOGGER.exception(
                     'Could not persist video %s', video.video_id

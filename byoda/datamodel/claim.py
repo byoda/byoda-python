@@ -20,7 +20,6 @@ from dataclasses import dataclass
 
 import orjson
 
-from dacite import from_dict
 from dateutil import parser as dateutil_parser
 
 from byoda.datamodel.datafilter import DataFilterSet
@@ -394,11 +393,11 @@ class ClaimRequest:
     signature: str | None = None
     signature_timestamp: datetime | None = None
     cert_fingerprint: str | None = None
-    cert_expiration: str | None = None
+    cert_expiration: datetime | None = None
 
     @staticmethod
     async def from_api(url: str, jwt_header: str, claims: list[str],
-                       claim_data: dict[str, any]):
+                       claim_data: dict[str, any]) -> Claim:
         '''
         Factory for Claim. Call the moderate API and return the signed claim
 
@@ -413,18 +412,48 @@ class ClaimRequest:
             data={
                 'claims': claims,
                 'claim_data': claim_data
-                },
+            },
             headers={
                 'Authorization': f'bearer {jwt_header}'
             }
         )
         if resp.status != 200:
             raise RuntimeError(
-                f'Failed to call the moderation API {url}: {resp.status_code}'
+                f'Failed to call the moderation API {url}: {resp.status}'
             )
 
         data = await resp.json()
 
-        claim = from_dict(data_class=Claim, date=data)
+        request_timestamp = data.get('request_timestamp')
+        if request_timestamp:
+            request_timestamp: datetime = dateutil_parser.parse(
+                request_timestamp
+            )
 
-        return claim
+        signature_timestamp = data.get('signature_timestamp')
+        if signature_timestamp:
+            signature_timestamp: datetime = dateutil_parser.parse(
+                signature_timestamp
+            )
+
+        cert_expiration = data.get('cert_expiration')
+        if cert_expiration:
+            cert_expiration: datetime = dateutil_parser.parse(cert_expiration)
+
+        issuer_type: str = data.get('issuer_type')
+        if issuer_type:
+            issuer_type: IdType = IdType(issuer_type)
+
+        claim_request = ClaimRequest(
+            status=ClaimStatus(data['status']),
+            request_timestamp=request_timestamp,
+            request_id=data['request_id'],
+            signature=data.get('signature'),
+            signature_timestamp=signature_timestamp,
+            issuer_id=data.get('issuer_id'),
+            issuer_type=IdType(data.get('issuer_type')),
+            cert_fingerprint=data.get('cert_fingerprint'),
+            cert_expiration=cert_expiration
+        )
+
+        return claim_request

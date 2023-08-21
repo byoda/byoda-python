@@ -23,7 +23,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from byoda.datamodel.member import Member
-from byoda.datamodel.claim import Claim
+from byoda.datamodel.claim import ClaimRequest
 
 from byoda.datastore.data_store import DataStore
 from byoda.datamodel.datafilter import DataFilterSet
@@ -33,8 +33,12 @@ from byoda.storage.filestorage import FileStorage
 from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
 
+from byoda.util.api_client.api_client import ApiClient
+
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
+
+from byoda import config
 
 from .youtube_thumbnail import YouTubeThumbnail
 from .youtube_streams import TARGET_AUDIO_STREAMS, TARGET_VIDEO_STREAMS
@@ -467,8 +471,9 @@ class YouTubeVideo:
 
         return claim_data
 
-    async def get_signed_claim(self, moderate_url: str, jwt_header: str
-                               ) -> Claim:
+    async def get_claim_request(self, moderate_request_url: str,
+                                jwt_header: str,
+                                claims: list[str]) -> ClaimRequest:
         '''
         Submits a claim request to the moderation server
 
@@ -477,19 +482,20 @@ class YouTubeVideo:
         :returns: the claim
         '''
 
-        claim = await Claim.from_api(
-            moderate_url, jwt_header, ['youtube-moderated:1'],
-            self.as_claim_data()
+        claim_request = await ClaimRequest.from_api(
+            moderate_request_url, jwt_header, claims, self.as_claim_data()
         )
 
-        return claim
+        return claim_request
 
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
                       already_ingested_videos: dict[str, dict],
                       bento4_directory: str = None,
-                      moderate_url: str = None, moderate_jwt_header: str = None
-                      ) -> bool:
+                      moderate_request_url: str | None = None,
+                      moderate_jwt_header: str = None,
+                      moderate_claim_url: str | None = None
+                      ) -> bool | None:
         '''
         Adds or updates a video in the datastore.
 
@@ -502,7 +508,8 @@ class YouTubeVideo:
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :param claim: a claim for the video signed by a moderate API
-        :returns: True if the video was added, False if it already existed
+        :returns: True if the video was added, False if it already existed, or
+        None if an error was encountered
         '''
 
         if ingest_asset and not storage_driver:
@@ -520,13 +527,18 @@ class YouTubeVideo:
                     member, storage_driver, already_ingested_videos,
                     bento4_directory
                 )
-                if moderate_url and moderate_jwt_header:
+                if update is None:
+                    return None
+
+                if moderate_request_url and moderate_jwt_header:
                     _LOGGER.debug(
                         f'Getting moderation claim for video {self.video_id} '
-                        f'signed by {moderate_url}'
+                        f'signed by {moderate_request_url}'
                     )
-                    claim: Claim = await self.get_signed_claim(
-                        moderate_url, moderate_jwt_header
+                    claims = ['youtube-moderated:1']
+                    claim_request: ClaimRequest = await self.get_claim_request(
+                        moderate_request_url, moderate_jwt_header, claims
+
                     )
             except ValueError:
                 _LOGGER.exception(
@@ -585,10 +597,12 @@ class YouTubeVideo:
         await data_store.append(
             member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
         )
-        if claim.signature:
+        if claim_request.signature:
+            claim_data = await self.download_claim(moderate_claim_url)
+
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
-                claim.as_dict()
+                claim_data
             )
         else:
             storage_driver.save(f'claim_requests/pending/{self.video_id}')
@@ -630,9 +644,15 @@ class YouTubeVideo:
         if not work_dir:
             work_dir = f'/tmp/{self.video_id}'
 
-        os.makedirs(work_dir, exist_ok=True)
-
         self._transition_state(IngestStatus.DOWNLOADING)
+
+        if config.test_case and os.path.exists(work_dir):
+            _LOGGER.debug(
+                f'Skipping download of video {self.video_id} in test case'
+            )
+            return work_dir
+
+        os.makedirs(work_dir, exist_ok=True)
 
         ydl_opts = {
             'quiet': True,
@@ -663,9 +683,27 @@ class YouTubeVideo:
 
         return work_dir
 
+    async def download_claim(self, moderate_claim_url: str) -> dict:
+        '''
+        Downloads a signed claim
+        '''
+
+        resp = await ApiClient.call(
+            moderate_claim_url.format(asset_id=self.asset_id)
+        )
+        if resp.status != 200:
+            raise RuntimeError(
+                f'Failed to call the moderation API {moderate_claim_url}: '
+                f'{resp.status}'
+            )
+
+        claim_data = await resp.json()
+
+        return claim_data
+
     async def _ingest_assets(self, member: Member, storage_driver: FileStorage,
                              already_ingested_videos: dict[str, dict],
-                             bento4_directory: str) -> bool:
+                             bento4_directory: str) -> bool | None:
         '''
         Downloads to audio and video files of the asset and stores them
         on object storage
@@ -676,7 +714,8 @@ class YouTubeVideo:
         and as value the data retrieved for the asset from the data store.
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
-        :returns: True if the video was updated, False if it was created
+        :returns: True if the video was updated, False if it was created,
+        None if an error was encountered
         :raises: ValueError if the ingest status of the video is invalid
         '''
 
@@ -705,9 +744,11 @@ class YouTubeVideo:
 
         tmp_dir = self._get_tempdir(storage_driver)
 
-        self.download(
+        download_dir: str | None = self.download(
             TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
         )
+        if not download_dir:
+            return None
 
         pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
 
