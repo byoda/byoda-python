@@ -20,6 +20,9 @@ from dataclasses import dataclass
 
 import orjson
 
+from dacite import from_dict
+from dateutil import parser as dateutil_parser
+
 from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.datatypes import ClaimStatus
@@ -132,7 +135,7 @@ class Claim:
         return claim_data
 
     @staticmethod
-    def from_dict(claim_data: dict[str, str]) -> None:
+    def from_dict_obsolete(claim_data: dict[str, str]) -> None:
         '''
         Factory for creating an instance of the class from claim data
         retrieved from the data store
@@ -175,7 +178,9 @@ class Claim:
 
         claim.signature_timestamp = claim_data.get('signature_timestamp')
         if isinstance(claim.signature_timestamp, str):
-            datetime.fromisoformat(claim_data['signature_timestamp'])
+            claim.signature_timestamp: datetime = dateutil_parser.parse(
+                claim_data['signature_timestamp']
+            )
 
         claim.signature_format_version = claim_data.get(
             'signature_format_version'
@@ -186,44 +191,12 @@ class Claim:
         claim.confirmation_url = claim_data.get('confirmation_url')
 
         claim.cert_fingerprint = claim_data.get('cert_fingerprint')
+
         claim.cert_expiration = claim_data.get('cert_expiration')
         if isinstance(claim.cert_expiration, str):
-            claim.cert_expiration = datetime.fromisoformat(
+            claim.cert_expiration: datetime = dateutil_parser.parse(
                 claim.cert_expiration
             )
-
-        return claim
-
-    @staticmethod
-    async def from_api(url: str, jwt_header: str, claims: list[str],
-                       claim_data: dict[str, any]):
-        '''
-        Factory for Claim. Call the moderate API and return the signed claim
-
-        :param jwt_header: JWT signed with member_data_secret and as audience
-        the app
-        :param claims: claims submitted for review
-        :claim_data: data for the claim
-        '''
-
-        resp = await RestApiClient.call(
-            url, HttpMethod.POST,
-            data={
-                'claims': claims,
-                'claim_data': claim_data
-                },
-            headers={
-                'Authorization': f'bearer {jwt_header}'
-            }
-        )
-        if resp.status != 200:
-            raise RuntimeError(
-                f'Failed to call the moderation API {url}: {resp.status_code}'
-            )
-
-        data = await resp.json()
-
-        claim = Claim.from_dict(data)
 
         return claim
 
@@ -244,8 +217,11 @@ class Claim:
         else:
             claim.claim_id = uuid4()
 
-        claim.claims = claims
-        claim.issuer = issuer
+        claim.claims: list[str] = claims
+        # The claim contains a string for the issuer, i.e., the FQDN
+        claim.issuer: str = issuer
+
+        # The issuer_id is returned by the moderate API of the app server
         claim.issuer_id: UUID | None = None
         claim.issuer_type = issuer_type
 
@@ -415,6 +391,45 @@ class ClaimRequest:
 
     status: ClaimStatus
     request_id: UUID
-    request_timestamp: datetime
-    requester_id: UUID
+    request_timestamp: datetime | None = None
+    requester_id: UUID | None = None
     requester_type: IdType = IdType.MEMBER
+    issuer_id: UUID | None = None
+    issuer_type: IdType | None = None
+    signature: str | None = None
+    signature_timestamp: datetime | None = None
+    cert_fingerprint: str | None = None
+    cert_expiration: str | None = None
+
+    @staticmethod
+    async def from_api(url: str, jwt_header: str, claims: list[str],
+                       claim_data: dict[str, any]):
+        '''
+        Factory for Claim. Call the moderate API and return the signed claim
+
+        :param jwt_header: JWT signed with member_data_secret and as audience
+        the app
+        :param claims: claims submitted for review
+        :claim_data: data for the claim
+        '''
+
+        resp = await RestApiClient.call(
+            url, HttpMethod.POST,
+            data={
+                'claims': claims,
+                'claim_data': claim_data
+                },
+            headers={
+                'Authorization': f'bearer {jwt_header}'
+            }
+        )
+        if resp.status != 200:
+            raise RuntimeError(
+                f'Failed to call the moderation API {url}: {resp.status_code}'
+            )
+
+        data = await resp.json()
+
+        claim = from_dict(data_class=Claim, date=data)
+
+        return claim

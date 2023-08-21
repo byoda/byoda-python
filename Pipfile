@@ -62,6 +62,7 @@ strawberry-graphql = "*"
 pyyaml = "*"
 aiodns = "*"
 pydantic = "*"
+dacite = "*"
 
 [dev-packages]
 flake8 = "*"
