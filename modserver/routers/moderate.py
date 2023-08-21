@@ -106,6 +106,7 @@ async def post_asset_moderation(request: Request,
         accepted_claim_file: str = server.get_claim_filepath(
             ClaimStatus.ACCEPTED, asset_id
         )
+        _LOGGER.debug(f'Writing accepted claim to {accepted_claim_file}')
         with open(accepted_claim_file, 'w') as claim_file:
             claim_file.write(
                 orjson.dumps(
