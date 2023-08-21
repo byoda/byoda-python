@@ -135,18 +135,13 @@ class Claim:
         return claim_data
 
     @staticmethod
-    def from_dict_obsolete(claim_data: dict[str, str]) -> None:
+    def from_dict(claim_data: dict[str, str]) -> None:
         '''
         Factory for creating an instance of the class from claim data
         retrieved from the data store
         '''
         claim = Claim()
 
-        claim.claim_status = ClaimStatus(claim_data['status'])
-        claim.request_id = claim_data['request_id']
-        if isinstance(claim.request_id, str):
-            claim.request_id = UUID(claim.request_id
-                                    )
         claim.claim_id = claim_data.get('claim_id')
         if isinstance(claim.claim_id, str):
             claim.claim_id = UUID(claim.claim_id)

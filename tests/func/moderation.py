@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test the Directory APIs
+Test the Moderation APIs
 
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy

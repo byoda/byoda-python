@@ -290,7 +290,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         verify_claim = Claim.build(
             ['claim A', 'claim B'], 'test', IdType.APP,
             'public_assets', 'asset_id', asset_id,
-            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
         )
         verify_claim.claim_id = claim.claim_id
@@ -304,7 +304,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(verify_claim.verified)
 
         data = claim.as_dict()
-        new_claim = Claim.from_dict_obsolete(data)
+        new_claim = Claim.from_dict(data)
         new_claim.verify_signature(asset_data, app_data_secret)
         self.assertTrue(new_claim.verified)
 
