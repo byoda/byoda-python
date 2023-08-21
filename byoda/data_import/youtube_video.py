@@ -30,6 +30,7 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
 
@@ -518,6 +519,7 @@ class YouTubeVideo:
             )
 
         update: bool = False
+        claim_request: ClaimRequest | None = None
         if ingest_asset:
             try:
                 _LOGGER.debug(
@@ -597,15 +599,21 @@ class YouTubeVideo:
         await data_store.append(
             member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
         )
-        if claim_request.signature:
-            claim_data = await self.download_claim(moderate_claim_url)
+        if claim_request:
+            if claim_request.signature:
+                claim_data = await self.download_claim(moderate_claim_url)
 
-            await data_store.append(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
-                claim_data
-            )
-        else:
-            storage_driver.save(f'claim_requests/pending/{self.video_id}')
+                await data_store.append(
+                    member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
+                    claim_data
+                )
+            else:
+                storage_driver.save(
+                    f'claim_requests/pending/{self.asset_id}',
+                    orjson.dumps(
+                        claim_request, orjson.OPT_INDENT_2
+                    ).decode('utf-8')
+                )
 
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()
@@ -644,13 +652,14 @@ class YouTubeVideo:
         if not work_dir:
             work_dir = f'/tmp/{self.video_id}'
 
-        self._transition_state(IngestStatus.DOWNLOADING)
-
         if config.test_case and os.path.exists(work_dir):
             _LOGGER.debug(
                 f'Skipping download of video {self.video_id} in test case'
             )
+            self._transition_state(IngestStatus.DOWNLOADING)
             return work_dir
+
+        self._transition_state(IngestStatus.DOWNLOADING)
 
         os.makedirs(work_dir, exist_ok=True)
 
@@ -689,12 +698,14 @@ class YouTubeVideo:
         '''
 
         resp = await ApiClient.call(
-            moderate_claim_url.format(asset_id=self.asset_id)
+            moderate_claim_url.format(
+                state=ClaimStatus.ACCEPTED.value, asset_id=self.asset_id
+            )
         )
         if resp.status != 200:
             raise RuntimeError(
-                f'Failed to call the moderation API {moderate_claim_url}: '
-                f'{resp.status}'
+                'Failed to get the approvied claim from moderation API '
+                f'{moderate_claim_url}: {resp.status}'
             )
 
         claim_data = await resp.json()
@@ -804,7 +815,6 @@ class YouTubeVideo:
     def _get_tempdir(self, storage_driver: FileStorage) -> str:
         tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
 
-        os.makedirs(tmp_dir, exist_ok=True)
         return tmp_dir
 
     def _delete_tempdir(self, storage_driver: FileStorage) -> None:
