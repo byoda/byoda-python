@@ -478,7 +478,8 @@ class YouTubeVideo:
         '''
         Submits a claim request to the moderation server
 
-        :param moderate_url: URL of the moderation API of the moderation app
+        :param moderate_request_url: URL of the moderation API of the
+        moderation app
         :param jwt header: JWT header to authenticate the request
         :returns: the claim
         '''

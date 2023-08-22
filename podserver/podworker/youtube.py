@@ -99,7 +99,8 @@ async def youtube_update_task(server: PodServer):
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
             member, data_store, storage_driver, ingested_videos,
-            moderate_url=moderation_url, moderate_jwt_header=jwt_header,
+            moderate_request_url=moderation_url,
+            moderate_jwt_header=jwt_header,
             moderation_app_id=moderation_app_id
         )
         os.remove(LOCK_FILE)

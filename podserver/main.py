@@ -145,7 +145,8 @@ async def lifespan(app: FastAPI):
             overwrite=True
         )
         await member.data_secret.save(
-            password=member.private_key_password, storage_driver=server.local_storage,
+            password=member.private_key_password,
+            storage_driver=server.local_storage,
             overwrite=True
         )
 
