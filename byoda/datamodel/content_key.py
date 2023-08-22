@@ -49,7 +49,7 @@ class ContentKey:
     __slots__ = [
         'key', 'key_id', 'not_before', 'not_after', 'table', 'status'
     ]
-    
+
     def __init__(self, key: str, key_id: int, not_before: datetime,
                  not_after: datetime, table: Table = None):
         '''
@@ -279,7 +279,7 @@ class ContentKey:
         digest.update(self.key.encode('utf-8'))
         token = digest.finalize()
 
-        encoded_token = b64encode(token).decode('utf-8')
+        encoded_token = b64encode(token).decode('utf-8').replace(' ', '+')
         _LOGGER.debug(
             f'Generated token with service_id {service_id}, member_id: {member_id} '
             f'and asset_id: {asset_id} for key_id {self.key_id}: {encoded_token}'
