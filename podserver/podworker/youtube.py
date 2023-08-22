@@ -94,7 +94,8 @@ async def youtube_update_task(server: PodServer):
                 os.remove(LOCK_FILE)
             else:
                 _LOGGER.info(
-                    'YouTube ingest lock file exists, skipping this run'
+                    f'YouTube ingest lock file {LOCK_FILE} exists, '
+                    'skipping this run'
                 )
                 return
 
@@ -106,7 +107,7 @@ async def youtube_update_task(server: PodServer):
             member, data_store, storage_driver, ingested_videos,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
-            moderation_claim_url=moderation_claim_url
+            moderate_claim_url=moderation_claim_url
         )
         os.remove(LOCK_FILE)
 
