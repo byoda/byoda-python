@@ -64,6 +64,8 @@ def get_environment_vars() -> dict:
         'manage_custom_domain_cert':
             os.environ.get('MANAGE_CUSTOM_DOMAIN_CERT') is not None,
         'roles': ['pod'],
+        'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
+        'moderation_app_id': os.environ.get('MODERATION_APP_ID'),
     }
 
     if data['cloud'] == CloudType.LOCAL and not data['root_dir']:

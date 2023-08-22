@@ -19,9 +19,8 @@ ADDRESSBOOK_SERVICE_ID = 4294929430
 ADDRESSBOOK_VERSION = 1
 
 # Test moderation API server
-MODTEST_REQUEST_URL: str = 'https://modtest.byoda.io/api/v1/moderate/asset'
-moderate_claim_url: str = 'https://modtest.byoda.io/claims/{state}/{asset_id}.json'          # noqa: E501
-MODTEST_API_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')
+MODTEST_FQDN: str = 'modtest.byoda.io'
+MODTEST_APP_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')
 
 AZURE_POD_ACCOUNT_ID = '6e31dd43-fc13-426f-a689-a401915c29cd'
 AZURE_POD_MEMBER_ID = '94f23c4b-1721-4ffe-bfed-90f86d07611a'

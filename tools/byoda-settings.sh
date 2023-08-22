@@ -31,6 +31,10 @@ export YOUTUBE_API_KEY=
 # To manage how often the import process runs, set the following variable
 export YOUTUBE_IMPORT_INTERVAL=240
 
+# The moderation app to send requests for videos imported from YouTube
+export MODERATION_FQDN="modtest.byoda.io"
+export MODERATION_APP_ID="3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22"
+
 # To import your Twitter public tweets, sign up for Twitter Developer
 # program at https://developer.twitter.com/ and set the following three
 # environment variables (more instructions in

@@ -532,7 +532,8 @@ class YouTubeVideo:
                 if update is None:
                     return None
 
-                if moderate_request_url and moderate_jwt_header:
+                if (moderate_request_url and moderate_jwt_header
+                        and moderate_claim_url):
                     _LOGGER.debug(
                         f'Getting moderation claim for video {self.video_id} '
                         f'signed by {moderate_request_url}'

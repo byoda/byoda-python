@@ -10,6 +10,7 @@ import os
 
 import logging
 
+from uuid import UUID
 from time import gmtime
 from calendar import timegm
 
@@ -29,7 +30,6 @@ from byoda.data_import.youtube import YouTube
 from byoda.servers.pod_server import PodServer
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import MODTEST_URL, MODTEST_API_ID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,14 +54,24 @@ async def youtube_update_task(server: PodServer):
         _LOGGER.debug('Skipping YouTube update as it is not enabled')
         return
 
+    moderation_url: str = os.environ.get('MODERATION_FQDN')
+    moderation_app_id: str | UUID = os.environ.get('MODERATION_APP_ID')
+    if moderation_app_id:
+        moderation_app_id = UUID(moderation_app_id)
+
     data_store: DataStore = server.data_store
     storage_driver: FileStorage = server.storage_driver
     network: Network = server.network
-    jwt = JWT.create(
-        member.member_id, IdType.MEMBER, member.data_secret, network.name,
-        ADDRESSBOOK_SERVICE_ID, IdType.SERVICE, MODTEST_API_ID,
-        expiration_days=3
-    )
+
+    if moderation_app_id:
+        jwt = JWT.create(
+            member.member_id, IdType.MEMBER, member.data_secret, network.name,
+            ADDRESSBOOK_SERVICE_ID, IdType.APP, moderation_app_id,
+            expiration_days=3
+        )
+        jwt_header: str | None = jwt.encoded
+    else:
+        jwt_header: str | None = None
 
     ingested_videos = await YouTube.load_ingested_videos(
         member.member_id, data_store
@@ -89,7 +99,8 @@ async def youtube_update_task(server: PodServer):
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
             member, data_store, storage_driver, ingested_videos,
-            moderate_url=MODTEST_URL, moderate_jwt_header=jwt.encoded
+            moderate_url=moderation_url, moderate_jwt_header=jwt_header,
+            moderation_app_id=moderation_app_id
         )
         os.remove(LOCK_FILE)
 

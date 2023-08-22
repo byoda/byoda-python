@@ -41,12 +41,13 @@ from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import MODTEST_REQUEST_URL, MODTEST_API_ID
-from tests.lib.defines import moderate_claim_url
+from tests.lib.defines import MODTEST_FQDN, MODTEST_APP_ID
 
 _LOGGER = None
 
 TEST_DIR = '/tmp/byoda-tests/yt-import'
+
+TEST_YOUTUBE_VIDEO_ID: str = '5Y9L5NBINV4'
 
 API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
@@ -60,7 +61,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        asset_dir: str = f'{TEST_DIR}/tmp/5Y9L5NBINV4'
+        asset_dir: str = f'{TEST_DIR}/tmp/{TEST_YOUTUBE_VIDEO_ID}'
         try:
             shutil.rmtree(asset_dir)
         except FileNotFoundError:
@@ -72,7 +73,6 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = 'TEST_CLIENT'
-        config.test_dir = TEST_DIR
 
         config.server.account: Account = await setup_account(network_data)
 
@@ -116,14 +116,17 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
-            ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_API_ID,
+            ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_APP_ID,
             expiration_days=3
         )
+        mod_url = f'https://{MODTEST_FQDN}'
+        mod_api_url = f'{mod_url}/api/v1/moderate/asset'
+        mod_claim_url = mod_url + '/claims/{state}/{asset_id}.json'
         await yt.persist_videos(
             member, data_store, storage_driver, ingested_videos,
-            moderate_request_url=MODTEST_REQUEST_URL,
+            moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
-            moderate_claim_url=moderate_claim_url
+            moderate_claim_url=mod_claim_url
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
