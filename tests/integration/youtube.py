@@ -120,8 +120,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             expiration_days=3
         )
         mod_url = f'https://{MODTEST_FQDN}'
-        mod_api_url = f'{mod_url}/api/v1/moderate/asset'
-        mod_claim_url = mod_url + '/claims/{state}/{asset_id}.json'
+        mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
+        mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
         await yt.persist_videos(
             member, data_store, storage_driver, ingested_videos,
             moderate_request_url=mod_api_url,

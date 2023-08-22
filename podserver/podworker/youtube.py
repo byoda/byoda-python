@@ -54,7 +54,12 @@ async def youtube_update_task(server: PodServer):
         _LOGGER.debug('Skipping YouTube update as it is not enabled')
         return
 
-    moderation_url: str = os.environ.get('MODERATION_FQDN')
+    moderation_fqdn: str = os.environ.get('MODERATION_FQDN')
+    moderation_url: str = f'https://{moderation_fqdn}'
+    moderation_request_url: str = \
+        moderation_url + YouTube.MODERATION_REQUEST_API
+    moderation_claim_url = moderation_url + YouTube.MODERATION_CLAIM_URL
+
     moderation_app_id: str | UUID = os.environ.get('MODERATION_APP_ID')
     if moderation_app_id:
         moderation_app_id = UUID(moderation_app_id)
@@ -99,9 +104,9 @@ async def youtube_update_task(server: PodServer):
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
             member, data_store, storage_driver, ingested_videos,
-            moderate_request_url=moderation_url,
+            moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
-            moderation_app_id=moderation_app_id
+            moderation_claim_url=moderation_claim_url
         )
         os.remove(LOCK_FILE)
 

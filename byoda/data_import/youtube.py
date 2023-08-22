@@ -45,6 +45,8 @@ _LOGGER = logging.getLogger(__name__)
 class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
+    MODERATION_REQUEST_API: str = '/api/v1/moderate/asset'
+    MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
 
     def __init__(self, api_key: str | None = None):
         '''
