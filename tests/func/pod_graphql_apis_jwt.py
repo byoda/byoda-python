@@ -419,9 +419,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         azure_url = f'https://{azure_fqdn}/api/v1/data/service-{service_id}'
         account_member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
+        query: str = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query']
         response = await GraphQlClient.call(
-            azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
-            vars={'query_id': uuid4()}, timeout=120,
+            azure_url, query, vars={'query_id': uuid4()}, timeout=120,
             headers=azure_member_auth_header
         )
         result = await response.json()

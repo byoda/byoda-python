@@ -165,6 +165,54 @@ mutation(
 GRAPHQL_STATEMENTS['network_link_inbound']['mutate'] = MUTATE_NETWORK_LINK_INBOUND
 
 
+QUERY_APP_URL = '''
+query ($query_id: UUID!, $filters: appUrlInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    app_url_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            app_url {
+                name
+                url
+                app_id
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['app_url'] = {'query': QUERY_APP_URL}
+
+MUTATE_APP_URL = '''
+mutation(
+                    $name: String,
+                    $url: String,
+                    $app_id: UUID,
+) {
+    mutate_app_url(
+                    name: $name,
+                    url: $url,
+                    app_id: $app_id,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['app_url']['mutate'] = MUTATE_APP_URL
+
+
 QUERY_ASSET_LINK = '''
 query ($query_id: UUID!, $filters: assetLinkInputFilter,
         $first: Int, $after: String,
@@ -1093,6 +1141,57 @@ mutation(
 '''
 
 GRAPHQL_STATEMENTS['tweet']['mutate'] = MUTATE_TWEET
+
+
+QUERY_APP = '''
+query ($query_id: UUID!, $filters: appInputFilter,
+        $first: Int, $after: String,
+        $depth: Int, $relations: [String!], $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String
+        $signature_format_version: Int) {
+    app_connection(
+            filters: $filters, first: $first, after: $after, depth: $depth,
+            relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+            query_id: $query_id, origin_member_id: $origin_member_id,
+            origin_signature: $origin_signature, signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            app {
+                app_id
+                app_type
+                status
+                app_urls
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['app'] = {'query': QUERY_APP}
+
+MUTATE_APP = '''
+mutation(
+                    $app_id: UUID,
+                    $app_type: String,
+                    $status: String,
+                    $app_urls: [app_url!],
+) {
+    mutate_app(
+                    app_id: $app_id,
+                    app_type: $app_type,
+                    status: $status,
+                    app_urls: $app_urls,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['app']['mutate'] = MUTATE_APP
 
 
 QUERY_MEMBER = '''
@@ -3377,6 +3476,110 @@ subscription (
 }
 '''
 GRAPHQL_STATEMENTS['service_assets']['counter'] = SUBSCRIPTION_SERVICE_ASSETS_COUNTER
+
+
+QUERY_APPS = '''
+query ($query_id: UUID!, $filters: appInputFilter,
+        $first: Int, $after: String, $depth: Int, $relations: [String!],
+        $remote_member_id: UUID, $timestamp: DateTime,
+        $origin_member_id: UUID, $origin_signature: String, $signature_format_version: Int) {
+    apps_connection(filters: $filters, first: $first, after: $after,
+        depth: $depth, relations: $relations, remote_member_id: $remote_member_id, timestamp: $timestamp,
+        query_id: $query_id, origin_member_id: $origin_member_id, origin_signature: $origin_signature,
+        signature_format_version: $signature_format_version) {
+        total_count
+        edges {
+            cursor
+            origin
+            app {
+                app_id
+                app_type
+                status
+                app_urls {
+                    name
+                    url
+                    app_id
+                }
+            }
+        }
+        page_info {
+            end_cursor
+            has_next_page
+        }
+    }
+}
+'''
+
+GRAPHQL_STATEMENTS['apps'] = {'query': QUERY_APPS}
+
+APPEND_APPS = '''
+mutation (
+                    $app_id: UUID,
+                    $app_type: String,
+                    $status: String,
+) {
+    append_apps (
+            app_id: $app_id,
+            app_type: $app_type,
+            status: $status,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['apps']['append'] = APPEND_APPS
+
+UPDATE_APPS = '''
+mutation (
+    $filters: appInputFilter!,
+                    $app_id: UUID,
+                    $app_type: String,
+                    $status: String,
+) {
+    update_apps(
+        filters: $filters,
+        app_id: $app_id,
+        app_type: $app_type,
+        status: $status,
+    )
+}
+'''
+
+GRAPHQL_STATEMENTS['apps']['update'] = UPDATE_APPS
+
+DELETE_FROM_APPS = '''
+mutation ($filters: appInputFilter!) {
+    delete_from_apps(filters: $filters)
+}
+'''
+
+GRAPHQL_STATEMENTS['apps']['delete'] = DELETE_FROM_APPS
+
+SUBSCRIPTION_APPS_UPDATES = '''
+subscription (
+    $filters: appInputFilter) {
+    apps_updates(filters: $filters) {
+        action
+        class_name
+        data {
+            app_id
+            app_type
+            status
+        }
+    }
+}
+'''
+GRAPHQL_STATEMENTS['apps']['updates'] = SUBSCRIPTION_APPS_UPDATES
+
+SUBSCRIPTION_APPS_COUNTER = '''
+subscription (
+    $filter: appsCounterFilter) {
+    apps_counter(filter: $filter) {
+        class_name
+        data
+    }
+}
+'''
+GRAPHQL_STATEMENTS['apps']['counter'] = SUBSCRIPTION_APPS_COUNTER
 
 
 QUERY_NETWORK_ASSETS = '''

@@ -152,9 +152,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data)
         self.assertEqual(data['mutate_person'], 1)
 
+        query: str = GRAPHQL_STATEMENTS['person']['query'].replace('\n', '')
         response = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['person']['query'],
-            vars={'query_id': uuid4()}, timeout=120, headers=member_headers
+            url, query, vars={'query_id': uuid4()}, timeout=120,
+            headers=member_headers
         )
         data = await response.json()
         self.assertIsNotNone(data.get('data'))
