@@ -544,6 +544,11 @@ class YouTubeVideo:
                         moderate_request_url, moderate_jwt_header, claims
 
                     )
+                else:
+                    _LOGGER.debug(
+                        'Not trying to get a claim signed '
+                        f'for video {self.video_id}'
+                    )
             except ValueError:
                 _LOGGER.exception(
                     f'Ingesting asset for YouTube video {self.video_id} failed'
