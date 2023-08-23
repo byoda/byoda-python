@@ -95,28 +95,40 @@ async def get_azure_pod_jwt(account: Account, test_dir: str
     dest_dir = f'{test_dir}/{member_dir}'
 
     shutil.copy(
-        'tests/collateral/local/azure-pod-member-cert.pem',
+        'tests/collateral/local/azure-pod-member-data-cert.pem',
         dest_dir
     )
     shutil.copy(
-        'tests/collateral/local/azure-pod-member.key',
+        'tests/collateral/local/azure-pod-member-data.key',
         dest_dir
     )
-    secret = MemberSecret(
+    data_secret = MemberDataSecret(
         AZURE_POD_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
     )
-    secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
-    secret.private_key_file = f'{member_dir}/azure-pod-member.key'
-    await secret.load()
+    data_secret.cert_file = f'{member_dir}/azure-pod-member-data-cert.pem'
+    data_secret.private_key_file = f'{member_dir}/azure-pod-member-data.key'
+    await data_secret.load()
     jwt = JWT.create(
-        AZURE_POD_MEMBER_ID, IdType.MEMBER, secret, account.network.name,
+        AZURE_POD_MEMBER_ID, IdType.MEMBER, data_secret, account.network.name,
         service_id=ADDRESSBOOK_SERVICE_ID,
         scope_type=IdType.MEMBER, scope_id=AZURE_POD_MEMBER_ID
     )
     azure_member_auth_header = {
         'Authorization': f'bearer {jwt.encoded}'
     }
-    return azure_member_auth_header, secret.common_name
+
+    shutil.copy(
+        'tests/collateral/local/azure-pod-member-cert.pem',
+        dest_dir
+    )
+    tls_secret = MemberSecret(
+        AZURE_POD_MEMBER_ID, ADDRESSBOOK_SERVICE_ID, account
+    )
+    tls_secret.cert_file = f'{member_dir}/azure-pod-member-cert.pem'
+    # secret.private_key_file = f'{member_dir}/azure-pod-member-data.key'
+    await tls_secret.load(with_private_key=False)
+
+    return azure_member_auth_header, tls_secret.common_name
 
 
 async def get_azure_pod_member_data_secret(test_dir: str,

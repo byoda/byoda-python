@@ -436,17 +436,22 @@ class SchemaDataScalar(SchemaDataItem):
         Normalizes the value to the correct data type for the item
         '''
 
-        if (self.type == DataType.UUID
-                and value and not isinstance(value, UUID)):
-            result = UUID(value)
-        elif (self.type == DataType.DATETIME
-                and value and not isinstance(value, datetime)):
-            if isinstance(value, str):
-                result = datetime.fromisoformat(value)
+        try:
+            if (self.type == DataType.UUID
+                    and value and not isinstance(value, UUID)):
+                result = UUID(value)
+            elif (self.type == DataType.DATETIME
+                    and value and not isinstance(value, datetime)):
+                if isinstance(value, str):
+                    result = datetime.fromisoformat(value)
+                else:
+                    result = datetime.fromtimestamp(value, tz=timezone.utc)
             else:
-                result = datetime.fromtimestamp(value, tz=timezone.utc)
-        else:
-            result = value
+                result = value
+        except ValueError:
+            raise ValueError(
+                f'Value {value} for {self.name} is not of type {self.type}'
+            )
 
         return result
 
