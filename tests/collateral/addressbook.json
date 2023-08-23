@@ -436,6 +436,24 @@
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
             },
+            "app": {
+                "$id": "/schemas/app",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "An app approved by the service",
+                "type": "object",
+                "properties": {
+                    "app_id": {
+                        "description": "the UUID for the app",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "request_url": {
+                        "description": "The url to submit a request to the app",
+                        "type": "string",
+                        "format": "url"
+                    }
+                }
+            },
             "asset_link": {
                 "$id": "/schemas/asset_link",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
