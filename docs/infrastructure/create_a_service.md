@@ -7,6 +7,7 @@ There are 4 phases/steps to set up a service
 Install nginx as reverse proxy as per the [instructions of F5/Nginx](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/)
 
 Then install the nginx.conf file
+
 ```bash
 sudo cp docs/files/nginx-service.conf /etc/nginx/nginx.conf
 sudo nginx -s reload
@@ -84,25 +85,25 @@ The integer value for the version key the JSON file must be 1 or higher. When yo
 
 The keys of properties directly under the JSON Schema (so not under $defs) must be the name of classes and the keys for each class must be:
 
-  - description: What the data stored in this class is used for
-  - type: must be "object" or "array"
-  - #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
-  - the name of the object must not start with '#', '_', 'byoda', or 'BYODA'
+- description: What the data stored in this class is used for
+- type: must be "object" or "array"
+- #accesscontrol: a dict with the specification of who has access to the data stored in instances of the class. See the section on access control below for more information
+- the name of the object must not start with '#', '_', 'byoda', or 'BYODA'
 
 If the type is "object" then it must have a key "properties" with as value an object with the keys:
 
-  - description: What the data stored in this property is used for
-  - #accesscontrol: see below for more information
-  - type: must be a scalar, (ie. "string" or "number") or an array
-  - format: any value for this key is used for data validation but is not translated into the GraphQL API
+- description: What the data stored in this property is used for
+- #accesscontrol: see below for more information
+- type: must be a scalar, (ie. "string" or "number") or an array
+- format: any value for this key is used for data validation but is not translated into the GraphQL API
 
 IF the type is "array" then the following keys are supported:
 
-  - description: Required field. What the data stored in this property is used for
-  - #accesscontrol: Optional field. See below for more information
-  - items: must be an object with a key with one of these two values:
-    - type: must be "string" or "integer"
-    - $ref: a string that must match one of the classes defined under $defs (see below)
+- description: Required field. What the data stored in this property is used for
+- #accesscontrol: Optional field. See below for more information
+- items: must be an object with a key with one of these two values:
+  - type: must be "string" or "integer"
+  - $ref: a string that must match one of the classes defined under $defs (see below)
 
 A data structure under $defs must have the following keys:
 
@@ -124,16 +125,16 @@ Several data structures are required to be defined directly under the root of th
 from the addressbook.json service contract to your contract.
 
 - member, with definitions:
-    - "#access control": {"member": ["read"]}
-    - "properties" dict k/vs:
-      - "joined": { "format": "date-time", "type": "string"}
-      - "member_id": {"type": "string"}
+  - "#access control": {"member": ["read"]}
+  - "properties" dict k/vs:
+    - "joined": { "format": "date-time", "type": "string"}
+    - "member_id": {"type": "string"}
 - network_links of type array using the /schemas/network_link as reference
 - datalogs of type array using the /schemas/memberlog as reference
 - incoming_claims: claims from other people that you haven't verified yet
 - verified_claims: claims from other people that you have verified
 
-For arrays of objects that themselves have arrays of child objects, you need to specify the "#reference_field" property in each definition of the array of a child object field of the child object should be used to match against the field with the 'primary_key' property of the parent object. In SQL terms, the 'primary_key' field will get a _'foreign key'_ relation with the child object. See the 'public_claims' field of the 'public_assets' array of objects in addressbook.json for an example.
+For arrays of objects that themselves have arrays of child objects, you need to specify the "#reference_field" property in each definition of the array of a child object to specify the field of the child object that should be used to match against the field with the 'primary_key' property of the parent object. In SQL terms, the 'primary_key' field will get a _'foreign key'_ relation with the child object. See the 'public_claims' field of the 'public_assets' array of objects in addressbook.json for an example.
 
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
@@ -145,15 +146,17 @@ against these access controls, the Pod may return no data or some or all of the 
 
 The access controls consist of one or more defined entities, with for each entity a list of actions that are
 permitted. Each of the actions may support some specifiers that provide additional info on data may be used. The supported entities are:
+
 - member: The membership in the Pod of the service, or, with other words, you; the owner of the pod
 - service: The person or organization hosting the service
 - network: someone that you have a network relation with. This entity supports two specifiers:
-  - distance (integer, n>=1, default=1): some other member who you have a network path in your social graph with, with a maximum distance of 'n'
-  - relation (string with regular expression, defaults to None): the relation with the members in your social graph must match this regular expression. If not specified, all relations are permitted access
+- distance (integer, n>=1, default=1): some other member who you have a network path in your social graph with, with a maximum distance of 'n'
+- relation (string with regular expression, defaults to None): the relation with the members in your social graph must match this regular expression. If not specified, all relations are permitted access
 - any_member: Any person who has joined the service
 - anonymous: Anyone, regardless whether or not they provided credentials to authenticate their data request
 
 The following actions are supported:
+
 - read with specifier:
   - cache (int: seconds or string with "4h", "600s", "1d" etc., defaults to 1 week, which is 604800 seconds): how long may the requesting entity cache the data
 - update, no specifiers
