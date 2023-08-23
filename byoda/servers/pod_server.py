@@ -193,7 +193,7 @@ class PodServer(Server):
             )
 
             if member.member_id == jwt.issuer_id:
-                secret: MemberSecret = member.tls_secret
+                secret: MemberSecret = member.data_secret
             else:
                 raise ValueError(
                     'JWTs can not be used to query pods other than our own'

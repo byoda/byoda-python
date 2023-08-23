@@ -280,17 +280,7 @@
                     "$ref": "/schemas/asset"
                 }
             },
-            "app": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "append"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/app"
-                }
-            },
+
             "network_assets": {
                 "#accesscontrol": {
                     "member": {
@@ -447,56 +437,7 @@
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
             },
-            "app": {
-                "$id": "/schemas/app",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "An app approved by the service",
-                "type": "object",
-                "properties": {
-                    "app_id": {
-                        "description": "the UUID for the app",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "app_type": {
-                        "description": "the type of app, ie. 'moderation', 'identity' etc. etc.",
-                        "type": "string"
-                    },
-                    "status": {
-                        "description": "the status of the pod for the app, ie. 'active', 'inactive', 'preferred', etc. etc.",
-                        "type": "string"
-                    },
-                    "app_urls": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "/schemas/app_url"
-                        },
-                        "#reference_field": "app_id"
-                    }
-                }
-            },
-            "app_url": {
-                "$id": "/schemas/app_url",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "a URL available from an app",
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "description": "the functionality provided by the app at this URL",
-                        "type": "string"
-                    },
-                    "url": {
-                        "description": "the url for the API",
-                        "type": "string",
-                        "format": "url"
-                    },
-                    "app_id": {
-                        "description": "the UUID for the app",
-                        "type": "string",
-                        "format": "uuid"
-                    }
-                }
-            },
+
             "asset_link": {
                 "$id": "/schemas/asset_link",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",

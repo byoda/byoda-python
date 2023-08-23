@@ -188,6 +188,7 @@ class RequestAuth:
         detail: str = 'Missing authentication info'
         if self.tls_status is None:
             self.tls_status = TlsStatus.NONE
+
         if isinstance(tls_status, str):
             self.tls_status = TlsStatus(self.tls_status)
 
