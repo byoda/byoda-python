@@ -728,7 +728,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         vars = {
             'claim_id': get_test_uuid(),
             'claims': ['non-violent'],
-            'issuer': get_test_uuid(),
+            'issuer_id': get_test_uuid(),
             'issuer_type': 'app',
             'object_type': 'network_asset',
             'keyfield': 'asset_id',

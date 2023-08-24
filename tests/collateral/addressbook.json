@@ -797,7 +797,7 @@
                 "type": "object",
                 "description": "A claim signed by a party.",
                 "required": [
-                    "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
+                    "claim_id", "issuer_id", "issuer_type", "object_type", "keyfield", "keyfield_id",
                     "object_fields", "requester_id", "requester_type",
                     "signature", "signature_timestamp", "signature_format_version",
                     "signature_url", "renewal_url", "confirmation_url",
@@ -824,7 +824,8 @@
                     "issuer": {
                         "description": "(obsolete, replaced by issuer_id field)",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#obsolete": true
                     },
                     "issuer_type": {
                         "description": "what type of entity issued this claim",

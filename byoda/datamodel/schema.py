@@ -332,7 +332,8 @@ class Schema:
                     dataclass = SchemaDataItem.create(
                         class_name, class_properties, self, self.data_classes
                     )
-                    self.data_classes[class_name] = dataclass
+                    if dataclass:
+                        self.data_classes[class_name] = dataclass
                 except ByodaDataClassReferenceNotFound:
                     _LOGGER.debug(
                         f'Adding class {class_name} for creation '
@@ -357,7 +358,8 @@ class Schema:
             dataclass = SchemaDataItem.create(
                 class_name, class_properties, self, self.data_classes
             )
-            self.data_classes[class_name] = dataclass
+            if dataclass:
+                self.data_classes[class_name] = dataclass
 
         return self.data_classes
 

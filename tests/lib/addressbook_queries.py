@@ -643,7 +643,6 @@ query ($query_id: UUID!, $filters: claimInputFilter,
                 claim_id
                 claims
                 issuer_id
-                issuer
                 issuer_type
                 object_type
                 keyfield
@@ -676,7 +675,6 @@ mutation(
                     $claim_id: UUID,
                     $claims: [String!],
                     $issuer_id: UUID,
-                    $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
                     $keyfield: String,
@@ -697,7 +695,6 @@ mutation(
                     claim_id: $claim_id,
                     claims: $claims,
                     issuer_id: $issuer_id,
-                    issuer: $issuer,
                     issuer_type: $issuer_type,
                     object_type: $object_type,
                     keyfield: $keyfield,
@@ -1859,7 +1856,6 @@ query ($query_id: UUID!, $filters: claimInputFilter,
                 claim_id
                 claims
                 issuer_id
-                issuer
                 issuer_type
                 object_type
                 keyfield
@@ -1891,8 +1887,7 @@ APPEND_INCOMING_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
-                    $issuer_id: UUID,
-                    $issuer: UUID!,
+                    $issuer_id: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
                     $keyfield: String!,
@@ -1913,7 +1908,6 @@ mutation (
             claim_id: $claim_id,
             claims: $claims,
             issuer_id: $issuer_id,
-            issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
             keyfield: $keyfield,
@@ -1941,7 +1935,6 @@ mutation (
                     $claim_id: UUID,
                     $claims: [String!],
                     $issuer_id: UUID,
-                    $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
                     $keyfield: String,
@@ -1963,7 +1956,6 @@ mutation (
         claim_id: $claim_id,
         claims: $claims,
         issuer_id: $issuer_id,
-        issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
         keyfield: $keyfield,
@@ -2003,7 +1995,6 @@ subscription (
             claim_id
             claims
             issuer_id
-            issuer
             issuer_type
             object_type
             keyfield
@@ -2054,7 +2045,6 @@ query ($query_id: UUID!, $filters: claimInputFilter,
                 claim_id
                 claims
                 issuer_id
-                issuer
                 issuer_type
                 object_type
                 keyfield
@@ -2086,8 +2076,7 @@ APPEND_VERIFIED_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
-                    $issuer_id: UUID,
-                    $issuer: UUID!,
+                    $issuer_id: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
                     $keyfield: String!,
@@ -2108,7 +2097,6 @@ mutation (
             claim_id: $claim_id,
             claims: $claims,
             issuer_id: $issuer_id,
-            issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
             keyfield: $keyfield,
@@ -2136,7 +2124,6 @@ mutation (
                     $claim_id: UUID,
                     $claims: [String!],
                     $issuer_id: UUID,
-                    $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
                     $keyfield: String,
@@ -2158,7 +2145,6 @@ mutation (
         claim_id: $claim_id,
         claims: $claims,
         issuer_id: $issuer_id,
-        issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
         keyfield: $keyfield,
@@ -2198,7 +2184,6 @@ subscription (
             claim_id
             claims
             issuer_id
-            issuer
             issuer_type
             object_type
             keyfield
@@ -2249,7 +2234,6 @@ query ($query_id: UUID!, $filters: claimInputFilter,
                 claim_id
                 claims
                 issuer_id
-                issuer
                 issuer_type
                 object_type
                 keyfield
@@ -2281,8 +2265,7 @@ APPEND_PUBLIC_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
-                    $issuer_id: UUID,
-                    $issuer: UUID!,
+                    $issuer_id: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
                     $keyfield: String!,
@@ -2303,7 +2286,6 @@ mutation (
             claim_id: $claim_id,
             claims: $claims,
             issuer_id: $issuer_id,
-            issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
             keyfield: $keyfield,
@@ -2331,7 +2313,6 @@ mutation (
                     $claim_id: UUID,
                     $claims: [String!],
                     $issuer_id: UUID,
-                    $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
                     $keyfield: String,
@@ -2353,7 +2334,6 @@ mutation (
         claim_id: $claim_id,
         claims: $claims,
         issuer_id: $issuer_id,
-        issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
         keyfield: $keyfield,
@@ -2393,7 +2373,6 @@ subscription (
             claim_id
             claims
             issuer_id
-            issuer
             issuer_type
             object_type
             keyfield
@@ -2986,7 +2965,6 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                     claim_id
                     claims
                     issuer_id
-                    issuer
                     issuer_type
                     object_type
                     keyfield
@@ -3265,7 +3243,6 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                     claim_id
                     claims
                     issuer_id
-                    issuer
                     issuer_type
                     object_type
                     keyfield
@@ -3648,7 +3625,6 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                     claim_id
                     claims
                     issuer_id
-                    issuer
                     issuer_type
                     object_type
                     keyfield

@@ -118,7 +118,9 @@ async def main(argv):
         accepted_file = server.get_claim_filepath(
             ClaimStatus.ACCEPTED, claim_data['asset_id']
         )
-        if is_duplicate_asset(request_file, accepted_file, data['requester_id']):
+
+        requester_id: UUID = data['requester_id']
+        if is_duplicate_asset(request_file, accepted_file, requester_id):
             continue
 
         if confirmation_needed:
@@ -191,8 +193,8 @@ def is_duplicate_asset(in_file: str, out_file: str, requester_id: UUID):
                 return True
             if str(requester_id) != data['requester_id']:
                 _LOGGER.warning(
-                    f'Requester ID requester_id does not match requester_id of '
-                    f'existing claim: {data["requester_id"]}'
+                    f'Requester ID requester_id does not match requester_id '
+                    f'of existing claim: {data["requester_id"]}'
                 )
                 return True
     return False

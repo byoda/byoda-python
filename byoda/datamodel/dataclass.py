@@ -242,8 +242,8 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = {},
-               pubsub: bool = True):
+    def create(class_name: str, schema_data: dict, schema: Schema,
+               classes: dict = {}, pubsub: bool = True):
         '''
         Factory for instances of classes derived from SchemaDataItem
 
@@ -252,6 +252,8 @@ class SchemaDataItem:
         :param schema: Schema instance
         :param classes: dictionary of classes already created
         :param pubsub: whether to create a PubSub instance for the class
+        :returns: SchemaDataItem instance or None, if the item is declared
+        obsolete in the service schema
         '''
 
         item_type = schema_data.get('type')
@@ -271,6 +273,9 @@ class SchemaDataItem:
                 class_name, schema_data, schema, classes=classes, pubsub=pubsub
             )
         else:
+            if schema_data.get('#obsolete', False) == True:
+                return
+
             item = SchemaDataScalar(class_name, schema_data, schema)
 
         return item
@@ -507,16 +512,17 @@ class SchemaDataObject(SchemaDataItem):
                 field, field_properties, schema, classes, pubsub=False
             )
 
-            self.fields[field] = item
+            if item:
+                self.fields[field] = item
 
-            if item.is_primary_key:
-                self.primary_key = item.name
+                if item.is_primary_key:
+                    self.primary_key = item.name
 
-            if field in self.required_fields:
-                item.required = True
+                if field in self.required_fields:
+                    item.required = True
 
-        _LOGGER.debug(f'Created object class {class_name}'
-                      )
+                _LOGGER.debug(f'Created object class {class_name}')
+
     def normalize(self, value: dict) -> dict:
         '''
         Normalizes the values in a dict

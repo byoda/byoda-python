@@ -138,6 +138,8 @@ For arrays of objects that themselves have arrays of child objects, you need to 
 
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
+If a scalar field is no longer required then it should be defined with ```"#obsolete": true```. This will avoid the dataclass for it to be created so no logic will use it. The field will not be deleted from the datastore but it is no longer possible to use GraphQL to query or update it. It is not possible to remove a previously-defined field, you have to specify the ```"#obsolete": true``` property instead.
+
 ### Data Access control
 
 The Pod controls access to the data for the services stored in the Pod based on access controls that
