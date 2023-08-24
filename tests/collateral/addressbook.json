@@ -1371,5 +1371,17 @@
         "addressbook.byoda.org",
         "byoda.tube",
         "www.byoda.tube"
+    ],
+    "listen_relations": [
+        {
+            "relation": "follow",
+            "class_name": "public_assets",
+            "destination class": "incoming_assets"
+        },
+        {
+            "relation": "subscribe",
+            "class_name": "public_assets",
+            "destination class": "incoming_assets"
+        }
     ]
 }

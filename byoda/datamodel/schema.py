@@ -61,6 +61,7 @@ class Schema:
     #     'description', 'cors_origins', 'schema_id', 'validator',
     #     '_verified_signatures', '_service_signature', '_network_signature',
     #     'validator', 'service_data_secret', 'network_data_secret',
+    #     'listen_relations'
     # ]
 
     def __init__(self, schema: dict):
@@ -444,6 +445,7 @@ class Schema:
     # - cors_origins
     # - service_signature
     # - network_signature
+    # - listen_relations
     # - signatures (only has a getter)
 
     @property
@@ -641,6 +643,19 @@ class Schema:
             raise ValueError('No JSON Schema defined')
 
         self.json_schema['supportemail'] = value
+
+    @property
+    def listen_relations(self):
+        '''
+        Gets the relations to other pods for which a pod should open
+        websockets connections for updates and the class name that
+        the updates should be requested for
+        '''
+
+        if not self.json_schema:
+            raise ValueError('No JSON Schema defined')
+
+        return self.json_schema.get('listen_relations', [])
 
     @property
     def cors_origins(self):

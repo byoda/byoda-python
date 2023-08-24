@@ -349,6 +349,23 @@ class Account:
 
         return memberships
 
+    async def get_membership(self, service_id: int) -> Member | None:
+        '''
+        Get the membership of a service, loading the memberships from storage
+        if it is not already cached
+
+        :param service_id: The ID of the service to get the membership for
+        :returns: The membership object or None if the account doesn't have
+        a membership for the service
+        '''
+
+        service_id = int(service_id)
+
+        if service_id not in self.memberships:
+            await self.load_memberships()
+
+        return self.memberships.get(service_id)
+
     async def load_membership(self, service_id: int, member_id: UUID
                               ) -> Member:
         '''
