@@ -43,7 +43,7 @@ CLAIM_FORMAT_VERSION = [
     {
         'hash_algorithm': 'SHA256',
         'additional_claim_fields': [
-            'claim_id', 'claims', 'issuer', 'issuer_type',
+            'claim_id', 'claims', 'issuer_id', 'issuer_type',
             'object_type', 'keyfield',
             'keyfield_id', 'requester_id',
             'requester_type', 'object_fields',
@@ -57,7 +57,7 @@ CLAIM_FORMAT_VERSION = [
 CLAIM_FIELDS = {
     'claim_id': {'type': UUID},
     'claims': {'type': list[str]},
-    'issuer': {'type': str},
+    'issuer_id': {'type': str},
     'issuer_type': {'type': IdType},
     'object_type': {'type': str},
     'keyfield': {'type': str},
@@ -82,7 +82,7 @@ class Claim:
     '''
 
     __slots__ = [
-        'claim_id', 'claims', 'issuer', 'issuer_id', 'issuer_type',
+        'claim_id', 'claims', 'issuer_id', 'issuer_type',
         'claim_status', 'request_id', 'object_type',
         'keyfield', 'keyfield_id', 'object_fields',
         'requester_id', 'requester_type', 'signature',
@@ -95,7 +95,7 @@ class Claim:
     def __init__(self):
         self.claim_id: UUID | None = None
         self.claims: list[str] | None = None
-        self.issuer: str | None = None
+        self.issuer_id: UUID | None = None
         self.issuer_type: IdType | None
 
         self.claim_status: ClaimStatus | None = None
@@ -146,7 +146,7 @@ class Claim:
             claim.claim_id = UUID(claim.claim_id)
 
         claim.claims = claim_data.get('claims')
-        claim.issuer = claim_data.get('issuer')
+        claim.issuer_id = claim_data.get('issuer_id')
 
         claim.issuer_type = claim_data.get('issuer_type')
         if isinstance(claim.issuer_type, str):
@@ -195,7 +195,7 @@ class Claim:
         return claim
 
     @staticmethod
-    def build(claims: list[str], issuer: str, issuer_type: IdType,
+    def build(claims: list[str], issuer_id: str, issuer_type: IdType,
               object_type: str, keyfield: str, keyfield_id: UUID,
               object_fields: list[str],
               requester_id: UUID, requester_type: IdType,
@@ -212,11 +212,7 @@ class Claim:
             claim.claim_id = uuid4()
 
         claim.claims: list[str] = claims
-        # The claim contains a string for the issuer, i.e., the FQDN
-        claim.issuer: str = issuer
-
-        # The issuer_id is returned by the moderate API of the app server
-        claim.issuer_id: UUID | None = None
+        claim.issuer_id: UUID = issuer_id
         claim.issuer_type = issuer_type
 
         claim.object_type = object_type
@@ -314,7 +310,7 @@ class Claim:
         '''
 
         if (not self.claim_id or not self.claims
-                or not self.issuer or not self.issuer_type
+                or not self.issuer_id or not self.issuer_type
                 or not self.object_type or not self.keyfield
                 or not self.keyfield_id or not self.object_fields):
             raise ValueError('Claim is missing required fields')

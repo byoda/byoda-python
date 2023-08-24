@@ -151,7 +151,7 @@ async def main(argv):
                 continue
 
         claim = Claim.build(
-            data['claims'], app_config['appserver']['fqdn'], IdType.APP,
+            data['claims'], app_config['appserver']['app_id'], IdType.APP,
             claim_data['asset_type'], 'asset_id', claim_data['asset_id'],
             sorted(claim_data.keys()),
             data['requester_id'], IdType(data['requester_type']),

@@ -85,7 +85,7 @@ async def post_asset_moderation(request: Request,
         )
 
         claim = Claim.build(
-            claim_request.claims, server.fqdn, IdType.APP,
+            claim_request.claims, server.app_id, IdType.APP,
             claim_request.claim_data.asset_type, 'asset_id',
             claim_request.claim_data.asset_id,
             data_fields,

@@ -463,7 +463,7 @@
                         "type": "string"
                     },
                     "status": {
-                        "description": "the status of the pod for the app, ie. 'active', 'inactive', 'preferred', etc. etc.",
+                        "description": "the status of the app as specified by the member, ie. 'active', 'inactive', 'preferred', etc. etc.",
                         "type": "string"
                     },
                     "app_urls": {
@@ -473,7 +473,8 @@
                         },
                         "#reference_field": "app_id"
                     }
-                }
+                },
+                "required": ["app_id", "app_type", "status"]
             },
             "app_url": {
                 "$id": "/schemas/app_url",
@@ -495,7 +496,8 @@
                         "type": "string",
                         "format": "uuid"
                     }
-                }
+                },
+                "required": ["name", "url", "app_id"]
             },
             "asset_link": {
                 "$id": "/schemas/asset_link",
@@ -814,8 +816,13 @@
                             "type": "string"
                         }
                     },
-                    "issuer": {
+                    "issuer_id": {
                         "description": "The UUID of the claim issuer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "issuer": {
+                        "description": "(obsolete, replaced by issuer_id field)",
                         "type": "string",
                         "format": "uuid"
                     },

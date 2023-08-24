@@ -270,7 +270,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         asset_id: UUID = get_test_uuid()
         requester_id: UUID = get_test_uuid()
         claim = Claim.build(
-            ['claim A', 'claim B'], 'test', IdType.APP,
+            ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
             object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
@@ -288,7 +288,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         signature = claim.create_signature(asset_data, app_data_secret)
 
         verify_claim = Claim.build(
-            ['claim A', 'claim B'], 'test', IdType.APP,
+            ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
             object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'

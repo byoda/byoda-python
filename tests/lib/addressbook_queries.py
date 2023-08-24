@@ -642,6 +642,7 @@ query ($query_id: UUID!, $filters: claimInputFilter,
             claim {
                 claim_id
                 claims
+                issuer_id
                 issuer
                 issuer_type
                 object_type
@@ -674,6 +675,7 @@ MUTATE_CLAIM = '''
 mutation(
                     $claim_id: UUID,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
@@ -694,6 +696,7 @@ mutation(
     mutate_claim(
                     claim_id: $claim_id,
                     claims: $claims,
+                    issuer_id: $issuer_id,
                     issuer: $issuer,
                     issuer_type: $issuer_type,
                     object_type: $object_type,
@@ -1855,6 +1858,7 @@ query ($query_id: UUID!, $filters: claimInputFilter,
             claim {
                 claim_id
                 claims
+                issuer_id
                 issuer
                 issuer_type
                 object_type
@@ -1887,6 +1891,7 @@ APPEND_INCOMING_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
@@ -1907,6 +1912,7 @@ mutation (
     append_incoming_claims (
             claim_id: $claim_id,
             claims: $claims,
+            issuer_id: $issuer_id,
             issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
@@ -1934,6 +1940,7 @@ mutation (
     $filters: claimInputFilter!,
                     $claim_id: UUID,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
@@ -1955,6 +1962,7 @@ mutation (
         filters: $filters,
         claim_id: $claim_id,
         claims: $claims,
+        issuer_id: $issuer_id,
         issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
@@ -1994,6 +2002,7 @@ subscription (
         data {
             claim_id
             claims
+            issuer_id
             issuer
             issuer_type
             object_type
@@ -2044,6 +2053,7 @@ query ($query_id: UUID!, $filters: claimInputFilter,
             claim {
                 claim_id
                 claims
+                issuer_id
                 issuer
                 issuer_type
                 object_type
@@ -2076,6 +2086,7 @@ APPEND_VERIFIED_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
@@ -2096,6 +2107,7 @@ mutation (
     append_verified_claims (
             claim_id: $claim_id,
             claims: $claims,
+            issuer_id: $issuer_id,
             issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
@@ -2123,6 +2135,7 @@ mutation (
     $filters: claimInputFilter!,
                     $claim_id: UUID,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
@@ -2144,6 +2157,7 @@ mutation (
         filters: $filters,
         claim_id: $claim_id,
         claims: $claims,
+        issuer_id: $issuer_id,
         issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
@@ -2183,6 +2197,7 @@ subscription (
         data {
             claim_id
             claims
+            issuer_id
             issuer
             issuer_type
             object_type
@@ -2233,6 +2248,7 @@ query ($query_id: UUID!, $filters: claimInputFilter,
             claim {
                 claim_id
                 claims
+                issuer_id
                 issuer
                 issuer_type
                 object_type
@@ -2265,6 +2281,7 @@ APPEND_PUBLIC_CLAIMS = '''
 mutation (
                     $claim_id: UUID!,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID!,
                     $issuer_type: String!,
                     $object_type: String!,
@@ -2285,6 +2302,7 @@ mutation (
     append_public_claims (
             claim_id: $claim_id,
             claims: $claims,
+            issuer_id: $issuer_id,
             issuer: $issuer,
             issuer_type: $issuer_type,
             object_type: $object_type,
@@ -2312,6 +2330,7 @@ mutation (
     $filters: claimInputFilter!,
                     $claim_id: UUID,
                     $claims: [String!],
+                    $issuer_id: UUID,
                     $issuer: UUID,
                     $issuer_type: String,
                     $object_type: String,
@@ -2333,6 +2352,7 @@ mutation (
         filters: $filters,
         claim_id: $claim_id,
         claims: $claims,
+        issuer_id: $issuer_id,
         issuer: $issuer,
         issuer_type: $issuer_type,
         object_type: $object_type,
@@ -2372,6 +2392,7 @@ subscription (
         data {
             claim_id
             claims
+            issuer_id
             issuer
             issuer_type
             object_type
@@ -2964,6 +2985,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 public_claims {
                     claim_id
                     claims
+                    issuer_id
                     issuer
                     issuer_type
                     object_type
@@ -3242,6 +3264,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 public_claims {
                     claim_id
                     claims
+                    issuer_id
                     issuer
                     issuer_type
                     object_type
@@ -3514,9 +3537,9 @@ GRAPHQL_STATEMENTS['apps'] = {'query': QUERY_APPS}
 
 APPEND_APPS = '''
 mutation (
-                    $app_id: UUID,
-                    $app_type: String,
-                    $status: String,
+                    $app_id: UUID!,
+                    $app_type: String!,
+                    $status: String!,
 ) {
     append_apps (
             app_id: $app_id,
@@ -3624,6 +3647,7 @@ query ($query_id: UUID!, $filters: assetInputFilter,
                 public_claims {
                     claim_id
                     claims
+                    issuer_id
                     issuer
                     issuer_type
                     object_type
