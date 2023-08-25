@@ -62,6 +62,7 @@ pydantic = "*"
 trio = "*"
 httpx = "*"
 gql = {extras = ["httpx", "websockets"], version = "*"}
+aiohttp = {extras = ["aiodns"], version = "*"}
 
 [dev-packages]
 flake8 = "*"
