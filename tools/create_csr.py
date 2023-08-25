@@ -19,6 +19,8 @@ import logging
 import argparse
 from uuid import uuid4
 
+from httpx import Response as HttpResponse
+
 from byoda.secrets.secret import Secret
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
@@ -143,12 +145,13 @@ async def create_csr(secret: Secret, csr_filepath: str, key_filepath: str,
     with open(key_filepath, 'w') as file_desc:
         file_desc.write(private_key_pem)
 
-    resp = await RestApiClient.call(
+    resp: HttpResponse = await RestApiClient.call(
         secret.paths.get(Paths.SERVICEAPP_API),
         HttpMethod.POST, data={'csr': csr_pem}
     )
-    if resp.status != 201:
+    if resp.status_code != 201:
         raise RuntimeError('Certificate signing request failed')
+
 
 if __name__ == '__main__':
     asyncio.run(main(sys.argv))

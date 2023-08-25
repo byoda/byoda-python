@@ -17,6 +17,8 @@ from enum import Enum
 
 import passgen
 
+from httpx import Response as HttpResponse
+
 from cryptography.hazmat.primitives import serialization
 
 from byoda.datamodel.schema import Schema
@@ -512,15 +514,15 @@ class Service:
         }
 
         url = self.paths.get(Paths.NETWORKSERVICE_POST_API)
-        response = await RestApiClient.call(
+        resp: HttpResponse = await RestApiClient.call(
             url, HttpMethod.POST, data=data
         )
-        if response.status != 201:
+        if resp.status_code != 201:
             raise ValueError(
                 f'Failed to POST to API {Paths.NETWORKSERVICE_API}: '
-                f'{response.status}'
+                f'{resp.status_code}'
             )
-        data = await response.json()
+        data = resp.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
         self.registration_status = RegistrationStatus.CsrSigned
         await secret.save(password=private_key_password, overwrite=False)
@@ -650,11 +652,11 @@ class Service:
         data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
 
         url = self.paths.get(Paths.NETWORKSERVICE_API)
-        response = await RestApiClient.call(
+        resp = await RestApiClient.call(
             url, HttpMethod.PUT, secret=self.tls_secret, data=data_certchain,
             service_id=self.service_id
         )
-        return response
+        return resp
 
     async def download_schema(self, save: bool = True, filepath: str = None) -> str:
         '''
@@ -675,16 +677,16 @@ class Service:
         resp = await ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
-        if resp.status == 200:
+        if resp.status_code == 200:
             _LOGGER.debug(f'Downloaded service contract to {filepath}')
             if save:
                 _LOGGER.debug(f'Saving service contract to {filepath}')
-                await self.save_schema(await resp.text(), filepath=filepath)
+                await self.save_schema(resp.text, filepath=filepath)
 
-            return await resp.text()
+            return resp.text
 
         raise FileNotFoundError(
-            f'Download of service schema failed: {resp.status}'
+            f'Download of service schema failed: {resp.status_code}'
         )
 
     async def load_secrets(self, with_private_key: bool = True, password: str = None,
@@ -796,13 +798,13 @@ class Service:
             else:
                 return None
 
-        if resp.status == 200:
+        if resp.status_code == 200:
             if save:
                 self.data_secret = ServiceDataSecret(self.service_id, self.network)
-                self.data_secret.from_string(await resp.text())
+                self.data_secret.from_string(resp.text)
                 await self.data_secret.save(overwrite=(not failhard))
 
-            return await resp.text()
+            return resp.text
 
         raise FileNotFoundError(
             f'Could not download data cert for service {self.service_id}: '

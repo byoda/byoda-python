@@ -705,7 +705,7 @@ class RequestAuth:
             )
         except InvalidSignatureError:
             raise HTTPException(
-                status_code=401, detail='JWT signature invalid'
+                status_code=403, detail='JWT signature invalid'
             )
         except PyJWTError as exc:
             raise HTTPException(status_code=401, detail=f'JWT error: {exc}')

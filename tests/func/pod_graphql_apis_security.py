@@ -112,7 +112,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['query'],
             vars=vars, timeout=120
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNotNone(result.get('errors'))
 

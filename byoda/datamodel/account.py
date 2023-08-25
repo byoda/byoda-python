@@ -12,6 +12,8 @@ from uuid import UUID
 from typing import TypeVar
 from copy import copy
 
+from httpx import Response as HttpResponse
+
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
@@ -215,13 +217,13 @@ class Account:
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 _LOGGER.debug(f'Getting CSR signed from {url}')
-                resp = await RestApiClient.call(
+                resp: HttpResponse = await RestApiClient.call(
                     url, method=HttpMethod.POST, data=payload
                 )
-                if resp.status != 201:
+                if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
 
-                cert_data = await resp.json()
+                cert_data = resp.json()
                 secret.from_string(
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
@@ -311,7 +313,7 @@ class Account:
         resp = await RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
 
         _LOGGER.debug(
-            f'Registered account with directory server: {resp.status}'
+            f'Registered account with directory server: {resp.status_code}'
         )
 
     async def load_memberships(self) -> None:

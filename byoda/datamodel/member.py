@@ -630,10 +630,10 @@ class Member:
             self.paths.get(Paths.SERVICEMEMBER_API),
             HttpMethod.POST, data=payload
         )
-        if resp.status != 201:
+        if resp.status_code != 201:
             raise RuntimeError('Certificate signing request failed')
 
-        cert_data = await resp.json()
+        cert_data = resp.json()
 
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
@@ -722,13 +722,13 @@ class Member:
             service_id=self.service_id,
             network_name=self.network.name
         )
-        if resp.status != 200:
+        if resp.status_code != 200:
             raise ValueError(
                 'No service CA cert available locally or from the '
                 'service'
             )
 
-        self.service_ca_certchain.from_string(await resp.text())
+        self.service_ca_certchain.from_string(resp.text)
 
         await self.service_ca_certchain.save(
             storage_driver=server.local_storage, overwrite=True
@@ -891,17 +891,17 @@ class Member:
         fqdn = MemberSecret.create_commonname(
             member_id, self.service_id, self.network.name
         )
-        response = await ApiClient.call(
+        resp = await ApiClient.call(
             f'https://{fqdn}/member-cert.pem'
         )
 
-        if response.status != 200:
+        if resp.status_code != 200:
             raise RuntimeError(
                 'Download the member cert resulted in status: '
-                f'{response.status}'
+                f'{resp.status_code}'
             )
 
-        certchain = await response.text()
+        certchain = resp.text
 
         secret = MemberSecret(member_id, self.service_id, self.account)
         secret.from_string(certchain)

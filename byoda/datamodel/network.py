@@ -319,13 +319,13 @@ class Network:
                     resp = await ApiClient.call(
                         Paths.NETWORK_CERT_DOWNLOAD, network_name=self.name
                     )
-                    if resp.status != 200:
+                    if resp.status_code != 200:
                         raise ValueError(
                             'No network cert available locally or from the '
                             'network'
                         )
                     _LOGGER.debug('Downloaded cert for Network root CA')
-                    self.root_ca.from_string(await resp.text())
+                    self.root_ca.from_string(resp.text)
 
                 if self.root_ca.cert:
                     try:
@@ -340,12 +340,12 @@ class Network:
                     resp = await ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )
-                    if resp.status != 200:
+                    if resp.status_code != 200:
                         raise ValueError(
                             'No network cert available locally or from the '
                             'network'
                         )
-                    self.data_secret.from_string(await resp.text())
+                    self.data_secret.from_string(resp.text)
 
                 if self.data_secret.cert:
                     try:

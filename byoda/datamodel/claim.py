@@ -20,6 +20,8 @@ from dataclasses import dataclass
 
 import orjson
 
+from httpx import Response as HttpResponse
+
 from dateutil import parser as dateutil_parser
 
 from byoda.datamodel.datafilter import DataFilterSet
@@ -413,12 +415,12 @@ class ClaimRequest:
                 'Authorization': f'bearer {jwt_header}'
             }
         )
-        if resp.status != 200:
+        if resp.status_code != 200:
             raise RuntimeError(
-                f'Failed to call the moderation API {url}: {resp.status}'
+                f'Failed to call the moderation API {url}: {resp.status_code}'
             )
 
-        data = await resp.json()
+        data: HttpResponse = resp.json()
 
         request_timestamp = data.get('request_timestamp')
         if request_timestamp:

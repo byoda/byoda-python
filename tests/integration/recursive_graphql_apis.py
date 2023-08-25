@@ -20,6 +20,8 @@ import requests
 from uuid import uuid4
 from datetime import datetime, timezone
 
+from httpx import Response as HttpResponse
+
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -135,7 +137,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await pod_account.load_memberships()
         account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
         service_id = ADDRESSBOOK_SERVICE_ID
-        response = requests.post(
+        resp = requests.post(
             f'{BASE_URL}/v1/pod/authtoken',
             json={
                 'username': str(account_member.member_id)[:8],
@@ -144,8 +146,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'target_type': IdType.MEMBER.value,
             }
         )
-        self.assertEqual(response.status_code, 200)
-        result = response.json()
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()
 
         auth_header = {
             'Authorization': f'bearer {result["auth_token"]}'
@@ -163,11 +165,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'depth': 1,
             'relations': ["friend"]
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         #
         # Now add the Azure pod as our friend
@@ -183,11 +185,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 datetime.now(tz=timezone.utc).isoformat()
             )
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'],
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         self.assertIsNone(result.get('errors'))
         self.assertEqual(result['data']['append_network_links'], 1)
@@ -209,23 +211,23 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 datetime.now(tz=timezone.utc).isoformat()
             )
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'],
             vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
         # Confirm we have a network_link entry
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
             vars={'query_id': uuid4()}, timeout=TIMEOUT,
             headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = resp.json()
         data = result.get('data')
         self.assertIsNone(result.get('errors'))
         edges = data['network_links_connection']['edges']
@@ -242,11 +244,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4(),
             'depth': 0,
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = resp.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
@@ -267,11 +269,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'keywords': ["azure", "just", "testing"]
             }
 
-            response = await GraphQlClient.call(
+            resp: HttpResponse = await GraphQlClient.call(
                 azure_url, GRAPHQL_STATEMENTS['network_assets']['append'],
                 vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
             )
-            result = await response.json()
+            result = resp.json()
             data = result.get('data')
             self.assertIsNotNone(data)
             self.assertIsNone(result.get('errors'))
@@ -280,11 +282,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4(),
             'depth': 0,
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=TIMEOUT, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -357,11 +359,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'origin_signature': origin_signature
         }
 
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -374,11 +376,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'depth': 1,
             'relations': ["friend"]
         }
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -408,11 +410,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'origin_signature': origin_signature,
         }
         query = GRAPHQL_STATEMENTS['network_assets']['query']
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, query,
             vars=vars, timeout=TIMEOUT, headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']

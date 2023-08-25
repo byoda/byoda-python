@@ -14,7 +14,7 @@ from uuid import uuid4
 from uuid import UUID
 from urllib.parse import urlparse, ParseResult
 
-from aiohttp import ClientSession as HttpClientSession
+from httpx import AsyncClient as AsyncHttpClient
 
 from byoda.datamodel.member import Member
 
@@ -90,11 +90,10 @@ class YouTubeThumbnail:
         parsed_url: ParseResult = urlparse(self.url)
         filename: str = os.path.basename(parsed_url.path)
         with open(f'{work_dir}/{filename}', 'wb') as file_desc:
-            async with HttpClientSession() as session:
-                async with session.get(self.url) as response:
-                    async for chunk in response.content.iter_chunked(
-                            CHUNK_SIZE):
-                        file_desc.write(chunk)
+            async with AsyncHttpClient(self.url) as client:
+                resp = await client.stream('GET', self.url)
+                async for chunk in resp.aiter_bytes():
+                    file_desc.write(chunk)
 
         with open(f'{work_dir}/{filename}', 'rb') as file_desc:
             filepath: str = f'{video_id}/{filename}'

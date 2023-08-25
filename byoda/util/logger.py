@@ -132,6 +132,7 @@ class Logger(logging.Logger):
         logging.getLogger('azure').setLevel(logging.WARNING)
         logging.getLogger('google').setLevel(logging.WARNING)
         logging.getLogger('pynng.nng').setLevel(logging.INFO)
+        logging.getLogger('httpcore.http11').setLevel(logging.INFO)
 
         logging.getLogger('byoda.storage.azure').setLevel(logging.INFO)
         logging.getLogger('byoda.storage.aws').setLevel(logging.INFO)

@@ -19,6 +19,8 @@ import requests
 from uuid import UUID
 from datetime import datetime, timezone
 
+from httpx import Response as HttpResponse
+
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport
 
@@ -402,11 +404,11 @@ async def perform_append(member_id: UUID, relation: str) -> object:
         'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
     }
 
-    response = await GraphQlClient.call(
+    response: HttpResponse = await GraphQlClient.call(
         url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
         timeout=120, headers=member_headers
     )
-    result = await response.json()
+    result = response.json()
 
     return result
 
@@ -423,11 +425,11 @@ async def perform_delete(member_id: UUID, relation: str) -> object:
         'filters': {'relation': {'eq': relation}},
     }
 
-    response = await GraphQlClient.call(
+    response: HttpResponse = await GraphQlClient.call(
         url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
         timeout=120, headers=member_headers
     )
-    result = await response.json()
+    result = response.json()
 
     return result
 

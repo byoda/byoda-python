@@ -22,6 +22,7 @@ import argparse
 from uuid import UUID, uuid4
 
 import requests
+from httpx import Response as HttpResponse
 
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport
@@ -109,17 +110,17 @@ async def get_jwt_header(id: UUID, base_url: str = BASE_URL,
         'target_type': IdType.MEMBER.value,
     }
     _LOGGER.debug(f'Calling URL: {url} with data {json.dumps(data)}')
-    response = requests.post(url, json=data)
+    resp = requests.post(url, json=data)
     try:
-        result = response.json()
-        if response.status_code != 200:
+        result = resp.json()
+        if resp.status_code != 200:
             await config.server.shutdown()
             raise PermissionError(f'Failed to get auth token: {result}')
     except json.decoder.JSONDecodeError:
         await config.server.shutdown()
-        raise ValueError(f'Failed to get auth token: {response.text}')
+        raise ValueError(f'Failed to get auth token: {resp.text}')
 
-    _LOGGER.debug(f'JWT acquisition: {response.status_code} - {response.text}')
+    _LOGGER.debug(f'JWT acquisition: {resp.status_code} - {resp.text}')
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
@@ -287,16 +288,16 @@ async def main(argv):
 async def call_http(graphql_url: str, object_name: str, action: str,
                     vars: dict, auth_header: str) -> None:
     _LOGGER.debug(f'Calling URL {graphql_url}')
-    response = await GraphQlClient.call(
+    resp: HttpResponse = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS[object_name][action],
         vars=vars, headers=auth_header, timeout=30
     )
     try:
-        result = await response.json()
+        result = resp.json()
     except (ValueError, requests.exceptions.JSONDecodeError) as exc:
         await config.server.shutdown()
         _LOGGER.error(
-            f'Failed to parse response: {exc}: {await response.text()}'
+            f'Failed to parse response: {exc}: {resp.text}'
         )
         raise
 

@@ -21,6 +21,8 @@ from copy import copy
 from uuid import uuid4
 from datetime import datetime, timezone
 
+from httpx import Response as HttpResponse
+
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
@@ -159,7 +161,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['mutate'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -181,7 +183,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, mutate_person_test, vars=vars, timeout=120,
             headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertEqual(result['data']['mutate_person'], 1)
 
         # Try an array of objects that contain an array
@@ -200,7 +202,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -214,7 +216,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -233,7 +235,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -247,7 +249,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['query'], timeout=120,
             vars={'query_id': uuid4()}, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNone(data)
@@ -261,7 +263,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertEqual(data['delete_from_network_links'], 1)
         self.assertIsNone(result.get('errors'))
@@ -277,7 +279,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -287,7 +289,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['query'], timeout=120,
             headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNone(data)
@@ -312,7 +314,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['append'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertEqual(data['append_network_assets'], 1)
@@ -327,7 +329,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['update'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -357,14 +359,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 url, GRAPHQL_STATEMENTS['network_assets']['append'],
                 vars=vars, timeout=120, headers=auth_header
             )
-            result = await response.json()
+            result = response.json()
             self.assertIsNone(result.get('errors'))
 
         response = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['query'], timeout=120,
             vars={'query_id': uuid4()}, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -382,7 +384,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 url, GRAPHQL_STATEMENTS['network_assets']['query'],
                 vars=vars, timeout=120, headers=auth_header
             )
-            result = await response.json()
+            result = response.json()
 
             self.assertIsNone(result.get('errors'))
             more_data = result['data']['network_assets_connection']['edges']
@@ -408,7 +410,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -420,11 +422,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         account_member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         query: str = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query']
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             azure_url, query, vars={'query_id': uuid4()}, timeout=120,
             headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNone(result.get('errors'))
         edges = data['network_links_connection']['edges']
@@ -446,11 +448,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 )
             }
             query = GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append']
-            response = await GraphQlClient.call(
+            response: HttpResponse = await GraphQlClient.call(
                 azure_url, query,
                 vars=vars, timeout=120, headers=azure_member_auth_header
             )
-            result = await response.json()
+            result = response.json()
 
             data = result.get('data')
             self.assertIsNotNone(data)
@@ -462,7 +464,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 vars={'query_id': uuid4()}, timeout=120,
                 headers=azure_member_auth_header
             )
-            result = await response.json()
+            result = response.json()
             data = result.get('data')
             self.assertIsNone(result.get('errors'))
             edges = data['network_links_connection']['edges']
@@ -486,7 +488,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=120, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
@@ -511,7 +513,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 azure_url, GRAPHQL_STATEMENTS['network_assets']['append'],
                 vars=vars, timeout=120, headers=azure_member_auth_header
             )
-            result = await response.json()
+            result = response.json()
             data = result.get('data')
             self.assertIsNotNone(data)
             self.assertIsNone(result.get('errors'))
@@ -524,7 +526,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             azure_url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=120, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -543,7 +545,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_assets']['query'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -566,7 +568,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['mutate'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -587,7 +589,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             azure_url, GRAPHQL_STATEMENTS['person']['mutate'], vars=vars,
             timeout=120, headers=azure_member_auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
@@ -601,7 +603,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['person']['query'], timeout=120,
             vars=vars, headers=auth_header
         )
-        data = await response.json()
+        data = response.json()
         self.assertIsNotNone(data.get('data'))
         self.assertIsNone(data.get('errors'))
 
@@ -621,7 +623,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_invites']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        body = await response.json()
+        body = response.json()
         data = body.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(body.get('errors'))
@@ -642,7 +644,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['network_invites']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        body = await response.json()
+        body = response.json()
         data = body.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(body.get('errors'))
@@ -652,7 +654,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['datalogs']['query'],
             vars=vars, timeout=5, headers=auth_header
         )
-        body = await response.json()
+        body = response.json()
         data = body.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(body.get('errors'))
@@ -686,7 +688,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, query,
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result['data']['network_assets_connection']['edges']
@@ -718,7 +720,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_assets']['append'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertEqual(data['append_public_assets'], 1)
@@ -754,7 +756,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_claims']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -775,7 +777,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_video_thumbnails']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -795,7 +797,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_video_chapters']['append'],
             vars=vars, timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -813,7 +815,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_assets']['query'], vars=vars,
             timeout=1200, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -845,7 +847,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_claims']['query'], vars=vars,
             timeout=1200, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertEqual(data['public_claims_connection']['total_count'], 1)
@@ -860,7 +862,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_assets']['delete'], vars=vars,
             timeout=1200, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -875,7 +877,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             url, GRAPHQL_STATEMENTS['public_claims']['query'], vars=vars,
             timeout=1200, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         # TODO: this test case is forward-looking when deletes also delete all

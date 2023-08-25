@@ -18,9 +18,12 @@ from datetime import timedelta
 from urllib.parse import urlparse
 from urllib.parse import ParseResult
 
-import ssl
-import aiohttp
-import asyncio
+from httpx import AsyncClient as AsyncHttpClient
+from httpx import RequestError
+from httpx import TransportError
+from httpx import TimeoutException
+
+from ssl import SSLCertVerificationError
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -646,7 +649,7 @@ class Secret:
         fingerprint_filename = f'{self.cert_file}-{fingerprint}'
         if (not overwrite and (await storage_driver.exists(self.cert_file)
                 or (with_fingerprint and
-                await storage_driver.exists(fingerprint_filename)))):
+                    await storage_driver.exists(fingerprint_filename)))):
             raise PermissionError(
                 f'Can not save cert because the certificate already '
                 f'exists at {self.cert_file} or {fingerprint_filename}'
@@ -943,26 +946,18 @@ class Secret:
                     or parsed_url.hostname.startswith('proxy.')
                     or (network_name
                         and network_name not in parsed_url.hostname)):
-                ssl_context = None
-            else:
-                _LOGGER.debug(
-                    f'Setting SSL CA file to: {root_ca_filepath}'
-                )
-                ssl_context = ssl.create_default_context(
-                    cafile=root_ca_filepath
-                )
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, ssl=ssl_context) as response:
-                    if response.status >= 400:
-                        raise RuntimeError(
-                            f'Failure to GET {url}: {response.status}'
-                        )
+                root_ca_filepath = None
 
-                    cert_data = await response.text()
-            return cert_data
-        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
-                aiohttp.client_exceptions.ClientConnectorCertificateError,
-                aiohttp.client_exceptions.ClientConnectorError,
-                asyncio.exceptions.TimeoutError) as exc:
+            async with AsyncHttpClient(verify=root_ca_filepath) as client:
+                resp = await client.get(url)
+                if resp.status_code >= 400:
+                    raise RuntimeError(
+                        f'Failure to GET {url}: {resp.status_code}'
+                    )
+
+                cert_data = resp.text
+                return cert_data
+        except (RequestError, TransportError, TimeoutException,
+                SSLCertVerificationError) as exc:
             _LOGGER.info(f'Failed to GET {url}: {exc}')
-            raise RuntimeError(f'Could not GET {url}: {exc}')
+            raise RuntimeError(f'Could not GET {url}')

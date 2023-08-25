@@ -10,6 +10,7 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
+from httpx import Response as HttpResponse
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
@@ -97,11 +98,11 @@ class PodServer(Server):
         network: Network = self.network
 
         url = network.paths.get(Paths.NETWORKSERVICES_API)
-        resp = await RestApiClient.call(url)
+        resp: HttpResponse = await RestApiClient.call(url)
 
         self.network.service_summaries = dict()
-        if resp.status == 200:
-            summaries = await resp.json()
+        if resp.status_code == 200:
+            summaries = resp.json()
             for summary in summaries.get('service_summaries', []):
                 self.network.service_summaries[summary['service_id']] = summary
 
@@ -112,7 +113,7 @@ class PodServer(Server):
         else:
             _LOGGER.debug(
                 'Failed to retrieve list of services from the network: '
-                f'HTTP {resp.status}'
+                f'HTTP {resp.status_code}'
             )
 
     async def set_document_store(self, store_type: DocumentStoreType,

@@ -8,7 +8,7 @@ Twitter functions for podworker
 
 import logging
 
-import requests
+from httpx import Response as HttpResponse
 
 from byoda.servers.pod_server import PodServer
 
@@ -129,7 +129,7 @@ def fetch_tweets(twitter_client: Twitter, service_id: int):
     for tweet in all_tweets + referencing_tweets:
         _LOGGER.debug(f'Processing tweet {tweet["asset_id"]}')
         try:
-            resp: requests.Response = GraphQlClient.call_sync(
+            resp: HttpResponse = GraphQlClient.call_sync(
                 graphql_url, APPEND_TWEETS, vars=tweet,
                 secret=member.tls_secret
             )
@@ -160,7 +160,7 @@ def fetch_tweets(twitter_client: Twitter, service_id: int):
         _LOGGER.debug(f'Successfully appended tweet {tweet["asset_id"]}')
 
         if tweet.get('mentions') or tweet.get('hashtags'):
-            resp = RestApiClient.call_sync(
+            resp: HttpResponse = RestApiClient.call_sync(
                 account.paths.SERVICEASSETSEARCH_API,
                 HttpMethod.POST, secret=member.tls_secret,
                 service_id=member.service_id, data={
@@ -188,7 +188,7 @@ def fetch_tweets(twitter_client: Twitter, service_id: int):
     for asset in media:
         _LOGGER.debug(f'Processing Twitter media ID {asset["media_key"]}')
         try:
-            resp: requests.Response = GraphQlClient.call_sync(
+            resp: HttpResponse = GraphQlClient.call_sync(
                 graphql_url, APPEND_TWITTER_MEDIAS, vars=asset,
                 secret=member.tls_secret
             )

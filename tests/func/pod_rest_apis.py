@@ -20,6 +20,8 @@ from uuid import uuid4
 import orjson
 import requests
 
+from httpx import Response as HttpResponse
+
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
@@ -206,11 +208,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
 
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'],
             vars={'query_id': uuid4()}, timeout=120, headers=service_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
 
@@ -546,12 +548,12 @@ async def call_rest_api(test, auth_header, expected_status_code,
 
 async def call_graphql_api(test, auth_header, expect_result=True):
     graphql_url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
-    response = await GraphQlClient.call(
+    response: HttpResponse = await GraphQlClient.call(
         graphql_url, GRAPHQL_STATEMENTS['person']['query'],
         headers={'Authorization': f'bearer {auth_header}'},
         vars={'query_id': get_test_uuid()}, timeout=30
     )
-    result = await response.json()
+    result = response.json()
 
     if expect_result:
         test.assertIsNone(result.get('errors'))

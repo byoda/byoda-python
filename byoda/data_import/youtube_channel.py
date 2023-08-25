@@ -14,7 +14,9 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 import orjson
-import aiohttp
+
+from httpx import AsyncClient as AsyncHttpClient
+from httpx import Response as HttpResponse
 
 from bs4 import BeautifulSoup
 
@@ -114,20 +116,20 @@ class YouTubeChannel:
                     'Chrome/112.0.0.0 Safari/537.36'
                 )
             }
-            async with aiohttp.ClientSession(headers=headers) as session:
+            async with AsyncHttpClient(headers=headers) as client:
                 url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
                     channel_name=self.name.lstrip('@')
                 ).replace(' ', '')
 
                 _LOGGER.debug(f'Scraping YouTube channel at {url}')
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        _LOGGER.warning(
-                            f'HTTP scrape for {url} failed: {response.status}'
-                        )
-                        return
+                resp: HttpResponse = await client.get(url)
+                if resp.status_code != 200:
+                    _LOGGER.warning(
+                        f'HTTP scrape for {url} failed: {resp.status_code}'
+                    )
+                    return
 
-                    data = await response.text()
+                data = resp.text
 
         soup = BeautifulSoup(data, 'html.parser')
         script = soup.find(

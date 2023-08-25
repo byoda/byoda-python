@@ -17,6 +17,7 @@ proxy
 import sys
 import unittest
 
+from httpx import Response as HttpResponse
 
 from byoda.util.logger import Logger
 
@@ -55,11 +56,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(auth_header)
 
         url = base_url + f'/v1/data/service-{service_id}'
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'], timeout=3,
             headers=auth_header
         )
-        result = await response.json()
+        result = resp.json()
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
         self.assertIsNotNone(data)

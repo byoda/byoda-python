@@ -19,6 +19,8 @@ from dateutil import parser as dateutil_parser
 
 import orjson
 
+from httpx import Response as HttpResponse
+
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
@@ -704,18 +706,18 @@ class YouTubeVideo:
         Downloads a signed claim
         '''
 
-        resp = await ApiClient.call(
+        resp: HttpResponse = await ApiClient.call(
             moderate_claim_url.format(
                 state=ClaimStatus.ACCEPTED.value, asset_id=self.asset_id
             )
         )
-        if resp.status != 200:
+        if resp.status_code != 200:
             raise RuntimeError(
                 'Failed to get the approvied claim from moderation API '
                 f'{moderate_claim_url}: {resp.status}'
             )
 
-        claim_data = await resp.json()
+        claim_data = resp.json()
 
         return claim_data
 

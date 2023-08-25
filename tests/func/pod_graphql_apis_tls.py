@@ -18,6 +18,8 @@ import requests
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 
+from httpx import Response as HttpResponse
+
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 
@@ -141,11 +143,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'avatar_url': 'https://some.place/somewhere'
         }
 
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['mutate'],
             vars=vars, timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         self.assertIsNone(result.get('errors'))
         data = result.get('data')
@@ -153,11 +155,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['mutate_person'], 1)
 
         query: str = GRAPHQL_STATEMENTS['person']['query'].replace('\n', '')
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, query, vars={'query_id': uuid4()}, timeout=120,
             headers=member_headers
         )
-        data = await response.json()
+        data = response.json()
         self.assertIsNotNone(data.get('data'))
         self.assertIsNone(data.get('errors'))
 
@@ -169,11 +171,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'homepage_url': 'https://byoda.org',
             'avatar_url': 'https://some.place/somewhere'
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['mutate'], vars=vars,
             timeout=120, headers=member_headers
         )
-        data = await response.json()
+        data = response.json()
 
         self.assertIsNotNone(data.get('data'))
         self.assertIsNone(data.get('errors'))
@@ -191,10 +193,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         '''
         # Mutation fails because 'member' can only read this data
         vars['query_id'] = uuid4()
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, query, vars=vars, timeout=120, headers=member_headers
         )
-        data = await response.json()
+        data = response.json()
 
         self.assertIsNone(data.get('data'))
         self.assertIsNotNone(data.get('errors'))
@@ -210,11 +212,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Query fails because other members do not have access
         vars['query_id'] = uuid4()
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['person']['query'], vars=vars,
             timeout=120, headers=alt_member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNone(data)
@@ -228,11 +230,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'follow',
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -243,11 +245,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'follow',
             'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -261,21 +263,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'relation': 'friend',
             'created_timestamp': friend_timestamp
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
 
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'],
             vars={'query_id': uuid4()}, timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -289,11 +291,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4(),
             'filters': {'relation': {'eq': 'friend'}},
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -304,11 +306,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4(),
             'filters': {'relation': {'eq': 'follow'}},
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
 
         data = result.get('data')
         self.assertIsNotNone(data)
@@ -321,11 +323,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'query_id': uuid4(),
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['query'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
@@ -339,11 +341,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'member_id': {'eq': str(friend_uuid)}},
             'relation': 'best_friend',
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['update'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
@@ -354,11 +356,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'created_timestamp': {'at': friend_timestamp}},
         }
 
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
             timeout=120, headers=member_headers
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNotNone(data)
         self.assertIsNone(result.get('errors'))
