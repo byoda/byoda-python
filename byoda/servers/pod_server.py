@@ -10,7 +10,7 @@ a server that hosts a BYODA Service
 import logging
 from typing import TypeVar
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType

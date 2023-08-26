@@ -19,8 +19,6 @@ from dateutil import parser as dateutil_parser
 
 import orjson
 
-from httpx import Response as HttpResponse
-
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
@@ -37,6 +35,8 @@ from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
 
 from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
 
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree

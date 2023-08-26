@@ -17,7 +17,7 @@ proxy
 import sys
 import unittest
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 

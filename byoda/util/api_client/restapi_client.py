@@ -10,7 +10,7 @@ RestApiClient, derived from ApiClient for calling REST APIs
 import logging
 from uuid import UUID
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 
 from byoda.secrets.secret import Secret

@@ -20,8 +20,6 @@ from dataclasses import dataclass
 
 import orjson
 
-from httpx import Response as HttpResponse
-
 from dateutil import parser as dateutil_parser
 
 from byoda.datamodel.datafilter import DataFilterSet
@@ -34,9 +32,9 @@ from byoda.datastore.data_store import DataStore
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.data_secret import InvalidSignature
 
-
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
+from byoda.util.api_client.api_client import HttpResponse
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -18,9 +18,11 @@ from collections import namedtuple
 
 import orjson
 
+from ssl import SSLCertVerificationError
+
 from httpx import Client as SyncHttpClient
-from httpx import Response as HttpResponse
 from httpx import AsyncClient as AsyncHttpClient
+from httpx import Response as HttpResponse
 from httpx import RequestError
 from httpx import TransportError
 from httpx import TimeoutException
@@ -214,7 +216,8 @@ class ApiClient:
                 method, api, params=params, data=processed_data,
                 headers=updated_headers
             )
-        except (RequestError, TransportError, TimeoutException) as exc:
+        except (RequestError, TransportError, TimeoutException,
+                SSLCertVerificationError) as exc:
             raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
 
         if resp.status_code >= 400:

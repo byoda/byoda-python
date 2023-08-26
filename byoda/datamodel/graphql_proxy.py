@@ -16,7 +16,7 @@ from datetime import datetime
 
 import orjson
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from strawberry.types import Info
 

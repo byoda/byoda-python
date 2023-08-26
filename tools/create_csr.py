@@ -19,8 +19,6 @@ import logging
 import argparse
 from uuid import uuid4
 
-from httpx import Response as HttpResponse
-
 from byoda.secrets.secret import Secret
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
@@ -29,6 +27,8 @@ from byoda import config
 
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
+from byoda.util.api_client.api_client import HttpResponse
+
 
 from byoda.util.logger import Logger
 from byoda.util.paths import Paths

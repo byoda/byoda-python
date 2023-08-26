@@ -16,7 +16,6 @@ from datetime import datetime, timezone, timedelta
 import orjson
 
 from httpx import AsyncClient as AsyncHttpClient
-from httpx import Response as HttpResponse
 
 from bs4 import BeautifulSoup
 
@@ -29,6 +28,8 @@ from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 from byoda.datatypes import IngestStatus
+
+from byoda.util.api_client.api_client import HttpResponse
 
 from .youtube_video import YouTubeVideo
 

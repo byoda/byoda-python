@@ -20,8 +20,6 @@ from uuid import uuid4
 import orjson
 import requests
 
-from httpx import Response as HttpResponse
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
@@ -31,6 +29,7 @@ from byoda.datatypes import IdType
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api

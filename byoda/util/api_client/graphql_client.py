@@ -8,12 +8,13 @@ GraphQlClient, for performing GraphQL queries, either using HTTP or websockets
 
 import logging
 
-from httpx import Response as HttpResponse
 
 from byoda.secrets.secret import Secret
+
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from .api_client import ApiClient
+from .api_client import HttpResponse
 
 
 _LOGGER = logging.getLogger(__name__)

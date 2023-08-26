@@ -14,7 +14,7 @@ import yaml
 import asyncio
 import argparse
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network

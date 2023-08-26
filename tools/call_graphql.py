@@ -22,7 +22,7 @@ import argparse
 from uuid import UUID, uuid4
 
 import requests
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport

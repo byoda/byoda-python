@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 import orjson
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.api_client.graphql_client import GraphQlClient
 from requests.exceptions import ConnectionError as RequestConnectionError

@@ -21,8 +21,6 @@ from copy import copy
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from httpx import Response as HttpResponse
-
 from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.graphql_proxy import GraphQlProxy
@@ -33,6 +31,7 @@ from byoda.datatypes import MARKER_NETWORK_LINKS
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api

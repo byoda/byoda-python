@@ -8,7 +8,6 @@ Twitter functions for podworker
 
 import logging
 
-from httpx import Response as HttpResponse
 
 from byoda.servers.pod_server import PodServer
 
@@ -19,8 +18,8 @@ from byoda.datatypes import GRAPHQL_API_URL_PREFIX
 
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
-
 from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.data_import.twitter import Twitter
 

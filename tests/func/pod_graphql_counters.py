@@ -25,6 +25,7 @@ from byoda.datacache.counter_cache import CounterCache
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api

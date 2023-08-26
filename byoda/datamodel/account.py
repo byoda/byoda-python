@@ -12,7 +12,7 @@ from uuid import UUID
 from typing import TypeVar
 from copy import copy
 
-from httpx import Response as HttpResponse
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
