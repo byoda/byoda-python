@@ -10,7 +10,7 @@
 import os
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 
 from byoda.datatypes import StorageType, CloudType
 
@@ -18,7 +18,7 @@ from byoda.models import AccountResponseModel
 
 from byoda import config
 
-from ..dependencies.pod_api_request_auth import PodApiRequestAuth
+from ..dependencies.pod_api_request_auth import AuthDep
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,8 +26,7 @@ router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
 @router.get('/account', response_model=AccountResponseModel)
-async def get_account(request: Request,
-                      auth: PodApiRequestAuth = Depends(PodApiRequestAuth)):
+async def get_account(request: Request, auth: AuthDep):
     '''
     Get data for the pod account.
     The data request is evaluated using the identify specified in the
@@ -50,7 +49,9 @@ async def get_account(request: Request,
         public_bucket = '/byoda/public'
     else:
         private_bucket = doc_store.backend.get_url(StorageType.PRIVATE.value)
-        restricted_bucket = doc_store.backend.get_url(StorageType.RESTRICTED.value)
+        restricted_bucket = doc_store.backend.get_url(
+            StorageType.RESTRICTED.value
+        )
         public_bucket = doc_store.backend.get_url(StorageType.PUBLIC.value)
 
     bootstrap = os.environ.get('BOOTSTRAP')

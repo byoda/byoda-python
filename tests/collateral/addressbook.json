@@ -280,6 +280,17 @@
                     "$ref": "/schemas/asset"
                 }
             },
+            "apps": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "delete", "append"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "/schemas/app"
+                }
+            },
             "network_assets": {
                 "#accesscontrol": {
                     "member": {
@@ -435,6 +446,58 @@
                     }
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
+            },
+            "app": {
+                "$id": "/schemas/app",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "An app approved by the service",
+                "type": "object",
+                "properties": {
+                    "app_id": {
+                        "description": "the UUID for the app",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "app_type": {
+                        "description": "the type of app, ie. 'moderation', 'identity' etc. etc.",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "the status of the app as specified by the member, ie. 'active', 'inactive', 'preferred', etc. etc.",
+                        "type": "string"
+                    },
+                    "app_urls": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/app_url"
+                        },
+                        "#reference_field": "app_id"
+                    }
+                },
+                "required": ["app_id", "app_type", "status"]
+            },
+            "app_url": {
+                "$id": "/schemas/app_url",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a URL available from an app",
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "description": "the functionality provided by the app at this URL",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "the url for the API",
+                        "type": "string",
+                        "format": "url"
+                    },
+                    "app_id": {
+                        "description": "the UUID for the app",
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": ["name", "url", "app_id"]
             },
             "asset_link": {
                 "$id": "/schemas/asset_link",
@@ -721,7 +784,7 @@
                         "type": "string"
                     },
                     "video_id": {
-                        "description": "The ID of the public_asset video that this chapter belongs to",
+                        "description": "The asset ID of the public_asset video that this chapter belongs to",
                         "type": "string",
                         "format": "uuid",
                         "#properties": ["index"]
@@ -734,7 +797,7 @@
                 "type": "object",
                 "description": "A claim signed by a party.",
                 "required": [
-                    "claim_id", "issuer", "issuer_type", "object_type", "keyfield", "keyfield_id",
+                    "claim_id", "issuer_id", "issuer_type", "object_type", "keyfield", "keyfield_id",
                     "object_fields", "requester_id", "requester_type",
                     "signature", "signature_timestamp", "signature_format_version",
                     "signature_url", "renewal_url", "confirmation_url",
@@ -753,10 +816,16 @@
                             "type": "string"
                         }
                     },
-                    "issuer": {
+                    "issuer_id": {
                         "description": "The UUID of the claim issuer",
                         "type": "string",
                         "format": "uuid"
+                    },
+                    "issuer": {
+                        "description": "(obsolete, replaced by issuer_id field)",
+                        "type": "string",
+                        "format": "uuid",
+                        "#obsolete": true
                     },
                     "issuer_type": {
                         "description": "what type of entity issued this claim",
@@ -819,7 +888,7 @@
                         "format": "uri"
                     },
                     "confirmation_url": {
-                        "description": "URL of API to call to confirm the cmail signature has not been revoked",
+                        "description": "URL of API to call to confirm the signature has not been revoked",
                         "type": "string",
                         "format": "url"
                     },
@@ -860,7 +929,7 @@
                         "format": "uri"
                     },
                     "asset_merkle_root_hash": {
-                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by adding 'merkle' to the value for the asset_url",
+                        "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by taking the asset_url and replace the filename in that url with 'merkle-tree.db'",
                         "type": "string"
                     },
                     "public_video_thumbnails": {
@@ -1302,5 +1371,17 @@
         "addressbook.byoda.org",
         "byoda.tube",
         "www.byoda.tube"
+    ],
+    "listen_relations": [
+        {
+            "relation": "follow",
+            "class_name": "public_assets",
+            "destination class": "incoming_assets"
+        },
+        {
+            "relation": "subscribe",
+            "class_name": "public_assets",
+            "destination class": "incoming_assets"
+        }
     ]
 }

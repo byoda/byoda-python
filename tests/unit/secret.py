@@ -38,6 +38,7 @@ from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -232,6 +233,35 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         compare_check = filecmp.cmp(source_file, out_file)
         self.assertTrue(compare_check)
 
+        #
+        # Tests for App secret
+        #
+        app_id: UUID = get_test_uuid()
+        fqdn = 'testapp.com'
+        app_secret = AppDataSecret(app_id, SERVICE_ID, network)
+        csr = await app_secret.create_csr(fqdn)
+        cert_chain = service.apps_ca.sign_csr(csr)
+
+        await cert_chain.save(
+            app_secret.cert_file, config.server.storage_driver
+        )
+
+        #
+        # Tests for App Data secret
+        #
+        app_data_secret = AppDataSecret(app_id, SERVICE_ID, network)
+        csr = await app_data_secret.create_csr(fqdn)
+        cert_chain = service.apps_ca.sign_csr(csr)
+
+        await cert_chain.save(
+            app_data_secret.cert_file, config.server.storage_driver
+        )
+
+        app_data_secret.cert = cert_chain.signed_cert
+
+        #
+        # Test claims
+        #
         object_fields: list[str] = [
             'asset_id', 'asset_name', 'asset_type', 'asset_url',
             'creator', 'published_timestamp', 'annotations', 'creator',
@@ -240,9 +270,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         asset_id: UUID = get_test_uuid()
         requester_id: UUID = get_test_uuid()
         claim = Claim.build(
-            ['claim A', 'claim B'], 'test', IdType.APP,
+            ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
-            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
         )
         asset_data = {
@@ -255,12 +285,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'annotations': ['test1', 'test2'],
         }
 
-        signature = claim.create_signature(asset_data, data_secret)
+        signature = claim.create_signature(asset_data, app_data_secret)
 
         verify_claim = Claim.build(
-            ['claim A', 'claim B'], 'test', IdType.APP,
+            ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
-            object_fields, requester_id, IdType.MEMBER, 'https:/signature',
+            object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
         )
         verify_claim.claim_id = claim.claim_id
@@ -270,12 +300,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         verify_claim.cert_fingerprint = claim.cert_fingerprint
 
         verify_claim.signature = signature
-        verify_claim.verify_signature(asset_data, data_secret)
+        verify_claim.verify_signature(asset_data, app_data_secret)
         self.assertTrue(verify_claim.verified)
 
         data = claim.as_dict()
         new_claim = Claim.from_dict(data)
-        new_claim.verify_signature(asset_data, data_secret)
+        new_claim.verify_signature(asset_data, app_data_secret)
         self.assertTrue(new_claim.verified)
 
     async def test_message_signature(self):
@@ -359,29 +389,29 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account = Account(get_test_uuid(), network)
         message = 'ik ben toch niet gek!'
 
-        data_secret = MemberDataSecret(
+        member_data_secret = MemberDataSecret(
             get_test_uuid(), ADDRESSBOOK_SERVICE_ID, account
         )
 
-        data_secret.cert_file = 'azure-pod-member-data-cert.pem'
-        data_secret.private_key_file = 'azure-pod-member-data.key'
+        member_data_secret.cert_file = 'azure-pod-member-data-cert.pem'
+        member_data_secret.private_key_file = 'azure-pod-member-data.key'
         shutil.copy(
-            f'tests/collateral/local/{data_secret.cert_file}',
+            f'tests/collateral/local/{member_data_secret.cert_file}',
             TEST_DIR
         )
         shutil.copy(
-            f'tests/collateral/local/{data_secret.private_key_file}',
+            f'tests/collateral/local/{member_data_secret.private_key_file}',
             TEST_DIR
         )
         with open('tests/collateral/local/azure-pod-private-key-password'
                   ) as file_desc:
             private_key_password = file_desc.read().strip()
 
-        await data_secret.load(
+        await member_data_secret.load(
             with_private_key=True, password=private_key_password
         )
-        signature = data_secret.sign_message(message)
-        data_secret.verify_message_signature(message, signature)
+        signature = member_data_secret.sign_message(message)
+        member_data_secret.verify_message_signature(message, signature)
 
 
 if __name__ == '__main__':

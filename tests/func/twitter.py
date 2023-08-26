@@ -27,6 +27,7 @@ from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
+from byoda.datatypes import IdType
 
 from byoda.data_import.twitter import Twitter
 from byoda.data_import.twitter import ENVIRON_TWITTER_USERNAME
@@ -72,8 +73,9 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [pod_account.tls_secret.common_name],
-            [AccountRouter, MemberRouter, AuthTokenRouter]
+            'v0.0.1',
+            [AccountRouter, MemberRouter, AuthTokenRouter],
+            lifespan=None
         )
 
         for account_member in pod_account.memberships.values():
@@ -125,7 +127,8 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
         data = {
             'username': str(account_member.member_id)[:8],
             'password': os.environ['ACCOUNT_SECRET'],
-            'service_id': ADDRESSBOOK_SERVICE_ID
+            'service_id': ADDRESSBOOK_SERVICE_ID,
+            'target_type': IdType.MEMBER.value,
         }
         response = requests.post(
             f'{BASE_URL}/v1/pod/authtoken', json=data

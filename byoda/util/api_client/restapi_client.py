@@ -10,8 +10,7 @@ RestApiClient, derived from ApiClient for calling REST APIs
 import logging
 from uuid import UUID
 
-import requests
-import aiohttp
+from byoda.util.api_client.api_client import HttpResponse
 
 
 from byoda.secrets.secret import Secret
@@ -33,8 +32,9 @@ class RestApiClient:
     async def call(api: str, method: HttpMethod = HttpMethod.GET,
                    secret: Secret = None, params: dict = None,
                    data: dict = None, service_id: int = None,
-                   member_id: UUID = None, account_id: UUID = None
-                   ) -> aiohttp.ClientResponse:
+                   member_id: UUID = None, account_id: UUID = None,
+                   headers: dict[str, str] = None
+                   ) -> HttpResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -47,6 +47,7 @@ class RestApiClient:
         :param service_id:
         :param member_id:
         :param account_id:
+        :param headers: a list of HTTP headers to add to the request
         '''
 
         if method == HttpMethod.POST:
@@ -70,19 +71,24 @@ class RestApiClient:
                 # API URL did not end with an ID specifier
                 pass
 
-        response: aiohttp.ClientResponse = await ApiClient.call(
+        resp: HttpResponse = await ApiClient.call(
             api, method, secret=secret, params=params, data=data,
-            service_id=service_id, member_id=member_id, account_id=account_id,
+            headers=headers, service_id=service_id, member_id=member_id,
+            account_id=account_id,
         )
 
-        return response
+        return resp
+
+    @staticmethod
+    async def close_all():
+        await ApiClient.close_all()
 
     @staticmethod
     def call_sync(api: str, method: HttpMethod = HttpMethod.GET,
                   secret: Secret = None, params: dict = None,
                   data: dict = None, service_id: int = None,
                   member_id: UUID = None, account_id: UUID = None
-                  ) -> requests.Response:
+                  ) -> HttpResponse:
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -118,9 +124,9 @@ class RestApiClient:
                 # API URL did not end with an ID specifier
                 pass
 
-        response: requests.Response = ApiClient.call_sync(
+        resp: HttpResponse = ApiClient.call_sync(
             api, method.value, secret=secret, params=params, data=data,
             service_id=service_id, member_id=member_id, account_id=account_id,
         )
 
-        return response
+        return resp

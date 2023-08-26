@@ -76,6 +76,10 @@ class MemberData(dict):
     by the schema of services
     '''
 
+    __slots__ = [
+        'member', 'unvalidated_data', 'paths'
+    ]
+
     def __init__(self, member: Member):
         self.member: Member = member
         self.unvalidated_data: dict = None
@@ -354,8 +358,11 @@ class MemberData(dict):
         # If an origin_member_id has been provided then we check
         # the signature
         auth: RequestAuth = info.context['auth']
-        if not await member.query_cache.set(query_id, auth.id):
-            raise ValueError('Duplicate query id')
+
+        if query_id:
+            _LOGGER.debug(f'Query received with query_id {query_id}')
+            if not await member.query_cache.set(query_id, auth.id):
+                raise ValueError(f'Duplicate query id: {query_id}')
 
         if origin_member_id or origin_signature or timestamp:
             try:
@@ -379,11 +386,15 @@ class MemberData(dict):
         elif depth > 0:
             # If no origin_member_id has been provided then the request
             # must come from our own membership
+
+            if not query_id:
+                raise ValueError('Recursive query without query_id')
+
             if (auth.id_type != IdType.MEMBER or
                     auth.member_id != member.member_id):
                 raise ByodaValueError(
                     'Received a recursive query without signature '
-                    'submitted by someone else than ourselves'
+                    'submitted by someone else than our membership'
                 )
 
         filter_set = DataFilterSet(filters)

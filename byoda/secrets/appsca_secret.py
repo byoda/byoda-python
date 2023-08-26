@@ -11,11 +11,14 @@ from copy import copy
 from typing import TypeVar
 from datetime import datetime, timedelta
 
+from cryptography import x509
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId
+from byoda.datatypes import CsrSource
+
 from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,18 +28,20 @@ Network = TypeVar('Network')
 
 class AppsCaSecret(CaSecret):
     # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=1080)
+    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=1800)
 
     # CSRs that we are willing to sign
-    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365}
+    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
+
+    __slots__ = ['network', 'service_id']
 
     def __init__(self,  service_id: int, network: Network):
         '''
-        Class for the Service Apps CA secret. Either paths or network
-        parameters must be provided. If paths parameter is not provided,
-        the cert_file and private_key_file attributes of the instance must
-        be set before the save() or load() apps are called
+        Class for the Apps CA secret. Either paths or network parameters must
+        be provided. If paths parameter is not provided, the cert_file and
+        private_key_file attributes of the instance must be set before the
+        save() or load() apps are called
 
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
@@ -130,7 +135,8 @@ class AppsCaSecret(CaSecret):
 
         return entity_id
 
-    def review_csr(self, csr: CertificateSigningRequest) -> EntityId:
+    def review_csr(self, csr: CertificateSigningRequest,
+                   source: CsrSource = None) -> EntityId:
         '''
         Review a CSR. CSRs for registering service member are permissable.
 
@@ -150,3 +156,37 @@ class AppsCaSecret(CaSecret):
         entity_id = self.review_commonname(commonname)
 
         return entity_id
+
+    def review_subjectalternative_name(self, csr: CertificateSigningRequest
+                                       ) -> str:
+        '''
+        Extracts the subject alternative name extension of the CSR
+        '''
+
+        super().review_subjectalternative_name(csr, max_dns_names=2)
+
+        # We do additional tests as this cert should have multiple subject
+        # alternative names (SAN)
+        common_name = None
+        for rdns in csr.subject.rdns:
+            dn = rdns.rfc4514_string()
+            if dn.startswith('CN='):
+                common_name = dn[3:]
+                break
+
+        if not common_name:
+            raise ValueError('CSR has no common name')
+
+        extention = csr.extensions.get_extension_for_class(
+            x509.SubjectAlternativeName
+        )
+
+        dnsnames = extention.value.get_values_for_type(x509.DNSName)
+
+        if common_name not in dnsnames:
+            raise ValueError('Common name of CSR is not in list of SANs')
+
+        if len(dnsnames) < 2:
+            raise ValueError('CSR must have at least 2 SANs')
+
+        return common_name

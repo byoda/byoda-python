@@ -45,6 +45,8 @@ _LOGGER = logging.getLogger(__name__)
 class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
+    MODERATION_REQUEST_API: str = '/api/v1/moderate/asset'
+    MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
 
     def __init__(self, api_key: str | None = None):
         '''
@@ -129,7 +131,10 @@ class YouTube:
     async def persist_videos(self, member: Member, data_store: DataStore,
                              storage_driver: FileStorage = None,
                              already_ingested_assets: dict[str, any] = {},
-                             bento4_directory: str = None):
+                             bento4_directory: str | None = None,
+                             moderate_request_url: str | None = None,
+                             moderate_jwt_header: str | None = None,
+                             moderate_claim_url: str | None = None):
         '''
         Persist the videos to storage. Videos are stored in the data store.
         If ingest of videos is enabled for this channel then the videos are
@@ -154,7 +159,10 @@ class YouTube:
 
             await channel.persist(
                 member, data_store, storage_driver, already_ingested_assets,
-                bento4_directory
+                bento4_directory,
+                moderate_request_url=moderate_request_url,
+                moderate_jwt_header=moderate_jwt_header,
+                moderate_claim_url=moderate_claim_url
             )
 
     async def scrape_videos(self,

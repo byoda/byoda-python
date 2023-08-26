@@ -48,6 +48,8 @@ AzureBucket = namedtuple('AzureBucket', ['storage_account', 'container'])
 
 
 class AzureFileStorage(FileStorage):
+    __slots__ = ['credential', '_blob_clients', 'buckets', 'clients']
+
     '''
     Provides access to Azure object (aka 'blob') storage
     '''
@@ -253,6 +255,7 @@ class AzureFileStorage(FileStorage):
 
         :param filepath: the full path to the blob
         :param data: the data to be written to the file
+        :param file_descriptor: a file descriptor to read the data from
         :param file_mode: is the data in the file text or binary
         :param storage_type: use private or public storage account
         '''

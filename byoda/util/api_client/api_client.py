@@ -6,25 +6,28 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 '''
 
 import logging
-import asyncio
 
 from uuid import UUID
 from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
-from urllib.parse import urlparse
-
-import orjson
-import aiohttp
-import ssl
-
 from datetime import datetime
 from datetime import timezone
+from urllib.parse import urlparse
 from collections import namedtuple
 
-import requests
+import orjson
 
-from byoda.secrets.secret import Secret
+from ssl import SSLCertVerificationError
+
+from httpx import Client as SyncHttpClient
+from httpx import AsyncClient as AsyncHttpClient
+from httpx import Response as HttpResponse
+from httpx import RequestError
+from httpx import TransportError
+from httpx import TimeoutException
+
+
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
@@ -39,6 +42,8 @@ _LOGGER = logging.getLogger(__name__)
 
 Server = TypeVar('Server')
 Network = TypeVar('Network')
+Secret = TypeVar('Secret')
+
 
 class ClientAuthType(Enum):
     # flake8: noqa=E221
@@ -57,7 +62,7 @@ class HttpMethod(Enum):
     HEAD        = 'head'
 
 
-HttpSession = namedtuple('HttpSession', ['session', 'last_used'])
+HttpSession = namedtuple('HttpClient', ['session', 'last_used'])
 
 class ApiClient:
     '''
@@ -109,8 +114,6 @@ class ApiClient:
                 f'service-secret, not {type(secret)}'
             )
 
-        self.ssl_context = None
-
         self.host = parsed_url.hostname
         if (parsed_url.hostname.startswith('dir.')
                 or parsed_url.hostname.startswith('proxy.')
@@ -119,21 +122,16 @@ class ApiClient:
             # to the proxy server, or servers not in the DNS domain of
             # the byoda network, we do not have to set the root CA as the
             # these use certs signed by a public CA
+            ca_filepath = None
             _LOGGER.debug(
                 'Not using byoda certchain for server cert '
                 f'verification of {api}'
             )
-            self.ssl_context = ssl.create_default_context()
         else:
             ca_filepath = storage.local_path + server.network.root_ca.cert_file
-
-            self.ssl_context = config.ssl_contexts.get(pool)
-            if not self.ssl_context:
-                self.ssl_context = ssl.create_default_context(cafile=ca_filepath)
-                config.ssl_contexts[pool] = self.ssl_context
-
             _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
+        cert: tuple[str, str] | None = None
         if secret:
             if not storage:
                 # Hack: podserver and svcserver use different attributes
@@ -141,29 +139,29 @@ class ApiClient:
 
             cert_filepath = storage.local_path + secret.cert_file
             key_filepath = secret.get_tmp_private_key_filepath()
+            cert: tuple[str, str] | None = (cert_filepath, key_filepath)
 
             _LOGGER.debug(
                 f'Setting client cert/key to {cert_filepath}, {key_filepath}'
             )
-            self.ssl_context.load_cert_chain(cert_filepath, key_filepath)
 
         if pool not in config.client_pools:
-            timeout_setting = aiohttp.ClientTimeout(total=timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout_setting)
+            self.session: AsyncHttpClient = AsyncHttpClient(
+                timeout=timeout, verify=ca_filepath, cert=cert
+            )
 
-            # TODO: create podworker job to prune old sessions
             config.client_pools[pool] = HttpSession(
                 session=self.session, last_used=datetime.now(tz=timezone.utc)
             )
         else:
-            self.session: aiohttp.ClientSession = config.client_pools[pool].session
+            self.session: HttpSession = config.client_pools[pool].session
 
     @staticmethod
-    async def call(api: str, method: str | HttpMethod = 'GET', secret:Secret = None,
+    async def call(api: str, method: str | HttpMethod = 'GET', secret: Secret = None,
                    params: dict = None, data: dict = None, headers: dict = None,
                    service_id: int = None, member_id: UUID = None,
                    account_id: UUID = None, network_name: str = None,
-                   port: int = None, timeout: int = 10) -> aiohttp.ClientResponse:
+                   port: int = None, timeout: int = 10):
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -198,51 +196,56 @@ class ApiClient:
             api, network_name, service_id=service_id, member_id=member_id,
             account_id=account_id
         )
-        _LOGGER.debug(
-            f'Calling {method} {api} with query parameters {params} '
-            f'and data: {data}'
-        )
+        if method == 'GET':
+            _LOGGER.debug(
+                f'Calling {method} {api} with query parameters {params} '
+                f'and data: {data}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Calling {method} {api} with query parameters {params} '
+            )
 
-        client = ApiClient(
-            api, secret=secret, service_id=service_id, network_name=network_name
+        client: ApiClient = ApiClient(
+            api, secret=secret, service_id=service_id, network_name=network_name,
+            timeout=timeout, port=port
         )
 
         try:
-            response: aiohttp.ClientResponse = await client.session.request(
+            resp: HttpResponse = await client.session.request(
                 method, api, params=params, data=processed_data,
-                headers=updated_headers, ssl=client.ssl_context, timeout=timeout
+                headers=updated_headers
             )
-        except (aiohttp.ServerTimeoutError, aiohttp.ServerConnectionError,
-                aiohttp.client_exceptions.ClientConnectorCertificateError,
-                aiohttp.client_exceptions.ClientConnectorError,
-                asyncio.exceptions.TimeoutError) as exc:
+        except (RequestError, TransportError, TimeoutException,
+                SSLCertVerificationError) as exc:
             raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
 
-        if response.status >= 400:
+        if resp.status_code >= 400:
             raise ByodaRuntimeError(
-                f'Failure to call API {api}: {response.status}'
+                f'Failure to call API {api}: {resp.status}'
             )
 
-        return response
+        return resp
 
     @staticmethod
     async def close_all():
         '''
-        Closes all aiohttp sessions to avoid warnings at the end of the calling program
+        Closes all AsyncHttpClient sessions to avoid warnings at the end of
+        the calling program
         '''
 
-        for pool, httpsession in config.client_pools.items():
-            await httpsession.session.close()
+        for pool, client in config.client_pools.items():
+            await client.session.aclose()
 
         pools = list(config.client_pools.keys())
         for pool in pools:
             del config.client_pools[pool]
 
-        config.client_pools: dict[str, aiohttp.ClientSession] = {}
+        config.client_pools: dict[str, AsyncHttpClient] = {}
 
     @staticmethod
-    def _get_sync_session(api: str, secret: Secret, service_id: int,
-                          timeout: int):
+    def _get_sync_client(api: str, secret: Secret, service_id: int,
+                          timeout: int) -> SyncHttpClient:
         server: Server = config.server
         if hasattr(server, 'local_storage'):
             storage = server.local_storage
@@ -272,16 +275,15 @@ class ApiClient:
             )
 
         if pool not in config.sync_client_pools:
-            session = requests.Session()
-            session.timeout = timeout
-
+            ca_filepath=None
             if not (api.startswith('https://dir')
                     or api.startswith('https://proxy')):
-                session.verify = (
+                ca_filepath = (
                     storage.local_path + server.network.root_ca.cert_file
                 )
-                _LOGGER.debug(f'Set server cert validation to {session.verify}')
+                _LOGGER.debug(f'Set server cert validation to {ca_filepath}')
 
+            cert = None
             if secret:
                 if not storage:
                     # Hack: podserver and svcserver use different attributes
@@ -293,25 +295,27 @@ class ApiClient:
                 _LOGGER.debug(
                     f'Setting client cert/key to {cert_filepath}, {key_filepath}'
                 )
-                session.cert = (cert_filepath, key_filepath)
+                cert = (cert_filepath, key_filepath)
 
-
-            config.sync_client_pools[pool] = session
+            client = SyncHttpClient(timeout=timeout, verify=ca_filepath,cert=cert)
+            config.sync_client_pools[pool] = client
         else:
-            session = config.sync_client_pools[pool]
+            client: SyncHttpClient = config.sync_client_pools[pool]
 
-        return session
+        return client
 
     @staticmethod
     def call_sync(api: str, method: str = 'GET', secret:Secret = None,
                   params: dict = None, data: dict = None, headers: dict = None,
                   service_id: int = None, member_id: UUID = None,
                   account_id: UUID = None, network_name: str = None,
-                  port: int = 443, timeout: int = 10) -> requests.Response:
+                  port: int = 443, timeout: int = 10) -> HttpResponse:
 
         server: Server = config.server
 
-        session = ApiClient._get_sync_session(api, secret, service_id, timeout)
+        client: SyncHttpClient = ApiClient._get_sync_client(
+            api, secret, service_id, timeout
+        )
 
         if not network_name:
             network = server.network
@@ -335,9 +339,9 @@ class ApiClient:
             account_id=account_id
         )
 
-        response = session.request(
+        resp: HttpResponse = client.request(
             method, api, params=params, data=processed_data,
             headers=updated_headers,
         )
 
-        return response
+        return resp

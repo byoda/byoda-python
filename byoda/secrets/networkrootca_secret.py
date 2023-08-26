@@ -29,6 +29,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkRootCaSecret(CaSecret):
+    __slots__ = ['network']
+
     # The Network Root CA secret should never renew
     RENEW_WANTED = datetime.now() + timedelta(days=100 * 365)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=100 * 365)

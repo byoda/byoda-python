@@ -9,7 +9,6 @@ Test cases for Sqlite storage
 import os
 import sys
 import time
-import shutil
 import unittest
 from copy import deepcopy
 from uuid import UUID
@@ -41,7 +40,7 @@ SCHEMA = 'tests/collateral/addressbook.json'
 TEST_DIR = '/tmp/byoda-tests/sqlite'
 
 
-@dataclass
+@dataclass(slots=True)
 class NetworkInvite:
     created_timestamp: str
     member_id: str
@@ -393,7 +392,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account: Account = config.server.account
 
         # BUG: async unittest.asyncsetup did not run??
-        os.remove('/tmp/byoda-tests/sqlite/private/network-byoda.net/account-pod/data/account.db')
+        os.remove(
+            '/tmp/byoda-tests/sqlite'
+            '/private/network-byoda.net/account-pod/data/account.db'
+        )
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False

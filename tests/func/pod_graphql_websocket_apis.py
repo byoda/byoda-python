@@ -19,6 +19,8 @@ import requests
 from uuid import UUID
 from datetime import datetime, timezone
 
+from byoda.util.api_client.api_client import HttpResponse
+
 from gql import Client, gql
 from gql.transport.websockets import WebsocketsTransport
 
@@ -96,10 +98,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
+            'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
-            ]
+            ],
+            lifespan=None
         )
 
         for account_member in account.memberships.values():
@@ -386,6 +389,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await client.close_async()
 
+
 async def perform_append(member_id: UUID, relation: str) -> object:
     await asyncio.sleep(1)
     url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
@@ -400,11 +404,11 @@ async def perform_append(member_id: UUID, relation: str) -> object:
         'created_timestamp': str(datetime.now(tz=timezone.utc).isoformat())
     }
 
-    response = await GraphQlClient.call(
+    response: HttpResponse = await GraphQlClient.call(
         url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['append'], vars=vars,
         timeout=120, headers=member_headers
     )
-    result = await response.json()
+    result = response.json()
 
     return result
 
@@ -421,11 +425,11 @@ async def perform_delete(member_id: UUID, relation: str) -> object:
         'filters': {'relation': {'eq': relation}},
     }
 
-    response = await GraphQlClient.call(
+    response: HttpResponse = await GraphQlClient.call(
         url, GRAPHQL_STATEMENTS[MARKER_NETWORK_LINKS]['delete'], vars=vars,
         timeout=120, headers=member_headers
     )
-    result = await response.json()
+    result = response.json()
 
     return result
 

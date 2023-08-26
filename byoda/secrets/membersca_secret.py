@@ -22,10 +22,12 @@ from .ca_secret import CaSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class MembersCaSecret(CaSecret):
+    __slots__ = ['network', 'service_id']
+
     # When should the Members CA secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)

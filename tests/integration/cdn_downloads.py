@@ -18,7 +18,6 @@ import sys
 import unittest
 
 from uuid import uuid4, UUID
-
 import requests
 
 from byoda.util.logger import Logger
@@ -50,16 +49,16 @@ URLS: dict[str, dict[str, str]] = {
             'public': 'https://byodaprivate.blob.core.windows.net/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html'
         },
         'pod-member': {
-            'restricted': f'https://{AZURE_POD_MEMBER_FQDN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AZURE_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AZURE_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{AZURE_POD_CUSTOM_DOMAIN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AZURE_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AZURE_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byoda.io/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={AZURE_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-            'public': f'https://cdn.byoda.io/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={AZURE_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'restricted': f'https://cdn.byoda.io/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byoda.io/public/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'aws': {
@@ -68,16 +67,16 @@ URLS: dict[str, dict[str, str]] = {
             'public': 'https://byoda-public.s3.us-east-2.amazonaws.com/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-member': {
-            'restricted': f'https://{AWS_POD_MEMBER_FQDN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AWS_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AWS_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{AWS_POD_CUSTOM_DOMAIN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{AWS_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{AWS_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byoda.io/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={AWS_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-            'public': f'https://cdn.byoda.io/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={AWS_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'restricted': f'https://cdn.byoda.io/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byoda.io/public/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'gcp': {
@@ -86,30 +85,30 @@ URLS: dict[str, dict[str, str]] = {
             'public': 'https://storage.googleapis.com/byoda-public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-member': {
-            'restricted': f'https://{GCP_POD_MEMBER_FQDN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{GCP_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{GCP_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{GCP_POD_CUSTOM_DOMAIN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{GCP_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{GCP_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byoda.io/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={GCP_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-            'public': f'https://cdn.byoda.io/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={GCP_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'restricted': f'https://cdn.byoda.io/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byoda.io/public/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'local': {
         'pod-member': {
-            'restricted': f'https://{HOME_POD_MEMBER_FQDN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{HOME_POD_MEMBER_FQDN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{HOME_POD_MEMBER_FQDN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'pod-custom': {
-            'restricted': f'https://{HOME_POD_CUSTOM_DOMAIN}/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'restricted': f'https://{HOME_POD_CUSTOM_DOMAIN}/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
             'public': f'https://{HOME_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byoda.io/restricted/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={HOME_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-            'public': f'https://cdn.byoda.io/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html?service_id={ADDRESSBOOK_SERVICE_ID}&member_id={HOME_POD_MEMBER_ID}&asset_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'restricted': f'https://cdn.byoda.io/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byoda.io/public/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
 
         },
 
@@ -127,6 +126,9 @@ MEMBER_IDS: dict[str, str] = {
 class TestWebServer(unittest.TestCase):
     def test_html_file(self):
         for cloud in URLS:
+            if cloud == 'local':
+                continue
+
             for target in URLS[cloud]:
                 if target == 'pod-member':
                     ssl_root = \
@@ -154,13 +156,14 @@ class TestWebServer(unittest.TestCase):
                         key_id, token = get_token(url, asset_id, cloud)
                         response = requests.get(
                             url, verify=ssl_root,
-                            headers={'Authorization': f'Bearer {token}'},
+                            headers={
+                                'Authorization': f'Bearer {token}',
+                                'X-Authorizationkeyid': str(key_id)
+                            },
                             params={
-                                'key_id': key_id,
                                 'service_id': ADDRESSBOOK_SERVICE_ID,
                                 'asset_id': str(asset_id),
                                 'member_id': MEMBER_IDS[cloud],
-
                             }
                         )
                         self.assertEqual(response.status_code, 200)

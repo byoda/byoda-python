@@ -10,6 +10,7 @@ import logging
 
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
 
 from byoda.storage import FileStorage
 
@@ -17,6 +18,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CertChain:
+    __slots__ = [
+        'signed_cert', 'cert_chain'
+    ]
+
     def __init__(self, signed_cert: Certificate,
                  cert_chain: list[Certificate]):
         '''
@@ -75,9 +80,14 @@ class CertChain:
 
         return data
 
-    def save(self, filepath, storage_driver: FileStorage):
+    async def save(self, filepath, storage_driver: FileStorage,
+                   with_fingerprint: bool = True):
         '''
         Saves the cert chain to a file
         '''
 
-        storage_driver.write(filepath, str(self))
+        await storage_driver.write(filepath, str(self))
+
+        if with_fingerprint:
+            fingerprint = self.signed_cert.fingerprint(hashes.SHA256()).hex()
+            await storage_driver.write(f'{filepath}-{fingerprint}', str(self))

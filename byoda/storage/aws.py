@@ -24,6 +24,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AwsFileStorage(FileStorage):
+    __slots__ = ['driver', 'buckets']
+
     '''
     Provides access to AWS S3 object storage
     '''

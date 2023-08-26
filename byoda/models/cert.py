@@ -39,7 +39,7 @@ class SignedAccountCertResponseModel(BaseModel):
     network_data_cert_chain: str
 
     def __repr__(self):
-        return(
+        return (
             '<SignedAccountCertResponseModel={certchain: Dict[str:str], '
             'network_data_cert_chain: str}>'
         )
@@ -60,7 +60,7 @@ class SignedServiceCertResponseModel(BaseModel):
     network_data_cert_chain: str
 
     def __repr__(self):
-        return(
+        return (
             '<SignedServiceCertResponseModel={certchain: Dict[str:str], '
             'network_data_cert_chain: str}>'
         )
@@ -81,7 +81,7 @@ class SignedMemberCertResponseModel(BaseModel):
     service_data_cert_chain: str
 
     def __repr__(self):
-        return(
+        return (
             '<SignedNetworkCertResponseModel={certchain: Dict[str:str], '
             'service_data_cert_chain: str}>'
         )

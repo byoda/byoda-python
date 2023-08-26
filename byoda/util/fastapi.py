@@ -12,20 +12,23 @@ import logging
 from starlette.middleware import Middleware
 from starlette_context import plugins
 from starlette_context.middleware import RawContextMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from byoda.datamodel.network import Network
 
 from byoda import config
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def setup_api(title: str, description: str, version: str,
-              cors_origins: list[str], routers: list):
+def setup_api(title: str, description: str, version: str, routers: list,
+              lifespan: callable) -> FastAPI:
     middleware = [
+        Middleware(
+            CORSMiddleware, allow_origins=[], allow_credentials=True,
+            allow_methods=['*'], allow_headers=['*'], expose_headers=['*'],
+            max_age=86400
+        ),
         Middleware(
             RawContextMiddleware,
             plugins=(
@@ -37,11 +40,8 @@ def setup_api(title: str, description: str, version: str,
 
     app = FastAPI(
         title=title, description=description, version=version,
-        middleware=middleware, debug=True
+        middleware=middleware, debug=True, lifespan=lifespan
     )
-
-    if cors_origins:
-        add_cors(app, cors_origins)
 
     # FastAPIInstrumentor.instrument_app(app)
     # PrometheusInstrumentator().instrument(app).expose(app)
@@ -52,30 +52,38 @@ def setup_api(title: str, description: str, version: str,
     return app
 
 
-def add_cors(app: FastAPI, cors_origins: list[str], allow_proxy: bool = True):
+def update_cors_origins(hosts: str | list[str]):
     '''
-    Add CORS headers to the app
+    Updates the starlette CORS middleware to add the provided hosts
+
+    :param hosts: list of hosts to add
     '''
 
-    network: Network = config.server.network
+    if not hosts:
+        _LOGGER.debug('No CORS hosts to add')
+        return
 
-    # SECURITY: remove below 2 lines when in production
-    cors_origins.append('https://byoda-pod-manger.web.app')
-    cors_origins.append('https://addressbook.byoda.org')
-    cors_origins.append('*')
+    if isinstance(hosts, str):
+        hosts = [hosts]
+    elif isinstance(hosts, set):
+        hosts = list(hosts)
 
-    proxy_url = f'https://proxy.{network.name}'
-    if allow_proxy and proxy_url not in cors_origins:
-        cors_origins.append(proxy_url)
+    if config.debug:
+        hosts.append('http://localhost:3000')
 
-    _LOGGER.debug(
-        f'Adding CORS middleware for origins {", ".join(cors_origins)}'
-    )
+    app: FastAPI = config.app
+    for middleware in app.user_middleware or []:
+        if middleware.cls == CORSMiddleware:
+            for host in hosts:
+                if (not host.startswith('https://') and
+                        not host.startswith('http://') and host != '*'):
+                    host = f'https://{host}'
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=['*'],
-        allow_headers=['*'],
-    )
+                if host not in middleware.options['allow_origins']:
+                    _LOGGER.debug(f'Adding CORS host: {host}')
+                    # app.user_middleware is a reference to
+                    # app.middleware_stack.app (or vice versa)
+                    middleware.options['allow_origins'].append(host)
+            return
+
+    raise KeyError('CORS middleware not found')

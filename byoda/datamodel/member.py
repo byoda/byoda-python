@@ -14,8 +14,6 @@ from typing import TypeVar
 from datetime import datetime
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 
 from strawberry.fastapi import GraphQLRouter
 
@@ -51,6 +49,8 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
 
+from byoda.util.fastapi import update_cors_origins
+
 from byoda.util.nginxconfig import NginxConfig
 from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
 
@@ -75,6 +75,15 @@ class Member:
 
     This class is expected to only be used in the podserver
     '''
+
+    __slots__ = [
+        'member_id', 'service_id', 'account', 'network', 'service', 'schema',
+        'data', 'paths', 'document_store', 'data_store', 'query_cache',
+        'counter_cache', 'storage_driver', 'private_key_password', 'app',
+        'tls_secret', 'data_secret', 'service_data_secret',
+        'service_ca_secret', 'service_ca_certchain'
+
+    ]
 
     def __init__(self, service_id: int, account: Account,
                  local_service_contract: str = None, member_id: UUID = None
@@ -226,6 +235,9 @@ class Member:
                     'a member of'
                 )
 
+        # FIXME: 13 lines above this, we already downloaded the service
+        # DataSecret and assigned it to self.service_data_secret
+
         # We need the service data secret to verify the signature of the
         # data contract we have previously accepted
         self.service_data_secret = ServiceDataSecret(
@@ -291,6 +303,7 @@ class Member:
                 'test cases'
             )
 
+        _LOGGER.debug('Creating membership')
         member = Member(
             service.service_id, account,
             local_service_contract=local_service_contract
@@ -300,13 +313,14 @@ class Member:
         )
 
         if member_id:
-            _LOGGER.debug(f'Reviewing existing member_id: {member_id}')
             if isinstance(member_id, str):
                 member.member_id = UUID(member_id)
             elif isinstance(member_id, UUID):
                 member.member_id = member_id
             else:
-                raise ValueError(f'member_id {member_id} must have type UUID')
+                raise ValueError(
+                    f'member_id {member_id} must have type UUID or str'
+                )
         else:
             _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
@@ -329,6 +343,7 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
+        _LOGGER.debug('Creating member secrets')
         await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
@@ -442,15 +457,18 @@ class Member:
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
+            _LOGGER.debug('Loading member TLS secret')
             await self.tls_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
             self.member_id = self.tls_secret.member_id
         else:
+            _LOGGER.debug('Creating member TLS secret')
             self.tls_secret = await self._create_secret(
                 MemberSecret, members_ca
             )
 
+        _LOGGER.debug('Saving MemberSecret to local storage')
         await self.tls_secret.save(
              password=self.private_key_password, overwrite=True,
              storage_driver=local_storage
@@ -461,14 +479,22 @@ class Member:
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
+            _LOGGER.debug('Loading member data secret')
             await self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
 
             )
         else:
+            _LOGGER.debug('Creating member data secret')
             self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )
+
+        _LOGGER.debug('Saving MemberDataSecret to local storage')
+        await self.data_secret.save(
+             password=self.private_key_password, overwrite=True,
+             storage_driver=local_storage
+        )
 
     async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
                              renew: bool = False) -> Secret:
@@ -530,7 +556,7 @@ class Member:
 
     async def load_secrets(self) -> None:
         '''
-        Loads the membership secrets
+        Loads the membership secrets from the cloud
         '''
 
         self.tls_secret = MemberSecret(
@@ -546,40 +572,68 @@ class Member:
             with_private_key=True, password=self.private_key_password
         )
 
-    def create_jwt(self, expiration_days: int = 365) -> JWT:
+    def create_jwt(self, target_id: UUID = None, target_type: IdType = None,
+                   expiration_days: int = 365) -> JWT:
         '''
-        Creates a JWT for a member of a service. This JWT can be
-        used to authenticate against the:
-        - membership of the pod
-        - membership of the service of other pods
-        - service
+        Creates a JWT for a member of a service. Depending on the id_type,
+        this JWT can be used to authenticate against:
+        - membership of this pod
+        - a service
+        - an app
+
+        :params target_id: The UUID of the server that will use this JWT
+        to authenticate a request. If not provided, it will default to
+        the member_id of this Member instance
+        :param target_type: The type of server that will use this JWT to
+        authenticate a request. If not provided, it will default to
+        IdType.MEMBER
+        :param expiration_days:
+        :raises: ValueError
         '''
 
+        if not isinstance(expiration_days, int):
+            raise ValueError(
+                'expiration_days must be an integer, not '
+                f'{type(expiration_days)}'
+            )
+
+        if bool(target_id) != bool(target_type):
+            raise ValueError(
+                'Either target_id or target_type must be set or neither '
+                f'must be set: {target_id} - {target_type}'
+            )
+
+        if not target_id:
+            target_id: UUID = self.member_id
+            target_type: IdType = IdType.MEMBER
+
         jwt = JWT.create(
-            self.member_id, IdType.MEMBER, self.tls_secret, self.network.name,
-            service_id=self.service_id, expiration_days=expiration_days
+            self.member_id, IdType.MEMBER, self.data_secret, self.network.name,
+            service_id=self.service_id, scope_type=target_type,
+            scope_id=target_id, expiration_days=expiration_days,
         )
 
         return jwt
 
-    async def register(self, secret) -> None:
+    async def register(self, secret: MemberSecret | MemberDataSecret) -> None:
         '''
         Registers the membership and its schema version with both the network
         and the service. The pod will requests the service to sign its TLS CSR
         '''
 
+        _LOGGER.debug('Registering the pod with the network and service')
         # Register with the service to get our CSR signed
         csr = await secret.create_csr()
 
-        payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+        payload = {'csr': secret.csr_as_pem(csr)}
         resp = await RestApiClient.call(
             self.paths.get(Paths.SERVICEMEMBER_API),
             HttpMethod.POST, data=payload
         )
-        if resp.status != 201:
+        if resp.status_code != 201:
             raise RuntimeError('Certificate signing request failed')
 
-        cert_data = await resp.json()
+        cert_data = resp.json()
 
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
@@ -588,12 +642,13 @@ class Member:
 
         # Register with the Directory server so a DNS record gets
         # created for our membership of the service
+        server: Server = config.server
+        await secret.save(
+            password=self.private_key_password, overwrite=True,
+            storage_driver=server.local_storage
+        )
+
         if isinstance(secret, MemberSecret):
-            server: Server = config.server
-            await secret.save(
-                password=self.private_key_password, overwrite=True,
-                storage_driver=server.local_storage
-            )
             secret.save_tmp_private_key()
             await RestApiClient.call(
                 self.paths.get(Paths.NETWORKMEMBER_API),
@@ -667,13 +722,13 @@ class Member:
             service_id=self.service_id,
             network_name=self.network.name
         )
-        if resp.status != 200:
+        if resp.status_code != 200:
             raise ValueError(
                 'No service CA cert available locally or from the '
                 'service'
             )
 
-        self.service_ca_certchain.from_string(await resp.text())
+        self.service_ca_certchain.from_string(resp.text)
 
         await self.service_ca_certchain.save(
             storage_driver=server.local_storage, overwrite=True
@@ -724,13 +779,7 @@ class Member:
 
         self.app = app
 
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=self.schema.cors_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        update_cors_origins(self.schema.cors_origins)
 
         # podserver.dependencies.podrequest_auth.PodApiRequestAuth
         # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
@@ -842,17 +891,17 @@ class Member:
         fqdn = MemberSecret.create_commonname(
             member_id, self.service_id, self.network.name
         )
-        response = await ApiClient.call(
+        resp = await ApiClient.call(
             f'https://{fqdn}/member-cert.pem'
         )
 
-        if response.status != 200:
+        if resp.status_code != 200:
             raise RuntimeError(
                 'Download the member cert resulted in status: '
-                f'{response.status}'
+                f'{resp.status_code}'
             )
 
-        certchain = await response.text()
+        certchain = resp.text
 
         secret = MemberSecret(member_id, self.service_id, self.account)
         secret.from_string(certchain)

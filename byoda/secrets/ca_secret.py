@@ -45,6 +45,8 @@ CSR = x509.CertificateSigningRequest
 
 
 class CaSecret(Secret):
+    __slots__ = []
+
     # When should a CA secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
@@ -78,13 +80,9 @@ class CaSecret(Secret):
 
         super().__init__(cert_file, key_file, storage_driver)
 
-        self.is_root_cert: bool = False
-
         # X.509 constraints
         self.ca: bool = True
         self.max_path_length: int = 0
-
-        self.signs_ca_certs: bool = False
 
         # These are the different identity types of the
         # certificates for which this secret will sign
@@ -99,9 +97,6 @@ class CaSecret(Secret):
         :returns: commonname of the certificate
         :raises: ValueError, NotImplementedError, PermissionError
         '''
-
-        if not self.ca:
-            raise NotImplementedError('Only CAs need to review CNs')
 
         if not self.private_key_file:
             raise ValueError('CSR received while we do not have a private key')
@@ -140,7 +135,8 @@ class CaSecret(Secret):
 
         return common_name
 
-    def review_subjectalternative_name(self, csr) -> str:
+    def review_subjectalternative_name(self, csr, max_dns_names: int = 1
+                                       ) -> str:
         '''
         Extracts the subject alternative name extension of the CSR
         '''
@@ -150,10 +146,13 @@ class CaSecret(Secret):
         )
         dnsnames = extention.value.get_values_for_type(x509.DNSName)
 
-        if len(dnsnames) != 1:
+        if not dnsnames:
+            raise ValueError('CSR can not have no DNS names')
+
+        if len(dnsnames) > max_dns_names:
             raise ValueError(
-                f'Only 1 DNS name allow for SubjectAlternativeName, '
-                f'found: {", ".join(dnsnames)}'
+                f'Only {max_dns_names} DNSs name allow for '
+                f'SubjectAlternativeName, found: {", ".join(dnsnames)}'
             )
 
         return dnsnames[0]

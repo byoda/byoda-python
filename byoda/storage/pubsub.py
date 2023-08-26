@@ -13,8 +13,6 @@ from typing import TypeVar
 
 import pynng
 
-from byoda.datamodel.pubsub_message import PubSubMessage
-
 from byoda.datatypes import PubSubTech
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +22,11 @@ Schema = TypeVar('Schema')
 
 
 class PubSub:
+    __slots__ = [
+        'connection_string', 'schema', 'service_id', 'is_sender', 'data_class',
+        'pub', 'subs'
+    ]
+
     def __init__(self, connection_string: str, data_class: SchemaDataItem,
                  schema: Schema, is_sender: bool):
         self.connection_string: str = connection_string

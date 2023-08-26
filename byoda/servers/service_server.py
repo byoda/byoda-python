@@ -16,7 +16,7 @@ from byoda.datamodel.network import Network
 from byoda.datastore.memberdb import MemberDb
 from byoda.datastore.searchdb import SearchDB
 
-from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
@@ -109,7 +109,7 @@ class ServiceServer(Server):
         member secrets, the service server should have access to the public
         key of all member secrets
         '''
-        secret: MemberSecret = MemberSecret(
+        secret: MemberDataSecret = MemberDataSecret(
             jwt.issuer_id, jwt.service_id, None,
             config.server.service.network
         )

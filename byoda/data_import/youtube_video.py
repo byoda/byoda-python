@@ -23,76 +23,38 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from byoda.datamodel.member import Member
+from byoda.datamodel.claim import ClaimRequest
 
 from byoda.datastore.data_store import DataStore
 from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
 
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
+
 from byoda.util.paths import Paths
+from byoda.util.merkletree import ByoMerkleTree
+
+from byoda import config
+
+from .youtube_thumbnail import YouTubeThumbnail
+from .youtube_streams import TARGET_AUDIO_STREAMS, TARGET_VIDEO_STREAMS
 
 _LOGGER = logging.getLogger(__name__)
 
 BENTO4_DIR: str = '/podserver/bento4'
-
-# These are the MPEG-DASH AV1 and H.264 streams that we want to download. If a video
-# doest not have one of the wanted streams, then we will try to download the replacement.
-# We are currently not attempting to download 8k streams
-TARGET_VIDEO_STREAMS = {
-    '701': {'resolution': '2160p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '401'},
-    '700': {'resolution': '1440p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '400'},
-    '699': {'resolution': '1080p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '399'},
-    '698': {'resolution': '720p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '398'},
-    '697': {'resolution': '480p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '397'},
-    '696': {'resolution': '360p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '396'},
-    '695': {'resolution': '240p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '395'},
-    '694': {'resolution': '144p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '394'},
-    '398': {'resolution': '720p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '298'},
-    '402': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None},
-    '571': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None},
-    '401': {'resolution': '2160p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '305'},
-    '400': {'resolution': '1440p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '304'},
-    '399': {'resolution': '1080p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '299'},
-    '397': {'resolution': '480p', 'codec': 'AV1', 'wanted': True, 'replacement': '135'},
-    '396': {'resolution': '360p', 'codec': 'AV1', 'wanted': True, 'replacement': '134'},
-    '395': {'resolution': '240p', 'codec': 'AV1', 'wanted': True, 'replacement': '133'},
-    '394': {'resolution': '144p', 'codec': 'AV1', 'wanted': True, 'replacement': '160'},
-    '305': {'resolution': '2160p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '266'},
-    '304': {'resolution': '1440p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '264'},
-    '299': {'resolution': '1080p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '137'},
-    '298': {'resolution': '720p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '136'},
-    '266': {'resolution': '2160p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '264': {'resolution': '1440p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '137': {'resolution': '1080p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '136': {'resolution': '720p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '135': {'resolution': '480p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '134': {'resolution': '360p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '133': {'resolution': '240p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '160': {'resolution': '144p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-}
-
-# These are the MPEG-DASH MP4 audio streams that we want to download.
-TARGET_AUDIO_STREAMS = {
-    '599': {'codec': 'mp4a HE v1 32kbps', 'wanted': True, 'replacement': None},
-    '139': {'codec': 'mp4a HE v1 48kbps', 'wanted': True, 'replacement': None},
-    '140': {'codec': 'mp4a AAC-LC 128kbps', 'wanted': True, 'replacement': None},
-    '141': {'codec': 'mp4a AAC-LC 256kbps', 'wanted': True, 'replacement': None},
-}
 
 
 @dataclass
 class Annotation:
     value: str
     key: str | None = None
-
-class YouTubeThumbnailSize(Enum):
-    # flake8: noqa=E221
-    DEFAULT         = 'default'
-    MEDIUM          = 'medium'
-    HIGH            = 'high'
 
 
 class YouTubeFragment:
@@ -224,11 +186,11 @@ class YouTubeFormat:
         format.ext = data.get('ext')
         format.protocol = data.get('protocol')
         format.audio_codec = data.get('acodec')
-        if format.audio_codec.lower() == 'none':
+        if format.audio_codec and format.audio_codec.lower() == 'none':
             format.audio_codec = None
 
         format.video_codec = data.get('vcodec')
-        if format.video_codec.lower() == 'none':
+        if format.video_codec and format.video_codec.lower() == 'none':
             format.video_codec = None
 
         format.container = data.get('container')
@@ -259,42 +221,9 @@ class YouTubeFormat:
         return format
 
 
-class YouTubeThumbnail:
-    def __init__(self, size: str, data: dict):
-        self.url: str = data.get('url')
-        self.width: int = data.get('width', 0)
-        self.height: int = data.get('height', 0)
-        self.preference: int = data.get('preference')
-        self.id: str = data.get('id')
-
-        if size:
-            self.size = YouTubeThumbnailSize(size)
-        else:
-            self.size = f'{self.width}x{self.height}'
-
-    def __str__(self) -> str:
-        if isinstance(self.size, YouTubeThumbnailSize):
-            size = self.size.value
-        else:
-            size = self.size
-
-        return f'{size}_{self.width}_{self.height}_{self.url}'
-
-    def as_dict(self):
-        '''
-        Returns a dict representation of the thumbnail
-        '''
-
-        return {
-            'url': self.url,
-            'width': self.width,
-            'height': self.height,
-            'preference': self.preference,
-            'size': self.size
-        }
-
 class YouTubeVideoChapter:
     def __init__(self, chapter_info: dict[str, float | str]):
+        self.chapter_id = uuid4()
         self.start_time: float = chapter_info.get('start_time')
         self.end_time: float = chapter_info.get('end_time')
         self.title: str = chapter_info.get('title')
@@ -305,6 +234,7 @@ class YouTubeVideoChapter:
         '''
 
         return {
+            'chapter_id': self.chapter_id,
             'start_time': self.start_time,
             'end_time': self.end_time,
             'title': self.title
@@ -316,6 +246,7 @@ class YouTubeVideo:
     DATASTORE_CLASS_NAME: str = 'public_assets'
     DATASTORE_CLASS_NAME_THUMBNAILS: str = 'public_video_thumbnails'
     DATASTORE_CLASS_NAME_CHAPTERS: str = 'public_video_chapters'
+    DATASTORE_CLASS_NAME_CLAIMS: str = 'public_claims'
     DATASTORE_FIELD_MAPPINGS: dict[str, str] = {
         'video_id': 'publisher_asset_id',
         'title': 'title',
@@ -330,6 +261,7 @@ class YouTubeVideo:
         'locale': 'locale',
         'publisher': 'publisher',
         'ingest_status': 'ingest_status',
+        'merkle_root_hash': 'asset_merkle_root_hash',
     }
 
     def __init__(self):
@@ -361,7 +293,7 @@ class YouTubeVideo:
         # Data for the Byoda table with assets
         self.publisher = 'YouTube'
         self.asset_type: str = 'video'
-        self.ingest_status: str = IngestStatus.NONE.value
+        self.ingest_status: IngestStatus = IngestStatus.NONE
 
         # This is the default profile. If we ingest the asset from
         # YouTube then this will be overwritten with info about the
@@ -371,8 +303,9 @@ class YouTubeVideo:
         self.locale: str | None = None
         self.annotations: list[str] = []
 
-
         self.created_time: datetime = datetime.now(tz=timezone.utc)
+
+        self.merkle_root_hash: str | None = None
 
         # If this has a value then it is not a video but a
         # playlist
@@ -413,7 +346,9 @@ class YouTubeVideo:
             if cache_file and not os.path.exists(cache_file):
                 with open(cache_file, 'w') as file_desc:
                     file_desc.write(
-                        orjson.dumps(video_info, orjson.OPT_INDENT_2).decode('utf-8')
+                        orjson.dumps(
+                            video_info, option=orjson.OPT_INDENT_2
+                        ).decode('utf-8')
                     )
 
             video.description = video_info.get('description')
@@ -433,18 +368,25 @@ class YouTubeVideo:
             video.published_time: datetime = dateutil_parser.parse(
                 video_info['upload_date']
             )
-            video.channel_creator = video_info.get('channel', video.channel_creator)
+            video.channel_creator = video_info.get(
+                'channel', video.channel_creator
+            )
             video.channel_id = video_info.get('channel_id')
 
             for thumbnail in video_info.get('thumbnails') or []:
                 thumbnail = YouTubeThumbnail(None, thumbnail)
-                if thumbnail.size:
+                if thumbnail.size and thumbnail.url:
                     # We only want to store thumbnails for which
-                    # we know the size
+                    # we know the size and have a URL
                     video.thumbnails[thumbnail.size] = thumbnail
+                else:
+                    _LOGGER.debug(
+                        f'Not importing thumbnail without size '
+                        f'({thumbnail.size}) or URL ({thumbnail.url})'
+                    )
 
-            for chapter in video_info.get('chapters') or []:
-                chapter = YouTubeVideoChapter(chapter)
+            for chapter_data in video_info.get('chapters') or []:
+                chapter = YouTubeVideoChapter(chapter_data)
                 video.chapters.append(chapter)
 
             for format_data in video_info.get('formats') or []:
@@ -489,10 +431,75 @@ class YouTubeVideo:
 
         return published_at
 
+    def _transition_state(self, ingest_status: IngestStatus | str):
+        '''
+        Transition the ingest state of the video
+
+        :param ingest_status: the new ingest state
+        '''
+
+        if isinstance(ingest_status, str):
+            ingest_status = IngestStatus(ingest_status)
+
+        _LOGGER.debug(
+            f'Video {self.video_id} transitioned from {self.ingest_status} '
+            f'to {ingest_status}'
+        )
+        self.ingest_status = ingest_status
+
+    def as_claim_data(self) -> dict:
+        '''
+        Returns a dict with the data to be signed for moderation by the
+        app server
+
+        :param member: the member
+        :returns: the data to be signed by the moderation server
+        '''
+
+        claim_data = {
+            'asset_id': self.asset_id,
+            'asset_type': self.asset_type,
+            'asset_url': self.url,
+            'asset_merkle_root_hash': self.merkle_root_hash,
+            'public_video_thumbnails': [
+                thumbnail.url for thumbnail in self.thumbnails.values()
+                ],
+            'creator': self.channel_creator,
+            'publisher': self.publisher,
+            'publisher_asset_id': self.video_id,
+            'title': self.title,
+            'contents': self.description,
+            'annotations': self.annotations
+        }
+
+        return claim_data
+
+    async def get_claim_request(self, moderate_request_url: str,
+                                jwt_header: str,
+                                claims: list[str]) -> ClaimRequest:
+        '''
+        Submits a claim request to the moderation server
+
+        :param moderate_request_url: URL of the moderation API of the
+        moderation app
+        :param jwt header: JWT header to authenticate the request
+        :returns: the claim
+        '''
+
+        claim_request = await ClaimRequest.from_api(
+            moderate_request_url, jwt_header, claims, self.as_claim_data()
+        )
+
+        return claim_request
+
     async def persist(self, member: Member, data_store: DataStore,
                       storage_driver: FileStorage, ingest_asset: bool,
                       already_ingested_videos: dict[str, dict],
-                      bento4_directory: str = None) -> bool:
+                      bento4_directory: str = None,
+                      moderate_request_url: str | None = None,
+                      moderate_jwt_header: str = None,
+                      moderate_claim_url: str | None = None
+                      ) -> bool | None:
         '''
         Adds or updates a video in the datastore.
 
@@ -504,7 +511,9 @@ class YouTubeVideo:
         and as value the data retrieved for the asset from the data store.
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
-        :returns: True if the video was added, False if it already existed
+        :param claim: a claim for the video signed by a moderate API
+        :returns: True if the video was added, False if it already existed, or
+        None if an error was encountered
         '''
 
         if ingest_asset and not storage_driver:
@@ -513,97 +522,125 @@ class YouTubeVideo:
             )
 
         update: bool = False
+        claim_request: ClaimRequest | None = None
         if ingest_asset:
-            if self.video_id in already_ingested_videos:
-                update = True
-                ingested_video: str = already_ingested_videos[self.video_id]
-                current_status: str = ingested_video['ingest_status']
-                if current_status == IngestStatus.PUBLISHED.value:
-                    return False
-
-            tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
-            self.download(
-                TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
-            )
-            pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
-
-            for filename in os.listdir(pkg_dir):
-                source = f'{pkg_dir}/{filename}'
-                dest = f'{self.asset_id}/{filename}'
+            try:
                 _LOGGER.debug(
-                    f'Copying {source} to {dest} on RESTRICTED storage'
+                    f'Ingesting AV tracks for video {self.video_id}'
                 )
-
-                await storage_driver.copy(
-                    source, dest, storage_type=StorageType.RESTRICTED,
-                    exist_ok=True
+                update = await self._ingest_assets(
+                    member, storage_driver, already_ingested_videos,
+                    bento4_directory
                 )
-            shutil.rmtree(tmp_dir)
+                if update is None:
+                    return None
 
-            self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
-                member_id=member.member_id, service_id=member.service_id,
-                asset_id=self.asset_id, filename='video.mpd'
-            )
-            self.ingest_status = IngestStatus.PUBLISHED.value
+                if (moderate_request_url and moderate_jwt_header
+                        and moderate_claim_url):
+                    _LOGGER.debug(
+                        f'Getting moderation claim for video {self.video_id} '
+                        f'signed by {moderate_request_url}'
+                    )
+                    claims = ['youtube-moderated:1']
+                    claim_request: ClaimRequest = await self.get_claim_request(
+                        moderate_request_url, moderate_jwt_header, claims
+
+                    )
+                else:
+                    _LOGGER.debug(
+                        'Not trying to get a claim signed '
+                        f'for video {self.video_id}'
+                    )
+            except ValueError:
+                _LOGGER.exception(
+                    f'Ingesting asset for YouTube video {self.video_id} failed'
+                )
+                raise
+
+            # We now set state to PUBLISHED because we can need that value
+            # to be written to the database
+            self._transition_state(IngestStatus.PUBLISHED)
         else:
-            self.ingest_status = IngestStatus.EXTERNAL.value
+            _LOGGER.debug(
+                f'Setting ingest status to EXTERNAL for {self.video_id}'
+            )
+            self._transition_state(IngestStatus.EXTERNAL)
 
         asset = {}
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
             value = getattr(self, field)
             if value:
-                asset[mapping] = value
-
-
+                if isinstance(value, Enum):
+                    asset[mapping] = value.value
+                else:
+                    asset[mapping] = value
 
         if update:
             data_filter = DataFilterSet(
-                {'publisher_asset_id': {
-                    'eq': self.video_id}
-                }
+                {'publisher_asset_id': {'eq': self.video_id}}
             )
             await data_store.delete(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME,
                 data_filter_set=data_filter
             )
-            asset_filter = DataFilterSet({'asset_id': {'eq': self.asset_id}})
+            asset_filter = DataFilterSet({'video_id': {'eq': self.asset_id}})
             await data_store.delete(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data_filter_set=asset_filter
             )
             await data_store.delete(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
+                data_filter_set=asset_filter
+            )
+            asset_filter = DataFilterSet(
+                {
+                    'keyfield': {
+                        'eq': YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS
+                    },
+                    'keyfield_id': {'eq': self.asset_id}
+                }
+            )
+            await data_store.delete(
+                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
                 data_filter_set=asset_filter
             )
 
         await data_store.append(
             member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
         )
+        if claim_request:
+            if claim_request.signature:
+                claim_data = await self.download_claim(moderate_claim_url)
+
+                await data_store.append(
+                    member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
+                    claim_data
+                )
+            else:
+                storage_driver.save(
+                    f'claim_requests/pending/{self.asset_id}',
+                    orjson.dumps(
+                        claim_request, orjson.OPT_INDENT_2
+                    ).decode('utf-8')
+                )
+
         for thumbnail in self.thumbnails.values():
             data: dict = thumbnail.as_dict()
-            data.update(
-                {
-                    'thumbnail_id': uuid4(),
-                    'video_id': self.asset_id
-                }
-            )
+            data['video_id'] = self.asset_id
+
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
                 data
-
             )
+
         for chapter in self.chapters:
             data: dict = chapter.as_dict()
-            data.update(
-                {
-                    'thumbnail_id': uuid4(),
-                    'video_id': self.asset_id
-                }
-            )
+            data['video_id'] = self.asset_id
             await data_store.append(
                 member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
                 data
             )
+
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
         return not update
@@ -624,6 +661,15 @@ class YouTubeVideo:
         if not work_dir:
             work_dir = f'/tmp/{self.video_id}'
 
+        if config.test_case and os.path.exists(work_dir):
+            _LOGGER.debug(
+                f'Skipping download of video {self.video_id} in test case'
+            )
+            self._transition_state(IngestStatus.DOWNLOADING)
+            return work_dir
+
+        self._transition_state(IngestStatus.DOWNLOADING)
+
         os.makedirs(work_dir, exist_ok=True)
 
         ydl_opts = {
@@ -639,23 +685,158 @@ class YouTubeVideo:
         with YoutubeDL(ydl_opts) as ydl:
             try:
                 _LOGGER.debug(
-                    f'Downloading YouTube video: {self.video_id} to {work_dir} started'
+                    f'Downloading YouTube video: {self.video_id} '
+                    f'to {work_dir} started'
                 )
                 ydl.download([self.url])
                 _LOGGER.debug(
-                    f'Downloading YouTube video: {self.video_id} to {work_dir} completed'
+                    f'Downloading YouTube video: {self.video_id} '
+                    f'to {work_dir} completed'
                 )
             except DownloadError:
-                _LOGGER.info(f'Failed to download YouTube video {self.video_id}')
+                _LOGGER.info(
+                    f'Failed to download YouTube video {self.video_id}'
+                )
                 return None
 
         return work_dir
 
-    def filter_encoding_profiles(self, wanted_encoding_profiles: dict[str, dict[str, str | bool]]):
+    async def download_claim(self, moderate_claim_url: str) -> dict:
+        '''
+        Downloads a signed claim
+        '''
+
+        resp: HttpResponse = await ApiClient.call(
+            moderate_claim_url.format(
+                state=ClaimStatus.ACCEPTED.value, asset_id=self.asset_id
+            )
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(
+                'Failed to get the approvied claim from moderation API '
+                f'{moderate_claim_url}: {resp.status}'
+            )
+
+        claim_data = resp.json()
+
+        return claim_data
+
+    async def _ingest_assets(self, member: Member, storage_driver: FileStorage,
+                             already_ingested_videos: dict[str, dict],
+                             bento4_directory: str) -> bool | None:
+        '''
+        Downloads to audio and video files of the asset and stores them
+        on object storage
+
+        :param storage_driver: The storage driver to store the video with
+        :param ingest_asset: should the A/V tracks of the asset be downloaded
+        :param already_ingested_videos: dict with key the YouTube Video ID
+        and as value the data retrieved for the asset from the data store.
+        :param bento4_directory: directory where to find the BenTo4 MP4
+        packaging tool
+        :returns: True if the video was updated, False if it was created,
+        None if an error was encountered
+        :raises: ValueError if the ingest status of the video is invalid
+        '''
+
+        _LOGGER.debug(f'Ingesting AV for video {self.video_id}')
+        update: bool = False
+        if self.video_id in already_ingested_videos:
+            ingested_video: dict = already_ingested_videos[self.video_id]
+            try:
+                current_status: str | IngestStatus = \
+                    ingested_video['ingest_status']
+
+                if isinstance(current_status, str):
+                    current_status = IngestStatus(current_status)
+            except ValueError:
+                _LOGGER.warning(
+                    f'Video {self.video_id} has an invalid ingest status '
+                    f'{ingested_video["ingest_status"]}, skipping ingest'
+                )
+                raise
+
+            if current_status == IngestStatus.PUBLISHED:
+                return False
+
+            if current_status == IngestStatus.EXTERNAL:
+                update = True
+
+        tmp_dir = self._get_tempdir(storage_driver)
+
+        download_dir: str | None = self.download(
+            TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
+        )
+        if not download_dir:
+            return None
+
+        pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
+
+        await self.upload(pkg_dir, storage_driver)
+
+        for thumbnail in self.thumbnails.values():
+            _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
+            await thumbnail.ingest(
+                self.asset_id, storage_driver, member, pkg_dir
+            )
+
+        tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
+        self.merkle_root_hash = tree.as_string()
+
+        tree_filename: str = tree.save(pkg_dir)
+        await storage_driver.copy(
+            f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
+            storage_type=StorageType.RESTRICTED, exist_ok=True
+        )
+
+        self._delete_tempdir(storage_driver)
+
+        self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
+            member_id=member.member_id, service_id=member.service_id,
+            asset_id=self.asset_id, filename='video.mpd'
+        )
+
+        return update
+
+    async def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
+        '''
+        Uploads the packaged video to object storage
+
+        :param pkg_dir: directory where the packaged video is located
+        :param storage_driver: the storage driver to upload the video with
+        :param asset_id: the ID of the asset
+        '''
+
+        self._transition_state(IngestStatus.UPLOADING)
+
+        for filename in os.listdir(pkg_dir):
+            source = f'{pkg_dir}/{filename}'
+            dest = f'{self.asset_id}/{filename}'
+            _LOGGER.debug(
+                f'Copying {source} to {dest} on RESTRICTED storage'
+            )
+
+            await storage_driver.copy(
+                source, dest, storage_type=StorageType.RESTRICTED,
+                exist_ok=True
+            )
+
+    def _get_tempdir(self, storage_driver: FileStorage) -> str:
+        tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
+
+        return tmp_dir
+
+    def _delete_tempdir(self, storage_driver: FileStorage) -> None:
+        tmp_dir = self._get_tempdir(storage_driver)
+        shutil.rmtree(tmp_dir)
+
+    def filter_encoding_profiles(
+            self, wanted_encoding_profiles: dict[str, dict[str, str | bool]]):
         '''
         Filters the encoding profiles to only include the wanted formats
 
-        :param wanted_encoding_profiles: the wanted video or audio encoding profiles
+        :param wanted_encoding_profiles: the wanted video or audio encoding
+        profiles
         '''
 
         included_profiles: set[int] = set()
@@ -676,11 +857,19 @@ class YouTubeVideo:
                 if replacement in wanted_encoding_profiles:
                     included_profiles.add(replacement)
                     break
-                replacement = wanted_encoding_profiles[replacement].get('replacement')
+                replacement = wanted_encoding_profiles[replacement].get(
+                    'replacement'
+                )
+
+        _LOGGER.debug(
+            f'Tracks selected to ingest for video {self.video_id}: '
+            f'{", ".join(included_profiles)}'
+        )
 
         return included_profiles
 
-    def package_streams(self, work_dir: str, bento4_dir: str = BENTO4_DIR) -> str:
+    def package_streams(self, work_dir: str, bento4_dir: str = BENTO4_DIR
+                        ) -> str:
         '''
         Creates MPEG-DASH and HLS manifests for the video and audio streams
         in work_dir
@@ -700,6 +889,8 @@ class YouTubeVideo:
             f'Packaging MPEG-DASH and HLS manifests for asset {self.video_id}'
             f'for files: {", ".join(file_names)}'
         )
+
+        self._transition_state(IngestStatus.PACKAGING)
 
         result = subprocess.run(
             [
@@ -721,4 +912,3 @@ class YouTubeVideo:
             )
 
         return f'{work_dir}/packaged'
-

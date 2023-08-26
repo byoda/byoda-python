@@ -83,6 +83,16 @@ class SchemaDataItem:
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
+    __slots__ = [
+        'name', 'schema_data', 'description', 'item_id', 'schema_id',
+        'service_id', 'schema_url', 'enabled_apis', 'defined_class',
+        'fields', 'properties', 'is_index', 'is_counter', 'type',
+        'referenced_class', 'referenced_class_field', 'primary_key',
+        'is_primary_key', 'required', 'python_type', 'graphql_type',
+        'storage_name', 'storage_type', 'pubsub_class', 'access_rights',
+        'child_has_accessrights'
+    ]
+
     def __init__(self, class_name: str, schema_data: dict[str:object], schema: Schema) -> None:
         '''
         Constructor
@@ -232,8 +242,8 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema_data: dict, schema: Schema, classes: dict = {},
-               pubsub: bool = True):
+    def create(class_name: str, schema_data: dict, schema: Schema,
+               classes: dict = {}, pubsub: bool = True):
         '''
         Factory for instances of classes derived from SchemaDataItem
 
@@ -242,6 +252,8 @@ class SchemaDataItem:
         :param schema: Schema instance
         :param classes: dictionary of classes already created
         :param pubsub: whether to create a PubSub instance for the class
+        :returns: SchemaDataItem instance or None, if the item is declared
+        obsolete in the service schema
         '''
 
         item_type = schema_data.get('type')
@@ -261,6 +273,9 @@ class SchemaDataItem:
                 class_name, schema_data, schema, classes=classes, pubsub=pubsub
             )
         else:
+            if schema_data.get('#obsolete', False) == True:
+                return
+
             item = SchemaDataScalar(class_name, schema_data, schema)
 
         return item
@@ -378,6 +393,10 @@ class SchemaDataItem:
         return None
 
 class SchemaDataScalar(SchemaDataItem):
+    __slots__ = [
+        'format'
+    ]
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
         super().__init__(class_name, schema_data, schema)
 
@@ -422,21 +441,28 @@ class SchemaDataScalar(SchemaDataItem):
         Normalizes the value to the correct data type for the item
         '''
 
-        if (self.type == DataType.UUID
-                and value and not isinstance(value, UUID)):
-            result = UUID(value)
-        elif (self.type == DataType.DATETIME
-                and value and not isinstance(value, datetime)):
-            if isinstance(value, str):
-                result = datetime.fromisoformat(value)
+        try:
+            if (self.type == DataType.UUID
+                    and value and not isinstance(value, UUID)):
+                result = UUID(value)
+            elif (self.type == DataType.DATETIME
+                    and value and not isinstance(value, datetime)):
+                if isinstance(value, str):
+                    result = datetime.fromisoformat(value)
+                else:
+                    result = datetime.fromtimestamp(value, tz=timezone.utc)
             else:
-                result = datetime.fromtimestamp(value, tz=timezone.utc)
-        else:
-            result = value
+                result = value
+        except ValueError:
+            raise ValueError(
+                f'Value {value} for {self.name} is not of type {self.type}'
+            )
 
         return result
 
 class SchemaDataObject(SchemaDataItem):
+    __slots__ = ['required_fields']
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem]) -> None:
         super().__init__(class_name, schema_data, schema)
@@ -486,16 +512,17 @@ class SchemaDataObject(SchemaDataItem):
                 field, field_properties, schema, classes, pubsub=False
             )
 
-            self.fields[field] = item
+            if item:
+                self.fields[field] = item
 
-            if item.is_primary_key:
-                self.primary_key = item.name
+                if item.is_primary_key:
+                    self.primary_key = item.name
 
-            if field in self.required_fields:
-                item.required = True
+                if field in self.required_fields:
+                    item.required = True
 
-        _LOGGER.debug(f'Created object class {class_name}'
-                      )
+                _LOGGER.debug(f'Created object class {class_name}')
+
     def normalize(self, value: dict) -> dict:
         '''
         Normalizes the values in a dict
@@ -552,6 +579,8 @@ class SchemaDataObject(SchemaDataItem):
 
 
 class SchemaDataArray(SchemaDataItem):
+    __slots__ = ['items']
+
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem], pubsub: bool =True
                  ) -> None:

@@ -6,13 +6,24 @@ Cert manipulation
 :license    : GPLv3
 '''
 
-import logging
 import re
+import logging
 import tempfile
 import subprocess
+
 from uuid import UUID
 from typing import TypeVar
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from urllib.parse import urlparse
+from urllib.parse import ParseResult
+
+from httpx import AsyncClient as AsyncHttpClient
+from httpx import RequestError
+from httpx import TransportError
+from httpx import TimeoutException
+
+from ssl import SSLCertVerificationError
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -29,6 +40,8 @@ from byoda.storage.filestorage import FileStorage, FileMode
 
 from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
+
+from byoda.util.paths import Paths
 
 from .certchain import CertChain
 
@@ -51,6 +64,7 @@ IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
 CSR = x509.CertificateSigningRequest
 
 CaSecret = TypeVar('CaSecret')
+Server = TypeVar('Server')
 
 
 class Secret:
@@ -66,6 +80,13 @@ class Secret:
     - protected_shared_key : protected shared secret used by Fernet
     - fernet               : instance of cryptography.fernet.Fernet
     '''
+
+    __slots__ = [
+        'private_key', 'private_key_file', 'cert', 'cert_file', 'paths',
+        'password', 'common_name', 'service_id', 'id_type', 'sans',
+        'storage_driver', 'cert_chain', 'is_root_cert', 'ca',
+        'signs_ca_certs', 'max_path_length', 'accepted_csrs'
+    ]
 
     # When should the secret be renewed
     RENEW_WANTED = datetime.now() + timedelta(days=90)
@@ -91,12 +112,23 @@ class Secret:
         self.cert: Certificate = None
         self.cert_file: str = cert_file
 
+        # Some derived classes already set self.paths before
+        # calling super().__init__() so we don't want to overwrite
+        # that
+        if not hasattr(self, 'paths'):
+            self.paths: Paths | None = None
+
         # The password to use for saving the private key
         # to a file
         self.password: str = None
 
         self.common_name: str = None
         self.service_id: str | None = None
+        self.id_type: IdType = None
+
+        # Subject Alternative Name, usually same as common name
+        # except for App Data certs
+        self.sans: list[str] = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -112,7 +144,10 @@ class Secret:
         # X.509 constraints
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
+        self.signs_ca_certs: bool = False
         self.max_path_length: int = None
+
+        self.accepted_csrs: dict[IdType, int] = ()
 
     async def create(self, common_name: str, issuing_ca: CaSecret = None,
                      expire: int = None, key_size: int = _RSA_KEYSIZE,
@@ -179,7 +214,7 @@ class Secret:
         :raises: (none)
         '''
 
-        subject = issuer = self._get_cert_name()
+        subject = issuer = self._generate_cert_name()
 
         if expire:
             if isinstance(expire, int):
@@ -222,8 +257,9 @@ class Secret:
             ), critical=True,
         ).sign(self.private_key, hashes.SHA256())
 
-    async def create_csr(self, common_name: str, key_size: int = _RSA_KEYSIZE,
-                         ca: bool = False, renew: bool = False) -> CSR:
+    async def create_csr(self, common_name: str, sans: str | list[str] = [],
+                         key_size: int = _RSA_KEYSIZE, ca: bool = False,
+                         renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
@@ -244,10 +280,18 @@ class Secret:
 
         # TODO: SECURITY: add constraints
         self.common_name = common_name
+        self.sans = [common_name]
+        if sans:
+            if isinstance(sans, list):
+                self.sans.extend(sans)
+            elif isinstance(sans, str):
+                self.sans.append(sans)
+            else:
+                raise ValueError('sans parameter must be a list or str')
 
         _LOGGER.debug(
             f'Generating a private key with key size {key_size} '
-            f'and commonname {common_name}'
+            f'and commonname {self.common_name}'
         )
 
         if renew:
@@ -260,22 +304,26 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
-        csr = x509.CertificateSigningRequestBuilder().subject_name(
-            self._get_cert_name()
+        san_names = []
+        for san in self.sans:
+            san_names.append(x509.DNSName(san))
+
+        csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
+            self._generate_cert_name()
         ).add_extension(
             x509.BasicConstraints(
                 ca=ca, path_length=self.max_path_length
             ), critical=True,
         ).add_extension(
-            x509.SubjectAlternativeName(
-                [x509.DNSName(self.common_name)]
-            ),
-            critical=False
-        ).sign(self.private_key, hashes.SHA256())
+            x509.SubjectAlternativeName(san_names),
+            critical=True
+        )
+
+        csr = csr_builder.sign(self.private_key, hashes.SHA256())
 
         return csr
 
-    def _get_cert_name(self):
+    def _generate_cert_name(self):
         '''
         Generate an X509.Name instance for a cert
 
@@ -306,14 +354,14 @@ class Secret:
 
         return commonname
 
-    def csr_as_pem(self, csr):
+    def csr_as_pem(self, csr) -> str:
         '''
         Returns the BASE64 encoded byte string for the CSR
 
         :returns: bytes with the PEM-encoded certificate
         :raises: (none)
         '''
-        return csr.public_bytes(serialization.Encoding.PEM)
+        return csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
 
     async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
         '''
@@ -579,13 +627,16 @@ class Secret:
         return x509.load_pem_x509_csr(csr)
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
-                   storage_driver: FileStorage = None):
+                   storage_driver: FileStorage = None,
+                   with_fingerprint: bool = True):
         '''
-        Save a cert and private key to their respective files
+        Save a cert and private key (if we have it) to their respective files
 
         :param password: password to decrypt the private_key
         :param overwrite: should any existing files be overwritten
         :param storage_driver: the storage driver to use
+        :param with_fingerprint: save an additional copy of the cert with its
+        filename ending in '-<fingerprint>'
         :returns: (none)
         :raises: PermissionError if the file for the cert and/or key
         already exist and overwrite == False
@@ -594,21 +645,18 @@ class Secret:
         if not storage_driver:
             storage_driver = self.storage_driver
 
-        if not overwrite and await storage_driver.exists(self.cert_file):
+        fingerprint = self.fingerprint().hex()
+        fingerprint_filename = f'{self.cert_file}-{fingerprint}'
+        if (not overwrite and (await storage_driver.exists(self.cert_file)
+                or (with_fingerprint and
+                    await storage_driver.exists(fingerprint_filename)))):
             raise PermissionError(
-                f'Can not save cert because the certificate '
-                f'already exists at {self.cert_file}'
-            )
-        if (not overwrite and self.private_key
-                and await storage_driver.exists(self.private_key_file)):
-            raise PermissionError(
-                f'Can not save the private key because the key already '
-                f'exists at {self.private_key_file}'
+                f'Can not save cert because the certificate already '
+                f'exists at {self.cert_file} or {fingerprint_filename}'
             )
 
         _LOGGER.debug(
-            f'Saving cert to {self.cert_file} with fingerprint '
-            f'{self.cert.fingerprint(hashes.SHA256()).hex()} '
+            f'Saving cert to {self.cert_file} with fingerprint {fingerprint}'
         )
         data = self.certchain_as_pem()
 
@@ -618,7 +666,51 @@ class Secret:
             self.cert_file, data, file_mode=FileMode.BINARY
         )
 
+        if with_fingerprint:
+            _LOGGER.debug(f'Saving cert to {fingerprint_filename}')
+            await storage_driver.write(
+                fingerprint_filename, data, file_mode=FileMode.BINARY
+            )
+
         if self.private_key:
+            await self.save_private_key(
+                password=password, overwrite=overwrite,
+                storage_driver=storage_driver
+            )
+
+    async def save_private_key(self, password: str = 'byoda',
+                               overwrite: bool = False,
+                               storage_driver: FileStorage = None):
+        '''
+        Save a private key (if we have it) to their respective files
+
+        :param password: password to decrypt the private_key
+        :param overwrite: should any existing files be overwritten
+        :param storage_driver: the storage driver to use
+        :returns: (none)
+        :raises: PermissionError if the file for the cert and/or key
+        already exist and overwrite == False
+        '''
+        if not storage_driver:
+            storage_driver = self.storage_driver
+
+        if (not overwrite and self.private_key
+                and await storage_driver.exists(self.private_key_file)):
+            raise PermissionError(
+                f'Can not save the private key because the key already '
+                f'exists at {self.private_key_file}'
+            )
+
+        if self.private_key:
+            _LOGGER.debug(f'Saving private key to {self.private_key_file}')
+            private_key_pem = self.private_key_as_bytes(password)
+            await storage_driver.write(
+                self.private_key_file, private_key_pem,
+                file_mode=FileMode.BINARY
+            )
+
+    def private_key_as_bytes(self, password: str = None) -> bytes:
+        if password:
             private_key_pem = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
@@ -626,11 +718,22 @@ class Secret:
                     str.encode(password)
                 )
             )
-            _LOGGER.debug(f'Saving private key to {self.private_key_file}')
-            await storage_driver.write(
-                self.private_key_file, private_key_pem,
-                file_mode=FileMode.BINARY
+        else:
+            private_key_pem = self.private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption()
             )
+
+        return private_key_pem
+
+    def private_key_as_pem(self, password: str = None) -> str:
+        '''
+        Returns the private key in PEM format
+        '''
+
+        private_key_bytes = self.private_key_as_bytes(password)
+        return private_key_bytes.decode('utf-8')
 
     def certchain_as_pem(self) -> str:
         '''
@@ -649,18 +752,6 @@ class Secret:
             data += cert.public_bytes(serialization.Encoding.PEM)
 
         return data.decode('utf-8')
-
-    def private_key_as_pem(self) -> bytes:
-        '''
-        Returns the private key in PEM format
-        '''
-
-        private_key_pem = self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        return private_key_pem
 
     def cert_as_pem(self) -> bytes:
         '''
@@ -693,7 +784,7 @@ class Secret:
         _LOGGER.debug('Saving private key to %s', filepath)
 
         private_key_pem = self.private_key_as_pem()
-        with open(filepath, 'wb') as file_desc:
+        with open(filepath, 'w') as file_desc:
             file_desc.write(private_key_pem)
 
         return filepath
@@ -744,7 +835,7 @@ class Secret:
         '''
         Basic review for a common name
 
-        :returns: the common name with the domain name chopped off
+        :returns: the identifier parsed from the common_name
         :raises: ValueError
         '''
 
@@ -833,3 +924,40 @@ class Secret:
             )
 
         return EntityId(id_type, identifier, cn_service_id)
+
+    @staticmethod
+    async def download(url: str, root_ca_filepath: str | None = None,
+                       network_name: str | None = None) -> str | None:
+        '''
+        Downloads the secret from the given URL
+
+        :param url:
+        :param root_ca_filepath: path (starting with '/') to the root CA file
+        :param network_name:
+        :returns Secret : the downloaded data secret as a string
+        :raises: (none)
+        '''
+
+        _LOGGER.debug(f'Downloading secret from {url}')
+
+        try:
+            parsed_url: ParseResult = urlparse(url)
+            if (parsed_url.hostname.startswith('dir.')
+                    or parsed_url.hostname.startswith('proxy.')
+                    or (network_name
+                        and network_name not in parsed_url.hostname)):
+                root_ca_filepath = None
+
+            async with AsyncHttpClient(verify=root_ca_filepath) as client:
+                resp = await client.get(url)
+                if resp.status_code >= 400:
+                    raise RuntimeError(
+                        f'Failure to GET {url}: {resp.status_code}'
+                    )
+
+                cert_data = resp.text
+                return cert_data
+        except (RequestError, TransportError, TimeoutException,
+                SSLCertVerificationError) as exc:
+            _LOGGER.info(f'Failed to GET {url}: {exc}')
+            raise RuntimeError(f'Could not GET {url}')

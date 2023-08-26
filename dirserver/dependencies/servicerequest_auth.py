@@ -12,7 +12,10 @@ import logging
 
 from byoda import config
 
-from fastapi import Header, HTTPException, Request
+from typing import Annotated
+
+from fastapi import Request, HTTPException
+from fastapi import Header, Depends
 
 from byoda.datatypes import IdType
 
@@ -164,3 +167,9 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
             raise HTTPException(status_code=403, detail='Permission denied')
 
         self.is_authenticated = True
+
+
+AuthDep = Annotated[ServiceRequestAuthFast, Depends(ServiceRequestAuthFast)]
+AuthOptionalDep = Annotated[
+    ServiceRequestOptionalAuthFast, Depends(ServiceRequestOptionalAuthFast)
+]

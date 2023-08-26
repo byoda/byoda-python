@@ -1,7 +1,9 @@
 # Bring your own data & algorithms
 
 ## Intro
+
 Byoda is a personal data store with features enabling a new and radically different social media services:
+
 - Your data is stored in your own personal data store (or 'pod').
 - Access to your data is controlled by a __data contract__ and is enforced by a __data firewall__.
 - You can select the algorithms that generate your content feed for you.
@@ -12,10 +14,13 @@ Byoda is a personal data store with features enabling a new and radically differ
 This repo hosts the reference implementation (in Python) of the Byoda directory server, a generic 'service' server and the data pod. For more information about Byoda, please go to the [web site](https://www.byoda.org/)
 
 ## Status
+
 This is alpha-quality software. The only user interface available today is curl and a tool to call GraphQL APIs. If you don't know what curl is, this software is probably not yet mature enough for you. The byoda.net network is running, a proof-of-concept service 'Address Book' is up and running and you can install the data pod on a VM in AWS, Azure or GCP or on a server in your home.
 
 ## Getting started with the data pod
+
 There are two ways to install the pod:
+
 1. Use a public cloud like Amazon Web Services, Microsoft Azure or Google Cloud.
     - Create an account with the cloud provider of choice
     - Create a VM with a public IP address, The VM should have at least 1GB of memory and 8GB of disk space.
@@ -37,6 +42,7 @@ There are two ways to install the pod:
     - Detailed instructions are available for running the pod on your [server](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/server-pod.md)
 
 To launch the pod:
+
 - Log in to your VM or server.
 - Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/byoda/byoda-python.git)
 
@@ -81,12 +87,11 @@ vi ~/byoda-settings.sh
 ~/docker-launch.sh
 ```
 
-** Congratulations, you now have a running pod that is a member of the byoda.net network!** <br>
-
+**Congratulations, you now have a running pod that is a member of the byoda.net network!**
 
 ## Basic info about the pod
 
-- The logs of the pod are stored in /var/www/wwwroot/logs. This directory is volume-mounted in the pod. The certs and data files are stored in the cloud or locally on your server. In either case, are (also) availble under /byoda, which is also volume-mounted in the pod.<br>
+- The logs of the pod are stored in /var/www/wwwroot/logs. This directory is volume-mounted in the pod. The certs and data files are stored in the cloud or locally on your server. In either case, are (also) availble under /byoda, which is also volume-mounted in the pod.
 - The 'directory server' for byoda.net creates a DNS record for each pod based on the ACCOUNT_ID of the pod. The ACCOUNT_ID is stored in the ~/.byoda-account_id file on your VM/server. The FQDN is '<ACCOUNT_ID>.accounts.byoda.net'. Make sure to save this ACCOUNT_ID as well to a secure place
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it a.o. to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 
@@ -282,6 +287,7 @@ https://proxy.byoda.net/4294929430/$MEMBER_ID/api/v1/data/service-4294929430
 While the initial test service is the 'address book', your pod is not restricted to the 'address book' data model! You can create your own service and define its data contract in a [JSONSchema](https://www.json-schema.org/) document. When your pod reads that data contract it will automatically generate the GraphQL APIs for that data contract. You can use the [generate_graphql_queries.py](https://github.com/byoda/byoda-python/blob/master/tools/generate_graphql_queries.py) tool to generate the GraphQL queries for your data contract. Any pod that has also joined your service and accepted that data model will then be able to call those GraphQL APIs on other pods that have also accepted it. The pods will implement the security model that you have defined with "#accesscontrol" objects in your datamodel.
 
 ## Access security
+
 When pods communicate with each other, they use Mutual-TLS with certificates signed by the CA of the byoda.net network. Mutual-TLS provides great security but because web browsers do not know the byoda.net CA, we can't use it with browsers. For browsers we use JWTs. However, when you connect to a pod directly you have to use Mutual-TLS for authentication. So for browsers, the byoda.net network hosts a proxy a proxy.byoda.net. When you use the proxy, you have to use the JWT for authentication because Mutual-TLS does not work as there is a level-7 HTTP proxy in between the two endpoints.
 To acquire a JWT for managing the pod, you get an 'account JWT'. If you do not use a custom domain then use:
 
@@ -407,6 +413,7 @@ export YOUTUBE_IMPORT_INTERVAL=240
 ```
 
 ## Twitter integration
+
 To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is unfortunately no longer free .After signing up, you go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the ```byoda-settings.sh``` script and edit the following variables:
 
 ```bash
@@ -439,7 +446,7 @@ source tools/set_env.sh
 curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
     --data '{"mentions": ["glynmoody"]}' \
     -H "Content-Type: application/json" \
-	https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .
+    https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .
 ```
 
 The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.

@@ -21,19 +21,17 @@ azure-identity = "*"
 google-cloud-storage = "*"
 python-daemon = "*"
 gunicorn = "*"
-fastapi = "==0.90.1"
+fastapi = "*"
 websockets = "*"
 cryptography = "*"
 htpasswd = "*"
 uvicorn = {version = "*", extras = [ "standard",]}
-strawberry-graphql = {version = "==0.106.3", extras = ["fastapi"]}
 redis = "*"
 hiredis = "*"
 rfc3339-validator = "*"
 jsonschema = {extras = ["format"], version = "*"}
 pyjwt = "*"
 cd = "*"
-aiohttp = {extras = ["speedups"], version = "*"}
 python-multipart = "*"
 orjson = "*"
 jinja2-strcase = "*"
@@ -53,12 +51,18 @@ pynng = "*"
 setuptools = "==65.5.1"
 future = "*"
 wheel = "*"
-trio = "*"
-gql = {extras = ["aiohttp", "websockets"], version = "*"}
 install = "*"
 beautifulsoup4 = "*"
 google-api-python-client = "*"
-yt-dlp = "*"
+yt-dlp = "==2023.06.22"
+pymerkle = "*"
+strawberry-graphql = "*"
+pyyaml = "*"
+pydantic = "*"
+trio = "*"
+httpx = "*"
+gql = {extras = ["httpx", "websockets"], version = "*"}
+aiohttp = {extras = ["aiodns"], version = "*"}
 
 [dev-packages]
 flake8 = "*"

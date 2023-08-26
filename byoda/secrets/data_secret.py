@@ -10,7 +10,9 @@ import struct
 import logging
 
 from copy import copy
-from datetime import datetime, timedelta
+from typing import TypeVar
+from datetime import datetime
+from datetime import timedelta
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -23,8 +25,13 @@ from cryptography.exceptions import InvalidSignature        # noqa: F401
 from byoda.storage.filestorage import FileStorage
 
 from byoda.util.api_client.api_client import ApiClient, HttpMethod
+from byoda.util.paths import Paths
+
+from byoda import config
 
 from .secret import Secret
+
+Server = TypeVar('Server')
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +56,10 @@ class DataSecret(Secret):
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    __slots__ = [
+        'shared_key', 'protected_shared_key', 'fernet'
+    ]
+
     # When should the secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
@@ -59,11 +70,11 @@ class DataSecret(Secret):
         super().__init__(cert_file, key_file, storage_driver)
 
         # the key to use for Fernet encryption/decryption
-        self.shared_key = None
+        self.shared_key: bytes = None
 
         # The shared key encrypted with the private key of
         # this secret
-        self.protected_shared_key = None
+        self.protected_shared_key: bytes = None
 
         self.fernet = None
 
@@ -295,7 +306,8 @@ class DataSecret(Secret):
 
         return digest
 
-    async def download(self, url: str) -> str | None:
+    async def download(self, url: str, ca_filepath: str = None,
+                       network_name: str | None = None) -> str | None:
         '''
         Downloads the data secret of a remote member
 
@@ -303,11 +315,17 @@ class DataSecret(Secret):
         :raises: (none)
         '''
 
-        _LOGGER.debug(f'Downloading data secret from {url}')
-        resp = await ApiClient.call(url, HttpMethod.GET)
+        if not ca_filepath:
+            server: Server = config.server
+            paths: Paths = server.paths
+            ca_filepath = (
+                paths.storage_driver.local_path +
+                paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
+            )
 
-        if resp.status == 200:
-            cert_data = await resp.text()
-            return cert_data
-        else:
-            return None
+        _LOGGER.debug(f'Downloading data secret from {url}')
+        cert_data = await Secret.download(
+            url, root_ca_filepath=ca_filepath, network_name=network_name
+        )
+
+        return cert_data

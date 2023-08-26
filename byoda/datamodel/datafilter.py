@@ -18,6 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DataFilter:
+    '''
+    Implements the logic to support filters in GraphQL queries
+    '''
+
+    __slots__ = [
+        'field', 'operator', 'value', 'compare_functions', 'sql_functions'
+    ]
+
     def __init__(self, field: str, operator: str):
         '''
         Base class for data filters for strings, UUIDs, datetimes and numbers

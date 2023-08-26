@@ -8,6 +8,8 @@ Helper functions for tests
 
 from uuid import uuid4, UUID
 
+from byoda.datamodel.network import Network
+
 
 def get_test_uuid() -> UUID:
     id = str(uuid4())
@@ -26,8 +28,11 @@ def get_account_tls_headers(account_id: UUID, network: str) -> dict:
     return account_headers
 
 
-def get_member_tls_headers(member_id: UUID, network: str, service_id: int
-                           ) -> dict:
+def get_member_tls_headers(member_id: UUID, network: str | Network,
+                           service_id: int) -> dict:
+    if isinstance(network, Network):
+        network = network.name
+
     member_headers = {
         'X-Client-SSL-Verify': 'SUCCESS',
         'X-Client-SSL-Subject':

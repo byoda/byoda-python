@@ -36,6 +36,8 @@ class FileMode(Enum):
 
 
 class FileStorage:
+    __slots__ = ['cloud_type', 'local_path']
+
     '''
     Class that abstracts storing data in object storage while
     keeping a local copy for fast reads.
@@ -153,6 +155,7 @@ class FileStorage:
             )
 
         if create_dir:
+            _LOGGER.debug(f'Creating directory: {dirpath}')
             os.makedirs(dirpath, exist_ok=True)
 
         return dirpath, filename
@@ -212,7 +215,8 @@ class FileStorage:
 
         return data
 
-    async def write(self, filepath: str, data: bytes, file_descriptor=None,
+    async def write(self, filepath: str, data: bytes = None,
+                    file_descriptor=None,
                     file_mode: FileMode = FileMode.BINARY,
                     storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
@@ -238,6 +242,8 @@ class FileStorage:
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
+
+        os.makedirs(dirpath, exist_ok=True)
 
         updated_filepath = f'{dirpath}/{filename}'
         openmode = f'w{file_mode.value}'
@@ -428,8 +434,15 @@ class FileStorage:
         )
 
         dest_filepath = dest_dirpath + '/' + dest_filename
+
         if os.path.exists(dest_filename) and not exist_ok:
             raise FileExistsError(dest_filepath)
+
+        # This mimics cloud storage where directories automagically
+        # appear when you copy a file to them, eventhough they are
+        # not real directories like we have on file systems
+        if not os.path.exists(dest_dirpath):
+            os.makedirs(dest_dirpath, exist_ok=True)
 
         result = shutil.copyfile(src, dest_filepath)
 

@@ -14,6 +14,8 @@ import yaml
 import asyncio
 import argparse
 
+from byoda.util.api_client.api_client import HttpResponse
+
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import RegistrationStatus
@@ -99,10 +101,10 @@ async def main(argv):
         schema['signatures'] = {}
 
     if not args.local:
-        response = await service.register_service()
-        if response.status != 200:
+        resp: HttpResponse = await service.register_service()
+        if resp.status_code != 200:
             raise ValueError(
-                f'Failed to register service: {response.status}'
+                f'Failed to register service: {resp.status_code}'
             )
 
     result = None
@@ -213,16 +215,16 @@ async def create_network_signature(service: Service, args, password: str
         service_secret = ServiceSecret(service.service_id, network)
         await service_secret.load(with_private_key=True, password=password)
         _LOGGER.debug('Requesting network signature from the directory server')
-        resp = await RestApiClient.call(
+        resp: HttpResponse = await RestApiClient.call(
             service.paths.get(Paths.NETWORKSERVICE_API),
             HttpMethod.PATCH,
             secret=service_secret,
             data=service.schema.json_schema,
         )
-        if resp.status != 200:
+        if resp.status_code != 200:
             return False
 
-        data = await resp.json()
+        data = resp.json()
         if data['errors']:
             _LOGGER.debug('Validation of service by the network failed')
             for error in data['errors']:
@@ -230,14 +232,14 @@ async def create_network_signature(service: Service, args, password: str
 
             return False
         else:
-            resp = await RestApiClient.call(
+            resp: HttpResponse = await RestApiClient.call(
                 service.paths.get(Paths.NETWORKSERVICE_API),
                 HttpMethod.GET,
                 secret=service_secret,
                 service_id=service.service_id
             )
-            if resp.status == 200:
-                service.schema.json_schema = await resp.json()
+            if resp.status_code == 200:
+                service.schema.json_schema = resp.json()
                 service.registration_status = \
                     RegistrationStatus.SchemaSigned
                 return True

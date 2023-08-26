@@ -27,6 +27,10 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 import os
 import sys
 
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
 from byoda import config
 from byoda.util.logger import Logger
 
@@ -41,7 +45,7 @@ from byoda.datastore.data_store import DataStoreType
 
 from byoda.storage.pubsub_nng import PubSubNng
 
-from byoda.util.fastapi import setup_api, add_cors
+from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
 
@@ -57,19 +61,9 @@ LOG_FILE = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
-# TODO: re-intro CORS origin ACL:
-# account.tls_secret.common_name
-app = setup_api(
-    'BYODA pod server', 'The pod server for a BYODA network',
-    'v0.0.1', [], [
-        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
-        AccountDataRouter, ContentTokenRouter
-    ]
-)
 
-
-@app.on_event('startup')
-async def setup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
 
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -129,21 +123,48 @@ async def setup():
 
     await server.get_registered_services()
 
-    cors_origins = [
-        f'https://proxy.{network.name}',
-        f'https://{account.tls_secret.common_name}'
-    ]
+    cors_origins = set(
+        [
+            f'https://proxy.{network.name}',
+            f'https://{account.tls_secret.common_name}'
+        ]
+    )
 
     if server.custom_domain:
-        cors_origins.append(f'https://{server.custom_domain}')
+        cors_origins.add(f'https://{server.custom_domain}')
 
     await account.load_memberships()
 
-    for account_member in account.memberships.values():
-        await account_member.create_query_cache()
-        await account_member.create_counter_cache()
-        account_member.enable_graphql_api(app)
-        cors_origins.append(f'https://{account_member.tls_secret.common_name}')
+    for member in account.memberships.values():
+        await member.create_query_cache()
+        await member.create_counter_cache()
+        member.enable_graphql_api(app)
+        await member.tls_secret.save(
+            password=member.private_key_password,
+            storage_driver=server.local_storage,
+            overwrite=True
+        )
+        await member.data_secret.save(
+            password=member.private_key_password,
+            storage_driver=server.local_storage,
+            overwrite=True
+        )
 
-    _LOGGER.debug('Going to add CORS Origins')
-    add_cors(app, cors_origins)
+        cors_origins.add(f'https://{member.tls_secret.common_name}')
+
+    _LOGGER.debug('Lifespan startup complete')
+    update_cors_origins(cors_origins)
+    yield
+
+    _LOGGER.info('Shutting down pod server')
+
+app = setup_api(
+    'BYODA pod server', 'The pod server for a BYODA network',
+    'v0.0.1', [
+        AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
+        AccountDataRouter, ContentTokenRouter
+    ],
+    lifespan=lifespan
+)
+
+config.app = app

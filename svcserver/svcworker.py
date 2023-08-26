@@ -20,6 +20,8 @@ from datetime import datetime, timedelta, timezone
 
 import orjson
 
+from byoda.util.api_client.api_client import HttpResponse
+
 from byoda.util.api_client.graphql_client import GraphQlClient
 from requests.exceptions import ConnectionError as RequestConnectionError
 from requests.exceptions import HTTPError
@@ -134,14 +136,14 @@ async def main():
             network=service.network.name, port=POD_TO_POD_PORT
         )
         try:
-            response = await GraphQlClient.call(
+            resp: HttpResponse = await GraphQlClient.call(
                 url,
                 GRAPHQL_STATEMENTS['person']['query'],
                 secret=service.tls_secret,
                 vars={'query_id': str(uuid4())}
             )
 
-            body = await response.json()
+            body = resp.json()
 
             if body.get('data'):
                 edges = body['data']['person_connection']['edges']

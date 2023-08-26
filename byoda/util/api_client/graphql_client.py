@@ -8,13 +8,13 @@ GraphQlClient, for performing GraphQL queries, either using HTTP or websockets
 
 import logging
 
-import aiohttp
-import requests
 
 from byoda.secrets.secret import Secret
+
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from .api_client import ApiClient
+from .api_client import HttpResponse
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,16 +27,16 @@ class GraphQlClient:
     @staticmethod
     async def call(url: str, query: bytes, secret: Secret = None,
                    headers: dict = None, vars: dict = None,
-                   timeout: int = 10) -> aiohttp.ClientResponse:
+                   timeout: int = 10):
 
         body = GraphQlClient.prep_query(query, vars)
 
-        response: aiohttp.ClientResponse = await ApiClient.call(
+        resp = await ApiClient.call(
             url, HttpMethod.POST, secret=secret, data=body, headers=headers,
             timeout=timeout
         )
 
-        return response
+        return resp
 
     @staticmethod
     async def close_all():
@@ -46,16 +46,16 @@ class GraphQlClient:
     def call_sync(url: str, query: bytes,
                   vars: dict = None, headers: dict = None,
                   secret: Secret = None, timeout: int = 10
-                  ) -> requests.Response:
+                  ) -> HttpResponse:
 
         body = GraphQlClient.prep_query(query, vars)
 
-        response = ApiClient.call_sync(
+        resp = ApiClient.call_sync(
             url, HttpMethod.POST, data=body, headers=headers,
             secret=secret, timeout=timeout
         )
 
-        return response
+        return resp
 
     @staticmethod
     def prep_query(query: str, vars: dict) -> str:

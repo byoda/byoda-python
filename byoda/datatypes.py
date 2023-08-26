@@ -36,6 +36,7 @@ class ServerRole(Enum):
     ServiceCa            = 'services_ca'
     ServiceServer        = 'service'
     ContentServer        = 'content'
+    App                  = 'app'
     Pod                  = 'pod'
     Client               = 'client'
     Test                 = 'test'
@@ -45,6 +46,14 @@ class ServerType(Enum):
     POD         = 'pod'
     DIRECTORY   = 'directory'
     SERVICE     = 'service'
+    APP         = 'app'
+
+
+class ClaimStatus(Enum):
+    PENDING     = 'pending'      # When claim is submitted
+    ACCEPTED    = 'accepted'     # when claim is accepted
+    WITHDRAWN   = 'withdrawn'    # when previously accepted claim is withdrawn
+    REJECTED    = 'rejected'     # when a submitted claim is rejected
 
 
 class IdType(Enum):
@@ -61,6 +70,7 @@ class IdType(Enum):
     MEMBER               = 'members-'
     SERVICE              = 'service-'
     APP                  = 'apps-'
+    APP_DATA             = 'app-data-'
     ANONYMOUS            = 'anonymous'
 
     @staticmethod
@@ -140,10 +150,45 @@ class StorageType(Enum):
 # ContentType is used by cloud storage drivers to specify the content type
 # For local storage, nginx takes care of setting the content type
 ContentTypes: dict[str, str] = {
-    '.mp4': 'video/mp4',
-    '.m4a': 'audio/mp4',
     '.mpd': 'application/dash+xml',
     '.m3u8': 'application/vnd.apple.mpegurl',
+    '.mp4': 'video/mp4',
+    '.ts': 'video/mp2t',
+    '.mpeg': 'video/mpeg',
+    '.mov': 'video/quicktime',
+    '.webm': 'video/webm',
+    '.ogv': 'video/ogg',
+    '.avi': 'video/x-msvideo',
+    '.m4a': 'audio/mp4',
+    '.mp3': 'audio/mpeg',
+    '.aac': 'audio/aac',
+    '.weba': 'audio/webm',
+    '.oga': 'audio/ogg',
+    '.wav': 'audio/wav',
+    '.webp': 'image/webp',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.tif': 'image/tiff',
+    '.tiff': 'image/tiff',
+    '.bmp': 'image/bmp',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.xml': 'application/xml',
+    '.xhtml': 'application/xhtml+xml',
+    '.zip': 'application/zip',
+    '.gz': 'application/gzip',
+    '.tar': 'application/x-tar',
+    '.bz': 'application/x-bzip',
+    '.bz2': 'application/x-bzip2',
+    '.z': 'application/x-compress',
+    '.txt': 'text/plain',
+    '.pdf': 'application/pdf',
+    '.json': 'application/json',
 }
 
 # The following are used for the 'type' parameter in the service schema
@@ -242,7 +287,12 @@ class IngestStatus(Enum):
     ENCODING        = 'encoding'
     DONE            = 'done'
     PUBLISHED       = 'published'
-
+    STARTING        = 'starting'
+    DOWNLOADING     = 'downloading'
+    PACKAGING       = 'packaging'
+    UPLOADING       = 'uploading'
+    INGESTED        = 'ingested'
+    QUEUED_START    = 'queued_start'
 
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):
@@ -263,3 +313,8 @@ class MemberStatus(Enum):
 class ReviewStatusType(Enum):
     ACCEPTED        = 'ACCEPTED'
     REJECTED        = 'REJECTED'
+
+
+class DnsRecordType(Enum):
+    A = 'A'
+    TXT = 'TXT'

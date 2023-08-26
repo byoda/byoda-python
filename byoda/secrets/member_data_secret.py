@@ -20,6 +20,7 @@ from byoda.datatypes import IdType
 from byoda import config
 
 from .data_secret import DataSecret
+from .data_secret import Secret
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,15 +30,18 @@ Account = TypeVar('Account')
 
 
 class MemberDataSecret(DataSecret):
+    __slots__ = ['member_id', 'network', 'service_id']
+
     def __init__(self, member_id: UUID, service_id: int,
                  account: Account | None = None):
         '''
         Class for the member-data secret. This secret is used to encrypt
         data of an member of a service.
+
         :param member_id: the UUID for the membership
         :param service_id: the service id
         :param account: the account of the member
-        :returns: ValueError if both 'paths' and 'network' parameters are
+        :raises: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
         '''
@@ -155,18 +159,24 @@ class MemberDataSecret(DataSecret):
                 Paths.MEMBER_DATACERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            cert_data = await DataSecret.download(member_data_secret, url)
+            cert_data = await DataSecret.download(
+                member_data_secret, url, network_name=network
+            )
+            _LOGGER.debug(
+                f'Downloaded member data secret of {len(cert_data or "")} '
+                f'bytes from pod: {url}'
+            )
         except RuntimeError:
             # Pod may be down or disconnected, let's try the service server
             url = Paths.resolve(
                 Paths.SERVICE_MEMBER_DATACERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            _LOGGER.debug(
-                'Falling back to downloading member data secret from service '
-                'server'
-            )
             cert_data = await DataSecret.download(member_data_secret, url)
+            _LOGGER.debug(
+                'Falling back to downloading member data secret of '
+                f'{len(cert_data or "")} bytes from service server {url}'
+            )
 
         _LOGGER.debug(
             f'Downloaded member data secret for member {member_id} of '
@@ -176,3 +186,19 @@ class MemberDataSecret(DataSecret):
         member_data_secret.from_string(cert_data)
 
         return member_data_secret
+
+    def from_string(self, cert: str, certchain: str = None):
+        '''
+        Loads an X.509 cert and certchain from a string. If the cert has an
+        certchain then the certchain can either be included at the end
+        of the string of the cert or can be provided as a separate parameter
+
+        :param cert: the base64-encoded cert
+        :param certchain: the base64-encoded certchain
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        super().from_string(cert, certchain)
+
+        self.common_name = Secret.extract_commonname(self.cert)

@@ -12,7 +12,6 @@ import os
 import sys
 import shutil
 import unittest
-from uuid import uuid4, UUID
 
 import jwt as py_jwt
 
@@ -33,6 +32,7 @@ from byoda.datatypes import TlsStatus
 from byoda.datatypes import HttpRequestMethod
 
 from byoda.util.logger import Logger
+from byoda.util.api_client.api_client import ApiClient
 
 from byoda import config
 
@@ -51,10 +51,14 @@ TEST_DIR = '/tmp/byoda-tests/auth'
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
-        
+
         network_data = await setup_network()
 
         account = await setup_account(network_data)
+
+    @classmethod
+    async def asyncTearDown(cls):
+        await ApiClient.close_all()
 
     async def test_jwt(self):
         #

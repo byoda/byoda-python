@@ -22,6 +22,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NetworkServicesCaSecret(CaSecret):
+    __slots__ = ['network']
+
     # When should the Network Services CA secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)

@@ -12,6 +12,8 @@ from uuid import UUID
 from typing import TypeVar
 from copy import copy
 
+from byoda.util.api_client.api_client import HttpResponse
+
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
@@ -58,6 +60,12 @@ class Account:
     This class is expected to only be used in the podserver
     '''
 
+    __slots__ = [
+        'account', 'password', 'account_id', 'document_store', 'network',
+        'private_key_password', 'data_secret', 'tls_secret', 'paths',
+        'memberships'
+    ]
+
     def __init__(self,  account_id: str, network: Network,
                  account: str = 'pod'):
         '''
@@ -89,8 +97,8 @@ class Account:
 
         self.data_secret: DataSecret = AccountDataSecret(
             account_id=self.account_id, network=network
-
         )
+
         self.tls_secret: AccountSecret = AccountSecret(
             self.account, self.account_id, self.network
         )
@@ -122,8 +130,7 @@ class Account:
                                     accounts_ca: NetworkAccountsCaSecret
                                     = None, renew: bool = False):
         '''
-        Creates the TLS secret for an account. TODO: create Let's Encrypt
-        cert
+        Creates the TLS secret for an account.
         '''
 
         if not self.tls_secret:
@@ -206,17 +213,17 @@ class Account:
                 )
             else:
                 csr = await secret.create_csr(self.account_id)
-                payload = {'csr': secret.csr_as_pem(csr).decode('utf-8')}
+                payload = {'csr': secret.csr_as_pem(csr)}
                 url = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 _LOGGER.debug(f'Getting CSR signed from {url}')
-                resp = await RestApiClient.call(
+                resp: HttpResponse = await RestApiClient.call(
                     url, method=HttpMethod.POST, data=payload
                 )
-                if resp.status != 201:
+                if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
 
-                cert_data = await resp.json()
+                cert_data = resp.json()
                 secret.from_string(
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
@@ -289,7 +296,9 @@ class Account:
 
         jwt = JWT.create(
             self.account_id, IdType.ACCOUNT, self.tls_secret,
-            self.network.name, expiration_days=expiration_days
+            self.network.name, service_id=None,
+            scope_type=IdType.ACCOUNT, scope_id=self.account_id,
+            expiration_days=expiration_days,
         )
         return jwt
 
@@ -304,7 +313,7 @@ class Account:
         resp = await RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
 
         _LOGGER.debug(
-            f'Registered account with directory server: {resp.status}'
+            f'Registered account with directory server: {resp.status_code}'
         )
 
     async def load_memberships(self) -> None:
@@ -341,6 +350,23 @@ class Account:
         )
 
         return memberships
+
+    async def get_membership(self, service_id: int) -> Member | None:
+        '''
+        Get the membership of a service, loading the memberships from storage
+        if it is not already cached
+
+        :param service_id: The ID of the service to get the membership for
+        :returns: The membership object or None if the account doesn't have
+        a membership for the service
+        '''
+
+        service_id = int(service_id)
+
+        if service_id not in self.memberships:
+            await self.load_memberships()
+
+        return self.memberships.get(service_id)
 
     async def load_membership(self, service_id: int, member_id: UUID
                               ) -> Member:

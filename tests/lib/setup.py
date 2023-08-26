@@ -29,6 +29,8 @@ from byoda.storage.pubsub_nng import PubSubNng
 from podserver.util import get_environment_vars
 
 from tests.lib.util import get_test_uuid
+from tests.lib.defines import MODTEST_FQDN
+from tests.lib.defines import MODTEST_APP_ID
 
 
 def mock_environment_vars(test_dir: str):
@@ -47,6 +49,8 @@ def mock_environment_vars(test_dir: str):
     os.environ['LOGLEVEL'] = 'DEBUG'
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
+    os.environ['MODERATION_FQDN'] = MODTEST_FQDN
+    os.environ['MODERATION_APP_ID'] = str(MODTEST_APP_ID)
 
 
 async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:

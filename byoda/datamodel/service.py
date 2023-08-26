@@ -19,22 +19,12 @@ import passgen
 
 from cryptography.hazmat.primitives import serialization
 
-from byoda.datastore.dnsdb import DnsRecordType
-
-from byoda.storage import FileStorage
-
-from byoda.datatypes import CsrSource
-from byoda.datatypes import ServerType
-
 from byoda.datamodel.schema import Schema
 
-from byoda.util.api_client.api_client import ApiClient
-
-from byoda.util.message_signature import SignatureType
-from byoda.util.paths import Paths
-
 from byoda.datatypes import IdType
-from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
+from byoda.datatypes import CsrSource
+from byoda.datatypes import ServerType
+from byoda.datatypes import DnsRecordType
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.secret import CSR
@@ -47,6 +37,16 @@ from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.appsca_secret import AppsCaSecret
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
+
+from byoda.storage import FileStorage
+
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.message_signature import SignatureType
+from byoda.util.paths import Paths
+
+from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 
 from byoda import config
 
@@ -72,6 +72,12 @@ class Service:
     This class is used both by the SDK for hosting a service
     and by pods
     '''
+
+    __slots__ = [
+        'name', 'service_id', 'schema', 'signed', 'private_key_password',
+        'registration_status', 'service_ca', 'members_ca', 'apps_ca',
+        'tls_secret', 'data_secret', 'network', 'paths', 'storage_driver'
+    ]
 
     def __init__(self, network: Network = None, service_id: int = None,
                  storage_driver: FileStorage = None):
@@ -132,7 +138,9 @@ class Service:
         else:
             self.storage_driver = self.paths.storage_driver
 
-        _LOGGER.debug('Instantiated Service object for service')
+        _LOGGER.debug(
+            f'Instantiated Service object for service {self.service_id}'
+        )
 
 
     async def examine_servicecontract(self, filepath: str) -> None:
@@ -505,15 +513,15 @@ class Service:
         }
 
         url = self.paths.get(Paths.NETWORKSERVICE_POST_API)
-        response = await RestApiClient.call(
+        resp: HttpResponse = await RestApiClient.call(
             url, HttpMethod.POST, data=data
         )
-        if response.status != 201:
+        if resp.status_code != 201:
             raise ValueError(
                 f'Failed to POST to API {Paths.NETWORKSERVICE_API}: '
-                f'{response.status}'
+                f'{resp.status_code}'
             )
-        data = await response.json()
+        data = resp.json()
         secret.from_string(data['signed_cert'] + data['cert_chain'])
         self.registration_status = RegistrationStatus.CsrSigned
         await secret.save(password=private_key_password, overwrite=False)
@@ -643,11 +651,11 @@ class Service:
         data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
 
         url = self.paths.get(Paths.NETWORKSERVICE_API)
-        response = await RestApiClient.call(
+        resp = await RestApiClient.call(
             url, HttpMethod.PUT, secret=self.tls_secret, data=data_certchain,
             service_id=self.service_id
         )
-        return response
+        return resp
 
     async def download_schema(self, save: bool = True, filepath: str = None) -> str:
         '''
@@ -668,16 +676,16 @@ class Service:
         resp = await ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
-        if resp.status == 200:
+        if resp.status_code == 200:
             _LOGGER.debug(f'Downloaded service contract to {filepath}')
             if save:
                 _LOGGER.debug(f'Saving service contract to {filepath}')
-                await self.save_schema(await resp.text(), filepath=filepath)
+                await self.save_schema(resp.text, filepath=filepath)
 
-            return await resp.text()
+            return resp.text
 
         raise FileNotFoundError(
-            f'Download of service schema failed: {resp.status}'
+            f'Download of service schema failed: {resp.status_code}'
         )
 
     async def load_secrets(self, with_private_key: bool = True, password: str = None,
@@ -789,13 +797,13 @@ class Service:
             else:
                 return None
 
-        if resp.status == 200:
+        if resp.status_code == 200:
             if save:
                 self.data_secret = ServiceDataSecret(self.service_id, self.network)
-                self.data_secret.from_string(await resp.text())
+                self.data_secret.from_string(resp.text)
                 await self.data_secret.save(overwrite=(not failhard))
 
-            return await resp.text()
+            return resp.text
 
         raise FileNotFoundError(
             f'Could not download data cert for service {self.service_id}: '

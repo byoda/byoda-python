@@ -25,6 +25,7 @@ from byoda.datacache.counter_cache import CounterCache
 from byoda.datastore.data_store import DataStoreType
 
 from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -89,10 +90,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
-            'v0.0.1', [account.tls_secret.common_name], [
+            'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
-            ]
+            ],
+            lifespan=None
         )
 
         for member in account.memberships.values():
@@ -140,11 +142,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'keywords': ["just", "testing"]
             }
 
-            response = await GraphQlClient.call(
+            response: HttpResponse = await GraphQlClient.call(
                 url, GRAPHQL_STATEMENTS['network_assets']['append'],
                 vars=vars, timeout=120, headers=auth_header
             )
-            result = await response.json()
+            result = response.json()
             self.assertIsNone(result.get('errors'))
 
             cache_value = await counter_cache.get('network_assets')
@@ -155,11 +157,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'asset_id': {'eq': str(asset_ids[0])}},
             'query_id': uuid4(),
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['delete'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNone(result.get('errors'))
         self.assertEqual(data['delete_from_network_assets'], 1)
@@ -171,11 +173,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'filters': {'asset_id': {'eq': str(asset_ids[1])}},
             'query_id': uuid4(),
         }
-        response = await GraphQlClient.call(
+        response: HttpResponse = await GraphQlClient.call(
             url, GRAPHQL_STATEMENTS['network_assets']['delete'], vars=vars,
             timeout=120, headers=auth_header
         )
-        result = await response.json()
+        result = response.json()
         data = result.get('data')
         self.assertIsNone(result.get('errors'))
         self.assertEqual(data['delete_from_network_assets'], 1)

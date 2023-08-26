@@ -59,7 +59,7 @@ DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 
 CONFIG_FILE = 'tests/collateral/config.yml'
-TEST_PORT = 5000
+TEST_PORT = 8000
 BASE_URL = f'http://localhost:{TEST_PORT}/api'
 
 _LOGGER = None
@@ -130,8 +130,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
-            'v0.0.1', [],
-            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter]
+            'v0.0.1',
+            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter],
+            lifespan=None
         )
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
@@ -234,7 +235,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         API = BASE_URL + '/v1/service/search/asset'
         response = requests.post(
             API, headers=headers, json={
+                'hashtags': ['gaap'],
                 'mentions': ['blah'],
+                'nickname': None,
+                'text': None,
                 'asset_id': asset_id
             }
         )
@@ -253,15 +257,27 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 1)
+        self.assertGreaterEqual(len(data), 3)
         self.assertTrue(
-            membersecret_commonname.startswith(data[0]['member_id'])
+            membersecret_commonname.startswith(data[-1]['member_id'])
         )
-        self.assertEqual(asset_id, data[0]['asset_id'])
+        self.assertEqual(asset_id, data[-1]['asset_id'])
+
+        response = requests.get(
+            API, headers=headers, json={
+                'mentions': ['blah']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        total_items = len(data)
 
         response = requests.delete(
             API, headers=headers, json={
+                'hashtags': None,
                 'mentions': ['blah'],
+                'nickname': None,
+                'text': None,
                 'asset_id': asset_id
             }
         )
@@ -280,9 +296,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 0)
+        self.assertEqual(len(data), total_items - 1)
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

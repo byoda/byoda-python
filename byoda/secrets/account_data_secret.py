@@ -21,13 +21,15 @@ from .data_secret import DataSecret
 
 _LOGGER = logging.getLogger(__name__)
 
-Network = TypeVar('Network', bound='Network')
+Network = TypeVar('Network')
 
 
 class AccountDataSecret(DataSecret):
     '''
     The account data secret is used to encrypt account data
     '''
+
+    __slots__ = ['account_id', 'account', 'network']
 
     # When should the secret be renewed
     RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
@@ -61,7 +63,7 @@ class AccountDataSecret(DataSecret):
         self.id_type = IdType.ACCOUNT_DATA
 
     async def create_csr(self, account_id: UUID = None, renew: bool = False
-                   ) -> CertificateSigningRequest:
+                         ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
 

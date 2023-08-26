@@ -21,7 +21,6 @@ from jwt.exceptions import PyJWTError
 
 from byoda.datamodel.network import Network
 
-from byoda.servers.service_server import ServiceServer
 from byoda.servers.pod_server import PodServer
 from byoda.servers.server import Server
 
@@ -31,6 +30,7 @@ from byoda.datatypes import AuthSource
 
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
+from byoda.secrets.appsca_secret import AppsCaSecret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
@@ -129,24 +129,25 @@ class RequestAuth:
         # HttpRwquestMethod is None when request is
         # a GraphQL subscribe request coming over websockets
         self.method: HttpRequestMethod | None = method
-        self.client_cn: str = None
-        self.issuing_ca_cn: str = None
-        self.token: str = None
-        self.account_id: UUID = None
-        self.service_id: int = None
-        self.member_id: UUID = None
-        self.domain: str = None
+        self.client_cn: str | None = None
+        self.issuing_ca_cn: str | None = None
+        self.token: str | None = None
+        self.account_id: UUID | None = None
+        self.service_id: int | None = None
+        self.member_id: UUID | None = None
+        self.domain: str | None = None
 
-        self. id: UUID | None = None
+        self.id: UUID | None = None
 
-        self.tls_status: TlsStatus = None
-        self.client_dn: str = None
-        self.issuing_ca_dn: str = None
-        self.authorization: str = None
+        self.tls_status: TlsStatus | None = None
+        self.client_dn: str | None = None
+        self.issuing_ca_dn: str | None = None
+        self.authorization: str | None = None
+        self.jwt: JWT | None = None
 
     async def authenticate(self, tls_status: TlsStatus, client_dn: str | None,
                            issuing_ca_dn: str | None, client_cert: str | None,
-                           authorization: str | None):
+                           authorization: str | None) -> JWT | None:
         '''
         Get the authentication info for the client that made the API call.
         As long as either the TLS client cert or the JWT from the
@@ -164,7 +165,8 @@ class RequestAuth:
         presented TLS client cert
         :param client_cert: PEM url-encoded client TLS cert
         :param authorization: value of the HTTP Authorization header
-        :returns: (none)
+        :returns: if authenticated with an authorization header, the JWT is
+        returned
         :raises: ByodaMissingAuthInfo if the no authentication, AuthFailure if
         authentication was provided but is incorrect, HTTPException with
         status code 400 or 401 if malformed authentication info was provided
@@ -186,6 +188,7 @@ class RequestAuth:
         detail: str = 'Missing authentication info'
         if self.tls_status is None:
             self.tls_status = TlsStatus.NONE
+
         if isinstance(tls_status, str):
             self.tls_status = TlsStatus(self.tls_status)
 
@@ -215,11 +218,11 @@ class RequestAuth:
 
         if self.authorization:
             _LOGGER.debug('Authenticating using JWT')
-            await self.authenticate_authorization_header(
+            jwt = await self.authenticate_authorization_header(
                 self.authorization
             )
             self.auth_source = AuthSource.TOKEN
-            return
+            return jwt
 
         raise HTTPException(status_code=error, detail=detail)
 
@@ -249,10 +252,6 @@ class RequestAuth:
                 )
             )
 
-        # SECURITY: we need to check the intermediate CA CN
-        # as currently any Member CA can sign certs for other
-        # services!
-
         self.id, subdomain = self.client_cn.split('.')[0:2]
         self.domain = self.client_cn.split('.', 3)[-2]
         if '-' in subdomain:
@@ -275,12 +274,13 @@ class RequestAuth:
 
     @staticmethod
     async def authenticate_graphql_request(request: starlette.requests.Request,
-                                           service_id: int
-                                           ):
+                                           service_id: int):
         '''
         Wrapper for static RequestAuth.authenticate method. This method
         is invoked by the GraphQL APIs
 
+        :params request: the incoming HTTP request
+        :param service_id: the ID of the service targetted by the request
         :returns: An instance of RequestAuth, unless when no authentication
         credentials were provided, in which case 'None' is returned
         '''
@@ -302,7 +302,7 @@ class RequestAuth:
             request.headers.get('X-Client-SSL-Issuing-CA'),
             request.headers.get('X-Client-SSL-Cert'),
             request.headers.get('Authorization'),
-            request.client.host, request_method
+            request.client.host, request_method, service_id
         )
 
         if auth.is_authenticated and auth.service_id != service_id:
@@ -318,12 +318,21 @@ class RequestAuth:
                                    client_dn: str, issuing_ca_dn: str,
                                    ssl_cert, authorization: str,
                                    remote_addr: IpAddress,
-                                   method: HttpRequestMethod):
+                                   method: HttpRequestMethod, service_id: int):
         '''
         Authenticate a request based on incoming TLS headers or JWT
 
         Function is invoked for GraphQL APIs
 
+        :param tls_status: instance of TlsStatus enum
+        :param client_dn: designated name of the presented client TLS cert
+        :param issuing_ca_dn: designated name of the issuing CA for the
+        presented TLS client cert
+        :param ssl_cert: PEM url-encoded client TLS cert
+        :param authorization: value of the HTTP Authorization header
+        :param remote_addr: IP address of the caller
+        :param method: the HTTP method of the request
+        :param service_id: the ID of the service
         :returns: An instance of RequestAuth or None if no credentials
         were provided
         :raises: HTTPException 400, 401 or 403
@@ -332,7 +341,8 @@ class RequestAuth:
         client_cn: str = None
         id_type: IdType | None = None
 
-        network: Network = config.server.account.network
+        server: PodServer = config.server
+        network: Network = server.account.network
 
         # Client cert, if available, sets the IdType for the authentication
         if client_dn and issuing_ca_dn:
@@ -343,6 +353,14 @@ class RequestAuth:
             jwt = await JWT.decode(
                 authorization, None, network.name, download_remote_cert=False
             )
+            if jwt.service_id != service_id:
+                raise HTTPException(
+                    status_code=401,
+                    detail=(
+                        f'Service ID mismatch: '
+                        f'{jwt.service_id} != {service_id}'
+                    )
+                )
             if id_type and id_type != jwt.issuer_type:
                 raise HTTPException(
                     status_code=401,
@@ -351,7 +369,12 @@ class RequestAuth:
                         f'JWT ({jwt.issuer_type.value})'
                     )
                 )
+            await server.account.load_memberships()
+            member = config.server.account.memberships.get(service_id)
+            jwt.check_scope(IdType.MEMBER, member.member_id)
+
             id_type = jwt.issuer_type
+
         else:
             _LOGGER.debug('Anonymous request, no client-cert or JWT provided')
             id_type = IdType.ANONYMOUS
@@ -524,6 +547,44 @@ class RequestAuth:
                 )
             ) from exc
 
+    def check_app_cert(self, service_id: int, network: Network) -> None:
+        '''
+        Checks if the M-TLS client certificate was signed using the cert chain
+        for apps of the service
+        '''
+
+        if not self.client_cn or not self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=401, detail='Missing MTLS client cert'
+            )
+
+        # We verify the cert chain by creating dummy secrets for each
+        # applicable CA and then review if that CA would have signed
+        # the commonname found in the certchain presented by the
+        # client
+        try:
+            # Member cert gets signed by Service Member CA
+            apps_ca_secret = AppsCaSecret(
+                service_id, network=network
+            )
+            entity_id = apps_ca_secret.review_commonname(self.client_cn)
+            self.member_id = entity_id.id
+            self.id = self.member_id
+            self.service_id = entity_id.service_id
+
+            # The App CA cert gets signed by the Service App CA
+            apps_ca_secret = AppsCaSecret(service_id, network=network)
+            apps_ca_secret.review_commonname(self.issuing_ca_cn)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f'Incorrect c_cn {self.client_cn} issued by '
+                    f'{self.issuing_ca_cn} for service {service_id} on '
+                    f'network {network.name}'
+                )
+            ) from exc
+
     @staticmethod
     def get_commonname(dname: str) -> str:
         '''
@@ -573,7 +634,8 @@ class RequestAuth:
 
         return idtype
 
-    async def authenticate_authorization_header(self, authorization: str):
+    async def authenticate_authorization_header(self, authorization: str
+                                                ) -> JWT:
         '''
         Check the JWT in the value for the Authorization header.
 
@@ -586,7 +648,7 @@ class RequestAuth:
         if not server.accepts_jwts():
             raise HTTPException(
                 status_code=400,
-                detail='Only Pods and service servers accept JWTs'
+                detail='Only Pods, app servers and service servers accept JWTs'
             )
 
         if not authorization or not isinstance(authorization, str):
@@ -600,12 +662,15 @@ class RequestAuth:
             authorization = authorization[len('bearer'):]
             authorization = authorization.strip()
 
-        # First we use the unverified JTW to find out
+        # First we use the unverified JWT to find out
         # in which context we need to authenticate the client
         try:
-            unverified = await JWT.decode(authorization, None, network.name)
+            unverified_jwt = await JWT.decode(
+                authorization, None, network.name, download_remote_cert=False
+            )
 
-            secret = await unverified._get_issuer_secret()
+            secret = await unverified_jwt._get_issuer_secret()
+            # TODO: next 2 lines can be removed?
             if not secret.cert:
                 await secret.load(with_private_key=False)
         except ExpiredSignatureError:
@@ -616,31 +681,12 @@ class RequestAuth:
             _LOGGER.exception(f'Invalid JWT: {exc}')
             raise HTTPException(status_code=401, detail='Invalid JWT')
 
-        if (unverified.issuer_type == IdType.ACCOUNT
-                and not isinstance(config.server, PodServer)):
-            raise HTTPException(
-                status_code=401,
-                detail=(
-                    'A JWT that is signed by account cert can only be used '
-                    'with the pod'
-                )
-            )
-
-        if (isinstance(config.server, ServiceServer)
-                and config.server.service.service_id !=
-                unverified.service_id):
-            # We are running on a service server
-            raise HTTPException(
-                status_code=401,
-                detail=f'Invalid service_id in JWT: {unverified.service_id}'
-            )
-
         # Now we have the secret for verifying the signature of the JWT
         try:
             await JWT.decode(authorization, secret, network.name)
 
             # We now know we can trust the data we earlier parsed from the JWT
-            jwt = unverified
+            jwt: JWT = unverified_jwt
 
             self.service_id = jwt.service_id
             self.id_type = jwt.issuer_type
@@ -652,13 +698,14 @@ class RequestAuth:
                 self.id = self.account_id
 
             self.auth_source = AuthSource.TOKEN
+            return jwt
         except InvalidAudienceError:
             raise HTTPException(
                 status_code=401, detail='JWT has incorrect audience'
             )
         except InvalidSignatureError:
             raise HTTPException(
-                status_code=401, detail='JWT signature invalid'
+                status_code=403, detail='JWT signature invalid'
             )
         except PyJWTError as exc:
             raise HTTPException(status_code=401, detail=f'JWT error: {exc}')

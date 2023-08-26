@@ -9,9 +9,12 @@ provides helper functions to authenticate the client making the request
 '''
 
 import logging
+
 from typing import TypeVar
+from typing import Annotated
 
 from fastapi import Header, HTTPException, Request
+from fastapi import Depends
 
 from byoda.datamodel.member import GRAPHQL_API_URL_PREFIX
 from byoda.datatypes import AuthSource, IdType
@@ -30,7 +33,6 @@ _LOGGER = logging.getLogger(__name__)
 class PodApiRequestAuth(RequestAuth):
     def __init__(self,
                  request: Request,
-                 service_id: int | None = Header(None),
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
@@ -63,7 +65,6 @@ class PodApiRequestAuth(RequestAuth):
 
         super().__init__(request.client.host, request.method)
 
-        self.service_id = service_id
         self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
         self.x_client_ssl_subject: str | None = x_client_ssl_subject
         self.x_client_ssl_issuing_ca: str | None = x_client_ssl_issuing_ca
@@ -82,7 +83,7 @@ class PodApiRequestAuth(RequestAuth):
         '''
 
         try:
-            await super().authenticate(
+            jwt = await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,
@@ -108,11 +109,14 @@ class PodApiRequestAuth(RequestAuth):
                 )
             )
 
-        account = config.server.account
+        server: PodServer = config.server
+        account = server.account
 
         if self.id_type == IdType.ACCOUNT:
             if self.auth_source == AuthSource.CERT:
                 self.check_account_cert(config.server.network)
+            else:
+                jwt.check_scope(IdType.ACCOUNT, account.account_id)
 
             if self.account_id != account.account_id:
                 _LOGGER.warning(
@@ -121,12 +125,10 @@ class PodApiRequestAuth(RequestAuth):
                 raise HTTPException(
                     status_code=401, detail='Authentication failure'
                 )
-        else:
-            if self.auth_source == AuthSource.CERT:
-                self.check_member_cert(service_id, config.server.network)
-
+        elif self.id_type == IdType.MEMBER:
             await account.load_memberships()
             member: Member = account.memberships.get(service_id)
+
             if not member:
                 _LOGGER.warning(
                     f'Authentication failure for service {service_id}'
@@ -136,4 +138,16 @@ class PodApiRequestAuth(RequestAuth):
                     status_code=401, detail='Authentication failure'
                 )
 
+            if self.auth_source == AuthSource.CERT:
+                self.check_member_cert(service_id, config.server.network)
+            else:
+                jwt.check_scope(IdType.MEMBER, member.member_id)
+        else:
+            raise HTTPException(
+                status_code=400, detail='Invalid id type in JWT'
+            )
+
         self.is_authenticated = True
+
+
+AuthDep = Annotated[PodApiRequestAuth, Depends(PodApiRequestAuth)]

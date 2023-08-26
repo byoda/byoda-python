@@ -20,6 +20,12 @@ class Paths:
     Filesystem path management. Provides a uniform interface
     to the location of various files
     '''
+
+    __slots__ = [
+        '_root_directory', '_account', '_network', 'service_id',
+        'storage_driver', 'account_id'
+    ]
+
     # Default value for the pirectory prepended to paths
     _ROOT_DIR = os.environ['HOME'] + '/.byoda/'
 
@@ -60,7 +66,18 @@ class Paths:
     SERVICE_KEY_FILE             = 'private/network-{network}-service-{service_id}.key'                                   # noqa
     SERVICE_DATA_KEY_FILE        = 'private/network-{network}-service-{service_id}-data.key'                              # noqa
     SERVICE_MEMBER_DB_FILE       = 'network-{network}/services/service-{service_id}/membersdb.json'                       # noqa
-    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-data-cert-{member_id}.pem'     # noqa
+    SERVICE_MEMBER_CERT_FILE     = 'network-{network}/services/service-{service_id}/member-certs/member-{member_id}-cert.pem'          # noqa
+    SERVICE_MEMBER_DATACERT_FILE = 'network-{network}/services/service-{service_id}/member-certs/member-data-{member_id}-cert.pem'     # noqa
+
+    APP_DIR                      = 'network-{network}/service-{service_id}/apps'                                          # noqa
+    APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}-cert.pem'                    # noqa
+    APP_KEY_FILE                 = 'private/network-{network}/service-{service_id}//apps/app-{app_id}.key'                # noqa
+    APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-{app_id}-certchain.pem'  # noqa
+    APP_CSR_FILE                 = 'private/network-{network}/service-{service_id}/apps/app-{app_id}-csr.pem'             # noqa
+    APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-data-{app_id}-cert.pem'               # noqa
+    APP_DATA_KEY_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}.key'            # noqa
+    APP_DATA_CERTCHAIN_FILE      = 'network-{network}/service-{service_id}/apps/app-data-{app_id}-certchain.pem'          # noqa
+    APP_DATA_CSR_FILE            = 'private/network-{network}/service-{service_id}/apps/app-data-{app_id}-csr.pem'        # noqa
 
     MEMBER_DIR                     = 'network-{network}/account-{account}/service-{service_id}/'                                                                # noqa
     MEMBER_SERVICE_FILE            = 'network-{network}/account-{account}/service-{service_id}/service-contract.json'                                           # noqa
@@ -71,18 +88,20 @@ class Paths:
     MEMBER_DATA_DIR                = 'private/network-{network}/account-{account}/data/network-{network}-member-{member_id}'                                    # noqa
     MEMBER_DATA_FILE               = 'data-{service_id}-{member_id}.db'                                                                                         # noqa
     MEMBER_QUERY_CACHE_FILE        = 'querycache-{service_id}-{member_id}.db'                                                                                   # noqa
-    MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                   # noqa
+    MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                 # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
     # Cert Downloads
-    NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                               # noqa
-    NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                             # noqa
-    SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'             # noqa
-    SERVICE_CACERT_DOWNLOAD             = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-ca-certchain.pem'          # noqa
-    SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-data-certs/network-{network}-{member_id}-data-cert.pem'    # noqa
-    SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                            # noqa
-    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                         # noqa
+    NETWORK_CERT_DOWNLOAD               = 'https://dir.{network}/root-ca.pem'                                                                       # noqa
+    NETWORK_DATACERT_DOWNLOAD           = 'https://dir.{network}/root-data.pem'                                                                     # noqa
+    SERVICE_DATACERT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-data-cert.pem'     # noqa
+    SERVICE_CACERT_DOWNLOAD             = 'https://service.service-{service_id}.{network}/network-{network}-service-{service_id}-ca-certchain.pem'  # noqa
+    SERVICE_MEMBER_CERT_DOWNLOAD        = 'https://service.service-{service_id}.{network}/member-certs/member-{member_id}-cert.pem'                 # noqa
+    SERVICE_MEMBER_DATACERT_DOWNLOAD    = 'https://service.service-{service_id}.{network}/member-certs/member-data-{member_id}-cert.pem'            # noqa
+    SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                    # noqa
+    MEMBER_CERT_DOWNLOAD                = 'https://{member_id}.members-{service_id}.{network}/member-cert.pem'                                      # noqa
+    MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                 # noqa
 
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa
@@ -91,6 +110,7 @@ class Paths:
     NETWORKSERVICES_API     = 'https://dir.{network}/api/v1/network/services'                                         # noqa
     NETWORKMEMBER_API       = 'https://dir.{network}/api/v1/network/member'                                           # noqa
     SERVICEMEMBER_API       = 'https://service.service-{service_id}.{network}/api/v1/service/member'                  # noqa
+    SERVICEAPP_API          = 'https://service.service-{service_id}.{network}/api/v1/service/app'                     # noqa
     SERVICEEMAILSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/email'            # noqa
     SERVICEASSETSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/asset'            # noqa
     PODGRAPHQL_API          = 'https://{member_id}}.members-{service_id}.{network}/api/v1/data/service-{service_id}'  # noqa
@@ -99,8 +119,9 @@ class Paths:
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
 
     # Content download URLs
-    RESTRICTED_ASSET_POD_URL  = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'                                      # noqa
-    RESTRICTED_ASSET_CDN_URL  = 'https://cdn.byoda.io/restricted/{asset_id}/{filename}?service_id={service_id}&member_id={member_id}&asset_id={asset_id}'  # noqa
+    RESTRICTED_ASSET_POD_URL = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa
+    RESTRICTED_ASSET_CDN_URL = 'https://cdn.byoda.io/restricted/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
+    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byoda.io/public/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,
@@ -131,7 +152,8 @@ class Paths:
             self.storage_driver = FileStorage(self._root_directory)
 
     def get(self, path_template: str, service_id: int = None,
-            member_id: UUID = None, account_id: UUID = None):
+            member_id: UUID = None, account_id: UUID = None,
+            app_id: UUID = None) -> str:
         '''
         Gets the file/path for the specified path_type
 
@@ -159,6 +181,7 @@ class Paths:
             account=self._account,
             service_id=service_id,
             member_id=member_id,
+            app_id=app_id
         )
 
         return path

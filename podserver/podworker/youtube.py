@@ -9,12 +9,17 @@ Twitter functions for podworker
 import os
 
 import logging
+
+from uuid import UUID
 from time import gmtime
 from calendar import timegm
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.datamodel.member import Member
+from byoda.datamodel.network import Network
+
+from byoda.datatypes import IdType
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.datastore.data_store import DataStore
 
@@ -22,6 +27,7 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
 
+from byoda.servers.pod_server import PodServer
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
@@ -48,8 +54,29 @@ async def youtube_update_task(server: PodServer):
         _LOGGER.debug('Skipping YouTube update as it is not enabled')
         return
 
+    moderation_fqdn: str = os.environ.get('MODERATION_FQDN')
+    moderation_url: str = f'https://{moderation_fqdn}'
+    moderation_request_url: str = \
+        moderation_url + YouTube.MODERATION_REQUEST_API
+    moderation_claim_url = moderation_url + YouTube.MODERATION_CLAIM_URL
+
+    moderation_app_id: str | UUID = os.environ.get('MODERATION_APP_ID')
+    if moderation_app_id:
+        moderation_app_id = UUID(moderation_app_id)
+
     data_store: DataStore = server.data_store
     storage_driver: FileStorage = server.storage_driver
+    network: Network = server.network
+
+    if moderation_app_id:
+        jwt = JWT.create(
+            member.member_id, IdType.MEMBER, member.data_secret, network.name,
+            ADDRESSBOOK_SERVICE_ID, IdType.APP, moderation_app_id,
+            expiration_days=3
+        )
+        jwt_header: str | None = jwt.encoded
+    else:
+        jwt_header: str | None = None
 
     ingested_videos = await YouTube.load_ingested_videos(
         member.member_id, data_store
@@ -67,7 +94,8 @@ async def youtube_update_task(server: PodServer):
                 os.remove(LOCK_FILE)
             else:
                 _LOGGER.info(
-                    'YouTube ingest lock file exists, skipping this run'
+                    f'YouTube ingest lock file {LOCK_FILE} exists, '
+                    'skipping this run'
                 )
                 return
 
@@ -76,7 +104,10 @@ async def youtube_update_task(server: PodServer):
         _LOGGER.debug('Running YouTube metadata update')
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, data_store, storage_driver, ingested_videos,
+            moderate_request_url=moderation_request_url,
+            moderate_jwt_header=jwt_header,
+            moderate_claim_url=moderation_claim_url
         )
         os.remove(LOCK_FILE)
 

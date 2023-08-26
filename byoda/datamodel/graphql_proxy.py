@@ -16,6 +16,8 @@ from datetime import datetime
 
 import orjson
 
+from byoda.util.api_client.api_client import HttpResponse
+
 from strawberry.types import Info
 
 from byoda.datatypes import GRAPHQL_API_URL_PREFIX
@@ -288,12 +290,12 @@ class GraphQlProxy:
         query_data = orjson.loads(self.updated_query)
         query_string = query_data['query']
 
-        response = await GraphQlClient.call(
+        resp: HttpResponse = await GraphQlClient.call(
             url, query_string, vars=query_data['variables'],
             secret=self.member.tls_secret, timeout=10
         )
 
-        body = await response.json()
+        body = resp.json()
 
         data = body.get('data')
 

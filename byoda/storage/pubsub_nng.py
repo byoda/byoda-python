@@ -26,6 +26,9 @@ Schema = TypeVar('Schema')
 
 
 class PubSubNng(PubSub):
+    ___slots__ = [
+        'work_dir', 'schema', 'pub', 'subs', 'is_sender'
+    ]
     SEND_TIMEOUT = 100
     RECV_TIMEOUT = 3660
     SEND_BUFFER_SIZE = 100
@@ -81,7 +84,6 @@ class PubSubNng(PubSub):
 
             self.pub.send_timeout = self.SEND_TIMEOUT
             self.pub.send_buffer_size = self.SEND_BUFFER_SIZE
-            self.sub: pynng.Sub0 | None = None
         else:
             _LOGGER.debug(
                 'Setting up for receiving messages for class '
