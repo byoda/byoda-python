@@ -59,7 +59,6 @@ pymerkle = "*"
 strawberry-graphql = "*"
 pyyaml = "*"
 pydantic = "*"
-trio = "*"
 httpx = "*"
 gql = {extras = ["httpx", "websockets"], version = "*"}
 aiohttp = {extras = ["aiodns"], version = "*"}

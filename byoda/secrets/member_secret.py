@@ -37,6 +37,7 @@ class MemberSecret(Secret):
         :param service_id: the service id
         :param account: the account of the member
         :param paths: Paths instance
+        :param network_name: name of the network
         :raises: ValueError if both 'paths' and 'network' parameters are
         specified
         '''
