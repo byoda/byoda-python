@@ -294,7 +294,7 @@ To acquire a JWT for managing the pod, you get an 'account JWT'. If you do not u
 ```bash
 export ACCOUNT_JWT=$( \
     curl -s \
-    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"target_type\":\"accounts\"}" \
     -H "Content-Type: application/json" \
     https://proxy.byoda.net/$ACCOUNT_ID/api/v1/pod/authtoken | jq -r .auth_token
 ); echo $ACCOUNT_JWT
@@ -306,7 +306,7 @@ If you do use a custom domain, you can not use the proxy and have to use the cus
 CUSTOM_DOMAIN=<changeme>
 export ACCOUNT_JWT=$( \
     curl -s \
-    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\"}" \
+    -d "{\"username\": \"${ACCOUNT_USERNAME}\", \"password\":\"${ACCOUNT_PASSWORD}\", \"target_type\":\"accounts\"}" \
     -H "Content-Type: application/json" \
     https://${CUSTOM_DOMAIN}/api/v1/pod/authtoken | jq -r .auth_token
 ); echo $ACCOUNT_JWT
