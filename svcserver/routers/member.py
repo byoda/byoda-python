@@ -12,10 +12,9 @@ It takes 3 steps for a pod to become a member of service:
    the membership is up and running
 '''
 
-
-import logging
-
 from copy import copy
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException
@@ -23,7 +22,6 @@ from fastapi import HTTPException
 from cryptography import x509
 
 from byoda.datatypes import IdType
-from byoda.datatypes import EntityId
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import AuthSource
 
@@ -47,9 +45,9 @@ from byoda import config
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
 from ..dependencies.memberrequest_auth import MemberRequestAuthOptionalFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-router = APIRouter(
+router: APIRouter = APIRouter(
     prefix='/api/v1/service',
     dependencies=[]
 )

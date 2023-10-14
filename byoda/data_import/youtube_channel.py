@@ -9,9 +9,12 @@ Model a Youtube channel
 
 import re
 import asyncio
-import logging
 
-from datetime import datetime, timezone, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+
+from datetime import datetime
+from datetime import timezone, timedelta
 
 import orjson
 
@@ -33,7 +36,7 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from .youtube_video import YouTubeVideo
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class YouTubeChannel:

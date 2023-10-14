@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test the POD REST and GraphQL APIs
+Test the POD REST and Data APIs
 
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
@@ -15,21 +15,25 @@ import os
 import sys
 import unittest
 
-from uuid import uuid4
+from uuid import UUID
+from datetime import datetime
+from datetime import timezone
 
-import orjson
-import requests
+from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
 
 from byoda.datatypes import IdType
+from byoda.datatypes import DataRequestType
 
-from byoda.datastore.data_store import DataStoreType
-
-from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
+from byoda.util.api_client.restapi_client import HttpMethod
+from byoda.util.api_client.data_api_client import DataApiClient
+
+from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -41,7 +45,10 @@ from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
 
+from byoda.exceptions import ByodaRuntimeError
+
 from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.defines import BASE_URL
@@ -50,69 +57,61 @@ from tests.lib.defines import ADDRESSBOOK_VERSION
 
 from tests.lib.util import get_test_uuid
 
-from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
-
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
 
 # This must match the test directory in tests/lib/testserver.p
-TEST_DIR = '/tmp/byoda-tests/podserver'
+TEST_DIR = '/tmp/byoda-tests/pod-rest-apis'
 
-_LOGGER = None
-
-POD_ACCOUNT: Account = None
+APP: FastAPI | None = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
+        network_data = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
+        config.disable_pubsub = True
 
-        network: Network = config.server.network
-        server = config.server
+        server: PodServer = config.server
+
+        local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
+        account = await setup_account(
+            network_data, test_dir=TEST_DIR,
+            local_service_contract=local_service_contract, clean_pubsub=False
+        )
 
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        with open(f'{network_data["root_dir"]}/account_id', 'rb') as file_desc:
-            network_data['account_id'] = orjson.loads(file_desc.read())
-
-        account = Account(network_data['account_id'], network)
-        account.password = network_data.get('account_secret')
-        await account.load_secrets()
-
-        server.account = account
-
-        await config.server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+        config.trace_server: str = os.environ.get(
+            'TRACE_SERVER', config.trace_server
         )
 
-        await server.get_registered_services()
-
-        app = setup_api(
+        global APP
+        APP = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
                 AccountDataRouter
             ],
-            lifespan=None
+            lifespan=None, trace_server=config.trace_server,
         )
 
-        for account_member in account.memberships.values():
-            account_member.enable_graphql_api(app)
+        for member in account.memberships.values():
+            await member.enable_data_apis(APP, server.data_store)
 
     @classmethod
     async def asyncTearDown(self):
-        await GraphQlClient.close_all()
+        await ApiClient.close_all()
 
     async def test_pod_rest_api_tls_client_cert(self):
-        pod_account = config.server.account
-        account_id = pod_account.account_id
-        network = pod_account.network
+        account: Account = config.server.account
+        account_id: UUID = account.account_id
+        network: Network = account.network
 
-        account_headers = {
+        account_headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN={account_id}.accounts.{network.name}',
@@ -120,9 +119,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, timeout=120, headers=account_headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp: HttpResponse = await ApiClient.call(
+            API, method=HttpMethod.GET, timeout=120, headers=account_headers,
+            app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+        data: [str, str] = resp.json()
         self.assertEqual(data['account_id'], str(account_id))
         self.assertEqual(data['network'], NETWORK)
         self.assertTrue(data['started'].startswith('202'))
@@ -130,38 +132,39 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['private_bucket'], 'LOCAL')
         self.assertEqual(data['public_bucket'], '/byoda/public')
         self.assertEqual(data['restricted_bucket'], '/byoda/restricted')
-        self.assertEqual(data['root_directory'], '/tmp/byoda-tests/podserver')
+        self.assertEqual(data['root_directory'], TEST_DIR)
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 1)
 
-        # Get the service ID for the byoda-tube service
+        # Get the service ID for the addressbook service
         service_id = None
         version = None
         for service in data['services']:
-            if service['name'] == 'byoda-tube':
+            if service['name'] == 'addressbook':
                 service_id = service['service_id']
                 version = service['latest_contract_version']
 
         self.assertEqual(service_id, ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(version, ADDRESSBOOK_VERSION)
 
-        response = requests.get(
+        resp: HttpResponse = await ApiClient.call(
             f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            timeout=120, headers=account_headers
+            method=HttpMethod.GET, timeout=120, headers=account_headers,
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(resp.status_code, 200)
 
-        data = response.json()
+        data = resp.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
         self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
-        self.assertEqual(data['name'], 'byoda-tube')
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
-        self.assertEqual(data['website'], 'https://byoda.tube/')
+        self.assertEqual(data['website'], 'https://addressbook.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
             data['description'], ('A simple network to maintain contacts')
@@ -169,34 +172,75 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        response = requests.post(
-            (
-                f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
-                f'/version/{version}'
-            ),
-            timeout=120, headers=account_headers
-        )
-        self.assertEqual(response.status_code, 409)
+        with self.assertRaises(ByodaRuntimeError):
+            resp: HttpResponse = await ApiClient.call(
+                (
+                    f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
+                    f'/version/{version}'
+                ),
+                method=HttpMethod.POST, timeout=120, headers=account_headers,
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 409)
 
-        response = requests.put(
+        resp: HttpResponse = await ApiClient.call(
             (
                 f'{BASE_URL}/v1/pod/member/service_id/{service_id}'
                 f'/version/{version}'
             ),
-            timeout=120, headers=account_headers
+            method=HttpMethod.PUT, timeout=120, headers=account_headers,
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(resp.status_code, 200)
 
     async def test_service_auth(self):
         '''
-        Test calling the GraphQL API of the pod with
+        Test calling the Data API of the pod with
         the TLS client secret of the Service
         '''
 
-        pod_account: Account = config.server.account
-        network: Network = pod_account.network
+        server: PodServer = config.server
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        account: Account = server.account
+        network: Network = account.network
+        member: Member = await account.get_membership(service_id)
 
-        service_id = ADDRESSBOOK_SERVICE_ID
+        # Append some data using a member JWT:
+        resp: HttpResponse = await ApiClient.call(
+            f'{BASE_URL}/v1/pod/authtoken',
+            method=HttpMethod.POST,
+            data={
+                'username': str(member.member_id)[:8],
+                'password': os.environ['ACCOUNT_SECRET'],
+                'target_type': IdType.MEMBER.value,
+                'service_id': ADDRESSBOOK_SERVICE_ID
+            },
+            headers={'Content-Type': 'application/json'},
+            app=APP
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        data: dict[str, str] = resp.json()
+        member_auth_header = {
+            'Authorization': f'bearer {data["auth_token"]}'
+        }
+
+        person_data: dict[str, str] = {
+            'data': {
+                'email': 'steven@byoda.org',
+                'family_name': 'Hessing',
+                'given_name': 'Steven',
+            }
+        }
+        class_name: str = 'person'
+
+        resp: HttpResponse = await DataApiClient.call(
+            service_id, class_name, DataRequestType.MUTATE,
+            headers=member_auth_header,
+            data=person_data, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+
         service_headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
@@ -205,75 +249,80 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 f'CN=service-ca.service-ca-{service_id}.{network.name}'
         }
 
-        url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
+        self.assertEqual(resp.status_code, 200)
 
-        response: HttpResponse = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['person']['query'],
-            vars={'query_id': uuid4()}, timeout=120, headers=service_headers
+        resp = await DataApiClient.call(
+            service_id, class_name, DataRequestType.QUERY,
+            headers=service_headers, app=APP
         )
-        result = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
 
-        data = result.get('data')
-
-        # We didn't populate the pod with data yet so
-        # we expect an empty result
-        self.assertIsNotNone(data.get('person_connection'))
-
-        # Errors would indicate permission issues
-        self.assertIsNone(result.get('errors'))
+        self.assertEqual(data['total_count'], 1)
 
     async def test_pod_rest_api_jwt(self):
 
-        pod_account = config.server.account
-        account_id = pod_account.account_id
-        await pod_account.load_memberships()
-        service_id = ADDRESSBOOK_SERVICE_ID
-        account_member: Member = pod_account.memberships.get(service_id)
+        account: Account = config.server.account
+        account_id: UUID = account.account_id
+        await account.load_memberships()
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = account.memberships.get(service_id)
 
-        response = requests.post(
+        resp: HttpResponse = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(member.member_id)[:8],
                 'password': os.environ['ACCOUNT_SECRET'],
                 'target_type': IdType.MEMBER.value,
                 'service_id': ADDRESSBOOK_SERVICE_ID
             },
-            headers={'Content-Type': 'application/json'}
+            headers={'Content-Type': 'application/json'},
+            app=APP
         )
 
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data: dict[str, str] = resp.json()
         member_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, timeout=120, headers=member_auth_header)
-        # Test fails because account APIs can not be called with JWT
-        self.assertEqual(response.status_code, 403)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                API, method=HttpMethod.GET, timeout=120,
+                headers=member_auth_header, app=APP
+            )
+            # Test fails because account APIs can not be called with JWT
+            self.assertEqual(resp.status_code, 403)
 
         #
         # Now we get an account-JWT with basic auth
         #
-        response = requests.post(
+        resp = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(pod_account.account_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(account.account_id)[:8],
                 'password': os.environ['ACCOUNT_SECRET'],
                 'target_type': IdType.ACCOUNT.value,
-            }
+            },
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         account_auth_header = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
         API = BASE_URL + '/v1/pod/account'
-        response = requests.get(API, timeout=120, headers=account_auth_header)
-        self.assertEqual(response.status_code, 200)
+        resp = await ApiClient.call(
+            API, method=HttpMethod.GET, timeout=120,
+            headers=account_auth_header, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
 
-        data = response.json()
+        data = resp.json()
         self.assertEqual(data['account_id'], str(account_id))
         self.assertEqual(data['network'], NETWORK)
         self.assertTrue(data['started'].startswith('202'))
@@ -281,27 +330,28 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['private_bucket'], 'LOCAL')
         self.assertEqual(data['public_bucket'], '/byoda/public')
         self.assertEqual(data['restricted_bucket'], '/byoda/restricted')
-        self.assertEqual(data['root_directory'], '/tmp/byoda-tests/podserver')
+        self.assertEqual(data['root_directory'], TEST_DIR)
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
         self.assertEqual(len(data['services']), 1)
 
         API = BASE_URL + '/v1/pod/member'
-        response = requests.get(
+        resp = await ApiClient.call(
             f'{API}/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            timeout=120, headers=account_auth_header
+            method=HttpMethod.GET, timeout=120,
+            headers=account_auth_header, app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertTrue(data['account_id'], account_id)
         self.assertEqual(data['network'], 'byoda.net')
         self.assertTrue(isinstance(data['member_id'], str))
         self.assertEqual(data['service_id'], ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(data['version'], ADDRESSBOOK_VERSION)
-        self.assertEqual(data['name'], 'byoda-tube')
+        self.assertEqual(data['name'], 'addressbook')
         self.assertEqual(data['owner'], 'Steven Hessing')
-        self.assertEqual(data['website'], 'https://byoda.tube/')
+        self.assertEqual(data['website'], 'https://addressbook.byoda.org/')
         self.assertEqual(data['supportemail'], 'steven@byoda.org')
         self.assertEqual(
             data['description'], 'A simple network to maintain contacts'
@@ -309,12 +359,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(data['certificate']), 80)
         self.assertGreater(len(data['private_key']), 80)
 
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}/'
-            f'version/{ADDRESSBOOK_VERSION}',
-            timeout=120, headers=account_auth_header
-        )
-        self.assertEqual(response.status_code, 409)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}'
+                f'/version/{ADDRESSBOOK_VERSION}',
+                method=HttpMethod.POST, timeout=120,
+                headers=account_auth_header, app=APP
+            )
+            self.assertEqual(resp.status_code, 409)
 
         asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
         API = (
@@ -322,24 +374,25 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
             f'/asset_id/{asset_id}/visibility/public'
         )
-        response = requests.post(
-            API,
-            files=[
-                (
-                    'files', ('ls.bin', open('/bin/ls', 'rb'))
-                ),
-                (
-                    'files', ('date.bin', open('/bin/date', 'rb'))
-                )
-            ],
-            timeout=120, headers=member_auth_header
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
 
+        files = [
+            (
+                'files', ('ls.bin', open('/bin/ls', 'rb'))
+            ),
+            (
+                'files', ('date.bin', open('/bin/date', 'rb'))
+            )
+        ]
+
+        resp = await ApiClient.call(
+            API, method=HttpMethod.POST, files=files, timeout=120,
+            headers=member_auth_header, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         expected_locations = [
-            f'/tmp/byoda-tests/podserver/public/{asset_id}/ls.bin',
-            f'/tmp/byoda-tests/podserver/public/{asset_id}/date.bin',
+            f'{TEST_DIR}/public/{asset_id}/ls.bin',
+            f'{TEST_DIR}/public/{asset_id}/date.bin',
         ]
         for location in data['locations']:
             self.assertTrue(location in expected_locations)
@@ -351,215 +404,246 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'/v1/pod/member/upload/service_id/{ADDRESSBOOK_SERVICE_ID}' +
             f'/asset_id/{asset_id}/visibility/restricted'
         )
-        response = requests.post(
-            API,
-            files=[
-                (
-                    'files', ('ls.bin', open('/bin/ls', 'rb'))
-                ),
-                (
-                    'files', ('date.bin', open('/bin/date', 'rb'))
-                )
-            ],
-            timeout=120, headers=member_auth_header
+
+        resp = await ApiClient.call(
+            API, method=HttpMethod.POST, files=files,
+            timeout=120, headers=member_auth_header, app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
 
         expected_locations = [
-            f'/tmp/byoda-tests/podserver/restricted/{asset_id}/ls.bin',
-            f'/tmp/byoda-tests/podserver/restricted/{asset_id}/date.bin',
+            f'{TEST_DIR}/restricted/{asset_id}/ls.bin',
+            f'{TEST_DIR}/restricted/{asset_id}/date.bin',
         ]
         for location in data['locations']:
             self.assertTrue(location in expected_locations)
             self.assertTrue(os.path.exists(location))
 
     async def test_auth_token_request(self):
-        pod_account = config.server.account
-        await pod_account.load_memberships()
-        account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
-        password = os.environ['ACCOUNT_SECRET']
+        account: Account = config.server.account
+        password: str = os.environ['ACCOUNT_SECRET']
 
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
+        class_name: str = 'network_links'
+
+        #
         # First we get an account JWT
-        response = requests.post(
+        #
+        resp: HttpResponse = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(pod_account.account_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(account.account_id)[:8],
                 'password': password,
                 'target_type': IdType.ACCOUNT.value,
             },
-            headers={'Content-Type': 'application/json'}
+            headers={'Content-Type': 'application/json'},
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        account_jwt = data.get('auth_token')
+        self.assertEqual(resp.status_code, 200)
+        data: dict[str, str] = resp.json()
+        account_jwt: str = data.get('auth_token')
         self.assertTrue(isinstance(account_jwt, str))
         auth_header = {
             'Authorization': f'bearer {account_jwt}'
         }
-        # Now we get a member JWT by using the account JWT
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken/service_id/{ADDRESSBOOK_SERVICE_ID}',
-            headers=auth_header
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(isinstance(data.get("auth_token"), str))
-        await call_graphql_api(self, account_jwt, expect_result=False)
 
+        #
+        # Now we'll get a account JWT by using the account JWT and
+        # the Data API call will fail
+        #
+        resp = await ApiClient.call(
+            f'{BASE_URL}/v1/pod/authtoken/service_id/{service_id}',
+            method=HttpMethod.POST, headers=auth_header, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(isinstance(data.get("auth_token"), str))
+
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await DataApiClient.call(
+                service_id, class_name, DataRequestType.QUERY,
+                headers={'Authorization': f'bearer {account_jwt}'}, app=APP
+            )
+
+        #
         # and then we get a member JWT using username/password
-        response = requests.post(
+        #
+        resp = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(member.member_id)[:8],
                 'password': password,
                 'service_id': ADDRESSBOOK_SERVICE_ID,
                 'target_type': IdType.MEMBER.value,
-
-            }
+            },
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         member_jwt = data.get('auth_token')
         self.assertTrue(isinstance(member_jwt, str))
-        await call_graphql_api(self, member_jwt, expect_result=True)
+
+        # Append some data
+        network_link_data: dict[str, str] = {
+            'data': {
+                'created_timestamp': str(
+                    datetime.now(tz=timezone.utc).isoformat()
+                ),
+                'member_id': get_test_uuid(),
+                'relation': 'friend',
+            }
+        }
+
+        resp = await DataApiClient.call(
+            service_id, class_name, DataRequestType.APPEND,
+            headers={'Authorization': f'bearer {member_jwt}'},
+            data=network_link_data, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        # Read the data back
+        resp = await DataApiClient.call(
+            service_id, class_name, DataRequestType.QUERY,
+            headers={'Authorization': f'bearer {member_jwt}'},
+            app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
 
         # and then we get a service JWT using username/password
-        response = requests.post(
+        resp = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(member.member_id)[:8],
                 'password': password,
-                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'service_id': service_id,
                 'target_type': IdType.SERVICE.value,
-
-            }
+            },
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         service_jwt = data.get('auth_token')
         self.assertTrue(isinstance(account_jwt, str))
 
-        data = await call_rest_api(self, service_jwt, 403)
-        await call_graphql_api(self, service_jwt, expect_result=False)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await DataApiClient.call(
+                service_id, class_name, DataRequestType.QUERY,
+                headers={'Authorization': f'bearer {service_jwt}'},
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 403)
 
         # and then we get a app JWT using username/password
-        response = requests.post(
+        resp = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
+            method=HttpMethod.POST,
+            data={
+                'username': str(member.member_id)[:8],
                 'password': password,
                 'service_id': ADDRESSBOOK_SERVICE_ID,
                 'target_type': IdType.APP.value,
                 'app_id': str(get_test_uuid())
-
-            }
+            },
+            app=APP
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         app_jwt = data.get('auth_token')
         self.assertTrue(isinstance(account_jwt, str))
 
-        data = await call_rest_api(self, app_jwt, 403)
-        await call_graphql_api(self, app_jwt, expect_result=False)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await DataApiClient.call(
+                service_id, class_name, DataRequestType.QUERY,
+                headers={'Authorization': f'bearer {app_jwt}'},
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 403)
 
         # Test failure cases
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': '',
-                'password': '',
-                'target_type': IdType.ACCOUNT.value,
-            }
-        )
-        self.assertEqual(response.status_code, 401)
-        data = response.json()
-        self.assertTrue('auth_token' not in data)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/authtoken',
+                method=HttpMethod.POST,
+                data={
+                    'username': '',
+                    'password': '',
+                    'target_type': IdType.ACCOUNT.value,
+                },
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 401)
+            data = resp.json()
+            self.assertTrue('auth_token' not in data)
 
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': 'wrong',
-                'password': os.environ['ACCOUNT_SECRET'],
-                'service_id': ADDRESSBOOK_SERVICE_ID,
-                'target_type': IdType.MEMBER.value,
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/authtoken',
+                method=HttpMethod.POST,
+                data={
+                    'username': 'wrong',
+                    'password': os.environ['ACCOUNT_SECRET'],
+                    'service_id': ADDRESSBOOK_SERVICE_ID,
+                    'target_type': IdType.MEMBER.value,
+                },
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 401)
+            data = resp.json()
+            self.assertTrue('auth_token' not in data)
 
-            }
-        )
-        self.assertEqual(response.status_code, 401)
-        data = response.json()
-        self.assertTrue('auth_token' not in data)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/authtoken',
+                method=HttpMethod.POST,
+                data={
+                    'username': str(member.member_id)[:8],
+                    'password': 'wrong',
+                    'service_id': ADDRESSBOOK_SERVICE_ID,
+                    'target_type': IdType.MEMBER.value,
+                },
+                app=APP
+            )
+            self.assertEqual(resp.status_code, 401)
+            data = resp.json()
+            self.assertTrue('auth_token' not in data)
 
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': str(account_member.member_id)[:8],
-                'password': 'wrong',
-                'service_id': ADDRESSBOOK_SERVICE_ID,
-                'target_type': IdType.MEMBER.value,
-            }
-        )
-        self.assertEqual(response.status_code, 401)
-        data = response.json()
-        self.assertTrue('auth_token' not in data)
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/authtoken',
+                method=HttpMethod.POST,
+                data={
+                    'username': 'wrong',
+                    'password': 'wrong',
+                    'service_id': ADDRESSBOOK_SERVICE_ID,
+                    'target_type': IdType.MEMBER.value,
 
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': 'wrong',
-                'password': 'wrong',
-                'service_id': ADDRESSBOOK_SERVICE_ID,
-                'target_type': IdType.MEMBER.value,
+                },
+                app=APP
+            )
+            data = resp.json()
+            self.assertEqual(resp.status_code, 401)
+            self.assertTrue('auth_token' not in data)
 
-            }
-        )
-        data = response.json()
-        self.assertEqual(response.status_code, 401)
-        self.assertTrue('auth_token' not in data)
-
-        response = requests.post(
-            f'{BASE_URL}/v1/pod/authtoken',
-            json={
-                'username': '',
-                'password': '',
-                'service_id': ADDRESSBOOK_SERVICE_ID,
-                'target_type': IdType.MEMBER.value,
-            }
-        )
-        data = response.json()
-        self.assertEqual(response.status_code, 401)
-        self.assertTrue('auth_token' not in data)
-
-
-async def call_rest_api(test, auth_header, expected_status_code,
-                        json_reponse: bool = True) -> str | dict:
-    api = f'{BASE_URL}/v1/pod/member/service_id/{ADDRESSBOOK_SERVICE_ID}'
-    response = requests.get(
-        api, timeout=120, headers={'Authorization': f'bearer {auth_header}'}
-    )
-
-    test.assertEqual(response.status_code, expected_status_code)
-    if json_reponse:
-        return response.json()
-
-    return response.text()
-
-
-async def call_graphql_api(test, auth_header, expect_result=True):
-    graphql_url = f'{BASE_URL}/v1/data/service-{ADDRESSBOOK_SERVICE_ID}'
-    response: HttpResponse = await GraphQlClient.call(
-        graphql_url, GRAPHQL_STATEMENTS['person']['query'],
-        headers={'Authorization': f'bearer {auth_header}'},
-        vars={'query_id': get_test_uuid()}, timeout=30
-    )
-    result = response.json()
-
-    if expect_result:
-        test.assertIsNone(result.get('errors'))
-        test.assertIsNotNone(result.get('data'))
-    else:
-        test.assertIsNotNone(result.get('errors'))
-        test.assertIsNone(result.get('data'))
+        with self.assertRaises(ByodaRuntimeError):
+            resp = await ApiClient.call(
+                f'{BASE_URL}/v1/pod/authtoken',
+                method=HttpMethod.POST,
+                data={
+                    'username': '',
+                    'password': '',
+                    'service_id': ADDRESSBOOK_SERVICE_ID,
+                    'target_type': IdType.MEMBER.value,
+                },
+                app=APP
+            )
+            data = resp.json()
+            self.assertEqual(resp.status_code, 401)
+            self.assertTrue('auth_token' not in data)
 
 
 if __name__ == '__main__':

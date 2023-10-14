@@ -7,11 +7,12 @@ Model a thumbnail of a Youtube video
 '''
 
 import os
-import logging
 
 from enum import Enum
 from uuid import uuid4
 from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
 from urllib.parse import urlparse, ParseResult
 
 from httpx import AsyncClient as AsyncHttpClient
@@ -24,7 +25,7 @@ from byoda.datatypes import StorageType
 
 from byoda.util.paths import Paths
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 MAX_SPOOLED_FILE: int = 1024 * 1024
 CHUNK_SIZE: int = 64 * 1024
@@ -90,10 +91,10 @@ class YouTubeThumbnail:
         parsed_url: ParseResult = urlparse(self.url)
         filename: str = os.path.basename(parsed_url.path)
         with open(f'{work_dir}/{filename}', 'wb') as file_desc:
-            async with AsyncHttpClient(self.url) as client:
-                resp = await client.stream('GET', self.url)
-                async for chunk in resp.aiter_bytes():
-                    file_desc.write(chunk)
+            async with AsyncHttpClient() as client:
+                async with client.stream('GET', self.url) as resp:
+                    async for chunk in resp.aiter_bytes():
+                        file_desc.write(chunk)
 
         with open(f'{work_dir}/{filename}', 'rb') as file_desc:
             filepath: str = f'{video_id}/{filename}'

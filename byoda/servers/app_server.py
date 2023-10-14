@@ -7,9 +7,9 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
-import logging
-
 from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
@@ -29,7 +29,7 @@ from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class AppServer(Server):
@@ -129,10 +129,6 @@ class AppServer(Server):
         try:
             await secret.load(with_private_key=False)
         except FileNotFoundError:
-            local_root_ca_cert_filepath = (
-                self.paths.storage_driver.local_path +
-                self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE)
-            )
             secret = await secret.download(
                 jwt.issuer_id, self.service.service_id,
                 self.service.network.name

@@ -8,12 +8,15 @@ Class for modeling a service on a social network
 
 
 import os
-import logging
 import socket
-import orjson
-from typing import TypeVar
+
 from copy import copy
 from enum import Enum
+from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
+
+import orjson
 
 import passgen
 
@@ -50,7 +53,7 @@ from byoda.util.api_client.restapi_client import HttpMethod, RestApiClient
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 # The well-known service IDs
 BYODA_PRIVATE_SERVICE = 0
@@ -192,7 +195,7 @@ class Service:
                 filepath=filepath, verify_contract_signatures=verify_signatures
             )
 
-            service.schema.generate_graphql_schema(verify_schema_signatures=verify_signatures)
+            service.schema.generate_data_apis(verify_schema_signatures=verify_signatures)
         else:
             _LOGGER.debug('Not loading service schema')
 
@@ -807,6 +810,6 @@ class Service:
 
         raise FileNotFoundError(
             f'Could not download data cert for service {self.service_id}: '
-            f'{resp.status}'
+            f'{resp.status_code}'
         )
 

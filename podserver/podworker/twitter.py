@@ -6,36 +6,37 @@ Twitter functions for podworker
 :license    : GPLv3
 '''
 
-import logging
-
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.servers.pod_server import PodServer
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
-from byoda.datatypes import GRAPHQL_API_URL_PREFIX
-
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
-from byoda.util.api_client.graphql_client import GraphQlClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.data_import.twitter import Twitter
 
-from tests.lib.addressbook_queries import QUERY_TWEETS
-from tests.lib.addressbook_queries import APPEND_TWEETS
-from tests.lib.addressbook_queries import APPEND_TWITTER_MEDIAS
+from podserver.codegen.grapqhql_queries_4294929430 import QUERY_TWEETS
+from podserver.codegen.grapqhql_queries_4294929430 import APPEND_TWEETS
+from podserver.codegen.grapqhql_queries_4294929430 import APPEND_TWITTER_MEDIAS
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-NEWEST_TWEET_FILE = 'newest_tweet.txt'
+NEWEST_TWEET_FILE: str = 'newest_tweet.txt'
 
 
 async def twitter_update_task(server: PodServer):
 
+    raise NotImplementedError(
+        'Twitter update task needs to be refactored '
+        'to use DataRestApiClient'
+    )
     try:
         if server.twitter_client:
             _LOGGER.debug('Update Twitter data')
@@ -75,11 +76,11 @@ def find_newest_tweet(account: Account, member: Member, graphql_url: str
         newest_tweet = None
 
     _LOGGER.debug(f'Newest tweet not read from {newest_tweet_file}')
-    resp = GraphQlClient.call_sync(
-        graphql_url, QUERY_TWEETS, secret=member.tls_secret
-    )
-    data = resp.json()
-    edges = data['data']['tweets_connection']['edges']
+    # resp = GraphQlClient.call_sync(
+    #    graphql_url, QUERY_TWEETS, secret=member.tls_secret
+    #)
+    #data = resp.json()
+    #edges = data['data']['tweets_connection']['edges']
     if len(edges):
         _LOGGER.debug(
             f'Discovering newest tweet ID from {len(edges)} tweets from '

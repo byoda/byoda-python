@@ -9,12 +9,60 @@ SQL will be supported
 :license    : GPLv3
 '''
 
-import logging
+from uuid import UUID
+from hashlib import sha1
+from logging import getLogger
+from collections import namedtuple
+
+from byoda.util.logger import Logger
 
 from byoda.datamodel.datafilter import DataFilterSet
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
+
+# These are columns we add to all tables to track
+# the source of the information, ie. the member_id
+# or service_id or app_id that appended/mutated the data,
+# or in the case of pod workers, from who the data was
+# sourced
+META_ID_COLUMN: str = 'id'
+META_ID_TYPE_COLUMN: str = 'id_type'
+# This is a column that we add to each table to support
+# pagination
+META_CURSOR_COLUMN: str = 'cursor'
+
+META_COLUMNS: dict[str, str] = {
+    META_CURSOR_COLUMN: 'TEXT',
+    META_ID_COLUMN: 'TEXT',
+    META_ID_TYPE_COLUMN: 'TEXT',
+}
+
+# These are columns that we add to 'cache-only' tables. It
+# contains the timestamp after which the row should be deleted,
+# the member we received the data from and from which class
+# the data was received
+CACHE_EXPIRE_COLUMN: str = 'expires'
+CACHE_ORIGIN_CLASS_COLUMN: str = 'origin_class_name'
+
+CACHE_COLUMNS: dict[str, str] = {
+    CACHE_EXPIRE_COLUMN: 'REAL',
+    CACHE_ORIGIN_CLASS_COLUMN: 'TEXT',
+}
+
+ResultMetaData = namedtuple(
+    'ResultMetaData', [
+        META_CURSOR_COLUMN,
+        META_ID_COLUMN,
+        META_ID_TYPE_COLUMN,
+        CACHE_EXPIRE_COLUMN,
+        CACHE_ORIGIN_CLASS_COLUMN
+    ]
+)
+
+ResultData = dict[str, object]
+QueryResult = namedtuple('QueryResults', ['data', 'metadata'])
+QueryResults = list[QueryResult]
 
 
 class Table:
@@ -57,6 +105,10 @@ class Table:
 
     @staticmethod
     def get_table_name(table: str) -> str:
+        '''
+        Returns the name of the table
+        '''
+
         raise NotImplementedError
 
     @staticmethod
@@ -81,3 +133,28 @@ class Table:
         '''
 
         raise NotImplementedError
+
+    @staticmethod
+    def get_cursor_hash(data: dict, origin_id: UUID | str | None,
+                        field_names: list[str]) -> str:
+        '''
+        Helper function to generate cursors for objects based on the
+        stringified values of the required fields of object
+
+        :param data: the data to generate the cursor for
+        :param origin_id: the origin ID to include in the cursor
+        :param field_names: the names of the fields to include in the cursor
+        :returns: the cursor
+        '''
+
+        hash_gen = sha1()
+        for field_name in field_names:
+            value: bytes = str(data.get(field_name, '')).encode('utf-8')
+            hash_gen.update(value)
+
+        if origin_id:
+            hash_gen.update(str(origin_id).encode('utf-8'))
+
+        cursor = hash_gen.hexdigest()
+
+        return cursor[0:8]

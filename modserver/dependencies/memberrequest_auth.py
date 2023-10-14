@@ -8,12 +8,14 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-import logging
-
 from typing import Annotated
+from logging import getLogger
+from byoda.util.logger import Logger
 
-from fastapi import Request, HTTPException
-from fastapi import Header, Depends
+from fastapi import Request
+from fastapi import HTTPException
+from fastapi import Header
+from fastapi import Depends
 
 from byoda.datatypes import IdType
 from byoda.datatypes import AuthSource
@@ -28,7 +30,7 @@ from byoda.exceptions import ByodaMissingAuthInfo
 from byoda import config
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class MemberRequestAuthOptionalFast(RequestAuth):

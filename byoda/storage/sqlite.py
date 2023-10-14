@@ -13,17 +13,22 @@ root-directory, ie.: /byoda/sqlite/<member_id>.db
 
 import os
 import shutil
-import logging
+
 from uuid import UUID
 from typing import TypeVar
-from datetime import datetime, timezone
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 
 import aiosqlite
 
+from byoda.datamodel.sqltable import SqlTable
+from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.dataclass import SchemaDataObject
+
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import CloudType
-
-from byoda.datamodel.sqltable import SqlTable
 
 from byoda.secrets.data_secret import DataSecret
 
@@ -41,7 +46,7 @@ DocumentStore = TypeVar('DocumentStore')
 DataStore = TypeVar('DataStore')
 FileStorage = TypeVar('FileStorage')
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 BACKUP_FILE_EXTENSION: str = '.backup'
 PROTECTED_FILE_EXTENSION: str = '.protected'
@@ -377,10 +382,13 @@ class SqliteStorage(Sql):
         exist, it will be created and tables will be generated
         '''
 
+        _LOGGER.debug(f'Setting up member DB for member {member_id}')
+
         server: Paths = config.server
         paths: Paths = server.network.paths
         member_db_file = self.get_member_data_filepath(
-            member_id, service_id, paths, local=True)
+            member_id, service_id, paths, local=True
+        )
 
         member_data_dir = os.path.dirname(member_db_file)
 
@@ -401,14 +409,41 @@ class SqliteStorage(Sql):
         await self.set_membership_status(
             member_id, service_id, MemberStatus.ACTIVE
         )
-        for data_class in schema.data_classes.values():
-            # defined_classes are referenced by other classes so we don't
-            # have to create tables for them here
-            if not data_class.defined_class:
-                sql_table = await SqlTable.setup(
-                    data_class, self, member_id, schema.data_classes
-                )
-                self.member_sql_tables[member_id][data_class.name] = sql_table
+
+    async def create_table(self, member_id,
+                           data_class: SchemaDataArray | SchemaDataObject,
+                           ) -> SqlTable:
+        '''
+        Creates a table for a data class in the schema of a membershipin in
+        the Sqlite3 database for the membership
+
+        :param member_id:
+        :param data_class: data class to create the table for
+        :param data_classes: list of data classes in the schema of the service
+        :returns: the created table
+        '''
+
+        sql_table = await SqlTable.setup(data_class, self, member_id)
+
+        return sql_table
+
+    def add_sql_table(self, member_id: UUID, class_name: str,
+                      sql_table: SqlTable) -> None:
+        '''
+        Adds the SQL table to the list of tables we have created for the
+        membership
+        '''
+
+        _LOGGER.debug(f'Adding table {class_name} for member {member_id}')
+        self.member_sql_tables[member_id][class_name] = sql_table
+
+    def get_sql_table(self, member_id: UUID, class_name: str
+                      ) -> SqlTable | None:
+        '''
+        Returns the SQL table for the membership if it exists
+        '''
+
+        return self.member_sql_tables[member_id].get(class_name)
 
     def get_member_data_filepath(self, member_id: UUID, service_id: int,
                                  paths: Paths = None, local: bool = True
@@ -486,7 +521,8 @@ class SqliteStorage(Sql):
         )
 
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[str, object]:
+                              ) -> dict[
+                                  str, UUID | int | MemberStatus | float]:
         '''
         Get the latest status of all memberships
 
@@ -529,17 +565,17 @@ class SqliteStorage(Sql):
                     f'Row with invalid data in account DB: {exc}'
                 )
 
-        memberships_status = {
+        memberships_for_status: dict[str, object] = {
             key: value for key, value in memberships.items()
             if status is None or value['status'] == status
         }
 
         _LOGGER.debug(
-            f'Found {len(memberships_status)} memberships '
+            f'Found {len(memberships_for_status)} memberships '
             'in Sqlite Account DB'
         )
 
-        return memberships_status
+        return memberships_for_status
 
     async def maintain(self, server: PodServer):
         '''

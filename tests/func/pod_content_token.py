@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test the POD REST and GraphQL APIs
+Test the POD REST and Data APIs
 
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
@@ -11,26 +11,32 @@ the headers that would normally be set by the reverse proxy
 :license
 '''
 
+import os
 import sys
 import unittest
 
 from uuid import uuid4, UUID
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timezone, timedelta
 
 import orjson
-import requests
 
-from byoda.datamodel.account import Account
-from byoda.datamodel.network import Network
+from fastapi import FastAPI
+
+from byoda.datamodel.member import Member
 from byoda.datamodel.content_key import ContentKey
 from byoda.datamodel.content_key import ContentKeyStatus
 from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.table import Table
 
 from byoda.datastore.data_store import DataStore
-from byoda.datastore.data_store import DataStoreType
 
-from byoda.util.api_client.graphql_client import GraphQlClient
+from byoda.servers.pod_server import PodServer
+
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -41,19 +47,18 @@ from podserver.routers import account as AccountRouter
 from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
-
+from podserver.routers import content_token as ContentTokenRouter
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
-from tests.lib.setup import get_account_id
+from tests.lib.setup import setup_account
 
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
-# Settings must match config.yml used by directory server
-NETWORK: str = config.DEFAULT_NETWORK
-
-TEST_DIR: str = '/tmp/byoda-tests/podserver'
+TEST_DIR: str = '/tmp/byoda-tests/content-token'
 TEST_FILE: str = TEST_DIR + '/content_keys.json'
+
+APP: FastAPI | None = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
@@ -62,66 +67,68 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
+        network_data = await setup_network(delete_tmp_dir=True)
 
         config.test_case = "TEST_CLIENT"
+        config.disable_pubsub = True
 
-        network: Network = config.server.network
-        server = config.server
+        server: PodServer = config.server
 
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        network_data['account_id'] = get_account_id(network_data)
-
-        account = Account(network_data['account_id'], network)
-        account.password = network_data.get('account_secret')
-        await account.load_secrets()
-
-        server.account = account
-
-        await config.server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+        local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
+        account = await setup_account(
+            network_data, test_dir=TEST_DIR,
+            local_service_contract=local_service_contract, clean_pubsub=False
         )
 
-        await server.get_registered_services()
+        config.trace_server: int = os.environ.get(
+            'TRACE_SERVER', config.trace_server
+        )
 
-        app = setup_api(
+        global APP
+        APP = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
-                AccountDataRouter
+                AccountDataRouter, ContentTokenRouter
             ],
-            lifespan=None
+            lifespan=None, trace_server=config.trace_server,
         )
 
-        for account_member in account.memberships.values():
-            account_member.enable_graphql_api(app)
+        for member in account.memberships.values():
+            await member.enable_data_apis(APP, server.data_store)
 
     @classmethod
     async def asyncTearDown(self):
-        await GraphQlClient.close_all()
+        await ApiClient.close_all()
 
     async def test_restricted_content_key_api(self):
-        pod_account = config.server.account
-        await pod_account.load_memberships()
-        member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        account = config.server.account
+        member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         data_store: DataStore = config.server.data_store
         key_table = data_store.get_table(
             member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
-        key_id: int = 99999999
-        await key_table.append(
-            {
-                'key_id': key_id,
-                'key': 'somesillykey',
-                'not_after': datetime.now(tz=timezone.utc) + timedelta(days=1),
-                'not_before': datetime.now(tz=timezone.utc) - timedelta(days=1)
-            }
-        )
+        config.server.whitelist_dir: str = TEST_DIR
 
+        key_id: int = 99999999
+        data: dict[str, str | datetime] = {
+            'key_id': key_id,
+            'key': 'somesillykey',
+            'not_after': datetime.now(tz=timezone.utc) + timedelta(days=1),
+            'not_before': datetime.now(tz=timezone.utc) - timedelta(days=1)
+        }
+
+        # TODO: use key_table.get_cursor_hash()
+        cursor = Table.get_cursor_hash(data, None, list(data.keys()))
+        await key_table.append(
+            data, cursor, origin_id=None, origin_id_type=None,
+            origin_class_name=None
+        )
         url = BASE_URL + '/v1/pod/content/token'
         asset_id = uuid4()
         query_params = {
@@ -131,9 +138,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'signedby': str(uuid4()),
             'token': 'placeholder'
         }
-        result = requests.get(url, params=query_params)
-        self.assertEqual(result.status_code, 200)
-        data = result.json()
+        resp: HttpResponse = await ApiClient.call(
+            url,  method=HttpMethod.GET, params=query_params, app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertTrue('content_token' in data)
 
         await key_table.delete(DataFilterSet({'key_id': {'eq': key_id}}))
@@ -192,9 +201,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(content_key.key_id, 5)
 
     async def test_restricted_content_keys_table(self):
-        pod_account = config.server.account
-        await pod_account.load_memberships()
-        account_member = pod_account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        account = config.server.account
+        account_member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         data_store: DataStore = config.server.data_store
         table = data_store.get_table(
@@ -307,10 +315,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(key_id, content_key.key_id)
 
     async def test_restricted_content_token(self):
-        pod_account = config.server.account
-        await pod_account.load_memberships()
+        account = config.server.account
         service_id = ADDRESSBOOK_SERVICE_ID
-        member = pod_account.memberships.get(service_id)
+        member: Member = await account.get_membership(service_id)
 
         data_store: DataStore = config.server.data_store
         table = data_store.get_table(
@@ -356,9 +363,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         url = BASE_URL + '/v1/pod/content/asset'
-        result = requests.get(
-            url, headers={
+        result: HttpResponse = await ApiClient.call(
+            url, method=HttpMethod.GET, headers={
                 'Authorization': f'Bearer {token}',
+                'X-Authorizationkeyid': str(content_key.key_id),
                 'original-url': f'/restricted/{asset_id}/some-asset.file'
             },
             params={
@@ -366,7 +374,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'service_id': service_id,
                 'member_id': member.member_id,
                 'asset_id': asset_id,
-            }
+            },
+            app=APP
         )
         self.assertEqual(result.status_code, 200)
 

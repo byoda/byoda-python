@@ -8,9 +8,12 @@ Bootstrap the account for a pod
 
 import os
 import signal
-import logging
+
 from uuid import UUID
-from abc import ABC, abstractmethod
+from logging import getLogger
+from byoda.util.logger import Logger
+from abc import ABC
+from abc import abstractmethod
 from htpasswd.basic import UserExists
 
 from jinja2 import Template
@@ -23,12 +26,12 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-NGINX_SITE_CONFIG_DIR = '/etc/nginx/conf.d'
-NGINX_PID_FILE = '/run/nginx.pid'
+NGINX_SITE_CONFIG_DIR: str = '/etc/nginx/conf.d'
+NGINX_PID_FILE: str = '/run/nginx.pid'
 
-HTACCESS_FILE = '/etc/nginx/htaccess.db'
+HTACCESS_FILE: str = '/etc/nginx/htaccess.db'
 
 
 class TargetConfig(ABC):
@@ -85,7 +88,8 @@ class NginxConfig(TargetConfig):
         used for the podserver, set to True if an nginx server outside
         of the pod is used.
         :param public_bucket: the FQDN for the AWS/GCP bucket or Azure storage
-        :param restricted_bucket: the FQDN for the AWS/GCP bucket or Azure storage
+        :param restricted_bucket: the FQDN for the AWS/GCP bucket or Azure
+        storage
         :param private_bucket: the FQDN for the AWS/GCP bucket or Azure storage
         account
         '''

@@ -1,5 +1,5 @@
 '''
-Class QueryCache tracks the query IDs from GraphQL queries to prevent
+Class QueryCache tracks the query IDs from REST Data API queries to prevent
 the pod from forwarding loops; executing and forwarding the same query twice
 
 :maintainer : Steven Hessing <steven@byoda.org>
@@ -7,9 +7,12 @@ the pod from forwarding loops; executing and forwarding the same query twice
 :license    : GPLv3
 '''
 
-import logging
+from os import makedirs
+
 from uuid import UUID
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
@@ -18,7 +21,7 @@ from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.paths import Paths
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Member = TypeVar('Member')
 
@@ -30,10 +33,14 @@ class QueryCache:
 
         if cache_tech == CacheTech.SQLITE:
             paths: Paths = member.paths
-            self.filepath: str = (
+            dirpath: str = (
                 paths.root_directory + '/' +
                 paths.get(paths.MEMBER_DATA_DIR, member_id=member.member_id)
-                + '/' +
+            )
+            makedirs(dirpath, exist_ok=True)
+
+            self.filepath: str = (
+                dirpath + '/' +
                 paths.get(
                     paths.MEMBER_QUERY_CACHE_FILE, member_id=member.member_id
                 )

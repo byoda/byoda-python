@@ -6,15 +6,15 @@ Schema for server to server APIs
 :license    : GPLv3
 '''
 
-import logging
 from uuid import UUID
-
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
 from ipaddress import IPv4Address
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class Stats():

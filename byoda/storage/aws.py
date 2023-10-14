@@ -10,7 +10,11 @@ The profile server uses noSQL storage for profile data
 '''
 
 import logging
-from tempfile import NamedTemporaryFile, TemporaryFile
+
+from logging import getLogger
+from byoda.util.logger import Logger
+from tempfile import NamedTemporaryFile
+from tempfile import TemporaryFile
 
 import boto3
 from botocore import exceptions as aws_exceptions
@@ -20,7 +24,7 @@ from byoda.datatypes import StorageType, CloudType
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class AwsFileStorage(FileStorage):

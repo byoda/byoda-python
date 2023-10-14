@@ -12,11 +12,15 @@ which we have coverage through SQLAlchemy
 :license    : GPLv3
 '''
 
-import logging
 import time
+import logging
+
 from enum import Enum
 from uuid import UUID
-from ipaddress import ip_address, IPv4Address
+from logging import getLogger
+from byoda.util.logger import Logger
+from ipaddress import ip_address
+from ipaddress import IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
 from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey
@@ -31,7 +35,7 @@ from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.datatypes import IdType
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 DEFAULT_TTL = 1800
 DEFAULT_TTL_TXT = 60

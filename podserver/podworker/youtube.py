@@ -8,14 +8,17 @@ Twitter functions for podworker
 
 import os
 
-import logging
-
 from uuid import UUID
 from time import gmtime
 from calendar import timegm
+from logging import getLogger
+from byoda.util.logger import Logger
 
+from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
+from byoda.datamodel.schema import Schema
+from byoda.datamodel.dataclass import SchemaDataItem
 
 from byoda.datatypes import IdType
 
@@ -26,23 +29,27 @@ from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
-
+from byoda.data_import.youtube_video import YouTubeVideo
 from byoda.servers.pod_server import PodServer
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 LOCK_FILE: str = '/var/lock/youtube_ingest.lock'
 LOCK_TIMEOUT: int = 60 * 60 * 24 * 3
 
 
-async def youtube_update_task(server: PodServer):
-    await server.account.load_memberships()
-    member: Member = server.account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+async def youtube_update_task(server: PodServer, service_id: int):
+    account: Account = server.account
+    member: Member = await account.get_membership(service_id)
+    schema: Schema = member.schema
+    data_classes: dict[str, SchemaDataItem] = schema.data_classes
+    class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
+    data_class: SchemaDataItem = data_classes[class_name]
 
     if not member:
-        _LOGGER.info('Not a member of the address book service')
+        _LOGGER.info(f'Not a member of service with ID: {service_id}')
         return
 
     youtube: YouTube = server.youtube_client
@@ -61,7 +68,7 @@ async def youtube_update_task(server: PodServer):
     moderation_claim_url = moderation_url + YouTube.MODERATION_CLAIM_URL
 
     moderation_app_id: str | UUID = os.environ.get('MODERATION_APP_ID')
-    if moderation_app_id:
+    if moderation_app_id and isinstance(moderation_app_id, str):
         moderation_app_id = UUID(moderation_app_id)
 
     data_store: DataStore = server.data_store
@@ -79,7 +86,7 @@ async def youtube_update_task(server: PodServer):
         jwt_header: str | None = None
 
     ingested_videos = await YouTube.load_ingested_videos(
-        member.member_id, data_store
+        member.member_id, data_class, data_store
     )
 
     try:

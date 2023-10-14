@@ -6,7 +6,8 @@ Cert manipulation
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
@@ -14,7 +15,7 @@ from cryptography.hazmat.primitives import hashes
 
 from byoda.storage import FileStorage
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class CertChain:

@@ -29,6 +29,10 @@
                         "description": "Membership UUID",
                         "format": "uuid",
                         "type": "string"
+                    },
+                    "supported_schema_version": {
+                        "description": "The newest version of the schema supported by the pod",
+                        "type": "string"
                     }
                 },
                 "type": "object",
@@ -94,18 +98,18 @@
             "network_links": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/network_link"
+                    "$ref": "#/schemas/network_link"
                 }
             },
             "network_invites": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "any_member": {
                         "permissions": ["append"]
@@ -113,13 +117,13 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/network_invite"
+                    "$ref": "#/schemas/network_invite"
                 }
             },
             "network_links_inbound": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "network": {
                         "permissions": ["append"]
@@ -130,77 +134,35 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/network_link_inbound"
-                }
-            },
-            "public_video_thumbnails": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "anonymous": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/video_thumbnail"
-                }
-            },
-            "public_video_chapters": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "anonymous": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/video_chapter"
+                    "$ref": "#/schemas/network_link_inbound"
                 }
             },
             "incoming_claims": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/claim"
+                    "$ref": "#/schemas/claim"
                 }
             },
             "verified_claims": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/claim"
-                }
-            },
-            "public_claims": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append"]
-                    },
-                    "anonymous": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "/schemas/claim"
+                    "$ref": "#/schemas/claim"
                 }
             },
             "channels": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "anonymous": {
                         "permissions": ["read"]
@@ -208,13 +170,13 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/channel"
+                    "$ref": "#/schemas/channel"
                 }
             },
             "asset_links": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "network": {
                         "permissions": ["read"]
@@ -223,22 +185,22 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset_link"
+                    "$ref": "#/schemas/asset_link"
                 }
             },
             "asset_reactions_received": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
-                    "network": {
+                    "any_member": {
                         "permissions": ["append"]
                     }
 
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset_reaction"
+                    "$ref": "#/schemas/asset_reaction"
                 }
             },
             "datalogs": {
@@ -249,27 +211,50 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/datalog"
+                    "$ref": "#/schemas/datalog"
+                }
+            },
+            "incoming_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    }
+                },
+                "#properties": [["cache_only", "3d"]],
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/asset"
+                }
+            },
+            "feed_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/asset"
                 }
             },
             "public_assets": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "anonymous": {
-                        "permissions": ["read"]
+                        "permissions": ["read", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset"
+                    "$ref": "#/schemas/asset"
                 }
             },
             "service_assets": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "delete", "append", "subscribe"]
                     },
                     "any_member": {
                         "permissions": ["read"]
@@ -277,24 +262,24 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset"
+                    "$ref": "#/schemas/asset"
                 }
             },
             "apps": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/app"
+                    "$ref": "#/schemas/app"
                 }
             },
             "network_assets": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "delete", "update", "append", "subscribe"]
                     },
                     "network": {
                         "permissions": [
@@ -310,24 +295,24 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/asset"
+                    "$ref": "#/schemas/asset"
                 }
             },
             "restricted_content_keys": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/restricted_content_key"
+                    "$ref": "#/schemas/restricted_content_key"
                 }
             },
             "twitter_medias": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "any_member": {
                         "permissions": ["read"]
@@ -338,13 +323,13 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/twitter_media"
+                    "$ref": "#/schemas/twitter_media"
                 }
             },
             "tweets": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "delete", "append", "subscribe"]
                     },
                     "any_member": {
                         "permissions": ["read"]
@@ -355,7 +340,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "/schemas/tweet"
+                    "$ref": "#/schemas/tweet"
                 }
             }
         },
@@ -470,8 +455,7 @@
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/app_url"
-                        },
-                        "#reference_field": "app_id"
+                        }
                     }
                 },
                 "required": ["app_id", "app_type", "status"]
@@ -659,21 +643,21 @@
                         "#properties": ["index", "counter"]
                     },
                     "object": {
-                        "description": "name of the object in the GraphQL query",
+                        "description": "name of the object in the Data API query",
                         "type": "string",
                         "#properties": ["index", "counter"]
                     },
                     "query_filters": {
-                        "description": "the filters specified in the GraphQL query",
+                        "description": "the filters specified in the Data API query",
                         "type": "string"
                     },
                     "query_depth": {
-                        "description": "the depth specified the GraphQL query",
+                        "description": "the depth specified the Data API query",
                         "type": "integer",
                         "#properties": ["index", "counter"]
                     },
                     "query_relations": {
-                        "description": "the relations specified in the GraphQL query",
+                        "description": "the relations specified in the Data API query",
                         "type": "string",
                         "#properties": ["index", "counter"]
                     },
@@ -684,7 +668,7 @@
                         "#properties": ["index", "counter"]
                     },
                     "source": {
-                        "description": "The source of the log entry, ie. the client, a graphql query, etc.",
+                        "description": "The source of the log entry, ie. the client, a Data API query, etc.",
                         "type": "string",
                         "#properties": ["index", "counter"]
                     },
@@ -725,7 +709,7 @@
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "type": "object",
                 "description": "A chapter in a video",
-                "required": ["chapter_id", "start", "end", "video_id"],
+                "required": ["chapter_id", "start", "end"],
                 "properties": {
                     "chapter_id": {
                         "description": "The UUID of the video chapter",
@@ -744,21 +728,15 @@
                     "title": {
                         "description": "The title of the chapter",
                         "type": "string"
-                    },
-                    "video_id": {
-                        "description": "The ID of the public_asset video that this chapter belongs to",
-                        "type": "string",
-                        "format": "uuid",
-                        "#properties": ["index"]
                     }
                 }
             },
             "video_thumbnail": {
-                "$id": "/schemas/video-chapter",
+                "$id": "/schemas/video-thumbnail",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
                 "type": "object",
                 "description": "A chapter in a video",
-                "required": ["thumbnail_id", "url", "width", "height", "video_id"],
+                "required": ["thumbnail_id", "url", "width", "height"],
                 "properties": {
                     "thumbnail_id": {
                         "description": "The UUID of the video thumbnail",
@@ -779,15 +757,13 @@
                         "description": "The height of the thumbnail",
                         "type": "number"
                     },
+                    "size": {
+                        "description": "a textual description of the resolution of the thumbnail, ie. '640x480' or '4k'",
+                        "type": "string"
+                    },
                     "preference": {
                         "description": "The preference of the thumbnail, ie. 'default', 'high', 'medium', 'low'",
                         "type": "string"
-                    },
-                    "video_id": {
-                        "description": "The asset ID of the public_asset video that this chapter belongs to",
-                        "type": "string",
-                        "format": "uuid",
-                        "#properties": ["index"]
                     }
                 }
             },
@@ -932,21 +908,19 @@
                         "description": "the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by taking the asset_url and replace the filename in that url with 'merkle-tree.db'",
                         "type": "string"
                     },
-                    "public_video_thumbnails": {
+                    "video_thumbnails": {
                         "description": "list of thumbnails for the asset",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/video_thumbnail"
-                        },
-                        "#reference_field": "video_id"
+                        }
                     },
-                    "public_video_chapters": {
+                    "video_chapters": {
                         "description": "list of video chapters for the asset",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/video_chapter"
-                        },
-                        "#reference_field": "video_id"
+                        }
                     },
                     "monetizations": {
                         "description": "enabled monetizations for the asset",
@@ -976,13 +950,12 @@
                             "type": "string"
                         }
                     },
-                    "public_claims": {
+                    "claims": {
                         "description": "list of claims for the asset",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/claim"
-                        },
-                        "#reference_field": "keyfield_id"
+                        }
                     },
                     "copyright_years": {
                         "type": "array",
@@ -1060,14 +1033,8 @@
                         "type": "array",
                         "items": {
                             "type": "string"
-                        }
-                    },
-                    "chapters": {
-                        "description": "DEPRECATED, replaced with public_video_chapters",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
+                        },
+                        "#obsolete": true
                     },
                     "screen_orientation_horizontal": {
                         "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
@@ -1359,13 +1326,14 @@
             }
         }
     },
-    "name": "byoda-tube",
+    "name": "addressbook",
     "owner": "Steven Hessing",
+    "max_query_depth": 5,
     "service_id": 4294929430,
     "signatures": {},
     "supportemail": "steven@byoda.org",
     "version": 1,
-    "website": "https://byoda.tube/",
+    "website": "https://addressbook.byoda.org/",
     "cors_origins": [
         "www.byoda.net",
         "addressbook.byoda.org",
@@ -1374,14 +1342,9 @@
     ],
     "listen_relations": [
         {
-            "relation": "follow",
             "class_name": "public_assets",
-            "destination class": "incoming_assets"
-        },
-        {
-            "relation": "subscribe",
-            "class_name": "public_assets",
-            "destination class": "incoming_assets"
+            "relations": ["follow", "subscribe"],
+            "destination_class": "incoming_assets"
         }
     ]
 }

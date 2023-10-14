@@ -6,21 +6,29 @@ Wrapper class for the PyJWT module
 :license
 '''
 
-import logging
 from uuid import UUID
 from typing import TypeVar
-from datetime import datetime, timezone, timedelta
+
+from logging import getLogger
+from datetime import datetime
+from datetime import timezone
+from datetime import timedelta
 
 import jwt as py_jwt
 
+from opentelemetry.trace import get_tracer
+from opentelemetry.sdk.trace import Tracer
 
 from byoda.secrets.secret import Secret
 
 from byoda.datatypes import IdType
 
+from byoda.util.logger import Logger
+
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
+TRACER: Tracer = get_tracer(__name__)
 
 ServiceServer = TypeVar('ServiceServer')
 PodServer = TypeVar('PodServer')
@@ -60,6 +68,7 @@ class JWT:
         self.network_name: str = network_name
 
     @staticmethod
+    @TRACER.start_as_current_span('JWT.create')
     def create(identifier: UUID, id_type: IdType, secret: Secret,
                network_name: str, service_id: int,
                scope_type: IdType, scope_id: UUID | int,
@@ -186,6 +195,7 @@ class JWT:
         if self.scope_id != scope_id:
             raise ValueError(f'JWT does not match our scope ID: {scope_id}')
 
+    @TRACER.start_as_current_span('JWT.encode')
     def encode(self) -> str:
         data = {
             'exp': self.expiration,
@@ -206,6 +216,7 @@ class JWT:
         return self.encoded
 
     @staticmethod
+    @TRACER.start_as_current_span(name='JWT.decode')
     async def decode(authorization: str, secret: Secret, network_name: str,
                      download_remote_cert: bool = True):
         '''

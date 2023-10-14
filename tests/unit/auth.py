@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test cases for authentication of REST / GraphQL API calls
+Test cases for authentication of REST / Data API calls
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -29,10 +29,10 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TlsStatus
-from byoda.datatypes import HttpRequestMethod
 
 from byoda.util.logger import Logger
 from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpMethod
 
 from byoda import config
 
@@ -97,7 +97,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member: Member = account.memberships[ADDRESSBOOK_SERVICE_ID]
         jwt = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
-            '127.0.0.1', HttpRequestMethod.GET
+            '127.0.0.1', HttpMethod.GET
         )
         await request_auth.authenticate(
             TlsStatus.NONE, None, None, None, jwt.encoded
@@ -115,7 +115,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         jwt = account.create_jwt()
 
         request_auth: RequestAuth = RequestAuth(
-            '127.0.0.1', HttpRequestMethod.GET
+            '127.0.0.1', HttpMethod.GET
         )
         await request_auth.authenticate(
             TlsStatus.NONE, None, None, None, jwt.encoded
@@ -133,7 +133,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=accounts-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            '127.0.0.1', HttpRequestMethod.GET
+            '127.0.0.1', HttpMethod.GET
         )
         await request_auth.authenticate(
             TlsStatus.SUCCESS, client_dn, ca_dn, None, None
@@ -149,7 +149,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=members-ca.byoda.net'
         request_auth: RequestAuth = RequestAuth(
-            '127.0.0.1', HttpRequestMethod.GET
+            '127.0.0.1', HttpMethod.GET
         )
         await request_auth.authenticate(
             TlsStatus.SUCCESS, client_dn, ca_dn, None, None

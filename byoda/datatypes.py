@@ -12,14 +12,22 @@ from enum import Enum
 from uuid import UUID
 from collections import namedtuple
 
-# Location to mount the API in the FastApi app and
-# to proxy incoming GraphQL requests to other pods
-GRAPHQL_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
+# Location to proxy incoming REST Date requests to other pods
+DATA_API_URL: str = \
+    '{protocol}://{fqdn}:{port}/api/v1/data/{service_id}/{class_name}/{action}'
+
+DATA_WS_API_URL: str = \
+    'wss://{fqdn}:{port}/ws-api/v1/data/{service_id}/{class_name}/{action}'
+
+DATA_WS_API_INTERNAL_URL: str = \
+    'ws://127.0.0.1:{port}/api/v1/data/{service_id}/{class_name}/{action}'
 
 # FastAPI has a bug where the websocket app needs to be under the same path
-# as te HTTP app, otherwise it will return a 403. On nginx, we map incoming
-# websocket requests for /vs-api/ to /api/ to work around this FastAPI bug.
-GRAPHQL_WS_API_URL_PREFIX: str = '/api/v1/data/service-{service_id}'
+# as te HTTP app, otherwise it will return a 403. In the nginx configuration,
+# we map incoming websocket requests for /vs-api/ to /api/ to work around this
+# FastAPI bug.
+DATA_API_PROXY_URL: str = \
+    '{protocol}://proxy.{network}/{service_id}/{member_id}/api/v1/data/{service_id}/{class_name}/{action}'
 
 # Object property to temporarily store the member ID of the
 # source of that object
@@ -27,7 +35,15 @@ ORIGIN_KEY: str = 'byoda_origin'
 
 # What is the data class for storing network relations
 MARKER_NETWORK_LINKS: str = 'network_links'
+
+# The data class where logs for REST Data API calls are stored
+MARKER_DATA_LOGS: str = 'datalogs'
+
+# The property used to specify access controls for data classes
 MARKER_ACCESS_CONTROL: str = '#accesscontrol'
+
+# How many records should a Data query return by default
+DEFAULT_QUERY_SIZE: int = 40
 
 
 class ServerRole(Enum):
@@ -96,13 +112,6 @@ class VisibilityType(Enum):
     PUBLIC               = 'public'
     RESTRICTED           = 'restricted'
 
-class HttpRequestMethod(Enum):
-    GET         = 'GET'
-    POST        = 'POST'
-    OPTIONS     = 'OPTIONS'
-    PUT         = 'PUT'
-    PATCH       = 'PATCH'
-
 
 class CloudType(Enum):
     '''
@@ -124,6 +133,7 @@ class CacheType(Enum):
     QUERY_ID     = 'query'
     COUNTER      = 'counter'
     OBJECT       = 'object'
+    DATA         = 'data'
 
 CounterFilter = dict[str, str | UUID]
 
@@ -204,6 +214,18 @@ class DataType(Enum):
     REFERENCE = 'reference'
 
 
+# The values for DataRequestType are used for the signatures
+# for the REST Data APIs
+class DataRequestType(Enum):
+    QUERY               = 'query'
+    MUTATE              = 'mutate'      # mutate an object
+    APPEND              = 'append'
+    UPDATE              = 'update'      # mutate an object in an array
+    DELETE              = 'delete'
+    COUNTER             = 'counter'
+    UPDATES             = 'updates'
+
+
 # DataOperationType is a parameter for data objects in the service schema
 class DataOperationType(Enum):
     # flake8: noqa=E221
@@ -216,7 +238,8 @@ class DataOperationType(Enum):
     PERSIST     = 'persist'
     # Mutate can be either create, update, append or delete
     MUTATE      = 'mutate'
-
+    # Allows subscribing to data changes
+    SUBSCRIBE   = "subscribe"
 
 # Search type is a parameter for data objects in the service schema
 class SearchType(Enum):

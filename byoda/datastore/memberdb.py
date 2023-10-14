@@ -7,18 +7,21 @@ about registered clients
 :license    : GPLv3
 '''
 
-import logging
 from uuid import UUID
-from datetime import datetime, timezone
 from typing import TypeVar
-from ipaddress import IPv4Address, ip_address
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
+from ipaddress import ip_address
+from ipaddress import IPv4Address
 
 from byoda.datamodel.schema import Schema
 from byoda.datatypes import MemberStatus
 
 from byoda.datacache.kv_cache import KVCache
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Member = TypeVar('Member')
 

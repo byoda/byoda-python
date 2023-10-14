@@ -8,18 +8,25 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import HTTPException
 
+from byoda.datamodel.account import Account
+
 from byoda.datatypes import IdType
+
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
-from byoda.requestauth.requestauth import RequestAuth, TlsStatus
+from byoda.requestauth.requestauth import RequestAuth
+from byoda.requestauth.requestauth import TlsStatus
+
 from byoda.exceptions import ByodaMissingAuthInfo
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class MemberRequestAuth(RequestAuth):
@@ -36,7 +43,8 @@ class MemberRequestAuth(RequestAuth):
         :raises: HTTPException
         '''
 
-        server = config.server
+        server: PodServer = config.server
+        account: Account = server.account
 
         try:
             jwt = await super().authenticate(
@@ -56,8 +64,7 @@ class MemberRequestAuth(RequestAuth):
         if client_dn:
             self.check_member_cert(self.service_id, server.network)
         else:
-            await server.account.load_memberships()
-            member = config.server.account.memberships.get(jwt.service_id)
+            member = await account.get_membership(jwt.service_id)
             jwt.check_scope(IdType.MEMBER, member.member_id)
 
         self.is_authenticated = True

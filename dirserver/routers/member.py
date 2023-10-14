@@ -13,10 +13,10 @@ The /service/service POST/DELETE APIs have the same signature but only
 informs the service about the availability of the pod.
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-
 
 from byoda.datatypes import IdType
 
@@ -30,7 +30,7 @@ from byoda import config
 
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 router = APIRouter(

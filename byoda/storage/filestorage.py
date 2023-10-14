@@ -11,15 +11,17 @@ The profile server uses noSQL storage for profile data
 
 import os
 import shutil
-import logging
+
 from enum import Enum
 from typing import BinaryIO
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import StorageType
 from byoda.datatypes import ContentTypes
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 PUBLIC_POSTFIX: str = 'public'
 RESTRICTED_POSTFIX: str = 'restricted'

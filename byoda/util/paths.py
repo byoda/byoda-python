@@ -7,12 +7,13 @@ Python module for directory and file management a.o. for secrets
 '''
 
 import os
-import logging
 from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.storage.filestorage import FileStorage
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class Paths:
@@ -89,6 +90,7 @@ class Paths:
     MEMBER_DATA_FILE               = 'data-{service_id}-{member_id}.db'                                                                                         # noqa
     MEMBER_QUERY_CACHE_FILE        = 'querycache-{service_id}-{member_id}.db'                                                                                   # noqa
     MEMBER_COUNTER_CACHE_FILE      = 'countercache-{service_id}-{member_id}.db'                                                                                 # noqa
+    MEMBER_DATA_CACHE_FILE         = 'cache-{service_id}-{member_id}.db'                                                                                        # noqa
     MEMBER_DATA_PROTECTED_FILE     = 'network-{network}/account-{account}/service-{service_id}/data/network-{network}-member-{service_id}-data.json.protected'  # noqa
     MEMBER_DATA_SHARED_SECRET_FILE = 'network-{network}/account-{account}/service-{service_id}/network-{network}-member-{service_id}-data.sharedsecret'         # noqa
 
@@ -113,8 +115,6 @@ class Paths:
     SERVICEAPP_API          = 'https://service.service-{service_id}.{network}/api/v1/service/app'                     # noqa
     SERVICEEMAILSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/email'            # noqa
     SERVICEASSETSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/asset'            # noqa
-    PODGRAPHQL_API          = 'https://{member_id}}.members-{service_id}.{network}/api/v1/data/service-{service_id}'  # noqa
-    PODGRAPHQL_PROXY_API    = 'https://proxy.{network}/{service_id}/{member_id}/api/v1/data/service-{service_id}'     # noqa
     PODACCOUNT_API          = 'https://{account_id}.accounts.{network}/api/v1/pod/account'                            # noqa
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
 

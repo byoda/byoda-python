@@ -6,22 +6,19 @@ Class for modeling an account on a network
 :license    : GPLv3
 '''
 
-import logging
 
 from uuid import uuid4, UUID
 from copy import copy
 from typing import TypeVar
 from datetime import datetime
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import FastAPI
-
-from strawberry.fastapi import GraphQLRouter
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import StorageType
-from byoda.datatypes import GRAPHQL_API_URL_PREFIX
-from byoda.datatypes import GRAPHQL_WS_API_URL_PREFIX
 
 
 from byoda.datamodel.service import Service
@@ -60,7 +57,7 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 LETSENCRYPT_ROOT_DIR = '/etc/letsencrypt/live'
 
@@ -78,10 +75,10 @@ class Member:
 
     __slots__ = [
         'member_id', 'service_id', 'account', 'network', 'service', 'schema',
-        'data', 'paths', 'document_store', 'data_store', 'query_cache',
-        'counter_cache', 'storage_driver', 'private_key_password', 'app',
-        'tls_secret', 'data_secret', 'service_data_secret',
-        'service_ca_secret', 'service_ca_certchain'
+        'data', 'paths', 'document_store', 'data_store',
+        'query_cache', 'counter_cache', 'storage_driver',
+        'private_key_password', 'tls_secret', 'data_secret',
+        'service_data_secret', 'service_ca_secret', 'service_ca_certchain'
 
     ]
 
@@ -125,9 +122,6 @@ class Member:
         self.storage_driver: FileStorage = self.document_store.backend
 
         self.private_key_password: str = account.private_key_password
-
-        # The FastAPI app. We store this value to support upgrades of schema
-        self.app: FastAPI | None = None
 
         self.tls_secret: MemberSecret | None = None
         self.data_secret: MemberDataSecret | None = None
@@ -356,10 +350,6 @@ class Member:
         filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
 
-        data_store = config.server.data_store
-        await data_store.setup_member_db(
-            member.member_id, member.service_id, member.schema
-        )
         return member
 
     async def create_query_cache(self) -> None:
@@ -375,7 +365,7 @@ class Member:
         Sets up the counter cache for the membership
         '''
 
-        _LOGGER.debug('Creating query cache for membership')
+        _LOGGER.debug('Creating counter cache for membership')
         self.counter_cache = await CounterCache.create(self)
 
     async def create_nginx_config(self) -> None:
@@ -766,62 +756,30 @@ class Member:
         else:
             _LOGGER.debug('Not verifying schema signatures')
 
-        schema.generate_graphql_schema(
-            verify_schema_signatures=verify_signatures
-        )
-
         return schema
 
-    def enable_graphql_api(self, app: FastAPI) -> None:
+    async def enable_data_apis(self, app: FastAPI, data_store: DataStore
+                               ) -> None:
         '''
-        Loads the GraphQL API in the FastApi app.
+        Generate the data classes for the schema and the
+        corresponding storage tables
+        Enables the Data APIs that were generated for
+        the schema of the service
         '''
 
-        self.app = app
+        _LOGGER.debug('Enabling data APIs')
 
         update_cors_origins(self.schema.cors_origins)
 
-        # podserver.dependencies.podrequest_auth.PodApiRequestAuth
-        # uses the GRAPHQL_API_URL_PREFIX to evaluate incoming
-        # requests
-        rest_path = GRAPHQL_API_URL_PREFIX.format(service_id=self.service_id)
-        graphql_app = GraphQLRouter(
-            self.schema.gql_schema, graphiql=config.debug,
+        schema: Schema = self.schema
+
+        schema.get_data_classes()
+
+        await data_store.setup_member_db(
+            self.member_id, self.service_id, self.schema
         )
 
-        app.include_router(graphql_app, prefix=rest_path)
-
-        websocket_path = GRAPHQL_WS_API_URL_PREFIX.format(
-            service_id=self.service_id
-        )
-        app.add_websocket_route(websocket_path, graphql_app)
-        _LOGGER.debug(
-            'Opened websocket route for GraphQL subscriptions '
-            f'at {websocket_path}'
-        )
-
-    def upgrade_graphql_api(self, app: FastAPI) -> None:
-        '''
-        Updates the GraphQL interface for a membership
-
-        This is not yet implemented as FastAPI has no method for
-        replacing an existing route in its list of FastAPI.routes
-        '''
-
-        # TODO: implement upgrades of schemas
-        # path = f'/api/v1/data/service-{self.service_id}'
-        # graphql_app = GraphQLRouter(self.schema.gql_schema)
-
-        # This uses internal data structures of FastAPI as there
-        # does not seem to be a supported method to replace an
-        # route
-        # for route in [r for r in self.app.routes if r.path == path]:
-        #    route.endpoint = graphql_app.__init__().get_graphiql
-
-        raise NotImplementedError(
-            'Updating a schema is not supported, best short term solution '
-            'seems to restart the FastAPI app'
-        )
+        schema.enable_data_apis(app)
 
     async def verify_schema_signatures(self, schema: Schema):
         '''

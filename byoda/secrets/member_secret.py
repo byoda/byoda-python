@@ -6,10 +6,11 @@ Cert manipulation for accounts and members
 :license    : GPLv3
 '''
 
-import logging
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,7 +20,7 @@ from byoda.datatypes import IdType
 
 from .secret import Secret
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Account = TypeVar('Account')
 Network = TypeVar('Network')
@@ -108,6 +109,9 @@ class MemberSecret(Secret):
         '''
         generates the FQDN for the common name in the Member TLS secret
         '''
+
+        if not member_id:
+            raise ValueError('Member ID must be specified')
 
         if not isinstance(member_id, UUID):
             member_id = UUID(member_id)

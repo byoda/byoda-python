@@ -9,7 +9,7 @@ uwsgi.yml
 # test collateral containing secrets
 tests/collateral/local
 
-# We store code generated for parsing GraphQL queries here
+# We store code generated for parsing Data API queries here
 podserver/codegen/*
 
 

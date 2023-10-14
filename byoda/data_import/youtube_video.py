@@ -8,13 +8,15 @@ Model a Youtube video
 
 import os
 import shutil
-import logging
 import subprocess
 
 from enum import Enum
 from uuid import UUID, uuid4
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from dateutil import parser as dateutil_parser
 
 import orjson
@@ -23,10 +25,11 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from byoda.datamodel.member import Member
+from byoda.datamodel.schema import Schema
+from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.claim import ClaimRequest
 
 from byoda.datastore.data_store import DataStore
-from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.storage.filestorage import FileStorage
 
@@ -46,7 +49,7 @@ from byoda import config
 from .youtube_thumbnail import YouTubeThumbnail
 from .youtube_streams import TARGET_AUDIO_STREAMS, TARGET_VIDEO_STREAMS
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 BENTO4_DIR: str = '/podserver/bento4'
 
@@ -244,9 +247,9 @@ class YouTubeVideoChapter:
 class YouTubeVideo:
     VIDEO_URL: str = 'https://www.youtube.com/watch?v={video_id}'
     DATASTORE_CLASS_NAME: str = 'public_assets'
-    DATASTORE_CLASS_NAME_THUMBNAILS: str = 'public_video_thumbnails'
-    DATASTORE_CLASS_NAME_CHAPTERS: str = 'public_video_chapters'
-    DATASTORE_CLASS_NAME_CLAIMS: str = 'public_claims'
+    DATASTORE_CLASS_NAME_THUMBNAILS: str = 'video_thumbnails'
+    DATASTORE_CLASS_NAME_CHAPTERS: str = 'video_chapters'
+    DATASTORE_CLASS_NAME_CLAIMS: str = 'claims'
     DATASTORE_FIELD_MAPPINGS: dict[str, str] = {
         'video_id': 'publisher_asset_id',
         'title': 'title',
@@ -575,47 +578,11 @@ class YouTubeVideo:
                 else:
                     asset[mapping] = value
 
-        if update:
-            data_filter = DataFilterSet(
-                {'publisher_asset_id': {'eq': self.video_id}}
-            )
-            await data_store.delete(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME,
-                data_filter_set=data_filter
-            )
-            asset_filter = DataFilterSet({'video_id': {'eq': self.asset_id}})
-            await data_store.delete(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
-                data_filter_set=asset_filter
-            )
-            await data_store.delete(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
-                data_filter_set=asset_filter
-            )
-            asset_filter = DataFilterSet(
-                {
-                    'keyfield': {
-                        'eq': YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS
-                    },
-                    'keyfield_id': {'eq': self.asset_id}
-                }
-            )
-            await data_store.delete(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
-                data_filter_set=asset_filter
-            )
-
-        await data_store.append(
-            member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME, asset
-        )
         if claim_request:
             if claim_request.signature:
                 claim_data = await self.download_claim(moderate_claim_url)
 
-                await data_store.append(
-                    member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS,
-                    claim_data
-                )
+                asset[YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS] = claim_data
             else:
                 storage_driver.save(
                     f'claim_requests/pending/{self.asset_id}',
@@ -624,22 +591,19 @@ class YouTubeVideo:
                     ).decode('utf-8')
                 )
 
-        for thumbnail in self.thumbnails.values():
-            data: dict = thumbnail.as_dict()
-            data['video_id'] = self.asset_id
+        asset[YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS] = [
+            thumbnail.as_dict() for thumbnail in self.thumbnails.values()
+        ]
 
-            await data_store.append(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS,
-                data
-            )
+        asset[YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS] = [
+            chapter.as_dict for chapter in self.chapters
+        ]
 
-        for chapter in self.chapters:
-            data: dict = chapter.as_dict()
-            data['video_id'] = self.asset_id
-            await data_store.append(
-                member.member_id, YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS,
-                data
-            )
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = \
+            schema.data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
+
+        await data_store.append(member.member_id, data_class, asset, None)
 
         _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
 
@@ -714,7 +678,7 @@ class YouTubeVideo:
         if resp.status_code != 200:
             raise RuntimeError(
                 'Failed to get the approvied claim from moderation API '
-                f'{moderate_claim_url}: {resp.status}'
+                f'{moderate_claim_url}: {resp.status_code}'
             )
 
         claim_data = resp.json()

@@ -8,15 +8,18 @@ implementations should derive from this class
 :license    : GPLv3
 '''
 
-import logging
 from uuid import UUID
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import aiosqlite
 
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import Table
+from byoda.datamodel.table import QueryResults
+from byoda.datatypes import IdType
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -25,7 +28,7 @@ DocumentStore = TypeVar('DocumentStore')
 DataStore = TypeVar('DataStore')
 FileStorage = TypeVar('FileStorage')
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class Sql:
@@ -53,7 +56,7 @@ class Sql:
     async def execute(self, command: str, member_id: UUID = None,
                       data: dict[str, str | int | float | bool] = None,
                       autocommit: bool = True, fetchall: bool = False
-                      ) -> aiosqlite.cursor.Cursor:
+                      ) -> aiosqlite.cursor.Cursor | list[aiosqlite.Row]:
         '''
         Executes the SQL command.
 
@@ -63,7 +66,7 @@ class Sql:
         :param autocommit: whether to commit the transaction after executing
         :param fetchall: should rows be fetched and returned
         :returns: if 'fetchall' is False, the Cursor to the result, otherwise
-        a list of rows
+        a list of rows returned by the query
         '''
 
         datafile = self.database_filepath(member_id)
@@ -85,9 +88,11 @@ class Sql:
 
             try:
                 if not fetchall:
-                    result = await db_conn.execute(command, data)
+                    result: aiosqlite.cursor.Cursor = \
+                        await db_conn.execute(command, data)
                 else:
-                    result = await db_conn.execute_fetchall(command, data)
+                    result: list[aiosqlite.Row] = \
+                        await db_conn.execute_fetchall(command, data)
 
                 if autocommit:
                     _LOGGER.debug(
@@ -109,46 +114,105 @@ class Sql:
         Returns the table for the class of the member_id
         '''
 
+        if class_name not in self.member_sql_tables[member_id]:
+            _LOGGER.error(
+                f'Table {class_name} not found for member {member_id}. '
+                f'Known tables: {", ".join(self.member_sql_tables[member_id])}'
+            )
+
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
         return sql_table
 
+    def get_tables(self, member_id) -> list[Table]:
+        '''
+        Returns the tables for the member_id
+        '''
+
+        return list(self.member_sql_tables[member_id].values())
+
     async def query(self, member_id: UUID, class_name: str,
-                    filters: DataFilterSet = None) -> dict[str, object]:
+                    filters: DataFilterSet = None,
+                    first: int = None, after: str = None,
+                    fields: set[str] | None = None
+                    ) -> QueryResults | None:
         '''
         Execute the query on the SqlTable for the member_id and class_name
+
+        :param member_id: member_id for the member DB to execute the command on
+        :param class_name: the name of the data_class that we query from
+        :param filters: filters to apply to the query
+        :param first: number of records to return
+        :param after: pagination cursor
+        'parent' data class
+        '''
+
+        sql_table: SqlTable = self.get_table(member_id, class_name)
+
+        return await sql_table.query(
+            filters, first=first, after=after, fields=fields
+        )
+
+    async def mutate(self, member_id: UUID, class_name: str,
+                     data: dict[str, object], cursor: str,
+                     origin_id: UUID, origin_id_type: IdType,
+                     origin_class_name: str | None,
+                     data_filter_set: DataFilterSet = None
+                     ) -> int:
+        '''
+        Execute the mutation on the SqlTable for the member_id and key
+
+        :param member_id: member_id for the member DB to execute the command on
+        :param class_name: the name of the data_class that we need to append to
+        :param data: k/v pairs for data to be stored in the table
+        :param cursor: pagination cursor calculated for the data
+        :param origin_id: the ID of the source for the data
+        :param origin_id_type: the type of ID of the source for the data
+        :returns: the number of mutated rows in the table
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
-        return await sql_table.query(filters)
+        return await sql_table.mutate(
+            data, cursor, origin_id=origin_id, origin_id_type=origin_id_type,
+            origin_class_name=origin_class_name,
+            data_filters=data_filter_set
+        )
 
-    async def mutate(self, member_id: UUID, key: str, data: dict[str, object],
-                     data_filter_set: DataFilterSet = None) -> int:
-        '''
-        Execute the mutation on the SqlTable for the member_id and key
-        '''
-
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.mutate(data, data_filter_set)
-
-    async def append(self, member_id: UUID, key: str, data: dict[str, object]):
+    async def append(self, member_id: UUID, class_name: str,
+                     data: dict[str, object], cursor: str,
+                     origin_id: UUID, origin_id_type: IdType,
+                     origin_class_name: str | None) -> int:
         '''
         Execute the append on the SqlTable for the member_id and key
+
+        :param member_id: member_id for the member DB to execute the command on
+        :param class_name: the name of the data_class that we need to append to
+        :param data: k/v pairs for data to be stored in the table
+        :param cursor: pagination cursor calculated for the data
+        :returns: the number of rows added to the table
         '''
 
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
-        return await sql_table.append(data)
+        sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
 
-    async def delete(self, member_id: UUID, key: str,
+        if cursor is None:
+            cursor = Table.get_cursor_hash(
+                data, member_id, sql_table.required_fields
+            )
+
+        return await sql_table.append(
+            data, cursor, origin_id, origin_id_type, origin_class_name
+        )
+
+    async def delete(self, member_id: UUID, class_name: str,
                      data_filter_set: DataFilterSet = None) -> int:
         '''
-        Execute the delete on the SqlTable for the member_id and key
+        Execute the delete on the SqlTable for the member_id and class
         '''
 
-        sql_table: SqlTable = self.member_sql_tables[member_id][key]
+        sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
         return await sql_table.delete(data_filter_set)
 
     async def read(self, member: Member, class_name: str,
-                   filters: DataFilterSet):
+                   filters: DataFilterSet) -> QueryResults:
         '''
         Reads all the data for a membership
         '''

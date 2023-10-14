@@ -7,15 +7,15 @@ derive
 :license    : GPLv3
 '''
 
-import logging
-
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import pynng
 
 from byoda.datatypes import PubSubTech
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 SchemaDataItem = TypeVar('SchemaDataItem')
 Schema = TypeVar('Schema')

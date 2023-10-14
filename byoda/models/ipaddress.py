@@ -6,11 +6,14 @@ API models for IP Addresses
 :license    : GPLv3
 '''
 
-import logging
-from ipaddress import IPv4Address, IPv6Address
+from logging import getLogger
+from byoda.util.logger import Logger
+from ipaddress import IPv4Address
+from ipaddress import IPv6Address
+
 from pydantic import BaseModel
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class IpAddressResponseModel(BaseModel):
@@ -18,7 +21,7 @@ class IpAddressResponseModel(BaseModel):
     ipv6_address: IPv6Address = None
 
     def __repr__(self):
-        return(
+        return (
             '<IpAddressResponseModel={IPv4Address: str, IPv6Address: str}>'
         )
 

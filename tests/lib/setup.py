@@ -20,6 +20,10 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
+
+from byoda.datastore.cache_store import CacheStore
+from byoda.datastore.cache_store import CacheStoreType
+
 from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
@@ -92,21 +96,32 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     config.test_case = True
 
     server.network = network
-    server.paths = network.paths
 
     config.server.paths = network.paths
+
+    config.trace_server: str = os.environ.get(
+        'TRACE_SERVER', config.trace_server
+    )
 
     return data
 
 
-async def setup_account(data: dict[str, str],
-                        local_service_contract: str = 'addressbook.json'
+async def setup_account(data: dict[str, str], test_dir: str = None,
+                        local_service_contract: str = 'addressbook.json',
+                        clean_pubsub: bool = True
                         ) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
-    PubSubNng.cleanup()
+    if clean_pubsub:
+        PubSubNng.cleanup()
 
-    server = config.server
+    if test_dir and local_service_contract:
+        dest = f'{test_dir}/{local_service_contract}'
+        dest_dir = os.path.dirname(dest)
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copyfile(local_service_contract, dest)
+
+    server: PodServer = config.server
     local_storage: FileStorage = server.local_storage
 
     account = Account(data['account_id'], server.network)
@@ -117,28 +132,43 @@ async def setup_account(data: dict[str, str],
     account.password: str = data.get('account_secret')
 
     await account.create_account_secret()
-
-    # Save the cert file and unecrypted private key to local storage
-    await account.tls_secret.save(
-        account.private_key_password, overwrite=True,
-        storage_driver=local_storage
-    )
+    if not account.tls_secret.cert:
+        await account.tls_secret.load(password=data['private_key_password'])
+    else:
+        # Save the cert file and unecrypted private key to local storage
+        await account.tls_secret.save(
+            account.private_key_password, overwrite=True,
+            storage_driver=local_storage
+        )
     account.tls_secret.save_tmp_private_key()
-    await account.create_data_secret()
+
+    if not account.data_secret:
+        await account.create_data_secret()
+    elif (not account.data_secret.cert
+            and not await account.data_secret.cert_file_exists()):
+        await account.create_data_secret()
+    else:
+        await account.data_secret.load(
+            with_private_key=True, password=data['private_key_password']
+        )
     account.data_secret.create_shared_key()
     await account.register()
 
     await server.get_registered_services()
 
-    await config.server.set_data_store(
+    await server.set_data_store(
         DataStoreType.SQLITE, account.data_secret
+    )
+
+    server.cache_store: CacheStore = await server.set_cache_store(
+        CacheStoreType.SQLITE
     )
 
     services = list(server.network.service_summaries.values())
     service = [
         service
         for service in services
-        if service['name'] == 'byoda-tube'
+        if service['name'] == 'addressbook'
     ][0]
 
     global ADDRESSBOOK_SERVICE_ID

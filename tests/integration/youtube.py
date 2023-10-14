@@ -12,10 +12,14 @@ import sys
 import shutil
 import unittest
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
+from byoda.datamodel.schema import Schema
+from byoda.datamodel.dataclass import SchemaDataItem
 
 from byoda.datatypes import IngestStatus
 from byoda.datatypes import IdType
@@ -25,6 +29,7 @@ from byoda.requestauth.jwt import JWT
 from byoda.datastore.data_store import DataStore
 
 from byoda.data_import.youtube import YouTube
+from byoda.data_import.youtube_video import YouTubeVideo
 
 from byoda.storage.filestorage import FileStorage
 
@@ -34,7 +39,14 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
 
+from byoda.util.fastapi import setup_api
+
 from byoda import config
+
+from podserver.routers import account as AccountRouter
+from podserver.routers import member as MemberRouter
+from podserver.routers import authtoken as AuthTokenRouter
+from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
@@ -73,8 +85,30 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         network_data = await setup_network(delete_tmp_dir=False)
 
         config.test_case = 'TEST_CLIENT'
+        config.disable_pubsub = True
 
-        config.server.account: Account = await setup_account(network_data)
+        account: Account = await setup_account(
+            network_data, clean_pubsub=False
+        )
+
+        config.trace_server: str = os.environ.get(
+            'TRACE_SERVER', config.trace_server
+        )
+
+        global APP
+        APP = setup_api(
+            'Byoda test pod', 'server for testing pod APIs',
+            'v0.0.1', [
+                AccountRouter, MemberRouter, AuthTokenRouter,
+                AccountDataRouter
+            ],
+            lifespan=None, trace_server=config.trace_server,
+        )
+
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
+        for member in account.memberships.values():
+            await member.enable_data_apis(APP, data_store)
 
         os.environ[YouTube.ENVIRON_CHANNEL] = ''
         os.environ[YouTube.ENVIRON_API_KEY] = ''
@@ -85,8 +119,12 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_scrape_videos(self):
         account: Account = config.server.account
-        await account.load_memberships()
-        member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
+        schema: Schema = member.schema
+        data_classes: dict[str, SchemaDataItem] = schema.data_classes
+        class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
+        data_class: SchemaDataItem = data_classes[class_name]
 
         server: PodServer = config.server
         data_store: DataStore = server.data_store
@@ -99,7 +137,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         yt = YouTube()
         ingested_videos = await YouTube.load_ingested_videos(
-            member.member_id, data_store
+            member.member_id, data_class, data_store
         )
         self.assertEqual(len(ingested_videos), 0)
 
@@ -130,7 +168,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
-            member.member_id, data_store
+            member.member_id, data_class, data_store
         )
         self.assertGreaterEqual(len(ingested_videos), 2)
 
@@ -148,8 +186,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         return
 
         account: Account = config.server.account
-        await account.load_memberships()
-        member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
 
         server: PodServer = config.server
         data_store: DataStore = server.data_store

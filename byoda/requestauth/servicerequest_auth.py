@@ -8,7 +8,8 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import HTTPException
 
@@ -17,7 +18,7 @@ from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class ServiceRequestAuth(RequestAuth):
@@ -37,10 +38,10 @@ class ServiceRequestAuth(RequestAuth):
         server = config.server
 
         if authorization:
-            _LOGGER.debug('Service called GraphQL API with a JWT')
+            _LOGGER.debug('Service called Data API with a JWT')
             raise HTTPException(
                 status_code=401,
-                detail='Service must not call GraphQL APIs using JWTs'
+                detail='Service must not call Data APIs using JWTs'
             )
 
         try:

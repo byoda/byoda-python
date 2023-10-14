@@ -6,11 +6,12 @@ Various utility classes, variables and functions
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.servers.pod_server import PodServer
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 async def backup_datastore(server: PodServer):

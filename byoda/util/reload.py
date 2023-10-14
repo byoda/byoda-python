@@ -9,9 +9,11 @@ the new version of the service contract for a service.
 
 import os
 import signal
-import logging
 
-_LOGGER = logging.getLogger(__name__)
+from logging import getLogger
+from byoda.util.logger import Logger
+
+_LOGGER: Logger = getLogger(__name__)
 
 # podserver/files/startup.sh specifies this location for the pid file to
 # gunicorn

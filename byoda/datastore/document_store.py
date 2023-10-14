@@ -11,10 +11,12 @@ and GCP.
 :license    : GPLv3
 '''
 
-import logging
-import orjson
 from enum import Enum
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
+
+import orjson
 
 from byoda.datamodel.datafilter import DataFilterSet
 
@@ -26,7 +28,7 @@ from byoda.storage.sqlite import SqliteStorage
 
 Member = TypeVar('Member')
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class DocumentStoreType(Enum):

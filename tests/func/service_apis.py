@@ -128,12 +128,17 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         await config.server.load_schema(verify_contract_signatures=False)
 
+        config.trace_server: str = os.environ.get(
+            'TRACE_SERVER', config.trace_server
+        )
+
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
             'v0.0.1',
             [ServiceRouter, MemberRouter, SearchRouter, StatusRouter],
-            lifespan=None
+            lifespan=None, trace_server=config.trace_server,
         )
+
         TestDirectoryApis.PROCESS = Process(
             target=uvicorn.run,
             args=(app,),
@@ -157,7 +162,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         response = requests.get(API)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 10)
+        self.assertEqual(len(data), 12)
         self.assertEqual(data['service_id'], SERVICE_ID)
         self.assertEqual(data['version'], 1)
         self.assertEqual(data['name'], 'dummyservice')

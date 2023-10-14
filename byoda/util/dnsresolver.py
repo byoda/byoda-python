@@ -8,17 +8,19 @@ provides basic functionality to lookup A records
 :license    : GPLv3
 '''
 
-import logging
-from datetime import datetime, timezone
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 
 from ipaddress import ip_address as IpAddress
 
 import dns.resolver
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-DNS_DIRSERVER_ADDRESSES = []
-DNS_DIRSERVER_EXPIRES = datetime.now(tz=timezone.utc)
+DNS_DIRSERVER_ADDRESSES: list[str] = []
+DNS_DIRSERVER_EXPIRES: datetime = datetime.now(tz=timezone.utc)
 
 
 class DnsResolver:
@@ -79,4 +81,3 @@ class DnsResolver:
         )
 
         return ips
-

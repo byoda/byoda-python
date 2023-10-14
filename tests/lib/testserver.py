@@ -33,10 +33,16 @@ from byoda.datamodel.account import Account
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
+from byoda.datastore.cache_store import CacheStore
+from byoda.datastore.cache_store import CacheStoreType
+
 from byoda.storage.pubsub_nng import PubSubNng
+
+from podserver.util import get_environment_vars
 
 from byoda.util.fastapi import setup_api, update_cors_origins
 
@@ -48,8 +54,6 @@ from tests.lib.setup import write_account_id
 ###
 ###
 ###
-
-from podserver.util import get_environment_vars
 
 from podserver.routers import account as AccountRouter
 from podserver.routers import member as MemberRouter
@@ -67,6 +71,12 @@ DIR_API_BASE_URL = 'https://dir.{network}/api'
 ### Test change     # noqa: E266
 ###
 TEST_DIR = '/tmp/byoda-tests/podserver'
+
+#
+# OpenTelemetry setup
+#
+
+
 ###
 ###
 ###
@@ -119,7 +129,7 @@ async def lifespan(app: FastAPI):
     if str(data['debug']).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
-        # use tools like call_graphql.py to debug the server
+        # use tools like call_data_api.py to debug the server
         os.umask(0o0000)
     else:
         os.umask(0x0077)
@@ -128,7 +138,7 @@ async def lifespan(app: FastAPI):
     ### Test change     # noqa: E266
     ###
     global LOG_FILE
-    LOG_FILE = data['root_dir'] + '/pod.log'
+    LOG_FILE = os.environ.get('LOGFILE', data['root_dir'] + '/pod.log')
     ###
     ###
     ###
@@ -190,6 +200,10 @@ async def lifespan(app: FastAPI):
         DataStoreType.SQLITE, account.data_secret
     )
 
+    server.cache_store: CacheStore = await server.set_cache_store(
+        CacheStoreType.SQLITE
+    )
+
     await server.get_registered_services()
 
     ###
@@ -199,7 +213,7 @@ async def lifespan(app: FastAPI):
     service = [
         service
         for service in services
-        if service['name'] == 'byoda-tube'
+        if service['name'] == 'addressbook'
     ][0]
 
     local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
@@ -235,7 +249,8 @@ async def lifespan(app: FastAPI):
     for member in account.memberships.values():
         await member.create_query_cache()
         await member.create_counter_cache()
-        member.enable_graphql_api(app)
+        await member.enable_data_apis(app, server.data_store)
+
         await member.tls_secret.save(
             password=member.private_key_password,
             storage_driver=server.local_storage,
@@ -250,7 +265,10 @@ async def lifespan(app: FastAPI):
 
     _LOGGER.debug('Lifespan startup complete')
     update_cors_origins(cors_origins)
+
     yield
+
+config.trace_server: int = os.environ.get('TRACE_SERVER', config.trace_server)
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
@@ -258,7 +276,7 @@ app = setup_api(
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
         AccountDataRouter, ContentTokenRouter
     ],
-    lifespan=lifespan
+    lifespan=lifespan, trace_server=config.trace_server,
 )
 
 config.app = app

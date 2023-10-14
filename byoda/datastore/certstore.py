@@ -6,7 +6,8 @@ Class for certificate request processing
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from ipaddress import ip_address as IpAddress
 
@@ -14,9 +15,10 @@ from cryptography import x509
 
 from byoda.datatypes import IdType
 
-from byoda.secrets.secret import Secret, CertChain
+from byoda.secrets.secret import Secret
+from byoda.secrets.secret import CertChain
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class CertStore:

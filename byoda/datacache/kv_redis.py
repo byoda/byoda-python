@@ -7,15 +7,16 @@ storing data about their members
 :license    : GPLv3
 '''
 
-from json.decoder import JSONDecodeError
-import logging
 import orjson
+
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from redis import Redis
 
 from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 # TODO: convert KVRedis to async
 
@@ -95,7 +96,7 @@ class KVRedis(KVCache):
                     _LOGGER.debug('Attempting to deserialize JSON data')
                     data = orjson.loads(value)
                     value = data
-                except JSONDecodeError:
+                except orjson.JSONDecodeError:
                     pass
 
         return value

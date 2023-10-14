@@ -7,12 +7,13 @@ Cert manipulation
 '''
 
 import re
-import logging
 import tempfile
 import subprocess
 
 from uuid import UUID
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -45,21 +46,21 @@ from byoda.util.paths import Paths
 
 from .certchain import CertChain
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-_RSA_KEYSIZE = 3072
+_RSA_KEYSIZE: int = 3072
 
-VALID_SIGNATURE_ALGORITHMS = set(
+VALID_SIGNATURE_ALGORITHMS: set[str] = set(
     [
         'sha256WithRSAEncryption'
     ]
 )
-VALID_SIGNATURE_HASHES = set(
+VALID_SIGNATURE_HASHES: set[str] = set(
     [
         'sha256'
     ]
 )
-IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
+IGNORED_X509_NAMES: set[str] = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
 
@@ -648,7 +649,7 @@ class Secret:
         fingerprint = self.fingerprint().hex()
         fingerprint_filename = f'{self.cert_file}-{fingerprint}'
         if (not overwrite and (await storage_driver.exists(self.cert_file)
-                or (with_fingerprint and
+                or (with_fingerprint and                       # noqa: E128
                     await storage_driver.exists(fingerprint_filename)))):
             raise PermissionError(
                 f'Can not save cert because the certificate already '
@@ -766,6 +767,9 @@ class Secret:
         '''
         Returns the SHA256 fingerprint of the certificate
         '''
+
+        if not self.cert:
+            raise ValueError('No certificate available')
 
         return self.cert.fingerprint(hashes.SHA256())
 

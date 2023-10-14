@@ -6,10 +6,12 @@ Cert manipulation for service secrets: Apps CA
 :license    : GPLv3
 '''
 
-import logging
 from copy import copy
 from typing import TypeVar
-from datetime import datetime, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timedelta
 
 from cryptography import x509
 from cryptography.x509 import CertificateSigningRequest
@@ -21,7 +23,7 @@ from byoda.datatypes import CsrSource
 
 from .ca_secret import CaSecret
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
 

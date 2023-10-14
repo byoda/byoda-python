@@ -6,9 +6,10 @@ Cert manipulation for data of an account
 :license    : GPLv3
 '''
 
-import logging
-from typing import TypeVar
 from copy import copy
+from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -17,7 +18,7 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType
 from .data_secret import DataSecret
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
 

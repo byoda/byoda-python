@@ -7,8 +7,10 @@ Exceptions that log messages
 '''
 
 import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class ByodaException(BaseException):

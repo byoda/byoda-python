@@ -12,9 +12,10 @@ in the membership db
 '''
 
 import os
-import logging
-
 import base64
+
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import orjson
 
@@ -23,7 +24,7 @@ from pymerkle.utils import decompose
 
 from pymerkle.hasher import MerkleHasher
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 BLOCKSIZE: int = 1024 * 1024
 

@@ -12,7 +12,8 @@ import os
 import sys
 import shutil
 import unittest
-import logging
+
+from logging import getLogger
 
 from byoda.datamodel.schema import Schema
 
@@ -24,13 +25,13 @@ from tests.lib.util import get_test_uuid
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-NETWORK = config.DEFAULT_NETWORK
-SCHEMA = 'tests/collateral/addressbook.json'
+NETWORK: str = config.DEFAULT_NETWORK
+SCHEMA: str = 'tests/collateral/addressbook.json'
 
-TEST_DIR = '/tmp/byoda-tests/pod-schema-signature'
-BASE_URL = 'http://localhost:{PORT}/api'
+TEST_DIR: str = '/tmp/byoda-tests/pod-schema-signature'
+BASE_UR: str = 'http://localhost:{PORT}/api'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):

@@ -87,6 +87,10 @@ async def lifespan(app: FastAPI):
 
     _LOGGER.debug('Lifespan startup complete')
 
+    config.trace_server = app_config['application'].get(
+        'trace_server', config.trace_server
+    )
+
     yield
 
     _LOGGER.info('Shutting down server')
@@ -96,7 +100,7 @@ app = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
     'network', 'v0.0.1',
     [ServiceRouter, MemberRouter, SearchRouter, StatusRouter, AppRouter],
-    lifespan=lifespan
+    lifespan=lifespan, trace_server=config.trace_server,
 )
 
 config.app = app

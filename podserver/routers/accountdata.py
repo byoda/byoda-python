@@ -7,7 +7,8 @@ memberdata API
 '''
 
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -20,13 +21,15 @@ from byoda.models import AccountDataDownloadResponseModel
 
 from byoda.datatypes import IdType
 
+from byoda.servers.pod_server import PodServer
+
 from byoda import config
 
 from ..dependencies.pod_api_request_auth import AuthDep
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-router = APIRouter(prefix='/api/v1/pod', dependencies=[])
+router: APIRouter = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
 
 @router.get(
@@ -41,16 +44,17 @@ async def get_accountdata(request: Request, service_id: int, auth: AuthDep):
     :raises: HTTPException 404
     '''
 
+    server: PodServer = config.server
+    account: Account = server.account
+
     _LOGGER.debug(
         f'GET Account Data API called for service {service_id} '
         f'from {request.client.host}'
     )
 
-    await auth.authenticate()
+    await auth.authenticate(account)
 
-    account: Account = config.server.account
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership[service_id]
 
     if not member:
         raise HTTPException(

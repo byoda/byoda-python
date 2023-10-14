@@ -7,9 +7,11 @@ RestApiClient, derived from ApiClient for calling REST APIs
 '''
 
 
-import logging
 from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
 
+from fastapi import FastAPI
 from byoda.util.api_client.api_client import HttpResponse
 
 
@@ -18,7 +20,7 @@ from byoda.secrets.secret import Secret
 from .api_client import ApiClient, HttpMethod
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class RestApiClient:
@@ -33,7 +35,8 @@ class RestApiClient:
                    secret: Secret = None, params: dict = None,
                    data: dict = None, service_id: int = None,
                    member_id: UUID = None, account_id: UUID = None,
-                   headers: dict[str, str] = None
+                   headers: dict[str, str] = None, timeout: int | float = 10,
+                   app: FastAPI = None
                    ) -> HttpResponse:
 
         '''
@@ -74,7 +77,7 @@ class RestApiClient:
         resp: HttpResponse = await ApiClient.call(
             api, method, secret=secret, params=params, data=data,
             headers=headers, service_id=service_id, member_id=member_id,
-            account_id=account_id,
+            account_id=account_id, timeout=timeout, app=app
         )
 
         return resp

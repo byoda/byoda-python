@@ -7,10 +7,9 @@ Class for modeling app on a social network
 '''
 
 
-import logging
-
 from uuid import UUID
-
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -19,7 +18,7 @@ from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.storage.filestorage import FileStorage
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class App:

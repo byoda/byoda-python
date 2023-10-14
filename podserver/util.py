@@ -19,13 +19,15 @@ ROOT_DIR: where files need to be cached (if object storage is used) or stored
 '''
 
 import os
-import logging
 
-from byoda import config
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
 
-_LOGGER = logging.getLogger(__name__)
+from byoda import config
+
+_LOGGER: Logger = getLogger(__name__)
 
 
 def get_environment_vars() -> dict:
@@ -57,6 +59,8 @@ def get_environment_vars() -> dict:
         'account_secret': os.environ.get('ACCOUNT_SECRET'),
         'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
+        'logfile': os.environ.get('LOGFILE', None),
+        'worker_loglevel': os.environ.get('WORKER_LOGLEVEL', 'WARNING'),
         'root_dir': os.environ.get('ROOT_DIR'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
         'custom_domain': os.environ.get('CUSTOM_DOMAIN'),

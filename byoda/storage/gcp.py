@@ -7,7 +7,8 @@ Google Cloud Platform.
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 from tempfile import TemporaryFile
 
 from google.cloud import storage
@@ -21,7 +22,7 @@ from byoda.datatypes import StorageType, CloudType
 from .filestorage import FileStorage
 from .filestorage import FileMode
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class GcpFileStorage(FileStorage):

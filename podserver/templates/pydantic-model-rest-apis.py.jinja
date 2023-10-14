@@ -1,0 +1,363 @@
+'''
+Pydantic model for submitting a request using the REST Data APIs.
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2023
+:license    : GPLv3
+'''
+
+from uuid import uuid4
+
+
+from logging import getLogger
+from byoda.util.logger import Logger
+
+import orjson
+
+from opentelemetry.trace import get_tracer
+from opentelemetry.sdk.trace import Tracer
+
+from fastapi import APIRouter
+from fastapi import Request
+from fastapi import HTTPException
+from fastapi import WebSocket
+from fastapi import WebSocketException
+from fastapi import status as WebSocketStatus
+
+from starlette.websockets import WebSocketDisconnect
+from websockets.exceptions import ConnectionClosedError
+
+from byoda.datamodel.memberdata import MemberData
+
+from byoda.datatypes import DataOperationType
+
+# Note we define our own BaseModel class so we can set global
+# configuration options
+from byoda.models.data_api_models import QueryModel
+from byoda.models.data_api_models import MutateModel        # noqa: F401
+from byoda.models.data_api_models import AppendModel
+from byoda.models.data_api_models import UpdateModel
+from byoda.models.data_api_models import DeleteModel
+from byoda.models.data_api_models import CounterModel
+from byoda.models.data_api_models import UpdatesModel
+from byoda.models.data_api_models import PageInfoResponse
+from byoda.models.data_api_models import EdgeResponse
+from byoda.models.data_api_models import QueryResponseModel
+
+from podserver.dependencies.pod_api_request_auth import AuthDep
+from podserver.dependencies.pod_api_request_auth import AuthWsDep
+
+from byoda import config
+
+# We impact as a generic name so that references to this class can
+# use the generic class name instead of needing Jinja2 if/else/endif
+{% if data_class.referenced_class %}
+from podserver.codegen.pydantic_service_{{ data_class.service_id}}_{{ data_class.version }} import (
+    {{ data_class.referenced_class.name }} as object_class
+)
+{% else %}
+from podserver.codegen.pydantic_service_{{ data_class.service_id}}_{{ data_class.version }} import (
+    {{ data_class.name }} as object_class
+)
+{% endif %}
+
+_LOGGER: Logger = getLogger(__name__)
+TRACER: Tracer = get_tracer(__name__)
+
+router: APIRouter = APIRouter(
+    prefix='/api/v1/data/{{ data_class.service_id }}/{{ data_class.name }}',
+    dependencies=[]
+)
+
+# To use RESTfull GET/POST/PUT/PATCH/DELETE or not.
+# Each request has an envelope, i.e. query_id, filters, depth, first, after.
+# Specifying filters in the query string is unwieldy so we specify it in the
+# body but using GETs with parameters in the body that can alter the result of
+# the query, is controvesial:
+#     https://stackoverflow.com/questions/978061/http-get-with-request-body
+# Requests are proxied to other pods if request.depth > 0. So we could consider
+# each data request to be a POST request creating a new query (with a unique
+# query_id). With that definition, we would follow the REST principles.
+
+
+@router.post('/query')
+async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.version }}(
+        request: Request, auth: AuthDep, query: QueryModel | None = None
+        ) -> QueryResponseModel:
+    '''
+    Query data from the database.
+    '''
+
+    if not query:
+        query = QueryModel()
+
+    result: bool = await auth.review_data_request(
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        DataOperationType.READ, query.depth
+    )
+    if not result:
+        _LOGGER.debug(
+            'Authentication status for query for data from '
+{% if data_class.referenced_class %}
+            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
+{% else %}
+            f'object {{ data_class.name}}: '
+{% endif %}
+            f'{result}'
+        )
+        raise HTTPException(status_code=400, detail='Authentication failed')
+
+    data: list[EdgeResponse] = await MemberData.get(
+        {{ data_class.service_id }}, '{{ data_class.name }}', query,
+        request.client.host, auth, object_class, EdgeResponse[object_class]
+    ) or []
+
+    end_cursor: str | None = None
+    has_next_page: bool = False
+    if data:
+        if query.first and len(data) > query.first:
+            data = data[0:query.first]
+            has_next_page = True
+
+    if data:
+        end_cursor = data[-1].cursor
+
+    page = PageInfoResponse(has_next_page=has_next_page, end_cursor=end_cursor)
+    resp = QueryResponseModel(
+        total_count=len(data), edges=data, page_info=page
+    )
+
+    return resp
+
+{% if data_class.type.value == 'object' %}
+@router.post('/mutate')
+async def {{ data_class.name }}_mutate_{{ data_class.service_id }}_{{ data_class.version }}(
+        request: Request, auth: AuthDep, mutate: MutateModel[object_class]
+        ) -> int:
+    '''
+    Mutate data of an object in the database.
+    '''
+
+    if not mutate.data:
+        raise ValueError('Request does not include data to mutate')
+
+    result: bool = await auth.review_data_request(
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        DataOperationType.UPDATE, 0
+    )
+    if not result:
+        _LOGGER.debug(
+            'Authentication status for query for data from '
+            f'object {{ data_class.name}}: {result}'
+        )
+        raise HTTPException(status_code=400, detail='Authentication failed')
+
+    object_count: int = await MemberData.mutate(
+        {{ data_class.service_id }}, '{{ data_class.name }}', mutate,
+        request.client.host, auth,
+    )
+
+    return object_count
+{% endif %}
+
+{% if data_class.type.value == 'array' %}
+@router.post('/append')
+async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class.version }}(
+        request: Request, auth: AuthDep, append: AppendModel[object_class]
+        ) -> int:
+    '''
+    Append data to an 'array' data class
+    '''
+
+    result: bool = await auth.review_data_request(
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        DataOperationType.APPEND, append.depth
+    )
+    if not result:
+        _LOGGER.debug(
+            'Authentication status for appending data to '
+            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
+            f'{result}'
+        )
+        raise HTTPException(status_code=400, detail='Authentication failed')
+
+    host: str = request.client.host
+    object_count = await MemberData.append(
+        {{ data_class.service_id }}, '{{ data_class.name }}', append, host, auth
+    )
+
+    return object_count
+
+
+@router.post('/update')
+async def {{ data_class.name }}_update_{{ data_class.service_id }}_{{ data_class.version }}(
+        request: Request,  auth: AuthDep,
+        update_model: UpdateModel[object_class]) -> int:
+
+    result: bool = await auth.review_data_request(
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        DataOperationType.UPDATE, update_model.depth
+    )
+    if not result:
+        _LOGGER.debug(
+            'Authentication status for appending data to '
+            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
+            f'{result}'
+        )
+        raise HTTPException(status_code=400, detail='Authentication failed')
+
+    host: str = request.client.host
+    object_count = await MemberData.update(
+        {{ data_class.service_id }}, '{{ data_class.name }}', update_model, host, auth
+    )
+
+    return object_count
+
+
+@router.post('/delete')
+async def {{ data_class.name }}_delete_{{ data_class.service_id }}_{{ data_class.version }}(
+        request: Request,  auth: AuthDep, delete_model: DeleteModel
+        ) -> int:
+
+    result: bool = await auth.review_data_request(
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        DataOperationType.DELETE, delete_model.depth
+    )
+    if not result:
+        _LOGGER.debug(
+            'Authentication status for appending data to '
+            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
+            f'{result}'
+        )
+        raise HTTPException(status_code=400, detail='Authentication failed')
+
+    host: str = request.client.host
+    object_count = await MemberData.delete(
+        {{ data_class.service_id }}, '{{ data_class.name }}', delete_model, host, auth
+    )
+
+    return object_count
+
+
+# For websockets, we have one request per websocket connection. TODO: In the
+# future, we want an endpoint that can manage multiple requests (for a single
+# service) in parallel, so with one websocket connection you can ask for
+# updates/counters for multiple data classes
+@router.websocket('/counter')
+async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_class.version }}(
+            websocket: WebSocket, auth: AuthWsDep) -> int:
+    try:
+        await websocket.accept()
+        host: str = websocket.client.host
+        _LOGGER.debug(f'Incoming websocket connection from host {host}')
+
+        resp = await websocket.receive_bytes()
+        counter_request: dict[str, str | object] = orjson.loads(resp)
+        counter_model: CounterModel = CounterModel.model_validate(
+            counter_request
+        )
+        if not counter_model.query_id:
+            counter_model.query_id = uuid4()
+
+        if counter_model.depth or counter_model.relations:
+            raise ValueError('Recursive counters are not yet supported')
+
+        _LOGGER.debug(
+            f'Resolving counter for the {{ data_class.name }} array '
+            f'for client: {host} with query_id: {counter_model.query_id} '
+            f'and depth: {counter_model.depth}'
+        )
+
+        result: bool = await auth.review_data_request(
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            DataOperationType.SUBSCRIBE, counter_model.depth
+        )
+
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from '
+                f'array {{ data_class.name }} of '
+                f'objects {{ data_class.referenced_class.name }}: {result}'
+            )
+            raise WebSocketException(
+                code=WebSocketStatus.WS_1003_UNSUPPORTED_DATA
+            )
+
+        await MemberData.counter(
+            {{ data_class.service_id }}, '{{ data_class.name }}', websocket,
+            auth, counter_model
+        )
+    except WebSocketDisconnect as exc:
+        _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')
+        raise
+    except ConnectionClosedError as exc:
+        _LOGGER.debug(f'Websocket connection closed: {exc}')
+        raise
+    except WebSocketException:
+        raise
+    except Exception as exc:
+        _LOGGER.exception(f'Failure to process websocket request: {exc}')
+        raise
+
+    websocket.close()
+
+
+@config.app.websocket('/api/v1/data/{{ data_class.service_id }}/{{ data_class.name }}/updates')
+async def {{ data_class.name }}_updates_{{ data_class.service_id }}_{{ data_class.version }}(
+            websocket: WebSocket, auth: AuthWsDep):
+    try:
+        await websocket.accept()
+        host: str = websocket.client.host
+        _LOGGER.debug(f'Incoming websocket connection from host {host}')
+
+        resp = await websocket.receive_bytes()
+        updates_request: dict[str, str | object] = orjson.loads(resp)
+        updates_model: UpdatesModel = UpdatesModel.model_validate(
+            updates_request
+        )
+
+        if not updates_model.query_id:
+            updates_model.query_id = uuid4()
+
+        if updates_model.depth or updates_model.relations:
+            raise ValueError('Recursive counters are not yet supported')
+
+        _LOGGER.debug(
+            f'Resolving updates for the {{ data_class.name }} array '
+            f'for client: {host} with query_id: {updates_model.query_id} '
+            f'and depth: {updates_model.depth}'
+        )
+
+        result: bool = await auth.review_data_request(
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            DataOperationType.SUBSCRIBE, updates_model.depth
+        )
+
+        if not result:
+            _LOGGER.debug(
+                'Authentication status for subscription for data from '
+                f'array {{ data_class.name }} of '
+                f'objects {{ data_class.referenced_class.name }}: {result}'
+            )
+            raise WebSocketException(
+                code=WebSocketStatus.WS_1003_UNSUPPORTED_DATA
+            )
+
+        await MemberData.updates(
+            {{ data_class.service_id }}, '{{ data_class.name }}', websocket,
+            auth, updates_model
+        )
+    except WebSocketDisconnect as exc:
+        _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')
+        raise
+    except ConnectionClosedError as exc:
+        _LOGGER.debug(f'Websocket connection closed: {exc}')
+        raise
+    except WebSocketException:
+        raise
+    except Exception as exc:
+        _LOGGER.exception(f'Failure to process websocket request: {exc}')
+        raise
+
+    websocket.close()
+{% endif %}

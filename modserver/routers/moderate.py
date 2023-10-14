@@ -7,10 +7,11 @@
 '''
 
 import os
-import logging
 
 from uuid import UUID
 from uuid import uuid4
+from logging import getLogger
+from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -33,9 +34,9 @@ from byoda import config
 
 from ..dependencies.memberrequest_auth import AuthDep
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-router = APIRouter(prefix='/api/v1/moderate', dependencies=[])
+router: APIRouter = APIRouter(prefix='/api/v1/moderate', dependencies=[])
 
 
 @router.post('/asset', response_model=ClaimResponseModel)

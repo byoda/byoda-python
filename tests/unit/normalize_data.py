@@ -12,8 +12,10 @@ import os
 import sys
 import shutil
 import unittest
-import logging
-from datetime import datetime, timezone
+
+from logging import getLogger
+from datetime import datetime
+from datetime import timezone
 
 from byoda.datamodel.schema import Schema
 
@@ -28,13 +30,13 @@ from byoda import config
 from tests.lib.util import get_test_uuid
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-NETWORK = config.DEFAULT_NETWORK
-SCHEMA = 'tests/collateral/addressbook.json'
+NETWORK: str = config.DEFAULT_NETWORK
+SCHEMA: str = 'tests/collateral/addressbook.json'
 
-TEST_DIR = '/tmp/byoda-tests/pod-memberdata-normalize'
-BASE_URL = 'http://localhost:{PORT}/api'
+TEST_DIR: str = '/tmp/byoda-tests/pod-memberdata-normalize'
+BASE_URL: str = 'http://localhost:{PORT}/api'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
@@ -97,7 +99,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(MARKER_NETWORK_LINKS in data)
         self.assertEqual(len(data[MARKER_NETWORK_LINKS]), 1)
         self.assertEqual(data[MARKER_NETWORK_LINKS][0]['relation'], 'follows')
-        self.assertEqual(data[MARKER_NETWORK_LINKS][0]['created_timestamp'], now)
+        self.assertEqual(
+            data[MARKER_NETWORK_LINKS][0]['created_timestamp'], now
+        )
         self.assertEqual(data[MARKER_NETWORK_LINKS][0]['member_id'], uuid)
 
 

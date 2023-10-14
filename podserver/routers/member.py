@@ -6,11 +6,12 @@
 :license    : GPLv3
 '''
 
+from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
 
-import logging
 import orjson
 
-from uuid import UUID
 
 from fastapi import APIRouter
 from fastapi import UploadFile
@@ -36,7 +37,7 @@ from byoda.servers.pod_server import PodServer
 
 from ..dependencies.pod_api_request_auth import AuthDep
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
@@ -53,18 +54,18 @@ async def get_member(request: Request, service_id: int, auth: AuthDep):
     :raises: HTTPException 404
     '''
 
-    _LOGGER.debug(f'GET Member API called from {request.client.host}')
-    await auth.authenticate()
+    server: PodServer = config.server
+    account: Account = server.account
 
-    account: Account = config.server.account
+    _LOGGER.debug(f'GET Member API called from {request.client.host}')
+    await auth.authenticate(account)
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership(service_id)
 
     if not member:
         raise HTTPException(
@@ -87,19 +88,20 @@ async def post_member(request: Request, service_id: int, version: int,
     :raises: HTTPException 409
     '''
 
-    _LOGGER.debug(f'Post Member API called from {request.client.host}')
-    await auth.authenticate()
+    server: PodServer = config.server
+    account: Account = server.account
 
-    account: Account = config.server.account
-    local_storage: FileStorage = config.server.local_storage
+    _LOGGER.debug(f'Post Member API called from {request.client.host}')
+    await auth.authenticate(account)
+
+    local_storage: FileStorage = server.local_storage
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
     # Make sure we have the latest updates of memberships
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership(service_id)
 
     if member:
         raise HTTPException(
@@ -128,18 +130,17 @@ async def put_member(request: Request, service_id: int, version: int,
     :raises: HTTPException 409
     '''
 
-    _LOGGER.debug(f'Put Member API called from {request.client.host}')
-    await auth.authenticate()
-
     server: PodServer = config.server
     account: Account = server.account
+
+    _LOGGER.debug(f'Put Member API called from {request.client.host}')
+    await auth.authenticate(account)
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its account ID matches that
     # of the pod
 
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership(service_id)
 
     if not member:
         raise HTTPException(
@@ -240,13 +241,14 @@ async def post_member_upload(request: Request, files: list[UploadFile],
     :raises: HTTPException 409
     '''
 
+    server: PodServer = config.server
+    account: Account = server.account
+
     _LOGGER.debug(f'Post Member Upload API called from {request.client.host}')
 
-    await auth.authenticate(service_id=service_id)
+    await auth.authenticate(account, service_id=service_id)
 
-    account: Account = config.server.account
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership(service_id)
 
     if not member:
         raise HTTPException(status_code=401, detail='Authentication failure')
