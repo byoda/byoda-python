@@ -27,9 +27,9 @@ class TestAccountManager(unittest.TestCase):
 
         self.assertEqual(
             original_tree.root.digest.hex(),
-            '109800c0d6e9adc2263e227ff1127ccd29679dc2e879383e7e4320bda956c8aa'
+            'df782829b56590a3b4a3ac0f6cb8e626b6bbd0f307b7bb08474482abe3932fdd'
         )
-        self.assertEqual(original_tree.get_size(), 659)
+        self.assertEqual(original_tree.get_size(), 641)
         original_tree.save(TEST_DIR)
 
         with self.assertRaises(KeyError):

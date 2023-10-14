@@ -1,5 +1,5 @@
 '''
-Classes for data filters for filtering results a GraphQL query based
+Classes for data filters for filtering results a Data API query based
 on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
@@ -8,18 +8,25 @@ on the filter conditions defined in the query
 '''
 
 import re
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
+
 from uuid import UUID
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone
+
+
+from opentelemetry.trace import get_tracer
+from opentelemetry.sdk.trace import Tracer
 
 from dateutil import parser as iso8601_parser
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
+TRACER: Tracer = get_tracer(__name__)
 
 
 class DataFilter:
     '''
-    Implements the logic to support filters in GraphQL queries
+    Implements the logic to support filters in Data queries
     '''
 
     __slots__ = [
@@ -156,7 +163,7 @@ class StringDataFilter(DataFilter):
         if not isinstance(data, str):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
-        return self.value in data
+        return data in self.value
 
     def nin(self, data: str) -> bool:
         '''
@@ -165,7 +172,7 @@ class StringDataFilter(DataFilter):
         if not isinstance(data, str):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
-        return self.value not in data
+        return data not in self.value
 
     def regex(self, data: str) -> bool:
         '''
@@ -175,16 +182,20 @@ class StringDataFilter(DataFilter):
         if not isinstance(data, str):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
-        return re.match(self.value, data)
+        res = re.match(self.value, data)
+        return bool(res)
 
     def glob(self, data: str) -> bool:
         '''
-        Glob matching TODO: find python module for it that doesn't just
-        work on files in a directory
+        glob matching
         '''
 
-        # TODO: glob text filter
-        raise NotImplementedError('Glob matching is not yet supported')
+        if not isinstance(data, str):
+            raise ValueError(f'Data {data} is of type {type(data)}')
+
+        regex = _glob2regex(self.value)
+        res = re.match(regex, data)
+        return bool(res)
 
     def sql_eq(self, sql_field: str, where: bool = False) -> str:
         '''
@@ -270,7 +281,11 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        raise NotImplementedError
+        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        return (
+            f'{sql_field} GLOB :{sql_field_placeholder}',
+            sql_field_placeholder, self.value
+        )
 
 
 class NumberDataFilter(DataFilter):
@@ -495,7 +510,8 @@ class UuidDataFilter(DataFilter):
 
         return data != self.value
 
-    def sql_eq(self, sql_field: str, where: bool = False) -> str:
+    def sql_eq(self, sql_field: str, where: bool = False
+               ) -> tuple[str, str, str]:
         '''
         SQL code for equal operator
 
@@ -529,12 +545,14 @@ class UuidDataFilter(DataFilter):
 
 class DateTimeDataFilter(DataFilter):
     def __init__(self, field: str,
-                 operator: str, value: datetime | date | time):
+                 operator: str, value: datetime | date | time | int | float):
         super().__init__(field, operator)
 
         if isinstance(value, str):
             value = iso8601_parser(str)
 
+        if isinstance(value, (int, float)):
+            value = datetime.fromtimestamp(value, tz=timezone.utc)
         if type(value) not in (datetime, date, time):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a datetime, '
@@ -560,25 +578,12 @@ class DateTimeDataFilter(DataFilter):
             'atbefore': self.sql_atbefore,
         }
 
-    def at(self, data: str | datetime | date | time) -> bool:
+    def at(self, data: str | datetime | date | time | int | float) -> bool:
         '''
         Datetime/date/time at comparison
         '''
 
-        if isinstance(data, str):
-            if isinstance(self.value, datetime):
-                data = datetime.fromisoformat(data)
-            elif isinstance(self.value, date):
-                data = date.fromisoformat(data)
-            elif isinstance(self.value, time):
-                data = time.fromisoformat(data)
-            else:
-                raise ValueError(f'Unexpected type of operator: {self.value}')
-
-        if type(data) not in (datetime, date, time):
-            raise ValueError(
-                f'Data {data} is not of type datetime, date or time'
-            )
+        data = self._adapt_date_type(data)
 
         return data == self.value
 
@@ -587,20 +592,7 @@ class DateTimeDataFilter(DataFilter):
         Datetime/date/time not-at comparison
         '''
 
-        if isinstance(data, str):
-            if isinstance(self.value) == datetime:
-                data = datetime.fromisoformat(data)
-            elif isinstance(self.value) == date:
-                data = date.fromisoformat(data)
-            elif isinstance(self.value) == time:
-                data = time.fromisoformat(data)
-            else:
-                raise ValueError(f'Unexpected type of operator: {self.value}')
-
-        if type(data) not in (datetime, date, time):
-            raise ValueError(
-                f'Data {data} is not of type datetime, date or time'
-            )
+        data = self._adapt_date_type(data)
 
         return data != self.value
 
@@ -609,20 +601,7 @@ class DateTimeDataFilter(DataFilter):
         Datetime/date/time after comparison
         '''
 
-        if isinstance(data, str):
-            if isinstance(self.value) == datetime:
-                data = datetime.fromisoformat(data)
-            elif isinstance(self.value) == date:
-                data = date.fromisoformat(data)
-            elif isinstance(self.value) == time:
-                data = time.fromisoformat(data)
-            else:
-                raise ValueError(f'Unexpected type of operator: {self.value}')
-
-        if type(data) not in (datetime, date, time):
-            raise ValueError(
-                f'Data {data} is not of type datetime, date or time'
-            )
+        data = self._adapt_date_type(data)
 
         return data > self.value
 
@@ -631,20 +610,7 @@ class DateTimeDataFilter(DataFilter):
         Datetime/date/time before comparison
         '''
 
-        if isinstance(data, str):
-            if isinstance(self.value) == datetime:
-                data = datetime.fromisoformat(data)
-            elif isinstance(self.value) == date:
-                data = date.fromisoformat(data)
-            elif isinstance(self.value) == time:
-                data = time.fromisoformat(data)
-            else:
-                raise ValueError(f'Unexpected type of operator: {self.value}')
-
-        if type(data) not in (datetime, date, time):
-            raise ValueError(
-                f'Data {data} is not of type datetime, date or time'
-            )
+        data = self._adapt_date_type(data)
 
         return data < self.value
 
@@ -653,20 +619,7 @@ class DateTimeDataFilter(DataFilter):
         Datetime/date/time at-or-after comparison
         '''
 
-        if isinstance(data, str):
-            if isinstance(self.value) == datetime:
-                data = datetime.fromisoformat(data)
-            elif isinstance(self.value) == date:
-                data = date.fromisoformat(data)
-            elif isinstance(self.value) == time:
-                data = time.fromisoformat(data)
-            else:
-                raise ValueError(f'Unexpected type of operator: {self.value}')
-
-        if type(data) not in (datetime, date, time):
-            raise ValueError(
-                f'Data {data} is not of type datetime, date or time'
-            )
+        data = self._adapt_date_type(data)
 
         return data >= self.value
 
@@ -675,6 +628,15 @@ class DateTimeDataFilter(DataFilter):
         Datetime/date/time at or before comparison
         '''
 
+        data = self._adapt_date_type(data)
+
+        return data <= self.value
+
+    def _adapt_date_type(self, data: datetime | date | time | str | int | float
+                         ) -> datetime | date | time:
+        '''
+        Adapts the provided value to the type of the value of the filter
+        '''
         if isinstance(data, str):
             if isinstance(self.value) == datetime:
                 data = datetime.fromisoformat(data)
@@ -684,13 +646,31 @@ class DateTimeDataFilter(DataFilter):
                 data = time.fromisoformat(data)
             else:
                 raise ValueError(f'Unexpected type of operator: {self.value}')
+        elif type(data) in (int, float):
+            data = datetime.fromtimestamp(data, tz=timezone.utc)
 
         if type(data) not in (datetime, date, time):
             raise ValueError(
                 f'Data {data} is not of type datetime, date or time'
             )
 
-        return data <= self.value
+        return data
+
+    def _get_sql_date_type(self) -> int | float:
+        '''
+        '''
+
+        timestamp: float
+        if isinstance(self.value, str):
+            timestamp = datetime.fromisoformat(self.value).timestamp()
+        elif isinstance(self.value, datetime):
+            timestamp = self.value.timestamp()
+        elif isinstance(self.value, int) or isinstance(self.value, float):
+            timestamp = self.value
+        else:
+            raise ValueError(f'Unexpected type for operator: {self.value}')
+
+        return timestamp
 
     def sql_at(self, sql_field: str, where: bool = False
                ) -> tuple[str, str, float]:
@@ -702,14 +682,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -727,14 +700,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -752,14 +718,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -777,14 +736,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -802,14 +754,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -827,14 +772,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        if isinstance(self.value, str):
-            timestamp = datetime.fromisoformat(self.value).timestamp()
-        elif isinstance(self.value, datetime):
-            timestamp = self.value.timestamp()
-        elif isinstance(self.value, int):
-            timestamp = self.value
-        else:
-            raise ValueError(f'Unexpected type for operator: {self.value}')
+        timestamp = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
         return (
@@ -862,6 +800,7 @@ class DataFilterSet:
     result
     '''
 
+    @TRACER.start_as_current_span('FilterSet.constructor')
     def __init__(self, filters: object | dict):
         '''
         :param filters: is an instance of one of the input filters in the
@@ -879,19 +818,24 @@ class DataFilterSet:
             filter_items = filters.items()
         else:
             filter_items = filters.__dict__.items()
+            raise NotImplementedError('This case code for GraphQL filters')
 
         for field, conditions in filter_items:
-            if conditions:
-                self.filters[field] = []
-                if isinstance(conditions, dict):
-                    condition_items = conditions.items()
-                else:
-                    condition_items = conditions.__dict__.items()
-                for operator, value in condition_items:
-                    if value:
-                        self.filters[field].append(
-                            DataFilter.create(field, operator, value)
-                        )
+            if not conditions:
+                raise ValueError(
+                    f'No conditions specified for parameter {field}'
+                )
+
+            self.filters[field] = []
+            if isinstance(conditions, dict):
+                condition_items = conditions.items()
+            else:
+                condition_items = conditions.__dict__.items()
+            for operator, value in condition_items:
+                if value is not None:
+                    self.filters[field].append(
+                        DataFilter.create(field, operator, value)
+                    )
 
     def __str__(self) -> str:
         filter_texts: list[str] = []
@@ -925,14 +869,21 @@ class DataFilterSet:
         return text, filter_values
 
     @staticmethod
-    def filter(filters: list, data: list) -> list[object]:
+    @TRACER.start_as_current_span('FilterSet.array')
+    def filter(filter_set: list, data: list) -> list[object]:
         '''
         Filters the data against the list of filters to include the matching
         data
+
+        :param filters: list of filters (or DataFilterSet) to filter content
+        :param data: data to filter
         '''
 
-        _LOGGER.debug(f'Applying filters: {filters}')
-        filter_set = DataFilterSet(filters)
+        _LOGGER.debug(f'Applying filters: {filter_set}')
+
+        if not isinstance(filter_set, DataFilterSet):
+            filter_set = DataFilterSet(filter_set)
+
         results = []
         for item in data:
             include = True
@@ -948,6 +899,7 @@ class DataFilterSet:
         return results
 
     @staticmethod
+    @TRACER.start_as_current_span('FilterSet.filter_exclude')
     def filter_exclude(filters: list, data: list) -> tuple[list, list]:
         '''
         Filters the data against the list of filters to exclude the matching
@@ -973,3 +925,25 @@ class DataFilterSet:
                 removed.append(item)
 
         return (remaining, removed)
+
+
+def _glob2regex(value: str) -> str:
+    '''
+    Converts a glob pattern to a regular expression
+
+    Only supports '?' and '*' pattern-matches
+    '''
+
+    i, n = 0, len(value)
+    res = '^'
+    while i < n:
+        c = value[i]
+        i = i+1
+        if c == '*':
+            res = res + '.*'
+        elif c == '?':
+            res = res + '.'
+        else:
+            res = res + re.escape(c)
+
+    return res + '$'

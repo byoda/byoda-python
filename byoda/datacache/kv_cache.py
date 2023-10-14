@@ -10,15 +10,16 @@ provide encryption/decryption capabilities
 :license    : GPLv3
 '''
 
-import logging
 from abc import ABC, abstractmethod
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda import config
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 # 3 days default expiration
 DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60

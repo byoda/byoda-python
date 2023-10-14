@@ -9,12 +9,13 @@ restrict streaming & download access to the content.
 :license    : GPLv3
 '''
 
-import logging
 import operator
 
 from uuid import UUID
 from enum import Enum
 from base64 import b64encode
+from logging import getLogger
+from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -24,9 +25,10 @@ import orjson
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datamodel.table import Table
+from byoda.datamodel.table import QueryResults
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 DEFAULT_KEY_START_DELAY: int = 86400
 DEFAULT_KEY_EXPIRATION_DELAY: int = DEFAULT_KEY_START_DELAY + 86400
@@ -64,7 +66,7 @@ class ContentKey:
         '''
 
         self.key: str = key
-        self.key_id: int = key_id
+        self.key_id: int = int(key_id)
         if isinstance(not_before, str):
             self.not_before = datetime.fromisoformat(not_before)
         else:
@@ -180,11 +182,22 @@ class ContentKey:
 
             table = self.table
 
-        await table.append(self.as_dict())
+        required_fields: list[str] = [
+            field.name for field in table.columns.values()
+            if field.required
+        ]
+        data: dict[str, object] = self.as_dict()
+        cursor = Table.get_cursor_hash(data, None, required_fields)
+
+        await table.append(
+            self.as_dict(), cursor, origin_id=None, origin_id_type=None,
+            origin_class_name=None
+        )
 
     @staticmethod
     async def get_content_keys(table: Table = None, filepath: str = None,
-                               status: ContentKeyStatus = None) -> list:
+                               status: ContentKeyStatus = None
+                               ) -> list['ContentKey']:
         '''
         Gets the restricted content keys from the table or file and returns a
         list of ContentKey instances. The returned list is sorted based on
@@ -205,22 +218,27 @@ class ContentKey:
             raise ValueError('Either table or filepath must be specified')
 
         if table:
-            data = await table.query()
+            data: QueryResults = await table.query()
             _LOGGER.debug(
                 f'Found {len(data or ())} keys for restricted content in '
                 f'SQL table {table.table_name}'
             )
+            # We strip the metadata from the data retrieved from the DB
+            key_data: list[dict[str, int | float | datetime | str]] = \
+                [item_data[0] for item_data in data or []]
         else:
             with open(filepath, 'rb') as file_desc:
-                data = orjson.loads(file_desc.read())
+                key_data: list[dict[str, int | float | datetime | str]] = \
+                    orjson.loads(file_desc.read())
 
             _LOGGER.debug(
-                f'Found {len(data or ())} keys for restricted content in '
+                f'Found {len(key_data or ())} keys for restricted content in '
                 f'file {filepath}'
             )
 
         keys: list[ContentKey] = []
-        for item in data or ():
+        item: dict[str, int | float | datetime | str]
+        for item in key_data or ():
             if ('key' not in item or 'key_id' not in item or 'not_before' not in item
                     or 'not_after' not in item):
                 raise ValueError(

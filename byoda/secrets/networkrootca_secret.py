@@ -7,9 +7,11 @@ Cert manipulation of network secrets: root CA
 '''
 
 import os
-import logging
 from copy import copy
-from datetime import datetime, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timedelta
 
 from cryptography.hazmat.primitives import serialization
 
@@ -25,7 +27,7 @@ from byoda.storage.filestorage import FileMode
 from .secret import CSR
 from .ca_secret import CaSecret
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class NetworkRootCaSecret(CaSecret):

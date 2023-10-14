@@ -1,5 +1,5 @@
 '''
-Class QueryCache tracks the query IDs from GraphQL queries to prevent
+Class CounterCache tracks the query IDs from Data API queries to prevent
 the pod from forwarding loops; executing and forwarding the same query twice
 
 :maintainer : Steven Hessing <steven@byoda.org>
@@ -7,10 +7,10 @@ the pod from forwarding loops; executing and forwarding the same query twice
 :license    : GPLv3
 '''
 
-import logging
-
 from uuid import UUID
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datamodel.table import Table
 
@@ -22,7 +22,7 @@ from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.paths import Paths
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Member = TypeVar('Member')
 

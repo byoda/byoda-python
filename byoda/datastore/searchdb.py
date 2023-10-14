@@ -7,9 +7,10 @@ searchs using APIs exposed by the service
 :license    : GPLv3
 '''
 
-import logging
 from uuid import UUID
 from enum import Enum
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datamodel.service import Service
 
@@ -17,7 +18,7 @@ from byoda.datatypes import CacheTech
 
 from byoda.datacache.kv_cache import KVCache
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class Tracker(Enum):

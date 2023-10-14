@@ -6,11 +6,12 @@ Schema for server to server APIs
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class CertChainRequestModel(BaseModel):

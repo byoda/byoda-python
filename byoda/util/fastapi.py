@@ -7,7 +7,10 @@ and pod servers and the functional test cases
 :license    : GPLv3
 '''
 
-import logging
+import os
+
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from starlette.middleware import Middleware
 from starlette_context import plugins
@@ -16,13 +19,25 @@ from starlette.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter \
+    import OTLPSpanExporter
+
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 def setup_api(title: str, description: str, version: str, routers: list,
-              lifespan: callable) -> FastAPI:
+              lifespan: callable, trace_server: str = '127.0.0.1') -> FastAPI:
     middleware = [
         Middleware(
             CORSMiddleware, allow_origins=[], allow_credentials=True,
@@ -43,8 +58,44 @@ def setup_api(title: str, description: str, version: str, routers: list,
         middleware=middleware, debug=True, lifespan=lifespan
     )
 
-    # FastAPIInstrumentor.instrument_app(app)
-    # PrometheusInstrumentator().instrument(app).expose(app)
+    config.app = app
+
+    resource = Resource.create(
+        attributes={SERVICE_NAME: title.replace(' ', '-')}
+    )
+    provider = TracerProvider(resource=resource)
+
+    otlp_exporter = OTLPSpanExporter(
+        endpoint=f'http://{trace_server}:4317', insecure=True
+    )
+
+    processor = BatchSpanProcessor(
+        otlp_exporter, max_export_batch_size=2
+    )
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    config.tracer = trace.get_tracer(__name__)
+
+    FastAPIInstrumentor.instrument_app(
+        app, tracer_provider=provider, excluded_urls='/api/v1/status'
+    )
+    SQLite3Instrumentor().instrument()
+    HTTPXClientInstrumentor().instrument()
+
+    if config.debug:
+        from prometheus_client import make_asgi_app
+        from prometheus_client import CollectorRegistry
+        from prometheus_client import multiprocess
+
+        def make_metrics_app():
+            registry = CollectorRegistry()
+            os.environ['prometheus_multiproc_dir'] = '/tmp'
+            multiprocess.MultiProcessCollector(registry)
+            return make_asgi_app(registry=registry)
+
+        metrics_app = make_metrics_app()
+        app.mount("/metrics", metrics_app)
 
     for router in routers:
         app.include_router(router.router)
@@ -72,6 +123,11 @@ def update_cors_origins(hosts: str | list[str]):
         hosts.append('http://localhost:3000')
 
     app: FastAPI = config.app
+
+    if config.test_case and not hasattr(app, 'user_middleware'):
+        _LOGGER.debug('NOT updating CORS hosts')
+        return
+
     for middleware in app.user_middleware or []:
         if middleware.cls == CORSMiddleware:
             for host in hosts:

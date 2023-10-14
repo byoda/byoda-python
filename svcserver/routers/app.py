@@ -13,9 +13,12 @@ It takes 3 steps for a pod to become a member of service:
 '''
 
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import Request
 from fastapi import HTTPException
 
 from cryptography import x509
@@ -40,11 +43,11 @@ from byoda import config
 
 from ..dependencies.apprequest_auth import AppRequestAuthOptionalFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-MAX_CSR_LENGTH = 16384
+MAX_CSR_LENGTH: int = 16384
 
-router = APIRouter(
+router: APIRouter = APIRouter(
     prefix='/api/v1/service',
     dependencies=[]
 )

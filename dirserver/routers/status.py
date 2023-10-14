@@ -7,12 +7,13 @@
 
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import APIRouter
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1', dependencies=[])
 

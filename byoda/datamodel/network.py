@@ -7,12 +7,12 @@ Class for modeling a social network
 '''
 
 import os
-import logging
+
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import passgen
 
-from byoda.util.paths import Paths
-from byoda import config
 
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
@@ -31,11 +31,14 @@ from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.util.api_client.api_client import ApiClient
+from byoda.util.paths import Paths
+
+from byoda import config
 
 from .service import Service
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class Network:

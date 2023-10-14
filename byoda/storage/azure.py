@@ -21,7 +21,8 @@ Azure Storage has limitation of 250 storage accounts per subscription per region
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 from tempfile import TemporaryFile
 from collections import namedtuple
 
@@ -39,7 +40,7 @@ from byoda.datatypes import CloudType
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 # Azure supports 'containers' are the root level of the storage account. We
 # mimic S3 buckets by combining a storage account and a container and set

@@ -6,13 +6,13 @@ Helper functions for API request processing
 :license
 '''
 
-import logging
 from uuid import UUID
-
+from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 from ipaddress import ip_address as IpAddress
 
 from fastapi import HTTPException
-import starlette
 
 from jwt.exceptions import ExpiredSignatureError
 from jwt.exceptions import InvalidAudienceError
@@ -21,12 +21,9 @@ from jwt.exceptions import PyJWTError
 
 from byoda.datamodel.network import Network
 
-from byoda.servers.pod_server import PodServer
-from byoda.servers.server import Server
-
 from byoda.datatypes import IdType
-from byoda.datatypes import HttpRequestMethod
 from byoda.datatypes import AuthSource
+from byoda.datatypes import TlsStatus
 
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
@@ -36,7 +33,9 @@ from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 
-from byoda.datatypes import TlsStatus
+from byoda.servers.server import Server
+
+from byoda.util.api_client.api_client import HttpMethod
 
 from byoda.exceptions import ByodaMissingAuthInfo
 
@@ -44,12 +43,15 @@ from byoda import config
 
 from .jwt import JWT
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
+
+Account = TypeVar('Account')
+Member = TypeVar('Member')
 
 
 class RequestAuth:
     '''
-    Class to authenticate REST API and GraphQL API calls
+    Class to authenticate REST API and Data API calls
 
     Three classes derive from this class:
       - AccountRequestAuthFast
@@ -113,7 +115,7 @@ class RequestAuth:
     to the web application as client IP
     '''
 
-    def __init__(self, remote_addr: IpAddress, method: HttpRequestMethod):
+    def __init__(self, remote_addr: IpAddress, method: HttpMethod):
         '''
         constructor
 
@@ -126,9 +128,15 @@ class RequestAuth:
         self.remote_addr: IpAddress = remote_addr
         self.id_type: IdType = IdType.ANONYMOUS
 
-        # HttpRwquestMethod is None when request is
-        # a GraphQL subscribe request coming over websockets
-        self.method: HttpRequestMethod | None = method
+        # HttpMethod is None when request is from a websockets
+        self.method: HttpMethod
+        if isinstance(method, HttpMethod):
+            self.method = method
+        elif method:
+            self.method = HttpMethod(method.lower())
+        else:
+            self.method = 'get'
+
         self.client_cn: str | None = None
         self.issuing_ca_cn: str | None = None
         self.token: str | None = None
@@ -271,147 +279,6 @@ class RequestAuth:
                 status_code=400,
                 detail=f'Unsupported ID type in cert: {self.id_type.value}'
             )
-
-    @staticmethod
-    async def authenticate_graphql_request(request: starlette.requests.Request,
-                                           service_id: int):
-        '''
-        Wrapper for static RequestAuth.authenticate method. This method
-        is invoked by the GraphQL APIs
-
-        :params request: the incoming HTTP request
-        :param service_id: the ID of the service targetted by the request
-        :returns: An instance of RequestAuth, unless when no authentication
-        credentials were provided, in which case 'None' is returned
-        '''
-
-        _LOGGER.debug(
-            f'Authenticating GraphQL request from IP: {request.client.host}'
-        )
-
-        if hasattr(request, 'method'):
-            request_method = HttpRequestMethod(request.method)
-        else:
-            # GraphQL subscription over websockets does not have
-            # an HTTP method
-            request_method = None
-
-        auth = await RequestAuth.authenticate_graphql(
-            request.headers.get('X-Client-SSL-Verify'),
-            request.headers.get('X-Client-SSL-Subject'),
-            request.headers.get('X-Client-SSL-Issuing-CA'),
-            request.headers.get('X-Client-SSL-Cert'),
-            request.headers.get('Authorization'),
-            request.client.host, request_method, service_id
-        )
-
-        if auth.is_authenticated and auth.service_id != service_id:
-            raise HTTPException(
-                status_code=401,
-                detail=f'credential is not for service {service_id}'
-            )
-
-        return auth
-
-    @staticmethod
-    async def authenticate_graphql(tls_status: TlsStatus,
-                                   client_dn: str, issuing_ca_dn: str,
-                                   ssl_cert, authorization: str,
-                                   remote_addr: IpAddress,
-                                   method: HttpRequestMethod, service_id: int):
-        '''
-        Authenticate a request based on incoming TLS headers or JWT
-
-        Function is invoked for GraphQL APIs
-
-        :param tls_status: instance of TlsStatus enum
-        :param client_dn: designated name of the presented client TLS cert
-        :param issuing_ca_dn: designated name of the issuing CA for the
-        presented TLS client cert
-        :param ssl_cert: PEM url-encoded client TLS cert
-        :param authorization: value of the HTTP Authorization header
-        :param remote_addr: IP address of the caller
-        :param method: the HTTP method of the request
-        :param service_id: the ID of the service
-        :returns: An instance of RequestAuth or None if no credentials
-        were provided
-        :raises: HTTPException 400, 401 or 403
-        '''
-
-        client_cn: str = None
-        id_type: IdType | None = None
-
-        server: PodServer = config.server
-        network: Network = server.account.network
-
-        # Client cert, if available, sets the IdType for the authentication
-        if client_dn and issuing_ca_dn:
-            client_cn: str = RequestAuth.get_commonname(client_dn)
-            id_type: IdType = RequestAuth.get_cert_idtype(client_cn)
-        elif authorization:
-            # Watch out, the JWT signature does not get verified here.
-            jwt = await JWT.decode(
-                authorization, None, network.name, download_remote_cert=False
-            )
-            if jwt.service_id != service_id:
-                raise HTTPException(
-                    status_code=401,
-                    detail=(
-                        f'Service ID mismatch: '
-                        f'{jwt.service_id} != {service_id}'
-                    )
-                )
-            if id_type and id_type != jwt.issuer_type:
-                raise HTTPException(
-                    status_code=401,
-                    detail=(
-                        f'Mismatch in IdType for cert ({id_type.value}) and '
-                        f'JWT ({jwt.issuer_type.value})'
-                    )
-                )
-            await server.account.load_memberships()
-            member = config.server.account.memberships.get(service_id)
-            jwt.check_scope(IdType.MEMBER, member.member_id)
-
-            id_type = jwt.issuer_type
-
-        else:
-            _LOGGER.debug('Anonymous request, no client-cert or JWT provided')
-            id_type = IdType.ANONYMOUS
-
-        if id_type == IdType.ACCOUNT:
-            raise HTTPException(
-                status_code=401,
-                detail='GraphQL queries must never use account credentials'
-            )
-        elif id_type == IdType.MEMBER:
-            from .memberrequest_auth import MemberRequestAuth
-            auth = MemberRequestAuth(remote_addr, method)
-            await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
-            )
-
-            _LOGGER.debug('Authentication for member %s', auth.member_id)
-        elif id_type == IdType.SERVICE:
-            from .servicerequest_auth import ServiceRequestAuth
-            auth = ServiceRequestAuth(remote_addr, method)
-            await auth.authenticate(
-                tls_status, client_dn, issuing_ca_dn, ssl_cert, authorization
-            )
-
-            _LOGGER.debug(
-                f'Authentication for service f{auth.service_id}: '
-                f'{auth.is_authenticated}'
-            )
-        elif id_type == IdType.ANONYMOUS:
-            from .anonymousrequest_auth import AnonymousRequestAuth
-            auth = AnonymousRequestAuth(remote_addr, method)
-        else:
-            raise ValueError(
-                f'Invalid authentication type in common name {client_dn}'
-            )
-
-        return auth
 
     def check_account_cert(self, network: Network,
                            required: bool = True) -> None:

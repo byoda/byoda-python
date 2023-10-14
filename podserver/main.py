@@ -43,6 +43,9 @@ from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
+from byoda.datastore.cache_store import CacheStore
+from byoda.datastore.cache_store import CacheStoreType
+
 from byoda.storage.pubsub_nng import PubSubNng
 
 from byoda.util.fastapi import setup_api, update_cors_origins
@@ -56,8 +59,8 @@ from .routers import status as StatusRouter
 from .routers import accountdata as AccountDataRouter
 from .routers import content_token as ContentTokenRouter
 
-_LOGGER = None
-LOG_FILE = '/var/www/wwwroot/logs/pod.log'
+_LOGGER: Logger | None = None
+LOG_FILE: str = '/var/www/wwwroot/logs/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
@@ -81,18 +84,25 @@ async def lifespan(app: FastAPI):
     server.custom_domain = network_data['custom_domain']
     server.shared_webserver = network_data['shared_webserver']
 
-    if str(network_data['debug']).lower() in ('true', 'debug', '1'):
+    debug: bool = network_data.get('debug', False)
+    if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
-        # use tools like call_graphql.py to debug the server
+        # use tools like call_data_api.py to debug the server
         os.umask(0o0000)
     else:
         os.umask(0x0077)
 
+    logfile: str = network_data.get('logfile')
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=False, debug=config.debug,
-        loglevel=network_data['loglevel'], logfile=LOG_FILE
+        sys.argv[0], json_out=config.debug, debug=config.debug,
+        loglevel=network_data['loglevel'], logfile=logfile
+    )
+
+    _LOGGER.debug(
+        f'Setting up logging: debug {config.debug}, '
+        f'loglevel {network_data["loglevel"]}, logfile {logfile}'
     )
 
     await server.set_document_store(
@@ -121,9 +131,13 @@ async def lifespan(app: FastAPI):
         DataStoreType.SQLITE, account.data_secret
     )
 
+    server.cache_store: CacheStore = await server.set_cache_store(
+        CacheStoreType.SQLITE
+    )
+
     await server.get_registered_services()
 
-    cors_origins = set(
+    cors_origins: set[str] = set(
         [
             f'https://proxy.{network.name}',
             f'https://{account.tls_secret.common_name}'
@@ -138,7 +152,9 @@ async def lifespan(app: FastAPI):
     for member in account.memberships.values():
         await member.create_query_cache()
         await member.create_counter_cache()
-        member.enable_graphql_api(app)
+
+        await member.enable_data_apis(app, server.data_store)
+
         await member.tls_secret.save(
             password=member.private_key_password,
             storage_driver=server.local_storage,
@@ -152,11 +168,19 @@ async def lifespan(app: FastAPI):
 
         cors_origins.add(f'https://{member.tls_secret.common_name}')
 
+    _LOGGER.debug(
+        f'Tracing to {config.trace_server}'
+    )
+
     _LOGGER.debug('Lifespan startup complete')
     update_cors_origins(cors_origins)
+
     yield
 
     _LOGGER.info('Shutting down pod server')
+
+
+config.trace_server: str = os.environ.get('TRACE_SERVER', config.trace_server)
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
@@ -164,7 +188,7 @@ app = setup_api(
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,
         AccountDataRouter, ContentTokenRouter
     ],
-    lifespan=lifespan
+    lifespan=lifespan, trace_server=config.trace_server,
 )
 
 config.app = app

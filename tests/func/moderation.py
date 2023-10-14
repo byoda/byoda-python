@@ -17,12 +17,14 @@ import yaml
 import shutil
 import asyncio
 import unittest
-import requests
 
 from typing import TypeVar
+
 from multiprocessing import Process
 
 import uvicorn
+
+from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
 from byoda.datastore.document_store import DocumentStoreType
@@ -34,8 +36,12 @@ from byoda.datatypes import CloudType
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
 
-from byoda.util.logger import Logger
 from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.api_client import HttpMethod
+from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -54,14 +60,16 @@ from modserver.routers import status as StatusRouter
 
 Member = TypeVar('Member')
 
-CONFIG_FILE = 'tests/collateral/local/config-mod.yml'
-TEST_DIR = '/tmp/byoda-tests/mod_apis'
-TEST_PORT = 8000
-BASE_URL = f'http://localhost:{TEST_PORT}/api/v1'
+CONFIG_FILE: str = 'tests/collateral/local/config-mod.yml'
+TEST_DIR: str = '/tmp/byoda-tests/mod_apis'
+TEST_PORT: int = 8000
+BASE_URL: str = f'http://localhost:{TEST_PORT}/api/v1'
 
 TEST_APP_ID: str = '05cbb871-ee50-4ba5-8dda-4879142fb67e'
 
-_LOGGER = None
+_LOGGER: Logger
+
+APP: FastAPI | None = None
 
 
 class TestApis(unittest.IsolatedAsyncioTestCase):
@@ -135,13 +143,18 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         if not os.environ.get('SERVER_NAME') and config.server.network.name:
             os.environ['SERVER_NAME'] = config.server.network.name
 
-        app = setup_api(
-            'Byoda test dirserver', 'server for testing directory APIs',
-            'v0.0.1', [StatusRouter, ModerateRouter], lifespan=None
+        config.trace_server: str = os.environ.get(
+            'TRACE_SERVER', config.trace_server)
+
+        global APP
+        APP = setup_api(
+            'Byoda moderation server', 'server for moderation APIs',
+            'v0.0.1', [StatusRouter, ModerateRouter], lifespan=None,
+            trace_server=config.trace_server
         )
         TestApis.PROCESS = Process(
             target=uvicorn.run,
-            args=(app,),
+            args=(APP,),
             kwargs={
                 'host': '127.0.0.1',
                 'port': TEST_PORT,
@@ -163,11 +176,9 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network(delete_tmp_dir=False)
-
         account = await setup_account(network_data)
 
-        await account.load_memberships()
-        member: Member = account.memberships.get(ADDRESSBOOK_SERVICE_ID)
+        member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         with open(config.tls_cert_file, 'wb') as file_desc:
             file_desc.write(member.tls_secret.cert_as_pem())
@@ -217,9 +228,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         #
         # Test with SSL headers
         #
-        response = requests.post(API, headers=ssl_headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp: HttpResponse = await RestApiClient.call(
+            API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertEqual(data['status'], 'pending')
         self.assertIsNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
@@ -236,9 +249,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         # Make sure asset_id is unique
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
-        response = requests.post(API, headers=jwt_headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp = await RestApiClient.call(
+            API, HttpMethod.POST, headers=jwt_headers, data=claim_data,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertEqual(data['status'], 'pending')
         self.assertIsNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
@@ -252,9 +267,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         #
         claim_data['claim_data']['publisher'] = 'YouTube'
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
-        response = requests.post(API, headers=ssl_headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp = await RestApiClient.call(
+            API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertIsNotNone(data['request_id'])
         self.assertEqual(data['status'], 'accepted')
         self.assertIsNotNone(data['signature'])
@@ -278,9 +295,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             file_desc.write('{"creator": "tests/func/moderation.py"}')
 
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
-        response = requests.post(API, headers=ssl_headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp = await RestApiClient.call(
+            API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertIsNotNone(data['request_id'])
         self.assertEqual(data['status'], 'accepted')
         self.assertIsNotNone(data['signature'])
@@ -300,9 +319,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         #
         # Make sure asset_id is unique
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
-        response = requests.post(API, headers=jwt_headers, json=claim_data)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        resp = await RestApiClient.call(
+            API, method=HttpMethod.POST, headers=jwt_headers, data=claim_data,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
         self.assertIsNotNone(data['request_id'])
         self.assertEqual(data['status'], 'accepted')
         self.assertIsNotNone(data['signature'])

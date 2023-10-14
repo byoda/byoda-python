@@ -9,13 +9,15 @@ Test cases for PubSub
 import os
 import sys
 import shutil
-import logging
 import unittest
+
+from logging import getLogger
 
 import pynng
 import orjson
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 
 from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
@@ -36,10 +38,10 @@ from byoda import config
 
 from tests.lib.util import get_test_uuid
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-TEST_DIR = '/tmp/byoda-tests/pubsub'
-SERVICE_ID = 999
+TEST_DIR: str = '/tmp/byoda-tests/pubsub'
+SERVICE_ID: int = 999
 
 
 class TestPubSub(unittest.IsolatedAsyncioTestCase):

@@ -13,11 +13,12 @@ from uuid import uuid4
 
 import unittest
 
-from byoda.util.logger import Logger
-
+from byoda.datatypes import CacheType
 from byoda.datatypes import CacheTech
 
 from byoda.datacache.kv_cache import KVCache
+
+from byoda.util.logger import Logger
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 
@@ -41,7 +42,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member_id = uuid4()
         cache: KVCache = await KVCache.create_async(
             f'{TEST_DIR}/test.db',  str(member_id),
-            cache_tech=CacheTech.SQLITE
+            cache_tech=CacheTech.SQLITE,
+            cache_type=CacheType.DATA
         )
         self.assertFalse(await cache.exists('blah'))
         self.assertIsNone(await cache.get('blah'))

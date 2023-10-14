@@ -5,6 +5,7 @@ application:
   # directory server. This setting overrides any configured NETWORK
   # environment variable
   network: 'DOMAIN'
+  trace_server: 127.0.0.1
 
 dirserver:
   name: 'directoryserver'

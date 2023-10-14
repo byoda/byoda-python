@@ -8,7 +8,8 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -22,7 +23,7 @@ from byoda.datatypes import IdType
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import ByodaMissingAuthInfo
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class ServiceRequestAuthFast(RequestAuth):

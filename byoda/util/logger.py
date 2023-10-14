@@ -9,14 +9,16 @@ Python module for standardized logging
 import os
 import sys
 import logging
-from datetime import datetime, timezone
+
+from datetime import datetime
+from datetime import timezone
 
 from pythonjsonlogger import jsonlogger
 
 from starlette_context import context
 
 
-LOGFILE = '/var/tmp/byoda.log'
+LOGFILE: str = '/var/tmp/byoda.log'
 
 
 class Logger(logging.Logger):
@@ -127,12 +129,22 @@ class Logger(logging.Logger):
 
         # TODO: manage log levels for various SDKs
         logging.getLogger('asyncio').setLevel(logging.WARNING)
-        logging.getLogger('aiosqlite').setLevel(logging.WARNING)
+
+        logging.getLogger('httpcore').setLevel(logging.INFO)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('hpack').setLevel(logging.WARNING)
+        logging.getLogger('websockets').setLevel(logging.ERROR)
+
+        logging.getLogger('gql').setLevel(logging.WARNING)
+
+        logging.getLogger('pynng.nng').setLevel(logging.INFO)
+
+        logging.getLogger('aiosqlite').setLevel(logging.WARNING)
+
+        logging.getLogger('opentelemetry.exporter').setLevel(logging.ERROR)
+
         logging.getLogger('azure').setLevel(logging.WARNING)
         logging.getLogger('google').setLevel(logging.WARNING)
-        logging.getLogger('pynng.nng').setLevel(logging.INFO)
-        logging.getLogger('httpcore').setLevel(logging.INFO)
 
         logging.getLogger('byoda.storage.azure').setLevel(logging.INFO)
         logging.getLogger('byoda.storage.aws').setLevel(logging.INFO)

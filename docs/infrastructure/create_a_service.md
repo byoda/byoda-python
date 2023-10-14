@@ -65,7 +65,7 @@ The JSON file at the top-level must have the following keys:
 |--------------|------------|-----------------------------------------------------------------------|
 
 We use the python [fastjsonschema](https://horejsek.github.io/python-fastjsonschema/) module for validating data against the JSON Schema, which states support for JSON Schema draft 4, 5, and 7.
-We do not support the full specification of JSON Schema for the translation to the GraphQL API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
+We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
 of the following support:
 
 - At the root level of the schema, we support the following keys:
@@ -95,7 +95,7 @@ If the type is "object" then it must have a key "properties" with as value an ob
 - description: What the data stored in this property is used for
 - #accesscontrol: see below for more information
 - type: must be a scalar, (ie. "string" or "number") or an array
-- format: any value for this key is used for data validation but is not translated into the GraphQL API
+- format: any value for this key is used for data validation but is not translated into the Data API
 
 IF the type is "array" then the following keys are supported:
 
@@ -118,7 +118,7 @@ A data structure under $defs must have the following keys:
 - properties: must be a dict with as keys the different properties of the class. Each property must have keys:
   - description: What the data stored in this property is used for
   - type: must be a scalar, ie. "string" or "number" or an array.
-  - format: any value for this key is used for data validation but is not translated into the GraphQL API
+  - format: any value for this key is used for data validation but is not translated into the Data API
 
 There are some data structures that the BYODA pod uses for various purposes. These data structures are required to be present in your service schema with the corresponding fields and data types.
 Several data structures are required to be defined directly under the root of the JSON Schema. These can be copied
@@ -134,11 +134,9 @@ from the addressbook.json service contract to your contract.
 - incoming_claims: claims from other people that you haven't verified yet
 - verified_claims: claims from other people that you have verified
 
-For arrays of objects that themselves have arrays of child objects, you need to specify the "#reference_field" property in each definition of the array of a child object to specify the field of the child object that should be used to match against the field with the 'primary_key' property of the parent object. In SQL terms, the 'primary_key' field will get a _'foreign key'_ relation with the child object. See the 'public_claims' field of the 'public_assets' array of objects in addressbook.json for an example.
-
 The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
 
-If a scalar field is no longer required then it may be defined with ```"#obsolete": true```. This will avoid the dataclass for it to be created so no logic will use it. The field will not be deleted from the datastores of pods but it is no longer possible to use GraphQL to query or update it. It is not possible to remove a previously-defined field, you have to specify the ```"#obsolete": true``` property instead. Care should be taken with this option as clients using an older version of the schema will create queries specifying obsolete field, which is no longer known by the clients running the new version, causing those queries to fail.
+If a scalar field is no longer required then it may be defined with ```"#obsolete": true```. This will avoid the dataclass for it to be created so no logic will use it. The field will not be deleted from the datastores of pods but it is no longer possible to use Data APIs to query or update it. It is not possible to remove a previously-defined field, you have to specify the ```"#obsolete": true``` property instead. Care should be taken with this option as clients using an older version of the schema will create queries specifying obsolete field, which is no longer known by the clients running the new version, causing those queries to fail.
 
 ### Data Access control
 

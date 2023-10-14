@@ -71,6 +71,18 @@ server {
         proxy_pass http://127.0.0.1:{{ port }};
         set $cloud_path 'http://127.0.0.1:{{ port }}';
     }
+
+    # OpenTelemetry prometheus exporter
+    location /metrics {
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        set $cors "0";
+        proxy_pass http://127.0.0.1:8000;
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
+    }
+
+
 {% else %}
     location = /member-cert.pem {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-cert.pem;
@@ -80,15 +92,13 @@ server {
         alias {{ root_dir }}/network-{{ network }}/account-pod/service-{{ service_id }}/network-{{ network }}-member-{{ service_id }}-data-cert.pem;
     }
 
-    location /ws-api/ {
-        proxy_pass http://127.0.0.1:8000/api/;
-        set $cloud_path 'http://127.0.0.1:8000/api/';
+{% endif %}
 
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
+    location /api/ {
+        proxy_pass http://127.0.0.1:{{ port }};
+        set $cloud_path 'http://127.0.0.1:8000';
 
-        proxy_read_timeout 3660;
+        proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $server_name;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -100,13 +110,15 @@ server {
         proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
 
-{% endif %}
+    location /ws-api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        set $cloud_path 'http://127.0.0.1:8000/api/';
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:{{ port }};
-        set $cloud_path 'http://127.0.0.1:8000';
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
 
-        proxy_set_header Host $http_host;
+        proxy_read_timeout 3660;
         proxy_set_header X-Forwarded-Host $server_name;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

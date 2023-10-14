@@ -7,10 +7,12 @@ POD server, directory server, service server
 :license    : GPLv3
 '''
 
-import logging
 
 from typing import TypeVar
-from datetime import datetime, timezone
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 
 from byoda.util.paths import Paths
 
@@ -21,8 +23,9 @@ from byoda.datastore.document_store import DocumentStoreType, DocumentStore
 from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.api_client.api_client import ApiClient
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
 Account = TypeVar('Account')
@@ -101,3 +104,10 @@ class Server:
 
     def accepts_jwts(self):
         raise NotImplementedError
+
+    async def shutdown(self):
+        '''
+        Shuts down the server
+        '''
+
+        await ApiClient.close_all()

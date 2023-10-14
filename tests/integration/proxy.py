@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Test the POD REST and GraphQL APIs
+Test the POD REST and Data APIs
 
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
@@ -17,20 +17,21 @@ proxy
 import sys
 import unittest
 
+from uuid import uuid4
+
+from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
-from byoda.util.api_client.graphql_client import GraphQlClient
-
+from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 
 from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
-from tests.lib.defines import AZURE_POD_SECRET_FILE
+from tests.lib.defines import AZURE_POD_ACCOUNT_SECRET_FILE
+from tests.lib.defines import AZURE_POD_MEMBER_SECRET_FILE
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-
-from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
 
 from tests.lib.auth import get_jwt_header
 
@@ -38,37 +39,16 @@ TEST_DIR = '/tmp/byoda-tests/proxy_test'
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    async def test_graphql_addressbook_proxy(self):
+    async def test_data_api_addressbook_proxy(self):
+        # DataApiClient needs member.schema.get_data_classes() and
+        # data_store.setup_member_db()
+        raise NotImplementedError(
+            'Needs to be refactored to use DataApiClient'
+        )
+        mock_environment_vars(TEST_DIR)
         await setup_network(TEST_DIR)
 
-        with open(AZURE_POD_SECRET_FILE) as file_desc:
-            account_secret = file_desc.read().strip()
-
-        id = AZURE_POD_MEMBER_ID
-
-        service_id = ADDRESSBOOK_SERVICE_ID
-        base_url = f'https://proxy.byoda.net/{service_id}/{id}/api'
-
-        auth_header = get_jwt_header(
-            base_url=base_url, id=id, secret=account_secret,
-            service_id=service_id
-        )
-        self.assertIsNotNone(auth_header)
-
-        url = base_url + f'/v1/data/service-{service_id}'
-        resp: HttpResponse = await GraphQlClient.call(
-            url, GRAPHQL_STATEMENTS['person']['query'], timeout=3,
-            headers=auth_header
-        )
-        result = resp.json()
-        self.assertIsNone(result.get('errors'))
-        data = result.get('data')
-        self.assertIsNotNone(data)
-
-    async def test_account_jwt(self):
-        await setup_network(TEST_DIR)
-
-        with open(AZURE_POD_SECRET_FILE) as file_desc:
+        with open(AZURE_POD_ACCOUNT_SECRET_FILE) as file_desc:
             account_secret = file_desc.read().strip()
 
         id = AZURE_POD_ACCOUNT_ID
@@ -76,10 +56,23 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         base_url = f'https://proxy.byoda.net/{id}/api'
 
         auth_header = get_jwt_header(
-            base_url=base_url, id=id, secret=account_secret,
-            member_token=False
+            base_url=base_url, id=id,
+            secret=account_secret, service_id=None
         )
 
+        self.assertIsNotNone(auth_header)
+
+        id = AZURE_POD_MEMBER_ID
+        service_id = ADDRESSBOOK_SERVICE_ID
+        base_url = f'https://proxy.byoda.net/{service_id}/{id}/api'
+
+        with open(AZURE_POD_MEMBER_SECRET_FILE) as file_desc:
+            account_secret = file_desc.read().strip()
+
+        auth_header = get_jwt_header(
+            base_url=base_url, id=id,
+            secret=account_secret, service_id=service_id
+        )
         self.assertIsNotNone(auth_header)
 
 

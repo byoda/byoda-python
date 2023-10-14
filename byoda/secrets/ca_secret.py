@@ -7,9 +7,11 @@ Cert manipulation
 '''
 
 import os
-import logging
 from copy import deepcopy
-from datetime import datetime, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timedelta
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
@@ -20,26 +22,27 @@ from byoda.datatypes import CsrSource
 
 from byoda.storage.filestorage import FileStorage
 
-from .secret import Secret, CertChain
+from .secret import Secret
+from .secret import CertChain
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-_RSA_KEYSIZE = 3072
+_RSA_KEYSIZE: int = 3072
 
-_BYODA_DIR = '/.byoda/'
-_ROOT_DIR = os.environ['HOME'] + _BYODA_DIR
+_BYODA_DIR: str = '/.byoda/'
+_ROOT_DIR: str = os.environ['HOME'] + _BYODA_DIR
 
-VALID_SIGNATURE_ALGORITHMS = set(
+VALID_SIGNATURE_ALGORITHMS: set[str] = set(
     [
         'sha256WithRSAEncryption'
     ]
 )
-VALID_SIGNATURE_HASHES = set(
+VALID_SIGNATURE_HASHES: set[str] = set(
     [
         'sha256'
     ]
 )
-IGNORED_X509_NAMES = set(['C', 'ST', 'L', 'O'])
+IGNORED_X509_NAMES: set[str] = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
 

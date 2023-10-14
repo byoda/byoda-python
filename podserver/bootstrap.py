@@ -62,27 +62,28 @@ from byoda import config
 
 from podserver.util import get_environment_vars
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
-LOGFILE = '/var/www/wwwroot/logs/bootstrap.log'
+LOGFILE: str = '/var/www/wwwroot/logs/bootstrap.log'
 
 
 async def main(argv):
     # Remaining environment variables used:
     data = get_environment_vars()
 
-    if str(data['debug']).lower() in ('true', 'debug', '1'):
+    debug: bool = data.get('debug', False)
+    if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
-        # use tools like call_graphql.py to debug the server
+        # use tools like call_data_api.py to debug the server
         os.umask(0o0000)
     else:
         os.umask(0x0077)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        argv[0], json_out=False, debug=data.get('DEBUG', False),
-        loglevel=data.get('loglevel', 'INFO'), logfile=LOGFILE
+        argv[0], json_out=config.debug, debug=config.debug,
+        loglevel=data.get('loglevel', 'INFO'), logfile=data.get('logfile')
     )
     _LOGGER.debug(
         f'Starting bootstrap with variable bootstrap={data["bootstrap"]}'

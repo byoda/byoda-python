@@ -1,0 +1,12 @@
+
+class {{ data_class.name }}(BaseModel):
+{% for field in data_class.fields.values() %}{# for field in data_class.fields.values() #}
+{%     if field.required %}
+    {{ field.name }}: {{ field.python_type }} = Field(description="{{ field.description }}")
+{%     endif %}{# if field.required #}
+{% endfor %}{# for field in data_class.fields.values() #}
+{% for field in data_class.fields.values() %}{# for field in data_class.fields.values() #}
+{%     if not field.required %}
+    {{ field.name }}: {{ field.python_type }} | None = Field(default=None, description="{{ field.description }}")
+{%     endif %}{# if not field.required #}
+{% endfor %}{# for field in data_class.fields.values() #}

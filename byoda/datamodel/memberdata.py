@@ -2,45 +2,61 @@
 Class for modeling an element of data of a member
 
 This class has several static methods that are called from the
-code generated from 'graphql_schema.jinja' to process the
-data as requested in the call to the GraphQL interface.
+code generated from the Jinja2 templates to process the
+data as requested in the call to the REST Data API.
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
 '''
 
-import logging
-import itertools
-
 from uuid import UUID
 from typing import TypeVar
+from logging import getLogger
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
+from itertools import combinations as iter_combinations
 
-from fastapi import Request
+import orjson
 
-from strawberry.types import Info
+from opentelemetry.trace import get_tracer
+from opentelemetry.sdk.trace import Tracer
 
-from byoda import config
+from websockets.legacy.client import WebSocketClientProtocol
 
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
-from byoda.datamodel.graphql_proxy import GraphQlProxy
+from byoda.datamodel.table import ResultData
+from byoda.datamodel.table import QueryResults
+
+from byoda.datamodel.data_proxy import DataProxy
+
 from byoda.datamodel.table import Table
+
 from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataMutateMessage
 from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
-from byoda.datatypes import ORIGIN_KEY
 from byoda.datatypes import IdType
+from byoda.datatypes import DataType
+from byoda.datatypes import DataRequestType
 from byoda.datatypes import MARKER_NETWORK_LINKS
+from byoda.datatypes import MARKER_DATA_LOGS
+
+from byoda.models.data_api_models import QueryModel
+from byoda.models.data_api_models import MutateModel
+from byoda.models.data_api_models import AppendModel
+from byoda.models.data_api_models import DeleteModel
+from byoda.models.data_api_models import UpdateModel
+from byoda.models.data_api_models import CounterModel
+from byoda.models.data_api_models import AnyScalarType
 
 from byoda.datastore.data_store import DataStore
+from byoda.datastore.cache_store import CacheStore
+
 from byoda.datacache.counter_cache import CounterCache
-from byoda.datacache.counter_cache import CounterFilter
 
 from byoda.requestauth.requestauth import RequestAuth
 
@@ -48,11 +64,14 @@ from byoda.secrets.data_secret import InvalidSignature
 
 from byoda.storage import FileMode
 from byoda.storage.pubsub import PubSub
-from byoda.storage.pubsub import PubSubTech
+
+from byoda.util.logger import Logger
 
 from byoda.util.paths import Paths
 
 from byoda.servers.pod_server import PodServer
+
+from byoda import config
 
 from byoda.exceptions import ByodaValueError
 
@@ -60,9 +79,12 @@ from byoda.exceptions import ByodaValueError
 from .schema import Schema
 from .dataclass import SchemaDataItem
 
+Account = TypeVar('Account')
 Member = TypeVar('Member')
+EdgeResponse = TypeVar('EdgeResponse')
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
+TRACER: Tracer = get_tracer(__name__)
 
 MAX_FILE_SIZE = 65536
 
@@ -100,14 +122,6 @@ class MemberData(dict):
 
         self['member']['member_id'] = str(self.member.member_id)
         self['member']['joined'] = datetime.now(timezone.utc).isoformat()
-
-    def query(self, object_name: str, filters: DataFilterSet
-              ) -> list[dict[str, object]]:
-        '''
-        Queries the data store for the given object and filters
-        '''
-
-        raise NotImplementedError
 
     def normalize(self) -> None:
         '''
@@ -186,13 +200,14 @@ class MemberData(dict):
         )
 
     async def load_network_links(self, relations: str | list[str] | None = None
-                                 ) -> list[dict[str, str | datetime]]:
+                                 ) -> list[dict[str, str | UUID | datetime]]:
         '''
         Loads the network links for the membership. Used by the access
         control logic.
         '''
 
-        filter_set = None
+        filter_set: DataFilterSet | None = None
+
         if relations:
             # DataFilter logic uses 'and' logic when multiple filters are
             # specified. So we only use DataFilterSet when we have a single
@@ -210,165 +225,204 @@ class MemberData(dict):
                 filter_set = DataFilterSet(link_filter)
 
         data_store: DataStore = config.server.data_store
+        member: Member = self.member
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[MARKER_NETWORK_LINKS]
 
-        data = await data_store.query(
-            self.member.member_id, MARKER_NETWORK_LINKS,
-            filters=filter_set
+        data: QueryResults = await data_store.query(
+            member.member_id, data_class, filters=filter_set
         )
 
         if relations and isinstance(relations, list) and len(relations) > 1:
             # If more than 1 relation was provided, then we filter here
             # ourselves instead of using DataFilterSet
             data = [
-                network_link for network_link in data
+                network_link for network_link, _ in data
                 if network_link['relation'] in relations
             ]
 
         return data
 
-    async def add_log_entry(self, request: Request, auth: RequestAuth,
-                            operation: str, source: str, class_name: str,
-                            filters: list[str] | DataFilterSet = None,
-                            relations: list[str] = None,
+    async def add_query_log_entry(self, remote_addr: str, auth: RequestAuth,
+                                  operation: str | DataRequestType,
+                                  source: str,
+                                  class_name: str, query: QueryModel) -> None:
+        '''
+        :param remote_addr: the IP address or hostname of the host that
+        originated the request
+        :param auth: information about the authentication used for the request
+        :param operation: the operation that was performed by the API call
+        :param class_name: the name of the class that was queried
+        :param query: the query that was performed
+
+        :param remote_addr: the IP address or hostname of the host that
+        originated the request
+        :param auth: information about the authentication used for the request
+        :param operation: the operation that was performed by the API call
+        :param source: source originating the log entry
+        :param class_name: the name of the class that was queried
+        :param query: the query that was performed
+        :returns: (none)
+        '''
+
+        await self.add_log_entry(
+            remote_addr, auth, operation, source, class_name,
+            filters=query.filter, depth=query.depth,
+            relations=query.relations or [],
+            remote_member_id=query.remote_member_id,
+            query_id=query.query_id, origin_member_id=query.origin_member_id,
+            query_timestamp=query.timestamp,
+            origin_signature=query.origin_signature,
+            signature_format_version=query.signature_format_version
+        )
+
+    @TRACER.start_as_current_span('MemberData.add_log_entry')
+    async def add_log_entry(self, remote_addr: str, auth: RequestAuth,
+                            operation: str | DataRequestType, source: str,
+                            class_name: str,
+                            filters: DataFilterSet | None = None,
+                            depth: int | None = None,
+                            relations: list[str] = [],
                             remote_member_id: UUID | None = None,
-                            depth: int = None, message: str = None,
-                            timestamp: datetime | None = None,
+                            query_id: UUID | None = None,
                             origin_member_id: UUID | None = None,
+                            query_timestamp: datetime | None = None,
                             origin_signature: str | None = None,
-                            query_id: UUID = None,
-                            signature_format_version: int | None = None
-                            ) -> None:
+                            signature_format_version: int | None = None,
+
+                            message: str = None) -> None:
         '''
         Adds an entry to data log
+
+        :param remote_addr: the IP address or hostname of the host that
+        originated the request
+        :param auth: information about the authentication used for the request
+        :param operation: the operation that was performed by the API call
+        :param source: source originating the log entry
+        :param class_name: the name of the class that was queried
+        :param filters: the filters to apply to the data
+        :param depth: the number of hops to proxy the request
+        :param relations: list of relations that should be queried
+        :param remote_member_id: the member id of the member that the request
+        should be proxied to
+        :param query_id: the query id of the query that was performed
+        :param origin_member_id: the member_id of the member that originated
+        the request
+        :param query_timestamp: the timestamp of the query as set by the pod
+        that originated the request
+        :param origin_signature: the signature of the query as set by the pod
+        that originated the request
+        :param signature_format_version: the version of the signature format
+        :returns: (none)
         '''
 
-        data_store: DataStore = config.server.data_store
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
 
         if not isinstance(filters, DataFilterSet):
-            filter_set = DataFilterSet(filters)
+            filter_set: DataFilterSet = DataFilterSet(filters)
         else:
-            filter_set = filters
+            filter_set: DataFilterSet = filters
 
+        if isinstance(operation, DataRequestType):
+            operation = operation.value
+
+        data: dict[str, str | UUID | datetime | float | int] = {
+            'created_timestamp': datetime.now(timezone.utc),
+            'remote_addr': remote_addr,
+            'remote_id': auth.id,
+            'remote_id_type': auth.id_type.value.rstrip('s-'),
+            'operation': operation,
+            'object': class_name,
+            'query_filters': str(filter_set),
+            'query_depth': depth,
+            'query_relations': ', '.join(relations),
+            'query_id': query_id,
+            'query_remote_member_id': remote_member_id,
+            'origin_member_id': origin_member_id,
+            'origin_timestamp': query_timestamp,
+            'origin_signature': origin_signature,
+            'signature_format_version': signature_format_version,
+            'source': source,
+            'message': message,
+        }
+
+        member: Member = self.member
+
+        required_fields: list[str] = await MemberData.get_required_field_names(
+            member.service_id, class_name
+        )
+        cursor = Table.get_cursor_hash(data, member.member_id, required_fields)
+
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[MARKER_DATA_LOGS]
         await data_store.append(
-            self.member.member_id, 'datalogs',
-            {
-                'created_timestamp': datetime.now(timezone.utc),
-                'remote_addr': request.client.host,
-                'remote_id': auth.id,
-                'remote_id_type': auth.id_type.value.rstrip('s-'),
-                'operation': operation,
-                'object': object,
-                'query_filters': str(filter_set),
-                'query_depth': depth,
-                'query_relations': ', '.join(relations or []),
-                'query_id': query_id,
-                'query_remote_member_id': remote_member_id,
-                'origin_member_id': origin_member_id,
-                'origin_timestamp': timestamp,
-                'origin_signature': origin_signature,
-                'signature_format_version': signature_format_version,
-                'source': source,
-                'message': message,
-            }
+            self.member.member_id, data_class, data, cursor,
+            auth.id, auth.id_type
         )
 
-    @staticmethod
-    async def get_simple_data(service_id, class_name: str, keyfield: str,
-                              keyfield_id: UUID) -> list[dict]:
-        '''
-        Returns the requested data implementing recursion or filtering. This
-        method assumes authentication and authorization for the accessed data
-        has already been performed
-
-        :param service_id: the service being queried
-        :param class_name: the name of the data class for which to retrieve
-        data
-        :param keyfield: the name of the field to filter on
-        :param keyfield_id: the value of the field to filter on
-        '''
-
-        if not keyfield_id:
-            raise ValueError('Did not get a value for keyfield_id parameter')
-
-        _LOGGER.debug(
-            f'Retrieving data for service_id {service_id}, '
-            f'class_name {class_name} '
-            f'keyfield {keyfield} with data {keyfield_id}'
-        )
-
-        server = config.server
-
-        await server.account.load_memberships()
-        member: Member = server.account.memberships[service_id]
-
-        data_store = server.data_store
-
-        filter_set = DataFilterSet({keyfield: {'eq': keyfield_id}})
-        data = await data_store.query(member.member_id, class_name, filter_set)
-
-        _LOGGER.debug(f'Collected {len(data or [])} items of data')
-
-        return data
+        _LOGGER.debug(f'Appended data log entry: {orjson.dumps(data)}')
 
     @staticmethod
-    async def get_data(service_id: int, class_name: str, info: Info,
-                       depth: int = 0,
-                       relations: list[str] = None,
-                       filters: list[str] = None,
-                       timestamp: datetime | None = None,
-                       remote_member_id: UUID | None = None,
-                       query_id: UUID | None = None,
-                       origin_member_id: UUID | None = None,
-                       origin_signature: bytes | None = None,
-                       signature_format_version: int = 1,
-                       ) -> dict[str, dict]:
+    async def get_required_field_names(service_id, class_name) -> list[str]:
+        '''
+        Get the list of the names of fields that are required to have a value
+        '''
+
+        server: PodServer = config.server
+
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+        schema: Schema = member.schema
+        target_class: SchemaDataArray = schema.data_classes[class_name]
+        if target_class.referenced_class:
+            target_class: SchemaDataObject = target_class.referenced_class
+
+        return target_class.required_fields
+
+    @staticmethod
+    @TRACER.start_as_current_span('MemberData.get')
+    async def get(service_id: int, class_name: str, query: QueryModel,
+                  remote_addr: str, auth: RequestAuth, class_ref: callable,
+                  edge_class_ref: callable) -> list[EdgeResponse]:
         '''
         Extracts the requested data object.
 
-        This function is called from the Strawberry code generated by the
-        jsonschema-to-graphql converter
+        This function is called from the Python3 code generated by the
+        jsonschema-to-python converter
 
         :param service_id: the service being queried
-        :param info: Info object with information about the GraphQL request
-        :param relations: relations to proxy the request to
-        :param timestamp: the timestamp for the original request
-        :param filters: filters to apply to the collected data
-        :returns: the requested data
+        :param class_name: the class for which to change the dict
+        :param query: the REST query requested by the client
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :returns: list of 'edge responses', as defined in the Request Modeling
+        Jinja templates for each data class
+        :raises: ValueError
         '''
 
-        if not info.path:
-            raise ByodaValueError('Did not get value for path parameter')
+        _LOGGER.debug(f'Got REST Data API query for {class_name}')
 
-        if info.path.typename != 'Query':
-            raise ByodaValueError(
-                f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Query"'
-            )
+        server: PodServer = config.server
 
-        _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
-            f'for object {info.path.key}'
-        )
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
 
-        server = config.server
+        # We want to know who send us the query so that if we have to
+        # proxy, we don't proxy the message back to the sender
+        sending_member_id: UUID = auth.member_id
 
-        await server.account.load_memberships()
-        member: Member = server.account.memberships[service_id]
+        if query.query_id:
+            _LOGGER.debug(f'Query received with query_id {query.query_id}')
+            if not await member.query_cache.set(query.query_id, auth.id):
+                raise ValueError(f'Duplicate query id: {query.query_id}')
 
-        # If an origin_member_id has been provided then we check
-        # the signature
-        auth: RequestAuth = info.context['auth']
-
-        if query_id:
-            _LOGGER.debug(f'Query received with query_id {query_id}')
-            if not await member.query_cache.set(query_id, auth.id):
-                raise ValueError(f'Duplicate query id: {query_id}')
-
-        if origin_member_id or origin_signature or timestamp:
+        if query.origin_member_id or query.origin_signature:
             try:
-                await GraphQlProxy.verify_signature(
-                    service_id, relations, filters, timestamp,
-                    origin_member_id, origin_signature
+                await DataProxy.verify_signature(
+                    service_id, query.relations, query.filter,
+                    query.timestamp, query.origin_member_id,
+                    query.origin_signature, query.signature_format_version
                 )
             except InvalidSignature:
                 raise ByodaValueError(
@@ -376,18 +430,18 @@ class MemberData(dict):
                     f'received from {auth.id} with IP {auth.remote_addr} '
                 )
 
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
-            if timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
+            query.timestamp = query.timestamp.replace(tzinfo=timezone.utc)
+            if query.timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
                 _LOGGER.debug(
                     'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
                     'not proxying this request'
                 )
-                depth = 0
-        elif depth > 0:
+                query.depth = 0
+        elif query.depth > 0:
             # If no origin_member_id has been provided then the request
             # must come from our own membership
 
-            if not query_id:
+            if not query.query_id:
                 raise ValueError('Recursive query without query_id')
 
             if (auth.id_type != IdType.MEMBER or
@@ -397,165 +451,242 @@ class MemberData(dict):
                     'submitted by someone else than our membership'
                 )
 
-        filter_set = DataFilterSet(filters)
+        filter_set = DataFilterSet(query.filter)
 
-        await member.data.add_log_entry(
-            info.context['request'], info.context['auth'], 'get',
-            'graphql', class_name, relations=relations, filters=filter_set,
-            depth=depth, timestamp=timestamp,
-            remote_member_id=remote_member_id,
-            origin_member_id=origin_member_id,
-            origin_signature=origin_signature,
-            signature_format_version=signature_format_version,
-            query_id=query_id,
+        await member.data.add_query_log_entry(
+            remote_addr, auth, 'query', 'REST Data API', class_name, query
         )
 
-        all_data = []
+        all_data: list[edge_class_ref] = []
 
-        if depth:
-            request: Request = info.context['request']
-            query = await request.body()
-
-            proxy = GraphQlProxy(member)
-            if not origin_member_id:
-                # Our membership submitted the query so let's
-                # add needed data and sign the request
-                origin_member_id = member.member_id
-                timestamp = datetime.now(timezone.utc)
-
-                origin_signature = proxy.create_signature(
-                    service_id, relations, filters, timestamp,
-                    origin_member_id
-                )
-                # We need to insert origin_member_id, origin_signature
-                # and timestamp in the received query
-                all_data = await proxy.proxy_request(
-                    class_name, query, info, query_id, depth,
-                    relations, origin_member_id=origin_member_id,
-                    origin_signature=origin_signature,
-                    timestamp=timestamp
-                )
-            else:
-                # origin_member_id, origin_signature and timestamp must
-                # already be set
-                all_data = await proxy.proxy_request(
-                    class_name, query, info, query_id, depth, relations
-                )
-
-            _LOGGER.debug(
-                f'Collected {len(all_data)} items from the network'
+        if query.depth:
+            all_data = await MemberData._get_data_from_pods_recursively(
+                member, class_name, query, DataRequestType.QUERY,
+                sending_member_id
             )
 
-        data_store = server.data_store
-        _LOGGER.debug('Collecting data')
-        data = await data_store.query(member.member_id, class_name, filter_set)
-        for data_item in data or []:
-            data_item[ORIGIN_KEY] = member.member_id
-            all_data.append(data_item)
+        schema: Schema = member.schema
+        data_class: SchemaDataItem = schema.data_classes[class_name]
+        _LOGGER.debug(f'Collecting data for class {class_name}')
 
-        _LOGGER.debug(f'Got {len(data or [])} items of data')
+        required_fields: set[str]
+        referenced_class: SchemaDataObject | None = data_class.referenced_class
+        if (data_class.type == DataType.ARRAY and referenced_class
+                and referenced_class.type == DataType.OBJECT):
+            required_fields = referenced_class.required_fields
+        elif data_class.type == DataType.OBJECT:
+            required_fields = data_class.required_fields
+        else:
+            required_fields = None
+            _LOGGER.debug('Unrecognized data structure')
+
+        if query.fields:
+            # We intentionally do not update the query.fields before
+            # proxying recursive queries as that would invalidate the
+            # signature of the query
+            query.fields |= set(required_fields)
+
+        # We ask for 'query.first + 1) as we want to know if there are
+        # more items available for pagination
+        # TODO: figure out a way to return metadata for the retrieved data
+        with TRACER.start_as_current_span('MemberData.get from store'):
+            if data_class.cache_only:
+                _LOGGER.debug(
+                    f'Using cache for read-only class {class_name}'
+                )
+                cache_store: CacheStore = server.cache_store
+                data: QueryResults = await cache_store.query(
+                    member.member_id, data_class, filter_set,
+                    query.first + 1, query.after, query.fields
+                ) or []
+            else:
+                data_store: DataStore = server.data_store
+                data: QueryResults = await data_store.query(
+                    member.member_id, data_class, filter_set,
+                    query.first + 1, query.after, query.fields
+                ) or []
+
+        with TRACER.start_as_current_span('MemberData.get collect'):
+            # TODO: see how we can return metadata for the retrieved data
+            # even if we have retrieved recursive data that does not
+            # include metadata
+            data_item: ResultData
+            for data_item, _ in data:
+                cursor: str = Table.get_cursor_hash(
+                    data_item, member.member_id, required_fields
+                )
+                modeled_data: dict[str, object] = class_ref.model_validate(
+                    data_item
+                )
+                edge_data = edge_class_ref(
+                    cursor=cursor, origin=member.member_id, node=modeled_data
+                )
+
+                all_data.append(edge_data)
+
+            _LOGGER.debug(f'Got {len(data or [])} items of data')
+
+        return all_data
+
+    @TRACER.start_as_current_span('MemberData._get_data_from_pods')
+    @staticmethod
+    async def _get_data_from_pods_recursively(
+                        member: Member, class_name: str,
+                        query: QueryModel, data_request_type: DataRequestType,
+                        sending_member_id: UUID) -> list[dict[str, object]]:
+        '''
+        Gets data from other pods, as requested by recursive query
+
+        This method updates the provided query object
+
+        :param member:
+        :param class_name: the name of the class in the query
+        :param query: the received query object
+        :param data_request_type: the type of data request
+        :param sending_member_id: the member id of the member that sent the
+        query
+        '''
+
+        proxy = DataProxy(member)
+
+        if not query.origin_member_id:
+            # Our membership submitted the query so let's
+            # add needed data and sign the request
+            query.origin_member_id = member.member_id
+            query.signature_format_version = 1
+
+            query.origin_signature = proxy.create_signature(
+                member.service_id, query.relations, query.filter,
+                query.timestamp, query.origin_member_id
+            )
+
+        all_data = await proxy.proxy_request(
+            class_name, query, data_request_type, sending_member_id
+        )
+
+        _LOGGER.debug(
+            f'Collected {len(all_data)} items from the network'
+        )
 
         return all_data
 
     @staticmethod
-    async def get_updates(service_id: int, info: Info,
-                          filters: list[str] = None) -> dict[str, dict]:
+    async def updates(service_id: int, class_name: str,
+                      websocket: WebSocketClientProtocol, auth: RequestAuth,
+                      updates_model: UpdateModel) -> EdgeResponse:
         '''
-        Provides updates if an array at the root level of the schema
-        has been updated.
+        Provides updates to the websocket if an array at the root level of the
+        schema has been updated.
 
-        This function is called from the Strawberry code generated by the
-        jsonschema-to-graphql converter
+        This function is called from the code generated from the Jinja2
+        template for pydantic models for the JSON-Schema
 
         :param service_id: the service being queried
-        :param info: Info object with information about the GraphQL request
-        :param filters: filters to apply to the collected data
-        :returns: the requested data
+        :param class_name: the class for which to change the dict
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :param updates_model: the request we received
+        :returns: None
         '''
 
-        if not info.path:
-            raise ByodaValueError('Did not get value for path parameter')
-
-        if info.path.typename != 'Subscription':
-            raise ByodaValueError(
-                f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Subscription"'
-            )
+        remote_addr: str = websocket.client.host
 
         _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
-            f'for object {info.path.key}'
+            f'Received REST Data Updates API request for {class_name} '
+            f'from host {remote_addr}'
         )
 
         server: PodServer = config.server
-        await server.account.load_memberships()
-        member: Member = server.account.memberships[service_id]
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+        member_id: UUID = member.member_id
 
-        # The GraphQL API that was called, with other words, the name
-        # of the class referenced by an array at the top-level of the
-        # schema
-        class_name = info.path.key[:-1 * len('_updates')]
-        data_class = member.schema.data_classes[class_name]
+        query_id: UUID = updates_model.query_id
+        relations: list[str] = updates_model.relations or []
+        depth: int = updates_model.depth
+        updates_filter: dict[str, dict[str, AnyScalarType]] = \
+            updates_model.filter
+
+        await member.data.add_log_entry(
+            remote_addr, auth, DataRequestType.UPDATES, 'REST Data',
+            class_name, depth=depth, relations=relations
+        )
+
+        schema: Schema = member.schema
+        data_class = schema.data_classes[class_name]
+
         sub = PubSub.setup(
-            data_class.name, data_class, member.schema,
-            is_sender=False, pubsub_tech=PubSubTech.NNG
+            data_class.name, data_class, member.schema, is_sender=False
         )
 
         while True:
             messages = await sub.recv()
+            _LOGGER.debug(f'Received {len(messages or [])} messages')
 
-            filtered_data: list[dict] = []
             for message in messages or []:
                 # We run the data through the filters but the filters
                 # work on and return arrays
                 filtered_items: list[dict] = DataFilterSet.filter(
-                    filters, [message.data]
+                    updates_filter, [message.data]
                 )
-                if filtered_items:
-                    filtered_data.append(message)
+                _LOGGER.debug(
+                    f'Still have {len(filtered_items)} after filtering'
+                )
+                for item in filtered_items:
+                    data: dict[str, object] = {
+                        'cursor': '',
+                        'node': item,
+                        'origin': member_id,
+                        'query_id': query_id
+                    }
 
-            if filtered_data:
-                return filtered_data
+                    _LOGGER.debug(f'Sending update for class {class_name}')
+
+                    text: str = orjson.dumps(data).decode('utf-8')
+                    await websocket.send_text(text)
 
     @staticmethod
-    async def get_counter(service_id: int, info: Info,
-                          counter_filter: CounterFilter = None
-                          ) -> int:
+    async def counter(service_id: int, class_name: str,
+                      websocket: WebSocketClientProtocol,
+                      auth: RequestAuth, counter_model: CounterModel) -> int:
         '''
         Provides counters if an array at the root level of the schema
         has been updated.
 
-        This function is called from the Strawberry code generated by the
-        jsonschema-to-graphql converter
+        This function is called from the code generated from the Jinja2
+        template for pydantic models for the JSON-Schema
 
         :param service_id: the service being queried
-        :param info: Info object with information about the GraphQL request
-        :param filters: filters to apply to the collected data
-        :returns: the requested data
+        :param class_name: the class for which to change the dict
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :param updates_model: the request we received
+        :returns: None
         '''
 
-        if not info.path:
-            raise ByodaValueError('Did not get value for path parameter')
-
-        if info.path.typename != 'Subscription':
-            raise ByodaValueError(
-                f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Subscription"'
-            )
+        remote_addr: str = websocket.client.host
 
         _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
-            f'for object {info.path.key}'
+            f'Received REST Data Updates API request for {class_name} '
+            f'from host {remote_addr}'
         )
 
         server: PodServer = config.server
-        await server.account.load_memberships()
-        member: Member = server.account.memberships[service_id]
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+        member_id: UUID = member.member_id
 
-        # The GraphQL API that was called, with other words, the name
-        # of the class referenced by an array at the top-level of the
-        # schema
-        class_name = info.path.key[:-1 * len('_counter')]
+        relations: list[str] = counter_model.relations or []
+        depth: int = counter_model.depth
+        counter_filter: dict[str, dict[str, AnyScalarType]] = \
+            counter_model.filter
+        query_id: UUID = counter_model.query_id
+
+        await member.data.add_log_entry(
+            remote_addr, auth, DataRequestType.UPDATES, 'REST Data',
+            class_name, depth=depth, relations=relations
+        )
+
         data_class = member.schema.data_classes[class_name]
         sub = PubSub.setup(
             data_class.name, data_class, member.schema, is_sender=False
@@ -566,14 +697,15 @@ class MemberData(dict):
         table: Table = data_store.get_table(member.member_id, class_name)
 
         current_counter_value = await counter_cache.get(
-            class_name, counter_filter, table
+            class_name, counter_model.filter, table
         )
 
+        # TODO: never nest!
         while True:
             messages = await sub.recv()
+            _LOGGER.debug(f'Received {len(messages or [])} messages')
 
             for message in messages or []:
-                # We run the data through the counter filters
                 matches_filter = True
                 if counter_filter:
                     for field_name, value in counter_filter.items():
@@ -581,310 +713,392 @@ class MemberData(dict):
                             matches_filter = False
 
                 if not matches_filter:
+                    _LOGGER.debug('Message did not match filter')
                     continue
+
+                _LOGGER.debug('Message matched filter')
 
                 counter_value = await counter_cache.get(
                     class_name, counter_filter
                 )
 
                 if counter_value != current_counter_value:
-                    return counter_value
+                    data: dict[str, str | int | UUID] = {
+                        'cursor': '', 'origin': member_id,
+                        'query_id': query_id, 'counter': counter_value
+                    }
+
+                    _LOGGER.debug(
+                        f'Sending counter update for {class_name} '
+                        f'with value {counter_value}'
+                    )
+
+                    text: str = orjson.dumps(data).decode('utf-8')
+                    await websocket.send_text(text)
 
     @staticmethod
-    async def mutate_data(service_id, info: Info) -> None:
+    @TRACER.start_as_current_span('MemberData.mutate')
+    async def mutate(service_id, class_name: str, mutate_data: MutateModel,
+                     remote_addr: str, auth: RequestAuth,
+                     origin_id: UUID | None = None,
+                     origin_id_type: IdType | None = None) -> int:
         '''
-        Mutates the provided data
+        Mutates the provided data for a dict
 
-        :param service_id: Service ID for which the GraphQL API was called
-        :param info: the Strawberry 'info' variable
+        :param service_id: Service ID for which the Data API was called
+        :param class_name: the class for which to change the dict
+        :param mutate_data: the data to mutate
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :returns: number of items affected by the mutation
+        :raises: ValueError
         '''
 
-        if not info.path:
-            raise ValueError('Did not get value for path parameter')
+        _LOGGER.debug(f'Got Rest Data API mutation for object {class_name}')
 
-        if info.path.typename != 'Mutation':
-            raise ValueError(
-                f'Got graphql invocation for "{info.path.typename}"" '
-                f'instead of "Mutation"'
-            )
+        server: PodServer = config.server
+        account: Account = server.account
+        member = await account.get_membership(service_id)
 
-        _LOGGER.debug(
-            f'Got graphql mutation invocation for {info.path.typename} '
-            f'for object {info.path.key}'
-        )
-
-        server = config.server
-        member = server.account.memberships[service_id]
-
-        # By convention implemented in the Jinja template, the called mutate
-        # 'function' starts with the string 'mutate' so we to find out
-        # what mutation was invoked, we want what comes after it.
-        class_object = info.path.key[len('mutate_'):].lower()
+        if not origin_id:
+            origin_id = auth.id
+        if not origin_id_type:
+            origin_id_type = auth.id_type
 
         await member.data.add_log_entry(
-            info.context['request'], info.context['auth'], 'mutate',
-            'graphql', class_object,
+            remote_addr, auth, DataRequestType.MUTATE, 'REST Data', class_name
         )
 
-        # Gets the data included in the mutation
-        mutate_data: dict = info.selected_fields[0].arguments
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[class_name]
 
-        # Get the properties of the JSON Schema, we don't support
-        # nested objects just yet
-        schema = member.schema
-        schema_properties = schema.json_schema['jsonschema']['properties']
+        _LOGGER.debug(f'Mutating data for data_class {data_class.name}')
 
-        # TODO: refactor to use dataclasses
-        properties = schema_properties[class_object].get('properties', {})
-
-        data = {}
-        for key in properties.keys():
-            if properties[key]['type'] == 'object':
-                raise ValueError(
-                    'We do not support nested objects yet: %s', key
-                )
-            if properties[key]['type'] == 'array':
-                raise ValueError(
-                    'We do not support arrays yet'
-                )
-            if key.startswith('#'):
-                _LOGGER.debug(
-                    'Skipping meta-property %s in schema for service %s',
-                    key, member.service_id
-                )
-                continue
-
-            _LOGGER.debug(f'Setting key {key} for data object {class_object}')
-            data[key] = mutate_data[key]
-
-        _LOGGER.debug(
-            f'Saving {len(data or [])} bytes of data after mutation of '
-            f'{class_object}'
-        )
         data_store: DataStore = server.data_store
 
-        records_affected = await data_store.mutate(
-            member.member_id, class_object, data
+        records_affected: int = await data_store.mutate(
+            member.member_id, class_name, mutate_data.data.model_dump(),
+            '', origin_id=origin_id, origin_id_type=origin_id_type,
         )
 
         return records_affected
 
     @staticmethod
-    async def update_data(service_id: int, filters, info: Info) -> int:
-        '''
-        Updates a dict in an array
-
-        :param service_id: Service ID for which the GraphQL API was called
-        :param info: the Strawberry 'info' variable
-        '''
-
-        if not info.path:
-            raise ValueError('Did not get value for path parameter')
-
-        if info.path.typename != 'Mutation':
-            raise ValueError(
-                f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Mutation"'
-            )
-
-        if not filters:
-            raise ValueError(
-                'Must specify one or more filters to select content for '
-                'update'
-            )
-
-        _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
-            f'for object {info.path.key}'
-        )
-
-        # By convention implemented in the Jinja template, the called mutate
-        # 'function' starts with the string 'update_' so we to find out
-        # what mutation was invoked, we want what comes after it.
-        class_key = info.path.key[len('update_'):].lower()
-
-        server = config.server
-        member = server.account.memberships[service_id]
-
-        filter_set = DataFilterSet(filters)
-        await member.data.add_log_entry(
-            info.context['request'], info.context['auth'], 'update',
-            'graphql', class_key, filters=filter_set
-        )
-
-        update_data: dict = info.selected_fields[0].arguments
-
-        # 'filters' is a keyword that can't be used as the name of a field
-        # in a schema
-        update_data.pop('filters')
-
-        updates = {
-                key: value for key, value in update_data.items()
-                if value is not None
-            }
-
-        _LOGGER.debug(
-            f'Updating data for scalars {", ".join(updates.keys())} of'
-            f'object {class_key}'
-        )
-
-        data_store: DataStore = server.data_store
-        object_count = await data_store.mutate(
-            member.member_id, class_key, updates, filter_set
-        )
-
-        data_class: SchemaDataArray = member.schema.data_classes[class_key]
-        message = PubSubDataMutateMessage.create(object_count, data_class)
-        pubsub_class: PubSub = data_class.pubsub_class
-        await pubsub_class.send(message)
-
-        _LOGGER.debug(
-            f'Saving {len(updates or [])} fields of data after mutation of '
-            f'{class_key}'
-        )
-
-        return object_count
-
-    @staticmethod
-    async def append_data(service_id, class_name: str, info: Info,
-                          remote_member_id: UUID | None = None,
-                          depth: int = 0) -> int:
+    @TRACER.start_as_current_span('MemberData.append')
+    async def append(service_id, class_name: str,
+                     append_model: AppendModel,
+                     remote_addr: str, auth: RequestAuth,
+                     origin_id: UUID | None = None,
+                     origin_id_type: IdType | None = None,
+                     origin_class_name: str | None = None
+                     ) -> int:
         '''
         Appends the provided data
 
-        :param service_id: Service ID for which the GraphQL API was called
-        :param remote_member_id: member_id that submitted the request
-        :param info: the Strawberry 'info' variable
+        :param service_id: Service ID for which the Data API was called
+        :param class_name: the name of the data class to which to append
+        :param append_model: the data to append
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :param origin_member_id: the member id of the member from which the
+        data was sourced, used for cache-only data classes
+        :param origin_id: The ID from which the data originates. If not
+        specified, auth.id will be used
+        :param origin_id_type: the ID type from which the data originates. If
+        not specified, auth.id_type will be used
+        :param origin_class_name: the name of the class from which the data
+        was sourced, used for cache-only data classes
+        :returns: the number of objects appended
+        :raises: ValueError
         '''
 
-        if not info.path:
-            raise ValueError('Did not get value for path parameter')
-
-        if info.path.typename != 'Mutation':
-            raise ValueError(
-                f'Got graphql invocation for "{info.path.typename}"" '
-                f'instead of "Mutation"'
-            )
-
         _LOGGER.debug(
-            f'Got graphql mutation invocation for {info.path.typename} '
-            f'for object {info.path.key}'
+            f'Got REST Data API call to append to {class_name}'
         )
 
         server: PodServer = config.server
-        member: Member = server.account.memberships[service_id]
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+
+        member_id: UUID = member.member_id
+        remote_member_id: UUID | None = append_model.remote_member_id
+        depth: int = append_model.depth
+
+        if not origin_id:
+            origin_id = auth.id
+        if not origin_id_type:
+            origin_id_type = auth.id_type
 
         await member.data.add_log_entry(
-            info.context['request'], info.context['auth'], 'append',
-            'graphql', class_name, depth=depth,
-            remote_member_id=remote_member_id
+            remote_addr, auth, DataRequestType.APPEND, 'REST Data', class_name,
+            depth=depth, remote_member_id=remote_member_id
         )
 
         if remote_member_id and remote_member_id != member.member_id:
             _LOGGER.debug(
-               'Received append request with remote member ID: '
-               f'{remote_member_id}'
+                'Received append request with remote member ID: '
+                f'{remote_member_id} and depth {depth}'
             )
             if depth != 1:
                 raise ValueError(
                     'Must specify depth of 1 for appending to another '
                     'member'
                 )
-            request: Request = info.context['request']
-            query = await request.body()
-            proxy = GraphQlProxy(member)
-            all_data = await proxy.proxy_request(
-                class_name, query, depth, None, remote_member_id
+
+            proxy: DataProxy = DataProxy(member)
+            object_count: int = await proxy.proxy_request(
+                class_name, append_model, DataRequestType.APPEND,
+                auth.member_id
             )
-            return all_data
-        else:
-            _LOGGER.debug('Received append request with no remote member ID')
-
-            if depth != 0:
-                raise ValueError(
-                    'Must specify depth = 0 for appending locally'
-                )
-
-            # Gets the data included in the mutation
-            append_data: dict = info.selected_fields[0].arguments
-
-            _LOGGER.debug(f'Appended {len(append_data or [])} items of data')
-            data_store: DataStore = server.data_store
-            object_count = await data_store.append(
-                member.member_id, class_name, append_data
-            )
-
-            data_class: SchemaDataArray = \
-                member.schema.data_classes[class_name]
-
-            # Update the counter for the top-level array
-            table: Table = data_store.get_table(member.member_id, class_name)
-            counter_cache: CounterCache = member.counter_cache
-
-            if data_class.referenced_class:
-                keys: set[str] = MemberData._get_counter_key_permutations(
-                    data_class, append_data
-                )
-            else:
-                keys: set[str] = set([data_class.name])
-
-            for key in keys:
-                await counter_cache.update(key, 1, table, None)
-
-            message = PubSubDataAppendMessage.create(append_data, data_class)
-            pubsub_class: PubSub = data_class.pubsub_class
-            await pubsub_class.send(message)
-
             return object_count
 
+        _LOGGER.debug('Received append request with no remote member ID')
+
+        if depth != 0:
+            raise ValueError(
+                'Must specify depth = 0 for appending locally'
+            )
+
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[class_name]
+
+        _LOGGER.debug(f'Appending data for data_class {data_class.name}')
+
+        required_field_names: list[str] = \
+            await MemberData.get_required_field_names(
+                member.service_id, class_name
+            )
+
+        append_data: dict[str, object] = append_model.data.model_dump()
+        cursor = Table.get_cursor_hash(
+            append_data, member_id, required_field_names
+        )
+
+        if data_class.cache_only:
+            _LOGGER.debug(
+                f'Using cache for read-only class {data_class.name}'
+            )
+            cache_store: CacheStore = server.cache_store
+            object_count: int = await cache_store.append(
+                member_id, data_class, append_data, cursor=cursor,
+                origin_id=origin_id, origin_id_type=origin_id_type,
+                origin_class_name=origin_class_name
+            )
+            table: Table = cache_store.get_table(member_id, class_name)
+        else:
+            data_store: DataStore = server.data_store
+            object_count = await data_store.append(
+                member_id, data_class, append_data, cursor=cursor,
+                origin_id=origin_id, origin_id_type=origin_id_type,
+            )
+            table: Table = data_store.get_table(member_id, class_name)
+
+        if config.debug and config.disable_pubsub:
+            _LOGGER.debug('Not performing pubsub updates')
+            return object_count
+
+        # Update the counter for the top-level array
+        counter_cache: CounterCache = member.counter_cache
+
+        if data_class.referenced_class:
+            keys: set[str] = MemberData._get_counter_key_permutations(
+                data_class, append_data
+            )
+        else:
+            keys: set[str] = set([data_class.name])
+
+        for key in keys:
+            await counter_cache.update(key, 1, table, None)
+
+        message = PubSubDataAppendMessage.create(append_data, data_class)
+        pubsub_class: PubSub = data_class.pubsub_class
+        await pubsub_class.send(message)
+
+        return object_count
+
     @staticmethod
-    async def delete_array_data(service_id: int, class_name: str, info: Info,
-                                filters: DataFilterSet) -> dict:
+    @TRACER.start_as_current_span('MemberData.update')
+    async def update(service_id, class_name: str,
+                     update_model: UpdateModel,
+                     remote_addr: str, auth: RequestAuth,
+                     origin_id: UUID | None = None,
+                     origin_id_type: IdType | None = None,
+                     origin_class_name: str | None = None) -> int:
+        '''
+        Updates the filtered data
+
+        :param service_id: Service ID for which the Data API was called
+        :param class_name: the name of the data class to which to append
+        :param append_model: the data to append
+        :param remote_addr: host that originated the Data API query
+        :param auth: provides information on the authentication for the request
+        :param origin_id: The ID from which the data originates. If not
+        specified, auth.id will be used
+        :param origin_id_type: the ID type from which the data originates. If
+        not specified, auth.id_type will be used
+        :param origin_class_name: the name of the class from which the data
+        was sourced, used for cache-only data classes
+        :returns: the number of objects appended
+        :raises: ValueError
+        '''
+
+        if not update_model.filter:
+            raise ValueError(
+                'Must specify one or more filters to select content for '
+                'update'
+            )
+
+        _LOGGER.debug(
+            f'Got REST Data API call to update {class_name} '
+            f'from {auth.id_type}:{auth.id}'
+        )
+
+        server: PodServer = config.server
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+
+        member_id: UUID = member.member_id
+        remote_member_id: UUID | None = update_model.remote_member_id
+        depth: int = update_model.depth
+        data_filter: DataFilterSet = DataFilterSet(update_model.filter)
+
+        if not origin_id:
+            origin_id = auth.id
+        if not origin_id_type:
+            origin_id_type = auth.id_type
+
+        await member.data.add_log_entry(
+            remote_addr, auth, DataRequestType.UPDATE, 'REST Data', class_name,
+            depth=depth, remote_member_id=remote_member_id, filters=data_filter
+        )
+
+        if remote_member_id or depth:
+            raise ValueError('Remote updates are not supported yet')
+
+        _LOGGER.debug('Received update request with no remote member ID')
+
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[class_name]
+
+        _LOGGER.debug(f'Updating data for data_class {data_class.name}')
+
+        data: dict[str, object] = update_model.data.model_dump()
+
+        required_field_names: list[str] = \
+            await MemberData.get_required_field_names(
+                member.service_id, class_name
+            )
+
+        cursor = Table.get_cursor_hash(
+            data, member_id, required_field_names
+        )
+
+        update_data: dict[str, object] = {
+            key: value for key, value in data.items()
+            if value is not None
+        }
+
+        if data_class.cache_only:
+            _LOGGER.debug(
+                f'Using cache for read-only class {data_class.name}'
+            )
+            cache_store: CacheStore = server.cache_store
+            object_count: int = await cache_store.mutate(
+                member_id, data_class.name, update_data, cursor,
+                origin_id, origin_id_type, origin_class_name, data_filter
+            )
+        else:
+            data_store: DataStore = server.data_store
+            object_count = await data_store.mutate(
+                member_id, data_class.name, update_data, cursor,
+                origin_id, origin_id_type, data_filter
+            )
+
+        _LOGGER.debug(
+            f'Saving {len(update_data or [])} fields of data after mutation '
+            f'of {class_name}'
+        )
+
+        if config.debug and config.disable_pubsub:
+            _LOGGER.debug('Not performing pubsub updates')
+            return object_count
+
+        message = PubSubDataMutateMessage.create(object_count, data_class)
+        pubsub_class: PubSub = data_class.pubsub_class
+        await pubsub_class.send(message)
+
+        return object_count
+
+    @staticmethod
+    async def delete(service_id: int, class_name: str,
+                     delete_model: DeleteModel, remote_addr: str,
+                     auth: RequestAuth, ) -> dict:
         '''
         Deletes one or more objects from an array.
 
         This function is called from the Strawberry code generated by the
-        jsonschema-to-graphql converter
+        jsonschema-to-Python converter
+
+        :param service_id: the service being queried
+        :param class_name: the name of the data class from which to delete
+        :param remote_addr: host that originated the Data query
+        :param auth: provides information on the authentication for the request
+        :param filters: filters to select the data to be deleted
         '''
 
-        if not info.path:
-            raise ValueError('Did not get value for path parameter')
+        _LOGGER.debug(f'Got Rest Data Delete API invocation for {class_name}')
 
-        if info.path.typename != 'Mutation':
+        if not delete_model.filter:
             raise ValueError(
-                f'Got graphql invocation for "{info.path.typename}" '
-                f'instead of "Mutation"'
+                'Must specify one or more filter conditions to select content '
+                'for deletion'
             )
 
-        if not filters:
+        if delete_model.depth != 0 or delete_model.remote_member_id:
             raise ValueError(
-                'Must specify one or more filters to select content for '
-                'deletion'
+                'Deleting data on remote pods is not currently supported'
             )
 
-        _LOGGER.debug(
-            f'Got graphql invocation for {info.path.typename} '
-            f'for object {info.path.key}'
-        )
+        server: PodServer = config.server
+        account: Account = server.account
+        member: Member = await account.get_membership(service_id)
+        member_id: UUID = member.member_id
+        data_filter: DataFilterSet = DataFilterSet(delete_model.filter)
 
-        server = config.server
-        member = server.account.memberships[service_id]
-
-        filter_set = DataFilterSet(filters)
         await member.data.add_log_entry(
-            info.context['request'], info.context['auth'], 'delete',
-            'graphql', class_name=class_name, filters=filter_set
+            remote_addr, auth, DataRequestType.DELETE, 'REST Data', class_name,
+            depth=delete_model.depth, filters=data_filter,
+            remote_member_id=delete_model.remote_member_id
         )
 
-        data_store: DataStore = server.data_store
-        object_count: int = await data_store.delete(
-            member.member_id, class_name, filter_set
-        )
+        schema: Schema = member.schema
+        data_class: SchemaDataArray = schema.data_classes[class_name]
 
-        table: Table = data_store.get_table(member.member_id, class_name)
+        _LOGGER.debug(f'Deleting data for data_class {data_class.name}')
+
+        if data_class.cache_only:
+            _LOGGER.debug(
+                f'Using cache for read-only class {data_class.name}'
+            )
+            cache_store: CacheStore = server.cache_store
+            object_count: int = await cache_store.delete(
+                member_id, data_class.name, data_filter
+            )
+            table: Table = cache_store.get_table(member_id, class_name)
+        else:
+            data_store: DataStore = server.data_store
+            object_count = await data_store.delete(
+                member_id, data_class.name, data_filter
+            )
+            table: Table = data_store.get_table(member_id, class_name)
+
+        if config.debug and config.disable_pubsub:
+            _LOGGER.debug('Not performing pubsub updates')
+            return object_count
+
+        # Update the counter for the top-level array
         counter_cache: CounterCache = member.counter_cache
 
-        data_class: SchemaDataArray = member.schema.data_classes[class_name]
         referenced_class: SchemaDataObject = data_class.referenced_class
         if not referenced_class:
             # Edge case for when the top-level array stores scalars instead
@@ -893,7 +1107,7 @@ class MemberData(dict):
 
         # We need to see if any of the filters are for fields that are
         # counters and update the counters for those fields. This means that
-        # field-specific counters are only decremented if the delete GraphQL
+        # field-specific counters are only decremented if the delete Data API
         # command specified the counter field in the filter.
         # HACK: this means that counters will not be properly decremented if
         # a filter was not specified for a counter field. Because of this
@@ -903,10 +1117,18 @@ class MemberData(dict):
         for field in referenced_class.fields.values():
             if not field.is_counter:
                 continue
-            data_filter = getattr(filters, field.name, None)
+
+            data_filter = getattr(filter, field.name, None)
             filter_value = getattr(data_filter, 'eq', None)
             if data_filter and filter_value:
+                _LOGGER.debug(
+                    f'Filtering on counter field {field.name} with '
+                    f'value {filter_value}'
+                )
                 filter_data[field.name] = filter_value
+
+        if config.debug and config.disable_pubsub:
+            return object_count
 
         await MemberData._update_field_counters(
                 -1 * object_count, filter_data, data_class,
@@ -967,7 +1189,7 @@ class MemberData(dict):
 
         subsets = set()
         for index in range(1, len(counter_fields) + 1):
-            sets = itertools.combinations(counter_fields, index)
+            sets = iter_combinations(counter_fields, index)
             for key in sets:
                 subsets.add(key)
 

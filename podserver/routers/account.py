@@ -8,19 +8,26 @@
 
 
 import os
-import logging
 
-from fastapi import APIRouter, Request
+from logging import getLogger
+from byoda.util.logger import Logger
 
-from byoda.datatypes import StorageType, CloudType
+from fastapi import APIRouter
+from fastapi import Request
+
+from byoda.datamodel.account import Account
+from byoda.datatypes import StorageType
+from byoda.datatypes import CloudType
 
 from byoda.models import AccountResponseModel
+
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
 from ..dependencies.pod_api_request_auth import AuthDep
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/pod', dependencies=[])
 
@@ -33,8 +40,11 @@ async def get_account(request: Request, auth: AuthDep):
     client cert.
     '''
 
+    server: PodServer = config.server
+    account: Account = server.account
+
     _LOGGER.debug(f'GET Account API called from {request.client.host}')
-    await auth.authenticate()
+    await auth.authenticate(account)
 
     # Authorization: handled by PodApiRequestAuth, which checks account
     # cert / JWT was used and it matches the account ID of the pod

@@ -1,6 +1,6 @@
 '''
 Class for data classes defined in the JSON Schema used
-for generating the GraphQL Strawberry code based on Jinja2
+for generating the Data API code based on Jinja2
 templates
 
 
@@ -9,22 +9,31 @@ templates
 :license    : GPLv3
 '''
 
+# flake8: noqa: E221
+
 import orjson
-import logging
+import jinja2
+
 from enum import Enum
 from copy import copy
 from uuid import UUID
-from urllib.parse import urlparse, ParseResult
-from datetime import datetime, timezone
+from hashlib import sha1
 from typing import TypeVar
 
+from datetime import datetime
+from datetime import timezone
+from logging import getLogger
+
+from urllib.parse import urlparse
+from urllib.parse import ParseResult
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
 from byoda.datatypes import MARKER_ACCESS_CONTROL
-
 from byoda.storage.pubsub import PubSub
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -32,29 +41,22 @@ from byoda.exceptions import ByodaDataClassReferenceNotFound
 
 from .dataaccessright import DataAccessRight
 
-
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 RequestAuth = TypeVar('RequestAuth')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
 
-# We create a number of standard APIs for each class to manipulate data.
-class GraphQlAPI(Enum):
-    # flake8: noqa=E221
-    MUTATE    = 'mutate'
-    APPEND    = 'append'
-    SEARCH    = 'search'
-    DELETE    = 'delete'
 
 class DataProperty(Enum):
     # flask8: noqa=E221
     PRIMARY_KEY = 'primary_key'
     COUNTER     = 'counter'
     INDEX       = 'index'
+    CACHE_ONLY  = 'cache_only'
 
 # Translation from jsondata data type to Python data type in the Jinja template
-PYTHON_SCALAR_TYPE_MAP = {
+PYTHON_SCALAR_TYPE_MAP: dict[DataType, str] = {
     DataType.STRING: 'str',
     DataType.INTEGER: 'int',
     DataType.NUMBER: 'float',
@@ -63,37 +65,35 @@ PYTHON_SCALAR_TYPE_MAP = {
     DataType.UUID: 'UUID',
 }
 
-GRAPHQL_SCALAR_TYPE_MAP = {
-    DataType.STRING: 'String',
-    DataType.INTEGER: 'Int',
-    DataType.NUMBER: 'Float',
-    DataType.BOOLEAN: 'Boolean',
-    DataType.DATETIME: 'DateTime',
-    DataType.UUID: 'UUID',
+MARKER_PROPERTIES: str = '#properties'
+
+SECONDS_PER_UNIT: dict[str, int] = {
+    's': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800
 }
 
-MARKER_PROPERTIES = '#properties'
 
 class SchemaDataItem:
     '''
     Class used to model the 'data classes' defined in the JSON Schema.
     The class is used in the Jinja2 templates to generate python3
-    code leveraging the Strawberry GraphQL module.
+    code leveraging the Data API module.
 
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
     __slots__ = [
         'name', 'schema_data', 'description', 'item_id', 'schema_id',
-        'service_id', 'schema_url', 'enabled_apis', 'defined_class',
+        'service_id', 'schema_url', 'defined_class',
         'fields', 'properties', 'is_index', 'is_counter', 'type',
         'referenced_class', 'referenced_class_field', 'primary_key',
-        'is_primary_key', 'required', 'python_type', 'graphql_type',
+        'is_primary_key', 'required', 'python_type',
         'storage_name', 'storage_type', 'pubsub_class', 'access_rights',
-        'child_has_accessrights'
+        'child_has_accessrights', 'cache_only', 'expires_after', 'version',
+        'is_scalar'
     ]
 
-    def __init__(self, class_name: str, schema_data: dict[str:object], schema: Schema) -> None:
+    def __init__(self, class_name: str, schema_data: dict[str:object],
+                 schema: Schema) -> None:
         '''
         Constructor
 
@@ -108,19 +108,48 @@ class SchemaDataItem:
         self.item_id: str | None = schema_data.get('$id')
         self.schema_id: str = schema.schema_id
         self.service_id: int = schema.service_id
+        self.version: int = schema.version
         self.schema_url: ParseResult = urlparse(schema.schema_id)
-        self.enabled_apis: set = set()
 
         # Is this a class referenced by other classes
         self.defined_class: bool | None = None
+
+        # Is this a simple data type, ie. not an object or array?
+        self.is_scalar: bool = True
 
         self.fields: list[SchemaDataItem] | None = None
 
         self.properties: set(DataProperty) = set()
 
-        # Properties for the class, currently only used by SchemaDataScalar
+        # Should data for this class automatically expire and be purged?
+        self.cache_only: bool = False
+
+        # Time in seconds when data for this class should be purged
+        self.expires_after: int | None = None
+
+        # Properties for the class
+        value: int | None = None
         for property in schema_data.get(MARKER_PROPERTIES, []):
-            self.properties.add(DataProperty(property))
+            if isinstance(property, list):
+                property, value = property
+
+            property_instance = DataProperty(property)
+            self.properties.add(property_instance)
+
+            if property_instance == DataProperty.CACHE_ONLY:
+                if value is None:
+                    value = '1w'
+                elif value[-1] not in 'shdw':
+                    try:
+                        value: int = int(value)
+                    except ValueError as exc:
+                        raise ValueError(
+                            f'Invalid value for {property}: {value}: {exc}'
+                        )
+                    value = f'{value}s'
+
+                self.expires_after: int = \
+                    int(value[:-1]) * SECONDS_PER_UNIT[value[-1]]
 
         # Create index on this item in an array of SchemaDataObject
         self.is_index: bool = DataProperty.INDEX in self.properties
@@ -128,6 +157,11 @@ class SchemaDataItem:
         # Keep counter per unique value of the item in an SchemaDataArray
         # Setting this will also cause the item to be indexed
         self.is_counter: bool = DataProperty.COUNTER in self.properties
+
+        # Cache-only is used for data for data classes that should
+        # not be persisted but cached instead. Typically, this is
+        # data downloaded from another pod and cached in our own pod
+        self.cache_only: bool = DataProperty.CACHE_ONLY in self.properties
 
         self.type: DataType = DataType(schema_data['type'])
 
@@ -150,9 +184,7 @@ class SchemaDataItem:
         # fields with property primary_key are also required
         self.required: bool = self.is_primary_key
 
-        self.python_type, self.graphql_type = self.get_types(
-            class_name, self.schema_data
-        )
+        self.python_type = self.get_types(class_name, self.schema_data)
 
         # The class for storing data for the service sets the values
         # for storage_name and storage_type for child data items
@@ -173,15 +205,13 @@ class SchemaDataItem:
 
         self.parse_access_controls()
 
-    def get_types(self, data_name: str, schema_data: dict) -> tuple[str, str]:
+    def get_types(self, data_name: str, schema_data: dict) -> str:
         '''
         Returns translation of the jsonschema -> python typing string
-        and of the jsonschema -> graphql typing string
 
         :param name: name of the data element
         :param subschema: json-schema blurb for the data element
-        :returns: the Python typing value and the GraphQL typing value for
-        the data element
+        :returns: the Python typing value for the data element
         :raises: ValueError, KeyError
         '''
 
@@ -203,16 +233,14 @@ class SchemaDataItem:
                 if format and format.lower() in ('date-time', 'uuid'):
                     format_datatype = DataType(format)
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[format_datatype]
-                    graphql_type: str = GRAPHQL_SCALAR_TYPE_MAP[format_datatype]
                 else:
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[jsonschema_type]
-                    graphql_type: str = GRAPHQL_SCALAR_TYPE_MAP[jsonschema_type]
             except KeyError:
                 raise ValueError(
-                    f'No GraphQL data type mapping for {jsonschema_type}'
+                    f'No Python data type mapping for {jsonschema_type}'
                 )
 
-            return python_type, graphql_type
+            return python_type
         elif jsonschema_type == DataType.ARRAY:
             items = schema_data.get('items')
             if not items:
@@ -221,9 +249,8 @@ class SchemaDataItem:
                 )
 
             if 'type' in items:
-                python_type = f'List[{PYTHON_SCALAR_TYPE_MAP[DataType(items["type"])]}]'
-                graphql_type = f'[{GRAPHQL_SCALAR_TYPE_MAP[DataType(items["type"])]}!]'
-                return python_type, graphql_type
+                python_type = f'list[{PYTHON_SCALAR_TYPE_MAP[DataType(items["type"])]}]'
+                return python_type
             elif '$ref' in items:
                 if not items['$ref'].startswith('https') and items['$ref'].count('/') != 2:
                     raise ValueError(
@@ -231,9 +258,8 @@ class SchemaDataItem:
                         f' of "/schema/{data_name}"'
                     )
                 class_reference = items['$ref'].split('/')[-1]
-                python_type = f'List[{class_reference}]'
-                graphql_type = f'[{class_reference}!]'
-                return python_type, graphql_type
+                python_type = f'list[{class_reference}]'
+                return python_type
         elif jsonschema_type == DataType.OBJECT:
             return None, None
 
@@ -287,12 +313,19 @@ class SchemaDataItem:
 
         return value
 
+    def get_pydantic_model(self, environment: jinja2.Environment) -> str:
+        raise NotImplementedError
+
 
     @staticmethod
     def _parse_reference(uri: str) -> str:
         '''
         Parses, reviews and extracts the referenced class from the url
         '''
+
+        # Remove leading '#' if present
+        if uri.startswith('#/'):
+            uri = uri[1:]
 
         url = urlparse(uri)
         if not url.path.startswith('/schemas/'):
@@ -334,23 +367,6 @@ class SchemaDataItem:
             )
             self.access_rights[entity_type] = access_rights
 
-            permitted_actions = [
-                 access_right.data_operation
-                 for access_right in access_rights
-            ]
-
-            for data_operation in permitted_actions:
-                if data_operation in (
-                        DataOperationType.CREATE,
-                        DataOperationType.UPDATE):
-                    self.enabled_apis.add(GraphQlAPI.MUTATE)
-                if data_operation == DataOperationType.APPEND:
-                    self.enabled_apis.add(GraphQlAPI.APPEND)
-                if data_operation == DataOperationType.DELETE:
-                    self.enabled_apis.add(GraphQlAPI.DELETE)
-                if data_operation == DataOperationType.SEARCH:
-                    self.enabled_apis.add(GraphQlAPI.SEARCH)
-
     async def authorize_access(self, operation: DataOperationType,
                                auth: RequestAuth, service_id: int, depth: int
                                ) -> bool | None:
@@ -367,8 +383,8 @@ class SchemaDataItem:
         _LOGGER.debug(f'Checking authorization for operation {operation}')
         if auth.is_authenticated and service_id != auth.service_id:
             _LOGGER.debug(
-                f'GraphQL API for service ID {service_id} called with credentials '
-                f'for service: {auth.service_id}'
+                f'Data API for service ID {service_id} called with '
+                f'credentials for service: {auth.service_id}'
             )
             return False
 
@@ -436,7 +452,8 @@ class SchemaDataScalar(SchemaDataItem):
             f'format {self.format} and python type {self.python_type}'
         )
 
-    def normalize(self, value: str | int | float) -> str | int | float:
+    def normalize(self, value: str | int | float | datetime
+                  ) -> str | int | float | UUID | datetime:
         '''
         Normalizes the value to the correct data type for the item
         '''
@@ -460,6 +477,7 @@ class SchemaDataScalar(SchemaDataItem):
 
         return result
 
+
 class SchemaDataObject(SchemaDataItem):
     __slots__ = ['required_fields']
 
@@ -468,15 +486,16 @@ class SchemaDataObject(SchemaDataItem):
         super().__init__(class_name, schema_data, schema)
 
         # 'Defined' classes are objects under the '$defs' object
-        # of the JSON Schema. We don't create GraphQL mutations for
+        # of the JSON Schema. We don't create Data API mutation methods for
         # named classes. We require all these 'defined' classes to
         # be defined locally in the schema and their id
         # thus starts with '/schemas/' instead of 'https://'. Furthermore,
         # we require that there no further '/'s in the id
 
         self.fields: dict[str, SchemaDataItem] = {}
-        self.required_fields: list[str] = schema_data.get('required', [])
+        self.required_fields: set[str] = schema_data.get('required', [])
         self.defined_class: bool = False
+        self.is_scalar = False
 
         if DataProperty.COUNTER in self.properties:
             raise ValueError('Counters are not supported for objects')
@@ -523,23 +542,45 @@ class SchemaDataObject(SchemaDataItem):
 
                 _LOGGER.debug(f'Created object class {class_name}')
 
-    def normalize(self, value: dict) -> dict:
+    def normalize(self, value: dict) -> dict[str, object]:
         '''
         Normalizes the values in a dict
         '''
 
         data = copy(value)
         for field in data:
-            if field == 'remote_member_id':
-                if isinstance(data[field], str):
-                    # special handling for 'remote_member_id', which is a
-                    # parameter used for remote appends
-                    data[field] = UUID(data[field])
-            elif field != 'depth':
-                data_class = self.fields[field]
-                data[field] = data_class.normalize(value[field])
+            data_class = self.fields.get(field)
+            if not data_class:
+                # This can happen now that we store objects that have
+                # an array of other objects as JSON strings
+                _LOGGER.debug(f'Skipping unknown field {field}')
+                continue
+
+            data[field] = data_class.normalize(value[field])
 
         return data
+
+    def get_cursor_hash(self, data: dict, origin_id: UUID | str | None) -> str:
+        '''
+        Helper function to generate cursors for objects based on the
+        stringified values of the required fields of object
+
+        :param data: the data to generate the cursor for
+        :param origin_id: the origin ID to include in the cursor
+        :returns: the cursor
+        '''
+
+        hash_gen = sha1()
+        for field_name in self.required_fields:
+            value: bytes = str(data.get(field_name, '')).encode('utf-8')
+            hash_gen.update(value)
+
+        if origin_id:
+            hash_gen.update(str(origin_id).encode('utf-8'))
+
+        cursor = hash_gen.hexdigest()
+
+        return cursor[0:8]
 
     async def authorize_access(self, operation: DataOperationType,
                                auth: RequestAuth, service_id: int, depth: int
@@ -577,6 +618,31 @@ class SchemaDataObject(SchemaDataItem):
         )
         return access_allowed
 
+    def get_pydantic_data_model(self, environment: jinja2.Environment) -> str:
+        '''
+        Renders a Jinja2 template to generate a class deriving
+        from the Pydantic v2 BaseModel
+        '''
+
+        template = environment.get_template('pydantic-model-object.py.jinja')
+
+        code: str = template.render(data_class=self)
+
+        return code
+
+    def get_pydantic_request_model(self, environment: jinja2.Environment) -> str:
+        '''
+        Renders a Jinja2 template to generate a class deriving
+        from the Pydantic v2 BaseModel for query, append, mutate, update or
+        delete
+        '''
+
+        template_name = f'pydantic-model-rest-apis.py.jinja'
+        template = environment.get_template(template_name)
+
+        code: str = template.render(data_class=self)
+
+        return code
 
 class SchemaDataArray(SchemaDataItem):
     __slots__ = ['items']
@@ -597,6 +663,7 @@ class SchemaDataArray(SchemaDataItem):
         super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
+        self.is_scalar = False
 
         if DataProperty.COUNTER in self.properties:
             raise ValueError('Counters are not supported for arrays')
@@ -627,7 +694,6 @@ class SchemaDataArray(SchemaDataItem):
                 )
 
             self.referenced_class = classes[referenced_class]
-            self.referenced_class_field = schema_data.get('#reference_field')
 
             # The Pub/Sub for communicating changes to data using this class
             # instance. We only track changes for arrays at the top-level
@@ -646,31 +712,46 @@ class SchemaDataArray(SchemaDataItem):
             f'{self.referenced_class}'
         )
 
-    def normalize(self, value: list) -> list:
+    def normalize(self, value: str | bytes) -> list:
         '''
         Normalizes the data structure in the array to the types defined in
         the service contract
         '''
 
-        data = copy(value)
+        if not self.referenced_class:
+            raise ValueError(
+                f'Class {self.name} does not reference a class'
+            )
 
-        result = []
-        if self.referenced_class and type(self.referenced_class) == SchemaDataObject:
-            # We need to normalize an array of objects
-            items = data
+        if type(value) in (str, bytes) and value:
+            items = orjson.loads(value)
         else:
-            # We need to normalize an array of scalars, which are represented
-            # in storage as a string of JSON
-            if type(value) in (str, bytes):
-                items = orjson.loads(value or '[]')
-            else:
-                items = value
+            items = value or []
 
-        for item in items or []:
-            if self.referenced_class:
-                normalized_item = self.referenced_class.normalize(item)
+        result: dict[str, bytes | int | float | UUID | bool] = []
+        for item in items:
+            normalized_item = self.referenced_class.normalize(item)
             result.append(normalized_item)
+
         return result
+
+    def get_cursor_hash(self, data: dict[str, object], origin_member_id: UUID
+                        ) -> str:
+        '''
+        Creates a hash of the required fields in the data that. This cursor
+        is used for pagination of data in the array
+
+        :param data: the data to create the cursor for
+        :param origin_member_id: the member ID of the member that stores the
+        data
+        :returns: the cursor hash
+        :raises: ValueError
+        '''
+
+        if not self.referenced_class:
+            raise ValueError('This class does not reference objects')
+
+        return self.referenced_class.get_cursor_hash(data, origin_member_id)
 
     async def authorize_access(self, operation: DataOperationType,
                                auth: RequestAuth, service_id: int, depth: int
@@ -715,3 +796,29 @@ class SchemaDataArray(SchemaDataItem):
         )
 
         return access_allowed
+
+    def get_pydantic_data_model(self, environment: jinja2.Environment) -> str:
+        '''
+        Renders a Jinja2 template to generate a class deriving
+        from the Pydantic v2 BaseModel
+        '''
+
+        template = environment.get_template('pydantic-model-array.py.jinja')
+
+        code: str = template.render(data_class=self)
+
+        return code
+
+    def get_pydantic_request_model(self, environment: jinja2.Environment) -> str:
+        '''
+        Renders a Jinja2 template to generate a class deriving
+        from the Pydantic v2 BaseModel for query, append, mutate, update or
+        delete
+        '''
+
+        template_name = f'pydantic-model-rest-apis.py.jinja'
+        template = environment.get_template(template_name)
+
+        code: str = template.render(data_class=self)
+
+        return code

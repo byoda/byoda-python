@@ -19,8 +19,11 @@ TWITTER_KEY_SECRET
 '''
 
 import os
-import logging
-from datetime import datetime, timezone
+
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -32,19 +35,19 @@ from tweepy.tweet import Tweet
 from tweepy.media import Media
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
-ENVIRON_TWITTER_API_KEY = 'TWITTER_API_KEY'
-ENVIRON_TWITTER_KEY_SECRET = 'TWITTER_KEY_SECRET'
-ENVIRON_TWITTER_USERNAME = 'TWITTER_USERNAME'
+ENVIRON_TWITTER_API_KEY: str = 'TWITTER_API_KEY'
+ENVIRON_TWITTER_KEY_SECRET: str = 'TWITTER_KEY_SECRET'
+ENVIRON_TWITTER_USERNAME: str = 'TWITTER_USERNAME'
 
-USER_FIELDS = [
+USER_FIELDS: list[str] = [
     'created_at', 'description', 'entities', 'id', 'location',
     'name', 'pinned_tweet_id', 'profile_image_url', 'protected',
     'public_metrics', 'url', 'username', 'verified', 'withheld',
 ]
 
-USER_FIELDS_MAPPINGS = {
+USER_FIELDS_MAPPINGS: list[str] = {
     'twitter_id': 'id',
     'created_timestamp': None,      # Field requires conversion to a datetime
     'url': None,
@@ -63,12 +66,12 @@ USER_FIELDS_MAPPINGS = {
 }
 
 
-MEDIA_FIELDS = [
+MEDIA_FIELDS: list[str] = [
     'media_key', 'type', 'url', 'duration_ms', 'height', 'width',
     'preview_image_url', 'public_metrics', 'alt_text', 'variants',
 ]
 
-MEDIA_FIELDS_MAPPINGS = {
+MEDIA_FIELDS_MAPPINGS: list[str] = {
     'media_key': 'media_key',
     'type': 'media_type',
     'height': 'height',
@@ -79,14 +82,14 @@ MEDIA_FIELDS_MAPPINGS = {
 
 # 'organic_metrics' and 'promoted_metrics' are not included in the
 # results because authorization is denied
-TWEET_FIELDS = [
+TWEET_FIELDS: list[str] = [
     'id', 'text', 'created_at', 'attachments', 'author_id',
     'context_annotations', 'conversation_id', 'entities', 'geo',
     'in_reply_to_user_id', 'lang', 'possibly_sensitive', 'public_metrics',
     'referenced_tweets', 'reply_settings', 'source', 'withheld',
 ]
 
-TWEET_FIELDS_MAPPINS = {
+TWEET_FIELDS_MAPPINS: list[str] = {
     'created_timestamp': None,      # Field requires conversion to a datetime
     'asset_id': 'id',
     'locale': 'lang',

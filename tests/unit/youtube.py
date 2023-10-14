@@ -25,7 +25,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(
             filename='tests/collateral/yt-import.html'
         )
-        self.assertGreater(len(yt.channels['besmart'].videos), 100)
+        self.assertGreater(len(yt.channels['Dathes'].videos), 100)
 
     async def test_import_videos(self):
         with open(API_KEY_FILE, 'r') as file_desc:

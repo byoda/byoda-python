@@ -76,6 +76,14 @@
     },
     "service_id": 12345678,
     "cors_origins": ["dummy.url"],
+    "max_query_depth": 5,
     "signatures": {},
-    "version": 1
+    "version": 1,
+    "listen_relations": [
+        {
+            "class_name": "public_assets",
+            "relations": ["follow", "subscribe"],
+            "destination_class": "incoming_assets"
+        }
+    ]
 }

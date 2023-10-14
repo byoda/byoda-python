@@ -56,12 +56,22 @@ beautifulsoup4 = "*"
 google-api-python-client = "*"
 yt-dlp = "==2023.06.22"
 pymerkle = "*"
-strawberry-graphql = "*"
 pyyaml = "*"
 pydantic = "*"
-httpx = "*"
-gql = {extras = ["httpx", "websockets"], version = "*"}
 aiohttp = {extras = ["aiodns"], version = "*"}
+starlette = "*"
+httpx = {extras = ["http2"], version = "*"}
+opentelemetry-api = "*"
+opentelemetry-sdk = "*"
+opentelemetry-exporter-prometheus = "*"
+opentelemetry-instrumentation-sqlite3 = "*"
+opentelemetry-instrumentation-httpx = "*"
+opentelemetry-instrumentation-fastapi = "*"
+prometheus-client = "*"
+opentelemetry-exporter-otlp-proto-grpc = "*"
+datamodel-code-generator = "*"
+deprecated = "*"
+anyio = "*"
 
 [dev-packages]
 flake8 = "*"

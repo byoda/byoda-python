@@ -7,9 +7,13 @@
 '''
 
 
-import logging
+from logging import getLogger
+from byoda.util.logger import Logger
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import Request
+from fastapi import HTTPException
 
 from cryptography import x509
 
@@ -34,7 +38,7 @@ from byoda import config
 from ..dependencies.accountrequest_auth import AccountRequestAuthFast
 from ..dependencies.accountrequest_auth import AccountRequestOptionalAuthFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/network', dependencies=[])
 

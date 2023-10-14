@@ -7,10 +7,13 @@ storing data about their members
 :license    : GPLv3
 '''
 
-import logging
 
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
+from datetime import timedelta
 
 import orjson
 
@@ -20,7 +23,7 @@ from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 DEFAULT_CACHE_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 

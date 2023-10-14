@@ -6,18 +6,18 @@ Schema for requesting claims
 :license    : GPLv3
 '''
 
-import logging
-
 from uuid import UUID
-from datetime import datetime
 from typing import Optional
+from datetime import datetime
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class AssetClaimDataModel(BaseModel):

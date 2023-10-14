@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
         root_dir=app_config['dirserver']['root_dir']
     )
 
-    config.server = server
+    config.server: DirectoryServer = server
 
     await network.load_network_secrets()
 
@@ -75,6 +75,10 @@ async def lifespan(app: FastAPI):
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
 
+    config.trace_server = app_config['application'].get(
+        'trace_server', config.trace_server
+    )
+
     _LOGGER.debug('Lifespan startup complete')
 
     yield
@@ -84,7 +88,7 @@ async def lifespan(app: FastAPI):
 app = setup_api(
     'BYODA directory server', 'The directory server for a BYODA network',
     'v0.0.1', [AccountRouter, ServiceRouter, MemberRouter, StatusRouter],
-    lifespan=lifespan
+    lifespan=lifespan, trace_server=config.trace_server,
 )
 
 config.app = app

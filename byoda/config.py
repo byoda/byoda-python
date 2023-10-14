@@ -15,36 +15,44 @@ import requests
 
 from ssl import SSLContext
 
+from fastapi import FastAPI
+
+from byoda.servers.server import Server
+
 
 DEFAULT_NETWORK = 'byoda.net'
 
 HttpSession = TypeVar('HttpSession')
 
 # Enable various debugging options in the pod, including
-# whether the GraphQL web page should be enabled.
-debug = False
+# whether the OpenAPI web pages should be enabled.
+debug: bool = False
 
 # Used by logging to add extra data to each log record,
 # typically using the byoda.util.logger.flask_log_fields
 # decorator
 # After importing config, you can also set, for example,
 # config.extra_log_data['remote_addr'] = client_ip
-extra_log_data = {}
+extra_log_data: dict[str, str] = {}
 
 # The configuration of the server, its peers and the networks
 # it is supporting
-server = None
+server: Server = None
 
-# The FastAPI app,
-app = None
+# The FastAPI app, used to add routes to REST Data APIs
+# while the server is running
+app: FastAPI = None
 
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
-request = requests.Session()
+request: requests.Session = requests.Session()
 
 # Test cases set the value to True. Code may evaluate whether
 # it is running as part of a test case to accept function parameters
 test_case: bool = False
+
+# Disables PubSub for testing purposes
+disable_pubsub: bool = False
 
 # Pool of HTTPX Async Client sessions, used by pods and service- and directory
 # server:
@@ -56,3 +64,6 @@ sync_client_pools: dict[str, requests.Session] = {}
 # This cache avoids having to load cert/key for each request that uses
 # client SSL auth
 ssl_contexts: dict[str, SSLContext] = {}
+
+# Setting for OpenTelemetry tracing
+trace_server: str = '127.0.0.1'

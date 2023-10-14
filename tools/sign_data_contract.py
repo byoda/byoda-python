@@ -16,8 +16,9 @@ import argparse
 
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
+from byoda.datamodel.schema import Schema
 from byoda.datamodel.service import RegistrationStatus
 
 from byoda.datastore.document_store import DocumentStoreType
@@ -95,7 +96,7 @@ async def main(argv):
                 'Please use "create_service_secrets.py" script first'
             )
 
-    schema = service.schema.json_schema
+    schema: dict[str, object] = service.schema.json_schema
 
     if 'signatures' not in schema:
         schema['signatures'] = {}
@@ -158,19 +159,22 @@ def create_service_signature(service: Service):
     Creates the signature of the service for the schema
     '''
 
-    schema = service.schema.json_schema
+    schema: Schema = service.schema
+    json_schema: dict[str, object] = schema.json_schema
 
     if SignatureType.SERVICE.value in service.schema.json_schema['signatures']:
         raise ValueError('Schema has already been signed by the service')
 
-    if (service.schema.json_schema['signatures'].get(
+    if (json_schema['signatures'].get(
             SignatureType.NETWORK.value)):
         raise ValueError('Schema has already been signed by the network')
 
-    service.schema.create_signature(
+    schema.create_signature(
         service.data_secret, SignatureType.SERVICE
     )
-    _LOGGER.debug(f'Added service signature {schema["signatures"]["service"]}')
+    _LOGGER.debug(
+        f'Added service signature {json_schema["signatures"]["service"]}'
+    )
 
 
 async def create_network_signature(service: Service, args, password: str

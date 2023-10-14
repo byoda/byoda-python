@@ -29,11 +29,14 @@ from aioschedule import every, run_pending
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
+from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import CloudType
 
-from byoda.datastore.document_store import DocumentStoreType
+from byoda.datastore.data_store import DataStore
 from byoda.datastore.data_store import DataStoreType
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.data_import.youtube import YouTube
 from byoda.data_import.twitter import Twitter
@@ -55,20 +58,33 @@ from podworker.twitter import twitter_update_task
 from podworker.youtube import youtube_update_task
 
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
-LOGFILE = '/var/www/wwwroot/logs/worker.log'
-ADDRESSBOOK_ID = 4294929430
+LOGFILE: str = '/var/www/wwwroot/logs/worker.log'
+ADDRESSBOOK_ID: int = 4294929430
+YOUTUBE_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
+TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 
 
 async def main(argv):
-    # Remaining environment variables used:
-    data = get_environment_vars()
+    youtube_import_service_id: int = YOUTUBE_IMPORT_SERVICE_ID
+    twitter_import_service_id: int = TWITTER_IMPORT_SERVICE_ID
+
+    data: dict[str, str] = get_environment_vars()
+
+    debug = data.get('debug', False)
+    if debug and str(debug).lower() in ('true', 'debug', '1'):
+        config.debug = True
+        # Make our files readable by everyone, so we can
+        # use tools like call_data_api.py to debug the server
+        os.umask(0o0000)
+    else:
+        os.umask(0x0077)
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        argv[0], json_out=False, debug=data.get('DEBUG', False),
-        loglevel=data.get('loglevel', 'INFO'), logfile=LOGFILE
+        argv[0], json_out=config.debug, debug=config.debug,
+        loglevel=data.get('worker_loglevel', 'WARNING'), logfile=LOGFILE
     )
     _LOGGER.debug(
         f'Starting podworker {data["bootstrap"]}: '
@@ -76,11 +92,11 @@ async def main(argv):
     )
 
     try:
-        config.server = PodServer(
+        config.server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
             bootstrapping=bool(data.get('bootstrap'))
         )
-        server = config.server
+        server: PodServer = config.server
 
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE, server.cloud,
@@ -90,7 +106,7 @@ async def main(argv):
             root_dir=data['root_dir']
         )
 
-        network = Network(data, data)
+        network: Network = Network(data, data)
         await network.load_network_secrets()
 
         server.network = network
@@ -109,38 +125,70 @@ async def main(argv):
         _LOGGER.exception('Exception during startup')
         raise
 
-    await run_daemon_tasks(server)
+    await run_daemon_tasks(
+        server, youtube_import_service_id, twitter_import_service_id
+    )
 
 
-async def run_startup_tasks(server: PodServer):
+async def run_startup_tasks(server: PodServer, data_store: DataStore,
+                            youtube_import_service_id: int,
+                            twitter_import_service_id: int) -> None:
     _LOGGER.debug('Running podworker startup tasks')
 
     account: Account = server.account
     server.twitter_client = None
 
-    try:
-        await server.account.load_memberships()
-        member = account.memberships.get(ADDRESSBOOK_ID)
-        if member:
+    youtube_member: Member = await account.get_membership(
+        youtube_import_service_id
+    )
+    twitter_member: Member = await account.get_membership(
+        twitter_import_service_id
+    )
+
+    if youtube_member:
+        try:
+            _LOGGER.debug('Running startup tasks for membership of YouTube')
+            schema: Schema = youtube_member.schema
+            schema.get_data_classes()
+            await data_store.setup_member_db(
+                youtube_member.member_id, youtube_import_service_id,
+                youtube_member.schema
+            )
+        except Exception as exc:
+            _LOGGER.exception(f'Exception during startup: {exc}')
+            raise
+    else:
+        _LOGGER.debug(
+            'Did not find membership for import of YouTube videos'
+        )
+
+    if twitter_member:
+        try:
+            _LOGGER.debug('Found membership for Twitter import')
             if Twitter.twitter_integration_enabled():
                 _LOGGER.info('Enabling Twitter integration')
                 server.twitter_client = Twitter.client()
                 user = server.twitter_client.get_user()
                 server.twitter_client.extract_user_data(user)
 
-                fetch_tweets(server.twitter_client, ADDRESSBOOK_ID)
-        else:
-            _LOGGER.debug('Did not find membership of address book')
+                fetch_tweets(
+                    server.twitter_client, twitter_import_service_id
+                )
+        except Exception as exc:
+            _LOGGER.exception(f'Exception during startup: {exc}')
+            raise
+    else:
+        _LOGGER.debug('Did not find membership of address book')
 
-    except Exception:
-        _LOGGER.exception('Exception during startup')
-        raise
 
-
-async def run_daemon_tasks(server: PodServer):
+async def run_daemon_tasks(server: PodServer, youtube_import_service_id: int,
+                           twitter_import_service_id: int) -> None:
     '''
     Run the tasks defined for the podworker
     '''
+
+    server: PodServer = config.server
+    data_store: DataStore = server.data_store
 
     # This is a separate function to work-around an issue with running
     # aioschedule in a daemon context
@@ -166,9 +214,14 @@ async def run_daemon_tasks(server: PodServer):
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )
-        every(int(interval)).minutes.do(youtube_update_task, server)
+        every(int(interval)).minutes.do(
+            youtube_update_task, server, youtube_import_service_id
+        )
 
-    await run_startup_tasks(server)
+    await run_startup_tasks(
+        server, data_store, youtube_import_service_id,
+        twitter_import_service_id
+    )
 
     while True:
         try:

@@ -7,26 +7,28 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
-import logging
 from typing import TypeVar
-
-from byoda.util.api_client.api_client import HttpResponse
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import ServerType
+from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
+from byoda.datatypes import CacheType
 
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.data_secret import DataSecret
 
-from byoda.datatypes import CloudType
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType, DataStore
+from byoda.datastore.cache_store import CacheStore
 
 from byoda.storage.filestorage import FileStorage
 
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 
@@ -35,7 +37,7 @@ from byoda import config
 from .server import Server
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 Network = TypeVar('Network')
@@ -70,7 +72,10 @@ class PodServer(Server):
         self.service_summaries: dict[int:dict] = None
         self.bootstrapping: bool = bootstrapping
 
-        self.data_store: DataStore = None
+        self.data_store: DataStore | None = None
+        self.cache_store: CacheStore | None = None
+
+        self.account: Account | None = None
 
         # These are used by the podworker for importing data
         self.twitter_client: Twitter | None = None
@@ -131,7 +136,7 @@ class PodServer(Server):
         self.local_storage = await FileStorage.setup(root_dir)
 
     async def set_data_store(self, store_type: DataStoreType,
-                             data_secret: DataSecret) -> None:
+                             data_secret: DataSecret) -> DataStore:
         '''
         Sets the storage of membership data
         '''
@@ -139,6 +144,18 @@ class PodServer(Server):
         self.data_store: DataStore = await DataStore.get_data_store(
             store_type, data_secret
         )
+
+        return self.data_store
+
+    async def set_cache_store(self, cache_type: CacheType) -> CacheStore:
+        '''
+        Sets the cache for membership data for those data classes that have the
+        'cache-only' property set.
+        '''
+
+        self.cache_store = await CacheStore.get_cache_store(cache_type)
+
+        return self.cache_store
 
     async def review_jwt(self, jwt: JWT):
         '''
@@ -162,10 +179,8 @@ class PodServer(Server):
                 )
 
         elif jwt.issuer_type == IdType.MEMBER:
-            await config.server.account.load_memberships()
-            member: Member = config.server.account.memberships.get(
-                jwt.service_id
-            )
+            account: Account = self.account
+            member: Member = await account.get_membership(jwt.service_id)
 
             if not member:
                 # We don't want to give details in the error message as it
@@ -185,15 +200,14 @@ class PodServer(Server):
         Load the public key for the secret that was used to sign the jwt.
         '''
 
-        if jwt.issuer_type == IdType.ACCOUNT:
-            secret: AccountSecret = config.server.account.tls_secret
-        elif jwt.issuer_type == IdType.MEMBER:
-            await config.server.account.load_memberships()
-            member: Member = config.server.account.memberships.get(
-                jwt.service_id
-            )
+        account: Account = self.account
 
-            if member.member_id == jwt.issuer_id:
+        if jwt.issuer_type == IdType.ACCOUNT:
+            secret: AccountSecret = account.tls_secret
+        elif jwt.issuer_type == IdType.MEMBER:
+            member: Member = await account.get_membership(jwt.service_id)
+
+            if member and member.member_id == jwt.issuer_id:
                 secret: MemberSecret = member.data_secret
             else:
                 raise ValueError(
@@ -207,7 +221,7 @@ class PodServer(Server):
         Shuts down the server
         '''
 
-        # Note call_graphql tool does not set up the data store
+        # Note call_data_api.py tool does not set up the data store
         if self.data_store:
             await self.data_store.close()
 

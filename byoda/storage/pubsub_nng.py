@@ -9,8 +9,10 @@ PubSub using Nano Next Generation (NNG) as the underlying technology
 import os
 import shutil
 import asyncio
-import logging
+
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import pynng
 
@@ -19,7 +21,7 @@ from byoda.datamodel.pubsub_message import PubSubDataMessage
 
 from .pubsub import PubSub
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 SchemaDataItem = TypeVar('SchemaDataItem')
 Schema = TypeVar('Schema')
@@ -175,6 +177,8 @@ class PubSubNng(PubSub):
         if not self.pub:
             raise ValueError('PubSubNng not setup for sending')
 
+        _LOGGER.debug(f'Sending message: {message.data}')
+
         val = message.to_bytes()
         await self.pub.asend(val)
 
@@ -190,6 +194,7 @@ class PubSubNng(PubSub):
             asyncio.create_task(sub.arecv())
             for sub in self.subs
         ]
+        _LOGGER.debug(f'Created {len(tasks)} receive tasks')
 
         completed_tasks = asyncio.as_completed(tasks)
 
@@ -198,9 +203,19 @@ class PubSubNng(PubSub):
             for completed_task in completed_tasks
         ]
 
+        _LOGGER.debug(f'Received {len(responses or [])} responses')
+
         messages: list[PubSubDataMessage] = []
+        prev_data = None
         # Replace the data with the normalized data
         for data in responses:
+            # HACK: to avoid receiving the duplicate messages we
+            # currently receive
+            if data == prev_data:
+                continue
+
+            prev_data = data
+
             message = PubSubMessage.parse(data, self.schema)
             if self.data_class.name != message.class_name:
                 raise ValueError(

@@ -1,6 +1,6 @@
 '''
 Class for modeling permissions specified in the JSON Schema used
-for generating the GraphQL Strawberry code based on Jinja2
+for generating the Rest Data API code based on Jinja2
 templates
 
 :maintainer : Steven Hessing <steven@byoda.org>
@@ -8,19 +8,21 @@ templates
 :license    : GPLv3
 '''
 
-import logging
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 RequestAuth = TypeVar('RequestAuth')
 Member = TypeVar('Member')
 Account = TypeVar('Account')
+PodServer = TypeVar('PodServer')
 
 
 class DataAccessRight:
@@ -123,7 +125,8 @@ class DataAccessRight:
         recursion depth exceeds to 'distance' for the access right.
         '''
 
-        account: Account = config.server.account
+        server: PodServer = config.server
+        account: Account = server.account
 
         if self.data_operation != operation:
             return None, None
@@ -134,8 +137,7 @@ class DataAccessRight:
                 f'distance of {self.distance} for {operation} on {service_id}')
             return False, None
 
-        await account.get_memberships()
-        member: Member = account.memberships.get(service_id)
+        member: Member = await account.get_membership(service_id)
 
         return True, member
 
@@ -144,11 +146,11 @@ class MemberDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
                         operation: DataOperationType, depth: int) -> bool:
         '''
-        Authorizes GraphQL API requests by ourselves
+        Authorizes Data API requests by ourselves
 
         :param auth: the object with info about the authentication of the
         client
-        :param service_id: service membership that received the GraphQL API
+        :param service_id: service membership that received the Data API
         request
         :param operation: the requested operation
         :returns: whether this access right authorizes the requested
@@ -181,11 +183,11 @@ class AnyMemberDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
                         operation: DataOperationType, depth: int) -> bool:
         '''
-        Authorizes GraphQL API requests by any member of the service
+        Authorizes Data API requests by any member of the service
 
         :param auth: the object with info about the authentication of the
         client
-        :param service_id: service membership that received the GraphQL API
+        :param service_id: service membership that received the Data API
         request
         :param operation: the requested operation
         :returns: whether this access right authorizes the requested
@@ -223,11 +225,11 @@ class NetworkDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
                         operation: DataOperationType, depth: int) -> bool:
         '''
-        Authorizes GraphQL API requests by people that are in your network
+        Authorizes Data API requests by people that are in your network
 
         :param auth: the object with info about the authentication of the
         client
-        :param service_id: service membership that received the GraphQL API
+        :param service_id: service membership that received the Data API
         request
         :returns: whether the client is authorized to perform the requested
         operation
@@ -238,7 +240,8 @@ class NetworkDataAccessRight(DataAccessRight):
         if self.relations:
             _LOGGER.debug(
                'Relation of network links must be one of '
-               f'{", ".join(self.relations)} for member_id {auth.member_id}'
+               f'{", ".join(self.relations or {})} '
+               f'for member_id {auth.member_id}'
             )
         else:
             _LOGGER.debug('Network links with any relation are acceptable')
@@ -267,12 +270,14 @@ class NetworkDataAccessRight(DataAccessRight):
                         and (not self.relations
                              or relation.lower() in self.relations)):
                     _LOGGER.debug(
-                        f'Link {relation} is in {", ".join(self.relations)}'
+                        f'Link {relation} is in '
+                        f'{", ".join(self.relations or {})}'
                     )
                     network.append(link)
                 else:
                     _LOGGER.debug(
-                        f'Link {relation} not in {", ".join(self.relations)}'
+                        f'Link {relation} not in '
+                        f'{", ".join(self.relations or {})}'
                     )
 
         _LOGGER.debug(f'Found {len(network or [])} applicable network links')
@@ -289,11 +294,11 @@ class ServiceDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth, service_id: int,
                         operation: DataOperationType, depth: int) -> bool:
         '''
-        Authorizes GraphQL API requests by the service itself
+        Authorizes Data API requests by the service itself
 
         :param auth: the object with info about the authentication of the
         client
-        :param service_id: service membership that received the GraphQL API
+        :param service_id: service membership that received the Data API
         request
         :param operation: the requested operation
         :returns: whether this access right authorizes the requested
@@ -330,11 +335,11 @@ class AnonymousDataAccessRight(DataAccessRight):
     async def authorize(self, auth: RequestAuth | None, service_id: int,
                         operation: DataOperationType, depth: int) -> bool:
         '''
-        Authorizes GraphQL API requests by the service itself
+        Authorizes Data API requests by the service itself
 
         :param auth: the object with info about the authentication of the
         client
-        :param service_id: service membership that received the GraphQL API
+        :param service_id: service membership that received the Data API
         request
         :param operation: the requested operation
         :returns: whether this access right authorizes the requested
@@ -344,7 +349,7 @@ class AnonymousDataAccessRight(DataAccessRight):
         '''
 
         _LOGGER.debug(
-            'Authorizing access by the service for data item {self.name}'
+            'Authorizing anonymous access by the service for data item'
         )
 
         allowed, member = await super().authorize(service_id, operation, depth)

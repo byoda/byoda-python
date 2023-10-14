@@ -1,6 +1,6 @@
 '''
 Sample API implementation, for a search API.
-Services can chose to either provide REST APIs or GraphQL APIs or both.
+Services can chose to either provide REST APIs or Data APIs or both.
 
 This is the REST /service/search API for the addressbook service
 
@@ -9,9 +9,10 @@ This is the REST /service/search API for the addressbook service
 :license    : GPLv3
 '''
 
-
-import logging
 from uuid import UUID
+from logging import getLogger
+from byoda.util.logger import Logger
+
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -27,7 +28,7 @@ from byoda import config
 
 from ..dependencies.memberrequest_auth import MemberRequestAuthFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class PersonResponseModel(BaseModel):

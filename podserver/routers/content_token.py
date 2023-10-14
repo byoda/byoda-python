@@ -8,6 +8,7 @@
 
 from uuid import UUID
 from logging import getLogger
+from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
@@ -27,7 +28,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
-_LOGGER = getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/pod/content', dependencies=[])
 
@@ -55,6 +56,7 @@ async def get_asset(request: Request, service_id: int = None,
     not accessible externally
     '''
 
+    # TODO: use FastAPI dependent function for getting Headers
     token: str = request.headers.get('Authorization')
     key_id: str = request.headers.get('X-Authorizationkeyid')
 
@@ -93,9 +95,8 @@ async def get_asset(request: Request, service_id: int = None,
 
     server: PodServer = config.server
     account: Account = server.account
-    await account.load_memberships()
 
-    member: Member = account.memberships.get(service_id)
+    member: Member = await account.get_membership(service_id)
     if member_id != member.member_id:
         _LOGGER.debug('Invalid member ID')
         raise HTTPException(403, 'Invalid member_id: {member_id}')
@@ -120,6 +121,7 @@ async def get_asset(request: Request, service_id: int = None,
         _LOGGER.debug(f'Key_id {key_id} specified in request does not exist')
         raise HTTPException(403, 'Invalid key_id')
 
+    _LOGGER.debug(f'Generating token with key_id {key_id}: {key.key}')
     generated_token = key.generate_token(service_id, member_id, asset_id)
     _LOGGER.debug(f'Looking for match with token: {generated_token}')
 
@@ -149,10 +151,9 @@ async def content_token(request: Request, service_id: int, asset_id: UUID,
         )
 
     server: PodServer = config.server
-
     account: Account = server.account
-    await account.load_memberships()
-    member: Member = account.memberships.get(service_id)
+
+    member: Member = await account.get_membership(service_id)
 
     data_store: DataStore = server.data_store
     key_table = data_store.get_table(

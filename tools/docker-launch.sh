@@ -356,7 +356,15 @@ else
     echo "Writing account_id to ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
 fi
 
-export LOGLEVEL=DEBUG
+if [ -z "${LOGLEVEL}" ]; then
+    export LOGLEVEL=INFO
+fi
+
+if [ -z "${WORKER_LOGLEVEL}" ]; then
+    export WORKER_LOGLEVEL=INFO
+fi
+
+export LOGFILE=
 export BOOTSTRAP=BOOTSTRAP
 
 sudo docker stop byoda 2>/dev/null
@@ -374,6 +382,8 @@ sudo docker run -d \
     --name byoda --restart=unless-stopped \
     --pull always \
     -e "LOGLEVEL=${LOGLEVEL}" \
+    -e "WORKER_LOGLEVEL=${WORKER_LOGLEVEL}" \
+    -e "LOGFILE=${LOGFILE}" \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
     -e "BACKUP_INTERVAL=${BACKUP_INTERVAL}" \
@@ -399,6 +409,7 @@ sudo docker run -d \
     -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
     -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
     -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
+    -e "TRACE_SERVER=${TRACE_SERVER}" \
     -v ${BYODA_ROOT_DIR}:/byoda \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \

@@ -7,10 +7,11 @@ Cert manipulation
 '''
 
 import struct
-import logging
 
 from copy import copy
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timedelta
 
@@ -24,7 +25,6 @@ from cryptography.exceptions import InvalidSignature        # noqa: F401
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.api_client.api_client import ApiClient, HttpMethod
 from byoda.util.paths import Paths
 
 from byoda import config
@@ -33,7 +33,7 @@ from .secret import Secret
 
 Server = TypeVar('Server')
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 # This is not a limit to the data getting signed or verified, but
 # a limit to the amount of data fed to the hasher at each iteration
@@ -237,6 +237,12 @@ class DataSecret(Secret):
                 f'Message must be of type string or bytes, not {type(message)}'
             )
 
+        fingerprint: str = self.fingerprint().hex()
+
+        _LOGGER.debug(
+            f'Creating signature with cert with fingerprint {fingerprint}'
+        )
+
         chosen_hash = hashes.SHA256()
 
         digest = DataSecret._get_digest(message, chosen_hash)
@@ -275,6 +281,11 @@ class DataSecret(Secret):
                 'Only SHA256 is supported as hash algorithm'
             )
 
+        fingerprint: str = self.fingerprint().hex()
+        _LOGGER.debug(
+            f'Verifying signature with cert with fingerprint {fingerprint}'
+        )
+
         digest = DataSecret._get_digest(message, chosen_hash)
 
         self.cert.public_key().verify(
@@ -303,6 +314,8 @@ class DataSecret(Secret):
                 hasher.update(message)
                 message = None
         digest = hasher.finalize()
+
+        _LOGGER.debug(f'Generated digest: {digest.hex()}')
 
         return digest
 

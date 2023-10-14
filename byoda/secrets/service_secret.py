@@ -7,9 +7,10 @@ Service secret
 :license    : GPLv3
 '''
 
-import logging
 from copy import copy
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -20,7 +21,7 @@ from byoda.datatypes import IdType, EntityId
 from .secret import Secret
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
 

@@ -14,33 +14,28 @@ import sys
 import yaml
 import asyncio
 
-from uuid import uuid4
-
 from datetime import datetime, timedelta, timezone
 
 import orjson
 
-from byoda.util.api_client.api_client import HttpResponse
-
-from byoda.util.api_client.graphql_client import GraphQlClient
 from requests.exceptions import ConnectionError as RequestConnectionError
 from requests.exceptions import HTTPError
 
 from byoda.datamodel.service import Service
-
-from byoda.servers.service_server import ServiceServer
-
 from byoda.datamodel.network import Network
 
+from byoda.datatypes import DataRequestType
+
 from byoda.datastore.memberdb import MemberDb
-from byoda.datatypes import GRAPHQL_API_URL_PREFIX
-from byoda.datamodel.graphql_proxy import POD_TO_POD_PORT
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.api_client.data_api_client import DataApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
 from byoda.util.paths import Paths
 
-from tests.lib.addressbook_queries import GRAPHQL_STATEMENTS
+from byoda.servers.service_server import ServiceServer
 
 from byoda.exceptions import ByodaRuntimeError
 
@@ -51,11 +46,6 @@ from byoda import config
 
 MAX_WAIT = 15 * 60
 MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
-
-BASE_URL = (
-    'https://{member_id}.members-{service_id}.{network}:{port}' +
-    GRAPHQL_API_URL_PREFIX
-)
 
 
 async def main():
@@ -107,8 +97,15 @@ async def main():
     member_db: MemberDb = server.member_db
     while True:
         member_id = member_db.get_next(timeout=MAX_WAIT)
+
         if not member_id:
             _LOGGER.debug('No member available in list of members')
+            continue
+
+        if str(member_id).startswith('aaaaaaaa'):
+            _LOGGER.debug(
+                f'Not processing member with test UUID: {member_id}'
+            )
             continue
 
         _LOGGER.debug(f'Processing member_id {member_id}')
@@ -131,39 +128,27 @@ async def main():
         #
         # Here is where we can do stuff
         #
-        url = BASE_URL.format(
-            member_id=str(member_id), service_id=service.service_id,
-            network=service.network.name, port=POD_TO_POD_PORT
-        )
         try:
-            resp: HttpResponse = await GraphQlClient.call(
-                url,
-                GRAPHQL_STATEMENTS['person']['query'],
-                secret=service.tls_secret,
-                vars={'query_id': str(uuid4())}
+            resp: HttpResponse = await DataApiClient.call(
+                service.service_id, 'person', DataRequestType.QUERY,
+                secret=service.tls_secret, member_id=member_id
             )
 
             body = resp.json()
 
-            if body.get('data'):
-                edges = body['data']['person_connection']['edges']
-                if not edges:
-                    _LOGGER.debug('Did not get any info from the pod')
-                else:
-                    person_data = edges[0]['person']
-                    _LOGGER.info(
-                        f'Got data from member {member_id}: '
-                        f'{orjson.dumps(person_data)}'
-                    )
-                    member_db.set_data(member_id, person_data)
-
-                    member_db.kvcache.set(
-                        person_data['email'], str(member_id)
-                    )
-
+            edges = body['edges']
+            if not edges:
+                _LOGGER.debug(f'Did not get any info from the pod: {body}')
             else:
-                _LOGGER.warning(
-                    f'GraphQL person query failed against member {member_id}'
+                person_data = edges[0]['node']
+                _LOGGER.info(
+                    f'Got data from member {member_id}: '
+                    f'{orjson.dumps(person_data)}'
+                )
+                member_db.set_data(member_id, person_data)
+
+                member_db.kvcache.set(
+                    person_data['email'], str(member_id)
                 )
 
             # Add the member back to the list of members as it seems
@@ -173,8 +158,11 @@ async def main():
         except (HTTPError, RequestConnectionError, ByodaRuntimeError) as exc:
             _LOGGER.info(
                 f'Not adding member back to the list because we failed '
-                f'to connect to {url}: {exc}'
+                f'to get data from member: {member_id}: {exc}'
             )
+            # Safety measure that we don't have an error case where
+            # we consume 100% CPU
+            await asyncio.sleep(0.1)
             continue
         #
         # and now we wait for the time to process the next client

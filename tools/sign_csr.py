@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 
 '''
-Tool to call GraphQL APIs against a pod
-
-This tool does not use the Byoda modules so has no dependency
-on the 'byoda-python' repository to be available on the local
-file system
+Tool to sign submitted CSRs manually
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2023
 :license    : GPLv3
 '''
 
 import os
 import sys
-import asyncio
 import logging
+import asyncio
 import argparse
+
 from uuid import uuid4
 
 from cryptography import x509
@@ -35,7 +32,7 @@ from tests.lib.setup import setup_network
 
 DEFAULT_NETWORK: str = "byoda.net"
 DEFAULT_SERVICE_ID: str = "4294929430"
-DEFAULT_TEST_DIRECTORY = '/tmp/byoda'
+DEFAULT_TEST_DIRECTORY: str = '/tmp/byoda'
 
 
 async def prep_network(test_dir: str, network_name: str = DEFAULT_NETWORK

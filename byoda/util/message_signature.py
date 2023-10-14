@@ -6,16 +6,18 @@ Python module for managing signatures of documents
 :license    : GPLv3
 '''
 
-import logging
 import base64
+
 from enum import Enum
+from logging import getLogger
+from byoda.util.logger import Logger
 from datetime import datetime
 
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 from byoda.secrets.network_data_secret import NetworkDataSecret
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class SignatureType(Enum):

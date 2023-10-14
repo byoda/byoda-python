@@ -16,13 +16,16 @@ The registration of a service in the network takes four steps:
    service using the GET /api/v1/network/service request.
 '''
 
-import logging
-from datetime import datetime, timezone
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 
 from cryptography import x509
+from cryptography.exceptions import InvalidSignature
 
 from byoda.datamodel.service import RegistrationStatus
 from byoda.datastore.dnsdb import DnsRecordType
@@ -61,7 +64,7 @@ from dirserver.dependencies.servicerequest_auth import ServiceRequestAuthFast
 from dirserver.dependencies.servicerequest_auth import \
     ServiceRequestOptionalAuthFast
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 MAX_SERVICE_LIST = 100
 
@@ -455,7 +458,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
                     storage_driver = network.paths.storage_driver
                     filepath = network.paths.get(Paths.SERVICE_FILE)
                     await service_contract.save(filepath, storage_driver)
-                except ValueError:
+                except InvalidSignature:
                     status = ReviewStatusType.REJECTED
                     errors.append(
                         'Service signature of schema is invalid'

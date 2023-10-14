@@ -71,5 +71,13 @@ export LOCAL_WWWROOT_DIRECTORY=/var/www/wwwroot
 export BYODA_ROOT_DIR=/byoda
 
 # set DEBUG if you are interested in debug logs and troubleshooting the
-# processes in the pod
+# processes in the pod.
 export DEBUG=
+export LOGLEVEL=CRITICAL
+
+# Workers write their logs to a file so this will increase the disk
+# usage of the pod, at some point filling up the disk of the host.
+export WORKER_LOGLEVEL=CRITICAL
+
+# Set up tracing (for debugging purposes). Requires a Jaeger server
+export TRACE_SERVER="127.0.0.1"

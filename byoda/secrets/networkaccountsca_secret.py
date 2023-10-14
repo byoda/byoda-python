@@ -6,9 +6,11 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 :license    : GPLv3
 '''
 
-import logging
 from copy import copy
-from datetime import datetime, timedelta
+from logging import getLogger
+from byoda.util.logger import Logger
+from datetime import datetime
+from datetime import timedelta
 
 from byoda.util.paths import Paths
 
@@ -18,7 +20,7 @@ from byoda.datatypes import CsrSource
 from .ca_secret import CaSecret
 from .secret import CSR
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 
 class NetworkAccountsCaSecret(CaSecret):

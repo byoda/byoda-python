@@ -10,19 +10,20 @@ restrict streaming & download access to the content.
 '''
 
 import base64
-import logging
 
 from uuid import uuid4
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
 from dataclasses import dataclass
+from logging import getLogger
 
 import orjson
 
 from dateutil import parser as dateutil_parser
 
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.table import QueryResults
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
@@ -36,7 +37,9 @@ from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.api_client import HttpResponse
 
-_LOGGER = logging.getLogger(__name__)
+from byoda.util.logger import Logger
+
+_LOGGER: Logger = getLogger(__name__)
 
 CLAIM_FORMAT_VERSION = [
     None,
@@ -248,10 +251,12 @@ class Claim:
                 }
             }
         )
-        data = await data_store.query(member_id, self.object_type, filter_set)
+        data: QueryResults = await data_store.query(
+            member_id, self.object_type, filter_set
+        )
 
         claims = []
-        for item in data or []:
+        for item, _ in data or []:
             claim = Claim.from_claim_data(item)
             claims.append(claim)
 

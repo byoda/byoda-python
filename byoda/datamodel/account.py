@@ -7,12 +7,11 @@ Class for modeling an account on a network
 '''
 
 import os
-import logging
+from copy import copy
 from uuid import UUID
 from typing import TypeVar
-from copy import copy
-
-from byoda.util.api_client.api_client import HttpResponse
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -38,6 +37,7 @@ from byoda.storage import FileMode
 from byoda.util.paths import Paths
 from byoda.util.reload import reload_gunicorn
 from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.requestauth.jwt import JWT
@@ -48,7 +48,7 @@ from .service import Service
 from byoda import config
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
 
@@ -128,7 +128,7 @@ class Account:
 
     async def create_account_secret(self,
                                     accounts_ca: NetworkAccountsCaSecret
-                                    = None, renew: bool = False):
+                                    = None, renew: bool = False) -> bool:
         '''
         Creates the TLS secret for an account.
         '''
@@ -145,6 +145,9 @@ class Account:
             self.tls_secret = await self._create_secret(
                 AccountSecret, accounts_ca, renew=renew
             )
+            return True
+
+        return False
 
     async def create_data_secret(self,
                                  accounts_ca: NetworkAccountsCaSecret = None,
@@ -332,8 +335,7 @@ class Account:
                 await self.load_membership(service_id, member_id)
 
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[UUID, dict[
-                                  str, UUID | str | MemberStatus | float]]:
+                              ) -> dict[str, UUID | int | MemberStatus | float]:    # noqa: E501
         '''
         Get a list of the service_ids that the pod has joined by looking
         at storage.
@@ -397,7 +399,7 @@ class Account:
         )
 
         data_store: DataStore = config.server.data_store
-        await data_store.backend.setup_member_db(
+        await data_store.setup_member_db(
                 member.member_id, member.service_id, member.schema
         )
 

@@ -8,8 +8,10 @@ a server that hosts a BYODA Network
 '''
 
 import os
-import logging
+
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datastore.dnsdb import DnsDb
 
@@ -21,7 +23,7 @@ from byoda.util.paths import Paths
 
 from .server import Server
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
 RegistrationStatus = TypeVar('RegistrationStatus')

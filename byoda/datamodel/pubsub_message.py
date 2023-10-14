@@ -7,16 +7,17 @@ derive
 :license    : GPLv3
 '''
 
-import logging
 
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 import orjson
 
 from byoda.datatypes import PubSubMessageType
 from byoda.datatypes import PubSubMessageAction
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 SchemaDataItem = TypeVar('SchemaDataItem')
 Schema = TypeVar('Schema')
@@ -126,7 +127,7 @@ class PubSubDataMessage(PubSubMessage):
         Serializes the message to a list of bytes
         '''
 
-        data = {
+        data: dict[str, object] = {
             'type': self.type,
             'action': self.action,
             'class_name': self.class_name,

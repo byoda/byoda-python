@@ -22,24 +22,27 @@ https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-exampl
 '''
 
 import os
-import logging
 
 from uuid import UUID
+from logging import getLogger
 
 from googleapiclient.discovery import build
 from googleapiclient.discovery import Resource as YouTubeResource
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.table import QueryResults
 
 from byoda.datastore.data_store import DataStore
 
 from byoda.storage.filestorage import FileStorage
 
-from .youtube_channel import YouTubeChannel
-from .youtube_video import YouTubeVideo
+from byoda.util.logger import Logger
 
-_LOGGER = logging.getLogger(__name__)
+from .youtube_channel import YouTubeChannel
+
+_LOGGER: Logger = getLogger(__name__)
 
 
 class YouTube:
@@ -96,7 +99,8 @@ class YouTube:
         return result
 
     @staticmethod
-    async def load_ingested_videos(member_id: UUID, data_store: DataStore
+    async def load_ingested_videos(member_id: UUID, data_class: SchemaDataItem,
+                                   data_store: DataStore
                                    ) -> dict[str, dict[str, str]]:
         '''
         Load the ingested assets from the data store
@@ -115,13 +119,13 @@ class YouTube:
                 }
             }
         )
-        data = await data_store.query(
-            member_id, YouTubeVideo.DATASTORE_CLASS_NAME, filters=filters
+        data: QueryResults = await data_store.query(
+            member_id, data_class, filters=filters
         )
 
         known_videos: dict[str, dict[str, str]] = {
-            video_data['publisher_asset_id']: video_data
-            for video_data in data or {}
+            video_data[0]['publisher_asset_id']: video_data
+            for video_data, _ in data.items() or {}
         }
 
         _LOGGER.debug(f'Found {len(known_videos)} ingested videos')

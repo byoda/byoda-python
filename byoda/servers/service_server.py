@@ -7,8 +7,9 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
-import logging
 from typing import TypeVar
+from logging import getLogger
+from byoda.util.logger import Logger
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
@@ -31,7 +32,7 @@ from byoda.util.paths import Paths
 
 from byoda import config
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Logger = getLogger(__name__)
 
 RegistrationStatus = TypeVar('RegistrationStatus')
 

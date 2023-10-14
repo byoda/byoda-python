@@ -13,16 +13,21 @@ import unittest
 from copy import deepcopy
 from uuid import UUID
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.account import Account
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.table import QueryResults
 
 from byoda.datatypes import MemberStatus
 
+from byoda.datastore.data_store import DataStore
+
 from byoda.storage.sqlite import SqliteStorage
 
+from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
@@ -33,6 +38,8 @@ from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 
 from tests.lib.util import get_test_uuid
+
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 NETWORK = config.DEFAULT_NETWORK
 SCHEMA = 'tests/collateral/addressbook.json'
@@ -66,28 +73,37 @@ class NetworkInvite:
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
         mock_environment_vars(TEST_DIR)
         network_data = await setup_network()
-        await setup_account(network_data)
+        account: Account = await setup_account(network_data)
+
         config.test_case = "TEST_CLIENT"
+        config.disable_pubsub = True
+
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
+
+        for member in account.memberships.values():
+            await member.create_query_cache()
+            await member.create_counter_cache()
+            schema: Schema = member.schema
+            schema.get_data_classes()
+
+            await data_store.setup_member_db(
+                member.member_id, member.service_id, schema
+            )
 
     async def test_object(self):
-        config.test_case = "TEST_CLIENT"
-        account: Account = config.server.account
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
+        account: Account = server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member = await account.get_membership(service_id)
+        uuid: UUID = member.member_id
 
-        schema = await Schema.get_schema(
-            'addressbook.json', config.server.network.paths.storage_driver,
-            None, None, verify_contract_signatures=False
-        )
-        schema.get_data_classes()
-
-        uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup(config.server, account.data_secret)
-        await sql.setup_member_db(uuid, schema.service_id, schema)
+        sql = data_store.backend
 
         # Populate Person object with string data and check the result
         person_table = sql.member_sql_tables[uuid]['person']
@@ -97,14 +113,17 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             {
                 'family_name': family_name,
                 'given_name': given_name
-            }
+            },
+            '', None, None, None
         )
 
-        data = await person_table.query()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(given_name, data[0]['given_name'])
-        self.assertEqual(family_name, data[0]['family_name'])
-        self.assertEqual(data[0]['email'], None)
+        result: QueryResults = await person_table.query()
+        self.assertEqual(len(result), 1)
+        data, _ = result[0]
+        self.assertEqual(len(data), 6)
+        self.assertEqual(given_name, data['given_name'])
+        self.assertEqual(family_name, data['family_name'])
+        self.assertEqual(data['email'], None)
 
         # Populate Member object with datetime and UUID data and check the
         # result
@@ -113,27 +132,26 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             {
                 'member_id': uuid,
                 'joined': now
-            }
+            },
+            '', None, None, None
         )
-        data = await member_table.query()
-        self.assertEqual(data[0]['member_id'], uuid)
-        self.assertEqual(data[0]['joined'], now)
+        result: QueryResults = await member_table.query()
+        self.assertEqual(len(result), 1)
+        data, _ = result[0]
+        self.assertEqual(data['member_id'], uuid)
+        self.assertEqual(data['joined'], now)
 
     async def test_array(self):
-        config.test_case = "TEST_CLIENT"
-        account: Account = config.server.account
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
+        account: Account = server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member = await account.get_membership(service_id)
+        uuid: UUID = member.member_id
 
-        schema = await Schema.get_schema(
-            'addressbook.json', config.server.network.paths.storage_driver,
-            None, None, verify_contract_signatures=False
-        )
-        schema.get_data_classes()
-
-        uuid = get_test_uuid()
         now = datetime.now(timezone.utc)
 
-        sql = await SqliteStorage.setup(config.server, account.data_secret)
-        await sql.setup_member_db(uuid, schema.service_id, schema)
+        sql = data_store.backend
 
         # Test for NetworkInvites array of objects
         network_invites_table = sql.member_sql_tables[uuid]['network_invites']
@@ -151,9 +169,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'member_id': network_invites[0].member_id,
                 'relation': network_invites[0].relation,
                 'text': network_invites[0].text,
-            }
+            },
+            '', None, None, None
         )
-        data = await network_invites_table.query()
+        data: QueryResults = await network_invites_table.query()
         self.assertEqual(len(data), 1)
         if not compare_network_invite(data, network_invites):
             raise self.assertTrue(False)
@@ -172,9 +191,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'member_id': network_invites[1].member_id,
                 'relation': network_invites[1].relation,
                 'text': network_invites[1].text,
-            }
+            },
+            '', None, None, None
         )
-        data = await network_invites_table.query()
+        data: QueryResults = await network_invites_table.query()
         self.assertEqual(len(data), 2)
         if not compare_network_invite(data, network_invites):
             raise self.assertTrue(False)
@@ -195,12 +215,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'member_id': network_invites[2].member_id,
                 'relation': network_invites[2].relation,
                 'text': network_invites[2].text,
-            }
+            },
+            '', None, None, None
         )
-        data = await network_invites_table.query()
+        data: QueryResults = await network_invites_table.query()
         self.assertEqual(len(data), 3)
 
-        data = await network_invites_table.query()
+        data: QueryResults = await network_invites_table.query()
         self.assertEqual(len(data), 3)
         if compare_network_invite(data, network_invites) != 3:
             raise self.assertTrue(False)
@@ -214,7 +235,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
+        data: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
         self.assertEqual(len(data), 2)
         if compare_network_invite(data, network_invites) != 2:
             raise self.assertTrue(False)
@@ -231,7 +254,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
+        data: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
         self.assertEqual(len(data), 1)
         if compare_network_invite(data, network_invites) != 1:
             raise self.assertTrue(False)
@@ -248,7 +273,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
+        data: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
         self.assertEqual(len(data), 1)
         if compare_network_invite(data, network_invites) != 1:
             raise self.assertTrue(False)
@@ -261,7 +288,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
+        data: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
         self.assertEqual(len(data), 2)
         if compare_network_invite(data, network_invites) != 2:
             raise self.assertTrue(False)
@@ -275,14 +304,17 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
-        self.assertEqual(len(data), 1)
+        results: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
+        self.assertEqual(len(results), 1)
 
-        if compare_network_invite(data, network_invites) != 1:
+        if compare_network_invite(results, network_invites) != 1:
             raise self.assertTrue(False)
 
+        data, _ = results[0]
         self.assertEqual(
-            UUID(network_invites[2].member_id), data[0]['member_id']
+            UUID(network_invites[2].member_id), data['member_id']
         )
 
         #
@@ -294,17 +326,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
-        self.assertEqual(len(data), 2)
+        results: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
+        self.assertEqual(len(results), 2)
 
-        if compare_network_invite(data, network_invites) != 2:
+        if compare_network_invite(results, network_invites) != 2:
             raise self.assertTrue(False)
 
+        data, _ = results[0]
         self.assertNotEqual(
-            UUID(network_invites[2].member_id), data[0]['member_id']
+            UUID(network_invites[2].member_id), data['member_id']
         )
+
+        data, _ = results[1]
         self.assertNotEqual(
-            UUID(network_invites[2].member_id), data[1]['member_id']
+            UUID(network_invites[2].member_id), data['member_id']
         )
 
         #
@@ -318,7 +355,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await network_invites_table.update(
             {
                 'text': 'updated text'
-            }, data_filters
+            }, '', data_filters, None, None, None
         )
         filters = {
             'created_timestamp': {
@@ -331,9 +368,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             }
         }
         data_filters = DataFilterSet(filters)
-        data = await network_invites_table.query(data_filters=data_filters)
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['text'], 'updated text')
+        results: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
+        self.assertEqual(len(results), 1)
+
+        data, _ = results[0]
+        self.assertEqual(data['text'], 'updated text')
 
         data = {
             '_created_timestamp': 1671989969.329426,
@@ -353,6 +394,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         for row in data:
             result = {}
             for column_name in row.keys():
+                if not column_name.startswith('_'):
+                    continue
                 field_name = column_name.lstrip('_')
                 result[field_name] = \
                     network_invites_table.columns[field_name].normalize(
@@ -373,7 +416,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data_filters = DataFilterSet(filters)
         data = await network_invites_table.delete(data_filters=data_filters)
 
-        data = await network_invites_table.query(data_filters=data_filters)
+        data: QueryResults = await network_invites_table.query(
+            data_filters=data_filters
+        )
         self.assertIsNone(data)
 
         data = await network_invites_table.query()
@@ -435,12 +480,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(memberships), 1)
 
 
-def compare_network_invite(data: list[dict[str, str]],
+def compare_network_invite(data: QueryResults,
                            network_invites: list[NetworkInvite]) -> int:
     '''
     Check how often a '''
     found = 0
-    for value in data:
+    for value, _ in data:
         invite = NetworkInvite.from_dict(value)
         if invite in network_invites:
             found += 1
@@ -449,4 +494,5 @@ def compare_network_invite(data: list[dict[str, str]],
 
 
 if __name__ == '__main__':
+    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()
