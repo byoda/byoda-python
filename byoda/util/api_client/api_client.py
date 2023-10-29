@@ -272,7 +272,7 @@ class ApiClient:
         code >= 400
         :param app: FastAPI app to use for the HTTP call, only to be used
         for test cases
-        :returns: HttpResonse
+        :returns: HttpResponse
         :raises: ValueError, ByodaRuntimeError
         '''
 
@@ -365,9 +365,9 @@ class ApiClient:
             if resp.status_code == 422:
                 # This is the error returned by pydantic when the input
                 # data does not match the model for the request
-                data = resp.json()
+                resp_data = resp.json()
                 raise ByodaRuntimeError(
-                    f'Incorrect input data to API {api}: {data["detail"]}'
+                    f'Incorrect input data to API {api}: {resp_data["detail"]}'
                 )
             raise ByodaRuntimeError(
                 f'Failure to call API {api}: {resp.status_code}'

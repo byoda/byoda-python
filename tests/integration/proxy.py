@@ -17,11 +17,6 @@ proxy
 import sys
 import unittest
 
-from uuid import uuid4
-
-from byoda.util.api_client.data_api_client import DataApiClient
-from byoda.util.api_client.api_client import HttpResponse
-
 from byoda.util.logger import Logger
 
 from tests.lib.setup import mock_environment_vars

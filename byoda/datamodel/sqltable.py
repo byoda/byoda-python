@@ -19,7 +19,8 @@ from logging import getLogger
 
 import orjson
 
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
+
 from byoda.datamodel.table import META_COLUMNS
 from byoda.datamodel.table import META_CURSOR_COLUMN
 from byoda.datamodel.table import META_ID_COLUMN
@@ -368,6 +369,8 @@ class SqlTable(Table):
             if (hasattr(column, 'format')
                     and column.format == 'date-time'):
                 if isinstance(value, str):
+                    if value[-1] == 'Z':
+                        value = f'{value[:-1]}+00:00'
                     return datetime.fromisoformat(value).timestamp()
                 elif isinstance(value, datetime):
                     return value.timestamp()
@@ -383,7 +386,13 @@ class SqlTable(Table):
         elif column.storage_type == 'BLOB':
             if type(value) in (list, dict):
                 # For nested objects or arrays, we store them as JSON
-                return orjson.dumps(value)
+                try:
+                    return orjson.dumps(value)
+                except TypeError as exc:
+                    _LOGGER.warning(
+                        f'Could not convert {value} to JSON: {exc}'
+                    )
+                    raise
 
         return value
 
@@ -462,6 +471,10 @@ class SqlTable(Table):
         return stmt, values
 
     def sql_where_clause(self, data_filters: DataFilterSet) -> str:
+        '''
+        Generate SQL where clause for the data filters
+        '''
+
         return data_filters.sql_where_clause()
 
 
@@ -524,7 +537,8 @@ class ObjectSqlTable(SqlTable):
     async def query(self, data_filter_set: DataFilterSet = None,
                     first: int = None, after: int = None,
                     fields: set[str] | None = None,
-                    ) -> QueryResults | None:
+                    meta_filters: DataFilterSet | None = None,
+                    ) -> list[QueryResult] | None:
         '''
         Get the data from the table. As this is an object table,
         only 0 or 1 rows of results are expected
@@ -569,7 +583,8 @@ class ObjectSqlTable(SqlTable):
             return None
         elif len(rows) > 1:
             _LOGGER.error(
-                f'Query for {self.table_name} returned more than one row'
+                f'Query for {self.table_name} returned more than one row: '
+                f'{rows}'
             )
 
         result, meta = self._normalize_row(rows[0])
@@ -607,7 +622,7 @@ class ObjectSqlTable(SqlTable):
         # in the data model for the field in the service schema
         stmt = f'DELETE FROM {self.table_name}'
         await self.sql_store.execute(
-            stmt, member_id=self.member_id, data=None, autocommit=False
+            stmt, member_id=self.member_id, data=None, autocommit=True
         )
 
         stmt = f'INSERT INTO {self.table_name} '
@@ -703,7 +718,8 @@ class ArraySqlTable(SqlTable):
     async def query(self, data_filters: DataFilterSet = None,
                     first: int = None, after: str = None,
                     fields: set[str] | None = None,
-                    ) -> QueryResults | None:
+                    meta_filters: DataFilterSet | None = None,
+                    ) -> list[QueryResult] | None:
         '''
         Get one of more rows from the table normalized to the
         python types for the JSONSchema types specified in the schema
@@ -712,7 +728,7 @@ class ArraySqlTable(SqlTable):
         :param first: number of objects to return
         :param after: offset to start returning objects from
         :param fields: fields to include in the response
-        :param reference_value: the value of the field of
+        :param meta_filters: filters to apply to the metadata
         :returns: list of tuples of the data and its metadata
         '''
 
@@ -732,12 +748,29 @@ class ArraySqlTable(SqlTable):
         stmt: str = f'SELECT rowid, {query_fields} FROM {self.table_name} '
 
         placeholders: dict[str, str] = {}
+
+        where_clause: str | None = None
         if data_filters and data_filters.filters:
-            where_clause: str
             where_data: dict[str, object]
             where_clause, where_data = self.sql_where_clause(data_filters)
             stmt += where_clause
             placeholders |= where_data
+
+        if meta_filters and meta_filters.filters:
+            meta_where_clause: str
+            meta_where_data: dict[str, object]
+            meta_where_clause, meta_where_data = self.sql_where_clause(
+                meta_filters
+            )
+
+            if where_clause:
+                # Non-meta data filter was also supplied so we don't want to
+                # include 'WHERE' clause for both regular filter and
+                # meta-filter
+                meta_where_clause = meta_where_clause.lstrip('WHERE') + 'AND '
+
+            stmt += meta_where_clause
+            placeholders |= meta_where_data
 
         if after:
             # Pagination is implemented using the SQLite 'rowid' column
@@ -761,7 +794,7 @@ class ArraySqlTable(SqlTable):
         results = []
         for row in rows:
             result, meta = self._normalize_row(dict(row))
-            results.append(tuple([result, meta]))
+            results.append(QueryResult(data=result, metadata=meta))
 
         return results
 
@@ -921,15 +954,16 @@ class ArraySqlTable(SqlTable):
 
         return result.rowcount
 
-    async def expire(self, timestamp: int | float | None = None
+    async def expire(self, timestamp: int | float | datetime | None = None
                      ) -> int:
         '''
-        Expires data in a 'cache_only' table
+        Expires data in a 'cache_only' table. Calling this method does
+        not update counters and updates
 
         :param timestamp: the timestamp (in seconds) before which data should
         be deleted. If not specified, the current time plus the expiration time
         specified for the data class is used
-        :returns: (none)
+        :returns: number of items deleted from the table
         :raises: ValueError if the table is not a 'cache_only' table
         '''
 
@@ -939,20 +973,26 @@ class ArraySqlTable(SqlTable):
                 f'table: {self.class_name}'
             )
 
+        seconds: float | int
         if not timestamp:
-            now: datetime = datetime.now(tz=timezone.utc)
-            timestamp: float = now.timestamp() + self.expires_after
+            # We add 900 seconds to the current time so we'll delete data that
+            # expires in the next 15 minutes
+            seconds: float = datetime.now(tz=timezone.utc).timestamp() + 900
+        elif isinstance(timestamp, datetime):
+            seconds = timestamp.timestamp()
+        elif type(timestamp) in (int, float):
+            seconds = timestamp
+        else:
+            raise ValueError(f'Invalid timestamp type: {type(timestamp)}')
 
-        stmt = (
+        stmt: str = (
             f'DELETE FROM {self.table_name} '
             f'WHERE {CACHE_EXPIRE_COLUMN} <= :timestamp'
         )
-
-        data: dict[str, float | int] = {'timestamp': timestamp}
+        data: dict[str, float | int] = {'timestamp': seconds}
 
         result = await self.sql_store.execute(
-            stmt, member_id=self.member_id,
-            data=data, autocommit=True
+            stmt, member_id=self.member_id, data=data, autocommit=True
         )
 
         return result.rowcount

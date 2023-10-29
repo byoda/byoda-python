@@ -10,26 +10,28 @@ Class for modeling an account on a network
 from uuid import uuid4, UUID
 from copy import copy
 from typing import TypeVar
-from datetime import datetime
 from logging import getLogger
 from byoda.util.logger import Logger
 
 from fastapi import FastAPI
 
-from byoda.datatypes import CsrSource
-from byoda.datatypes import IdType
-from byoda.datatypes import StorageType
-
-
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.schema import SchemaDataItem
+
+from byoda.datatypes import CsrSource
+from byoda.datatypes import IdType
+from byoda.datatypes import StorageType
+from byoda.datatypes import NetworkLink
 
 from byoda.datastore.document_store import DocumentStore
 from byoda.datastore.data_store import DataStore
+from byoda.datastore.cache_store import CacheStore
 
 from byoda.datacache.querycache import QueryCache
 from byoda.datacache.counter_cache import CounterCache
+
 from byoda.storage import FileStorage
 
 
@@ -75,7 +77,7 @@ class Member:
 
     __slots__ = [
         'member_id', 'service_id', 'account', 'network', 'service', 'schema',
-        'data', 'paths', 'document_store', 'data_store',
+        'data', 'paths', 'document_store', 'data_store', 'cache_store',
         'query_cache', 'counter_cache', 'storage_driver',
         'private_key_password', 'tls_secret', 'data_secret',
         'service_data_secret', 'service_ca_secret', 'service_ca_certchain'
@@ -115,6 +117,7 @@ class Member:
 
         self.document_store: DocumentStore = self.account.document_store
         self.data_store: DataStore = config.server.data_store
+        self.cache_store: CacheStore = config.server.cache_store
 
         self.query_cache: QueryCache | None = None
         self.counter_cache: CounterCache | None = None
@@ -138,7 +141,11 @@ class Member:
     async def setup(self, local_service_contract: str = None,
                     new_membership: bool = True):
         '''
-        Loads the schema and the service for this membership
+        Sets up a membership for use by the pod. This method is expected
+        to only be called by the appserver or workers on the pod, or test
+        cases simulating them.
+        Directory-, service- and other servers should not call this method.
+
         '''
 
         if local_service_contract:
@@ -436,6 +443,15 @@ class Member:
         raise NotImplementedError(
             'Schema updates are not yet supported by the pod'
         )
+
+    def get_data_class(self, class_name: str) -> SchemaDataItem:
+        '''
+        Gets the data class
+
+        :param class_name: name of the class to get
+        '''
+
+        return self.schema.get_data_class(class_name)
 
     async def create_secrets(self, local_storage: FileStorage,
                              members_ca: MembersCaSecret = None) -> None:
@@ -758,8 +774,8 @@ class Member:
 
         return schema
 
-    async def enable_data_apis(self, app: FastAPI, data_store: DataStore
-                               ) -> None:
+    async def enable_data_apis(self, app: FastAPI, data_store: DataStore,
+                               cache_store: CacheStore) -> None:
         '''
         Generate the data classes for the schema and the
         corresponding storage tables
@@ -773,9 +789,11 @@ class Member:
 
         schema: Schema = self.schema
 
-        schema.get_data_classes()
-
         await data_store.setup_member_db(
+            self.member_id, self.service_id, self.schema
+        )
+
+        await cache_store.setup_member_db(
             self.member_id, self.service_id, self.schema
         )
 
@@ -817,7 +835,7 @@ class Member:
             f'Verified network signature for service {self.service_id}'
         )
 
-    async def load_network_links(self) -> list[dict[str, str | datetime]]:
+    async def load_network_links(self) -> list[NetworkLink]:
         '''
         Loads the network links of the membership
         '''

@@ -11,23 +11,22 @@ from uuid import UUID
 from uuid import uuid4
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import FastAPI
-
-from byoda.models.data_api_models import DataFilterType
 
 from byoda.requestauth.jwt import JWT
 
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datatypes import DataRequestType
+from byoda.datatypes import DataFilterType
 from byoda.datatypes import DATA_API_URL
+from byoda.datatypes import DATA_API_PROXY_URL
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.member_secret import MemberSecret
 
-from byoda.servers.pod_server import PodServer
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -38,6 +37,9 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class DataApiClient:
+    # We can't use PodServer.HTTP_PORT here because of circular import
+    INTERNAL_HTTP_PORT: int = 8000
+
     SUPPORTED_REQUEST_TYPES: list[DataRequestType] = [
         DataRequestType.QUERY, DataRequestType.APPEND, DataRequestType.UPDATE,
         DataRequestType.MUTATE, DataRequestType.DELETE
@@ -82,9 +84,11 @@ class DataApiClient:
         :param jwt: JWT to use for authentication, must be None if the
         secret is provided
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param member_id: the member_id of the pod you want to call, required
         if use_proxy is set to True
+        :param remote_member_id: the member ID of the pod that you want the
+        pod that handles our request to proxy our request to
         :param headers: a list of HTTP headers to add to the request
         :param timeout: timeout in seconds
         :param internal: whether to use the internal API or not, also used
@@ -162,9 +166,9 @@ class DataApiClient:
         :param jwt: JWT to use for authentication, must be None if the
         secret is provided
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param member_id: the member_id of the pod you want to call, required
-        if use_proxy is set to True
+        if not performing an internal API call
         :param headers: a list of HTTP headers to add to the request
         :param timeout: timeout in seconds
         :param internal: whether to use the internal API or not, also used
@@ -174,7 +178,7 @@ class DataApiClient:
         :raises: ValueError
         '''
 
-        if (internal or app) and not config.debug:
+        if app and not config.debug:
             raise ValueError('Not running test cases')
 
         if not (app or internal):
@@ -195,8 +199,12 @@ class DataApiClient:
         protocol: str = 'https'
 
         if internal or app:
-            _LOGGER.debug('Calling Data API from test case')
-            port = PodServer.HTTP_PORT
+            if not app:
+                _LOGGER.debug('Calling Data API via internal port')
+            else:
+                _LOGGER.debug('Calling Data API via test case')
+                
+            port = DataApiClient.INTERNAL_HTTP_PORT
             protocol = 'http'
 
             data_url = api_template.format(
@@ -220,9 +228,9 @@ class DataApiClient:
             if not member_id:
                 raise ValueError('Member ID must be provided when using proxy')
 
-            data_url = api_template.format(
-                protocol=protocol, network=network, service_id=service_id,
-                member_id=member_id,
+            data_url = DATA_API_PROXY_URL.format(
+                protocol=protocol, network=network,
+                service_id=service_id, member_id=member_id,
                 class_name=class_name, action=action.value,
             )
         else:
@@ -264,7 +272,7 @@ class DataApiClient:
         :param method: GET, POST, etc.
         :param secret: secret to use for client M-TLS
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param service_id:
         :param member_id:
         :param account_id:

@@ -18,8 +18,10 @@ import aiosqlite
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import Table
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
+
 from byoda.datatypes import IdType
+from byoda.datatypes import AnyScalarType
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -54,7 +56,7 @@ class Sql:
         return filepath
 
     async def execute(self, command: str, member_id: UUID = None,
-                      data: dict[str, str | int | float | bool] = None,
+                      data: dict[str, AnyScalarType] = None,
                       autocommit: bool = True, fetchall: bool = False
                       ) -> aiosqlite.cursor.Cursor | list[aiosqlite.Row]:
         '''
@@ -74,12 +76,13 @@ class Sql:
         if member_id:
             _LOGGER.debug(
                 f'Executing SQL for member {member_id}: {command} using '
-                f'SQL data file {self.member_db_files[member_id]}'
+                f'SQL data file {self.member_db_files[member_id]} and '
+                f'values {data}'
             )
         else:
             _LOGGER.debug(
                 f'Executing SQL for account: {command} using '
-                f'SQL data file {self.account_db_file}'
+                f'SQL data file {self.account_db_file} and values {data}'
             )
 
         async with aiosqlite.connect(datafile) as db_conn:
@@ -133,8 +136,9 @@ class Sql:
     async def query(self, member_id: UUID, class_name: str,
                     filters: DataFilterSet = None,
                     first: int = None, after: str = None,
-                    fields: set[str] | None = None
-                    ) -> QueryResults | None:
+                    fields: set[str] | None = None,
+                    meta_filters: DataFilterSet | None = None
+                    ) -> list[QueryResult] | None:
         '''
         Execute the query on the SqlTable for the member_id and class_name
 
@@ -143,13 +147,16 @@ class Sql:
         :param filters: filters to apply to the query
         :param first: number of records to return
         :param after: pagination cursor
+        :param fields: fields to include in the response
+        :param meta_filters: filters to apply to the metadata
         'parent' data class
         '''
 
         sql_table: SqlTable = self.get_table(member_id, class_name)
 
         return await sql_table.query(
-            filters, first=first, after=after, fields=fields
+            filters, first=first, after=after, fields=fields,
+            meta_filters=meta_filters
         )
 
     async def mutate(self, member_id: UUID, class_name: str,
@@ -212,7 +219,7 @@ class Sql:
         return await sql_table.delete(data_filter_set)
 
     async def read(self, member: Member, class_name: str,
-                   filters: DataFilterSet) -> QueryResults:
+                   filters: DataFilterSet) -> list[QueryResult]:
         '''
         Reads all the data for a membership
         '''

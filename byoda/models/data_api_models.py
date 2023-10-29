@@ -15,8 +15,6 @@ from logging import getLogger
 from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
-from datetime import date
-from datetime import time
 from typing_extensions import Annotated
 
 from opentelemetry.trace import get_tracer
@@ -28,6 +26,8 @@ from pydantic.functional_validators import AfterValidator
 from pydantic import Base64Str
 from pydantic import BaseModel as PydanticBaseModel
 
+from byoda.datatypes import DataFilterType
+
 from byoda.limits import MAX_FIELD_NAME_LENGTH
 from byoda.limits import MAX_OBJECT_FIELD_COUNT
 from byoda.limits import MAX_RELATIONS_QUERY_COUNT
@@ -37,11 +37,6 @@ _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
 
 DEFAULT_PAGE_LENGTH: int = 40
-
-AnyScalarType = \
-    str | bytes | int | float | bool | UUID | datetime | date | time
-
-DataFilterType = dict[str, dict[str, AnyScalarType]]
 
 
 class BaseModel(PydanticBaseModel):
@@ -245,4 +240,16 @@ class UpdatesModel(BaseModel):
     )
     fields: list[str] | None = Field(
         default=None, description='List of fields to receive data for'
+    )
+    origin_id: UUID | None = Field(
+        default=None, description='Origin for the data'
+    )
+    origin_id_type: UUID | None = Field(
+        default=None, description='ID type for the origin ID'
+    )
+    origin_class_name: UUID | None = Field(
+        default=None,
+        description=(
+            'Name of the "non-cache-only" class from which the data originates'
+        )
     )

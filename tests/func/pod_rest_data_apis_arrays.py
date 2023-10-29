@@ -17,29 +17,22 @@ import os
 import sys
 import unittest
 
-from copy import copy
-from uuid import UUID
+from typing import TypeVar
 from datetime import datetime
 from datetime import timezone
+
+from anyio import sleep
 
 from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
-from byoda.datatypes import IdType
 from byoda.datatypes import DataRequestType
-from byoda.datatypes import DATA_API_URL
+from byoda.datatypes import AnyScalarType
+from byoda.datatypes import DataFilterType
 
-from byoda.models.data_api_models import AnyScalarType
-from byoda.models.data_api_models import DataFilterType
-
-from byoda.servers.pod_server import PodServer
-
-from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
-from byoda.util.api_client.api_client import HttpResponse
-from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
@@ -57,11 +50,15 @@ from podserver.routers import accountdata as AccountDataRouter
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
+
+from tests.lib.auth import get_member_auth_header
 from tests.lib.util import get_test_uuid
+from tests.lib.util import call_data_api
 
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
+PodServer = TypeVar('PodServer')
 
 # Settings must match config.yml used by directory server
 NETWORK: str = config.DEFAULT_NETWORK
@@ -104,9 +101,9 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         for member in account.memberships.values():
-            await member.create_query_cache()
-            await member.create_counter_cache()
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(
+                APP, server.data_store, server.cache_store
+            )
 
     @classmethod
     async def asyncTearDown(self):
@@ -115,16 +112,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def test_pod_rest_data_api_update_jwt(self):
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
 
         member_auth_header = await get_member_auth_header(
-            self, member.member_id
+            service_id=service_id, test=self, app=APP,
         )
-
         total_records: int = 5
         class_name: str = 'network_assets'
         await populate_data_rest(
-            self, service_id, class_name, total_records, member_auth_header
+            self, service_id, class_name, total_records, member_auth_header,
+            app=APP
         )
 
         # update one item of the array
@@ -139,19 +135,19 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             }
         }
         updated_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.UPDATE,
             data_filter={'asset_id': {'eq': ALL_DATA[0]['data']['asset_id']}},
             data=update_data,
-            auth_header=member_auth_header, expect_success=True
+            auth_header=member_auth_header, expect_success=True, app=APP
         )
         self.assertEqual(updated_count, 1)
 
         all_data = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             data_filter={'asset_id': {'eq': asset_id}},
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         self.assertEqual(all_data['total_count'], 1)
         node = all_data['edges'][0]['node']
@@ -160,172 +156,174 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ByodaRuntimeError):
              await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.UPDATE, data=update_data,
                 data_filter=None,
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         with self.assertRaises(ByodaRuntimeError):
             await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.UPDATE, data=update_data,
                 data_filter={'asset_id': None},
-                auth_header=member_auth_header, expect_success=False
-            )
-
-        with self.assertRaises(ValueError):
-            await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
-                action=DataRequestType.UPDATE, data=update_data,
-                data_filter={'asset_id': {}},
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         with self.assertRaises(ByodaRuntimeError):
             await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
+                action=DataRequestType.UPDATE, data=update_data,
+                data_filter={'asset_id': {}},
+                auth_header=member_auth_header, expect_success=False, app=APP
+            )
+
+        with self.assertRaises(ByodaRuntimeError):
+            await call_data_api(
+                service_id, class_name, test=self,
                 action=DataRequestType.UPDATE, data=update_data,
                 data_filter={'asset_id': {'blah': None}},
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         with self.assertRaises(KeyError):
             await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.UPDATE, data=update_data,
                 data_filter={'asset_id': {'blah': 'blah'}},
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         updated_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.UPDATE, data=update_data,
             data_filter={'asset_id': {'eq': get_test_uuid()}},
-            auth_header=member_auth_header, expect_success=True
+            auth_header=member_auth_header, expect_success=True, app=APP
         )
         self.assertEqual(updated_count, 0)
 
         updated_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.UPDATE, data=update_data,
             data_filter={'asset_id': {'ne': asset_id}},
-            auth_header=member_auth_header, expect_success=True
+            auth_header=member_auth_header, expect_success=True, app=APP
         )
         self.assertEqual(updated_count, 4)
 
 
     async def test_pod_rest_data_api_delete_jwt(self):
-        account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
 
         member_auth_header = await get_member_auth_header(
-            self, member.member_id
+            service_id=service_id, test=self, app=APP,
         )
-
         total_records: int = 10
         class_name: str = 'network_assets'
         await populate_data_rest(
-            self, service_id, class_name, total_records, member_auth_header
+            self, service_id, class_name, total_records, member_auth_header,
+            app=APP
         )
 
         with self.assertRaises(ByodaRuntimeError):
              await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.DELETE, data_filter=None,
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         with self.assertRaises(ByodaRuntimeError):
             await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.DELETE, data_filter={'asset_id': None},
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
+            )
+
+        with self.assertRaises(ByodaRuntimeError):
+            await call_data_api(
+                service_id, class_name, test=self,
+                action=DataRequestType.DELETE, data_filter={'asset_id': {}},
+                auth_header=member_auth_header, expect_success=False, app=APP
+            )
+
+        with self.assertRaises(ByodaRuntimeError):
+            await call_data_api(
+                service_id, class_name, test=self,
+                action=DataRequestType.DELETE, data_filter={'asset_id': {'blah': None}},
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         with self.assertRaises(ValueError):
             await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
-                action=DataRequestType.DELETE, data_filter={'asset_id': {}},
-                auth_header=member_auth_header, expect_success=False
-            )
-
-        with self.assertRaises(ByodaRuntimeError):
-            await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
-                action=DataRequestType.DELETE, data_filter={'asset_id': {'blah': None}},
-                auth_header=member_auth_header, expect_success=False
-            )
-
-        with self.assertRaises(KeyError):
-            await call_data_api(
-                self, ADDRESSBOOK_SERVICE_ID, class_name,
+                service_id, class_name, test=self,
                 action=DataRequestType.DELETE, data_filter={'asset_id': {'blah': 'blah'}},
-                auth_header=member_auth_header, expect_success=False
+                auth_header=member_auth_header, expect_success=False, app=APP
             )
 
         # No items deleted because we are specifying a bogus asset_id
         deleted_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.DELETE, data_filter={'asset_id': {'eq': get_test_uuid()}},
-            auth_header=member_auth_header, expect_success=False
+            service_id, class_name, test=self,
+            action=DataRequestType.DELETE,
+            data_filter={'asset_id': {'eq': get_test_uuid()}},
+            auth_header=member_auth_header, expect_success=False, app=APP
         )
         self.assertEqual(deleted_count, 0)
 
         # Get some data so we know what data we can use to delete
         all_data = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=3,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         self.assertEqual(all_data['total_count'], 3)
 
         # Delete one item
         asset = all_data['edges'][1]['node']
         deleted_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.DELETE, data_filter={'asset_id': {'eq': asset['asset_id']}},
-            auth_header=member_auth_header, expect_success=True
+            service_id, class_name, test=self,
+            action=DataRequestType.DELETE,
+            data_filter={'asset_id': {'eq': asset['asset_id']}},
+            auth_header=member_auth_header, expect_success=True, app=APP
         )
         self.assertEqual(deleted_count, 1)
 
         # delete all items except the second node
         asset = all_data['edges'][2]['node']
         deleted_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.DELETE, data_filter={'asset_id': {'ne': asset['asset_id']}},
-            auth_header=member_auth_header, expect_success=True
+            service_id, class_name, test=self,
+            action=DataRequestType.DELETE,
+            data_filter={'asset_id': {'ne': asset['asset_id']}},
+            auth_header=member_auth_header, expect_success=True, app=APP
         )
         self.assertEqual(deleted_count, 8)
 
         # Delete the remaining one item
         deleted_count = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.DELETE, data_filter={'asset_id': {'ne': ''}},
-            auth_header=member_auth_header, expect_success=True
+            service_id, class_name, test=self,
+            action=DataRequestType.DELETE,
+            data_filter={'asset_type': {'ne': ''}},
+            auth_header=member_auth_header,
+            expect_success=True, app=APP
         )
         self.assertEqual(deleted_count, 1)
 
     async def test_pod_rest_data_api_filters_jwt(self):
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
 
         member_auth_header = await get_member_auth_header(
-            self, member.member_id
+            service_id=service_id, test=self, app=APP,
         )
-
         total_records: int = 50
         class_name: str = 'network_assets'
-        await populate_data_rest(
-            self, service_id, class_name, total_records, member_auth_header
+        asset_data: list[dict[str, object]] = await populate_data_rest(
+            self, service_id, class_name, total_records, member_auth_header,
+            app=APP
         )
 
         all_data = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=total_records,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         self.assertEqual(all_data['total_count'], total_records)
         self.assertEqual(
@@ -338,11 +336,11 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         }
 
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=None, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), 1)
@@ -354,11 +352,11 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         }
 
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=None, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), 1)
@@ -367,11 +365,11 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             'asset_id': {'ne': asset_id}
         }
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=100, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), total_records-1)
@@ -383,11 +381,11 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             'asset_id': {'ne': all_data['edges'][1]['node']['asset_id']},
         }
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=100, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), total_records-1)
@@ -397,11 +395,11 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             'title': {'ne': title},
         }
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=100, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), total_records-1)
@@ -411,92 +409,21 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             'title': {'ne': all_data['edges'][1]['node']['title']},
         }
         filter_batch = await call_data_api(
-            self, service_id, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=100, after=None,
             data_filter=data_filter,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(filter_batch['edges']), total_records-2)
 
-    async def test_pod_rest_data_api_mutate_jwt(self):
-        account: Account = config.server.account
-        service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
-
-        member_auth_header = await get_member_auth_header(
-            self, member.member_id
-        )
-
-        class_name = 'person'
-        data = {
-            'data': {
-                'given_name': 'givenname',
-                'family_name': 'familyname',
-                'homepage_url': 'https://www.byoda.org',
-                'email': 'steven@byoda.org',
-                'avatar_url': 'https://dev.null',
-            }
+        # Filter on datetime, which is special case for Sqlite as
+        # we store datetime as floats, which are not exact
+        asset_timestamp: str = asset_data[0]['data']['created_timestamp']
+        data_filter: DataFilterType = {
+            'created_timestamp': {'at': asset_timestamp}
         }
-        await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.MUTATE, data=data,
-            auth_header=member_auth_header,
-        )
-
-        result: dict[str, str] = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.QUERY,
-            auth_header=member_auth_header,
-        )
-        result_data = result['edges'][0]['node']
-        data['data']['additional_names'] = None
-        self.assertEqual(data['data'], result_data)
-
-    async def test_object_fields(self):
-        account: Account = config.server.account
-        service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
-
-        member_auth_header = await get_member_auth_header(
-            self, member.member_id
-        )
-
-        class_name = 'person'
-        data = {
-            'data': {
-                'given_name': 'givenname',
-                'family_name': 'familyname',
-                'homepage_url': 'https://www.byoda.org',
-                'email': 'steven@byoda.org',
-                'avatar_url': 'https://dev.null',
-            }
-        }
-        await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.MUTATE, data=data,
-            auth_header=member_auth_header,
-        )
-
-        fields: list[str] = ['given_name', 'family_name', 'homepage_url']
-        result: dict[str, str] = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
-            action=DataRequestType.QUERY, fields=fields,
-            auth_header=member_auth_header,
-        )
-        result_data = result['edges'][0]['node']
-
-        # Requested fields
-        self.assertIsNotNone(result_data['given_name'])
-        self.assertIsNotNone(result_data['family_name'])
-        self.assertIsNotNone(result_data['homepage_url'])
-
-        # Not requested but required
-        self.assertIsNotNone(result_data['email'])
-
-        # Not requested nor required
-        self.assertIsNone(result_data['avatar_url'])
 
     async def test_pod_rest_data_api_pagination_jwt(self):
         account: Account = config.server.account
@@ -504,20 +431,20 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         member: Member = await account.get_membership(service_id)
 
         member_auth_header = await get_member_auth_header(
-            self, member.member_id
+            service_id=service_id, test=self, app=APP,
         )
-
         total_records: int = 50
         batch_size: int = 20
         class_name: str = 'network_assets'
         await populate_data_rest(
-            self, service_id, class_name, total_records, member_auth_header
+            self, service_id, class_name, total_records, member_auth_header,
+            app=APP
         )
 
         all_data = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=total_records,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         self.assertEqual(all_data['total_count'], total_records)
         self.assertEqual(
@@ -525,18 +452,18 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         first_batch = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=batch_size,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         after = first_batch['page_info']['end_cursor']
         self.assertEqual(after, all_data['edges'][19]['cursor'])
 
         second_batch = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=batch_size, after=after,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
         self.assertEqual(
             second_batch['edges'][0]['cursor'], all_data['edges'][20]['cursor']
@@ -558,10 +485,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         ]
 
         fields_batch = await call_data_api(
-            self, ADDRESSBOOK_SERVICE_ID, class_name,
+            service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=batch_size, after=after, fields=fields,
-            auth_header=member_auth_header
+            auth_header=member_auth_header, app=APP
         )
 
         self.assertEqual(len(fields_batch['edges']), batch_size)
@@ -587,44 +514,87 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(node['created_timestamp'])
             self.assertIsNotNone(node['asset_type'])
 
-async def call_data_api(test, service_id: int, class_name: str,
-                        action: DataRequestType = DataRequestType.QUERY,
-                        first: int | None = None, after: str | None = None,
-                        depth: int = 0, fields: set[str] | None = None,
-                        data_filter: DataFilterType | None = None,
-                        data: dict[str, object] | None = None,
-                        auth_header: str = None, expect_success: bool = True
-                        ) -> dict | None:
+    async def test_datetime_comparisons(self):
+        account: Account = config.server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
 
-    resp = await DataApiClient.call(
-        service_id=service_id, class_name=class_name, action=action,
-        first=first, after=after, depth=depth, fields=fields,
-        data_filter=data_filter, data=data, headers=auth_header,
-        app=APP, internal=True
-    )
+        member_auth_header = await get_member_auth_header(
+            service_id=service_id, test=self, app=APP,
+        )
+        total_records: int = 5
+        class_name: str = 'network_assets'
+        all_data: list[dict[str, object]] = await populate_data_rest(
+            self, service_id, class_name, total_records, member_auth_header,
+            app=APP, delay=1/total_records,
+        )
 
-    if expect_success:
-        test.assertEqual(resp.status_code, 200)
+        created_timestamp = all_data[1]['data']['created_timestamp']
+        data_filter = {
+            'created_timestamp': {'at': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 1)
 
-    result: dict = resp.json()
+        data_filter = {
+            'created_timestamp': {'nat': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 4)
 
-    if not expect_success:
-        return result
+        data_filter = {
+            'created_timestamp': {'before': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 1)
 
-    if action == DataRequestType.QUERY:
-        test.assertIsNotNone(result['total_count'])
-    elif action in (DataRequestType.APPEND, DataRequestType.DELETE):
-        test.assertIsNotNone(result)
-        test.assertGreater(result, 0)
-    else:
-        pass
+        data_filter = {
+            'created_timestamp': {'after': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 3)
 
-    return result
+        data_filter = {
+            'created_timestamp': {'atbefore': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 2)
+
+        data_filter = {
+            'created_timestamp': {'atafter': created_timestamp}
+        }
+        data = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY, first=total_records,
+            auth_header=member_auth_header, data_filter=data_filter, app=APP
+        )
+        self.assertEqual(data['total_count'], 4)
 
 
 async def populate_data_rest(test, service_id: int, class_name: str,
                              record_count: int,
-                             member_auth_header: dict[str, str]
+                             member_auth_header: dict[str, str],
+                             app: FastAPI = None, delay=None
                              ) -> dict | None:
     global ALL_DATA
     ALL_DATA = []
@@ -677,30 +647,15 @@ async def populate_data_rest(test, service_id: int, class_name: str,
         ALL_DATA.append(data)
 
         await call_data_api(
-            test, service_id, class_name, action=DataRequestType.APPEND,
-            data=data, auth_header=member_auth_header, expect_success=True
+            service_id, class_name, test=test,
+            action=DataRequestType.APPEND,
+            data=data, auth_header=member_auth_header, expect_success=True,
+            app=APP
         )
+        if delay:
+            await sleep(1)
 
-
-async def get_member_auth_header(test, member_id) -> dict[str, str]:
-    resp: HttpResponse = await ApiClient.call(
-        f'{BASE_URL}/v1/pod/authtoken',
-        method=HttpMethod.POST,
-        data={
-            'username': str(member_id)[:8],
-            'password': os.environ['ACCOUNT_SECRET'],
-            'target_type': IdType.MEMBER.value,
-            'service_id': ADDRESSBOOK_SERVICE_ID
-        },
-        headers={'Content-Type': 'application/json'},
-        app=APP
-    )
-    test.assertEqual(resp.status_code, 200)
-    data: dict[str, str] = resp.json()
-    member_auth_header: dict[str, str] = {
-        'Authorization': f'bearer {data["auth_token"]}'
-    }
-    return member_auth_header
+    return ALL_DATA
 
 
 if __name__ == '__main__':

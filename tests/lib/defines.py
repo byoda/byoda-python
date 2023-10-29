@@ -13,6 +13,7 @@ from uuid import UUID
 COLLATERAL_DIR = 'tests/collateral'
 
 BASE_URL: str = 'http://localhost:{PORT}/api'
+DATA_API_WS_URL: str = 'ws://localhost:{PORT}/api/v1/data/{service_id}/{class_name}/{action}'
 
 ADDRESSBOOK_SERVICE_ID: int = 4294929430
 ADDRESSBOOK_VERSION: int = 1
@@ -25,10 +26,13 @@ AZURE_POD_ACCOUNT_ID: str = '6e31dd43-fc13-426f-a689-a401915c29cd'
 AZURE_POD_MEMBER_ID: str = '94f23c4b-1721-4ffe-bfed-90f86d07611a'
 AZURE_POD_MEMBER_FQDN: str = f'{AZURE_POD_MEMBER_ID}.members-{ADDRESSBOOK_SERVICE_ID}.byoda.net'
 AZURE_POD_CUSTOM_DOMAIN: str = 'azure.byoda.me'
+
+AZURE_POD_ADDRESS_BOOK_PUBLIC_ASSETS_ASSET_ID: str = 'aaaaaaaa-513c-49d8-b034-c7c12b915a95'
+
 AZURE_POD_ACCOUNT_SECRET_FILE: str = 'tests/collateral/local/azure-pod-account-secret.passwd'
 AZURE_POD_MEMBER_SECRET_FILE: str = 'tests/collateral/local/azure-pod-member-secret.passwd'
-
 AZURE_RESTRICTED_BUCKET_FILE: str = 'tests/collateral/local/restricted-storage-azure'
+
 
 GCP_POD_ACCOUNT_ID: str = '55e43ddf-5bb8-4ba3-8dc4-82a663f55e4e'
 GCP_POD_MEMBER_ID: str = '4e72517d-c205-4cc3-9cd7-e892a93f788a'

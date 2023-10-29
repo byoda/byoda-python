@@ -131,25 +131,19 @@ class SchemaDataItem:
         value: int | None = None
         for property in schema_data.get(MARKER_PROPERTIES, []):
             if isinstance(property, list):
+                # Property looks like ['cache_only', '1w']
                 property, value = property
+            elif ':' in property:
+                # Property looks like 'cache_only:1w'
+                property, value = property.split(':', 2)
 
             property_instance = DataProperty(property)
             self.properties.add(property_instance)
 
             if property_instance == DataProperty.CACHE_ONLY:
-                if value is None:
-                    value = '1w'
-                elif value[-1] not in 'shdw':
-                    try:
-                        value: int = int(value)
-                    except ValueError as exc:
-                        raise ValueError(
-                            f'Invalid value for {property}: {value}: {exc}'
-                        )
-                    value = f'{value}s'
-
-                self.expires_after: int = \
-                    int(value[:-1]) * SECONDS_PER_UNIT[value[-1]]
+                self.expires_after: int = self._convert_timespec_to_seconds(
+                    value
+                )
 
         # Create index on this item in an array of SchemaDataObject
         self.is_index: bool = DataProperty.INDEX in self.properties
@@ -269,7 +263,7 @@ class SchemaDataItem:
 
     @staticmethod
     def create(class_name: str, schema_data: dict, schema: Schema,
-               classes: dict = {}, pubsub: bool = True):
+               classes: dict = {}, with_pubsub: bool = True):
         '''
         Factory for instances of classes derived from SchemaDataItem
 
@@ -277,7 +271,7 @@ class SchemaDataItem:
         :param schema_data: json-schema blurb for the class
         :param schema: Schema instance
         :param classes: dictionary of classes already created
-        :param pubsub: whether to create a PubSub instance for the class
+        :param with_pubsub: whether to create a PubSub instance for the class
         :returns: SchemaDataItem instance or None, if the item is declared
         obsolete in the service schema
         '''
@@ -293,10 +287,11 @@ class SchemaDataItem:
 
         if item_type == 'object':
             item = SchemaDataObject(
-                class_name, schema_data, schema, classes=classes)
+                class_name, schema_data, schema, classes=classes
+            )
         elif item_type == 'array':
             item = SchemaDataArray(
-                class_name, schema_data, schema, classes=classes, pubsub=pubsub
+                class_name, schema_data, schema, classes=classes, with_pubsub=with_pubsub
             )
         else:
             if schema_data.get('#obsolete', False) == True:
@@ -408,22 +403,49 @@ class SchemaDataItem:
 
         return None
 
+    def _convert_timespec_to_seconds(self, time_spec: str = '1w') -> int:
+        '''
+        Converts a time specification to seconds
+        '''
+
+        seconds: int
+        if time_spec is None:
+            seconds = SECONDS_PER_UNIT['w']
+        elif time_spec[-1] not in SECONDS_PER_UNIT:
+            try:
+                seconds = int(time_spec)
+            except ValueError as exc:
+                raise ValueError(
+                    f'Invalid value for timespec: {time_spec}: {exc}'
+                )
+        else:
+            seconds = int(time_spec[:-1]) * SECONDS_PER_UNIT[time_spec[-1]]
+
+        return seconds
+
+
 class SchemaDataScalar(SchemaDataItem):
     __slots__ = [
-        'format'
+        'format', 'equal_operator'
     ]
 
     def __init__(self, class_name: str, schema_data: dict, schema: Schema) -> None:
         super().__init__(class_name, schema_data, schema)
 
         self.defined_class: bool = False
-        self.format: str = None
+        self.format: str | None = None
+
+        # equal_operator is used for converting data for data_class back to
+        # a DataSetFilter that matches that data
+        self.equal_operator: str = 'eq'
+
 
         if self.type == DataType.STRING:
             self.format: str = self.schema_data.get('format')
             if self.format == 'date-time':
                 self.type = DataType.DATETIME
                 self.python_type = 'datetime'
+                self.equal_operator = 'at'
             elif (self.format == 'uuid' or self.schema_data.get('regex') ==
                     (
                         '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}'
@@ -431,6 +453,7 @@ class SchemaDataScalar(SchemaDataItem):
                     )):
                 self.type = DataType.UUID
                 self.python_type = 'UUID'
+                self.equal_operator = 'eq'
 
         if self.is_primary_key and self.type != DataType.UUID:
             raise ValueError(
@@ -455,7 +478,8 @@ class SchemaDataScalar(SchemaDataItem):
     def normalize(self, value: str | int | float | datetime
                   ) -> str | int | float | UUID | datetime:
         '''
-        Normalizes the value to the correct data type for the item
+        Normalizes the value from the data store to the correct data type
+        for the item in Python3
         '''
 
         try:
@@ -476,7 +500,6 @@ class SchemaDataScalar(SchemaDataItem):
             )
 
         return result
-
 
 class SchemaDataObject(SchemaDataItem):
     __slots__ = ['required_fields']
@@ -528,7 +551,7 @@ class SchemaDataObject(SchemaDataItem):
                     )
 
             item = SchemaDataItem.create(
-                field, field_properties, schema, classes, pubsub=False
+                field, field_properties, schema, classes, with_pubsub=False
             )
 
             if item:
@@ -648,7 +671,7 @@ class SchemaDataArray(SchemaDataItem):
     __slots__ = ['items']
 
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
-                 classes: dict[str, SchemaDataItem], pubsub: bool =True
+                 classes: dict[str, SchemaDataItem], with_pubsub: bool =True
                  ) -> None:
         '''
         Constructor
@@ -682,7 +705,7 @@ class SchemaDataArray(SchemaDataItem):
             # This is an array of scalars or objects
             self.items = DataType(items['type'])
             self.referenced_class = SchemaDataItem.create(
-                None, schema_data['items'], schema, classes
+                None, schema_data['items'], schema, classes, with_pubsub=False
             )
         elif '$ref' in items:
             # This is an array of objects of the referenced class
@@ -698,7 +721,7 @@ class SchemaDataArray(SchemaDataItem):
             # The Pub/Sub for communicating changes to data using this class
             # instance. We only track changes for arrays at the top-level
             # of the schema
-            if pubsub and config.test_case != "TEST_CLIENT":
+            if with_pubsub and config.test_case != "TEST_CLIENT":
                 self.pubsub_class = PubSub.setup(
                     self.name, self, schema, is_sender=True
                 )
@@ -709,7 +732,7 @@ class SchemaDataArray(SchemaDataItem):
 
         _LOGGER.debug(
             f'Created array class {class_name} with referenced class '
-            f'{self.referenced_class}'
+            f'{self.referenced_class.name}'
         )
 
     def normalize(self, value: str | bytes) -> list:

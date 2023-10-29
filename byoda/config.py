@@ -58,7 +58,7 @@ disable_pubsub: bool = False
 # server:
 client_pools: dict[str, AsyncHttpClient] = {}
 
-# Pool of requests sessions, used by podworker as it can't use asyncio.
+# Pool of requests sessions, used by pod_worker as it can't use asyncio.
 sync_client_pools: dict[str, requests.Session] = {}
 
 # This cache avoids having to load cert/key for each request that uses

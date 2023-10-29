@@ -23,7 +23,7 @@ import orjson
 from dateutil import parser as dateutil_parser
 
 from byoda.datamodel.datafilter import DataFilterSet
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
@@ -251,7 +251,7 @@ class Claim:
                 }
             }
         )
-        data: QueryResults = await data_store.query(
+        data: list[QueryResult] = await data_store.query(
             member_id, self.object_type, filter_set
         )
 

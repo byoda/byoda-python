@@ -87,7 +87,9 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
 
         server: PodServer = config.server
         for member in pod_account.memberships.values():
-            await member.enable_data_apis(app, server.data_store)
+            await member.enable_data_apis(
+                app, server.data_store, server.cache_store
+            )
             await member.update_registration()
 
         TestTwitterIntegration.PROCESS = Process(

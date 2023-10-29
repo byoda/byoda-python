@@ -59,6 +59,7 @@ class ListenRelation:
     class_name: str
     destination_class: str
     relations: Optional[list[str]] = None
+    feed_class: str | None = None
 
 
 class Schema:
@@ -331,10 +332,14 @@ class Schema:
 
         self.verified_signatures.add(signature_type)
 
-    def get_data_classes(self) -> list[dict[str, dict]]:
+    def get_data_classes(self, with_pubsub: bool = True
+                         ) -> dict[str, object]:
         '''
         Finds all objects in the JSON schema for which we will
         need to generate @strawberry.type classes
+
+        :param pubsub: whether to create a PubSub instance for the class
+        :returns:
         '''
 
         _LOGGER.debug('Parsing data classes of the schema')
@@ -342,6 +347,7 @@ class Schema:
         # TODO: SECURITY check that urlparse.netloc matches the entity_id for
         # the service
 
+        # First we go over the 'defined' classes
         classes = self.json_schema['jsonschema'].get("$defs", {})
 
         for iteration in (1, 2, 3):
@@ -350,7 +356,8 @@ class Schema:
                 _LOGGER.debug(f'Parsing defined class {class_name}')
                 try:
                     dataclass = SchemaDataItem.create(
-                        class_name, class_properties, self, self.data_classes
+                        class_name, class_properties, self, self.data_classes,
+                        with_pubsub=with_pubsub
                     )
                     if dataclass:
                         self.data_classes[class_name] = dataclass
@@ -376,16 +383,25 @@ class Schema:
                 ', '.join(classes_todo.keys())
             )
 
+        # now we iterate over the top-level classes
         properties = self.json_schema['jsonschema']['properties']
         for class_name, class_properties in properties.items():
             _LOGGER.debug(f'Parsing class {class_name}')
             dataclass = SchemaDataItem.create(
-                class_name, class_properties, self, self.data_classes
+                class_name, class_properties, self, self.data_classes,
+                with_pubsub=with_pubsub
             )
             if dataclass:
                 self.data_classes[class_name] = dataclass
 
         return self.data_classes
+
+    def get_data_class(self, class_name):
+        '''
+        Gets a data class by name
+        '''
+
+        return self.data_classes.get(class_name)
 
     def generate_data_apis(self):
         '''
@@ -716,7 +732,8 @@ class Schema:
                 ListenRelation(
                     class_name=data['class_name'],
                     relations=data.get('relations'),
-                    destination_class=data['destination_class']
+                    destination_class=data['destination_class'],
+                    feed_class=data['feed_class'],
                 )
             )
 

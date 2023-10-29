@@ -6,14 +6,17 @@ DataApiClient, derived from ApiClient for calling REST Data APIs
 :license    : GPLv3
 '''
 
+import os
+
 from uuid import UUID
 from uuid import uuid4
 from ssl import SSLContext
 from ssl import PROTOCOL_TLS_CLIENT
 
-import orjson
-
 from logging import getLogger
+
+
+import orjson
 
 import websockets
 
@@ -21,14 +24,13 @@ from byoda.datatypes import DATA_WS_API_URL
 from byoda.datatypes import DATA_API_PROXY_URL
 from byoda.datatypes import DATA_WS_API_INTERNAL_URL
 
-from byoda.models.data_api_models import DataFilterType
-
 from byoda.storage.filestorage import FileStorage
 
 from byoda.requestauth.jwt import JWT
 
 from byoda.util.api_client.api_client import HttpResponse
 
+from byoda.datatypes import DataFilterType
 from byoda.datatypes import DataRequestType
 
 from byoda.secrets.secret import Secret
@@ -63,7 +65,8 @@ class DataWsApiClient(DataApiClient):
                    fields: set[str] = None,
                    depth: int = None, relations: list[str] = None,
                    data_filter: DataFilterType | None = None,
-                   internal: bool = False
+                   internal: bool = False,
+                   timeout: int = 20
                    ) -> HttpResponse:
 
         '''
@@ -80,7 +83,7 @@ class DataWsApiClient(DataApiClient):
         :param network: network to use for the API call, required
         if use_proxy is False and custom_domain is not set
         :param member_id: target member_id, required if use_proxy is False
-        and custom_domain is not set
+        and custom_domain is not set and internal is set to False
         :param headers: a list of HTTP headers to add to the request
         :param query_id: query ID to use for the request
         :param fields: which fields of the object to return
@@ -92,6 +95,13 @@ class DataWsApiClient(DataApiClient):
         :param data_filter: only receive updates for objects that match
         :param internal: whether to use the internal API or not, also used
         for test cases
+        :returns: HttpResponse
+        :raises:
+        - ValueError
+        - websockets.exceptions.ConnectionClosedOK
+        - websockets.exceptions.ConnectionClosedError
+        - socket.gaierror
+        - asyncio.CancelledError
         '''
 
         if action not in DataWsApiClient.SUPPORTED_REQUEST_TYPES:
@@ -122,13 +132,14 @@ class DataWsApiClient(DataApiClient):
         model: dict[str, UUID | int] = {
             'query_id': query_id or uuid4(),
             'depth': depth or 0,
-            # 'fields': fields,
-            # 'data_filter': data_filter,
+            'fields': fields,
+            'filter': data_filter,
             # 'relations': relations,
         }
 
+        _LOGGER.debug(f'Creating websocket to {data_url}')
         async with websockets.connect(
-                data_url, ping_timeout=50, ping_interval=20,
+                data_url, ping_timeout=timeout, ping_interval=timeout,
                 extra_headers=headers, ssl=ssl_context) as webs:
             body = orjson.dumps(model)
             await webs.send(body)
@@ -159,7 +170,7 @@ class DataWsApiClient(DataApiClient):
         :param jwt: JWT to use for authentication, must be None if the
         secret is provided
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param member_id: the member_id of the pod you want to call, required
         if use_proxy is set to True
         :param headers: a list of HTTP headers to add to the request
@@ -242,6 +253,7 @@ async def _get_ssl_context(network: str, secret: Secret) -> SSLContext:
     Create an SSL context
 
     :returns: ssl.SSLContext
+    :raises FileNotFoundError
     '''
 
     server: PodServer = config.server
@@ -251,12 +263,26 @@ async def _get_ssl_context(network: str, secret: Secret) -> SSLContext:
         f'{storage.local_path}/network-{network}'
         f'/network-{network}-root-ca-cert.pem'
     )
+    _LOGGER.debug(f'Setting SSL context to use CA file {ca_file}')
+    if not os.path.exists(ca_file):
+        _LOGGER.debug(f'CA file {ca_file} does not exist')
+        raise FileNotFoundError(f'CA file {ca_file} does not exist')
 
     ssl_context = SSLContext(PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations(ca_file)
     if secret:
         cert_file: str = f'{storage.local_path}/{secret.cert_file}'
+        if not os.path.exists(cert_file):
+            _LOGGER.debug(f'Cert file {cert_file} does not exist')
+            raise FileNotFoundError(f'CA file {ca_file} does not exist')
+
         key_file: str = secret.get_tmp_private_key_filepath()
+        if not os.path.exists(key_file):
+            _LOGGER.debug(f'private key file {key_file} does not exist')
+            raise FileNotFoundError(
+                f'Private key file {ca_file} does not exist'
+            )
+
         ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
 
     return ssl_context

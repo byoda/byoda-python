@@ -7,6 +7,7 @@ Class for modeling an account on a network
 '''
 
 import os
+
 from copy import copy
 from uuid import UUID
 from typing import TypeVar
@@ -16,11 +17,12 @@ from byoda.util.logger import Logger
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
+from byoda.datatypes import MemberInfo
 
 from byoda.datastore.document_store import DocumentStore
-from byoda.datastore.data_store import DataStore
 
-from byoda.datacache.querycache import QueryCache
+from byoda.datastore.data_store import DataStore
+from byoda.datastore.cache_store import CacheStore
 
 from byoda.datamodel.memberdata import MemberData
 
@@ -319,61 +321,31 @@ class Account:
             f'Registered account with directory server: {resp.status_code}'
         )
 
-    async def load_memberships(self) -> None:
+    async def load_memberships(self, with_pubsub: bool = True) -> None:
         '''
-        Loads the memberships of an account
+        Loads the memberships of an account from the storage backend
+
+        :param with_pubsub: should PubSub sockets be created/opened
         '''
 
-        memberships = await self.get_memberships()
+        memberships: dict[UUID, MemberInfo] = await self.get_memberships()
 
         _LOGGER.debug(f'Loading {len(memberships or [])} memberships')
 
         for membership in memberships.values() or {}:
-            member_id: UUID = membership['member_id']
-            service_id: int = membership['service_id']
+            member_id: UUID = membership.member_id
+            service_id: int = membership.service_id
             if service_id not in self.memberships:
-                await self.load_membership(service_id, member_id)
+                await self.load_membership(
+                    service_id, member_id, with_pubsub=with_pubsub
+                )
 
-    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[str, UUID | int | MemberStatus | float]:    # noqa: E501
-        '''
-        Get a list of the service_ids that the pod has joined by looking
-        at storage.
-
-        :returns: dict of membership UUID with as value a dict with keys
-        member_id, service_id, status, timestamp,
-        '''
-
-        data_store: DataStore = config.server.data_store
-        memberships = await data_store.backend.get_memberships(status)
-        _LOGGER.debug(
-            f'Got {len(memberships or [])} memberships with '
-            f'status {status} from account DB'
-        )
-
-        return memberships
-
-    async def get_membership(self, service_id: int) -> Member | None:
-        '''
-        Get the membership of a service, loading the memberships from storage
-        if it is not already cached
-
-        :param service_id: The ID of the service to get the membership for
-        :returns: The membership object or None if the account doesn't have
-        a membership for the service
-        '''
-
-        service_id = int(service_id)
-
-        if service_id not in self.memberships:
-            await self.load_memberships()
-
-        return self.memberships.get(service_id)
-
-    async def load_membership(self, service_id: int, member_id: UUID
-                              ) -> Member:
+    async def load_membership(self, service_id: int, member_id: UUID,
+                              with_pubsub: bool = True) -> Member:
         '''
         Load the data for a membership of a service
+
+        :param with_pubsub: should PubSub sockets be created/opened
         '''
 
         _LOGGER.debug(
@@ -398,8 +370,15 @@ class Account:
             local_service_contract=local_service_contract, new_membership=False
         )
 
+        member.schema.get_data_classes(with_pubsub=with_pubsub)
+
         data_store: DataStore = config.server.data_store
         await data_store.setup_member_db(
+                member.member_id, member.service_id, member.schema
+        )
+
+        cache_store: CacheStore = config.server.cache_store
+        await cache_store.setup_member_db(
                 member.member_id, member.service_id, member.schema
         )
 
@@ -421,6 +400,89 @@ class Account:
             await member.data.load_protected_shared_key()
 
         self.memberships[service_id] = member
+
+        return member
+
+    async def update_memberships(self, data_store: DataStore,
+                                 cache_store: CacheStore,
+                                 with_pubsub: bool = False) -> None:
+        '''
+        Gets the current memberships of the local pod from storage to
+        update the memberships that are already in memory. This method
+        can be used if other processes update the memberships in storage
+
+        :param data_store: the data store to set up the new memberships
+        :param cahce_store: the cache store to set up the new memberships
+        :param with_pubsub: should pubsub sockets be created for the new
+        memberships
+        :returns: (none)
+        '''
+
+        memberships_in_storage: dict[UUID, MemberInfo] = \
+            await self.get_memberships(status=MemberStatus.ACTIVE)
+
+        _LOGGER.debug(
+            f'Found {len(memberships_in_storage or [])} memberships in storage'
+        )
+
+        new_membership_count: int = 0
+        for member_info in memberships_in_storage.values():
+            service_id: int = member_info.service_id
+            member_id: UUID = member_info.member_id
+            if service_id not in self.memberships:
+                member = await self.load_membership(
+                    service_id, member_id, with_pubsub=with_pubsub
+                )
+                await data_store.setup_member_db(
+                    member.member_id, member.service_id, member.schema
+                )
+                await cache_store.setup_member_db(
+                    member.member_id, member.service_id, member.schema
+                )
+                new_membership_count += 1
+
+        _LOGGER.debug(
+            f'Found {new_membership_count} memberships not yet in memory'
+        )
+
+    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
+                              ) -> dict[UUID, MemberInfo]:
+        '''
+        Get a list of the service_ids that the pod has joined by looking
+        at storage.
+
+        :returns: dict of membership UUID with as value a dict with keys
+        member_id, service_id, status, timestamp,
+        '''
+
+        data_store: DataStore = config.server.data_store
+        memberships: dict[UUID, MemberInfo] = \
+            await data_store.backend.get_memberships(status)
+
+        _LOGGER.debug(
+            f'Got {len(memberships or [])} memberships with '
+            f'status {status} from account DB'
+        )
+
+        return memberships
+
+    async def get_membership(self, service_id: int, with_pubsub: bool = True
+                             ) -> Member | None:
+        '''
+        Get the membership of a service, loading the memberships from storage
+        if it is not already cached
+
+        :param service_id: The ID of the service to get the membership for
+        :returns: The membership object or None if the account doesn't have
+        a membership for the service
+        '''
+
+        service_id = int(service_id)
+
+        if service_id not in self.memberships:
+            await self.load_memberships(with_pubsub=with_pubsub)
+
+        return self.memberships.get(service_id)
 
     async def join(self, service_id: int, schema_version: int,
                    local_storage: FileStorage,
@@ -460,6 +522,8 @@ class Account:
 
         await member.load_secrets()
 
+        member.schema.get_data_classes()
+
         # Save secret to local disk as it is needed by ApiClient for
         # registration
         await member.tls_secret.save(
@@ -472,7 +536,8 @@ class Account:
         if member.tls_secret.cert:
             await member.update_registration()
 
-        member.query_cache = await QueryCache.create(member)
+        await member.create_query_cache()
+        await member.create_counter_cache()
 
         await member.create_nginx_config()
 

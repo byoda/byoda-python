@@ -41,13 +41,14 @@ from byoda.servers.pod_server import PodServer
 from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
-from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
+from byoda.datastore.cache_store import CacheStoreType
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
-
 from byoda.datatypes import ServerRole
+
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda import config
 
@@ -116,6 +117,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await config.server.set_data_store(
             DataStoreType.SQLITE, account.data_secret
         )
+        await config.server.set_cache_store(CacheStoreType.SQLITE)
 
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
@@ -157,6 +159,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await config.server.set_data_store(
             DataStoreType.SQLITE, account.data_secret
         )
+        await config.server.set_cache_store(CacheStoreType.SQLITE)
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)

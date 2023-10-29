@@ -129,12 +129,13 @@ from the addressbook.json service contract to your contract.
   - "properties" dict k/vs:
     - "joined": { "format": "date-time", "type": "string"}
     - "member_id": {"type": "string"}
+    - "supported_versions": {"type": "string"} # command separated list of supported schema versions
 - network_links of type array using the /schemas/network_link as reference
 - datalogs of type array using the /schemas/memberlog as reference
 - incoming_claims: claims from other people that you haven't verified yet
 - verified_claims: claims from other people that you have verified
 
-The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the podworker process will periodically update counters based on the data stored for the array.
+The pod maintains counters for each field of an object that has the 'counter' property defined. For each array of objects there is an '<array-class-name>_counter' WebSocket API. When called without filters, the API returns the number of objects in the array when that number increases or decreases. When you specify one or more filters, the counters matching those filters are returned. This enables the counters API to return only objects for example in the network_links table if an object was added with 'relation' == 'friend'. When objects are deleted from an array, the counters for fields in that array are only decreased if the call to the delete API included values for all fields that have the 'counter' property defined. To mitigate API invocations where these values are not specified, the pod_worker process will periodically update counters based on the data stored for the array.
 
 If a scalar field is no longer required then it may be defined with ```"#obsolete": true```. This will avoid the dataclass for it to be created so no logic will use it. The field will not be deleted from the datastores of pods but it is no longer possible to use Data APIs to query or update it. It is not possible to remove a previously-defined field, you have to specify the ```"#obsolete": true``` property instead. Care should be taken with this option as clients using an older version of the schema will create queries specifying obsolete field, which is no longer known by the clients running the new version, causing those queries to fail.
 
@@ -166,6 +167,16 @@ The following actions are supported:
 - search: special case to allow services to provide a search function
 
 The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
+
+### Listen relations
+The service schema may have an array 'listen_relations' at the root level of the schema. The pod uses listen relations to subscribe to updates from other pods using websockets. The pod caches received content in a 'cache-only' data class so that the owner of the pod only needs to connect to their own pod to get content, instead of connecting to many pods. It also ensures that data is immediately available to the owner of the subscribing pod.
+
+Each object in this list must have the following keys:
+- class_name (string): the class to subscribe for updates
+- relations (list of strings): a pod will subscribe to updates from all pods that our pod has one or more of the specified relations
+- destination_class (string): the class on the local pod where updates will be stored. This class must have at least contain all the same field definitions as the class specified by the 'class_name' key
+- feed_class (optional string): Each pod runs a worker to generate feeds. This worker will listen for updates to the
+class specified by the 'destination_class' and runs some sort of algorithmic analytics to determine which data should be copied to the (cache-only) feed_class.
 
 ## 4: Create the secrets for a service
 

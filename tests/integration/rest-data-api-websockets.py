@@ -5,7 +5,6 @@ import sys
 import unittest
 
 from uuid import UUID
-from ssl import SSLContext
 from datetime import datetime
 from datetime import timezone
 
@@ -22,9 +21,8 @@ from anyio import TASK_STATUS_IGNORED
 
 from byoda.datamodel.account import Account
 
-from byoda.models.data_api_models import AnyScalarType
-
 from byoda.datatypes import DataRequestType
+from byoda.datatypes import AnyScalarType
 
 from byoda.servers.pod_server import PodServer
 
@@ -86,7 +84,9 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         for member in account.memberships.values():
             await member.create_query_cache()
             await member.create_counter_cache()
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(
+                APP, server.data_store, server.cache_store
+            )
 
     @classmethod
     async def asyncTearDown(self):
@@ -101,8 +101,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         ws_updates_uri: str
-        ssl_context: SSLContext
-        ws_updates_uri, ssl_context = await DataWsApiClient.get_url(
+        ws_updates_uri, _ = await DataWsApiClient.get_url(
             service_id, class_name, DataRequestType.UPDATES, None, False,
             None, None, None, True
         )
@@ -126,8 +125,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         ws_updates_uri: str
-        ssl_context: SSLContext
-        ws_updates_uri, ssl_context = await DataWsApiClient.get_url(
+        ws_updates_uri, _ = await DataWsApiClient.get_url(
             service_id, class_name, DataRequestType.COUNTER, None, False,
             None, None, None, True
         )

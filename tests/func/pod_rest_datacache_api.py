@@ -18,12 +18,13 @@ import unittest
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
-
 from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.sqltable import SqlTable
+from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.datamodel.sqltable import META_ID_COLUMN
 from byoda.datamodel.sqltable import META_ID_TYPE_COLUMN
@@ -32,8 +33,8 @@ from byoda.datamodel.sqltable import CACHE_ORIGIN_CLASS_COLUMN
 
 from byoda.datatypes import IdType
 from byoda.datatypes import DataRequestType
-
-from byoda.models.data_api_models import DataFilterType
+from byoda.datatypes import DataFilterType
+from byoda.datamodel.table import QueryResult
 
 from byoda.datastore.cache_store import CacheStore
 
@@ -58,10 +59,11 @@ from podserver.routers import accountdata as AccountDataRouter
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
-from tests.lib.setup import get_test_uuid
 
 from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import AZURE_POD_MEMBER_ID
+from tests.lib.defines import AZURE_POD_ADDRESS_BOOK_PUBLIC_ASSETS_ASSET_ID
 
 # Settings must match config.yml used by directory server
 NETWORK = config.DEFAULT_NETWORK
@@ -104,15 +106,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         for member in account.memberships.values():
-            await member.create_query_cache()
-            await member.create_counter_cache()
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(
+                APP, server.data_store, server.cache_store
+            )
 
     @classmethod
     async def asyncTearDown(self):
         await DataApiClient.close_all()
 
-    async def test_data_api_jwt(self):
+    async def test_datacache_api_jwt(self):
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
@@ -149,7 +151,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         #
         # Add an object to the cache_store
         #
-        asset_id: UUID = get_test_uuid()
+        asset_id: UUID = AZURE_POD_ADDRESS_BOOK_PUBLIC_ASSETS_ASSET_ID
         now: str = str(datetime.now(tz=timezone.utc).isoformat())
         vars: dict[str, str | UUID] = {
             'data': {
@@ -225,7 +227,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data: dict[str, str] = {
             'data': {
                 'asset_id': asset_id,
-                'asset_type': 'music',
+                'asset_type': 'video',
                 'created_timestamp': str(
                     datetime.now(tz=timezone.utc).isoformat()
                 ),
@@ -268,16 +270,54 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['total_count'], 1)
         edges: list[object] = data['edges']
         self.assertEqual(edges[0]['node']['asset_id'], str(asset_id))
-        self.assertEqual(edges[0]['node']['asset_type'], 'music')
+        self.assertEqual(edges[0]['node']['asset_type'], 'video')
         self.assertNotEqual(edges[0]['node']['created_timestamp'], now)
+
+        #
+        # Claim that the data in the cache was sourced from the Azure pod
+        # and needs to be refreshed and then refresh the cached asset
+        #
+        expiration.append(result[0][CACHE_EXPIRE_COLUMN])
+        now: float = datetime.now(tz=timezone.utc).timestamp()
+        refresh_timestamp: float = now + 100
+
+        azure_asset_timestamp: float = 1696909415.03106
+        result = await sql_table.sql_store.execute(
+            'UPDATE _incoming_assets '
+            'SET origin_class_name = "public_assets", '
+            f'id = "{AZURE_POD_MEMBER_ID}", '
+            f'id_type = "members-", expires = {refresh_timestamp}, '
+            f'_created_timestamp = {azure_asset_timestamp} '
+            f'WHERE _asset_id = "{asset_id}"',
+            member_id=member.member_id
+        )
+        self.assertEqual(result.rowcount, 1)
+
+        data_class: SchemaDataItem = member.get_data_class(class_name)
+        row_count = await cache_store.refresh_table(
+            server, member, data_class, refresh_timestamp
+        )
+        self.assertEqual(row_count, 1)
+
+        sql_table: SqlTable = cache_store.get_table(
+            member.member_id, 'incoming_assets'
+        )
+        data_filter_set = DataFilterSet(
+            {'asset_id': {'eq': asset_id}}, data_class=data_class
+        )
+        data: list[QueryResult] = await sql_table.query(
+            data_filters=data_filter_set
+        )
+        self.assertEqual(len(data), 1)
+        _, asset_meta = data[0]
+        self.assertGreater(asset_meta['expires'], refresh_timestamp)
 
         #
         # Purge the cache and confirm the object has been deleted
         #
-        now: float = datetime.now(tz=timezone.utc).timestamp()
-        expire: float = now + 7 * 24 * 60 * 60
-        rows = await cache_store.expire(
-            member.member_id, 'incoming_assets', expire
+        expire_timestamp: float = now + 7 * 24 * 60 * 60
+        rows = await cache_store.expire_table(
+            server, member, data_class, expire_timestamp
         )
         self.assertEqual(rows, 1)
 

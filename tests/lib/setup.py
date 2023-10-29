@@ -21,7 +21,6 @@ from byoda.servers.pod_server import PodServer
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
 
-from byoda.datastore.cache_store import CacheStore
 from byoda.datastore.cache_store import CacheStoreType
 
 from byoda.datatypes import CloudType
@@ -160,9 +159,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
         DataStoreType.SQLITE, account.data_secret
     )
 
-    server.cache_store: CacheStore = await server.set_cache_store(
-        CacheStoreType.SQLITE
-    )
+    await server.set_cache_store(CacheStoreType.SQLITE)
 
     services = list(server.network.service_summaries.values())
     service = [

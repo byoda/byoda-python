@@ -12,6 +12,7 @@ SQL will be supported
 from uuid import UUID
 from hashlib import sha1
 from logging import getLogger
+from datetime import datetime
 from collections import namedtuple
 
 from byoda.util.logger import Logger
@@ -61,7 +62,8 @@ ResultMetaData = namedtuple(
 )
 
 ResultData = dict[str, object]
-QueryResult = namedtuple('QueryResults', ['data', 'metadata'])
+
+QueryResult = namedtuple('QueryResult', ['data', 'metadata'])
 QueryResults = list[QueryResult]
 
 
@@ -158,3 +160,13 @@ class Table:
         cursor = hash_gen.hexdigest()
 
         return cursor[0:8]
+
+    def expire(self, timestamp: datetime | None = None):
+        '''
+        Expires content from a table
+
+        :param timestamp: use this timestamp instead of the current time
+        to see if content is expired
+        '''
+
+        raise NotImplementedError

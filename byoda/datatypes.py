@@ -10,6 +10,9 @@ Non-specific data types
 
 from enum import Enum
 from uuid import UUID
+from datetime import datetime
+from datetime import time
+from datetime import date
 from collections import namedtuple
 
 # Location to proxy incoming REST Date requests to other pods
@@ -44,6 +47,14 @@ MARKER_ACCESS_CONTROL: str = '#accesscontrol'
 
 # How many records should a Data query return by default
 DEFAULT_QUERY_SIZE: int = 40
+
+MemberInfo = namedtuple('MemberInfo', ['member_id', 'service_id', 'status', 'timestamp'])
+NetworkLink = namedtuple('NetworkLink', ['member_id', 'relation', 'created_timestamp'])
+
+AnyScalarType = \
+    str | bytes | int | float | bool | UUID | datetime | date | time
+
+DataFilterType = dict[str, dict[str, AnyScalarType]]
 
 
 class ServerRole(Enum):

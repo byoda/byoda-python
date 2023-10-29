@@ -72,10 +72,9 @@ class JWT:
     def create(identifier: UUID, id_type: IdType, secret: Secret,
                network_name: str, service_id: int,
                scope_type: IdType, scope_id: UUID | int,
-               expiration_days: int = JWT_EXPIRATION_DAYS,
-               ) -> str:
+               expiration_days: int = JWT_EXPIRATION_DAYS):
         '''
-        Creates an authorization token
+        Factory for authorization tokens
 
         :param identifier: the account_id or member_id that will sign the JWT
         :param id_type: whether the JWT will be used to authenticate
@@ -89,6 +88,7 @@ class JWT:
         :param scope_id: the id of the target that the JWT is valid for
         :param scope_type: the IdType that the JWT is valid for
         for
+        :returns: the JWT
         :raises: ValueError
         '''
 
@@ -311,6 +311,26 @@ class JWT:
         jwt.secret = secret
 
         return jwt
+
+    def as_header(self) -> dict[str, str]:
+        '''
+        Return the JWT as a dict for the HTTP header value for use
+        in HTTP requests
+
+        :returns: the JWT as a header value
+        '''
+
+        return {'Authorization': self.as_auth_token()}
+
+    def as_auth_token(self) -> str:
+        '''
+        Return the JWT as a dict for the HTTP header value for use
+        in HTTP requests
+
+        :returns: the JWT as a string for authentication in a HTTP request
+        '''
+
+        return f'bearer {self.encoded}'
 
     async def _get_issuer_secret(self) -> Secret:
         '''

@@ -36,6 +36,9 @@ from byoda.datatypes import CloudType
 
 from byoda.datastore.data_store import DataStore
 from byoda.datastore.data_store import DataStoreType
+from byoda.datastore.cache_store import CacheStore
+from byoda.datastore.cache_store import CacheStoreType
+
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.data_import.youtube import YouTube
@@ -49,8 +52,12 @@ from byoda import config
 
 from podserver.util import get_environment_vars
 
-from podworker.datastore_maintenance import \
-    backup_datastore, database_maintenance
+from podworker.datastore_maintenance import (
+    backup_datastore,
+    database_maintenance,
+    refresh_cached_data,
+    expire_cached_data,
+)
 
 from podworker.twitter import fetch_tweets
 from podworker.twitter import twitter_update_task
@@ -83,11 +90,11 @@ async def main(argv):
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        argv[0], json_out=config.debug, debug=config.debug,
+        argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'), logfile=LOGFILE
     )
     _LOGGER.debug(
-        f'Starting podworker {data["bootstrap"]}: '
+        f'Starting pod_worker {data["bootstrap"]}: '
         f'daemonize: {data["daemonize"]}'
     )
 
@@ -121,6 +128,8 @@ async def main(argv):
         await server.set_data_store(
             DataStoreType.SQLITE, account.data_secret
         )
+
+        await server.set_cache_store(CacheStoreType.SQLITE)
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
@@ -133,23 +142,23 @@ async def main(argv):
 async def run_startup_tasks(server: PodServer, data_store: DataStore,
                             youtube_import_service_id: int,
                             twitter_import_service_id: int) -> None:
-    _LOGGER.debug('Running podworker startup tasks')
+    _LOGGER.debug('Running pod_worker startup tasks')
 
     account: Account = server.account
     server.twitter_client = None
 
     youtube_member: Member = await account.get_membership(
-        youtube_import_service_id
+        youtube_import_service_id, with_pubsub=False
     )
     twitter_member: Member = await account.get_membership(
-        twitter_import_service_id
+        twitter_import_service_id, with_pubsub=False
     )
 
     if youtube_member:
         try:
             _LOGGER.debug('Running startup tasks for membership of YouTube')
             schema: Schema = youtube_member.schema
-            schema.get_data_classes()
+            schema.get_data_classes(with_pubsub=False)
             await data_store.setup_member_db(
                 youtube_member.member_id, youtube_import_service_id,
                 youtube_member.schema
@@ -184,24 +193,34 @@ async def run_startup_tasks(server: PodServer, data_store: DataStore,
 async def run_daemon_tasks(server: PodServer, youtube_import_service_id: int,
                            twitter_import_service_id: int) -> None:
     '''
-    Run the tasks defined for the podworker
+    Run the tasks defined for the pod_worker
     '''
 
     server: PodServer = config.server
+    account: Account = server.account
     data_store: DataStore = server.data_store
+    cache_store: CacheStore = server.cache_store
 
     # This is a separate function to work-around an issue with running
     # aioschedule in a daemon context
-    _LOGGER.debug('Scheduling ping message task')
-    every(60).seconds.do(log_ping_message)
+    _LOGGER.debug('Scheduling task to update in-memory memberships')
+    every(1).minutes.do(
+        account.update_memberships, data_store, cache_store, False
+    )
+
+    _LOGGER.debug('Scheduling Database maintenance tasks')
+    every(10).minutes.do(database_maintenance, server)
+
+    _LOGGER.debug('Scheduling cache refresh task')
+    every(30).minutes.do(refresh_cached_data, account, server)
+
+    _LOGGER.debug('Scheduling cache expiration task')
+    every(1).hour.do(expire_cached_data, server, cache_store)
 
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
         interval: int = int(os.environ.get("BACKUP_INTERVAL", 240) or 240)
         every(interval).minutes.do(backup_datastore, server)
-
-    _LOGGER.debug('Scheduling Database maintenance tasks')
-    every(10).minutes.do(database_maintenance, server)
 
     if Twitter.twitter_integration_enabled():
         _LOGGER.debug('Scheduling twitter update task')
@@ -226,13 +245,9 @@ async def run_daemon_tasks(server: PodServer, youtube_import_service_id: int,
     while True:
         try:
             await run_pending()
-            await asyncio.sleep(15)
+            await asyncio.sleep(1)
         except Exception:
             _LOGGER.exception('Exception during run_pending')
-
-
-async def log_ping_message():
-    _LOGGER.debug('Log worker ping message')
 
 
 if __name__ == '__main__':

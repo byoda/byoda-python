@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Gets everything in place for the podserver and podworker to run. We run the
+Gets everything in place for the podserver and pod_worker to run. We run the
 steps here to avoid race conditions in the multiple parallel processes that
 are started to run the podserver.
 
@@ -38,6 +38,7 @@ buckets
 
 import os
 import sys
+import logging
 import asyncio
 
 from byoda.datamodel.network import Network
@@ -47,8 +48,10 @@ from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
 from byoda.datatypes import StorageType
 
-from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
+from byoda.datastore.cache_store import CacheStoreType
+
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
@@ -82,8 +85,9 @@ async def main(argv):
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        argv[0], json_out=config.debug, debug=config.debug,
-        loglevel=data.get('loglevel', 'INFO'), logfile=data.get('logfile')
+        argv[0], json_out=True, debug=config.debug,
+        loglevel=data.get('worker_loglevel', 'WARNING'),
+        logfile=data.get('logfile')
     )
     _LOGGER.debug(
         f'Starting bootstrap with variable bootstrap={data["bootstrap"]}'
@@ -156,6 +160,7 @@ async def main(argv):
             await account.load_protected_shared_key()
 
         await server.set_data_store(DataStoreType.SQLITE, account.data_secret)
+        await server.set_cache_store(CacheStoreType.SQLITE)
 
         # Remaining environment variables used:
         server.custom_domain = data['custom_domain']
@@ -215,6 +220,8 @@ async def main(argv):
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
+
+    logging.shutdown()
 
 
 async def run_bootstrap_tasks(account: Account):
