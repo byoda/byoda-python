@@ -7,6 +7,7 @@ For importing video and audio tracks, BenTo4 needs to be installed
 under /podserver/bento4: https://www.bento4.com/downloads/
 
 '''
+
 import os
 import sys
 import shutil
@@ -105,10 +106,13 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             lifespan=None, trace_server=config.trace_server,
         )
 
+        config.app = APP
+
         server: PodServer = config.server
         data_store: DataStore = server.data_store
+        cache_store: DataStore = server.cache_store
         for member in account.memberships.values():
-            await member.enable_data_apis(APP, data_store)
+            await member.enable_data_apis(APP, data_store, cache_store)
 
         os.environ[YouTube.ENVIRON_CHANNEL] = ''
         os.environ[YouTube.ENVIRON_API_KEY] = ''
@@ -131,10 +135,11 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         storage_driver: FileStorage = server.storage_driver
         network: Network = server.network
 
-        channel: str = 'Dathes'
+        # channel: str = 'Dathes'
+        channel: str = 'PolyMatter'
         # channel: str = 'History Matters'
-        os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
-
+        # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
+        os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
         yt = YouTube()
         ingested_videos = await YouTube.load_ingested_videos(
             member.member_id, data_class, data_store
@@ -161,7 +166,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
         await yt.persist_videos(
-            member, data_store, storage_driver, ingested_videos,
+            member, storage_driver, ingested_videos,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url
@@ -178,7 +183,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
 
         await yt.persist_videos(
-            member, data_store, storage_driver, ingested_videos
+            member, storage_driver, ingested_videos
         )
 
     async def test_import_videos(self):
@@ -219,7 +224,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(already_ingested_videos)
 
         await yt.persist_videos(
-            member, data_store, storage_driver, already_ingested_videos
+            member, storage_driver, already_ingested_videos
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -236,7 +241,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
 
         await yt.persist_videos(
-            member, data_store, storage_driver, already_ingested_videos
+            member, storage_driver, already_ingested_videos
         )
 
 

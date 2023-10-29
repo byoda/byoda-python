@@ -10,6 +10,7 @@ import os
 import shutil
 import asyncio
 
+from copy import copy
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -167,6 +168,7 @@ class PubSubNng(PubSub):
         Deletes the directory where the special files are stored
         '''
 
+        _LOGGER.debug(f'Deleting directory: {PubSubNng.PUBSUB_DIR}')
         shutil.rmtree(PubSubNng.PUBSUB_DIR, ignore_errors=True)
 
     async def send(self, message: PubSubMessage):
@@ -177,12 +179,15 @@ class PubSubNng(PubSub):
         if not self.pub:
             raise ValueError('PubSubNng not setup for sending')
 
-        _LOGGER.debug(f'Sending message: {message.data}')
+        _LOGGER.debug(
+            f'Sending message to {self.connection_string}: {message.data}'
+        )
 
         val = message.to_bytes()
         await self.pub.asend(val)
 
-    async def recv(self) -> list[PubSubMessage]:
+    async def recv(self, expected_class_name: str | None = None
+                   ) -> list[PubSubMessage]:
         '''
         Receives the data from the socket, normalizes it and returns it
         '''
@@ -194,7 +199,8 @@ class PubSubNng(PubSub):
             asyncio.create_task(sub.arecv())
             for sub in self.subs
         ]
-        _LOGGER.debug(f'Created {len(tasks)} receive tasks')
+
+        _LOGGER.debug(f'Created {len(tasks)} receive tasks.')
 
         completed_tasks = asyncio.as_completed(tasks)
 
@@ -203,7 +209,7 @@ class PubSubNng(PubSub):
             for completed_task in completed_tasks
         ]
 
-        _LOGGER.debug(f'Received {len(responses or [])} responses')
+        _LOGGER.debug(f'Received {len(responses or [])} message(s)')
 
         messages: list[PubSubDataMessage] = []
         prev_data = None
@@ -214,12 +220,18 @@ class PubSubNng(PubSub):
             if data == prev_data:
                 continue
 
-            prev_data = data
-
+            prev_data = copy(data)
+            _LOGGER.debug('Copied data')
             message = PubSubMessage.parse(data, self.schema)
-            if self.data_class.name != message.class_name:
+            if (expected_class_name
+                    and expected_class_name != message.class_name
+                    and self.data_class.name != message.class_name):
+                _LOGGER.debug(
+                    f'Received message for class {message.class_name}, '
+                    f'expected {expected_class_name}'
+                )
                 raise ValueError(
-                    f'Received message for class {data.get("class_name")} '
+                    f'Received message for class {message.class_name} '
                     f'on pubsub channel for class {self.data_class.name}'
                 )
 

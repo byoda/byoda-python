@@ -17,7 +17,6 @@ import shutil
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -29,15 +28,19 @@ from byoda.datamodel.dataclass import SchemaDataObject
 
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import CloudType
+from byoda.datatypes import MemberInfo
 
 from byoda.secrets.data_secret import DataSecret
 
 from byoda.util.paths import Paths
 
+from byoda.util.logger import Logger
+
 from byoda import config
 
 from .sqlstorage import Sql
 
+Network = TypeVar('Network')
 Account = TypeVar('Account')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -53,11 +56,10 @@ PROTECTED_FILE_EXTENSION: str = '.protected'
 
 
 class SqliteStorage(Sql):
-    def __init__(self):
+    def __init__(self, paths: Paths):
         super().__init__()
 
-        server = config.server
-        self.paths: Paths = server.network.paths
+        self.paths: Paths = paths
         self.data_dir: str = (
             self.paths.root_directory + '/' +
             self.paths.get(Paths.ACCOUNT_DATA_DIR)
@@ -69,10 +71,10 @@ class SqliteStorage(Sql):
         self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
         self.member_db_files: dict[UUID, str] = {}
 
-    async def setup(server: PodServer, data_secret: DataSecret):
+    async def setup(server: PodServer, data_secret: DataSecret | None):
         '''
         Factory for SqliteStorage class. This method restores the account DB
-        and membership DBs from the cloud if no loccal copy exists, except if
+        and membership DBs from the cloud if no local copy exists, except if
         we are not running in the cloud
 
         :param server: PodServer instance
@@ -80,7 +82,8 @@ class SqliteStorage(Sql):
         to encrypt backups of the Sqlite3 DB files
         '''
 
-        sqlite = SqliteStorage()
+        paths: Paths = server.paths
+        sqlite = SqliteStorage(paths)
 
         _LOGGER.debug(
             f'Setting up SqliteStorage for cloud {server.cloud.value}'
@@ -88,6 +91,10 @@ class SqliteStorage(Sql):
 
         if await server.local_storage.exists(sqlite.account_db_file):
             _LOGGER.debug('Local account DB file exists')
+        elif data_secret is None:
+            raise ValueError(
+                'No local account DB exists but no data secret specified'
+            )
         else:
             if server.cloud == CloudType.LOCAL:
                 _LOGGER.debug(
@@ -218,16 +225,16 @@ class SqliteStorage(Sql):
 
         cloud_file_store: FileStorage = server.document_store.backend
 
-        memberships: list[dict[str, object]] = await self.get_memberships()
+        memberships: dict[str, MemberInfo] = await self.get_memberships()
         _LOGGER.debug(f'Backing up {len (memberships)} membership DB files')
 
         for membership in memberships.values():
             cloud_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'],
+                membership.member_id, membership.service_id,
                 server.paths, local=False
             )
             local_member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'],
+                membership.member_id, membership.service_id,
                 server.paths, local=True
             )
 
@@ -308,10 +315,10 @@ class SqliteStorage(Sql):
         doc_store: DocumentStore = server.document_store
         cloud_file_store: FileStorage = doc_store.backend
 
-        memberships: list[dict[str, object]] = await self.get_memberships()
+        memberships: dict[str, MemberInfo] = await self.get_memberships()
         for membership in memberships.values():
-            service_id = membership['service_id']
-            member_id: UUID = membership['member_id']
+            service_id = membership.service_id
+            member_id: UUID = membership.member_id
             cloud_member_data_file = self.get_member_data_filepath(
                 member_id, service_id, paths,
                 local=False
@@ -375,8 +382,7 @@ class SqliteStorage(Sql):
         _LOGGER.debug(f'Deleting downloaded protected file {protected_file}')
         os.remove(protected_file)
 
-    async def setup_member_db(self, member_id: UUID, service_id: int,
-                              schema: Schema) -> None:
+    async def setup_member_db(self, member_id: UUID, service_id: int) -> None:
         '''
         Opens the SQLite file for the membership. If the SQLlite file does not
         exist, it will be created and tables will be generated
@@ -521,8 +527,7 @@ class SqliteStorage(Sql):
         )
 
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[
-                                  str, UUID | int | MemberStatus | float]:
+                              ) -> dict[UUID, MemberInfo]:
         '''
         Get the latest status of all memberships
 
@@ -530,6 +535,8 @@ class SqliteStorage(Sql):
         'None' the latest membership status for all memberships will be. If the
         status parameter has a value, only the memberships with that status are
         returned
+        :returns: a dict with the latest membership status for each membership,
+        keyed with the member ID
         '''
 
         query = (
@@ -548,26 +555,27 @@ class SqliteStorage(Sql):
         for row in rows:
             try:
                 member_id = UUID(row['member_id'])
-                membership: dict[str, UUID | int | MemberStatus | float] = {
-                    'member_id': member_id,
-                    'service_id': int(row['service_id']),
-                    'status': MemberStatus(row['status']),
-                    'timestamp': float(row['timestamp']),
-                }
+                membership = MemberInfo(
+                    member_id=member_id,
+                    service_id=int(row['service_id']),
+                    status=MemberStatus(row['status']),
+                    timestamp=float(row['timestamp']),
+                )
                 if status or member_id not in memberships:
                     memberships[member_id] = membership
                 else:
-                    existing_timestamp = memberships[member_id]['timestamp']
-                    if membership['timestamp'] >= existing_timestamp:
+                    existing_membership: MemberInfo = memberships[member_id]
+                    existing_timestamp = existing_membership.timestamp
+                    if membership.timestamp >= existing_timestamp:
                         memberships[member_id] = membership
             except ValueError as exc:
                 _LOGGER.warning(
                     f'Row with invalid data in account DB: {exc}'
                 )
 
-        memberships_for_status: dict[str, object] = {
+        memberships_for_status: dict[str, MemberInfo] = {
             key: value for key, value in memberships.items()
-            if status is None or value['status'] == status
+            if status is None or value.status == status
         }
 
         _LOGGER.debug(
@@ -582,14 +590,14 @@ class SqliteStorage(Sql):
         Performs maintenance on the membership Sqlite DB files.
         '''
 
-        memberships: list[dict[str, object]] = await self.get_memberships()
+        memberships: dict[str, MemberInfo] = await self.get_memberships()
         _LOGGER.debug(
             f'Performing Sqlit3 DB maintenance on {len(memberships)} DB files'
         )
 
         for membership in memberships.values():
             member_data_file = self.get_member_data_filepath(
-                membership['member_id'], membership['service_id'],
+                membership.member_id, membership.service_id,
                 server.paths, local=True
             )
 

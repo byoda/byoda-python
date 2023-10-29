@@ -25,7 +25,7 @@ import orjson
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datamodel.table import Table
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
 
 
 _LOGGER: Logger = getLogger(__name__)
@@ -218,7 +218,7 @@ class ContentKey:
             raise ValueError('Either table or filepath must be specified')
 
         if table:
-            data: QueryResults = await table.query()
+            data: list[QueryResult] = await table.query()
             _LOGGER.debug(
                 f'Found {len(data or ())} keys for restricted content in '
                 f'SQL table {table.table_name}'

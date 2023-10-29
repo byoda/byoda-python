@@ -21,25 +21,31 @@ from dateutil import parser as dateutil_parser
 
 import orjson
 
+from fastapi import FastAPI
+
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
+from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.claim import ClaimRequest
 
-from byoda.datastore.data_store import DataStore
-
-from byoda.storage.filestorage import FileStorage
-
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
 from byoda.datatypes import IngestStatus
+from byoda.datatypes import DataRequestType
+from byoda.datatypes import IdType
 
+from byoda.storage.filestorage import FileStorage
+
+from byoda.secrets.secret import Secret
+from byoda.requestauth.jwt import JWT
+
+from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
-
 
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
@@ -238,8 +244,8 @@ class YouTubeVideoChapter:
 
         return {
             'chapter_id': self.chapter_id,
-            'start_time': self.start_time,
-            'end_time': self.end_time,
+            'start': self.start_time,
+            'end': self.end_time,
             'title': self.title
         }
 
@@ -495,8 +501,8 @@ class YouTubeVideo:
 
         return claim_request
 
-    async def persist(self, member: Member, data_store: DataStore,
-                      storage_driver: FileStorage, ingest_asset: bool,
+    async def persist(self, member: Member, storage_driver: FileStorage,
+                      ingest_asset: bool,
                       already_ingested_videos: dict[str, dict],
                       bento4_directory: str = None,
                       moderate_request_url: str | None = None,
@@ -596,16 +602,52 @@ class YouTubeVideo:
         ]
 
         asset[YouTubeVideo.DATASTORE_CLASS_NAME_CHAPTERS] = [
-            chapter.as_dict for chapter in self.chapters
+            chapter.as_dict() for chapter in self.chapters
         ]
 
+        network: Network = member.network
         schema: Schema = member.schema
         data_class: SchemaDataArray = \
             schema.data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
 
-        await data_store.append(member.member_id, data_class, asset, None)
+        # For test cases, we need to set up authentication for use with
+        # FastAPI APP instead of making an actual HTTP call against a
+        # pod server
+        app: FastAPI | None = None
+        auth_header: dict[str, str] = None
+        auth_secret: Secret | None = member.tls_secret
+        if config.test_case:
+            app = config.app
+            auth_secret = None
+            jwt: JWT = JWT.create(
+                member.member_id, IdType.MEMBER, member.data_secret,
+                member.network.name, member.service_id,
+                IdType.MEMBER, member.member_id
+            )
+            auth_header = jwt.as_header()
 
-        _LOGGER.debug(f'Added YouTube video ID {self.video_id}')
+        # Using a Data REST API call to ourselves will make sure that
+        # the app server sends out notifications to subscribers. Our
+        # worker process can not write to the named pipes of Nng.
+        query_id: UUID = uuid4()
+        resp: HttpResponse = await DataApiClient.call(
+            member.service_id, data_class.name, DataRequestType.APPEND,
+            secret=auth_secret, network=network.name, headers=auth_header,
+            member_id=member.member_id, data={'data': asset},
+            query_id=query_id, app=app
+        )
+
+        if resp.status_code != 200:
+            _LOGGER.warning(
+                f'Failed to ingest video {self.video_id} '
+                f'with query_id {query_id}: {resp.status_code}'
+            )
+            return None
+
+        _LOGGER.debug(
+            f'Added YouTube video ID {self.video_id} with '
+            f'Data API query {query_id}'
+        )
 
         return not update
 

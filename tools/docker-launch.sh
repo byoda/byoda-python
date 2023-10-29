@@ -147,7 +147,7 @@ fi
 
 export NETWORK="byoda.net"
 
-# Set DAEMONIZE to FALSE to debug the podworker
+# Set DAEMONIZE to FALSE to debug the pod_worker
 export DAEMONIZE=TRUE
 
 ACCOUNT_FILE=~/.byoda-account_id

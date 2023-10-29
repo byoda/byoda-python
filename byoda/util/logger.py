@@ -133,8 +133,9 @@ class Logger(logging.Logger):
         logging.getLogger('httpcore').setLevel(logging.INFO)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('hpack').setLevel(logging.WARNING)
-        logging.getLogger('websockets').setLevel(logging.ERROR)
+        logging.getLogger('httpx').setLevel(logging.ERROR)
 
+        logging.getLogger('websockets').setLevel(logging.ERROR)
         logging.getLogger('gql').setLevel(logging.WARNING)
 
         logging.getLogger('pynng.nng').setLevel(logging.INFO)

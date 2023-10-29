@@ -13,34 +13,52 @@ currently only supports Sqlite3.
 from enum import Enum
 from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
-
-
 from typing import TypeVar
 from datetime import datetime
 from datetime import timezone
 
+from anyio import create_task_group
+from anyio import sleep
+
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
+from byoda.datamodel.network import Network
+from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import Table
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
+
+from byoda.datamodel.table import META_ID_COLUMN
+from byoda.datamodel.table import META_ID_TYPE_COLUMN
+from byoda.datamodel.table import CACHE_ORIGIN_CLASS_COLUMN
 
 from byoda.datatypes import IdType
+from byoda.datatypes import DataRequestType
+from byoda.datatypes import DataFilterType
 
-from byoda.datastore.data_store import DataStore
+from byoda.secrets.secret import Secret
 
 from byoda.storage.sqlite import SqliteStorage
 
-from byoda import config
+from byoda.util.api_client.data_api_client import DataApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.logger import Logger
+
+Schema = TypeVar('Schema')
+PodServer = TypeVar('PodServer')
+Member = TypeVar('Member')
+
+_WorkQueue = dict[UUID, dict[IdType, dict[str, list[QueryResult]]]]
 
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
 
-Schema = TypeVar('Schema')
+EXPIRE_THRESHOLD: int = 900
+REFRESH_THRESHOLD: int = 14400
 
 
 class CacheStoreType(Enum):
@@ -53,7 +71,7 @@ class CacheStore:
         self.store_type: CacheStoreType = None
 
     @staticmethod
-    async def get_cache_store(storage_type: CacheStoreType):
+    async def get_cache_store(server: PodServer, storage_type: CacheStoreType):
         '''
         Factory for initiating a document store
         '''
@@ -62,13 +80,13 @@ class CacheStore:
 
         cache_store = CacheStore()
         if storage_type == CacheStoreType.SQLITE:
-            data_store: DataStore = config.server.data_store
-            if not data_store:
-                raise ValueError('No data store configuration found')
-            cache_store.backend = data_store.backend
-            return cache_store
+            cache_store.backend = await SqliteStorage.setup(
+                server, None
+            )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
+
+        return cache_store
 
     def get_table(self, member_id: UUID, class_name: str) -> Table:
         '''
@@ -83,7 +101,10 @@ class CacheStore:
         Sets up the member database, creating it if it does not exist
         '''
 
-        await self.backend.setup_member_db(member_id, service_id, schema)
+        if not schema.data_classes:
+            raise ValueError('No data classes available')
+
+        await self.backend.setup_member_db(member_id, service_id)
 
         for data_class in schema.data_classes.values():
             if data_class.defined_class:
@@ -93,11 +114,19 @@ class CacheStore:
                 )
                 continue
 
+            if not data_class.cache_only:
+                _LOGGER.debug(
+                    'Skipping setting up a table for non-caching class '
+                    f'{data_class.name}'
+                )
+                continue
+
             created_tables: int = await self.create_table(
                 member_id, data_class
             )
             _LOGGER.debug(
-                f'Created {created_tables} tables for {data_class.name}'
+                f'Created {created_tables} tables for {data_class.name} '
+                f'in store {type(self)}'
             )
 
     async def create_table(self, member_id: UUID,
@@ -136,9 +165,10 @@ class CacheStore:
     @TRACER.start_as_current_span('CacheStore.query')
     async def query(self, member_id: UUID,
                     data_class: SchemaDataArray | SchemaDataObject,
-                    filters: dict[str, dict], first: int = None,
-                    after: str = None, fields: set[str] | None = None
-                    ) -> QueryResults | None:
+                    filters: DataFilterSet, first: int = None,
+                    after: str = None, fields: set[str] | None = None,
+                    meta_filters: DataFilterSet | None = None
+                    ) -> list[QueryResult] | None:
         '''
         Queries the cache store backend for data matching the specified
         criteria. This method performs sub-queries for referenced data classes.
@@ -154,9 +184,9 @@ class CacheStore:
         :raises:
         '''
 
-        data: QueryResults = await self.backend.query(
+        data: list[QueryResult] = await self.backend.query(
             member_id, data_class.name, filters, first=first, after=after,
-            fields=fields
+            fields=fields, meta_filters=meta_filters
         )
 
         return data
@@ -219,9 +249,239 @@ class CacheStore:
     async def close(self):
         await self.backend.close()
 
-    @TRACER.start_as_current_span('CacheStore.expire')
-    async def expire(self, member_id: UUID, class_name: str,
-                     timestamp: int | float | datetime | None) -> int:
+    @TRACER.start_as_current_span('CacheStore.refresh_table')
+    async def refresh_table(self, server: PodServer, member: Member,
+                            data_class: SchemaDataArray,
+                            timestamp: int | float | datetime | None = None
+                            ) -> int:
+        '''
+        Refreshes content in the cache
+
+        :param member_id: the member_id for the cache store
+        :param class_name: the name of the table to purge
+        :param timestamp: the timestamp (in seconds) before which data should
+        be deleted. If not specified, the current time plus the expiration time
+        specified for the data class is used
+        '''
+
+        member_id: UUID = member.member_id
+
+        data: list[QueryResult] = await self._get_refreshable_data(
+            member_id, data_class.name, timestamp
+        )
+
+        if not data or len(data) == 0:
+            return 0
+
+        class_name: str = data_class.name
+        work_queue: _WorkQueue = self._get_workqueue(data, class_name)
+
+        origin_id: UUID
+        origin_id_type: IdType
+        async with create_task_group() as tg:
+            for origin_id in work_queue:
+                for origin_id_type, work in work_queue[origin_id].items():
+                    tg.start_soon(
+                        self._refresh_from_source,
+                        server, member, data_class, origin_id, origin_id_type,
+                        work
+                    )
+
+        return len(data)
+
+    async def _refresh_from_source(self, server: PodServer, member: Member,
+                                   data_class: SchemaDataArray,
+                                   origin_id: UUID, origin_id_type: IdType,
+                                   stale_items: dict[str, list[QueryResult]]
+                                   ) -> None:
+        '''
+        Gets refreshed data from the source and stores it in the destination
+        table in the cache
+
+        :param member: our membership of the service
+        :param data_class: class that should be updated with refreshed data
+        :param origin_id: The UUID of the origin for the data
+        :param origin_id_type: what type of origin the data was fetched from
+        :param stale_items: dict with keys the class_name where the data was
+        retrieved from and as values the data that was retrieved originally
+        from the source and is now stored in this table in the cache
+        returns: (none)
+        '''
+
+        network: Network = member.network
+        service_id: int = member.service_id
+        member_id: UUID = member.member_id
+        tls_secret: Secret = member.tls_secret
+
+        query_results: list[QueryResult]
+        for origin_class_name, query_results in stale_items.items():
+            stale_data: dict[str, object]
+            for stale_data, _ in query_results:
+                filter_items: DataFilterType = {}
+
+                ref_class: SchemaDataObject = data_class.referenced_class
+                required_fields: list[str] = ref_class.required_fields
+                for field in required_fields:
+                    if isinstance(stale_data[field], datetime):
+                        filter_items[field] = {
+                            'at': stale_data[field].timestamp()
+                        }
+                    else:
+                        filter_items[field] = {'eq': stale_data[field]}
+
+                resp: HttpResponse = await DataApiClient.call(
+                    service_id, origin_class_name, DataRequestType.QUERY,
+                    secret=tls_secret, network=network.name,
+                    member_id=origin_id, depth=0, data_filter=filter_items
+                )
+
+                if resp.status_code != 200:
+                    _LOGGER.debug(
+                        f'Refresh query to {origin_id_type.value}{origin_id} '
+                        f'for class {origin_class_name} with filters '
+                        f'{filter_items} failed, status: {resp.status_code}'
+                    )
+                    await sleep(1)
+                    continue
+
+                request_data = resp.json()
+
+                if request_data['total_count'] == 0:
+                    _LOGGER.debug(
+                        f'Stale data is no longer available from '
+                        f'{origin_id_type.value}{origin_id}'
+                    )
+
+                    data_filter: DataFilterSet = DataFilterSet(
+                        filter_items, data_class=data_class
+                    )
+                    await MemberData.delete_data(
+                        server, member, data_class, data_filter
+                    )
+
+                    continue
+                elif request_data['total_count'] > 1:
+                    _LOGGER.info(
+                        f'Got multiple results from {origin_id_type.value}'
+                        f'{origin_id} with filters: {filter_items}. That is '
+                        'odd, deleting stale item'
+                    )
+                    await MemberData.delete_data(
+                        server, member, data_class, data_filter
+                    )
+                    continue
+
+                edges: list[dict[str, object]] = request_data['edges']
+                renewed_data: dict[str, object] = edges[0]['node']
+                cursor: str = Table.get_cursor_hash(
+                    renewed_data, origin_id, required_fields
+                )
+                data_filter_set = DataFilterSet(
+                    filter_items, data_class=data_class
+                )
+
+                result = await self.mutate(
+                    member_id, data_class.name, renewed_data, cursor,
+                    origin_id=origin_id, origin_id_type=origin_id_type,
+                    origin_class_name=origin_class_name,
+                    data_filter_set=data_filter_set
+                )
+
+                return result
+
+    async def _get_refreshable_data(self, member_id: UUID, class_name: str,
+                                    timestamp: int | float | datetime
+                                    ) -> list[QueryResult]:
+        '''
+        Get data needs to be renewed
+
+        :param member_id: the member_id for the cache store
+        :param class_name: the name of the table to purge
+        :param timestamp: the timestamp (in seconds) before which data should
+        be deleted. If not specified, the current time plus the expiration time
+        specified for the data class is used
+        '''
+
+        seconds: float | int
+        if not timestamp:
+            # We want to refresh content that will expire at
+            # now() + REFRESH_THRESHOLD, as we want to refresh content
+            # before it expires
+            seconds = \
+                datetime.now(tz=timezone.utc).timestamp() + REFRESH_THRESHOLD
+        elif isinstance(timestamp, datetime):
+            seconds = timestamp.timestamp()
+        elif type(timestamp) in (int, float):
+            seconds = timestamp
+        else:
+            raise ValueError(f'Invalid timestamp type: {type(timestamp)}')
+
+        meta_data_filter = DataFilterSet(
+            {'expires': {'elt': seconds}}, is_meta_filter=True
+        )
+
+        data: list[QueryResult] = await self.backend.query(
+            member_id, class_name, meta_filters=meta_data_filter
+        ) or []
+
+        return data
+
+    def _get_workqueue(self, data: list[QueryResult], class_name: str
+                       ) -> _WorkQueue:
+        '''
+        Returns work queues data structure to fetch data from its origins
+
+        The work is split per origin_id/origin_id_type so that we can
+        avoid flooding a single source with requests and instead can
+        sequentially request data from each source.
+
+        :param data: the data to be refreshed
+        :param class_name: the name of the class where to store the
+        refreshed data
+        :returns: a deep dict structure:
+            OriginId / OriginIdType / OriginClass -> list[QueryResult]
+        '''
+
+        # work_q: OriginId / OriginIdType / OriginClass -> list[QueryResult]
+        work_q: _WorkQueue = {}
+
+        item: QueryResult
+        for item in data:
+            metadata: dict[str, str | int | float] = item.metadata
+            data: dict[str, object] = item.data
+
+            origin_id: UUID = UUID(metadata[META_ID_COLUMN])
+            if origin_id not in work_q:
+                work_q[origin_id] = {}
+
+            origin_id_type = IdType(metadata[META_ID_TYPE_COLUMN])
+            if origin_id_type != IdType.MEMBER:
+                # TODO
+                raise NotImplementedError(
+                    f'Refreshing data from entity {origin_id_type.value} '
+                    f'is not yet implemented'
+                )
+            if origin_id_type not in work_q[origin_id]:
+                work_q[origin_id][origin_id_type] = {}
+
+            origin_class_name: str = metadata[CACHE_ORIGIN_CLASS_COLUMN]
+            if origin_class_name not in work_q[origin_id][origin_id_type]:
+                work_q[origin_id][origin_id_type][origin_class_name] = []
+                _LOGGER.debug(
+                    f'Created work queue: {origin_id_type.value}'
+                    f'{origin_id} for origin class {origin_class_name} '
+                    f'to store in class {class_name}'
+                )
+
+            work_q[origin_id][origin_id_type][origin_class_name].append(item)
+
+        return work_q
+
+    @TRACER.start_as_current_span('CacheStore.expire_table')
+    async def expire_table(self, server: PodServer, member: UUID,
+                           data_class: SchemaDataArray,
+                           timestamp: int | float | datetime | None = None
+                           ) -> int:
         '''
         Purges expired content from the cache
 
@@ -232,32 +492,25 @@ class CacheStore:
         specified for the data class is used
         '''
 
+        seconds: float | int
         if not timestamp:
-            now: datetime = datetime.now(tz=timezone.utc)
-            seconds: float = now.timestamp() + self.expires_after
+            # We add 900 seconds to the current time so we'll delete data that
+            # expires in the next 15 minutes
+            seconds: float = \
+                datetime.now(tz=timezone.utc).timestamp() + EXPIRE_THRESHOLD
         elif isinstance(timestamp, datetime):
             seconds = timestamp.timestamp()
-        else:
+        elif type(timestamp) in (int, float):
             seconds = timestamp
+        else:
+            raise ValueError(f'Invalid timestamp type: {type(timestamp)}')
 
-        sql_table: Table = self.get_table(member_id, class_name)
-        items_deleted: int = await sql_table.expire(timestamp=seconds)
+        data_filter = DataFilterSet(
+            {'expires': {'lt': seconds}}, data_class=data_class,
+            is_meta_filter=True
+        )
+        items_deleted: int = await MemberData.delete_data(
+            server, member, data_class.name, data_filter
+        )
 
         return items_deleted
-
-    async def expire_all(self, member_id: UUID,
-                         timestamp: int | float | datetime | None) -> int:
-        '''
-        Purges expired content from the cache for all tables in the cache store
-
-        :param member_id: the member_id for the cache store
-        :param timestamp: the timestamp (in seconds) before which data should
-        be deleted. If not specified, the current time plus the expiration time
-        specified for the data class is used
-        '''
-
-        tables: list[Table] = self.backend.get_tables(member_id)
-        table: Table
-        for table in tables:
-            if table.cache_only:
-                await self.expire(member_id, table.name, timestamp)

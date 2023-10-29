@@ -10,10 +10,12 @@ templates
 
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
+from byoda.datatypes import NetworkLink
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -34,7 +36,7 @@ class DataAccessRight:
     __slots__ = [
         'distance', 'relations', 'source_signature_required',
         'anonimized_responses', 'search_condition', 'search_match',
-        'search_casesensitive', 'data_operation', 'distance', 'relations',
+        'search_casesensitive', 'data_operation', 'distance',
         'casesensitive'
     ]
 
@@ -107,7 +109,11 @@ class DataAccessRight:
 
             permissions.append(permission)
 
-        _LOGGER.debug(f'Access right for {entity_type} is {permissions}')
+        permissions_log: str = ''
+        for permission in permissions:
+            permissions_log += f'{type(permission)}{permission.data_operation}'
+
+        _LOGGER.debug(f'Access right for {entity_type} is {permissions_log}')
         return entity_type, permissions
 
     async def authorize(self, service_id: int, operation: DataOperationType,
@@ -256,17 +262,19 @@ class NetworkDataAccessRight(DataAccessRight):
 
         network = None
         if auth.member_id:
-            network_links = await member.load_network_links()
+            links: list[NetworkLink] = await member.load_network_links()
+
             _LOGGER.debug(
-                f'Found total of {len(network_links or [])} network links'
+                f'Found total of {len(links or [])} network links'
             )
+
             network = []
-            for link in network_links or []:
-                relation = link['relation']
+            for link in links or []:
+                relation = link.relation
                 _LOGGER.debug(
-                    f'Found link: {relation} to {link["member_id"]}'
+                    f'Found link: {relation} to {link.member_id}'
                 )
-                if (link['member_id'] == auth.member_id
+                if (link.member_id == auth.member_id
                         and (not self.relations
                              or relation.lower() in self.relations)):
                     _LOGGER.debug(

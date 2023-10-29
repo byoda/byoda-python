@@ -20,7 +20,7 @@ cat <<EOF
         "PYTHONPATH": "${PYTHONPATH}",
         "NETWORK": "${NETWORK}",
         "ACCOUNT_ID": "${ACCOUNT_ID}",
-        "ACCOUNT_SECRET $ACCOUNT_SECRET}",
+        "ACCOUNT_SECRET": "${ACCOUNT_SECRET}",
         "PRIVATE_KEY_SECRET": "${PRIVATE_KEY_SECRET}",
         "BOOTSTRAP": "${BOOTSTRAP}",
         "CUSTOM_DOMAIN": "${CUSTOM_DOMAIN}",
@@ -43,11 +43,11 @@ if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
         # With the '--standalone' option, certbot will run its own HTTP webserver
         echo "{\"message\": \"Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}\"}"
-        pipenv run certbot renew --standalone
+        pipenv run certbot --quiet renew --standalone 2>&1 1>>/var/www/wwwroot/logs/letsencrypt.log
     else
         echo "{\"message\": \"Generating a Lets Encrypt certificate for custom domain ${CUSTOM_DOMAIN}\"}"
         # With the '--standalone' option, certbot will run its own HTTP webserver
-        pipenv run certbot certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>/var/www/wwwlogs/pod/letsencrypt.log
+        pipenv run certbot --quiet certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>/var/www/wwwlogs/pod/letsencrypt.log
     fi
 fi
 
@@ -79,10 +79,10 @@ if [[ -z "${FAILURE}" ]]; then
 fi
 
 if [[ -z "${FAILURE}" ]]; then
-    echo "{\"message\": \"Starting podworker\"}"
-    # podworker no longer daemonizes itself because of issues between
+    echo "{\"message\": \"Starting pod_worker\"}"
+    # pod_worker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
-    nice -20 pipenv run podserver/podworker.py \
+    nice -20 pipenv run podserver/pod_worker.py \
         1>/var/www/wwwroot/logs/worker-stdout.log \
         2>/var/www/wwwroot/logs/worker-stderr.log &
 
@@ -96,7 +96,7 @@ fi
 
 if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting discover worker\"}"
-    nice -20 pipenv run podserver/discoverworker.py \
+    nice -20 pipenv run podserver/discover_worker.py \
         1>/var/www/wwwroot/logs/discover-stdout.log \
         2>/var/www/wwwroot/logs/discover-stderr.log &
 
@@ -105,6 +105,20 @@ if [[ -z "${FAILURE}" ]]; then
         FAILURE=1
     else
         echo "{\"message\": \"Discoverworker exited successfully\"}"
+    fi
+fi
+
+if [[ -z "${FAILURE}" ]]; then
+    echo "{\"message\": \"Starting feed worker\"}"
+    nice -20 pipenv run podserver/feed_worker.py \
+        1>/var/www/wwwroot/logs/feed-stdout.log \
+        2>/var/www/wwwroot/logs/feed-stderr.log &
+
+    if [[ "$?" != "0" ]]; then
+        echo "{\"message\": \"Feedworker failed\"}"
+        FAILURE=1
+    else
+        echo "{\"message\": \"Feedworker exited successfully\"}"
     fi
 fi
 
@@ -117,7 +131,7 @@ fi
 if [[ -z "${FAILURE}" ]]; then
     # location of pid file is used by byoda.util.reload.reload_gunicorn
     rm -rf /var/run/podserver.pid
-    echo "Starting the web application server"
+    echo "{\"message\": \"Starting the web application server\"}"
     pipenv run python3 -m gunicorn \
         -p /var/run/podserver.pid \
         -c gunicorn.conf.py \

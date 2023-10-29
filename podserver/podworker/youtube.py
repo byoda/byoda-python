@@ -1,5 +1,5 @@
 '''
-Twitter functions for podworker
+Twitter functions for pod_worker
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -10,9 +10,11 @@ import os
 
 from uuid import UUID
 from time import gmtime
+from random import random
 from calendar import timegm
 from logging import getLogger
-from byoda.util.logger import Logger
+
+from anyio import sleep
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -30,14 +32,22 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
 from byoda.data_import.youtube_video import YouTubeVideo
+
 from byoda.servers.pod_server import PodServer
+
+from byoda.util.logger import Logger
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 _LOGGER: Logger = getLogger(__name__)
 
 LOCK_FILE: str = '/var/lock/youtube_ingest.lock'
-LOCK_TIMEOUT: int = 60 * 60 * 24 * 3
+LOCK_TIMEOUT: int = 3 * 24 * 60 * 60
+
+
+# Default setting, can be overriden with
+# environment variable YOUTUBE_IMPORT_INTERVAL
+YOUTUBE_IMPORT_INTERVAL: int = 3 * 60 * 60
 
 
 async def youtube_update_task(server: PodServer, service_id: int):
@@ -89,6 +99,14 @@ async def youtube_update_task(server: PodServer, service_id: int):
         member.member_id, data_class, data_store
     )
 
+    # Add a random delay between import runs to avoid overloading YouTube
+    interval: int = int(
+        os.environ.get('YOUTUBE_IMPORT_INTERVAL', YOUTUBE_IMPORT_INTERVAL)
+    )
+    random_delay: int = int(random() * interval / 4)
+    _LOGGER.debug(f'Sleeping for {random_delay} seconds to randomize runs')
+    await sleep(random_delay)
+
     try:
         if os.path.exists(LOCK_FILE):
             ctime: int = os.path.getctime(LOCK_FILE)
@@ -111,7 +129,7 @@ async def youtube_update_task(server: PodServer, service_id: int):
         _LOGGER.debug('Running YouTube metadata update')
         await youtube.get_videos(ingested_videos, max_api_requests=210)
         await youtube.persist_videos(
-            member, data_store, storage_driver, ingested_videos,
+            member, storage_driver, ingested_videos,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
             moderate_claim_url=moderation_claim_url

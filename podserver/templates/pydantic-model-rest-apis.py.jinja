@@ -108,8 +108,11 @@ async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.
         raise HTTPException(status_code=400, detail='Authentication failed')
 
     data: list[EdgeResponse] = await MemberData.get(
-        {{ data_class.service_id }}, '{{ data_class.name }}', query,
-        request.client.host, auth, object_class, EdgeResponse[object_class]
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        query.query_id, query.fields, query.filter, query.first, query.after,
+        query.depth, query.relations, query.remote_member_id, query.timestamp,
+        query.origin_member_id, query.origin_signature, query.signature_format_version,
+        query, request.client.host, auth, object_class, EdgeResponse[object_class]
     ) or []
 
     end_cursor: str | None = None
@@ -153,8 +156,8 @@ async def {{ data_class.name }}_mutate_{{ data_class.service_id }}_{{ data_class
         raise HTTPException(status_code=400, detail='Authentication failed')
 
     object_count: int = await MemberData.mutate(
-        {{ data_class.service_id }}, '{{ data_class.name }}', mutate,
-        request.client.host, auth,
+        {{ data_class.service_id }}, '{{ data_class.name }}', mutate.data.model_dump(),
+        mutate.query_id, request.client.host, auth,
     )
 
     return object_count
@@ -182,8 +185,12 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
         raise HTTPException(status_code=400, detail='Authentication failed')
 
     host: str = request.client.host
+    # We transmit the AppendModel as-is to MemberData.append() because it may
+    # proxy the request if depth > 0
     object_count = await MemberData.append(
-        {{ data_class.service_id }}, '{{ data_class.name }}', append, host, auth
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        append.query_id, append.depth, append.remote_member_id,
+        append.data.model_dump(), append, host, auth
     )
 
     return object_count
@@ -208,7 +215,9 @@ async def {{ data_class.name }}_update_{{ data_class.service_id }}_{{ data_class
 
     host: str = request.client.host
     object_count = await MemberData.update(
-        {{ data_class.service_id }}, '{{ data_class.name }}', update_model, host, auth
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        update_model.query_id, update_model.filter, update_model.depth,
+        update_model.remote_member_id, update_model.data.model_dump(), host, auth
     )
 
     return object_count
@@ -216,7 +225,7 @@ async def {{ data_class.name }}_update_{{ data_class.service_id }}_{{ data_class
 
 @router.post('/delete')
 async def {{ data_class.name }}_delete_{{ data_class.service_id }}_{{ data_class.version }}(
-        request: Request,  auth: AuthDep, delete_model: DeleteModel
+        request: Request, auth: AuthDep, delete_model: DeleteModel
         ) -> int:
 
     result: bool = await auth.review_data_request(
@@ -233,7 +242,9 @@ async def {{ data_class.name }}_delete_{{ data_class.service_id }}_{{ data_class
 
     host: str = request.client.host
     object_count = await MemberData.delete(
-        {{ data_class.service_id }}, '{{ data_class.name }}', delete_model, host, auth
+        {{ data_class.service_id }}, '{{ data_class.name }}',
+        delete_model.filter, delete_model.query_id, delete_model.remote_member_id,
+        delete_model.depth, host, auth
     )
 
     return object_count
@@ -284,8 +295,10 @@ async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_clas
             )
 
         await MemberData.counter(
-            {{ data_class.service_id }}, '{{ data_class.name }}', websocket,
-            auth, counter_model
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            counter_model.query_id, counter_model.depth,
+            counter_model.relations, counter_model.filter,
+            websocket, auth,
         )
     except WebSocketDisconnect as exc:
         _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')
@@ -344,8 +357,10 @@ async def {{ data_class.name }}_updates_{{ data_class.service_id }}_{{ data_clas
             )
 
         await MemberData.updates(
-            {{ data_class.service_id }}, '{{ data_class.name }}', websocket,
-            auth, updates_model
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            updates_model.query_id, updates_model.relations,
+            updates_model.depth, updates_model.filter, websocket,
+            auth
         )
     except WebSocketDisconnect as exc:
         _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')

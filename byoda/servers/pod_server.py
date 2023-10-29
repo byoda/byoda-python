@@ -77,7 +77,7 @@ class PodServer(Server):
 
         self.account: Account | None = None
 
-        # These are used by the podworker for importing data
+        # These are used by the pod_worker for importing data
         self.twitter_client: Twitter | None = None
         self.youtube_client: YouTube | None = None
 
@@ -142,7 +142,7 @@ class PodServer(Server):
         '''
 
         self.data_store: DataStore = await DataStore.get_data_store(
-            store_type, data_secret
+            self, store_type, data_secret
         )
 
         return self.data_store
@@ -153,7 +153,10 @@ class PodServer(Server):
         'cache-only' property set.
         '''
 
-        self.cache_store = await CacheStore.get_cache_store(cache_type)
+        cache_store: CacheStore = await CacheStore.get_cache_store(
+            self, cache_type
+        )
+        self.cache_store = cache_store
 
         return self.cache_store
 

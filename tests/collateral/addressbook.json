@@ -8,7 +8,7 @@
             "member": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read"]
+                        "permissions": ["read", "update"]
                     }
                 },
                 "properties": {
@@ -31,8 +31,16 @@
                         "type": "string"
                     },
                     "supported_schema_version": {
-                        "description": "The newest version of the schema supported by the pod",
-                        "type": "string"
+                        "description": "DEPRECATED: The newest version of the schema supported by the pod",
+                        "type": "string",
+                        "#obsolete": true
+                    },
+                    "schema_versions": {
+                        "description": "All the versions of the schema supported by the pod",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 },
                 "type": "object",
@@ -232,6 +240,7 @@
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
+                "#properties": ["cache_only:1w"],
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
@@ -1344,7 +1353,8 @@
         {
             "class_name": "public_assets",
             "relations": ["follow", "subscribe"],
-            "destination_class": "incoming_assets"
+            "destination_class": "incoming_assets",
+            "feed_class": "feed_assets"
         }
     ]
 }

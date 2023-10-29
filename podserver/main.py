@@ -37,16 +37,15 @@ from byoda.util.logger import Logger
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
-from byoda.servers.pod_server import PodServer
-
 from byoda.datatypes import CloudType
+
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
-
-from byoda.datastore.cache_store import CacheStore
 from byoda.datastore.cache_store import CacheStoreType
 
 from byoda.storage.pubsub_nng import PubSubNng
+
+from byoda.servers.pod_server import PodServer
 
 from byoda.util.fastapi import setup_api, update_cors_origins
 
@@ -131,9 +130,7 @@ async def lifespan(app: FastAPI):
         DataStoreType.SQLITE, account.data_secret
     )
 
-    server.cache_store: CacheStore = await server.set_cache_store(
-        CacheStoreType.SQLITE
-    )
+    await server.set_cache_store(CacheStoreType.SQLITE)
 
     await server.get_registered_services()
 
@@ -150,10 +147,9 @@ async def lifespan(app: FastAPI):
     await account.load_memberships()
 
     for member in account.memberships.values():
-        await member.create_query_cache()
-        await member.create_counter_cache()
-
-        await member.enable_data_apis(app, server.data_store)
+        await member.enable_data_apis(
+            app, server.data_store, server.cache_store
+        )
 
         await member.tls_secret.save(
             password=member.private_key_password,

@@ -16,7 +16,7 @@ from uuid import uuid4
 from datetime import datetime
 from datetime import timezone
 
-from byoda.datamodel.datafilter import DataFilter, DataFilterSet
+from byoda.datamodel.datafilter import DataFilter
 
 from byoda.util.logger import Logger
 

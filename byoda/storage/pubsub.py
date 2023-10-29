@@ -38,6 +38,12 @@ class PubSub:
         self.pub: pynng.Pub0 | None = None
         self.subs: list[pynng.Sub0] = []
 
+        action: str = 'receiving from'
+        if self.is_sender:
+            action = 'sending to'
+
+        _LOGGER.debug(f'Setup for {action} {self.connection_string}')
+
     @staticmethod
     def setup(connection_string: str, data_class: SchemaDataItem,
               service_id: int, is_counter: bool = False,

@@ -11,8 +11,6 @@ import re
 import asyncio
 
 from logging import getLogger
-from byoda.util.logger import Logger
-
 from datetime import datetime
 from datetime import timezone, timedelta
 
@@ -26,13 +24,13 @@ from googleapiclient.discovery import Resource as YouTubeResource
 
 from byoda.datamodel.member import Member
 
-from byoda.datastore.data_store import DataStore
+from byoda.datatypes import IngestStatus
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.datatypes import IngestStatus
-
 from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.logger import Logger
 
 from .youtube_video import YouTubeVideo
 
@@ -57,8 +55,7 @@ class YouTubeChannel:
 
         self.videos: dict[YouTubeVideo] = {}
 
-    async def persist(self, member: Member, data_store: DataStore,
-                      storage_driver: FileStorage,
+    async def persist(self, member: Member, storage_driver: FileStorage,
                       already_ingested_videos: dict[str, dict] = {},
                       bento4_directory: str | None = None,
                       moderate_request_url: str | None = None,
@@ -81,13 +78,14 @@ class YouTubeChannel:
             )
             try:
                 result = await video.persist(
-                    member, data_store, storage_driver,
+                    member, storage_driver,
                     self.ingest_videos, already_ingested_videos,
                     bento4_directory,
                     moderate_request_url=moderate_request_url,
                     moderate_jwt_header=moderate_jwt_header,
                     moderate_claim_url=moderate_claim_url,
                 )
+
                 if result is None:
                     _LOGGER.debug(f'Failed to persist video {video.video_id}')
             except ValueError:

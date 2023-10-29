@@ -73,7 +73,8 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
 
 
 async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID,
-                                 app: FastAPI | None = None) -> str:
+                                 app: FastAPI | None = None, test=None
+                                 ) -> str:
     server: PodServer = config.server
     account: Account = server.account
     member = await account.get_membership(service_id)
@@ -84,14 +85,21 @@ async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID,
         'username': str(member.member_id)[:8],
         'password': password,
         'target_type': IdType.MEMBER.value,
-        'service_id': ADDRESSBOOK_SERVICE_ID
+        'service_id': service_id
     }
     url = f'{BASE_URL}/v1/pod/authtoken'.format(PORT=config.server.HTTP_PORT)
     response: HttpResponse = await ApiClient.call(
         url, method=HttpMethod.POST, data=data, app=app
     )
 
-    result = response.json()
+    if test:
+        test.assertEqual(response.status_code, 200)
+
+    result: dict[str, str] = response.json()
+
+    if test:
+        test.assertIsNotNone(result.get('auth_token'))
+
     auth_header = {
         'Authorization': f'bearer {result["auth_token"]}'
     }

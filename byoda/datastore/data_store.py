@@ -21,23 +21,25 @@ from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
 from byoda.datamodel.table import Table
-from byoda.datamodel.table import QueryResults
+
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
+from byoda.datamodel.table import QueryResult
 
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
+from byoda.datatypes import MemberInfo
 
 from byoda.storage.sqlite import SqliteStorage
 
 from byoda.secrets.data_secret import DataSecret
-from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
 
 Schema = TypeVar('Schema')
+PodServer = TypeVar('PodServer')
 
 
 class DataStoreType(Enum):
@@ -50,7 +52,8 @@ class DataStore:
         self.store_type: DataStoreType | None = None
 
     @staticmethod
-    async def get_data_store(storage_type: DataStoreType,
+    async def get_data_store(server: PodServer,
+                             storage_type: DataStoreType,
                              data_secret: DataSecret):
         '''
         Factory for initiating a document store
@@ -58,15 +61,15 @@ class DataStore:
 
         _LOGGER.debug(f'Setting up data store of type {storage_type}')
 
-        storage = DataStore()
+        data_store = DataStore()
         if storage_type == DataStoreType.SQLITE:
-            storage.backend = await SqliteStorage.setup(
-                config.server, data_secret
+            data_store.backend = await SqliteStorage.setup(
+                server, data_secret
             )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
 
-        return storage
+        return data_store
 
     def get_table(self, member_id: UUID, class_name: str) -> Table:
         '''
@@ -81,12 +84,22 @@ class DataStore:
         Sets up the member database, creating it if it does not exist
         '''
 
-        await self.backend.setup_member_db(member_id, service_id, schema)
+        if not schema.data_classes:
+            raise ValueError('No data classes available')
+
+        await self.backend.setup_member_db(member_id, service_id)
 
         for data_class in schema.data_classes.values():
             if data_class.defined_class:
                 _LOGGER.debug(
                     'Skipping setting up a table for defined class '
+                    f'{data_class.name}'
+                )
+                continue
+
+            if data_class.cache_only:
+                _LOGGER.debug(
+                    'Skipping setting up a table for cache-only class '
                     f'{data_class.name}'
                 )
                 continue
@@ -132,7 +145,7 @@ class DataStore:
 
     @TRACER.start_as_current_span('Data_Store.get_memberships')
     async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[str, object]:
+                              ) -> dict[UUID, MemberInfo]:
         '''
         Get the latest status of all memberships
 
@@ -142,14 +155,20 @@ class DataStore:
         returned
         '''
 
-        return await self.backend.get_memberships(status)
+        data = await self.backend.get_memberships(status)
+
+        results: dict[UUID, object] = {
+            member_id: membership._asdict()
+            for member_id, membership in data.items()
+        }
+        return results
 
     @TRACER.start_as_current_span('Data_Store.query')
     async def query(self, member_id: UUID,
                     data_class: SchemaDataArray | SchemaDataObject,
                     filters: dict[str, dict], first: int | None = None,
                     after: str | None = None, fields: set[str] | None = None
-                    ) -> QueryResults | None:
+                    ) -> list[QueryResult] | None:
         '''
         Queries the datastore backend for data matching the specified criteria.
         This method performs sub-queries for referenced data classes.
@@ -165,7 +184,7 @@ class DataStore:
         :raises:
         '''
 
-        data: QueryResults = await self.backend.query(
+        data: list[QueryResult] = await self.backend.query(
             member_id, data_class.name, filters, first=first, after=after,
             fields=fields
         )

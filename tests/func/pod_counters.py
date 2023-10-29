@@ -13,6 +13,7 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import socket
 import unittest
 
 from uuid import uuid4
@@ -23,15 +24,12 @@ from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
-from byoda.datacache.counter_cache import CounterCache
 
 from byoda.datatypes import DataRequestType
-from byoda.datatypes import DATA_API_URL
 
-from byoda.util.api_client.restapi_client import RestApiClient
+from byoda.datacache.counter_cache import CounterCache
+
 from byoda.util.api_client.api_client import ApiClient
-from byoda.util.api_client.api_client import HttpResponse
-from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.servers.pod_server import PodServer
 
@@ -49,6 +47,8 @@ from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import get_account_id
+
+from tests.lib.util import call_data_api
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
@@ -74,7 +74,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         network_data['account_id'] = get_account_id(network_data)
 
-        config.test_case = "TEST_CLIENT"
+        # This test case needs pubsub enabled as otherwise counters
+        # do not get updated
+        # config.test_case = 'TEST_CLIENT'
+        config.disable_pubsub = False
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account = await setup_account(
@@ -100,31 +103,25 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         for member in account.memberships.values():
             await member.create_query_cache()
             await member.create_counter_cache()
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(
+                APP, server.data_store, server.cache_store
+            )
 
     @classmethod
     async def asyncTearDown(self):
         await ApiClient.close_all()
 
     async def test_rest_counters(self):
-        account = config.server.account
-
-        member: Member = await account.get_membership(
-            ADDRESSBOOK_SERVICE_ID
-        )
-
-        service_id: int = member.service_id
+        service_id: int = ADDRESSBOOK_SERVICE_ID
 
         auth_header: dict[str, str] = await get_member_auth_header(
-            service_id=service_id, app=None
+            service_id=service_id, app=APP
         )
 
+        account = config.server.account
+        member: Member = await account.get_membership(service_id)
+
         class_name: str = 'network_assets'
-        data_append_url: str = DATA_API_URL.format(
-            protocol='http', fqdn='127.0.0.1', port=8000,
-            service_id=service_id, class_name=class_name,
-            action=DataRequestType.APPEND.value
-        )
 
         asset_ids: list[str] = []
 
@@ -136,59 +133,54 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         for count in range(1, 5):
             asset_id = uuid4()
             asset_ids.append(asset_id)
-            vars = {
-                'created_timestamp': str(
-                    datetime.now(tz=timezone.utc).isoformat()
-                ),
-                'asset_type': 'post',
-                'asset_id': str(asset_id),
-                'creator': f'test account #{count}',
-                'title': 'test asset',
-                'subject': 'just a test asset',
-                'contents': 'some utf-8 markdown string',
-                'keywords': ["just", "testing"]
+            data = {
+                'data': {
+                    'created_timestamp': str(
+                        datetime.now(tz=timezone.utc).isoformat()
+                    ),
+                    'asset_type': 'post',
+                    'asset_id': str(asset_id),
+                    'creator': f'test account #{count}',
+                    'title': 'test asset',
+                    'subject': 'just a test asset',
+                    'contents': 'some utf-8 markdown string',
+                    'keywords': ["just", "testing"]
+                }
             }
             class_name: str = 'network_assets'
-            response: HttpResponse = await RestApiClient.call(
-                data_append_url, HttpMethod.POST, data={'data': vars},
-                timeout=120, headers=auth_header, app=None
+            resp: int = await call_data_api(
+                service_id, class_name, DataRequestType.APPEND, data=data,
+                auth_header=auth_header, expect_success=True, test=self,
+                app=APP
             )
-            result = response.json()
-            self.assertEqual(result, 1)
+
+            self.assertEqual(resp, 1)
 
             cache_value = await counter_cache.get(class_name)
             self.assertEqual(count, cache_value - start_counter)
 
-        # Delete one asset
-        data_delete_url: str = DATA_API_URL.format(
-            protocol='http', fqdn='127.0.0.1', port=8000,
-            service_id=service_id, class_name=class_name,
-            action=DataRequestType.DELETE.value
-        )
-        vars = {
-            'filter': {'asset_id': {'eq': str(asset_ids[0])}},
-            'query_id': uuid4(),
+        data_filter: dict[str, object] = {
+            'asset_id': {'eq': str(asset_ids[0])},
         }
-        response: HttpResponse = await RestApiClient.call(
-            data_delete_url, HttpMethod.POST, data=vars,
-            timeout=120, headers=auth_header, app=None
+
+        resp: int = await call_data_api(
+            service_id, class_name, DataRequestType.DELETE,
+            data_filter=data_filter, auth_header=auth_header, test=self,
+            app=APP
         )
-        result = response.json()
-        self.assertEqual(result, 1)
+        self.assertEqual(resp, 1)
 
         cache_value = await counter_cache.get(class_name)
         self.assertEqual(cache_value, count + start_counter - 1)
 
-        vars = {
-            'filter': {'asset_id': {'eq': str(asset_ids[1])}},
-            'query_id': uuid4(),
-        }
-        response: HttpResponse = await RestApiClient.call(
-            data_delete_url, HttpMethod.POST, data=vars,
-            timeout=120, headers=auth_header, app=None
+        data_filter = {'asset_id': {'eq': str(asset_ids[1])}}
+
+        resp = await call_data_api(
+            service_id, class_name, DataRequestType.DELETE,
+            data_filter=data_filter, auth_header=auth_header,
+            expect_success=True, app=APP
         )
-        result = response.json()
-        self.assertEqual(result, 1)
+        self.assertEqual(resp, 1)
 
         cache_value = await counter_cache.get(class_name)
         self.assertEqual(cache_value, count + start_counter - 2)
@@ -196,4 +188,5 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+
     unittest.main()

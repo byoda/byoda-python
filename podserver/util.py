@@ -46,7 +46,7 @@ def get_environment_vars() -> dict:
       - roles: ['pod']
       - debug: bool
       - bootstrap: bool
-      - daemonize: bool, only used for podworker
+      - daemonize: bool, only used for pod_worker
     '''
 
     data = {

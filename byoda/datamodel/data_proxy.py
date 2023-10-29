@@ -1,5 +1,6 @@
 '''
-Class for modeling REST Data API requests that are proxied by a pod to other pods
+Class for modeling REST Data API requests that are proxied by a pod to other
+pods
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -24,6 +25,8 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datatypes import DataRequestType
+from byoda.datatypes import NetworkLink
+
 from byoda.datatypes import DATA_API_URL
 
 from byoda.datamodel.dataclass import SchemaDataItem
@@ -134,7 +137,7 @@ class DataProxy:
             return [self.incoming_query.remote_member_id]
 
         relations: list[str] = self.incoming_query.relations or []
-        network_links: list[dict[str, str | datetime]] = \
+        network_links: list[NetworkLink] = \
             await self.member.data.load_network_links(relations) or []
 
         _LOGGER.debug(
@@ -144,8 +147,8 @@ class DataProxy:
 
         if not relations:
             targets = [
-                target['member_id'] for target in network_links
-                if target['member_id'] != sending_member_id
+                target.member_id for target in network_links
+                if target.member_id != sending_member_id
             ]
             _LOGGER.debug(
                 f'Adding all {len(network_links)} network_links as targets'
@@ -153,18 +156,19 @@ class DataProxy:
             return targets
 
         targets = []
-        for target, metadata in network_links:
+        for target in network_links:
             # Matching relations is case insensitive
-            relation: str = target.get('relation', '').lower()
+            relation: str = target.relation.lower()
 
-            member_id: UUID = target.get('member_id')
-            if not member_id:
+            member_id: UUID
+            if not target.member_id:
                 continue
+            elif isinstance(target.member_id, str):
+                member_id = UUID(target.member_id)
+            else:
+                member_id = target.member_id
 
-            if isinstance(target['member_id'], str):
-                member_id = UUID(target['member_id'])
-
-            if relation.lower() in relations:
+            if relation in relations:
                 if str(member_id).startswith('aaaaaaaa'):
                     _LOGGER.debug(
                         f'We do not proxy to test UUIDs: {member_id}'

@@ -9,16 +9,22 @@ on the filter conditions defined in the query
 
 import re
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from uuid import UUID
 from datetime import datetime, date, time, timezone
-
 
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
 from dateutil import parser as iso8601_parser
+
+from byoda.datamodel.dataclass import SchemaDataScalar
+from byoda.datamodel.dataclass import SchemaDataObject
+from byoda.datamodel.dataclass import SchemaDataArray
+
+from byoda.datatypes import AnyScalarType
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
@@ -49,20 +55,29 @@ class DataFilter:
         self.sql_functions: dict[str, callable] = {}
 
     def __str__(self):
+        if type(self.value) in (str, UUID, datetime, date, time):
+            return f"{self.operator} '{self.value}'"
         return f'{self.operator} {self.value}'
 
     @staticmethod
     def create(field: str, operator: str,
-               value: str | int | float | UUID | datetime | date | time):
+               value: str | int | float | UUID | datetime | date | time,
+               data_class: SchemaDataScalar = None):
         '''
         Factory for classes derived from DataFilter
         '''
 
+        if ((data_class and data_class.python_type == 'UUID')
+                or isinstance(value, UUID)):
+            return UuidDataFilter(field, operator, value)
+
+        date_types = ('datetime', 'time', 'date')
+        if ((data_class and data_class.python_type in date_types)
+                or type(value) in (datetime, date, time)):
+            return DateTimeDataFilter(field, operator, value)
+
         if isinstance(value, str):
             return StringDataFilter(field, operator, value)
-
-        if isinstance(value, UUID):
-            return UuidDataFilter(field, operator, value)
 
         if type(value) in (int, float):
             return NumberDataFilter(field, operator, value)
@@ -81,7 +96,7 @@ class DataFilter:
         compare_function = self.compare_functions[self.operator]
         return compare_function(data)
 
-    def sql_filter(self, where: bool = False
+    def sql_filter(self, where: bool = False, is_meta_filter: bool = False
                    ) -> tuple[str, str, str | int | float]:
         '''
         Gets the SQL verb clause for the filter
@@ -89,9 +104,18 @@ class DataFilter:
         Returns tuple of the comparison operator annd the value
         '''
         compare_function: callable = self.sql_functions[self.operator]
-        return compare_function(f'_{self.field}', where)
 
-    def sql_field_placeholder(self, field: str, where: bool = False) -> str:
+        if is_meta_filter:
+            return compare_function(
+                f'{self.field}', where, is_meta_filter=is_meta_filter
+            )
+        else:
+            return compare_function(
+                f'_{self.field}', where, is_meta_filter=is_meta_filter
+            )
+
+    def sql_field_placeholder(self, field: str, where: bool = False,
+                              is_meta_filter: bool = False) -> str:
         '''
         Returns string to be used for the named placeholder for SqlLite,
         ie. '_created_timestamp' becomes ':_created_timestamp'
@@ -101,10 +125,16 @@ class DataFilter:
 
         '''
 
-        if where:
-            return f'_WHERE{field}'
+        if is_meta_filter:
+            if where:
+                return f'_METAWHERE{field}'
+            else:
+                return f'META{field}'
         else:
-            return f'{field}'
+            if where:
+                return f'_WHERE{field}'
+            else:
+                return f'{field}'
 
 
 class StringDataFilter(DataFilter):
@@ -197,7 +227,8 @@ class StringDataFilter(DataFilter):
         res = re.match(regex, data)
         return bool(res)
 
-    def sql_eq(self, sql_field: str, where: bool = False) -> str:
+    def sql_eq(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> str:
         '''
         SQL code for equal operator
 
@@ -206,13 +237,17 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} = :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_ne(self, sql_field: str, where: bool = False) -> str:
+    def sql_ne(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> str:
         '''
         SQL code for not equal operator
 
@@ -221,13 +256,17 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} != :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_vin(self, sql_field: str, where: bool = False) -> str:
+    def sql_vin(self, sql_field: str, where: bool = False,
+                is_meta_filter: bool = False) -> str:
         '''
 
         Returns: tuple of the SQL string with the placeholder included,
@@ -236,13 +275,17 @@ class StringDataFilter(DataFilter):
         SQL code for 'IN' operator
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} IN :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_nin(self, sql_field: str, where: bool = False) -> str:
+    def sql_nin(self, sql_field: str, where: bool = False,
+                is_meta_filter: bool = False) -> str:
         '''
         SQL code for 'NOT IN' operator
 
@@ -251,13 +294,17 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} NOT IN :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_regex(self, sql_field: str, where: bool = False) -> str:
+    def sql_regex(self, sql_field: str, where: bool = False,
+                  is_meta_filter: bool = False) -> str:
         '''
         SQL code for regular expression operator
 
@@ -266,13 +313,17 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} ~ :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_glob(self, sql_field: str, where: bool = False) -> str:
+    def sql_glob(self, sql_field: str, where: bool = False,
+                 is_meta_filter: bool = False) -> str:
         '''
         SQL code for glob operator
 
@@ -281,7 +332,10 @@ class StringDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} GLOB :{sql_field_placeholder}',
             sql_field_placeholder, self.value
@@ -375,8 +429,8 @@ class NumberDataFilter(DataFilter):
 
         return data < self.value
 
-    def sql_eq(self, sql_field: str, where: bool = False
-               ) -> tuple[str, str, int | float]:
+    def sql_eq(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> tuple[str, str, int | float]:
         '''
         SQL code for equal operator
 
@@ -385,13 +439,17 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} = :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_ne(self, sql_field: str, where: bool = False) -> str:
+    def sql_ne(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> str:
         '''
         SQL code for not equal operator
 
@@ -400,13 +458,17 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} != :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_gt(self, sql_field: str, where: bool = False) -> str:
+    def sql_gt(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> str:
         '''
         SQL code for greater-than operator
 
@@ -415,13 +477,17 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} > :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_lt(self, sql_field: str, where: bool = False) -> str:
+    def sql_lt(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> str:
         '''
         SQL code for less-than operator
 
@@ -430,13 +496,17 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} < :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_egt(self, sql_field: str, where: bool = False) -> str:
+    def sql_egt(self, sql_field: str, where: bool = False,
+                is_meta_filter: bool = False) -> str:
         '''
         SQL code for equal-or-greater-than operator
 
@@ -445,13 +515,17 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} >= :{sql_field_placeholder}',
             sql_field_placeholder, self.value
         )
 
-    def sql_elt(self, sql_field: str, where: bool = False) -> str:
+    def sql_elt(self, sql_field: str, where: bool = False,
+                is_meta_filter: bool = False) -> str:
         '''
         SQL code for equal-or-less-than operator
 
@@ -460,7 +534,10 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} <= :{sql_field_placeholder}',
             sql_field_placeholder, self.value
@@ -471,7 +548,9 @@ class UuidDataFilter(DataFilter):
     def __init__(self, field: str,  operator: str, value: UUID):
         super().__init__(field, operator)
 
-        if not isinstance(value, UUID):
+        if isinstance(value, str):
+            value = UUID(value)
+        elif not isinstance(value, UUID):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a UUID'
             )
@@ -510,8 +589,8 @@ class UuidDataFilter(DataFilter):
 
         return data != self.value
 
-    def sql_eq(self, sql_field: str, where: bool = False
-               ) -> tuple[str, str, str]:
+    def sql_eq(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> tuple[str, str, str]:
         '''
         SQL code for equal operator
 
@@ -520,14 +599,17 @@ class UuidDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} = :{sql_field_placeholder}',
             sql_field_placeholder, str(self.value)
         )
 
-    def sql_ne(self, sql_field: str, where: bool = False
-               ) -> tuple[str, str, str]:
+    def sql_ne(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> tuple[str, str, str]:
         '''
         SQL code for not equal operator
 
@@ -536,7 +618,10 @@ class UuidDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
             f'{sql_field} != :{sql_field_placeholder}',
             sql_field_placeholder, str(self.value)
@@ -544,16 +629,19 @@ class UuidDataFilter(DataFilter):
 
 
 class DateTimeDataFilter(DataFilter):
+    OPERATORS: list[str] = [
+        'at', 'nat', 'after', 'before', 'atbefore', 'atafter'
+    ]
+
     def __init__(self, field: str,
                  operator: str, value: datetime | date | time | int | float):
         super().__init__(field, operator)
 
         if isinstance(value, str):
-            value = iso8601_parser(str)
-
-        if isinstance(value, (int, float)):
+            value = iso8601_parser.parse(value)
+        elif isinstance(value, (int, float)):
             value = datetime.fromtimestamp(value, tz=timezone.utc)
-        if type(value) not in (datetime, date, time):
+        elif type(value) not in (datetime, date, time):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a datetime, '
                 'date or time'
@@ -637,6 +725,7 @@ class DateTimeDataFilter(DataFilter):
         '''
         Adapts the provided value to the type of the value of the filter
         '''
+
         if isinstance(data, str):
             if isinstance(self.value) == datetime:
                 data = datetime.fromisoformat(data)
@@ -672,8 +761,8 @@ class DateTimeDataFilter(DataFilter):
 
         return timestamp
 
-    def sql_at(self, sql_field: str, where: bool = False
-               ) -> tuple[str, str, float]:
+    def sql_at(self, sql_field: str, where: bool = False,
+               is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Compare date/time.
 
@@ -684,14 +773,17 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
-        return (
-            f'{sql_field} = :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
         )
 
-    def sql_nat(self, sql_field: str, where: bool = False
-                ) -> tuple[str, str, float]:
+        return (
+            f'round({sql_field}, 5) = :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
+        )
+
+    def sql_nat(self, sql_field: str, where: bool = False,
+                is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Compare not equal date/time.
 
@@ -702,14 +794,17 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
-        return (
-            f'{sql_field} != :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
         )
 
-    def sql_after(self, sql_field: str, where: bool = False
-                  ) -> tuple[str, str, float]:
+        return (
+            f'round({sql_field}, 5) != :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
+        )
+
+    def sql_after(self, sql_field: str, where: bool = False,
+                  is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Compare after date/time.
 
@@ -720,14 +815,17 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
-        return (
-            f'{sql_field} > :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
         )
 
-    def sql_before(self, sql_field: str, where: bool = False
-                   ) -> tuple[str, str, float]:
+        return (
+            f'round({sql_field}, 5) > :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
+        )
+
+    def sql_before(self, sql_field: str, where: bool = False,
+                   is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Datetime/date/time before comparison
 
@@ -738,14 +836,17 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
-        return (
-            f'{sql_field} < :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
         )
 
-    def sql_atafter(self, sql_field: str, where: bool = False
-                    ) -> tuple[str, str, float]:
+        return (
+            f'round({sql_field}, 5) < :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
+        )
+
+    def sql_atafter(self, sql_field: str, where: bool = False,
+                    is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Datetime/date/time at-or-after comparison
 
@@ -756,14 +857,17 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
-        return (
-            f'{sql_field} >= :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
         )
 
-    def sql_atbefore(self, sql_field: str, where: bool = False
-                     ) -> tuple[str, str, float]:
+        return (
+            f'round({sql_field}, 5) >= :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
+        )
+
+    def sql_atbefore(self, sql_field: str, where: bool = False,
+                     is_meta_filter: bool = False) -> tuple[str, str, float]:
         '''
         Datetime/date/time at or before comparison
 
@@ -774,10 +878,13 @@ class DateTimeDataFilter(DataFilter):
 
         timestamp = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(sql_field, where)
+        sql_field_placeholder = self.sql_field_placeholder(
+            sql_field, where, is_meta_filter
+        )
+
         return (
-            f'{sql_field} <= :{sql_field_placeholder}',
-            sql_field_placeholder, timestamp
+            f'round({sql_field}, 5) <= :{sql_field_placeholder}',
+            sql_field_placeholder, round(timestamp, 5)
         )
 
 
@@ -801,7 +908,9 @@ class DataFilterSet:
     '''
 
     @TRACER.start_as_current_span('FilterSet.constructor')
-    def __init__(self, filters: object | dict):
+    def __init__(self, filters: object | dict,
+                 data_class: SchemaDataObject | SchemaDataArray = None,
+                 is_meta_filter: bool = False):
         '''
         :param filters: is an instance of one of the input filters in the
         Strawberry code, generated from the Jinja2 template for the service
@@ -809,42 +918,83 @@ class DataFilterSet:
         dict
         '''
 
-        self.filters = {}
+        self.filters: dict[str, list[DataFilter]] = {}
+
+        self.is_meta_filter: bool = is_meta_filter
+
+        self.data_class: SchemaDataObject
+        if data_class and isinstance(data_class, SchemaDataArray):
+            self.data_class = data_class.referenced_class
+        else:
+            self.data_class = data_class
 
         if not filters:
             return
 
-        if isinstance(filters, dict):
-            filter_items = filters.items()
-        else:
-            filter_items = filters.__dict__.items()
-            raise NotImplementedError('This case code for GraphQL filters')
-
-        for field, conditions in filter_items:
-            if not conditions:
+        for field, conditions in filters.items():
+            if conditions is None:
                 raise ValueError(
                     f'No conditions specified for parameter {field}'
                 )
 
             self.filters[field] = []
-            if isinstance(conditions, dict):
-                condition_items = conditions.items()
-            else:
-                condition_items = conditions.__dict__.items()
-            for operator, value in condition_items:
-                if value is not None:
-                    self.filters[field].append(
-                        DataFilter.create(field, operator, value)
+            for operator, value in conditions.items():
+                if value is None:
+                    continue
+
+                data_class_item: SchemaDataScalar | None = None
+                if self.data_class and field in self.data_class.fields:
+                    data_class_item = self.data_class.fields[field]
+
+                self.filters[field].append(
+                    DataFilter.create(
+                        field, operator, value, data_class_item
                     )
+                )
 
     def __str__(self) -> str:
         filter_texts: list[str] = []
         for field in self.filters.keys():
             for filter in self.filters[field]:
-                filter_texts.append(f'{field}{str(filter)}')
+                filter_texts.append(f'{field} {str(filter)}')
 
-        text = ', '.join(filter_texts)
+        text = ' and '.join(filter_texts)
         return text
+
+    @staticmethod
+    def from_data_class_data(data_class: SchemaDataObject,
+                             data: dict[str, object]):
+        '''
+        Factory for a DataFilterSet based on the values in the data
+        for the fields that are required by the data_class
+
+        :param data_class:
+        :param data:
+        :returns: DataFilterSet
+        :raises: ValueError if none of the required fields is present in
+        the data
+        '''
+
+        required_fields: list[str] = data_class.required_fields
+
+        filter_data: dict[str, dict[str, AnyScalarType]] = {}
+
+        field: str
+        for field in required_fields:
+            if field in data:
+                data_class_item: SchemaDataScalar = data_class.fields[field]
+                filter_data[field] = {
+                    data_class_item.equal_operator: data[field]
+                }
+            else:
+                _LOGGER.debug(
+                    f'Required field {field} not present in data: {data}'
+                )
+
+        if len(filter_data) == 0:
+            raise ValueError('No required fields present in data')
+
+        return DataFilterSet(filter_data, data_class)
 
     def sql_where_clause(self) -> tuple[str, dict[str, str]]:
         '''
@@ -859,7 +1009,7 @@ class DataFilterSet:
         for field in self.filters.keys():
             for filter in self.filters[field]:
                 filter_text, sql_placeholder_field, value = filter.sql_filter(
-                    where=True
+                    where=True, is_meta_filter=self.is_meta_filter
                 )
 
                 filter_texts.append(filter_text)
@@ -870,19 +1020,22 @@ class DataFilterSet:
 
     @staticmethod
     @TRACER.start_as_current_span('FilterSet.array')
-    def filter(filter_set: list, data: list) -> list[object]:
+    def filter(filter_set, data: list[dict[str, object]],
+               data_class: SchemaDataObject) -> list[object]:
         '''
         Filters the data against the list of filters to include the matching
         data
 
-        :param filters: list of filters (or DataFilterSet) to filter content
+        :param filters: list of dicts or DataFilterSet to filter content
         :param data: data to filter
+        :param data_class: the data class for each item in the data
+        :param
         '''
 
         _LOGGER.debug(f'Applying filters: {filter_set}')
 
         if not isinstance(filter_set, DataFilterSet):
-            filter_set = DataFilterSet(filter_set)
+            filter_set = DataFilterSet(filter_set, data_class)
 
         results = []
         for item in data:

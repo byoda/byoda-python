@@ -46,7 +46,7 @@ class RestApiClient:
         :param method: GET, POST, etc.
         :param secret: secret to use for client M-TLS
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param service_id:
         :param member_id:
         :param account_id:
@@ -100,7 +100,7 @@ class RestApiClient:
         :param method: GET, POST, etc.
         :param secret: secret to use for client M-TLS
         :param params: HTTP query parameters
-        :param data: data to send in both of the request
+        :param data: data to send in the body of the request
         :param service_id:
         :param member_id:
         :param account_id:

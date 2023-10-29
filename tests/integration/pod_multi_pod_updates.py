@@ -33,18 +33,20 @@ from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.schema import ListenRelation
 from byoda.datamodel.table import Table
-from byoda.datamodel.table import QueryResults
 from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.table import ResultData
 
-from byoda.datatypes import MemberStatus
-from byoda.datatypes import MARKER_NETWORK_LINKS
 from byoda.datatypes import DataRequestType
+from byoda.datatypes import MARKER_NETWORK_LINKS
+from byoda.datatypes import IdType
+from byoda.datamodel.table import QueryResult
 
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.pubsub_nng import PubSubNng
 from byoda.datastore.data_store import DataStore
+from byoda.datastore.cache_store import CacheStore
 
 from byoda.servers.pod_server import PodServer
 
@@ -89,6 +91,8 @@ TARGET_MEMBERS = [
 
 CONNECTED_TARGETS: dict[int, set] = dict()
 
+LISTEN_RESULT: bool = False
+
 
 async def prep_tests(work_dir: str = TEST_DIR
                      ) -> tuple[Account, Member, str, str]:
@@ -104,7 +108,6 @@ async def prep_tests(work_dir: str = TEST_DIR
 
     member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
     schema: Schema = member.schema
-    schema.get_data_classes()
 
     data_store: DataStore = config.server.data_store
     await data_store.setup_member_db(
@@ -236,8 +239,9 @@ def find_process_id(pubsub_dir: str = PubSubNng.PUBSUB_DIR) -> int:
     raise RuntimeError(f'Could not find process ID from: {pubsub_dir}')
 
 
-async def listen_local_network_links(member: Member, data_store: DataStore,
-                                     tg: TaskGroup):
+async def listen_local_network_links_table(member: Member,
+                                           cache_store: CacheStore,
+                                           tg: TaskGroup) -> None:
     '''
     Sets up the worker to listen for changes to the network_links for a
     membership of the pod.
@@ -269,7 +273,7 @@ async def listen_local_network_links(member: Member, data_store: DataStore,
     # #having to wait for the 'sleep()' command to complete, when
     # the member has added the network relation
     pubsub = PubSubNng(
-        schema.data_classes['network_links'], schema, False, False,
+        schema.data_classes[MARKER_NETWORK_LINKS], schema, False, False,
         process_id
     )
 
@@ -277,14 +281,22 @@ async def listen_local_network_links(member: Member, data_store: DataStore,
         # TODO: for now relations must be the same for each listen_relation
         class_name: str = listen_relation.class_name
         relations: list[str] = listen_relation.relations
+        destination_class: str = listen_relation.destination_class
 
-        target_table: Table = data_store.backend.get_table(
-            member.member_id, listen_relation.destination_class
+        _LOGGER.debug(f'Getting caching table for class {destination_class}')
+
+        target_table: Table = cache_store.backend.get_table(
+            member.member_id, destination_class
         )
 
+        _LOGGER.info(
+            f'Starting to listen for changes to class {MARKER_NETWORK_LINKS} '
+            f'for new relations matching {", ".join(relations or ["(any)"])} '
+            f'in service {service_id}'
+        )
         tg.start_soon(
-            get_network_link_updates, pubsub, class_name, service_id,
-            member, network.name, target_table, relations, tg
+            get_network_link_updates, pubsub, class_name, member.service_id,
+            network.name, member, target_table, relations, tg
         )
 
 
@@ -294,7 +306,7 @@ async def get_network_links(member: Member) -> list[dict[str, object]]:
     schema: Schema = member.schema
     data_class: SchemaDataArray = schema.data_classes[MARKER_NETWORK_LINKS]
 
-    data: QueryResults = await data_store.query(
+    data: list[QueryResult] = await data_store.query(
         member_id=member.member_id, data_class=data_class, filters={}
     )
     _LOGGER.debug(f'Found {len(data or [])} network links')
@@ -331,8 +343,6 @@ async def get_network_link_updates(pubsub: PubSubNng, class_name: str,
                 f'Update failure: {exc} for data {raw_data.decode("utf-8")}'
             )
 
-    raise RuntimeError('I do not think we should ever get here')
-
 
 async def get_updates(remote_member_id: UUID, class_name: str, service_id: int,
                       network_name: str, member: Member,
@@ -352,7 +362,11 @@ async def get_updates(remote_member_id: UUID, class_name: str, service_id: int,
                 remote_member: UUID = UUID(edge_data['origin'])
                 data: dict[str, object] = edge_data['node']
                 cursor: str = target_table.get_cursor_hash(data, remote_member)
-                append_result: int = await target_table.append(data, cursor)
+                await target_table.append(
+                    data, cursor, remote_member_id, IdType.MEMBER, class_name
+                )
+                global LISTEN_RESULT
+                LISTEN_RESULT = True
             reconnect_delay = 1
         except (ConnectionClosedError, WebSocketException) as exc:
             _LOGGER.debug(
@@ -364,105 +378,145 @@ async def get_updates(remote_member_id: UUID, class_name: str, service_id: int,
             if reconnect_delay > MAX_RECONNECT_DELAY:
                 reconnect_delay = MAX_RECONNECT_DELAY
 
-    print(f'All done: {append_result}')
-
 
 class TestMultiPodUpdates(unittest.IsolatedAsyncioTestCase):
     async def test_multi_pod_listen(self):
         account, azure_member = await prep_tests()
 
-        # This stores the newly discovered members minus members we already
-        # connect to
-        new_targets: set[UUID] = set()
-
         data_store: DataStore = config.server.data_store
+        cache_store: CacheStore = config.server.cache_store
         network: Network = account.network
 
-        memberships: dict[UUID, dict[str, UUID | datetime | str]] = \
-            await account.get_memberships(status=MemberStatus.ACTIVE)
-
-        members: dict[int, Member] = {}
-        for member_info in memberships.values():
-            service_id: int = member_info['service_id']
-            member: Member = await account.get_membership(service_id)
-            members[service_id] = member
-            schema: Schema = member.schema
-
-            global CONNECTED_TARGETS
-            CONNECTED_TARGETS[service_id] = set()
-            _LOGGER.debug('Completed setup of data structures')
+        await account.update_memberships(
+            data_store, cache_store, with_pubsub=False
+        )
 
         async with create_task_group() as tg:
-            # First we iniate listening to the network_links class of our
-            # own membership on the local pod
-            for member_info in memberships.values():
-                service_id: int = member_info['service_id']
-                member = members[service_id]
+            member: Member
+            for member in account.memberships.values():
+                await data_store.setup_member_db(
+                    member.member_id, member.service_id, member.schema
+                )
 
-                await listen_local_network_links(member, data_store, tg)
+                await cache_store.setup_member_db(
+                    member.member_id, member.service_id, member.schema
+                )
 
-            asset_added: bool = False
-            while not asset_added:
-                for member in members.values():
-                    service_id: int = member.service_id
-                    schema: Schema = member.schema
+                await setup_listener_for_membership(
+                    self, account, member, azure_member, network.name,
+                    cache_store, data_store, tg
+                )
 
-                    discovered_links: QueryResults = await get_network_links(
-                        member
-                    )
-                    discovered_targets: set[UUID] = set(
-                        link[0]['member_id'] for link in discovered_links or []
 
-                    )
-                    target: UUID = CONNECTED_TARGETS[service_id]
-                    connected_targets: set[UUID] = target
-                    new_targets: set = discovered_targets - connected_targets
+async def setup_listener_for_membership(test, account: Account,
+                                        member: Member, azure_member: Member,
+                                        network_name: str,
+                                        cache_store: CacheStore,
+                                        data_store: DataStore, tg: TaskGroup
+                                        ) -> None:
+    '''
+    Sets up listening for updates for a membership of the local pod
 
-                    total_target_count = \
-                        len(connected_targets) + len(new_targets)
-                    if total_target_count > MAX_SUBSCRIBES:
-                        additional_targets = \
-                            MAX_SUBSCRIBES - len(connected_targets)
-                        new_targets = \
-                            set(list(new_targets)[0:additional_targets])
+    :param member: the membership of the service in the local pod
 
-                    for remote_member_id in new_targets:
-                        for listen in schema.listen_relations:
-                            class_name: str = listen.class_name
+    '''
+    # First we iniate listening to the network_links class of our
+    # own membership on the local pod
+    await listen_local_network_links_table(member, cache_store, tg)
 
-                            target_table: Table = data_store.backend.get_table(
-                                member.member_id, listen.destination_class
-                            )
+    connected_peers: set[UUID] = set()
+    asset_added: bool = False
+    while not asset_added:
+        service_id: int = member.service_id
+        schema: Schema = member.schema
 
-                            _LOGGER.debug(
-                                f'Initiating connection to {remote_member_id} '
-                                f'for service {service_id} '
-                                f'for class {class_name}'
-                            )
-                            tg.start_soon(
-                                get_updates, remote_member_id, class_name,
-                                service_id, network.name, member, target_table
-                            )
-                            CONNECTED_TARGETS[service_id].add(remote_member_id)
+        discovered_links: list[QueryResult] = await get_network_links(
+            member
+        )
+        discovered_targets: set[UUID] = set(
+            link[0]['member_id'] for link in discovered_links or []
 
-                    await sleep(1)
-                    if len(discovered_links) < len(TARGET_MEMBERS):
-                        targets: UUID = TARGET_MEMBERS[len(discovered_links)]
-                        await add_network_link(
-                            member=member,
-                            remote_member_id=targets,
-                            relation='follow'
-                        )
-                    elif (len(discovered_links) == len(TARGET_MEMBERS)
-                            and not asset_added):
-                        await add_azure_asset(
-                            azure_member, service_id, network.name
-                        )
-                        asset_added = True
+        )
+        new_targets: set[UUID] = \
+            discovered_targets - connected_peers
 
-            tg.cancel_scope.cancel()
-            self.assertTrue(asset_added)
+        total_target_count = len(connected_peers) + len(new_targets)
+        if total_target_count > MAX_SUBSCRIBES:
+            additional_targets = \
+                MAX_SUBSCRIBES - len(connected_peers)
+            new_targets = \
+                set(list(new_targets)[0:additional_targets])
 
+        for remote_member_id in new_targets:
+            for listen in schema.listen_relations:
+                class_name: str = listen.class_name
+
+                target_table: Table = cache_store.backend.get_table(
+                    member.member_id, listen.destination_class
+                )
+
+                _LOGGER.debug(
+                    f'Initiating connection to {remote_member_id} '
+                    f'for service {service_id} '
+                    f'for class {class_name}'
+                )
+                tg.start_soon(
+                    get_updates, remote_member_id, class_name,
+                    service_id, network_name, member, target_table
+                )
+                connected_peers.add(remote_member_id)
+
+        await sleep(1)
+        if len(discovered_links) < len(TARGET_MEMBERS):
+            targets: UUID = TARGET_MEMBERS[len(discovered_links)]
+            await add_network_link(
+                member=member,
+                remote_member_id=targets,
+                relation='follow'
+            )
+        elif (len(discovered_links) == len(TARGET_MEMBERS)
+                and not asset_added):
+            await add_azure_asset(
+                azure_member, service_id, network_name
+            )
+            asset_added = True
+
+    # Wait for the update from the Azure pod to come in
+    await sleep(10)
+
+    tg.cancel_scope.cancel()
+    test.assertTrue(asset_added)
+    test.assertTrue(LISTEN_RESULT)
+
+
+async def get_current_network_links(member: Member, data_store: DataStore
+                                    ) -> list[ResultData]:
+    '''
+    Gets the current network links of the local pod to create the initial
+    set of remote pods to listen to
+
+    :param member: the membership of the service in the local pod
+    :returns: a list of network links
+    '''
+
+    schema: Schema = member.schema
+    data_class: SchemaDataArray = schema.data_classes[MARKER_NETWORK_LINKS]
+
+    _LOGGER.debug(
+        f'Getting existing network links for {member.member_id} '
+        f'from class {data_class.name} tom store type {type(data_store)}'
+    )
+
+    data: list[QueryResult] = await data_store.query(
+        member_id=member.member_id, data_class=data_class, filters={}
+    )
+    _LOGGER.debug(f'Found {len(data or [])} existing network links')
+
+    network_links: list[ResultData] = [
+        edge_data for edge_data, _ in data or []
+    ]
+
+    return network_links
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)

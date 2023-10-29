@@ -23,16 +23,14 @@ from datetime import timezone
 
 from fastapi import FastAPI
 
-from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
 from byoda.datatypes import IdType
 from byoda.datatypes import DataRequestType
 from byoda.datatypes import MARKER_NETWORK_LINKS
-
-from byoda.models.data_api_models import AnyScalarType
-from byoda.models.data_api_models import DataFilterType
+from byoda.datatypes import AnyScalarType
+from byoda.datatypes import DataFilterType
 
 from byoda.servers.pod_server import PodServer
 
@@ -112,9 +110,9 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         for member in account.memberships.values():
-            await member.create_query_cache()
-            await member.create_counter_cache()
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(
+                APP, server.data_store, server.cache_store
+            )
 
     @classmethod
     async def asyncTearDown(self):
@@ -126,7 +124,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
         member_id: UUID = member.member_id
-        network: Network = account.network
 
         member_auth_header = await get_member_auth_header(
             self, member.member_id

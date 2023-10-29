@@ -1,5 +1,5 @@
 '''
-Various functions for podworker
+Various functions for pod_worker
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023

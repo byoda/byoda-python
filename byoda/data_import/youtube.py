@@ -32,7 +32,7 @@ from googleapiclient.discovery import Resource as YouTubeResource
 from byoda.datamodel.member import Member
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.dataclass import SchemaDataItem
-from byoda.datamodel.table import QueryResults
+from byoda.datamodel.table import QueryResult
 
 from byoda.datastore.data_store import DataStore
 
@@ -119,20 +119,20 @@ class YouTube:
                 }
             }
         )
-        data: QueryResults = await data_store.query(
+        data: list[QueryResult] = await data_store.query(
             member_id, data_class, filters=filters
         )
 
         known_videos: dict[str, dict[str, str]] = {
-            video_data[0]['publisher_asset_id']: video_data
-            for video_data, _ in data.items() or {}
+            video_data['publisher_asset_id']: video_data
+            for video_data, _ in data or []
         }
 
         _LOGGER.debug(f'Found {len(known_videos)} ingested videos')
 
         return known_videos
 
-    async def persist_videos(self, member: Member, data_store: DataStore,
+    async def persist_videos(self, member: Member,
                              storage_driver: FileStorage = None,
                              already_ingested_assets: dict[str, any] = {},
                              bento4_directory: str | None = None,
@@ -162,7 +162,7 @@ class YouTube:
                 )
 
             await channel.persist(
-                member, data_store, storage_driver, already_ingested_assets,
+                member, storage_driver, already_ingested_assets,
                 bento4_directory,
                 moderate_request_url=moderate_request_url,
                 moderate_jwt_header=moderate_jwt_header,

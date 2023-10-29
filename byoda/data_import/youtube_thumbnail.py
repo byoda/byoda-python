@@ -43,7 +43,7 @@ class YouTubeThumbnail:
         self.url: str = data.get('url')
         self.width: int = data.get('width', 0)
         self.height: int = data.get('height', 0)
-        self.preference: int = data.get('preference')
+        self.preference: str = str(data.get('preference'))
         self.id: str = data.get('id')
 
         if size:

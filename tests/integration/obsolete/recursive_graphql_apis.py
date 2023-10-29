@@ -107,7 +107,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         for member in account.memberships.values():
-            await member.enable_data_apis(APP, server.data_store)
+            await member.enable_data_apis(APP, server.data_store, server.cache_store)
 
         shutil.copy(
             'tests/collateral/local/azure-pod-member-cert.pem',
