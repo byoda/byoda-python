@@ -1,50 +1,40 @@
 '''
-Class QueryCache tracks the query IDs from REST Data API queries to prevent
-the pod from forwarding loops; executing and forwarding the same query twice
+Class Asset tracks assets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2023
 :license    : GPLv3
 '''
 
-from os import makedirs
 
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
+from byoda.datamodel.service import Service
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
-from byoda.util.paths import Paths
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
 Member = TypeVar('Member')
 
 
-class QueryCache:
-    def __init__(self, member: Member, cache_tech: CacheTech):
-        self.member: Member = member
+class AssetCache:
+    def __init__(self, service: Service, cache_tech: CacheTech):
+        self.service_id: int = service.service_id
         self.cache_tech: CacheTech = cache_tech
 
         if cache_tech == CacheTech.SQLITE:
-            paths: Paths = member.paths
-            dirpath: str = (
-                paths.root_directory + '/' +
-                paths.get(paths.MEMBER_DATA_DIR, member_id=member.member_id)
-            )
-            makedirs(dirpath, exist_ok=True)
+            raise NotImplementedError('AssetCache not implemented for SQLITE')
+        elif cache_tech == CacheTech.REDIS:
+            from .kv_redis import KVRedis
+            kvr = KVRedis(connection_string, identifier)
 
-            self.filepath: str = (
-                dirpath + '/' +
-                paths.get(
-                    paths.MEMBER_QUERY_CACHE_FILE, member_id=member.member_id
-                )
-            )
         else:
             raise NotImplementedError('QueryCache not implemented for REDIS')
 
@@ -53,7 +43,7 @@ class QueryCache:
     @staticmethod
     async def create(member: Member, cache_tech=CacheTech.SQLITE):
         '''
-        Factory for QueryCache
+        Factory for AssetCache
 
         :param connection_string: connection string for Redis server or
         path to the file for Sqlite

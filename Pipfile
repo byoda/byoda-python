@@ -26,7 +26,6 @@ websockets = "*"
 cryptography = "*"
 htpasswd = "*"
 uvicorn = {version = "*", extras = [ "standard",]}
-redis = "*"
 hiredis = "*"
 rfc3339-validator = "*"
 jsonschema = {extras = ["format"], version = "*"}
@@ -70,6 +69,7 @@ opentelemetry-exporter-otlp-proto-grpc = "*"
 datamodel-code-generator = "*"
 deprecated = "*"
 anyio = "*"
+redis = {extras = ["hiredis"], version = "*"}
 
 [dev-packages]
 flake8 = "*"

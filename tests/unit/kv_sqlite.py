@@ -40,7 +40,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_cache(self):
         member_id = uuid4()
-        cache: KVCache = await KVCache.create_async(
+        cache: KVCache = await KVCache.create(
             f'{TEST_DIR}/test.db',  str(member_id),
             cache_tech=CacheTech.SQLITE,
             cache_type=CacheType.DATA

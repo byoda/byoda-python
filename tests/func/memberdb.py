@@ -60,24 +60,24 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(network, app_config)
+        config.server = await ServiceServer.setup(network, app_config)
 
         member_db = config.server.member_db
         member_db.service_id = app_config['svcserver']['service_id']
-        member_db.delete_meta(TEST_MEMBER_UUID)
-        member_db.delete_members_list()
+        await member_db.delete_meta(TEST_MEMBER_UUID)
+        await member_db.delete_members_list()
 
     @classmethod
     def tearDownClass(cls):
         pass
 
-    def test_memberdb_ops(self):
+    async def test_memberdb_ops(self):
         member_db = config.server.member_db
 
         with self.assertRaises(ValueError):
             member_db.service_id = 'Fails as cache keys have already been used'
 
-        self.assertFalse(member_db.exists(TEST_MEMBER_UUID))
+        self.assertFalse(await member_db.exists(TEST_MEMBER_UUID))
 
         data = {
             'member_id': TEST_MEMBER_UUID,
@@ -87,12 +87,14 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             'status': MemberStatus.REGISTERED,
         }
 
-        member_db.add_meta(
+        await member_db.add_meta(
             data['member_id'], data['remote_addr'], data['schema_version'],
             data['data_secret'], data['status']
         )
 
-        value = member_db.get_meta(TEST_MEMBER_UUID)
+        value: dict[str, str | int | MemberStatus] = await member_db.get_meta(
+            TEST_MEMBER_UUID
+        )
 
         for key in data.keys():
             self.assertTrue(data[key], value[key])
@@ -105,12 +107,12 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             'status': MemberStatus.SIGNED,
         }
 
-        member_db.add_meta(
+        await member_db.add_meta(
             data['member_id'], data['remote_addr'], data['schema_version'],
             data['data_secret'], data['status']
         )
 
-        value = member_db.get_meta(TEST_MEMBER_UUID)
+        value = await member_db.get_meta(TEST_MEMBER_UUID)
 
         for key in data.keys():
             self.assertTrue(data[key], value[key])
@@ -123,15 +125,15 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             'status': MemberStatus.SIGNED.value,
         }
 
-        member_db.set_data(TEST_MEMBER_UUID, data)
+        await member_db.set_data(TEST_MEMBER_UUID, data)
 
-        self.assertEqual(member_db.get_data(TEST_MEMBER_UUID), data)
+        self.assertEqual(await member_db.get_data(TEST_MEMBER_UUID), data)
 
-        self.assertEqual(member_db.pos(TEST_MEMBER_UUID), 0)
+        self.assertEqual(await member_db.pos(TEST_MEMBER_UUID), 0)
 
-        self.assertEqual(member_db.get_next(), TEST_MEMBER_UUID)
+        self.assertEqual(await member_db.get_next(), TEST_MEMBER_UUID)
 
-        self.assertEqual(member_db.get_next(timeout=1), None)
+        self.assertEqual(await member_db.get_next(timeout=1), None)
 
 
 if __name__ == '__main__':

@@ -56,70 +56,71 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
             network=app_config['application']['network'],
             root_directory=test_dir
         )
-        config.server = ServiceServer(network, app_config)
+        config.server = await ServiceServer.setup(network, app_config)
 
         # await network.load_network_secrets(storage_driver=local_storage)
         # await config.server.load_network_secrets()
 
-        config.server.member_db.kvcache.delete(TEST_KEY)
+        await config.server.member_db.kvcache.delete(TEST_KEY)
 
     @classmethod
     def tearDownClass(cls):
         pass
 
-    def test_cache_ops(self):
+    async def test_cache_ops(self):
         driver = config.server.member_db.kvcache
 
         key = TEST_KEY
-        self.assertFalse(driver.exists(key))
+        self.assertFalse(await driver.exists(key))
 
-        self.assertIsNone(driver.get(key))
+        self.assertIsNone(await driver.get(key))
 
-        self.assertTrue(driver.set(key, 10))
+        self.assertTrue(await driver.set(key, 10))
 
-        self.assertEqual(int(driver.get(key)), 10)
+        self.assertEqual(int(await driver.get(key)), 10)
 
-        self.assertTrue(driver.set(key, 10))
+        self.assertTrue(await driver.set(key, 10))
 
-        self.assertTrue(driver.set(key, 'just testing'))
+        self.assertTrue(await driver.set(key, 'just testing'))
 
-        self.assertEqual(driver.get(key).decode('utf-8'), 'just testing')
+        value = await driver.get(key)
+        self.assertEqual(value.decode('utf-8'), 'just testing')
 
-        self.assertTrue(driver.set(key, {'test': 'result', 'sum': 3}))
+        self.assertTrue(await driver.set(key, {'test': 'result', 'sum': 3}))
 
-        self.assertEqual(driver.get(key), {'test': 'result', 'sum': 3})
+        self.assertEqual(await driver.get(key), {'test': 'result', 'sum': 3})
 
-        self.assertTrue(driver.set(key, '{this is not json}'))
+        self.assertTrue(await driver.set(key, '{this is not json}'))
 
-        self.assertEqual(driver.get(key), b'{this is not json}')
+        self.assertEqual(await driver.get(key), b'{this is not json}')
 
-        self.assertTrue(driver.delete(key))
+        self.assertTrue(await driver.delete(key))
 
-        self.assertFalse(driver.delete(key))
+        self.assertFalse(await driver.delete(key))
 
-        self.assertFalse(driver.exists(key))
+        self.assertFalse(await driver.exists(key))
 
-        self.assertTrue(driver.push(key, 1))
+        self.assertTrue(await driver.push(key, 1))
 
-        self.assertTrue(driver.push(key, 2))
+        self.assertTrue(await driver.push(key, 2))
 
-        self.assertEqual(driver.pos(key, 2), 1)
+        self.assertEqual(await driver.pos(key, 2), 1)
 
-        self.assertIsNone(driver.pos(key, 3))
+        self.assertIsNone(await driver.pos(key, 3))
 
-        self.assertEqual(driver.pop(key), b'2')
+        self.assertEqual(await driver.pop(key), b'2')
 
-        self.assertEqual(driver.pop(key), b'1')
+        self.assertEqual(await driver.pop(key), b'1')
 
-        self.assertIsNone(driver.pop(key))
+        self.assertIsNone(await driver.pop(key))
 
-        self.assertTrue(driver.push(key, 'a1'))
-        self.assertTrue(driver.push(key, 'b2'))
-        self.assertTrue(driver.push(key, 'c3'))
+        self.assertTrue(await driver.push(key, 'a1'))
+        self.assertTrue(await driver.push(key, 'b2'))
+        self.assertTrue(await driver.push(key, 'c3'))
 
-        self.assertEqual(driver.shift_push_list(key), b'a1')
+        self.assertEqual(await driver.shift_push_list(key), b'a1')
 
-        self.assertEqual(driver.get_list(key), [b'b2', b'c3', b'a1'])
+        self.assertEqual(await driver.get_list(key), [b'b2', b'c3', b'a1'])
 
 
 if __name__ == '__main__':

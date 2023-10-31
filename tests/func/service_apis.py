@@ -119,7 +119,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             password=app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(network, app_config)
+        config.server = await ServiceServer.setup(network, app_config)
         storage = FileStorage(app_config['svcserver']['root_dir'])
         await config.server.load_network_secrets(storage_driver=storage)
 

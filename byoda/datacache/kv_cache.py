@@ -47,9 +47,9 @@ class KVCache(ABC):
             self.identifier = ''
 
     @staticmethod
-    def create(connection_string: str, identifier: str = None,
-               cache_tech: CacheTech = CacheTech.REDIS,
-               cache_type: CacheType = None):
+    async def create(connection_string: str, identifier: str = None,
+                     cache_tech: CacheTech = CacheTech.REDIS,
+                     cache_type: CacheType = None):
         '''
         Factory for a KV Cache
 
@@ -63,37 +63,15 @@ class KVCache(ABC):
             raise ValueError('No connection string provided')
 
         if cache_tech == CacheTech.SQLITE:
-            raise ValueError('Sqlite cache not supported for sync')
-
-        if cache_tech == CacheTech.REDIS:
-            if cache_type:
-                raise ValueError('Cache type not supported for Redis')
-            from .kv_redis import KVRedis
-            kvr = KVRedis(connection_string, identifier)
-            return kvr
-        else:
-            raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
-
-    @staticmethod
-    async def create_async(connection_string: str, identifier: str = None,
-                           cache_tech: CacheTech = CacheTech.SQLITE,
-                           cache_type: CacheType = None):
-
-        # TODO: convert KVRedis to async
-        if not connection_string:
-            raise ValueError('No connection string provided')
-
-        if cache_tech == CacheTech.REDIS:
-            if cache_type:
-                raise ValueError('Cache type not supported for Redis')
-
-            from .kv_redis import KVRedis
-            kvr = KVRedis(connection_string, identifier)
-            return kvr
-        elif cache_tech == CacheTech.SQLITE:
             from .kv_sqlite import KVSqlite
             kvs = await KVSqlite.create(connection_string, cache_type)
             return kvs
+        elif cache_tech == CacheTech.REDIS:
+            if cache_type:
+                raise ValueError('Cache type not supported for Redis')
+            from .kv_redis import KVRedis
+            kvr = await KVRedis.setup(connection_string, identifier)
+            return kvr
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 

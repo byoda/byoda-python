@@ -145,6 +145,7 @@ class CacheType(Enum):
     COUNTER      = 'counter'
     OBJECT       = 'object'
     DATA         = 'data'
+    ASSET        = 'asset'
 
 CounterFilter = dict[str, str | UUID]
 

@@ -19,13 +19,17 @@ To install Redis, first install docker as per the [Docker instructions](https://
 
 ```bash
 sudo mkdir -p /opt/redis/config
+sudo mkdir -p /opt/redis/data
+
 sudo docker run -d --restart unless-stopped \
     -p 6379:6379 \
-    -v /opt/redis/config:/usr/local/etc/redis \
-    --name redis redis:latest
+    -p 6380:8001    \
+    -v /opt/redis/etc:/opt/redis-stack/etc \
+    -v /opt/redis/data:/data \
+    --name redis-stack redis/redis-stack:latest
 ```
 
-You can review the configuration in /opt/redis/config/redis.conf for any changes that may be needed
+You can review the configuration in /opt/redis/config/redis-stack.conf for any changes that may be needed
 
 ## 2: Pick a value for the service ID
 

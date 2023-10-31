@@ -10,11 +10,12 @@ storing data about their members
 import orjson
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
-from redis import Redis
+import redis.asyncio as redis
 
 from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -22,51 +23,41 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class KVRedis(KVCache):
-    def __init__(self, connection_string: str, identifier: str = None):
+    def __init__(self, identifier: str = None):
         '''
-        Constructor
+        Constructor. Do not call directly, use the factory KVRedis.setup()
+        instead
 
         :param connection_string: format 'host:port:password'
         :param identifier: string to include when formatting the key,
         typically this would be the service_id
         '''
 
-        params = connection_string.split(':', 2)
-        self.host = None
-        self.port = None
-        self.password = None
-        if len(params) >= 1:
-            self.host = params[0]
-        if len(params) >= 2:
-            self.port = params[1]
-            if not self.port:
-                self.port = None
-        if len(params) == 3:
-            self.password = params[2]
-            if not self.password:
-                self.password = None
-
         self.default_cache_expiration = DEFAULT_CACHE_EXPIRATION
-
-        if not self.host:
-            raise ValueError(
-                'A Redis host must be specified in the connection_string'
-            )
 
         super().__init__(identifier=identifier)
 
-        self.driver = Redis(
-            host=self.host, port=self.port, password=self.password
-        )
+        self.driver = None
 
-    def exists(self, key: str) -> bool:
+    async def setup(connection_string: str, identifier: str = None):
+        '''
+        Factory for KVRedis class
+        '''
+
+        self: KVRedis = KVRedis(identifier)
+
+        self.driver = await redis.from_url(connection_string, protocol=3)
+
+        return self
+
+    async def exists(self, key: str) -> bool:
         '''
         Checks if the key exists in the cache
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = self.driver.exists(key)
+        ret = await self.driver.exists(key)
 
         exists = ret != 0
 
@@ -74,7 +65,7 @@ class KVRedis(KVCache):
 
         return exists
 
-    def get(self, key: str) -> object:
+    async def get(self, key: str) -> object:
         '''
         Gets the value for the specified key from the cache. If the value
         retrieved on the cache is a string that starts with '{' and ends with
@@ -84,7 +75,7 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        value = self.driver.get(key)
+        value = await self.driver.get(key)
 
         _LOGGER.debug(f'Got value {value} for key {key}')
         if isinstance(value, bytes):
@@ -101,14 +92,14 @@ class KVRedis(KVCache):
 
         return value
 
-    def pos(self, key: str, value: str) -> int:
+    async def pos(self, key: str, value: str) -> int:
         '''
         Finds the first occurrence of value in the list for the key
         '''
 
         key = self.get_annotated_key(key)
 
-        pos = self.driver.lpos(key, value)
+        pos = await self.driver.lpos(key, value)
 
         if pos is not None:
             _LOGGER.debug(
@@ -121,24 +112,24 @@ class KVRedis(KVCache):
 
         return pos
 
-    def get_next(self, key, timeout: int = 0) -> object:
+    async def get_next(self, key, timeout: int = 0) -> object:
         '''
         Gets the first item of a list value for the key
         '''
 
         key = self.get_annotated_key(key)
 
-        value = self.driver.blpop(key, timeout=timeout)
+        value = await self.driver.blpop(key, timeout=timeout)
 
-        if isinstance(value, tuple):
+        if type(value) in (list, tuple):
             value = value[-1]
 
         _LOGGER.debug(f'Popped {value} from start of list for key {key}')
 
         return value
 
-    def set(self, key: str, value: object,
-            expiration: int = DEFAULT_CACHE_EXPIRATION) -> bool:
+    async def set(self, key: str, value: object,
+                  expiration: int = DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
         Sets a key to the specified value. If the value is a dict
         or a list then it gets converted to a JSON string
@@ -149,26 +140,27 @@ class KVRedis(KVCache):
         if type(value) in (list, dict):
             value = orjson.dumps(value)
 
-        ret = self.driver.set(key, value, ex=expiration)
+        ret = await self.driver.set(key, value, ex=expiration)
 
         _LOGGER.debug(f'Set key {key} to value {value}')
 
         return ret
 
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         '''
         Deletes the key
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = self.driver.delete(key)
+        ret = await self.driver.delete(key)
 
         _LOGGER.debug(f'Deleted key {key}')
 
         return ret
 
-    def shift_push_list(self, key: str, wait: bool = True, timeout: int = 0):
+    async def shift_push_list(self, key: str, wait: bool = True,
+                              timeout: int = 0) -> object:
         '''
         atomically shifts a value from the start of a list 'key' and appends
         it to the end of the list.
@@ -177,9 +169,9 @@ class KVRedis(KVCache):
         key = self.get_annotated_key(key)
 
         if not wait:
-            value = self.driver.lmove(key, key, src='LEFT', dest='RIGHT')
+            value = await self.driver.lmove(key, key, src='LEFT', dest='RIGHT')
         else:
-            value = self.driver.blmove(
+            value = await self.driver.blmove(
                 key, key, src='LEFT', dest='RIGHT', timeout=timeout
             )
 
@@ -189,20 +181,20 @@ class KVRedis(KVCache):
 
         return value
 
-    def get_list(self, key):
+    async def get_list(self, key) -> object:
         '''
         Gets the list value of a key
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = self.driver.lrange(key, 0, -1)
+        ret = await self.driver.lrange(key, 0, -1)
 
         _LOGGER.debug(f'Got list for key {key} with length {len(ret)}')
 
         return ret
 
-    def remove_from_list(self, key: str, value: str):
+    async def remove_from_list(self, key: str, value: str) -> object:
         '''
         Removes the first occurrence of a value from a list.
 
@@ -211,13 +203,13 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        result = self.driver.lrem(key, 1, value)
+        result = await self.driver.lrem(key, 1, value)
 
         _LOGGER.debug(f'Removed {result} items from list for key {key}')
 
         return result
 
-    def shift(self, key: str) -> object:
+    async def shift(self, key: str) -> object:
         '''
         Removes the first item from the list and
         returns it
@@ -225,55 +217,55 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        val = self.driver.blpop(key, timeout=0)
+        val = await self.driver.blpop(key, timeout=0)
 
         _LOGGER.debug(f'Shifted value {val} from key {key}')
 
         return val
 
-    def push(self, key: str, value: object) -> int:
+    async def push(self, key: str, value: object) -> int:
         '''
         Pushes a value to the list specified by 'key'
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = self.driver.rpush(key, value)
+        ret = await self.driver.rpush(key, value)
 
         _LOGGER.debug(f'Pushed value {value} to end of list for key {key}')
 
         return ret
 
-    def pop(self, key: str) -> object:
+    async def pop(self, key: str) -> object:
         '''
         Pops a value from the list specified by 'key'
         '''
 
         key = self.get_annotated_key(key)
 
-        val = self.driver.rpop(key)
+        val = await self.driver.rpop(key)
 
         _LOGGER.debug(f'Popped value {val} from end of list for key {key}')
 
         return val
 
-    def incr(self, key: str, amount: int = 1,
-             expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+    async def incr(self, key: str, amount: int = 1,
+                   expiration=DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         Increments a counter, creates the counter is it doesn't exist already
         '''
 
         key = self.get_annotated_key(key)
 
-        if not self.exists(key):
-            self.set(key, 0, expiration=expiration)
+        if not await self.exists(key):
+            await self.set(key, 0, expiration=expiration)
 
-        value = self.driver.incr(key, amount)
+        value = await self.driver.incr(key, amount)
 
         return int(value)
 
-    def decr(self, key: str, amount: int = 1,
-             expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+    async def decr(self, key: str, amount: int = 1,
+                   expiration=DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         Decrements a counter, sets it to 0 if it does not exist
         or goes below 0
@@ -281,12 +273,12 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        if not self.exists(key):
-            self.set(key, 0, expiration=expiration)
+        if not await self.exists(key):
+            await self.set(key, 0, expiration=expiration)
 
-        value = self.driver.decr(key, amount)
+        value = await self.driver.decr(key, amount)
         if int(value) < 0:
-            self.driver.set(key, 0)
+            await self.driver.set(key, 0)
             value = 0
 
         return int(value)

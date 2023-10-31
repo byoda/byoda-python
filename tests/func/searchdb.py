@@ -66,7 +66,7 @@ class TestSearchDB(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['private_key_password']
         )
 
-        config.server = ServiceServer(network, app_config)
+        config.server = await ServiceServer.setup(network, app_config)
 
         search_db = config.server.search_db
         search_db.service_id = app_config['svcserver']['service_id']
@@ -83,49 +83,57 @@ class TestSearchDB(unittest.IsolatedAsyncioTestCase):
     def tearDownClass(cls):
         pass
 
-    def test_memberdb_ops(self):
+    async def test_memberdb_ops(self):
         search_db: SearchDB = config.server.search_db
 
-        self.assertFalse(search_db.exists(TEST_MENTIONS[0], Tracker.MENTION))
-        self.assertFalse(search_db.exists(TEST_MENTIONS[1], Tracker.MENTION))
-        self.assertFalse(search_db.exists(TEST_HASHTAGS[0], Tracker.MENTION))
-        self.assertFalse(search_db.exists(TEST_HASHTAGS[1], Tracker.MENTION))
+        self.assertFalse(
+            await search_db.exists(TEST_MENTIONS[0], Tracker.MENTION)
+        )
+        self.assertFalse(
+            await search_db.exists(TEST_MENTIONS[1], Tracker.MENTION)
+        )
+        self.assertFalse(
+            await search_db.exists(TEST_HASHTAGS[0], Tracker.MENTION)
+        )
+        self.assertFalse(
+            await search_db.exists(TEST_HASHTAGS[1], Tracker.MENTION)
+        )
 
         member_id = get_test_uuid()
         asset_id = get_test_uuid()
-        result = search_db.create_append(
+        result = await search_db.create_append(
             TEST_MENTIONS[0], member_id, asset_id, Tracker.MENTION
         )
 
-        results = search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
+        results = await search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
         self.assertEqual(len(results), 1)
 
         member_id = get_test_uuid()
         asset_id = get_test_uuid()
-        result = search_db.create_append(
+        result = await search_db.create_append(
             TEST_MENTIONS[0], member_id, asset_id, Tracker.MENTION
         )
 
-        results = search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
+        results = await search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
         self.assertEqual(len(results), 2)
 
         member_id = get_test_uuid()
         asset_id = get_test_uuid()
-        result = search_db.create_append(
+        result = await search_db.create_append(
             TEST_MENTIONS[0], member_id, asset_id, Tracker.MENTION
         )
 
         self.assertEqual(result, 3)
 
-        result = search_db.erase_from_list(
+        result = await search_db.erase_from_list(
             TEST_MENTIONS[0], member_id, asset_id, Tracker.MENTION
         )
         self.assertEqual(result, 2)
 
-        results = search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
+        results = await search_db.get_list(TEST_MENTIONS[0], Tracker.MENTION)
         self.assertEqual(len(results), 2)
 
-        results = search_db.delete(TEST_MENTIONS[0], Tracker.MENTION)
+        results = await search_db.delete(TEST_MENTIONS[0], Tracker.MENTION)
 
 
 if __name__ == '__main__':

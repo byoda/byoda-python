@@ -59,13 +59,30 @@ class ServiceServer(Server):
             service_id=app_config['svcserver']['service_id']
         )
 
-        self.member_db: MemberDb = MemberDb(app_config['svcserver']['cache'])
-        self.search_db: SearchDB = SearchDB(
+        self.kvcache = None
+        self.dns_resolver = DnsResolver(network.name)
+
+    async def setup(network: Network, app_config: dict):
+        '''
+        Sets up a service server with asychronous member_DB and search DB
+
+        :param network:
+        :param app_config: the configuration for the service
+        :returns: ServiceServer
+        '''
+
+        self = ServiceServer(network, app_config)
+
+        self.search_db: SearchDB = await SearchDB.setup(
             app_config['svcserver']['cache'], self.service
+        )
+
+        self.member_db: MemberDb = await MemberDb.setup(
+            app_config['svcserver']['cache']
         )
         self.member_db.service_id = self.service.service_id
 
-        self.dns_resolver = DnsResolver(network.name)
+        return self
 
     async def load_network_secrets(self, storage_driver: FileStorage = None):
         await self.network.load_network_secrets(storage_driver=storage_driver)

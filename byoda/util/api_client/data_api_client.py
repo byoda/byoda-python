@@ -94,6 +94,8 @@ class DataApiClient:
         :param internal: whether to use the internal API or not, also used
         :param app: FastAPI app to use for the request, used for test cases
         for test cases
+        :returns: HttpResponse
+        :raises: ValueError
         '''
 
         if action not in DataApiClient.SUPPORTED_REQUEST_TYPES:
@@ -203,7 +205,7 @@ class DataApiClient:
                 _LOGGER.debug('Calling Data API via internal port')
             else:
                 _LOGGER.debug('Calling Data API via test case')
-                
+
             port = DataApiClient.INTERNAL_HTTP_PORT
             protocol = 'http'
 

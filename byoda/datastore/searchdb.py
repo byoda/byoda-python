@@ -36,18 +36,31 @@ class SearchDB:
     Store for searchable data for assets available from pods
     '''
 
-    def __init__(self, connection_string: str, service: Service):
+    def __init__(self, service: Service):
         '''
-        Initializes the DB. The DB consists of both a list of member_ids,
-        a hash of the metadata for each member_id and a hash of the actual
-        data for the member
+        Do not call this constructor directly. Use SearchDB.setup() instead
         '''
 
-        self.kvcache = KVCache.create(
+        self.kvcache: KVCache | None = None
+        self.service_id: int = service.service_id
+
+    async def setup(connection_string: str, service: Service):
+        '''
+        Factory for the SearchDB class
+
+        :param connection_str: connection string for Redis server
+        :param service: the service for which the search database is created
+        :returns: SearchDB instance
+        :raises:
+        '''
+
+        self = SearchDB(service)
+        self.kvcache = await KVCache.create(
             connection_string, identifier=service.service_id,
             cache_tech=CacheTech.REDIS
         )
-        self.service_id: int = service.service_id
+
+        return self
 
     def get_key(self, keyword: str, tracker: Tracker) -> str:
         key = f'{tracker.value}-{keyword}'
@@ -56,13 +69,13 @@ class SearchDB:
     def get_counter_key(self, key: str) -> str:
         return f'{key}-counter'
 
-    def exists(self, keyword: str, tracker: Tracker) -> bool:
-        return self.kvcache.exists(self.get_key(keyword, tracker))
+    async def exists(self, keyword: str, tracker: Tracker) -> bool:
+        return await self.kvcache.exists(self.get_key(keyword, tracker))
 
-    def get_list(self, keyword: str, tracker: Tracker
-                 ) -> list[tuple[UUID, str]]:
+    async def get_list(self, keyword: str, tracker: Tracker
+                       ) -> list[tuple[UUID, str]]:
         key = self.get_key(keyword, tracker)
-        data = self.kvcache.get_list(key)
+        data = await self.kvcache.get_list(key)
 
         results = []
 
@@ -72,20 +85,20 @@ class SearchDB:
 
         return results
 
-    def create_append(self, keyword: str, member_id: UUID,
-                      asset_id: str, tracker: Tracker) -> int:
+    async def create_append(self, keyword: str, member_id: UUID,
+                            asset_id: str, tracker: Tracker) -> int:
         key = self.get_key(keyword, tracker)
 
-        self.kvcache.push(key, f'{member_id}:{asset_id}')
+        await self.kvcache.push(key, f'{member_id}:{asset_id}')
 
         counter_key = self.get_counter_key(key)
 
-        value = self.kvcache.incr(counter_key)
+        value = await self.kvcache.incr(counter_key)
 
         return int(value)
 
-    def erase_from_list(self, keyword: str, member_id: UUID, asset_id: str,
-                        tracker: Tracker) -> int:
+    async def erase_from_list(self, keyword: str, member_id: UUID,
+                              asset_id: str, tracker: Tracker) -> int:
         '''
         Erases element from a list
 
@@ -94,24 +107,26 @@ class SearchDB:
 
         key = self.get_key(keyword, tracker)
 
-        result = self.kvcache.remove_from_list(key, f'{member_id}:{asset_id}')
+        result = await self.kvcache.remove_from_list(
+            key, f'{member_id}:{asset_id}'
+        )
 
         _LOGGER.debug(f'Removed {result} items from list {key}')
 
         counter_key = self.get_counter_key(key)
 
-        value = self.kvcache.decr(counter_key, amount=result)
+        value = await self.kvcache.decr(counter_key, amount=result)
 
         return value
 
-    def delete(self, keyword: str, tracker: Tracker) -> bool:
+    async def delete(self, keyword: str, tracker: Tracker) -> bool:
         key = self.get_key(keyword, tracker)
 
-        return self.kvcache.delete(key)
+        return await self.kvcache.delete(key)
 
-    def delete_counter(self, keyword: str, tracker: Tracker) -> bool:
+    async def delete_counter(self, keyword: str, tracker: Tracker) -> bool:
         key = self.get_key(keyword, tracker)
 
         counter_key = self.get_counter_key(key)
 
-        return self.kvcache.delete(counter_key)
+        return await self.kvcache.delete(counter_key)

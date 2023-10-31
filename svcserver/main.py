@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
     if not os.environ.get('SERVER_NAME') and config.server.network.name:
         os.environ['SERVER_NAME'] = config.server.network.name
 
-    config.server = ServiceServer(network, app_config)
+    config.server = await ServiceServer.setup(network, app_config)
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE,

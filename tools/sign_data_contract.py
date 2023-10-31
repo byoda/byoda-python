@@ -78,7 +78,9 @@ async def main(argv):
     network.paths = Paths(
         root_directory=root_dir, network=network.name
     )
-    config.server: ServiceServer = ServiceServer(network, app_config)
+    config.server: ServiceServer = await ServiceServer.setup(
+        network, app_config
+    )
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
