@@ -25,8 +25,8 @@ from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 
-import requests
-from requests.auth import HTTPBasicAuth
+import httpx
+from httpx import BasicAuth
 
 from dateutil.parser import parse as dateutil_parse
 
@@ -150,9 +150,9 @@ class Twitter:
 
         twit = Twitter(api_key=api_key, key_secret=key_secret)
 
-        response = requests.post(
+        response = httpx.post(
             'https://api.twitter.com/oauth2/token',
-            auth=HTTPBasicAuth(twit.api_key, twit.key_secret),
+            auth=BasicAuth(twit.api_key, twit.key_secret),
             data={'grant_type': 'client_credentials'}
         )
 

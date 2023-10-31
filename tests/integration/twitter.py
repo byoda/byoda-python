@@ -15,7 +15,7 @@ import sys
 import unittest
 import asyncio
 
-import requests
+import httpx
 
 from multiprocessing import Process
 import uvicorn
@@ -140,7 +140,7 @@ class TestTwitterIntegration(unittest.IsolatedAsyncioTestCase):
             'service_id': ADDRESSBOOK_SERVICE_ID,
             'target_type': IdType.MEMBER.value,
         }
-        response = requests.post(
+        response = httpx.post(
             f'{BASE_URL}/v1/pod/authtoken', json=data
         )
         data = response.json()

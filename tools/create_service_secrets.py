@@ -14,7 +14,7 @@ import asyncio
 import shutil
 import argparse
 
-import requests
+import httpx
 
 from byoda.util.logger import Logger
 
@@ -75,7 +75,7 @@ async def main(argv):
 
     if not os.path.exists(network_cert_filepath):
         os.makedirs(network_dir, exist_ok=True)
-        resp = requests.get(f'https://dir.{args.network}/root-ca.pem')
+        resp = httpx.get(f'https://dir.{args.network}/root-ca.pem')
         with open(network_cert_filepath, 'w') as file_desc:
             file_desc.write(resp.text)
 

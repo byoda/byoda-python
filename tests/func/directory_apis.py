@@ -18,7 +18,7 @@ import orjson
 import shutil
 import asyncio
 import unittest
-import requests
+import httpx
 from uuid import uuid4
 from copy import copy
 
@@ -139,7 +139,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
         }
-        response = requests.put(API, headers=headers)
+        response = httpx.put(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
@@ -170,7 +170,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Subject': f'CN={fqdn}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
-        response = requests.post(
+        response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
         self.assertEqual(response.status_code, 201)
@@ -186,7 +186,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         # Retry same CSR, with same TLS client cert:
-        response = requests.post(
+        response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
         self.assertEqual(response.status_code, 201)
@@ -202,7 +202,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         # Retry same CSR, without client cert:
-        response = requests.post(
+        response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=None
         )
         self.assertEqual(response.status_code, 401)
@@ -224,7 +224,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         csr = await serviceca_secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
-        response = requests.post(
+        response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}
         )
         self.assertEqual(response.status_code, 201)
@@ -277,7 +277,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         data_certchain = service_data_secret.certchain_as_pem()
 
-        response = requests.put(
+        response = httpx.put(
             API + '/service_id/' + str(service_id), headers=headers,
             json={'certchain': data_certchain}
         )
@@ -302,7 +302,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
         }
 
-        response = requests.patch(
+        response = httpx.patch(
             API + f'/service_id/{service_id}', headers=headers,
             json=schema.json_schema
         )
@@ -315,7 +315,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Get the fully-signed data contract for the service
         API = BASE_URL + '/v1/network/service'
 
-        response = requests.get(API + f'/service_id/{service_id}')
+        response = httpx.get(API + f'/service_id/{service_id}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 12)
@@ -327,7 +327,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Get the list of service summaries
         API = BASE_URL + '/v1/network/services'
-        response = requests.get(API)
+        response = httpx.get(API)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
@@ -347,7 +347,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'CN=members-ca.members-ca-{service_id}.{network.name}'
         }
 
-        response = requests.put(API, headers=headers)
+        response = httpx.put(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')

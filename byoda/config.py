@@ -11,7 +11,7 @@ provides global variables
 from typing import TypeVar
 
 from httpx import AsyncClient as AsyncHttpClient
-import requests
+from httpx import Client as SyncClient
 
 from ssl import SSLContext
 
@@ -45,7 +45,7 @@ app: FastAPI = None
 
 # global session manager, apparently not 100% thread-safe if
 # using different headers, cookies etc.
-request: requests.Session = requests.Session()
+request: SyncClient = SyncClient()
 
 # Test cases set the value to True. Code may evaluate whether
 # it is running as part of a test case to accept function parameters
@@ -59,7 +59,7 @@ disable_pubsub: bool = False
 client_pools: dict[str, AsyncHttpClient] = {}
 
 # Pool of requests sessions, used by pod_worker as it can't use asyncio.
-sync_client_pools: dict[str, requests.Session] = {}
+sync_client_pools: dict[str, SyncClient] = {}
 
 # This cache avoids having to load cert/key for each request that uses
 # client SSL auth

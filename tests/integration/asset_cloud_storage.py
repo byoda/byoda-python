@@ -13,7 +13,7 @@ import unittest
 
 from urllib.parse import urlparse, ParseResult
 
-import requests
+import httpx
 from byoda.util.logger import Logger
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
@@ -46,7 +46,7 @@ class TestAssetStorage(unittest.IsolatedAsyncioTestCase):
                     f'https://{account}.blob.core.windows.net/{container}'
                     f'/{asset_id}/{filename}'
                 )
-                resp = requests.head(cloud_url)
+                resp = httpx.head(cloud_url)
                 print(f'{resp.status_code} - {cloud_url}')
                 self.assertEqual(resp.status_code, 200)
 

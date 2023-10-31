@@ -17,7 +17,6 @@ import os
 import sys
 import unittest
 
-from typing import TypeVar
 from datetime import datetime
 from datetime import timezone
 
@@ -123,7 +122,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         delete_filter: DataFilterSet = DataFilterSet.from_data_class_data(
             object_data_class, data
         )
-        
+
         delete_filter_str = str(delete_filter)
         comp_str: str = (
             "created_timestamp at '2023-10-29 05:15:39.495695+00:00' "
