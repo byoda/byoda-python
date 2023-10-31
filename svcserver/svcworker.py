@@ -74,7 +74,7 @@ async def main():
             await sleep(waittime)
             waittime = 0.1
 
-            member_id: UUID = member_db.get_next(timeout=MAX_WAIT)
+            member_id: UUID = await member_db.get_next(timeout=MAX_WAIT)
             if not member_id:
                 _LOGGER.debug('No member available in list of members')
                 continue
@@ -101,7 +101,7 @@ async def main():
                 # Add the member back to the list of members as it seems
                 # to be up and running, even if it may not have returned
                 # any data
-                member_db.add_member(member_id)
+                await member_db.add_member(member_id)
 
             #
             # and now we wait for the time to process the next client
@@ -129,7 +129,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
     '''
 
     try:
-        data = member_db.get_meta(member_id)
+        data = await member_db.get_meta(member_id)
     except TypeError as exc:
         _LOGGER.exception(f'Invalid data for member: {member_id}: {exc}')
         return None
@@ -137,7 +137,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
         _LOGGER.info(f'Member not found: {member_id}: {exc}')
         return None
 
-    member_db.add_meta(
+    await member_db.add_meta(
         data['member_id'], data['remote_addr'], data['schema_version'],
         data['data_secret'], data['status']
     )
@@ -189,9 +189,9 @@ async def update_member_info(service: Service, member_db: MemberDb,
             f'Got data from member {member_id}: '
             f'{orjson.dumps(person_data)}'
         )
-        member_db.set_data(member_id, person_data)
+        await member_db.set_data(member_id, person_data)
 
-        member_db.kvcache.set(
+        await member_db.kvcache.set(
             person_data['email'], str(member_id)
         )
 
