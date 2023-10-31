@@ -25,7 +25,7 @@ from anyio import sleep
 from anyio import create_task_group
 from anyio.abc import TaskGroup
 
-from httpx import ConnectionError
+from httpx import ConnectError
 from httpx import HTTPError
 
 from byoda.datamodel.service import Service
@@ -150,13 +150,11 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
     try:
         await update_member_info(service, member_db, member_id)
 
-    except (HTTPError, ConnectionError, ByodaRuntimeError) as exc:
+    except (HTTPError, ConnectError, ByodaRuntimeError) as exc:
         _LOGGER.info(
             f'Not adding member back to the list because we failed '
             f'to get data from member: {member_id}: {exc}'
         )
-        # Safety measure that we don't have an error case where
-        # we consume 100% CPU
         return None
 
     return waittime

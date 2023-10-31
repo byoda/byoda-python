@@ -15,20 +15,20 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y \
-        curl \
-        ca-certificates \
-        build-essential \
-        python3 \
-        python3-pip \
-        python3-distutils \
-        python3-setuptools \
-        libssl-dev \
-        libffi-dev \
-        python3-dev \
-        pipenv \
-        libpq-dev \
-        libaugeas0 \
-        git \
+       curl \
+       ca-certificates \
+       build-essential \
+       python3 \
+       python3-pip \
+       python3-distutils \
+       python3-setuptools \
+       libssl-dev \
+       libffi-dev \
+       python3-dev \
+       pipenv \
+       libpq-dev \
+       libaugeas0 \
+       git \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/* \
     &&  rm -f /etc/nginx/conf.d/default.conf
@@ -48,14 +48,14 @@ ENV PYTHONPATH=/opt/byoda/byoda-python
 COPY . byoda-python/
 
 ### SECURITY: --forwarded-allow-ip * requires that port 8000 is not exposed to the internet
-CMD  cd /opt/byoda/byoda-python && \
-    pipenv run python3 -m gunicorn \
-        -k uvicorn.workers.UvicornWorker \
-        --proxy-allow-from '*' \
-        --forwarded-allow-ips '*' \
-        --bind 0.0.0.0:8000  \
-        -p /var/run/dirserver.pid \
-        --error-logfile /var/log/byoda/gunicorn-directory-error.log \
-        --access-logfile /var/log/byoda/gunicorn-directory-access.log \
-        -c gunicorn.conf.py \
-        dirserver.main:app
+CMD cd /opt/byoda/byoda-python \
+    && pipenv run python3 -m gunicorn \
+       -k uvicorn.workers.UvicornWorker \
+       --proxy-allow-from '*' \
+       --forwarded-allow-ips '*' \
+       --bind 0.0.0.0:8000  \
+       -p /var/run/dirserver.pid \
+       --error-logfile /var/log/byoda/gunicorn-directory-error.log \
+       --access-logfile /var/log/byoda/gunicorn-directory-access.log \
+       -c gunicorn.conf.py \
+       dirserver.main:app
