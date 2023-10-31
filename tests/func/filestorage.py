@@ -28,7 +28,7 @@ For AWS, create a ~/.aws/credentias file with as contents:
 
 import os
 import sys
-import requests
+import httpx
 import shutil
 import unittest
 
@@ -147,7 +147,7 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
 
         # This fails because anonymous access to private storage is
         # not allowed
-        response = requests.get(url, allow_redirects=False)
+        response = httpx.get(url, allow_redirects=False)
         test.assertIn(response.status_code, (302, 403, 404, 409))
 
         with open('/bin/ls', 'rb') as file_desc:

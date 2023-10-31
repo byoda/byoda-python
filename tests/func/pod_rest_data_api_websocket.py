@@ -24,11 +24,10 @@ from datetime import timezone
 
 import orjson
 
-from anyio import (
-    TASK_STATUS_IGNORED,
-    create_task_group,
-    sleep,
-)
+from anyio import TASK_STATUS_IGNORED
+from anyio import create_task_group
+from anyio import sleep
+
 from anyio.abc import TaskStatus
 
 from byoda.datamodel.network import Network

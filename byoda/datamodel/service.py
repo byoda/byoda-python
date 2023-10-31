@@ -747,7 +747,7 @@ class Service:
         # for the TLS/service secret
         if with_private_key:
             filepath = self.tls_secret.save_tmp_private_key()
-            config.requests.cert = (self.tls_secret.cert_file, filepath)
+            config.request.cert = (self.tls_secret.cert_file, filepath)
 
     async def load_data_secret(self, with_private_key: bool,
                                password: str = None,

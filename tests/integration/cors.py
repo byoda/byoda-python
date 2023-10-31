@@ -15,7 +15,7 @@ with a custom domain
 import sys
 import unittest
 
-import requests
+import httpx
 from requests.structures import CaseInsensitiveDict
 
 from byoda.util.logger import Logger
@@ -65,7 +65,7 @@ def do_request(testcase, fqdn: str, api_prefix: str = '/'):
     request_headers['Access-Control-Request-Headers'] = 'content-type'
     request_headers['Origin'] = location
 
-    resp = requests.options(url, verify=False, headers=request_headers)
+    resp = httpx.options(url, verify=False, headers=request_headers)
     testcase.assertEqual(resp.status_code, 200)
 
     testcase.assertEqual(

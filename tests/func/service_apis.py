@@ -17,7 +17,7 @@ import yaml
 import shutil
 import asyncio
 import unittest
-import requests
+import httpx
 from uuid import uuid4
 
 from multiprocessing import Process
@@ -159,7 +159,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     def test_service_get(self):
         API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
 
-        response = requests.get(API)
+        response = httpx.get(API)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 12)
@@ -184,7 +184,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
-        response = requests.post(
+        response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=None
         )
         self.assertEqual(response.status_code, 201)
@@ -227,7 +227,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Issuing-CA':
                 f'CN={memberscasecret_commonname}'
         }
-        response = requests.put(
+        response = httpx.put(
             f'{API}/version/1', headers=headers,
             json={'certchain': member_data_certchain}
         )
@@ -238,7 +238,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         asset_id = str(get_test_uuid())
         API = BASE_URL + '/v1/service/search/asset'
-        response = requests.post(
+        response = httpx.post(
             API, headers=headers, json={
                 'hashtags': ['gaap'],
                 'mentions': ['blah'],
@@ -255,6 +255,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(asset_id, data[0]['asset_id'])
 
+        # TODO: see how we can use json parameter with httpx.get()
+        import requests
         response = requests.get(
             API, headers=headers, json={
                 'mentions': ['blah']
@@ -268,7 +270,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(asset_id, data[-1]['asset_id'])
 
-        response = requests.get(
+        response = httpx.get(
             API, headers=headers, json={
                 'mentions': ['blah']
             }
@@ -277,7 +279,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = response.json()
         total_items = len(data)
 
-        response = requests.delete(
+        response = httpx.delete(
             API, headers=headers, json={
                 'hashtags': None,
                 'mentions': ['blah'],
@@ -294,7 +296,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(asset_id, data[0]['asset_id'])
 
-        response = requests.get(
+        response = httpx.get(
             API, headers=headers, json={
                 'mentions': ['blah']
             }

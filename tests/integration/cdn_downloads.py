@@ -18,7 +18,8 @@ import sys
 import unittest
 
 from uuid import uuid4, UUID
-import requests
+
+import httpx
 
 from byoda.util.logger import Logger
 
@@ -142,19 +143,22 @@ class TestWebServer(unittest.TestCase):
                             f'Testing for target {target} {access} access '
                             f'for cloud {cloud}: url={url}'
                         )
-                        response = requests.get(url, verify=ssl_root)
+                        response = httpx.get(url, verify=ssl_root)
                         self.assertEqual(response.status_code, 200)
                     else:
                         _LOGGER.debug(
                             f'Testing for target {target} {access} access '
                             f'for cloud {cloud}: url={url}'
                         )
-                        response = requests.get(url, verify=ssl_root)
+                        response = httpx.get(url, verify=ssl_root)
                         self.assertEqual(response.status_code, 403)
 
                         asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
                         key_id, token = get_token(url, asset_id, cloud)
-                        response = requests.get(
+                        self.assertEqual(key_id, 1)
+                        self.assertIsNotNone(token)
+
+                        response = httpx.get(
                             url, verify=ssl_root,
                             headers={
                                 'Authorization': f'Bearer {token}',
@@ -178,7 +182,7 @@ class TestWebServer(unittest.TestCase):
                 'token=blah'
             ]
         )
-        response = requests.get(url)
+        response = httpx.get(url)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsNotNone(data.get('content_token'))
@@ -197,7 +201,7 @@ def get_token(url: str, asset_id: UUID, cloud: str) -> tuple[int, str]:
         'token': 'placeholder'
     }
 
-    result = requests.get(
+    result = httpx.get(
         url, params=query_params,
         verify='tests/collateral/network-byoda.net-root-ca-cert.pem'
     )
