@@ -7,9 +7,9 @@ storing data about their members
 :license    : GPLv3
 '''
 
-import orjson
-
 from logging import getLogger
+
+import orjson
 
 import redis.asyncio as redis
 
@@ -44,7 +44,7 @@ class KVRedis(KVCache):
 
         self: KVRedis = KVRedis(identifier)
 
-        self.driver = await redis.from_url(connection_string, protocol=3)
+        self.driver = await redis.from_url(connection_string)
 
         return self
 

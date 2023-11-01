@@ -12,6 +12,8 @@ from typing import Self
 from logging import getLogger
 
 from aredis_om.connections import get_redis_connection
+from redis_om import Migrator
+
 from redis.exceptions import (
     ConnectionError,
     ExecAbortError,
@@ -21,6 +23,7 @@ from redis.exceptions import (
     TimeoutError,
     WatchError,
 )
+
 from .kv_cache import DEFAULT_CACHE_EXPIRATION
 
 from byoda.util.logger import Logger
@@ -51,6 +54,7 @@ class OMRedis:
         '''
 
         omr = OMRedis(identifier=identifier, expiration=expiration)
+
         omr.driver = await get_redis_connection(
             url=connection_string,
             retry_on_error=[
@@ -64,7 +68,8 @@ class OMRedis:
             ],
             protocol=3
         )
-
+        Migrator().run()
+        # omr.pipeline = omr.driver.pipeline(transaction=False)
         return omr
 
     async def close(self):
