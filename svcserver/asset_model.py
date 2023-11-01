@@ -16,14 +16,10 @@ import os
 import yaml
 
 from uuid import UUID
-from typing import Self
 from datetime import datetime
 
-import orjson
-
-from aredis_om.connections import get_redis_connection
-
-from aredis_om import JsonModel, HashModel, Field as Field
+from aredis_om import JsonModel
+from aredis_om import Field
 
 from pydantic import BaseModel
 
@@ -120,4 +116,3 @@ class Asset(JsonModel):
 
     class Meta:
         global_key_prefix: str = 'service:assetdb:assets:'
-        #database = get_redis_connection(url=REDIS_URL, decode_responses=True)

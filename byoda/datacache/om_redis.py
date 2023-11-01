@@ -8,11 +8,15 @@ storing data about their members
 '''
 
 from typing import Self
+from urllib.parse import urlparse, ParseResult
 
 from logging import getLogger
 
 from aredis_om.connections import get_redis_connection
+from redis.asyncio import Redis
+
 from redis_om import Migrator
+from aredis_om import JsonModel
 
 from redis.exceptions import (
     ConnectionError,
@@ -54,9 +58,11 @@ class OMRedis:
         '''
 
         omr = OMRedis(identifier=identifier, expiration=expiration)
-
-        omr.driver = await get_redis_connection(
-            url=connection_string,
+        omr.connection_string: str = connection_string
+        parsed: ParseResult = urlparse(connection_string)
+        omr.driver = await Redis(
+            host=parsed.hostname,
+            port=parsed.port,
             retry_on_error=[
                 TimeoutError,
                 ConnectionError,
@@ -66,11 +72,12 @@ class OMRedis:
                 ResponseError,
                 WatchError,
             ],
-            protocol=3
         )
         Migrator().run()
-        # omr.pipeline = omr.driver.pipeline(transaction=False)
         return omr
 
     async def close(self):
         await self.driver.close()
+
+    def add_model(self, cls: type[JsonModel]):
+        cls.Meta.database.connection_pool = self.driver.connection_pool

@@ -68,10 +68,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         omr = await OMRedis.setup(config['svcserver']['cache'])
         data = get_claim()
-        from aredis_om.connections import get_redis_connection
-        redis = get_redis_connection(url=config['svcserver']['cache'])
-        Claim.Meta.database.connection_pool = redis.connection_pool
-        # data.Meta.database.connection_pool = omr.driver.connection_pool
+        omr.add_model(Claim)
         await data.save()
         claim: Asset = await Asset.get(data.asset_id)
 
