@@ -155,7 +155,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.info(f'Signed certificate with commonname {common_name}')
 
-    config.server.member_db.add_meta(
+    await config.server.member_db.add_meta(
         csr_entity_id.id, request.client.host, None, cert_chain,
         MemberStatus.SIGNED
     )
@@ -208,7 +208,7 @@ async def put_member(request: Request, schema_version: int,
 
     await member_data_secret.save(overwrite=True)
 
-    config.server.member_db.add_meta(
+    await config.server.member_db.add_meta(
         auth.member_id, auth.remote_addr, schema_version, certchain.certchain,
         MemberStatus.REGISTERED
     )

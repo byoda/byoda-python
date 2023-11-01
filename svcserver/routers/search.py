@@ -79,7 +79,7 @@ async def search_email(request: Request, email: str,
 
     member_db: MemberDb = config.server.member_db
 
-    member_id = member_db.kvcache.get(email)
+    member_id = await member_db.kvcache.get(email)
     if not member_id:
         raise HTTPException(
             status_code=404, detail=f'No member found for {email}'
@@ -91,7 +91,7 @@ async def search_email(request: Request, email: str,
         f'found {member_id}'
     )
 
-    data = member_db.get_data(UUID(member_id))
+    data = await member_db.get_data(UUID(member_id))
 
     data['member_id'] = member_id
 
@@ -127,13 +127,13 @@ async def get_asset(request: Request, search: AssetSearchRequestModel,
     assets: list[AssetSearchResultsResponseModel] = []
 
     for hashtag in search.hashtags or []:
-        results = search_db.get_list(hashtag, Tracker.HASHTAG)
+        results = await search_db.get_list(hashtag, Tracker.HASHTAG)
         for result in results or []:
             data = {'member_id': result[0], 'asset_id': result[1]}
             assets.append(data)
 
     for mention in search.mentions or []:
-        results = search_db.get_list(mention, Tracker.MENTION)
+        results = await search_db.get_list(mention, Tracker.MENTION)
         for result in results or []:
             data = {'member_id': result[0], 'asset_id': result[1]}
             assets.append(data)
@@ -163,12 +163,12 @@ async def post_asset(request: Request, search: AssetSubmitRequestModel,
     search_db: SearchDB = config.server.search_db
 
     for hashtag in search.hashtags or []:
-        search_db.create_append(
+        await search_db.create_append(
             hashtag, auth.member_id, search.asset_id, Tracker.HASHTAG
         )
 
     for mention in search.mentions or []:
-        search_db.create_append(
+        await search_db.create_append(
             mention, auth.member_id, search.asset_id, Tracker.MENTION
         )
 
@@ -200,12 +200,12 @@ async def delete_asset(request: Request, search: AssetSubmitRequestModel,
     search_db: SearchDB = config.server.search_db
 
     for hashtag in search.hashtags or []:
-        search_db.erase_from_list(
+        await search_db.erase_from_list(
             hashtag, auth.member_id, search.asset_id, Tracker.HASHTAG
         )
 
     for mention in search.mentions or []:
-        search_db.erase_from_list(
+        await search_db.erase_from_list(
             mention, auth.member_id, search.asset_id, Tracker.MENTION
         )
 

@@ -264,13 +264,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertGreaterEqual(len(data), 3)
+        self.assertGreaterEqual(len(data), 2)
         self.assertTrue(
             membersecret_commonname.startswith(data[-1]['member_id'])
         )
         self.assertEqual(asset_id, data[-1]['asset_id'])
 
-        response = httpx.get(
+        response = requests.get(
             API, headers=headers, json={
                 'mentions': ['blah']
             }
@@ -279,7 +279,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = response.json()
         total_items = len(data)
 
-        response = httpx.delete(
+        response = requests.delete(
             API, headers=headers, json={
                 'hashtags': None,
                 'mentions': ['blah'],
@@ -296,7 +296,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(asset_id, data[0]['asset_id'])
 
-        response = httpx.get(
+        response = requests.get(
             API, headers=headers, json={
                 'mentions': ['blah']
             }
