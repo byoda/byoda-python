@@ -19,8 +19,6 @@ from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
-# TODO: convert KVRedis to async
-
 
 class KVRedis(KVCache):
     def __init__(self, identifier: str = None):

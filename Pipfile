@@ -55,7 +55,8 @@ yt-dlp = "*"
 pymerkle = "*"
 pyyaml = "*"
 pydantic = "*"
-aiohttp = {extras = ["aiodns"], version = "*"}
+aiohttp = "*"
+aiodns = "*"
 starlette = "*"
 httpx = {extras = ["http2"], version = "*"}
 opentelemetry-api = "*"
@@ -70,6 +71,7 @@ datamodel-code-generator = "*"
 deprecated = "*"
 anyio = "*"
 redis = {extras = ["hiredis"], version = "*"}
+redis-om = "*"
 
 [dev-packages]
 flake8 = "*"

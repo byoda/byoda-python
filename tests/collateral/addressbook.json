@@ -492,6 +492,23 @@
                 },
                 "required": ["name", "url", "app_id"]
             },
+            "monetization": {
+                "$id": "/schemas/monetization",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "method for monetization content",
+                "type": "object",
+                "properties": {
+                    "monetization_id": {
+                        "description": "the UUID for the monetization method",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "monetization_scheme": {
+                        "description": "the scheme for monetization, ie. 'ad-supported', 'creator-subscription', 'service-subscription', 'pay-per-view, etc. etc.",
+                        "type": "string"
+                    }
+                }
+            },
             "asset_link": {
                 "$id": "/schemas/asset_link",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -883,7 +900,8 @@
                     },
                     "cert_expiration": {
                         "description": "the timestamp when the cert used to create the signature expires",
-                        "type": "string"
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },
@@ -909,7 +927,7 @@
                         "type": "string"
                     },
                     "asset_url": {
-                        "description": "type of asset, ie. a tweet, a message, a video, etc.",
+                        "description": "Location of the asset",
                         "type": "string",
                         "format": "uri"
                     },
@@ -935,7 +953,7 @@
                         "description": "enabled monetizations for the asset",
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "/schemas/monetization"
                         }
                     },
                     "locale": {

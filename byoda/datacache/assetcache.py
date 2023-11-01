@@ -8,16 +8,21 @@ Class Asset tracks assets
 
 
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
+from datetime import datetime
+from datetime import timezone
 
-from byoda.datamodel.service import Service
+from byoda.datamodel.dataclass import SchemaDataObject
+
 from byoda.datatypes import CacheTech
-from byoda.datatypes import CacheType
 
-from byoda.datacache.kv_cache import KVCache
+from byoda.datacache.om_redis import OMRedis
 
 from byoda.util.logger import Logger
+
+from svcserver.asset_model import Asset
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -25,59 +30,88 @@ Member = TypeVar('Member')
 
 
 class AssetCache:
-    def __init__(self, service: Service, cache_tech: CacheTech):
-        self.service_id: int = service.service_id
+    def __init__(self, service_id: int,
+                 cache_tech: CacheTech = CacheTech.REDIS):
+        '''
+        Do not use this constructor, use the AssetCache.setup() factory instead
+        :param service_id: the service_id of the service that we are running
+        :param cache_tech: only CacheTech.REDIS is implemented
+        :returns: self
+        :raises: (none)
+        '''
+        self.service_id: int = service_id
         self.cache_tech: CacheTech = cache_tech
+
+        self.backend: OMRedis
+
+    @staticmethod
+    async def setup(connection_string: str, service_id: int,
+                    cache_tech: CacheTech = CacheTech.REDIS) -> Self:
+        '''
+        Factory for AssetCache
+
+        :param connection_string: connection string for Redis server
+        :param service_id: the service_id of the service that we are running
+        :param cache_tech: only CacheTech.REDIS is implemented
+        '''
+
+        self = AssetCache(service_id, cache_tech=cache_tech)
 
         if cache_tech == CacheTech.SQLITE:
             raise NotImplementedError('AssetCache not implemented for SQLITE')
         elif cache_tech == CacheTech.REDIS:
             from .kv_redis import KVRedis
-            kvr = KVRedis(connection_string, identifier)
-
+            self.backend = KVRedis(connection_string, identifier=service_id)
         else:
-            raise NotImplementedError('QueryCache not implemented for REDIS')
+            raise NotImplementedError(
+                f'AssetCache not implemented for {cache_tech.value}'
+            )
 
-        self.backend: KVCache | None = None
-
-    @staticmethod
-    async def create(member: Member, cache_tech=CacheTech.SQLITE):
-        '''
-        Factory for AssetCache
-
-        :param connection_string: connection string for Redis server or
-        path to the file for Sqlite
-        :param member_id: the member ID for the membership for which the
-        cache is created
-        '''
-
-        cache = QueryCache(member, cache_tech=cache_tech)
-        _LOGGER.debug(f'Creating query cache using {cache.filepath}')
-        cache.backend: KVCache = await KVCache.create(
-            cache.filepath, identifier=str(member.member_id),
-            cache_tech=cache_tech, cache_type=CacheType.QUERY_ID
-        )
-
-        return cache
+        return self
 
     async def close(self):
         await self.backend.close()
 
-    async def exists(self, query_id: str) -> bool:
+    async def exists(self, asset_id: str) -> bool:
         '''
         Checks whether the query_id exists in the cache
         '''
 
-        return await self.backend.exists(str(query_id))
+        return await self.backend.exists(str(asset_id))
 
-    async def set(self, query_id: UUID, value: object) -> bool:
+    async def set_latest_timestamp(self, member_id: UUID, timestamp: datetime):
+        '''
+        Sets the timestamp of the most recent created_timestmap of an asset of
+        the member. We use this to do catch-up queries for assets that
+        the member added since we established the websocket UPDATES connection
+        to the pod of the member. Any existing timestamp in the cache
+        will only be updated if
+
+        :param member_id: the member_id of the member
+        :param timestamp: the timestamp of the most recent created_timestamp
+        '''
+
+    async def set(self, asset_id: UUID, member_id: UUID,
+                  data_class: SchemaDataObject,
+                  value: dict[str, object]) -> bool:
         '''
         Sets the query_id in the cache
 
         :returns: True if the query_id was set, False if it already existed
         '''
 
-        return await self.backend.set(str(query_id), value)
+        cursor: str = data_class.get_cursor_hash(value)
+        timestamp: float = datetime.now(tz=timezone.utc).timestamp()
+
+        data: dict[str, dict[str, object]] = {
+            'meta': {
+                'last_modified': timestamp,
+                'cursor': cursor,
+                'member_id': str(member_id),
+            },
+            'data': value
+        }
+        return await self.backend.set(str(asset_id), data)
 
     async def delete(self, query_id: UUID) -> bool:
         '''
