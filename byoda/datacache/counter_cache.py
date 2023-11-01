@@ -62,7 +62,7 @@ class CounterCache:
 
         cache = CounterCache(member, cache_tech=cache_tech)
         _LOGGER.debug(f'Creating counter cache using {cache.filepath}')
-        cache.backend: KVCache = await KVCache.create_async(
+        cache.backend: KVCache = await KVCache.create(
             cache.filepath, identifier=str(member.member_id),
             cache_tech=cache_tech, cache_type=CacheType.COUNTER
         )

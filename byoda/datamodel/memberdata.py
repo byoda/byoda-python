@@ -940,7 +940,7 @@ class MemberData(dict):
             table: Table = data_store.get_table(member_id, class_name)
 
         if config.debug and config.disable_pubsub:
-            _LOGGER.debug('Not performing pubsub updates')
+            _LOGGER.debug('Not performing pubsub updates for test cases')
             return object_count
 
         # Update the counter for the top-level array
@@ -1215,7 +1215,7 @@ class MemberData(dict):
             table: Table = data_store.get_table(member_id, class_name)
 
         if config.debug and config.disable_pubsub:
-            _LOGGER.debug('Not performing pubsub updates')
+            _LOGGER.debug('Not performing pubsub updates for test-cases')
             return object_count
 
         # Update the counter for the top-level array
