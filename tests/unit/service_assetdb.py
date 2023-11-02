@@ -82,13 +82,23 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             service_id, 'public_assets', action=DataRequestType.QUERY,
             custom_domain='azure.byoda.me', network='byoda.net',
         )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertGreaterEqual(data['total_count'], 2)
+        self.assertGreaterEqual(len(data['edges']), 2)
+        node = data['edges'][0]['node']
+        redis_asset = Asset(**node)
+        await redis_asset.save()
+
+        web_asset = redis_asset.model_dump()
 
         await omr.close()
 
-        print('hoi')
 
 
 def get_asset() -> dict[str, object]:
+    asset_id = str(get_test_uuid())
+
     thumbnail_1 = Video_thumbnail(
         thumbnail_id=str(get_test_uuid()), width=640, height=480,
         size='640x480', preference='default', url='https://thumbnail_url',
@@ -113,6 +123,8 @@ def get_asset() -> dict[str, object]:
         issuer_id=str(get_test_uuid()),
         issuer_type='app', keyfield='asset_id',
         requester_id=str(get_test_uuid()), requester_type='member',
+        keyfield_id=asset_id,
+        object_fields=['blah1', 'blah12'], object_type='public_assets',
         signature='blah', signature_format_version=1,
         signature_timestamp=datetime.now(tz=timezone.utc).isoformat(),
         signature_url='https://signature_url',
@@ -127,6 +139,7 @@ def get_asset() -> dict[str, object]:
         cert_fingerprint='claim2_fingerprint',
         issuer_id=str(get_test_uuid()),
         issuer_type='app', keyfield='asset_id',
+        keyfield_id=asset_id,
         object_fields=['blah2', 'blah22'], object_type='public_assets',
         requester_id=str(get_test_uuid()), requester_type='member',
         signature='blah', signature_format_version=1,
@@ -143,7 +156,7 @@ def get_asset() -> dict[str, object]:
     )
 
     asset = Asset(
-        asset_id=get_test_uuid(), asset_type='video',
+        asset_id=asset_id, asset_type='video',
         created_timestamp=datetime.now(tz=timezone.utc),
         asset_merkle_root_hash='1',
         asset_url='https://asset_url',
