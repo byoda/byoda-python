@@ -15,11 +15,15 @@ import unittest
 from datetime import datetime
 from datetime import timezone
 
-from redis.asyncio import Redis
-
-from byoda.util.logger import Logger
+# from byoda.datamodel.member import Member
+from byoda.datatypes import DataRequestType
 
 from byoda.datacache.om_redis import OMRedis
+
+from byoda.util.api_client.data_api_client import DataApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.logger import Logger
 
 from svcserver.asset_model import Asset
 from svcserver.asset_model import Video_chapter
@@ -54,31 +58,37 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         pass
 
-    # async def test_asset_pydantic_models(self):
-    # network_data = await setup_network(TEST_DIR)
-    # pod_account = await setup_account(network_data)
-    # member: Member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
-
     async def test_asset_redis_storage(self):
-        config_file = os.environ.get(
-            'CONFIG_FILE', 'config.yml'
-        )
+        # network_data = await setup_network(TEST_DIR)
+        # pod_account = await setup_account(network_data)
+        # member: Member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
+
+        config_file = os.environ.get('CONFIG_FILE', 'config.yml')
         with open(config_file) as file_desc:
             config = yaml.safe_load(file_desc)
 
         omr = await OMRedis.setup(config['svcserver']['cache'])
-        data = get_claim()
-        omr.add_model(Claim)
+
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+
+        data = get_asset()
+        omr.add_model(Asset)
         await data.save()
         claim: Asset = await Asset.get(data.asset_id)
 
         self.assertEqual(data.created_timestamp, claim.created_timestamp)
+
+        resp: HttpResponse = await DataApiClient.call(
+            service_id, 'public_assets', action=DataRequestType.QUERY,
+            custom_domain='azure.byoda.me', network='byoda.net',
+        )
+
         await omr.close()
 
         print('hoi')
 
 
-def get_claim() -> dict[str, object]:
+def get_asset() -> dict[str, object]:
     thumbnail_1 = Video_thumbnail(
         thumbnail_id=str(get_test_uuid()), width=640, height=480,
         size='640x480', preference='default', url='https://thumbnail_url',
@@ -102,8 +112,6 @@ def get_claim() -> dict[str, object]:
         cert_fingerprint='claim1_fingerprint',
         issuer_id=str(get_test_uuid()),
         issuer_type='app', keyfield='asset_id',
-        keyfield_id=str(get_test_uuid()),
-        object_fields=['blah1', 'blah12'], object_type='public_assets',
         requester_id=str(get_test_uuid()), requester_type='member',
         signature='blah', signature_format_version='1.0.0',
         signature_timestamp=datetime.now(tz=timezone.utc).isoformat(),
@@ -119,7 +127,6 @@ def get_claim() -> dict[str, object]:
         cert_fingerprint='claim2_fingerprint',
         issuer_id=str(get_test_uuid()),
         issuer_type='app', keyfield='asset_id',
-        keyfield_id=str(get_test_uuid()),
         object_fields=['blah2', 'blah22'], object_type='public_assets',
         requester_id=str(get_test_uuid()), requester_type='member',
         signature='blah', signature_format_version='1.0.0',

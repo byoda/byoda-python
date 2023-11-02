@@ -24,6 +24,7 @@ from byoda.datamodel.dataclass import SchemaDataItem
 
 from byoda.datatypes import IngestStatus
 from byoda.datatypes import IdType
+from byoda.datatypes import DataRequestType
 
 from byoda.requestauth.jwt import JWT
 
@@ -37,6 +38,9 @@ from byoda.storage.filestorage import FileStorage
 from byoda.util.api_client.api_client import ApiClient
 
 from byoda.servers.pod_server import PodServer
+
+from byoda.util.api_client.data_api_client import DataApiClient
+from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
@@ -177,6 +181,14 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         )
         self.assertGreaterEqual(len(ingested_videos), 2)
 
+        # See if we can QUERY the data API and get the right result back
+        resp: HttpResponse = await DataApiClient.call(
+            service_id, 'public_assets', DataRequestType.QUERY,
+            app=APP,
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        print(data)
         # Start with clean slate
         yt = YouTube()
 
