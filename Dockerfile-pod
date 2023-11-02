@@ -61,7 +61,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf Bento4-SDK-1-6-0-640.x86_64-unknown-linux \
     && rm bento4.zip \
     && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
-    && apt-get --yes uninstall build-essential curl \
+    && apt-get --yes remove build-essential curl \
     && apt-get --yes autoremove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
