@@ -485,20 +485,23 @@ class MemberData(dict):
         # TODO: figure out a way to return metadata for the retrieved data
         with TRACER.start_as_current_span('MemberData.get from store'):
             if data_class.cache_only:
-                _LOGGER.debug(
-                    f'Using cache for read-only class {class_name}'
-                )
                 cache_store: CacheStore = server.cache_store
                 data: list[QueryResult] = await cache_store.query(
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
+                _LOGGER.debug(
+                    f'Got {len(data or [])} items from the cache store'
+                )
             else:
                 data_store: DataStore = server.data_store
                 data: list[QueryResult] = await data_store.query(
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
+                _LOGGER.debug(
+                    f'Got {len(data or [])} items from the data store'
+                )
 
         with TRACER.start_as_current_span('MemberData.get collect'):
             # TODO: see how we can return metadata for the retrieved data

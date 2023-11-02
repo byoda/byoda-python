@@ -134,7 +134,7 @@ class DataApiClient:
         resp: HttpResponse = await ApiClient.call(
             data_url, HttpMethod.POST, secret=secret, jwt=jwt,
             params=params, data=api_data, headers=headers,
-            service_id=service_id, member_id=member_id,
+            service_id=service_id, member_id=member_id, network_name=network,
             timeout=timeout, app=app
         )
 
@@ -215,9 +215,8 @@ class DataApiClient:
                 action=action.value
             )
         elif custom_domain:
-            port = 444
-            if jwt or 'Authorization' in headers:
-                port = 443
+            # Pods never use custom_domain
+            port = 443
 
             _LOGGER.debug(f'Using custom_domain {custom_domain}')
             data_url = api_template.format(

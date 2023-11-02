@@ -599,12 +599,13 @@ async def populate_data_rest(test, service_id: int, class_name: str,
     global ALL_DATA
     ALL_DATA = []
     for count in range(0, record_count):
+        asset_id = get_test_uuid()
         vars = {
             'created_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
             ),
             'asset_type': 'post',
-            'asset_id': str(get_test_uuid()),
+            'asset_id': str(asset_id),
             'creator': f'test account #{count}',
             'title': f'test asset-{count}',
             'subject': 'just a test asset',
@@ -637,6 +638,32 @@ async def populate_data_rest(test, service_id: int, class_name: str,
                   'chapter_id': get_test_uuid(),
                   'start': 21, 'end': 30, 'title': 'chapter 3'
                 },
+            ],
+            'claims': [
+                {
+                    'claim_id': get_test_uuid(),
+                    'claims': ['violence:4', 'scary:5'],
+                    'issuer_id': get_test_uuid(),
+                    'issuer_type': 'app',
+                    'object_type': 'network_assets',
+                    'keyfield': 'asset_id',
+                    'keyfield_id': asset_id,
+                    'object_fields': ['asset_id', 'title', 'contents'],
+                    'requester_id': get_test_uuid(),
+                    'requester_type': 'member',
+                    'signature': 'blah',
+                    'signature_format_version': '1.0.0',
+                    'signature_timestamp': str(
+                        datetime.now(tz=timezone.utc).isoformat()
+                    ),
+                    'signature_url': 'https://signature_url',
+                    'renewal_url': 'https://renewal_url',
+                    'confirmation_url': 'https://confirmation_url',
+                    'cert_fingerprint': 'abcde',
+                    'cert_expiration': str(
+                        datetime.now(tz=timezone.utc).isoformat()
+                    )
+                }
             ]
         }
 

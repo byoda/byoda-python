@@ -72,6 +72,7 @@ class YouTubeChannel:
         # adds it if it is not. If the asset exists and has ingest status
         # 'external' and this channel is configured to download AV tracks
         # then the existing asset will be updated
+        video: YouTubeVideo
         for video in self.videos.values():
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'

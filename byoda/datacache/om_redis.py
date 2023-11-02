@@ -12,7 +12,6 @@ from urllib.parse import urlparse, ParseResult
 
 from logging import getLogger
 
-from aredis_om.connections import get_redis_connection
 from redis.asyncio import Redis
 
 from redis_om import Migrator

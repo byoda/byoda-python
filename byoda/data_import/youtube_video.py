@@ -588,7 +588,7 @@ class YouTubeVideo:
             if claim_request.signature:
                 claim_data = await self.download_claim(moderate_claim_url)
 
-                asset[YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS] = claim_data
+                asset[YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS] = [claim_data]
             else:
                 storage_driver.save(
                     f'claim_requests/pending/{self.asset_id}',
