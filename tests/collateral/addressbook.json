@@ -877,7 +877,7 @@
                     },
                     "signature_format_version": {
                         "description": "The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py",
-                        "type": "string"
+                        "type": "number"
                     },
                     "signature_url": {
                         "description": "URL to visit to get additional info about the signature",
@@ -953,7 +953,7 @@
                         "description": "enabled monetizations for the asset",
                         "type": "array",
                         "items": {
-                            "type": "/schemas/monetization"
+                            "$ref": "/schemas/monetization"
                         }
                     },
                     "locale": {

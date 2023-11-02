@@ -57,6 +57,8 @@ from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
+from tests.lib.auth import get_member_auth_header
+
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import MODTEST_FQDN, MODTEST_APP_ID
 
@@ -93,7 +95,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         config.disable_pubsub = True
 
         account: Account = await setup_account(
-            network_data, clean_pubsub=False
+            network_data, clean_pubsub=False,
+            local_service_contract=os.environ.get('LOCAL_SERVICE_CONTRACT')
         )
 
         config.trace_server: str = os.environ.get(
@@ -139,8 +142,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         storage_driver: FileStorage = server.storage_driver
         network: Network = server.network
 
-        # channel: str = 'Dathes'
-        channel: str = 'PolyMatter'
+        channel: str = 'Dathes:ALL'
+        # channel: str = 'PolyMatter'
         # channel: str = 'History Matters'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
@@ -158,8 +161,11 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
                 'ingest_status': IngestStatus.EXTERNAL
             },
         }
+        channel_name: str = channel
+        if ':' in channel_name:
+            channel_name = channel_name.split(':')[0]
         await yt.get_videos(ingested_videos)
-        self.assertGreaterEqual(len(yt.channels[channel].videos), 1)
+        self.assertGreaterEqual(len(yt.channels[channel_name].videos), 1)
 
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
@@ -182,12 +188,16 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(ingested_videos), 2)
 
         # See if we can QUERY the data API and get the right result back
+        member_auth: dict[str, str] = await get_member_auth_header(
+            service_id, APP
+        )
         resp: HttpResponse = await DataApiClient.call(
             service_id, 'public_assets', DataRequestType.QUERY,
-            app=APP,
+            headers=member_auth, app=APP,
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
+        self.assertGreaterEqual(len(data), 2)
         print(data)
         # Start with clean slate
         yt = YouTube()

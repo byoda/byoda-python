@@ -66,7 +66,7 @@ class Claim(JsonModel):
     requester_id: str = Field(description="The UUID of the entity that requested the claim to be signed by the issuer")
     requester_type: str = Field(description="what type of entity requested this claim to be signed by the issuer")
     signature: str = Field(description="base64-encoding signature for the values for the 'object_fields' of the object with uuid 'object_id' of type 'object_class'")
-    signature_format_version: str = Field(description="The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py")
+    signature_format_version: int = Field(description="The version of the signature format used. Each version defines the hashing algorithm and how to format the data to be signed. The formats are defined in byoda-python/byoda/datamodel/claim.py")
     signature_timestamp: str = Field(description="Date &amp; time for when the signature was created")
     signature_url: str = Field(description="URL to visit to get additional info about the signature")
     renewal_url: str = Field(description="URL to request new signature of the asset")

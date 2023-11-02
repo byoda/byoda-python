@@ -829,7 +829,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'signature_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
             ),
-            'signature_format_version': '0.0.0',
+            'signature_format_version': 1,
             'signature_url': 'https://no.content/',
             'renewal_url': 'https://no.content/',
             'confirmation_url': 'https://no.content/',

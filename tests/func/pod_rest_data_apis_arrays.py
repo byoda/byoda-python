@@ -652,7 +652,7 @@ async def populate_data_rest(test, service_id: int, class_name: str,
                     'requester_id': get_test_uuid(),
                     'requester_type': 'member',
                     'signature': 'blah',
-                    'signature_format_version': '1.0.0',
+                    'signature_format_version': 1,
                     'signature_timestamp': str(
                         datetime.now(tz=timezone.utc).isoformat()
                     ),
