@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y \
        sqlite3 \
        libaugeas0 \
        unzip \
+       curl \
        git \
     && apt-get update && apt-get install -y nginx \
     && rm -f /etc/nginx/conf.d/default.conf \
