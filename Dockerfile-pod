@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y \
        sqlite3 \
        libaugeas0 \
        unzip \
+       git \
     && apt-get update && apt-get install -y nginx \
     && rm -f /etc/nginx/conf.d/default.conf \
     && curl -s https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-640.x86_64-unknown-linux.zip -o bento4.zip \
