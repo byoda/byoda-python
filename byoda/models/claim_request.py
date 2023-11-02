@@ -25,7 +25,7 @@ class AssetClaimDataModel(BaseModel):
     asset_type: str
     asset_url: str
     asset_merkle_root_hash: str
-    public_video_thumbnails: list[str]
+    video_thumbnails: list[str]
     creator: str
     publisher: str
     publisher_asset_id: str

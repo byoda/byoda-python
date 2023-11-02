@@ -12,7 +12,6 @@ from enum import Enum
 from uuid import uuid4
 from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
 from urllib.parse import urlparse, ParseResult
 
 from httpx import AsyncClient as AsyncHttpClient
@@ -23,7 +22,11 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.datatypes import StorageType
 
+from byoda.util.logger import Logger
+
 from byoda.util.paths import Paths
+
+from byoda.exceptions import ByodaRuntimeError
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -88,21 +91,29 @@ class YouTubeThumbnail:
 
         _LOGGER.debug(f'Downloading thumbnail {self.url}')
 
-        parsed_url: ParseResult = urlparse(self.url)
-        filename: str = os.path.basename(parsed_url.path)
-        with open(f'{work_dir}/{filename}', 'wb') as file_desc:
-            async with AsyncHttpClient() as client:
-                async with client.stream('GET', self.url) as resp:
-                    async for chunk in resp.aiter_bytes():
-                        file_desc.write(chunk)
+        try:
+            parsed_url: ParseResult = urlparse(self.url)
+            filename: str = os.path.basename(parsed_url.path)
+            with open(f'{work_dir}/{filename}', 'wb') as file_desc:
+                async with AsyncHttpClient() as client:
+                    async with client.stream('GET', self.url) as resp:
+                        async for chunk in resp.aiter_bytes():
+                            file_desc.write(chunk)
+        except Exception as exc:
+            _LOGGER.debug('Failed to download thumbnail {self.url}: {exc}')
+            raise ByodaRuntimeError from exc
 
-        with open(f'{work_dir}/{filename}', 'rb') as file_desc:
-            filepath: str = f'{video_id}/{filename}'
-            _LOGGER.debug(f'Copying thumbnail to storage: {filepath}')
-            await storage_driver.write(
-                filepath, file_descriptor=file_desc,
-                storage_type=StorageType.PUBLIC
-            )
+        try:
+            with open(f'{work_dir}/{filename}', 'rb') as file_desc:
+                filepath: str = f'{video_id}/{filename}'
+                _LOGGER.debug(f'Copying thumbnail to storage: {filepath}')
+                await storage_driver.write(
+                    filepath, file_descriptor=file_desc,
+                    storage_type=StorageType.PUBLIC
+                )
+        except Exception as exc:
+            _LOGGER.debug(f'Failed to save thumbnail to storage {exc}')
+            raise ByodaRuntimeError from exc
 
         self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
             service_id=member.service_id, member_id=member.member_id,

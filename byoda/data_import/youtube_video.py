@@ -50,6 +50,8 @@ from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
 
+from byoda.exceptions import ByodaRuntimeError
+
 from byoda import config
 
 from .youtube_thumbnail import YouTubeThumbnail
@@ -470,7 +472,7 @@ class YouTubeVideo:
             'asset_type': self.asset_type,
             'asset_url': self.url,
             'asset_merkle_root_hash': self.merkle_root_hash,
-            'public_video_thumbnails': [
+            'video_thumbnails': [
                 thumbnail.url for thumbnail in self.thumbnails.values()
                 ],
             'creator': self.channel_creator,
@@ -560,9 +562,10 @@ class YouTubeVideo:
                         'Not trying to get a claim signed '
                         f'for video {self.video_id}'
                     )
-            except ValueError:
+            except (ValueError, ByodaRuntimeError) as exc:
                 _LOGGER.exception(
                     f'Ingesting asset for YouTube video {self.video_id} failed'
+                    f': {exc}'
                 )
                 raise
 
