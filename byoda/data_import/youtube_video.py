@@ -591,6 +591,10 @@ class YouTubeVideo:
             if claim_request.signature:
                 claim_data = await self.download_claim(moderate_claim_url)
 
+                # Moderation server returns the data that is covered by
+                # its signature but we don't need that info as we already
+                # have it as part of the asset
+                claim_data.pop('claim_data')
                 asset[YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS] = [claim_data]
             else:
                 storage_driver.save(

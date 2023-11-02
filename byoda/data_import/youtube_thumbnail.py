@@ -101,7 +101,7 @@ class YouTubeThumbnail:
                             file_desc.write(chunk)
         except Exception as exc:
             _LOGGER.debug('Failed to download thumbnail {self.url}: {exc}')
-            raise ByodaRuntimeError from exc
+            raise ByodaRuntimeError('Thumbnail download failure') from exc
 
         try:
             with open(f'{work_dir}/{filename}', 'rb') as file_desc:
@@ -113,7 +113,7 @@ class YouTubeThumbnail:
                 )
         except Exception as exc:
             _LOGGER.debug(f'Failed to save thumbnail to storage {exc}')
-            raise ByodaRuntimeError from exc
+            raise ByodaRuntimeError('Save thumbnail failure') from exc
 
         self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
             service_id=member.service_id, member_id=member.member_id,

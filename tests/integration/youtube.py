@@ -188,6 +188,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(ingested_videos), 2)
 
         # See if we can QUERY the data API and get the right result back
+        # to confirm the asset was ingested, including the moderation status
         member_auth: dict[str, str] = await get_member_auth_header(
             service_id, APP
         )
@@ -198,7 +199,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertGreaterEqual(len(data), 2)
-        print(data)
+        self.assertEqual(len(data['edges'][0]['node']['claims']), 1)
+
         # Start with clean slate
         yt = YouTube()
 
