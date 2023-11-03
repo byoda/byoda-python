@@ -452,8 +452,8 @@ class Service:
         if await secret.cert_file_exists():
             if not renew:
                 raise ValueError(
-                    f'Cert for {type(secret)} for account_id '
-                    f'{self.account_id} already exists'
+                    f'Cert for {type(secret)} for service_id '
+                    f'{self.service_id} already exists'
                 )
 
         if await secret.private_key_file_exists():

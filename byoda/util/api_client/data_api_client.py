@@ -101,7 +101,9 @@ class DataApiClient:
         if action not in DataApiClient.SUPPORTED_REQUEST_TYPES:
             raise ValueError(f'Unsupported action: {action.value}')
 
-        data_url: str = DataApiClient.get_url(
+        data_url: str
+        port: int
+        data_url, port = DataApiClient.get_url(
             service_id, class_name, action, headers, use_proxy, custom_domain,
             network, jwt, member_id, internal, app
         )
@@ -135,7 +137,7 @@ class DataApiClient:
             data_url, HttpMethod.POST, secret=secret, jwt=jwt,
             params=params, data=api_data, headers=headers,
             service_id=service_id, member_id=member_id, network_name=network,
-            timeout=timeout, app=app
+            port=port, timeout=timeout, app=app
         )
 
         return resp
@@ -146,7 +148,7 @@ class DataApiClient:
                 headers: dict[str, str],
                 use_proxy: bool, custom_domain: str,
                 network: str, jwt: JWT, member_id: UUID,
-                internal: bool, app: FastAPI | None = None) -> str:
+                internal: bool, app: FastAPI | None = None) -> (str, int):
         '''
         Figures out the URL to use for the call
         Use cases:
@@ -176,7 +178,7 @@ class DataApiClient:
         :param internal: whether to use the internal API or not, also used
         :param app: FastAPI app to use for the request, used for test cases
         for test cases
-        :returns: url to call
+        :returns: tuple of url to call and port to connect to
         :raises: ValueError
         '''
 
@@ -199,6 +201,7 @@ class DataApiClient:
 
         api_template: str = DATA_API_URL
         protocol: str = 'https'
+        port: int = 443
 
         if internal or app:
             if not app:
@@ -215,9 +218,6 @@ class DataApiClient:
                 action=action.value
             )
         elif custom_domain:
-            # Pods never use custom_domain
-            port = 443
-
             _LOGGER.debug(f'Using custom_domain {custom_domain}')
             data_url = api_template.format(
                 protocol=protocol, fqdn=custom_domain, port=port,
@@ -253,7 +253,7 @@ class DataApiClient:
                 action=action.value
             )
 
-        return data_url
+        return data_url, port
 
     @staticmethod
     async def close_all():

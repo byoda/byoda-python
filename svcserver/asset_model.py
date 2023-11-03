@@ -1,4 +1,6 @@
 '''
+*** This is code that is currently only used for a test case in functest/service_assetdb.py ***
+
 Defines the Redis/FastAPI/Pydantic model for the 'public_assets' data class in the
 service schema. This is hardcoded so needs to be kept alligned to the schema. We can
 extract the code from:

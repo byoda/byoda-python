@@ -12,6 +12,7 @@ from logging import getLogger
 import orjson
 
 import redis.asyncio as redis
+from redis.commands.json.path import Path
 
 from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
 
@@ -46,7 +47,146 @@ class KVRedis(KVCache):
 
         self.driver = await redis.from_url(connection_string)
 
+        await self.driver.ping()
+
         return self
+
+    async def close(self):
+        '''
+        Closes the connection to the Redis server
+        '''
+
+        await self.driver.close()
+
+    async def exists_json_list(self, key: str) -> bool:
+        '''
+        Checks if the list exists
+
+        :param key: the name of the list
+        :returns: True if the list exists, False otherwise
+        '''
+
+        key = self.get_annotated_key(key)
+
+        result: bool = await self.driver.exists(key)
+
+        if result:
+            _LOGGER.debug(f'JSON list {key} exists')
+        else:
+            _LOGGER.debug(f'JSON list {key} does not exist')
+
+        return result
+
+    async def create_json_list(self, key: str, data: list = []) -> bool:
+        '''
+        Creates an empty JSON list for the specified key
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        new_data: dict = self._prep(data)
+
+        return await self.driver.json().set(key, '.', new_data)
+
+    async def delete_json_list(self, key: str) -> bool:
+        '''
+        Deletes a JSON list
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        return await self.driver.json().delete(key)
+
+    async def lpush_json_list(self, key: str, data: dict) -> bool:
+        '''
+        Pushes an object to the end of a JSON list
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        new_data = self._prep(data)
+
+        return await self.driver.json().arrinsert(key, '.', 0, new_data)
+
+    async def rpush_json_list(self, key: str, data: dict) -> bool:
+        '''
+        Pushes an object to the end of a JSON list
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        new_data = self._prep(data)
+
+        return await self.driver.json().arrappend(key, '.', new_data)
+
+    async def rpop_json_list(self, key: str) -> dict:
+        '''
+        Pops an object from the end of a JSON list
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        return await self.driver.json().arrpop(key, '.')
+
+    async def json_range(self, key: str, start: int = 0, end: int = -1
+                         ) -> list:
+        '''
+        Gets a range of values from a JSON list
+
+        :param key: the name of the list
+        :param start: the start index
+        :param end: the end index
+        '''
+
+        key = self.get_annotated_key(key)
+
+        return await self.driver.json().get(key, f'$.[{start}:{end}]')
+
+    async def json_len(self, key: str) -> int:
+        '''
+        Gets the length of a JSON list
+
+        :param key: the name of the list
+        '''
+
+        key = self.get_annotated_key(key)
+
+        return await self.driver.json().arrlen(key)
+
+    def _prep(self, data: object) -> object:
+        new_data = {}
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                new_key: str
+                if not isinstance(key, str):
+                    new_key = str(key)
+                else:
+                    new_key = key
+                if isinstance(value, dict):
+                    new_data[new_key] = self._prep(value)
+                elif isinstance(value, list):
+                    new_data[new_key] = [self._prep(v) for v in value]
+                elif type(value) in (int, float, str, bool, type(None)):
+                    new_data[new_key] = value
+                else:
+                    new_data[new_key] = str(value)
+        elif isinstance(data, list):
+            new_data = [self._prep(v) for v in data]
+        else:
+            return data
+
+        return new_data
 
     async def exists(self, key: str) -> bool:
         '''

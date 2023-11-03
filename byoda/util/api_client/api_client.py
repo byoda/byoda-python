@@ -137,15 +137,15 @@ class ApiClient:
                     self.port = 80
                     self.pool = f'noauth-http-{parsed_url.hostname}'
                 else:
-                    self.pool = f'noauth-https-{parsed_url.hostname}'
+                    self.pool = f'noauth-https-{parsed_url.hostname}:443'
                     self.port = 443
 
         elif isinstance(secret, ServiceSecret):
-            self.pool = f'service-{service_id}-{parsed_url.hostname}'
+            self.pool = f'service-{service_id}-{parsed_url.hostname}:{port}'
         elif isinstance(secret, MemberSecret):
-            self.pool = f'member-{parsed_url.hostname}'
+            self.pool = f'member-{parsed_url.hostname}:{port}'
         elif isinstance(secret, AccountSecret):
-            self.pool = f'account-{parsed_url.hostname}'
+            self.pool = f'account-{parsed_url.hostname}:{port}'
         else:
             raise ValueError(
                 'Secret must be either an account-, member- or '
@@ -217,11 +217,11 @@ class ApiClient:
             config.client_pools.pop(self.pool, None)
             _LOGGER.debug(
                 f'Removed HTTPX Session of pool {self.pool} '
-                f'for connection to {self.host}'
+                f'for connection to {self.host}:{self.port}'
             )
 
         _LOGGER.debug(
-            f'Creating HTTPX Session in pool {self.pool} to {self.host}'
+            f'Creating HTTPX Session in pool {self.pool} to {self.host}:{self.port}'
         )
 
         self.session: AsyncHttpClient = AsyncHttpClient(

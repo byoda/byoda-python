@@ -1,4 +1,6 @@
 '''
+*** This is code that is currently only used for a test case in functest/service_assetdb.py ***
+
 The KV Redis data cache provides ephemeral data storage, such as services
 storing data about their members
 
