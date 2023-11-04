@@ -320,7 +320,7 @@ async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_clas
         _LOGGER.exception(f'Failure to process websocket request: {exc}')
         raise
 
-    websocket.close()
+    await websocket.close()
 
 
 @config.app.websocket('/api/v1/data/{{ data_class.service_id }}/{{ data_class.name }}/updates')
@@ -382,5 +382,5 @@ async def {{ data_class.name }}_updates_{{ data_class.service_id }}_{{ data_clas
         _LOGGER.exception(f'Failure to process websocket request: {exc}')
         raise
 
-    websocket.close()
+    await websocket.close()
 {% endif %}
