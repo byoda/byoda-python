@@ -404,7 +404,7 @@ class MemberData(dict):
         if query_id:
             _LOGGER.debug(f'Query received with query_id {query_id}')
             if not await member.query_cache.set(query_id, auth.id):
-                raise ValueError(f'Duplicate query id: {query_id}')
+                raise ByodaValueError(f'Duplicate query id: {query_id}')
 
         if origin_member_id or origin_signature:
             try:

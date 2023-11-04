@@ -112,8 +112,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_redis_native_storage(self):
         server: ServiceServer = config.server
-        service: Service = server.service
-        service_id: int = service.service_id
 
         member_id: UUID = get_test_uuid()
 
@@ -149,11 +147,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         result = await asset_cache.exists(list_name)
         self.assertTrue(result)
 
-        resp: HttpResponse = await DataApiClient.call(
-            service_id, asset_cache.asset_class, action=DataRequestType.QUERY,
-            secret=asset_cache.tls_secret, member_id=AZURE_POD_MEMBER_ID,
-            network=asset_cache.network_name, query_id=get_test_uuid()
-        )
+        resp = await asset_cache._asset_query(AZURE_POD_MEMBER_ID)
+
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertGreaterEqual(data['total_count'], 2)
@@ -184,8 +179,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_redis_native_expire(self):
         server: ServiceServer = config.server
-        service: Service = server.service
-        service_id: int = service.service_id
 
         member_id: UUID = get_test_uuid()
 

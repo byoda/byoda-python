@@ -44,6 +44,8 @@ from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
 
+from byoda.exceptions import ByodaValueError
+
 from podserver.dependencies.pod_api_request_auth import AuthDep
 from podserver.dependencies.pod_api_request_auth import AuthWsDep
 
@@ -107,13 +109,16 @@ async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.
         )
         raise HTTPException(status_code=400, detail='Authentication failed')
 
-    data: list[EdgeResponse] = await MemberData.get(
-        {{ data_class.service_id }}, '{{ data_class.name }}',
-        query.query_id, query.fields, query.filter, query.first, query.after,
-        query.depth, query.relations, query.remote_member_id, query.timestamp,
-        query.origin_member_id, query.origin_signature, query.signature_format_version,
-        query, request.client.host, auth, object_class, EdgeResponse[object_class]
-    ) or []
+    try:
+        data: list[EdgeResponse] = await MemberData.get(
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            query.query_id, query.fields, query.filter, query.first, query.after,
+            query.depth, query.relations, query.remote_member_id, query.timestamp,
+            query.origin_member_id, query.origin_signature, query.signature_format_version,
+            query, request.client.host, auth, object_class, EdgeResponse[object_class]
+        ) or []
+    except ByodaValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     end_cursor: str | None = None
     has_next_page: bool = False
@@ -187,11 +192,14 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
     host: str = request.client.host
     # We transmit the AppendModel as-is to MemberData.append() because it may
     # proxy the request if depth > 0
-    object_count = await MemberData.append(
-        {{ data_class.service_id }}, '{{ data_class.name }}',
-        append.query_id, append.depth, append.remote_member_id,
-        append.data.model_dump(), append, host, auth
-    )
+    try:
+        object_count = await MemberData.append(
+            {{ data_class.service_id }}, '{{ data_class.name }}',
+            append.query_id, append.depth, append.remote_member_id,
+            append.data.model_dump(), append, host, auth
+        )
+    except ByodaValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     return object_count
 
