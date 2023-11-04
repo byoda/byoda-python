@@ -133,12 +133,15 @@ class ApiClient:
         # the TLS server cert the root CA of the network or the regular CAs.
         if not secret:
             if not port:
-                if parsed_url.scheme == f'http-{parsed_url.hostname}':
-                    self.port = 80
-                    self.pool = f'noauth-http-{parsed_url.hostname}'
-                else:
-                    self.pool = f'noauth-https-{parsed_url.hostname}:443'
-                    self.port = 443
+                port = 80
+                self.port = 80
+
+            if parsed_url.scheme == f'http-{parsed_url.hostname}':
+                self.port = 80
+                self.pool = f'noauth-http-{parsed_url.hostname}'
+            else:
+                self.pool = f'noauth-https-{parsed_url.hostname}:443'
+                self.port = 443
 
         elif isinstance(secret, ServiceSecret):
             self.pool = f'service-{service_id}-{parsed_url.hostname}:{port}'

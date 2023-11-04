@@ -43,6 +43,7 @@ class DataFilter:
         '''
         Base class for data filters for strings, UUIDs, datetimes and numbers
         '''
+
         if not isinstance(operator, str):
             raise ValueError(
                 f'Operator {operator} is a {type(operator)} instead of str'
@@ -94,6 +95,7 @@ class DataFilter:
         '''
 
         compare_function = self.compare_functions[self.operator]
+
         return compare_function(data)
 
     def sql_filter(self, where: bool = False, is_meta_filter: bool = False
@@ -141,10 +143,13 @@ class StringDataFilter(DataFilter):
     def __init__(self, field: str, operator: str, value: str):
         super().__init__(field, operator)
 
-        if not isinstance(value, str):
+        if value is None:
+            raise ValueError('Must provide a value to match against')
+        elif not isinstance(value, str):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a str'
             )
+
         self.value: str = value
 
         self.compare_functions = {
@@ -349,6 +354,13 @@ class NumberDataFilter(DataFilter):
     def __init__(self, field: str, operator: str, value: int | float):
         super().__init__(field, operator)
 
+        if value is None:
+            raise ValueError('Must provide a value to match against')
+        elif not type(value) in (int, float):
+            raise ValueError(
+                f'Value {value} is a {type(value)} instead of a number'
+            )
+
         self.value: int | float = value
 
         self.compare_functions = {
@@ -548,12 +560,15 @@ class UuidDataFilter(DataFilter):
     def __init__(self, field: str,  operator: str, value: UUID):
         super().__init__(field, operator)
 
-        if isinstance(value, str):
+        if not value:
+            raise ValueError('Must provide a value to match against')
+        elif isinstance(value, str):
             value = UUID(value)
         elif not isinstance(value, UUID):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a UUID'
             )
+
         self.value: UUID = value
 
         self.compare_functions = {
