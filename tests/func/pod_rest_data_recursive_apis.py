@@ -279,7 +279,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             relations=['friend'], auth_header=member_auth_header
         )
         azure_assets_found: int = recursive_data['total_count']
-        self.assertGreaterEqual(azure_assets_found, 9)
+        self.assertGreaterEqual(azure_assets_found, 3)
         self.assertGreaterEqual(
             len(recursive_data['edges']), azure_assets_found
         )

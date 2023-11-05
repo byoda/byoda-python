@@ -906,8 +906,6 @@ class MemberData(dict):
         :raises: ValueError
         '''
 
-        _LOGGER.debug('Received append request with no remote member ID')
-
         schema: Schema = member.schema
         member_id: UUID = member.member_id
         data_class: SchemaDataArray = schema.data_classes[class_name]

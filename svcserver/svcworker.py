@@ -122,6 +122,7 @@ async def setup_listen(task_group: TaskGroup, member_id: UUID,
     :raises:
     '''
 
+    pass
 
 async def update_member(service: Service, member_id: UUID, member_db: MemberDb
                         ) -> int | None:

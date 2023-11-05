@@ -54,6 +54,8 @@ Network = TypeVar('Network')
 Secret = TypeVar('Secret')
 
 
+
+
 class ClientAuthType(Enum):
     # flake8: noqa=E221
     Account     = 0
@@ -228,7 +230,7 @@ class ApiClient:
         )
 
         self.session: AsyncHttpClient = AsyncHttpClient(
-            timeout=self.timeout,verify=self.ca_filepath, cert=self.cert,
+            timeout=self.timeout, verify=self.ca_filepath, cert=self.cert,
             http2=True
         )
 
@@ -345,7 +347,6 @@ class ApiClient:
                 client.create_session()
                 if retries == 0:
                     skip_sleep = True
-
 
             # Exponential back-off with random jitter
             delay = ApiClient.RETRY_DELAYS[retries] + (random() * (delay or 0.2))

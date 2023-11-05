@@ -177,13 +177,22 @@ class AssetCache:
             self.json_key(list_name), asset_item.__dict__
         )
 
-    async def rpush(self, list_name: str, data: object, member_id: UUID,
-                    cursor: str, expires: float = None) -> bool:
+    async def rpush(self, list_name: str, data: object | Asset,
+                    member_id: UUID, cursor: str, expires: float = None
+                    ) -> bool:
         '''
-        Adds the data to the start of a JSON list
+        Adds the data to the end of a JSON list
 
-        :param key: the name of the list
+        :param list_name: the name of the list
+        :param data: the asset to add to the list
+        :param member_id: the member_id of the member that owns the asset
+        :param cursor: the cursor of the asset
+        :param expires: the timestamp when the asset expires
+        :returns: True if the data was added to the list
         '''
+
+        if isinstance(data, Asset):
+            data = data.model_dump()
 
         timestamp: float = datetime.now(tz=timezone.utc).timestamp()
         if not expires:
@@ -191,7 +200,7 @@ class AssetCache:
 
         delay = int(expires - timestamp)
         _LOGGER.debug(
-            f'Adding asset {data.asset_id} from member {member_id}'
+            f'Adding asset {data["asset_id"]} from member {member_id}'
             f'with expiration in {delay} seconds '
         )
 
@@ -424,7 +433,6 @@ class AssetCache:
             self.service_id, self.asset_class, action=DataRequestType.QUERY,
             secret=self.tls_secret, network=self.network_name,
             member_id=member_id, data_filter=data_filter, first=1,
-            custom_domain='azure.byoda.me'
         )
 
         return resp

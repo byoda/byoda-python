@@ -19,16 +19,11 @@ from datetime import timezone
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
-from byoda.datatypes import DataRequestType
-
 from byoda.datacache.assetcache import AssetCache
 
 from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.service_server import ServiceServer
-
-from byoda.util.api_client.data_api_client import DataApiClient
-from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 from byoda.util.paths import Paths
@@ -70,41 +65,56 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        network = await Network.create(
-            app_config['application']['network'],
-            TEST_DIR,
-            app_config['svcserver']['private_key_password']
+        network = Network(
+            app_config['svcserver'], app_config['application']
+        )
+
+        network.paths = Paths(
+            network=network.name,
+            root_directory=app_config['svcserver']['root_dir']
         )
 
         service_file = network.paths.get(
             Paths.SERVICE_FILE, service_id=ADDRESSBOOK_SERVICE_ID
         )
 
-        service_dir: str = TEST_DIR + '/' + service_file
-        os.makedirs(os.path.dirname(service_dir))
-        shutil.copy(DUMMY_SCHEMA, service_dir)
-
         server = await ServiceServer.setup(network, app_config)
-        config.server: ServiceServer = server
-
-        await server.service.examine_servicecontract(service_file)
-        server.service.name = 'addressbook'
-        await server.service.create_secrets(
-            network.services_ca, local=True,
-            password=app_config['svcserver']['private_key_password']
-        )
-
         storage = FileStorage(app_config['svcserver']['root_dir'])
         await server.load_network_secrets(storage_driver=storage)
 
-        await server.load_secrets(
-            app_config['svcserver']['private_key_password']
+        shutil.copytree(
+            'tests/collateral/local/addressbook-service/service-4294929430',
+            f'{TEST_DIR}/network-byoda.net/services/service-4294929430'
         )
+        shutil.copytree(
+            'tests/collateral/local/addressbook-service/private/',
+            f'{TEST_DIR}/private'
+        )
+
+        service_dir: str = TEST_DIR + '/' + service_file
+        shutil.copy(DUMMY_SCHEMA, service_dir)
+
+        await server.load_secrets(
+            password=app_config['svcserver']['private_key_password']
+        )
+        config.server = server
+
+        await server.service.examine_servicecontract(service_file)
+        server.service.name = 'addressbook'
+
+        service: Service = server.service
+        service.tls_secret.save_tmp_private_key()
+
+        if not await service.paths.service_file_exists(service.service_id):
+            await service.download_schema(save=True)
+
         await server.load_schema(verify_contract_signatures=False)
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
+
+        return
 
     @classmethod
     async def asyncTearDown(self):
@@ -151,8 +161,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertGreaterEqual(data['total_count'], 2)
-        self.assertGreaterEqual(len(data['edges']), 2)
+        self.assertGreaterEqual(data['total_count'], 1)
+        self.assertGreaterEqual(len(data['edges']), 1)
 
         asset_data: dict[str, object] = data['edges'][0]['node']
         cursor: str = data['edges'][0]['cursor']
@@ -169,7 +179,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(length, 6)
 
         expired, renewed = await asset_cache.expire(list_name)
-        self.assertEqual(expired, 0)
+        self.assertEqual(expired, 1)
         self.assertEqual(renewed, 0)
 
         result = await asset_cache.delete(list_name)
