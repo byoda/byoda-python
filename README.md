@@ -60,7 +60,7 @@ If (and only if) you created a _new_ VM in a public cloud for your pod then crea
 ```bash
 SWAP=$(free | grep -i swap | awk '{ print $4;}')
 if [[ "${SWAP} == "0" && ! -f /swapfile ]]; then
-    sudo fallocate -l 512m /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" >>/etc/fstab
+    sudo fallocate -l 1024m /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile swap swap defaults 0 0" | sudo tee -a /etc/fstab
 fi
 ```
 
