@@ -14,9 +14,12 @@ import sys
 import yaml
 
 from uuid import UUID
+from random import random
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from asyncio import CancelledError
+from socket import gaierror as socket_gaierror
 
 import orjson
 
@@ -28,14 +31,12 @@ from anyio.abc import TaskGroup
 from httpx import ConnectError
 from httpx import HTTPError
 
+from byoda.datatypes import DataRequestType
+
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
 
-from byoda.datatypes import DataRequestType
-
 from byoda.datastore.memberdb import MemberDb
-
-from byoda.datacache.assetcache import AssetCache
 
 from byoda.storage.filestorage import FileStorage
 
@@ -53,8 +54,13 @@ from byoda.util.logger import Logger
 from byoda import config
 
 
-MAX_WAIT = 15 * 60
-MEMBER_PROCESS_INTERVAL = 8 * 60 * 60
+# Time out waiting for a member from the list of members to
+# get info from the Person table
+MAX_WAIT: int = 15 * 60
+
+# Max time to wait before connecting to the next member
+# to get info from the Person table
+MEMBER_PROCESS_INTERVAL: int = 8 * 60 * 60
 
 
 async def main():
@@ -65,14 +71,26 @@ async def main():
     )
 
     member_db: MemberDb = server.member_db
-    waittime: float = 0.0
-    members_seen: dict[str, UUID] = {}
+    asset_cache: AssetCache = server.asset_cache
+    wait_time: float = 0.0
+    members_seen: set(UUID) = set()
 
     async with create_task_group() as task_group:
+        # Set up listening to all known members
+        member_ids = await member_db.get_members()
+        for member_id in member_ids:
+            await get_all_assets(member_id, service, asset_cache)
+            await setup_listen_assets(
+                task_group, member_id, service, asset_cache
+            )
+            members_seen.add(member_id)
+
         while True:
-            _LOGGER.debug('Sleeping for %d seconds', waittime)
-            await sleep(waittime)
-            waittime = 0.1
+            if wait_time:
+                _LOGGER.debug('Sleeping for %d seconds', wait_time)
+                await sleep(wait_time)
+
+            wait_time = 0.1
 
             member_id: UUID = await member_db.get_next(timeout=MAX_WAIT)
             if not member_id:
@@ -88,41 +106,22 @@ async def main():
             _LOGGER.debug(f'Processing member_id {member_id}')
 
             if member_id not in members_seen:
-                await setup_listen(task_group, member_id, service, member_db)
-                members_seen[member_id] = member_id
+                await setup_listen_assets(
+                    task_group, member_id, service, asset_cache
+                )
+                members_seen.add(member_id)
 
-            waittime: int = await update_member(
+            wait_time: int = await update_member(
                 service, member_id, server.member_db
             )
 
-            if not waittime:
-                waittime = 0.1
+            if not wait_time:
+                wait_time = 0.1
             else:
                 # Add the member back to the list of members as it seems
                 # to be up and running, even if it may not have returned
                 # any data
                 await member_db.add_member(member_id)
-
-            #
-            # and now we wait for the time to process the next client
-            #
-
-
-async def setup_listen(task_group: TaskGroup, member_id: UUID,
-                       service: Service, asset_cache: AssetCache) -> None:
-    '''
-    Initiates listening for updates to the 'public_assets' table of
-    the member.
-
-    :param task_group:
-    :param member_id: the target member
-    :param service: our own service
-    :asset_db:
-    :returns: (none)
-    :raises:
-    '''
-
-    pass
 
 
 async def update_member(service: Service, member_id: UUID, member_db: MemberDb
@@ -144,7 +143,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
         data['data_secret'], data['status']
     )
 
-    waittime = next_member_wait(data['last_seen'])
+    wait_time = next_member_wait(data['last_seen'])
 
     #
     # Here is where we can do stuff
@@ -159,7 +158,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
         )
         return None
 
-    return waittime
+    return wait_time
 
 
 async def update_member_info(service: Service, member_db: MemberDb,
@@ -213,12 +212,14 @@ def next_member_wait(last_seen: datetime) -> int:
 
     now = datetime.now(timezone.utc)
 
-    waittime = last_seen + timedelta(seconds=MEMBER_PROCESS_INTERVAL) - now
+    wait_time: datetime = (
+        last_seen + timedelta(seconds=MEMBER_PROCESS_INTERVAL) - now
+    )
 
-    if waittime.seconds < 0:
-        waittime.seconds = 0
+    if wait_time.seconds < 0:
+        wait_time.seconds = 0
 
-    wait = min(waittime.seconds, MAX_WAIT)
+    wait = min(wait_time.seconds, MAX_WAIT)
 
     return wait
 

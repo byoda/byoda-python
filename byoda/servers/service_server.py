@@ -23,6 +23,8 @@ from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.datacache.kv_cache import DEFAULT_CACHE_EXPIRATION
+
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
 
@@ -39,8 +41,6 @@ _LOGGER: Logger = getLogger(__name__)
 RegistrationStatus = TypeVar('RegistrationStatus')
 
 JWT = TypeVar('JWT')
-
-CACHE_EXPIRATION_WINDOW: int = 3 * 24 * 60 * 60
 
 ASSET_CLASS: str = 'public_assets'
 
@@ -87,7 +87,7 @@ class ServiceServer(Server):
             app_config['svcserver']['cache'],
             self.service,
             asset_class=ASSET_CLASS,
-            expiration_window=CACHE_EXPIRATION_WINDOW
+            expiration_window=DEFAULT_CACHE_EXPIRATION
         )
 
         self.member_db: MemberDb = await MemberDb.setup(
@@ -107,7 +107,7 @@ class ServiceServer(Server):
         )
 
         self.asset_cache.tls_secret = self.service.tls_secret
-    
+
         self.service.tls_secret.save_tmp_private_key()
 
     async def load_schema(self, verify_contract_signatures: bool = True):

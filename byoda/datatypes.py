@@ -56,6 +56,8 @@ AnyScalarType = \
 
 DataFilterType = dict[str, dict[str, AnyScalarType]]
 
+DataDictType = dict[str, object]
+
 
 class ServerRole(Enum):
     RootCa               = 'root_ca'

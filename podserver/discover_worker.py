@@ -417,16 +417,16 @@ async def get_updates(remote_member_id: UUID, listen_class_name: str,
         except (ConnectionClosedOK, ConnectionClosedError, WebSocketException,
                 ConnectionRefusedError) as exc:
             _LOGGER.exception(
-                f'Websocket client transport error to {remote_member_id}. '
+                f'Websocket client transport error to {member.member_id}. '
                 f'Will reconnect in {reconnect_delay} secs: {exc}'
             )
         except socket_gaierror as exc:
             _LOGGER.exception(
-                f'Websocket connection to member {remote_member} failed: {exc}'
+                f'Websocket connection to member {member.member} failed: {exc}'
             )
         except CancelledError as exc:
             _LOGGER.exception(
-                f'Websocket connection to member {remote_member} cancelled by '
+                f'Websocket connection to member {member.member} cancelled by '
                 f'asyncio: {exc}'
             )
         except Exception as exc:

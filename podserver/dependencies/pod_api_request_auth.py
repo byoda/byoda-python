@@ -357,7 +357,7 @@ class PodApiRequestAuth(RequestAuth):
                     and self.member_id == member.member_id and
                     operation == DataOperationType.READ):
                 access_allowed = True
-                _LOGGER.debug('Allowing default access for pod member')
+                _LOGGER.debug('Allowing default access to read for pod member')
             else:
                 access_allowed = False
                 _LOGGER.debug('Blocking default access')

@@ -137,7 +137,8 @@ class DataApiClient:
             data_url, HttpMethod.POST, secret=secret, jwt=jwt,
             params=params, data=api_data, headers=headers,
             service_id=service_id, member_id=member_id, network_name=network,
-            port=port, timeout=timeout, app=app
+            port=port, timeout=timeout, app=app,
+            is_data_api_query=(action == DataRequestType.QUERY)
         )
 
         return resp

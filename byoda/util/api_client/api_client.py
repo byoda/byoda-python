@@ -8,6 +8,7 @@ ApiClient, base class for RestApiClient, and GqlApiClient
 import asyncio
 
 from uuid import UUID
+from uuid import uuid4
 from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
@@ -246,9 +247,8 @@ class ApiClient:
                    member_id: UUID = None, files: list[tuple] = None,
                    account_id: UUID = None, network_name: str = None,
                    port: int = None, timeout: int = 10,
-                   raise_for_error: bool = True, app: FastAPI = None
-                   ) -> HttpResponse:
-
+                   raise_for_error: bool = True, app: FastAPI = None,
+                   is_data_api_query: bool = False) -> HttpResponse:
         '''
         Calls an API using the right credentials and accepted CAs
 
@@ -277,6 +277,8 @@ class ApiClient:
         code >= 400
         :param app: FastAPI app to use for the HTTP call, only to be used
         for test cases
+        :param is_data_api_query: if True and the call fails, unpack the
+        data, updated the value for 'query_id' parameter and retry
         :returns: HttpResponse
         :raises: ValueError, ByodaRuntimeError
         '''
@@ -344,6 +346,15 @@ class ApiClient:
                 raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
             except RuntimeError as exc:
                 _LOGGER.debug(f'RuntimeError in call to API {api}: {exc}')
+                if is_data_api_query and 'Event loop is closed' in str(exc):
+                    # HACK: this deals with issue in test cases where HTTPX
+                    # fails on 'event loop is closed', especially when
+                    # code uses the redis-py module
+                    _LOGGER.debug('Updating query_id after request failure')
+                    data_dict: dict[str, object] = orjson.loads(processed_data)
+                    data_dict['query_id'] = uuid4()
+                    processed_data = orjson.dumps(data_dict)
+
                 client.create_session()
                 if retries == 0:
                     skip_sleep = True
@@ -356,7 +367,7 @@ class ApiClient:
 
             _LOGGER.debug(
                 f'Failed try #{retries} to call API, '
-                f'waiting for {delay} seconds before retrying'
+                f'waiting for {round(delay, 3)} seconds before retrying'
             )
 
             if not skip_sleep:

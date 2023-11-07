@@ -1,5 +1,6 @@
 '''
-Test cases for Query ID cache
+Test cases for byoda.util.updates_listener class and classes derived
+from it
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2023
@@ -24,6 +25,9 @@ from byoda.datacache.assetcache import AssetCache
 from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.service_server import ServiceServer
+
+from byoda.util.updates_listener import UpdateListenerService
+from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.util.api_client.api_client import ApiClient
 
@@ -55,18 +59,23 @@ DUMMY_SCHEMA = 'tests/collateral/addressbook.json'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        config_file = os.environ.get('CONFIG_FILE', 'config.yml')
-        with open(config_file) as file_desc:
-            app_config = yaml.safe_load(file_desc)
-
-        app_config['svcserver']['root_dir'] = TEST_DIR
-
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
             pass
 
         os.makedirs(TEST_DIR)
+
+    @classmethod
+    async def asyncTearDown(self):
+        ApiClient.close_all()
+
+    async def test_service(self):
+        config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+        with open(config_file) as file_desc:
+            app_config = yaml.safe_load(file_desc)
+
+        app_config['svcserver']['root_dir'] = TEST_DIR
 
         network = Network(
             app_config['svcserver'], app_config['application']
@@ -117,136 +126,17 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'TRACE_SERVER', config.trace_server
         )
 
-        return
-
-    @classmethod
-    async def asyncTearDown(self):
-        ApiClient.close_all()
-
-    async def test_redis_native_storage(self):
-        server: ServiceServer = config.server
-
-        member_id: UUID = get_test_uuid()
-
-        asset: Asset = get_asset()
-        asset_data: dict[str, object] = asset.model_dump()
-
-        list_name: str = 'test'
-        asset_cache: AssetCache = server.asset_cache
-
-        if await asset_cache.exists_list(list_name):
-            result = await asset_cache.delete_list(list_name)
-            self.assertTrue(result)
-
-        result = await asset_cache.create_list(list_name)
-        self.assertTrue(result)
-
-        now = datetime.now(tz=timezone.utc).timestamp()
-
-        item_count: int = 6
-        for n in range(1, item_count):
-            asset_data['asset_id'] = get_test_uuid()
-            result = await asset_cache.lpush(
-                list_name, asset_data, member_id, f'{n}*test',
-                now + (n-1) * 86400
-            )
-            self.assertEqual(result, n)
-
-        data = await asset_cache.get_range(list_name, 1, 4)
-        self.assertEqual(len(data), 3)
-        # We pushed items to the front of the list so they
-        # end up in reverse order in our range query
-        for n in range(5, 2, -1):
-            self.assertEqual(data[5-n].cursor, f'{n-1}*test')
-
-        result = await asset_cache.exists_list(list_name)
-        self.assertTrue(result)
-
-        resp = await asset_cache._asset_query(AZURE_POD_MEMBER_ID)
-
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertGreaterEqual(data['total_count'], 1)
-        self.assertGreaterEqual(len(data['edges']), 1)
-
-        asset_data: dict[str, object] = data['edges'][0]['node']
-        cursor: str = data['edges'][0]['cursor']
-        azure_asset = Asset(**asset_data)
-
-        result = await server.asset_cache.rpush(
-            list_name, data=asset_data, cursor=cursor, member_id=member_id
+        class_name: str = 'public_assets'
+        test_list: str = 'updates_listener_test_case'
+        member_id: UUID = UUID(AZURE_POD_MEMBER_ID)
+        listener = UpdateListenerService(
+            class_name, service.service_id, member_id,
+            service.network.name, service.tls_secret,
+            server.asset_cache, [test_list]
         )
-        self.assertEqual(result, item_count)
-        result = await server.asset_cache.get(list_name)
-        self.assertEqual(azure_asset, result.data)
 
-        length = await server.asset_cache.len(list_name)
-        self.assertEqual(length, 6)
-
-        expired, renewed = await asset_cache.expire(list_name)
-        self.assertEqual(expired, 1)
-        self.assertEqual(renewed, 0)
-
-        result = await asset_cache.delete_list(list_name)
-        self.assertTrue(result)
-
-        await asset_cache.close()
-
-    async def test_redis_native_expire(self):
-        server: ServiceServer = config.server
-
-        member_id: UUID = get_test_uuid()
-
-        asset: Asset = get_asset()
-        asset_data: dict[str, object] = asset.model_dump()
-
-        list_name: str = 'test'
-        asset_cache: AssetCache = server.asset_cache
-        if await asset_cache.exists_list(list_name):
-            result = await asset_cache.delete_list(list_name)
-            self.assertTrue(result)
-
-        result = await asset_cache.create_list(list_name)
-        self.assertTrue(result)
-
-        now = datetime.now(tz=timezone.utc).timestamp()
-
-        resp = await asset_cache._asset_query(AZURE_POD_MEMBER_ID)
-
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data['total_count'], 1)
-        self.assertGreaterEqual(len(data['edges']), 1)
-
-        asset_data: dict[str, object] = data['edges'][0]['node']
-        cursor: str = data['edges'][0]['cursor']
-
-        delay: int = 60 * 60
-        result = await server.asset_cache.lpush(
-            list_name, data=asset_data, cursor=cursor,
-            member_id=AZURE_POD_MEMBER_ID, expires=now + delay
-        )
-        self.assertEqual(result, 1)
-
-        item_count: int = 6
-        for n in range(1, item_count):
-            asset_data['asset_id'] = get_test_uuid()
-            previous_delay: int = delay
-            delay = 86400 * n
-            self.assertGreater(delay, previous_delay)
-            result = await asset_cache.lpush(
-                list_name, data=asset_data, member_id=member_id,
-                cursor=f'{n}*test', expires=now + delay
-            )
-            self.assertEqual(result, n + 1)
-            result = await server.asset_cache.get_range(list_name, 0, 10)
-            self.assertEqual(len(result), n + 1)
-
-        expired, renewed = await asset_cache.expire(
-            list_name, timestamp=now + 86400 * 2 + 1
-        )
-        self.assertEqual(expired, 2)
-        self.assertEqual(renewed, 1)
+        item_count = await listener.get_all_data()
+        self.assertGreater(len(item_count), 10)
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:

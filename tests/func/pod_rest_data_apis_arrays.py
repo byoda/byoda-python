@@ -28,13 +28,17 @@ from fastapi import FastAPI
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
+from byoda.datatypes import IdType
 from byoda.datatypes import DataRequestType
 from byoda.datatypes import AnyScalarType
 from byoda.datatypes import DataFilterType
 
 from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+from byoda.util.api_client.data_api_client import DataApiClient
 
 from byoda.util.logger import Logger
+
 from byoda.util.fastapi import setup_api
 
 from byoda.exceptions import ByodaRuntimeError
@@ -52,6 +56,7 @@ from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from tests.lib.auth import get_member_auth_header
+from tests.lib.auth import get_azure_pod_jwt
 from tests.lib.util import get_test_uuid
 from tests.lib.util import call_data_api
 
@@ -109,8 +114,70 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await ApiClient.close_all()
 
+    async def test_pod_rest_data_api_append_with_origin(self):
+        server: PodServer = config.server
+        account: Account = server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
+
+        member_auth_header = await get_member_auth_header(
+            service_id=service_id, test=self, app=APP,
+        )
+
+        # Requirements for settign origin_id/origin_id_type/origin_class_name
+        # 0: caller must have APPEND permission on the class
+        # 1: the member of the pod itself must be calling the Append API of pod
+        # 2: depth must be 0 and remote_member_id must be None
+        # 3: class_name must not be cache-only
+        class_name: str = 'incoming_assets'
+        data: dict[str, AnyScalarType] = {
+            'origin_id': member.member_id,
+            'origin_id_type': IdType.MEMBER.value,
+            'origin_class_name': 'network_assets',
+            'data': {
+                'asset_id': str(get_test_uuid()),
+                'asset_type': 'post',
+                'created_timestamp': datetime.now(tz=timezone.utc).isoformat(),
+            }
+        }
+        resp = await DataApiClient.call(
+            service_id=service_id, class_name=class_name,
+            action=DataRequestType.APPEND,
+            depth=0, data=data,
+            headers=member_auth_header, app=APP, internal=True
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        with self.assertRaises(ByodaRuntimeError):
+            class_name: str = 'public_assets'
+            resp = await DataApiClient.call(
+                service_id=service_id, class_name=class_name,
+                action=DataRequestType.APPEND,
+                depth=0, data=data,
+                headers=member_auth_header, app=APP, internal=True
+            )
+
+        with self.assertRaises(ByodaRuntimeError):
+            azure_auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
+            class_name: str = 'network_invites'
+            data: dict[str, AnyScalarType] = {
+                'data': {
+                    'member_id': str(get_test_uuid()),
+                    'relation': 'friend',
+                    'created_timestamp': datetime.now(tz=timezone.utc).isoformat(),
+                },
+                'origin_id': member.member_id,
+                'origin_id_type': IdType.MEMBER.value,
+                'origin_class_name': 'network_assets',
+            }
+            resp = await DataApiClient.call(
+                service_id=service_id, class_name=class_name,
+                action=DataRequestType.APPEND,
+                depth=0, data=data,
+                headers=azure_auth_header, app=APP, internal=True
+            )
+
     async def test_pod_rest_data_api_update_jwt(self):
-        account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
         member_auth_header = await get_member_auth_header(
@@ -307,7 +374,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(deleted_count, 1)
 
     async def test_pod_rest_data_api_filters_jwt(self):
-        account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
         member_auth_header = await get_member_auth_header(

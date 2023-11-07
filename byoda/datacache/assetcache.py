@@ -46,6 +46,20 @@ class AssetCacheItem:
 
 
 class AssetCache:
+    '''
+    AssetCache contains two functionalities:
+
+    - Maintaining lists of assets, lists could be 'For you',
+    'Recently uploaded', 'ball sports', etc. This class has
+    functions to add assets to the begin of a list and to renew or expire
+    assets from the list
+    - Simple cache of asset with keys 'list_name:member_id:asset_id' to
+    check whether an asset might be in a list. There is no guarantee that
+    the cache of the assets remains up to date, so it is only used to
+    prevent duplicate assets, even if it means an asset is no longer
+    in a list because it was expired.
+    '''
+
     def __init__(self, service: Service, asset_class: str,
                  expiration_window: float, cache_tech: CacheTech):
         '''
@@ -111,14 +125,14 @@ class AssetCache:
     def json_key(self, name: str) -> str:
         return f'{self.key}:{name}'
 
-    async def exists(self, list_name: str) -> int:
+    async def exists_list(self, list_name: str) -> int:
         '''
-        Checks whether the query_id exists in the cache
+        Checks whether the list exists in the cache
         '''
 
         return await self.backend.exists_json_list(self.json_key(list_name))
 
-    async def create(self, list_name: str, data: list = []) -> bool:
+    async def create_list(self, list_name: str, data: list = []) -> bool:
         '''
         Creates a JSON list for the specified key
 
@@ -129,12 +143,23 @@ class AssetCache:
             self.json_key(list_name), data
         )
 
-    async def delete(self, list_name: str) -> bool:
+    async def delete_list(self, list_name: str) -> bool:
         '''
         Deletes the query_id from the cache
 
         :returns: True if the query_id was deleted, False if it did not exist
         '''
+
+        while True:
+            item: AssetCacheItem = await self.backend.rpop_json_list(
+                self.json_key(list_name)
+            )
+            if not item:
+                break
+
+            asset_id: UUID = item.data['asset_id']
+            member_id = item.member_id
+            await self.delete_asset_from_cache(list_name, member_id, asset_id)
 
         result = await self.backend.delete_json_list(self.json_key(list_name))
         return bool(result)
@@ -156,6 +181,14 @@ class AssetCache:
         if isinstance(data, Asset):
             data = data.model_dump()
 
+        asset_id: UUID = data['asset_id']
+        if await self.asset_exists_in_cache(list_name, member_id, asset_id):
+            _LOGGER.debug(
+                f'Asset {asset_id} from member {member_id} already exists in '
+                'cache'
+            )
+            return False
+
         timestamp: float = datetime.now(tz=timezone.utc).timestamp()
         if not expires:
             expires = timestamp + self.expiration_window
@@ -172,6 +205,8 @@ class AssetCache:
             cursor=cursor,
             data=data
         )
+
+        await self.add_asset_to_cache(list_name, member_id, data)
 
         return await self.backend.lpush_json_list(
             self.json_key(list_name), asset_item.__dict__
@@ -194,6 +229,13 @@ class AssetCache:
         if isinstance(data, Asset):
             data = data.model_dump()
 
+        if await self.asset_exists_in_cache(list_name, member_id, data['asset_id']):
+            _LOGGER.debug(
+                f'Asset {data["asset_id"]} from member {member_id} '
+                'already exists in cache'
+            )
+            return False
+
         timestamp: float = datetime.now(tz=timezone.utc).timestamp()
         if not expires:
             expires = timestamp + self.expiration_window
@@ -210,6 +252,8 @@ class AssetCache:
             cursor=cursor,
             data=data
         )
+
+        await self.add_asset_to_cache(list_name, member_id, data)
 
         return await self.backend.lpush_json_list(
             self.json_key(list_name), asset_item.__dict__
@@ -232,6 +276,11 @@ class AssetCache:
 
         asset_item = AssetCacheItem(**data)
         asset_item.data = Asset(**asset_item.data)
+
+        member_id: UUID = asset_item.member_id
+        asset_id: UUID = asset_item.data.asset_id
+
+        await self.delete_asset_from_cache(list_name, member_id, asset_id)
 
         return asset_item
 
@@ -281,6 +330,72 @@ class AssetCache:
             return result[0]
 
         return None
+
+    @staticmethod
+    def get_asset_key(list_name: str, member_id: UUID | str,
+                      asset_id: UUID | str) -> str:
+        '''
+        Get key for the asset in the cache
+
+        :param list_name: the name of the list to check
+        :param member_id: the member_id of the member that owns the asset
+        :param asset_id: the asset_id of the asset
+        :returns: str
+        :raises: (none)
+        '''
+
+        return f'{list_name}:{member_id}:{asset_id}'
+
+    async def asset_exists_in_cache(self, list_name: str,
+                                    member_id: UUID | str,
+                                    asset_id: UUID | str) -> bool:
+        '''
+        Checks whether an asset is in the cache
+
+        :param list_name: the name of the list to check
+        :param member_id: the member_id of the member that owns the asset
+        :param asset_id: the asset_id of the asset
+        :returns: str
+        :raises: (none)
+        '''
+
+        key: str = AssetCache.get_asset_key(list_name, member_id, asset_id)
+
+        return await self.backend.exists(key)
+
+    async def add_asset_to_cache(self, list_name: str, member_id: UUID | str,
+                                 asset_data: dict[str, object]) -> bool:
+        '''
+        Adds an asset to the cache
+
+        :param list_name: the name of the list to check
+        :param member_id: the member_id of the member that owns the asset
+        :param asset_id: the asset_id of the asset
+        :returns: str
+        :raises: (none)
+        '''
+
+        asset_id: UUID | str = asset_data['asset_id']
+        key = AssetCache.get_asset_key(list_name, member_id, asset_id)
+
+        return await self.backend.set(key, asset_data)
+
+    async def delete_asset_from_cache(self, list_name: str,
+                                      member_id: UUID | str,
+                                      asset_id: UUID | str) -> bool:
+        '''
+        Deletes asset from the cache
+
+        :param list_name: the name of the list to check
+        :param member_id: the member_id of the member that owns the asset
+        :param asset_id: the asset_id of the asset
+        :returns: str
+        :raises: (none)
+        '''
+
+        key: str = AssetCache.get_asset_key(list_name, member_id, asset_id)
+
+        return await self.backend.delete(key)
 
     async def expire(self, list_name: str,
                      timestamp: datetime | int | float = None,
@@ -354,6 +469,7 @@ class AssetCache:
                     f'Member {member_id} no longer stores '
                     f'asset {asset_id}'
                 )
+                await self.delete_asset_from_cache(list_name, member_id, asset_id)
             except Exception as exc:
                 _LOGGER.debug(
                     f'Unable to renew cached asset {asset_id} '

@@ -196,7 +196,8 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
         object_count = await MemberData.append(
             {{ data_class.service_id }}, '{{ data_class.name }}',
             append.query_id, append.depth, append.remote_member_id,
-            append.data.model_dump(), append, host, auth
+            append.data.model_dump(), append, host, auth,
+            append.origin_id, append.origin_id_type, append.origin_class_name,
         )
     except ByodaValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

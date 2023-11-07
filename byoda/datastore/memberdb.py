@@ -178,6 +178,15 @@ class MemberDb:
         _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
         await self.kvcache.push(MEMBERS_LIST, str(member_id))
 
+    async def get_members(self) -> list[UUID]:
+        '''
+        Get the list of members
+        '''
+
+        members = await self.kvcache.get_list(MEMBERS_LIST)
+
+        return [UUID(member.decode('utf-8')) for member in members]
+    
     async def delete_members_list(self):
         '''
         Delete the list of members.

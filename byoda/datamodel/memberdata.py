@@ -814,6 +814,9 @@ class MemberData(dict):
         '''
         Appends the provided data
 
+        Only the this membership is allowed to call this API specifying
+        the origin_id, origin_id_type and origin_class_name fields.
+
         :param service_id: Service ID for which the Data API was called
         :param class_name: the name of the data class to which to append
         :param query_id: the query id of the incoming request
@@ -844,6 +847,21 @@ class MemberData(dict):
 
         remote_member_id: UUID | None = append_model.remote_member_id
         depth: int = append_model.depth
+
+        if ((origin_id or origin_id_type or origin_class_name) and
+                (auth.id != member.member_id
+                    or auth.id_type != IdType.MEMBER)):
+            raise ByodaValueError(
+                'Only the member itself can specify origin_id, origin_id_type '
+                'or origin_class_name'
+            )
+
+        if ((origin_id or origin_id_type or origin_class_name)
+                and (depth or remote_member_id)):
+            raise ByodaValueError(
+                'origin_id, origin_id_type, and origin_class_name can not be '
+                'specified together with depth > 0 or remote_member_id'
+            )
 
         if not origin_id:
             origin_id = auth.id
@@ -909,6 +927,12 @@ class MemberData(dict):
         schema: Schema = member.schema
         member_id: UUID = member.member_id
         data_class: SchemaDataArray = schema.data_classes[class_name]
+
+        if origin_class_name and not data_class.cache_only:
+            raise ByodaValueError(
+                'origin_class_name can only be specified for cache-only '
+                'classes'
+            )
 
         _LOGGER.debug(f'Appending data for data_class {data_class.name}')
 

@@ -12,7 +12,6 @@ from typing import Generic
 from typing import TypeVar
 
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 from typing_extensions import Annotated
@@ -26,7 +25,10 @@ from pydantic.functional_validators import AfterValidator
 from pydantic import Base64Str
 from pydantic import BaseModel as PydanticBaseModel
 
+from byoda.datatypes import IdType
 from byoda.datatypes import DataFilterType
+
+from byoda.util.logger import Logger
 
 from byoda.limits import MAX_FIELD_NAME_LENGTH
 from byoda.limits import MAX_OBJECT_FIELD_COUNT
@@ -182,6 +184,25 @@ class AppendModel(BaseModel, Generic[TypeX]):
     query_id: UUID | None = None
     depth: int = 0
     remote_member_id: UUID | None = None
+
+    origin_class_name: str | None = Field(
+        default=None, description=(
+            'the class from which the data originates, can only be specified '
+            'if the member of the request is the member of the pod'
+        )
+    )
+    origin_id: UUID | None = Field(
+        default=None, description=(
+            'The UUID from which the data originates, can only be specified '
+            'if the member of the request is the member of the pod'
+        )
+    )
+    origin_id_type: IdType | None = Field(
+        default=IdType.MEMBER, description=(
+            'The IdType of the UUID from which the data originates, can only '
+            'if the member of the request is the member of the pod'
+        )
+    )
 
 
 class MutateModel(BaseModel, Generic[TypeX]):

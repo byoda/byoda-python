@@ -25,6 +25,8 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda import config
 
+from tests.lib.util import get_test_uuid
+
 CONFIG_FILE = 'tests/collateral/config.yml'
 
 TEST_MEMBER_UUID = UUID('aaaaaaaa-ab12-2612-6212-30808f40d0fd')
@@ -134,6 +136,12 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await member_db.get_next(), TEST_MEMBER_UUID)
 
         self.assertEqual(await member_db.get_next(timeout=1), None)
+
+        for i in range(0, 10):
+            await member_db.add_member(get_test_uuid())
+
+        members = await member_db.get_members()
+        self.assertEqual(len(members), 10)
 
 
 if __name__ == '__main__':
