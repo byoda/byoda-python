@@ -7,11 +7,11 @@ Class for modeling an account on a network
 '''
 
 
-from uuid import uuid4, UUID
 from copy import copy
+from uuid import UUID
+from uuid import uuid4
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import FastAPI
 
@@ -52,6 +52,8 @@ from byoda.util.fastapi import update_cors_origins
 
 from byoda.util.nginxconfig import NginxConfig
 from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
+
+from byoda.util.logger import Logger
 
 from byoda import config
 

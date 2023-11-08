@@ -28,7 +28,6 @@ from byoda.datamodel.member import Member
 from byoda.datatypes import DataRequestType
 
 from byoda.storage.filestorage import FileStorage
-from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType, DocumentStore
@@ -36,7 +35,6 @@ from byoda.datastore.document_store import DocumentStoreType, DocumentStore
 from byoda.servers.service_server import ServiceServer
 
 from byoda.util.updates_listener import UpdateListenerService
-from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient

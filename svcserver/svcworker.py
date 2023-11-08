@@ -14,12 +14,9 @@ import sys
 import yaml
 
 from uuid import UUID
-from random import random
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from asyncio import CancelledError
-from socket import gaierror as socket_gaierror
 
 import orjson
 
@@ -38,7 +35,11 @@ from byoda.datamodel.network import Network
 
 from byoda.datastore.memberdb import MemberDb
 
+from byoda.datacache.assetcache import AssetCache
+
 from byoda.storage.filestorage import FileStorage
+
+from byoda.util.updates_listener import UpdateListenerService
 
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
@@ -51,8 +52,9 @@ from byoda.exceptions import ByodaRuntimeError
 
 from byoda.util.logger import Logger
 
-from byoda import config
+from byoda.util.test_tooling import is_test_uuid
 
+from byoda import config
 
 # Time out waiting for a member from the list of members to
 # get info from the Person table
@@ -61,6 +63,10 @@ MAX_WAIT: int = 15 * 60
 # Max time to wait before connecting to the next member
 # to get info from the Person table
 MEMBER_PROCESS_INTERVAL: int = 8 * 60 * 60
+
+ASSET_CLASS: str = 'public_assets'
+
+ASSET_UPLOADED_LIST: str = 'recently_uploaded_assets'
 
 
 async def main():
@@ -71,19 +77,12 @@ async def main():
     )
 
     member_db: MemberDb = server.member_db
-    asset_cache: AssetCache = server.asset_cache
     wait_time: float = 0.0
-    members_seen: set(UUID) = set()
+    members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
-        # Set up listening to all known members
-        member_ids = await member_db.get_members()
-        for member_id in member_ids:
-            await get_all_assets(member_id, service, asset_cache)
-            await setup_listen_assets(
-                task_group, member_id, service, asset_cache
-            )
-            members_seen.add(member_id)
+        for listener in members_seen.values():
+            await listener.get_updates(task_group)
 
         while True:
             if wait_time:
@@ -97,7 +96,7 @@ async def main():
                 _LOGGER.debug('No member available in list of members')
                 continue
 
-            if str(member_id).startswith('aaaaaaaa'):
+            if is_test_uuid(member_id):
                 _LOGGER.debug(
                     f'Not processing member with test UUID: {member_id}'
                 )
@@ -105,11 +104,10 @@ async def main():
 
             _LOGGER.debug(f'Processing member_id {member_id}')
 
-            if member_id not in members_seen:
-                await setup_listen_assets(
-                    task_group, member_id, service, asset_cache
-                )
-                members_seen.add(member_id)
+            await reconcile_member_listeners(
+                member_db, members_seen, service, ASSET_CLASS,
+                server.asset_cache, [ASSET_UPLOADED_LIST], task_group
+            )
 
             wait_time: int = await update_member(
                 service, member_id, server.member_db
@@ -122,6 +120,40 @@ async def main():
                 # to be up and running, even if it may not have returned
                 # any data
                 await member_db.add_member(member_id)
+
+
+async def reconcile_member_listeners(
+        member_db: MemberDb, members_seen: dict[UUID, UpdateListenerService],
+        service: Service, asset_class: str, asset_cache: AssetCache,
+        asset_upload_lists: str, task_group: TaskGroup) -> None:
+    '''
+    Sets up asset sync and listener for members not seen before.
+
+    This function updates the 'members_seen' parameter
+
+    :param member_db:
+    :param members_seen:
+    :param service:
+    :param asset_class:
+    :param asset_cache:
+    :param asset_upload_list: the list of assets in the asset cache
+    :param task_group:
+    :return: (none)
+    '''
+
+    member_ids = await member_db.get_members()
+    for member_id in [m_id for m_id in member_ids if m_id not in members_seen]:
+        listener = await UpdateListenerService.setup(
+            asset_class, service.service_id, member_id,
+            service.network.name, service.tls_secret,
+            asset_cache, [asset_upload_lists]
+        )
+
+        _LOGGER.debug(f'Initiating sync and listener for member {member_id}')
+        await listener.get_all_data()
+        await listener.get_updates(task_group)
+
+        members_seen[member_id] = listener
 
 
 async def update_member(service: Service, member_id: UUID, member_db: MemberDb
