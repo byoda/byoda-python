@@ -123,7 +123,7 @@ class AssetCache:
         await self.backend.close()
 
     def json_key(self, name: str) -> str:
-        return f'{self.key}:{name}'
+        return f'{self.key}:AssetList:{name}'
 
     async def exists_list(self, list_name: str) -> int:
         '''
@@ -157,8 +157,8 @@ class AssetCache:
             if not item:
                 break
 
-            asset_id: UUID = item.data['asset_id']
-            member_id = item.member_id
+            asset_id: UUID = item['data']['asset_id']
+            member_id = item['member_id']
             await self.delete_asset_from_cache(list_name, member_id, asset_id)
 
         result = await self.backend.delete_json_list(self.json_key(list_name))
@@ -166,7 +166,7 @@ class AssetCache:
 
     async def lpush(self, list_name: str, data: object | Asset,
                     member_id: UUID, cursor: str, expires: float = None
-                    ) -> bool:
+                    ) -> int:
         '''
         Adds the data to the start of a JSON list
 
@@ -175,7 +175,7 @@ class AssetCache:
         :param member_id: the member_id of the member that owns the asset
         :param cursor: the cursor of the asset
         :param expires: the timestamp when the asset expires
-        :returns: True if the data was added to the list
+        :returns: the length of the list after the push operation
         '''
 
         if isinstance(data, Asset):
@@ -208,9 +208,14 @@ class AssetCache:
 
         await self.add_asset_to_cache(list_name, member_id, data)
 
-        return await self.backend.lpush_json_list(
+        result = await self.backend.lpush_json_list(
             self.json_key(list_name), asset_item.__dict__
         )
+
+        if result is False:
+            result = 0
+
+        return result
 
     async def rpush(self, list_name: str, data: object | Asset,
                     member_id: UUID, cursor: str, expires: float = None
@@ -229,7 +234,8 @@ class AssetCache:
         if isinstance(data, Asset):
             data = data.model_dump()
 
-        if await self.asset_exists_in_cache(list_name, member_id, data['asset_id']):
+        if await self.asset_exists_in_cache(
+                list_name, member_id, data['asset_id']):
             _LOGGER.debug(
                 f'Asset {data["asset_id"]} from member {member_id} '
                 'already exists in cache'
@@ -344,7 +350,7 @@ class AssetCache:
         :raises: (none)
         '''
 
-        return f'{list_name}:{member_id}:{asset_id}'
+        return f'AssetCache:{list_name}:Asset:{member_id}:{asset_id}'
 
     async def asset_exists_in_cache(self, list_name: str,
                                     member_id: UUID | str,
@@ -469,7 +475,9 @@ class AssetCache:
                     f'Member {member_id} no longer stores '
                     f'asset {asset_id}'
                 )
-                await self.delete_asset_from_cache(list_name, member_id, asset_id)
+                await self.delete_asset_from_cache(
+                    list_name, member_id, asset_id
+                )
             except Exception as exc:
                 _LOGGER.debug(
                     f'Unable to renew cached asset {asset_id} '

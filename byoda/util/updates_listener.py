@@ -29,7 +29,7 @@ from websockets.exceptions import ConnectionClosedOK
 from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
 
-from byoda.models.data_api_models import EdgeResponse
+from byoda.models.data_api_models import UpdatesResponseModel
 from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datatypes import IdType
@@ -52,14 +52,13 @@ from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
-# The maximum interval between attempts to reconnect to a member
-MAX_RECONNECT_DELAY: int = 3600
-
-# After how many days do we give up trying to connect to a dead member?
-MAX_DEAD_TIMER: int = 30
-
 
 class UpdatesListener:
+    # The maximum interval between attempts to reconnect to a member
+    MAX_RECONNECT_DELAY: int = 3600
+    # After how many days do we give up trying to connect to a dead member?
+    MAX_DEAD_TIMER: int = 30
+
     '''
     Listen for updates to a class from a remote pod and store the updates
     in a cache
@@ -137,6 +136,8 @@ class UpdatesListener:
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
 
+        return assets_retrieved
+
     async def setup_listen_assets(self, task_group: TaskGroup) -> None:
         '''
         Initiates listening for updates to a table (ie. 'public_assets') table
@@ -179,7 +180,7 @@ class UpdatesListener:
 
         # Aggressive retry as we're talking to our own pod
         reconnect_delay: int = 0.2
-        last_alive = datetime.now(tz=timezone.UTC)
+        last_alive = datetime.now(tz=timezone.utc)
         while True:
             try:
                 async for result in DataWsApiClient.call(
@@ -187,23 +188,30 @@ class UpdatesListener:
                         self.tls_secret, member_id=self.member_id,
                         network=self.network_name
                 ):
-                    edge_data: dict = orjson.loads(result)
-                    edge = EdgeResponse(**edge_data)
+                    updates_data: dict = orjson.loads(result)
+                    edge = UpdatesResponseModel(**updates_data)
                     _LOGGER.debug(
                         f'Appending data from class {self.class_name} '
-                        f'originating from {edge.origin} '
-                        f'received from member {edge.origin}'
+                        f'originating from {edge.origin_id} '
+                        f'received from member {self.member_id}'
                         f'to asset cache: {edge.node}'
                     )
 
-                    self.store_asset_in_cache(
-                        edge.node, edge.origin, edge.cursor
+                    if edge.origin_id_type != IdType.MEMBER:
+                        _LOGGER.debug(
+                            f'Ignoring data from {edge.origin_id_type.value} '
+                            f'{edge.origin_id}'
+                        )
+                        continue
+
+                    await self.store_asset_in_cache(
+                        edge.node, edge.origin_id, None
                     )
 
                     # We received data from the remote pod, so reset the
                     # reconnect # delay
                     reconnect_delay = 0.2
-                    last_alive = datetime.now(tz=timezone.UTC)
+                    last_alive = datetime.now(tz=timezone.utc)
             except (ConnectionClosedOK, ConnectionClosedError,
                     WebSocketException, ConnectionRefusedError) as exc:
                 _LOGGER.debug(
@@ -229,10 +237,10 @@ class UpdatesListener:
             await sleep(reconnect_delay)
 
             reconnect_delay += 2 * random() * reconnect_delay
-            if reconnect_delay > self.max_reconnect_delay:
-                reconnect_delay = self.max_reconnect_delay
+            if reconnect_delay > UpdatesListener.MAX_RECONNECT_DELAY:
+                reconnect_delay = UpdatesListener.MAX_RECONNECT_DELAY
 
-            if last_alive - datetime.now(tz=timezone.UTC) > timedelta(days=30):
+            if last_alive - datetime.now(tz=timezone.utc) > timedelta(days=30):
                 raise RuntimeError(
                     f'Member {self.member_id} has not been seen for 30 days'
                 )
@@ -283,7 +291,7 @@ class UpdateListenerService(UpdatesListener):
         )
         target_list: str
         for target_list in self.target_lists:
-            if not await self.asset_cache.list_exists(target_list):
+            if not await self.asset_cache.exists_list(target_list):
                 await self.asset_cache.create_list(target_list)
 
         return self
@@ -373,7 +381,7 @@ class UpdateListenerMember(UpdatesListener):
         return self
 
     async def store_asset_in_cache(self, data: dict[str, object],
-                                   origin_id: str, cursor: str) -> bool:
+                                   origin_id: str, _: str) -> bool:
         '''
         Stores the asset in the AssetCache of the service
 

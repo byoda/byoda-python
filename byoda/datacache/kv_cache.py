@@ -84,6 +84,7 @@ class KVCache(ABC):
         if not self.namespace:
             self.namespace = config.server.network.name + self._identifier
 
+        self.namespace = self.namespace.rstrip(':')
         return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'
 
     @abstractmethod

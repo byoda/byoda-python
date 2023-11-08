@@ -121,7 +121,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     async def asyncTearDown(self):
-        ApiClient.close_all()
+        await ApiClient.close_all()
 
     async def test_redis_native_storage(self):
         server: ServiceServer = config.server
@@ -226,7 +226,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             list_name, data=asset_data, cursor=cursor,
             member_id=AZURE_POD_MEMBER_ID, expires=now + delay
         )
-        self.assertEqual(result, 1)
+        self.assertEqual(result, True)
 
         item_count: int = 6
         for n in range(1, item_count):

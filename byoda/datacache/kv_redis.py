@@ -12,7 +12,6 @@ from logging import getLogger
 import orjson
 
 import redis.asyncio as redis
-from redis.commands.json.path import Path
 
 from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
 

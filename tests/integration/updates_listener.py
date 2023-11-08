@@ -17,20 +17,30 @@ from uuid import UUID
 from datetime import datetime
 from datetime import timezone
 
-from byoda.datamodel.network import Network
-from byoda.datamodel.service import Service
+from anyio import create_task_group
+from anyio import sleep
 
-from byoda.datacache.assetcache import AssetCache
+from byoda.datamodel.network import Network
+from byoda.datamodel.account import Account
+from byoda.datamodel.service import Service
+from byoda.datamodel.member import Member
+
+from byoda.datatypes import DataRequestType
 
 from byoda.storage.filestorage import FileStorage
+from byoda.datatypes import ServerType
+from byoda.datatypes import CloudType
+
+from byoda.datastore.document_store import DocumentStoreType, DocumentStore
 
 from byoda.servers.service_server import ServiceServer
 
 from byoda.util.updates_listener import UpdateListenerService
 from byoda.util.updates_listener import UpdateListenerMember
 
+from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
-
+from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.logger import Logger
 
 from byoda.util.paths import Paths
@@ -39,7 +49,10 @@ from byoda import config
 
 from tests.lib.setup import get_test_uuid
 
+from tests.lib.auth import get_azure_pod_jwt
+
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 
 from podserver.codegen.pydantic_service_4294929430_1 import (
@@ -64,11 +77,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         except FileNotFoundError:
             pass
 
+        config.test_case = 'TEST_CLIENT'
+
         os.makedirs(TEST_DIR)
 
     @classmethod
     async def asyncTearDown(self):
-        ApiClient.close_all()
+        await ApiClient.close_all()
 
     async def test_service(self):
         config_file = os.environ.get('CONFIG_FILE', 'config.yml')
@@ -127,16 +142,67 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         class_name: str = 'public_assets'
-        test_list: str = 'updates_listener_test_case'
+        test_list: str = 'test_case_updates_listener'
         member_id: UUID = UUID(AZURE_POD_MEMBER_ID)
-        listener = UpdateListenerService(
+        listener = await UpdateListenerService.setup(
             class_name, service.service_id, member_id,
             service.network.name, service.tls_secret,
             server.asset_cache, [test_list]
         )
 
         item_count = await listener.get_all_data()
-        self.assertGreater(len(item_count), 10)
+        self.assertGreater(item_count, 1)
+
+        account = Account(AZURE_POD_ACCOUNT_ID, network)
+        config.server.account = account
+        config.server.data_store = None
+        config.server.cache_store = None
+        account.document_store = \
+            await DocumentStore.get_document_store(
+                DocumentStoreType.OBJECT_STORE, cloud_type=CloudType.LOCAL,
+                private_bucket='a', restricted_bucket='v',
+                public_bucket='c', root_dir=TEST_DIR
+            )
+        member: Member = await account.join(
+            service.service_id, 1,
+            account.document_store.backend, service.members_ca, get_test_uuid()
+        )
+        await member.load_secrets()
+        async with create_task_group() as task_group:
+            await listener.setup_listen_assets(task_group)
+            await sleep(2)
+
+            auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
+            asset_id = get_test_uuid()
+            data: dict[str, dict] = {
+                'data': {
+                    'asset_id': asset_id,
+                    'asset_type': 'test',
+                    'created_timestamp': datetime.now(tz=timezone.utc),
+                }
+            }
+            resp: HttpResponse = await DataApiClient.call(
+                service.service_id, class_name, DataRequestType.APPEND,
+                network=service.network.name, headers=auth_header,
+                member_id=AZURE_POD_MEMBER_ID, data=data
+            )
+            self.assertEqual(resp.status_code, 200)
+
+            await sleep(3)
+
+            result = await listener.asset_cache.asset_exists_in_cache(
+                test_list, AZURE_POD_MEMBER_ID, asset_id
+            )
+            self.assertTrue(result)
+            task_group.cancel_scope.cancel
+
+        resp: HttpResponse = await DataApiClient.call(
+            service.service_id, class_name, DataRequestType.DELETE,
+            network=service.network.name, headers=auth_header,
+            member_id=AZURE_POD_MEMBER_ID,
+            data_filter={'asset_id': {'eq': asset_id}}
+        )
+        self.assertEqual(resp.status_code, 200)
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:

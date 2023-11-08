@@ -274,3 +274,26 @@ class UpdatesModel(BaseModel):
             'Name of the "non-cache-only" class from which the data originates'
         )
     )
+
+
+class UpdatesResponseModel(BaseModel):
+    node: dict[str, object] = Field(description='The data that was updated')
+    query_id: UUID = Field(
+        description='The query ID of the original Updates API request'
+    )
+    origin_id: UUID = Field(
+        description='The ID of the entity that originated the data'
+    )
+    origin_id_type: IdType = Field(
+        description='The ID type of the entity that originated the data'
+    )
+    origin_class_name: str | None = Field(
+        default=None, description='The class that the data originates from'
+    )
+    hops: int = Field(
+        default=0,
+        description='The number of hops the update response has traveled'
+    )
+    filter: DataFilterType | None = Field(
+        default=None, description='The filter from the Updates API request'
+    )

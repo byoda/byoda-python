@@ -384,8 +384,9 @@ class ApiClient:
                 raise ByodaRuntimeError(
                     f'Incorrect input data to API {api}: {resp_data["detail"]}'
                 )
+
             raise ByodaRuntimeError(
-                f'Failure to call API {api}: {resp.status_code}'
+                f'Failure to call API {api}: {resp.status_code} -> {resp.text}'
             )
 
         return resp
