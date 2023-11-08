@@ -141,6 +141,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'TRACE_SERVER', config.trace_server
         )
 
+        #
+        # Set up the listener
+        #
         class_name: str = 'public_assets'
         test_list: str = 'test_case_updates_listener'
         member_id: UUID = UUID(AZURE_POD_MEMBER_ID)
@@ -153,6 +156,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         item_count = await listener.get_all_data()
         self.assertGreater(item_count, 1)
 
+        #
+        # Prep Account object for Azure pod so that we can
+        # call the Azure pod with its own JWT
+        #
         account = Account(AZURE_POD_ACCOUNT_ID, network)
         config.server.account = account
         config.server.data_store = None
@@ -168,19 +175,27 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             account.document_store.backend, service.members_ca, get_test_uuid()
         )
         await member.load_secrets()
+        auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
+
+        #
+        # Prep a test asset that we'll add to the Azure pod
+        #
+        asset_id = get_test_uuid()
+        data: dict[str, dict] = {
+            'data': {
+                'asset_id': asset_id,
+                'asset_type': 'test',
+                'created_timestamp': datetime.now(tz=timezone.utc),
+            }
+        }
+
+        #
+        # Here we start with the test
+        #
         async with create_task_group() as task_group:
             await listener.setup_listen_assets(task_group)
             await sleep(2)
 
-            auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
-            asset_id = get_test_uuid()
-            data: dict[str, dict] = {
-                'data': {
-                    'asset_id': asset_id,
-                    'asset_type': 'test',
-                    'created_timestamp': datetime.now(tz=timezone.utc),
-                }
-            }
             resp: HttpResponse = await DataApiClient.call(
                 service.service_id, class_name, DataRequestType.APPEND,
                 network=service.network.name, headers=auth_header,
@@ -194,15 +209,24 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 test_list, AZURE_POD_MEMBER_ID, asset_id
             )
             self.assertTrue(result)
-            task_group.cancel_scope.cancel
 
-        resp: HttpResponse = await DataApiClient.call(
-            service.service_id, class_name, DataRequestType.DELETE,
-            network=service.network.name, headers=auth_header,
-            member_id=AZURE_POD_MEMBER_ID,
-            data_filter={'asset_id': {'eq': asset_id}}
-        )
-        self.assertEqual(resp.status_code, 200)
+            #
+            # Clean up
+            #
+            task_group.cancel_scope.cancel()
+
+            await listener.asset_cache.delete_asset_from_cache(
+                test_list, member_id, asset_id
+            )
+            await listener.asset_cache.delete_list(test_list)
+
+            resp: HttpResponse = await DataApiClient.call(
+                service.service_id, class_name, DataRequestType.DELETE,
+                network=service.network.name, headers=auth_header,
+                member_id=AZURE_POD_MEMBER_ID,
+                data_filter={'asset_id': {'eq': asset_id}}
+            )
+            self.assertEqual(resp.status_code, 200)
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:
