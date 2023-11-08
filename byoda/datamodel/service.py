@@ -195,7 +195,7 @@ class Service:
                 filepath=filepath, verify_contract_signatures=verify_signatures
             )
 
-            service.schema.generate_data_apis(verify_schema_signatures=verify_signatures)
+            service.schema.generate_data_models(verify_schema_signatures=verify_signatures)
         else:
             _LOGGER.debug('Not loading service schema')
 

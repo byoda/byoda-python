@@ -30,8 +30,9 @@ from httpx import HTTPError
 
 from byoda.datatypes import DataRequestType
 
-from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
+from byoda.datamodel.schema import Schema
 
 from byoda.datastore.memberdb import MemberDb
 
@@ -297,6 +298,10 @@ async def setup_server() -> (Service, ServiceServer):
         await service.download_schema(save=True)
 
     await server.load_schema(verify_contract_signatures=False)
+
+    schema: Schema = service.schema
+    schema.get_data_classes(with_pubsub=False)
+    schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
     return service, server
 

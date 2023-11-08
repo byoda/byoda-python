@@ -24,9 +24,6 @@ import jinja2
 from fastapi import FastAPI
 from jsonschema import Draft202012Validator
 
-# Importing this exception so others can import it from here
-# from fastjsonschema.exceptions import JsonSchemaValueException  # noqa: F401
-
 from byoda.datamodel.dataclass import SchemaDataItem
 
 from byoda.storage import FileStorage
@@ -396,16 +393,25 @@ class Schema:
 
         return self.data_classes
 
-    def get_data_class(self, class_name):
+    def get_data_class(self, class_name: str) -> SchemaDataItem | None:
         '''
         Gets a data class by name
+
+        :param class_name: the name of the data class
+        :returns: the data class or None if not found
+        :raises: (none)
         '''
 
         return self.data_classes.get(class_name)
 
-    def generate_data_apis(self):
+    def generate_data_models(self, codegen_dir: str = CODEGEN_DIRECTORY,
+                             datamodels_only: bool = False) -> None:
         '''
         Generates the REST APIs for managing data of the membership
+
+        :param codegen_dir: location where the generated code should be stored
+        :returns: (none)
+        :raises: ValueError
         '''
         if (self.verify_signatures
                 and not (SignatureType.NETWORK in self.verified_signatures and
@@ -433,11 +439,15 @@ class Schema:
                 )
 
         data_model_code_filename = (
-            f'{CODEGEN_DIRECTORY}/pydantic_service_{self.service_id}_'
+            f'{codegen_dir}/pydantic_service_{self.service_id}_'
             f'{self.version}.py'
         )
         with open(data_model_code_filename, 'w') as file_desc:
             file_desc.write(data_model_contents)
+
+        if datamodels_only:
+            _LOGGER.debug('Not generating data APIs')
+            return
 
         # Generate one file per data class
         for class_name, data_class in self.data_classes.items():
@@ -446,8 +456,8 @@ class Schema:
 
             code: str = data_class.get_pydantic_request_model(environment)
             request_type_filename: str = (
-                f'{CODEGEN_DIRECTORY}/pydantic_'
-                f'{self.service_id}_{self.version}_{class_name}.py'
+                f'{codegen_dir.rstrip("/")}'
+                f'/pydantic_{self.service_id}_{self.version}_{class_name}.py'
             )
             with open(request_type_filename, 'w') as file_desc:
                 file_desc.write(code)
@@ -478,7 +488,7 @@ class Schema:
         :param app: the app to which the API routes should be added to
         '''
 
-        self.generate_data_apis()
+        self.generate_data_models()
 
         for class_name, data_class in self.data_classes.items():
             if data_class.defined_class:

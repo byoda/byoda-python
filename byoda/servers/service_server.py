@@ -110,14 +110,25 @@ class ServiceServer(Server):
 
         self.service.tls_secret.save_tmp_private_key()
 
-    async def load_schema(self, verify_contract_signatures: bool = True):
-        schema_file = self.service.paths.get(Paths.SERVICE_FILE)
-        await self.service.load_schema(
+    async def load_schema(self, verify_contract_signatures: bool = True
+                          ) -> None:
+        '''
+        Loads the schema for the service
+
+        :param verify_contract_signatures: should the signatures of the service
+        be verified.
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        service: Service = self.service
+        schema_file: str = service.paths.get(Paths.SERVICE_FILE)
+        await service.load_schema(
             filepath=schema_file,
             verify_contract_signatures=verify_contract_signatures
         )
 
-        self.member_db.schema = self.service.schema
+        self.member_db.schema = service.schema
 
     async def review_jwt(self, jwt: JWT):
         '''

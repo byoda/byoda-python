@@ -11,6 +11,7 @@ tests/collateral/local
 
 # We store code generated for parsing Data API queries here
 podserver/codegen/*
+svcserver/codegen/*
 
 
 .gitconfig
