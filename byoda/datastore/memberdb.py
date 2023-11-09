@@ -64,7 +64,7 @@ class MemberDb:
 
         self.kvcache: KVCache = kvcache
 
-        if not kvcache.exists(MEMBERS_LIST):
+        if not await kvcache.exists(MEMBERS_LIST):
             _LOGGER.debug('Creating the list of members')
             await kvcache.push(MEMBERS_LIST, '')
         return self
