@@ -27,7 +27,9 @@ from byoda.datatypes import AuthSource
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
+
 from byoda.datastore.certstore import CertStore
+from byoda.datastore.memberdb import MemberDb
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.membersca_secret import MembersCaSecret
@@ -66,6 +68,9 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     This API does not require authentication, it needs to be rate
     limited by the reverse proxy (TODO: security)
     '''
+
+    server: ServiceServer = config.server
+    member_db: MemberDb = server.member_db
 
     _LOGGER.debug(f'POST Member API called from {request.client.host}')
 
@@ -155,7 +160,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
 
     _LOGGER.info(f'Signed certificate with commonname {common_name}')
 
-    await config.server.member_db.add_meta(
+    await member_db.add_meta(
         csr_entity_id.id, request.client.host, None, cert_chain,
         MemberStatus.SIGNED
     )
@@ -176,6 +181,9 @@ async def put_member(request: Request, schema_version: int,
     '''
     Registers a known pod with its IP address and its data cert
     '''
+
+    server: ServiceServer = config.server
+    member_db: MemberDb = server.member_db
 
     _LOGGER.debug(f'PUT Member API called from {request.client.host}')
 
@@ -208,7 +216,7 @@ async def put_member(request: Request, schema_version: int,
 
     await member_data_secret.save(overwrite=True)
 
-    await config.server.member_db.add_meta(
+    await member_db.add_meta(
         auth.member_id, auth.remote_addr, schema_version, certchain.certchain,
         MemberStatus.REGISTERED
     )

@@ -114,6 +114,11 @@ class MemberDb:
             await self.add_member(member_id)
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        _LOGGER.debug(
+            f'Adding metadata for member {member_id} with key {mid} to'
+            'the MemberDB'
+        )
+
         await self.kvcache.set(
             mid,
             {
@@ -136,6 +141,11 @@ class MemberDb:
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         data = await self.kvcache.get(mid)
 
+        _LOGGER.debug(
+            f'Got metadata for member {member_id} with key {mid} from'
+            'the MemberDB'
+        )
+
         if not data:
             raise KeyError(f'Member {str(member_id)} not found')
 
@@ -157,16 +167,16 @@ class MemberDb:
         :returns: whether the key existed or not
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid = MEMBER_ID_META_FORMAT.format(member_id=member_id)
 
         ret = await self.kvcache.delete(mid)
 
         exists = ret != 0
 
         if exists:
-            _LOGGER.debug(f'Deleted the metadata for member {str(member_id)}')
+            _LOGGER.debug(f'Deleted the metadata for member {member_id}')
         else:
-            _LOGGER.debug(f'Member {str(member_id)} not found')
+            _LOGGER.debug(f'Member {member_id} not found')
 
         return exists
 
@@ -186,7 +196,7 @@ class MemberDb:
         members = await self.kvcache.get_list(MEMBERS_LIST)
 
         return [UUID(member.decode('utf-8')) for member in members]
-    
+
     async def delete_members_list(self):
         '''
         Delete the list of members.

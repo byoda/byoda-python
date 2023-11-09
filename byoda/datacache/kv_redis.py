@@ -320,7 +320,7 @@ class KVRedis(KVCache):
 
     async def get_list(self, key) -> object:
         '''
-        Gets the list value of a key
+        Gets the list of values of a key
         '''
 
         key = self.get_annotated_key(key)
