@@ -1,3 +1,4 @@
+ARG TAG=dev
 FROM byoda/byoda-python-web:$TAG
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"

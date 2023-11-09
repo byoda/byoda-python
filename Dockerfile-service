@@ -1,11 +1,7 @@
-FROM ubuntu:23.04
+ARG TAG=prod
+FROM byoda/byoda-python:$TAG
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
-
-# TODO
-# 1: run uvicorn/fastapi/app as non-root user
-# 2: use nginx from Nginx Inc docker repo
-# 3: optimize for size
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
@@ -13,40 +9,7 @@ WORKDIR /opt/byoda
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-RUN apt-get update && apt-get install -y \
-       curl \
-       ca-certificates \
-       build-essential \
-       python3 \
-       python3-pip \
-       python3-distutils \
-       python3-setuptools \
-       libssl-dev \
-       libffi-dev \
-       python3-dev \
-       pipenv \
-       libpq-dev \
-       libaugeas0 \
-       git \
-    && apt-get -y clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /etc/nginx/conf.d/default.conf
-
-###
-### Byoda bits
-###
-ENV PYTHONPATH=/opt/byoda/byoda-python
-
-RUN mkdir -p \
-    /var/log/byoda \
-    byoda-python
-
 COPY . byoda-python/
-RUN cd /opt/byoda/byoda-python \
-    && pipenv install --deploy --ignore-pipfile \
-    && pipenv clean
-
 
 CMD cd /opt/byoda/byoda-python \
     && pipenv run python3 -m gunicorn \
