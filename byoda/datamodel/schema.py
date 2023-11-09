@@ -500,6 +500,7 @@ class Schema:
         :param codegen_filename: the filename for the generated code
         '''
 
+        os.makedirs(os.path.dirname(codegen_filename), exist_ok=True)
         with open(codegen_filename, 'w') as file_desc:
             file_desc.write(source_code)
 
