@@ -136,7 +136,7 @@ async def main():
 async def reconcile_member_listeners(
         member_db: MemberDb, members_seen: dict[UUID, UpdateListenerService],
         service: Service, asset_class: str, asset_cache: AssetCache,
-        asset_upload_lists: str, task_group: TaskGroup) -> None:
+        asset_upload_lists: list[str], task_group: TaskGroup) -> None:
     '''
     Sets up asset sync and listener for members not seen before.
 
@@ -162,7 +162,7 @@ async def reconcile_member_listeners(
         listener = await UpdateListenerService.setup(
             asset_class, service.service_id, member_id,
             service.network.name, service.tls_secret,
-            asset_cache, [asset_upload_lists]
+            asset_cache, asset_upload_lists
         )
 
         _LOGGER.debug(f'Initiating sync and listener for member {member_id}')
