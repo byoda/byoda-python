@@ -848,7 +848,7 @@ class MemberData(dict):
         remote_member_id: UUID | None = append_model.remote_member_id
         depth: int = append_model.depth
 
-        if ((origin_id or origin_id_type or origin_class_name) and
+        if ((origin_id or origin_class_name) and
                 (auth.id != member.member_id
                     or auth.id_type != IdType.MEMBER)):
             raise ByodaValueError(
@@ -856,8 +856,7 @@ class MemberData(dict):
                 'or origin_class_name'
             )
 
-        if ((origin_id or origin_id_type or origin_class_name)
-                and (depth or remote_member_id)):
+        if (origin_id or origin_class_name) and (depth or remote_member_id):
             raise ByodaValueError(
                 'origin_id, origin_id_type, and origin_class_name can not be '
                 'specified together with depth > 0 or remote_member_id'
