@@ -1,0 +1,88 @@
+FROM ubuntu:23.04
+
+LABEL org.opencontainers.image.authors="steven@byoda.org"
+
+# TODO
+# 1: run uvicorn/fastapi/app as non-root user
+# 2: use nginx from Nginx Inc docker repo
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8
+WORKDIR /podserver
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
+
+COPY podserver/files/99nginx /etc/apt/preferences.d/
+COPY podserver/files/nginx.list /etc/apt/sources.list.d/
+COPY podserver/files/nginx-archive-keyring.gpg /usr/share/keyrings/
+
+###
+### Byoda, nginx bits
+###
+RUN mkdir -p \
+    /var/log/byoda \
+    /byoda/network-byoda.net/ \
+    /etc/nginx/ssl \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/objectstorage \
+    /var/www/wwwroot/logs \
+    byoda-python
+
+COPY ./Pipfile ./Pipfile.lock byoda-python/
+
+# BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
+# https://www.bento4.com/
+RUN apt-get update && apt-get install -y \
+       ubuntu-keyring \
+       curl \
+       ca-certificates \
+       build-essential \
+       python3 \
+       python3-pip \
+       python3-distutils \
+       python3-setuptools \
+       libssl-dev \
+       libffi-dev \
+       python3-dev \
+       pipenv \
+       libpq-dev \
+       libnng1 \
+       sqlite3 \
+       libaugeas0 \
+       unzip \
+       curl \
+       git \
+    && apt-get update && apt-get install -y nginx \
+    && rm -f /etc/nginx/conf.d/default.conf \
+    && curl -s https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-640.x86_64-unknown-linux.zip -o bento4.zip \
+    && unzip bento4.zip \
+    && mkdir bento4 \
+    && mv Bento4-*-linux/* bento4 \
+    && rm -rf Bento4-SDK-1-6-0-640.x86_64-unknown-linux \
+    && rm bento4.zip \
+    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && apt-get --yes remove build-essential \
+    && apt-get --yes autoremove \
+    && apt-get -y clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+###
+### nginx bits
+###
+COPY podserver/files/robots.txt /var/www/wwwroot/
+COPY podserver/files/dhparam.pem /etc/nginx/ssl/
+RUN openssl rand 80 >/etc/nginx/ssl/sslticket.key
+COPY podserver/files/nginx.conf /etc/nginx/
+COPY podserver/files/virtualserver.conf.jinja2 /etc/nginx/conf.d/
+
+# Location of htaccess file defined in byoda-python:podserver/bootstrap/nginxconfig.py
+RUN touch /etc/nginx/htaccess.db
+
+
+COPY podserver/files/config.yml byoda-python/
+COPY podserver/files/startup.sh .
+
+COPY . byoda-python/
+
+CMD "/podserver/startup.sh"

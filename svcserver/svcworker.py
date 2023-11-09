@@ -158,7 +158,14 @@ async def reconcile_member_listeners(
         f'with members (currently {len(member_ids)})'
     )
 
-    for member_id in [m_id for m_id in member_ids if m_id not in members_seen]:
+    unseen_members: list[UUID] = [
+        m_id for m_id in member_ids if m_id not in members_seen
+    ]
+    _LOGGER.debug(f'Unseen members: {len(unseen_members)}')
+    
+    for member_id in unseen_members:
+        _LOGGER.debug(f'Got a new member {member_id}')
+
         listener = await UpdateListenerService.setup(
             asset_class, service.service_id, member_id,
             service.network.name, service.tls_secret,
