@@ -142,6 +142,11 @@ async def reconcile_member_listeners(
     :return: (none)
     '''
 
+    _LOGGER.debug(
+        f'Reconciling member listeners (currently {len(members_seen)}) '
+        f'with members (currently {len(member_db)})'
+    )
+
     member_ids = await member_db.get_members()
     for member_id in [m_id for m_id in member_ids if m_id not in members_seen]:
         listener = await UpdateListenerService.setup(

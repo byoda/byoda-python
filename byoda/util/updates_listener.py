@@ -309,6 +309,10 @@ class UpdateListenerService(UpdatesListener):
         '''
 
         for dest_class_name in self.target_lists:
+            _LOGGER.debug(
+                f'Adding asset {data["asset_id"]} from member {origin_id} '
+                f'to list {dest_class_name}'
+            )
             await self.asset_cache.lpush(
                 dest_class_name, data, origin_id, cursor
             )

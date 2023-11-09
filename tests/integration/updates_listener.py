@@ -24,6 +24,7 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.service import Service
 from byoda.datamodel.member import Member
+from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import DataRequestType
 
@@ -134,6 +135,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             await service.download_schema(save=True)
 
         await server.load_schema(verify_contract_signatures=False)
+        schema: Schema = service.schema
+        schema.get_data_classes(with_pubsub=False)
+        schema.generate_data_models('svcserver/codegen', datamodels_only=True)
+
+        await server.setup_asset_cache(app_config['svcserver']['cache'])
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
