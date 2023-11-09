@@ -7,6 +7,7 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -68,7 +69,7 @@ class ServiceServer(Server):
         self.kvcache = None
         self.dns_resolver = DnsResolver(network.name)
 
-    async def setup(network: Network, app_config: dict):
+    async def setup(network: Network, app_config: dict) -> Self:
         '''
         Sets up a service server with asychronous member_DB and search DB
 
@@ -81,13 +82,6 @@ class ServiceServer(Server):
 
         self.search_db: SearchDB = await SearchDB.setup(
             app_config['svcserver']['cache'], self.service
-        )
-
-        self.asset_cache: AssetCache = await AssetCache.setup(
-            app_config['svcserver']['cache'],
-            self.service,
-            asset_class=ASSET_CLASS,
-            expiration_window=DEFAULT_CACHE_EXPIRATION
         )
 
         self.member_db: MemberDb = await MemberDb.setup(
@@ -105,8 +99,6 @@ class ServiceServer(Server):
             with_private_key=True,
             password=password
         )
-
-        self.asset_cache.tls_secret = self.service.tls_secret
 
         self.service.tls_secret.save_tmp_private_key()
 
@@ -129,6 +121,27 @@ class ServiceServer(Server):
         )
 
         self.member_db.schema = service.schema
+
+    async def setup_asset_cache(self, connection_string: str) -> None:
+        '''
+        Sets up the asset cache for the service. The asset cache can only
+        be created after the schema has been loaded
+
+        :param connection_string: the connection string for the asset cache
+        :returns: (none)
+        :raises: ValueError
+        '''
+
+        if not self.service.schema:
+            raise ValueError(
+                'schema must be loaded before asset cache can be initialized'
+            )
+
+        self.asset_cache: AssetCache = await AssetCache.setup(
+            connection_string, self.service,
+            asset_class=ASSET_CLASS,
+            expiration_window=DEFAULT_CACHE_EXPIRATION
+        )
 
     async def review_jwt(self, jwt: JWT):
         '''

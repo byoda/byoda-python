@@ -413,6 +413,7 @@ class Schema:
         :returns: (none)
         :raises: ValueError
         '''
+
         if (self.verify_signatures
                 and not (SignatureType.NETWORK in self.verified_signatures and
                          SignatureType.SERVICE in self.verified_signatures)):
@@ -431,19 +432,24 @@ class Schema:
         data_class: SchemaDataItem
         for class_name, data_class in self.data_classes.items():
             try:
-                code: str = data_class.get_pydantic_data_model(environment)
-                data_model_contents += f'\n{code}'
+                source_code: str = data_class.get_pydantic_data_model(
+                    environment
+                )
+                data_model_contents += f'\n{source_code}'
             except NotImplementedError:
                 _LOGGER.error(
                     f'Failed to generate pydantic model for {class_name}'
                 )
 
-        data_model_code_filename = (
+        data_model_code_filename: str = (
             f'{codegen_dir}/pydantic_service_{self.service_id}_'
             f'{self.version}.py'
         )
-        with open(data_model_code_filename, 'w') as file_desc:
-            file_desc.write(data_model_contents)
+
+        module_name = self.get_module_name()
+        self.generate_module(
+            data_model_contents, module_name, data_model_code_filename
+        )
 
         if datamodels_only:
             _LOGGER.debug('Not generating data APIs')
@@ -459,27 +465,69 @@ class Schema:
                 f'{codegen_dir.rstrip("/")}'
                 f'/pydantic_{self.service_id}_{self.version}_{class_name}.py'
             )
-            with open(request_type_filename, 'w') as file_desc:
-                file_desc.write(code)
 
-            compiled_code: CodeType = compile(
-                code, request_type_filename, 'exec'
+            class_module_name: str = self.get_module_name(class_name)
+            self.generate_module(
+                code, class_module_name, request_type_filename
             )
 
-            # This trick keeps the result of the parsed code out of
-            # globals() and locals()
-            module_name: str = (
+    def get_module_name(self, class_name: str | None = None) -> str:
+        '''
+        Gets the name of the module for a data class
+
+        :param class_name: the name of the data class, if omitted,
+        returns the name of the class with all the Pydantic models
+        :returns: the name of the requested module
+        '''
+
+        module_name: str
+        if class_name is None:
+            module_name = f'pydantic_{self.service_id}_{self.version}'
+        else:
+            module_name = \
                 f'pydantic_{self.service_id}_{self.version}_{class_name}'
-            )
-            module: ModuleType = ModuleType(module_name)
 
-            # we need to add the module to the list of modules otherwise
-            # introspection by Strawberry module fails
-            sys.modules[module_name] = module
+        return module_name
 
-            # Now we execute the code as being part of the module we
-            # generated
-            exec(compiled_code, module.__dict__)
+    def generate_module(self, source_code: str, module_name: str,
+                        codegen_filename: str) -> None:
+        '''
+        Generates module from source code in a module and adds it to
+        the list of modules
+
+        :param source_code: the python code generated from the code template
+        :param module_name: the name of the module
+        :param codegen_filename: the filename for the generated code
+        '''
+
+        with open(codegen_filename, 'w') as file_desc:
+            file_desc.write(source_code)
+
+        compiled_code: CodeType = compile(
+            source_code, codegen_filename, 'exec'
+        )
+        module: ModuleType = ModuleType(module_name)
+
+        # This trick keeps the result of the parsed code out of
+        # globals() and locals()
+        sys.modules[module_name] = module
+
+        # Now we execute the code as being part of the module we
+        # generated
+        exec(compiled_code, module.__dict__)
+
+    def get_module(self, class_name: str | None = None) -> ModuleType:
+        '''
+        Gets the module for a data class
+
+        :param class_name: the name of the data class
+        :returns: the module for the data class
+        '''
+
+        module_name: str = self.get_module_name(class_name)
+        module: ModuleType = sys.modules[module_name]
+
+        return module
 
     def enable_data_apis(self, app: FastAPI):
         '''

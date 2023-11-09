@@ -6,10 +6,10 @@ Asset Cache maintains lists of assets
 :license    : GPLv3
 '''
 
-
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from types import ModuleType
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
+from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import DataRequestType
 from byoda.datatypes import CacheTech
@@ -30,16 +31,16 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
-from podserver.codegen.pydantic_service_4294929430_1 import asset as Asset
-
 _LOGGER: Logger = getLogger(__name__)
 
 Member = TypeVar('Member')
 
+AssetType = TypeVar('AssetType')
+
 
 @dataclass
 class AssetCacheItem:
-    data: Asset
+    data: AssetType
     member_id: UUID
     expires: float
     cursor: str
@@ -73,7 +74,10 @@ class AssetCache:
         :raises: (none)
         '''
 
+        schema: Schema = service.schema
         self.service_id: int = service.service_id
+        self.schema_version: int = service.schema.version
+
         self.tls_secret: ServiceSecret = service.tls_secret
         self.asset_class: str = asset_class
         self.expiration_window: float = expiration_window
@@ -85,6 +89,10 @@ class AssetCache:
         self.key: str = 'AssetCache'
 
         self.backend: KVCache
+
+        module: ModuleType = schema.get_module()
+        asset_class = module.asset
+        self.asset_class: AssetType = asset_class
 
     @staticmethod
     async def setup(connection_string: str, service: Service,
@@ -164,7 +172,7 @@ class AssetCache:
         result = await self.backend.delete_json_list(self.json_key(list_name))
         return bool(result)
 
-    async def lpush(self, list_name: str, data: object | Asset,
+    async def lpush(self, list_name: str, data: object | AssetType,
                     member_id: UUID, cursor: str, expires: float = None
                     ) -> int:
         '''
@@ -178,7 +186,7 @@ class AssetCache:
         :returns: the length of the list after the push operation
         '''
 
-        if isinstance(data, Asset):
+        if isinstance(data, AssetType):
             data = data.model_dump()
 
         asset_id: UUID = data['asset_id']
@@ -217,7 +225,7 @@ class AssetCache:
 
         return result
 
-    async def rpush(self, list_name: str, data: object | Asset,
+    async def rpush(self, list_name: str, data: object | AssetType,
                     member_id: UUID, cursor: str, expires: float = None
                     ) -> bool:
         '''
@@ -231,7 +239,7 @@ class AssetCache:
         :returns: True if the data was added to the list
         '''
 
-        if isinstance(data, Asset):
+        if isinstance(data, self.asset_class):
             data = data.model_dump()
 
         if await self.asset_exists_in_cache(
@@ -281,7 +289,7 @@ class AssetCache:
             return None
 
         asset_item = AssetCacheItem(**data)
-        asset_item.data = Asset(**asset_item.data)
+        asset_item.data = self.asset_class(**asset_item.data)
 
         member_id: UUID = asset_item.member_id
         asset_id: UUID = asset_item.data.asset_id
@@ -307,7 +315,7 @@ class AssetCache:
             results = []
             for data_item in data:
                 asset_item = AssetCacheItem(**data_item)
-                asset_item.data = Asset(**asset_item.data)
+                asset_item.data = self.asset_class(**asset_item.data)
                 results.append(asset_item)
             return results
 
@@ -457,10 +465,10 @@ class AssetCache:
                 items_renewed -= 1
                 break
 
-            refreshed_asset: Asset | None = None
+            refreshed_asset: AssetType | None = None
             try:
                 member_id: UUID = cache_item.member_id
-                asset: Asset = cache_item.data
+                asset: AssetType = cache_item.data
                 asset_id: UUID = asset.asset_id
 
                 if str(member_id).startswith('aaaaaaaa'):
@@ -532,7 +540,7 @@ class AssetCache:
             member_id=member_id,
             expires=timestamp + self.expiration_window,
             cursor=data['edges'][0]['cursor'],
-            data=Asset(**node)
+            data=self.asset_class(**node)
         )
 
         return asset
