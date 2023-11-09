@@ -283,7 +283,7 @@ async def setup_server() -> (Service, ServiceServer):
         sys.argv[0], json_out=True,
         debug=app_config['application'].get('debug', False),
         loglevel=app_config['application'].get('loglevel', 'INFO'),
-        logfile=app_config['application']['worker_logfile']
+        logfile=app_config['svcserver']['worker_logfile']
     )
 
     if debug:
