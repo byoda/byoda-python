@@ -80,7 +80,7 @@ class AssetCache:
         self.schema_version: int = service.schema.version
 
         self.tls_secret: ServiceSecret = service.tls_secret
-        self.asset_class: str = asset_class
+        self.asset_class_name: str = asset_class
         self.expiration_window: float = expiration_window
         self.cache_tech: CacheTech = cache_tech
 
@@ -242,7 +242,7 @@ class AssetCache:
         :returns: True if the data was added to the list
         '''
 
-        if isinstance(data, self.asset_class):
+        if not isinstance(data, dict):
             data = data.model_dump()
 
         if await self.asset_exists_in_cache(
@@ -551,9 +551,8 @@ class AssetCache:
     async def _asset_query(self, member_id: UUID, asset_id: UUID = None,
                            ) -> HttpResponse:
         '''
-        Queries the data API of a memberfor an asset
+        Queries the data API of a member for an asset
 
-        :param asset_class: the asset class to query
         :param asset_id: the asset_id of the asset to query
         :param tls_secret: the TLS secret to use when calling members
         to see if the asset still exists
@@ -565,8 +564,9 @@ class AssetCache:
             data_filter: dict = {'asset_id': {'eq': asset_id}}
 
         resp: HttpResponse = await DataApiClient.call(
-            self.service_id, self.asset_class, action=DataRequestType.QUERY,
-            secret=self.tls_secret, network=self.network_name,
+            self.service_id, self.asset_class_name,
+            action=DataRequestType.QUERY, secret=self.tls_secret,
+            network=self.network_name,
             member_id=member_id, data_filter=data_filter, first=1,
         )
 

@@ -66,7 +66,8 @@ class ServiceServer(Server):
             service_id=app_config['svcserver']['service_id']
         )
 
-        self.kvcache = None
+        self.asset_cache: AssetCache | None = None
+
         self.dns_resolver = DnsResolver(network.name)
 
     async def setup(network: Network, app_config: dict) -> Self:
