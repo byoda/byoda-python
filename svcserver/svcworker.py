@@ -82,9 +82,11 @@ async def main():
     members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
-        for listener in members_seen.values():
-            await listener.get_updates(task_group)
-
+        # Set up the listeners for the members that are already in the cache
+        await reconcile_member_listeners(
+            member_db, members_seen, service, ASSET_CLASS,
+            server.asset_cache, [ASSET_UPLOADED_LIST], task_group
+        )
         while True:
             if wait_time:
                 _LOGGER.debug('Sleeping for %d seconds', wait_time)

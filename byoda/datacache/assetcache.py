@@ -186,7 +186,7 @@ class AssetCache:
         :returns: the length of the list after the push operation
         '''
 
-        if isinstance(data, AssetType):
+        if not isinstance(data, dict):
             data = data.model_dump()
 
         asset_id: UUID = data['asset_id']
