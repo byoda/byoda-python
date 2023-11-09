@@ -9,10 +9,6 @@ WORKDIR /opt/byoda
 
 COPY . byoda-python/
 
-RUN cd /opt/byoda/byoda-python \
-    && pipenv install --deploy --ignore-pipfile \
-    && pipenv clean
-
 CMD cd /opt/byoda/byoda-python \
     && pipenv run python3 svcserver/svcworker.py \
        1> /var/log/byoda/svcworker-stdout.log \
