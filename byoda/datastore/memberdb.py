@@ -60,16 +60,24 @@ class MemberDb:
         '''
 
         self = MemberDb(schema)
-        self.kvcache = await KVCache.create(connection_string)
+        kvcache = await KVCache.create(connection_string)
+
+        self.kvcache: KVCache = kvcache
+
+        if not kvcache.exists(MEMBERS_LIST):
+            _LOGGER.debug('Creating the list of members')
+            await kvcache.push(MEMBERS_LIST, '')
         return self
 
     @property
     def service_id(self):
-        return self.kvcache.identifier
+        kvcache: KVCache = self.kvcache
+        return kvcache.identifier
 
     @service_id.setter
     def service_id(self, service_id: int):
-        self.kvcache.identifier = f'service-{str(service_id)}'
+        kvcache: KVCache = self.kvcache
+        kvcache.identifier = f'service-{str(service_id)}'
 
     async def exists(self, member_id: UUID) -> bool:
         '''
@@ -79,7 +87,8 @@ class MemberDb:
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
 
-        exists = await self.kvcache.exists(mid)
+        kvcache: KVCache = self.kvcache
+        exists = await kvcache.exists(mid)
 
         return exists
 
@@ -88,14 +97,16 @@ class MemberDb:
         Finds the first occurrence of value in the list for the key
         '''
 
-        return await self.kvcache.pos(MEMBERS_LIST, str(member_id))
+        kvcache: KVCache = self.kvcache
+        return await kvcache.pos(MEMBERS_LIST, str(member_id))
 
     async def get_next(self, timeout: int = 0) -> UUID:
         '''
         Remove the first item in the MEMBER_LIST and return it
         '''
 
-        value = await self.kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+        kvcache: KVCache = self.kvcache
+        value = await kvcache.get_next(MEMBERS_LIST, timeout=timeout)
 
         if isinstance(value, bytes):
             value = UUID(value.decode('utf-8'))
@@ -111,15 +122,17 @@ class MemberDb:
 
         # TODO: lookup in list is not scalable.
         if await self.pos(member_id) is None:
+            _LOGGER.debug(f'Adding member {member_id} to the list')
             await self.add_member(member_id)
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         _LOGGER.debug(
-            f'Adding metadata for member {member_id} with key {mid} to'
+            f'Adding metadata for member {member_id} with key {mid} to '
             'the MemberDB'
         )
 
-        await self.kvcache.set(
+        kvcache: KVCache = self.kvcache
+        await kvcache.set(
             mid,
             {
                 'member_id': str(member_id),
@@ -139,7 +152,8 @@ class MemberDb:
         '''
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
-        data = await self.kvcache.get(mid)
+        kvcache: KVCache = self.kvcache
+        data = await kvcache.get(mid)
 
         _LOGGER.debug(
             f'Got metadata for member {member_id} with key {mid} from'
@@ -169,7 +183,8 @@ class MemberDb:
 
         mid = MEMBER_ID_META_FORMAT.format(member_id=member_id)
 
-        ret = await self.kvcache.delete(mid)
+        kvcache: KVCache = self.kvcache
+        ret = await kvcache.delete(mid)
 
         exists = ret != 0
 
@@ -186,14 +201,16 @@ class MemberDb:
         '''
 
         _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
-        await self.kvcache.push(MEMBERS_LIST, str(member_id))
+        kvcache: KVCache = self.kvcache
+        await kvcache.push(MEMBERS_LIST, str(member_id))
 
     async def get_members(self) -> list[UUID]:
         '''
         Get the list of members
         '''
 
-        members = await self.kvcache.get_list(MEMBERS_LIST)
+        kvcache: KVCache = self.kvcache
+        members = await kvcache.get_list(MEMBERS_LIST)
 
         return [UUID(member.decode('utf-8')) for member in members]
 
@@ -204,7 +221,8 @@ class MemberDb:
         :returns: whether the key existed or not
         '''
 
-        ret = await self.kvcache.delete(MEMBERS_LIST)
+        kvcache: KVCache = self.kvcache
+        ret = await kvcache.delete(MEMBERS_LIST)
 
         exists = ret != 0
 
@@ -218,10 +236,17 @@ class MemberDb:
     async def set_data(self, member_id: UUID, data: dict) -> bool:
         '''
         Saves the data for a member
+
+        :param member_id:
+        :param data:
+        :returns: whether key was set in the DB
+        :raises: (none)
         '''
+
         mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
 
-        ret = await self.kvcache.set(mid, data)
+        kvcache: KVCache = self.kvcache
+        ret = await kvcache.set(mid, data)
 
         return ret
 
@@ -233,7 +258,8 @@ class MemberDb:
         '''
 
         mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
-        data = await self.kvcache.get(mid)
+        kvcache: KVCache = self.kvcache
+        data = await kvcache.get(mid)
 
         return data
 
@@ -244,6 +270,7 @@ class MemberDb:
         :returns: whether the key existed or not
         '''
 
-        ret = await self.kvcache.delete(str(member_id))
+        kvcache: KVCache = self.kvcache
+        ret = await kvcache.delete(str(member_id))
 
         return ret != 0

@@ -89,39 +89,47 @@ async def main():
         )
         while True:
             if wait_time:
-                _LOGGER.debug('Sleeping for %d seconds', wait_time)
+                _LOGGER.debug(f'Sleeping for {round(wait_time, 3)} seconds')
                 await sleep(wait_time)
 
             wait_time = 0.1
 
-            member_id: UUID = await member_db.get_next(timeout=MAX_WAIT)
-            if not member_id:
-                _LOGGER.debug('No member available in list of members')
-                continue
+            member_id: UUID | None = None
+            try:
+                member_id = await member_db.get_next(timeout=MAX_WAIT)
+                if not member_id:
+                    _LOGGER.debug('No member available in list of members')
+                    continue
 
-            if is_test_uuid(member_id):
-                _LOGGER.debug(
-                    f'Not processing member with test UUID: {member_id}'
+                if is_test_uuid(member_id):
+                    _LOGGER.debug(
+                        f'Not processing member with test UUID: {member_id}'
+                    )
+                    continue
+
+                _LOGGER.debug(f'Processing member_id {member_id}')
+
+                await reconcile_member_listeners(
+                    member_db, members_seen, service, ASSET_CLASS,
+                    server.asset_cache, [ASSET_UPLOADED_LIST], task_group
                 )
-                continue
 
-            _LOGGER.debug(f'Processing member_id {member_id}')
-
-            await reconcile_member_listeners(
-                member_db, members_seen, service, ASSET_CLASS,
-                server.asset_cache, [ASSET_UPLOADED_LIST], task_group
-            )
-
-            wait_time: int = await update_member(
-                service, member_id, server.member_db
-            )
+                wait_time = await update_member(
+                    service, member_id, server.member_db
+                )
+            except Exception as exc:
+                # We need to catch any exception to make sure we can try
+                # adding the member_id back to the list of member_ids in the
+                # MemberDb
+                _LOGGER.warning(f'Got exception: {exc}')
 
             if not wait_time:
                 wait_time = 0.1
-            else:
+            elif member_id:
                 # Add the member back to the list of members as it seems
                 # to be up and running, even if it may not have returned
                 # any data
+                _LOGGER.debug(f'Adding {member_id} back to the list')
                 await member_db.add_member(member_id)
 
 

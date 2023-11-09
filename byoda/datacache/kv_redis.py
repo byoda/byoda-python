@@ -313,7 +313,7 @@ class KVRedis(KVCache):
             )
 
         _LOGGER.debug(
-            f'Got moved value {value} from begin to end of key {key}'
+            f'Got moved value {value} from begin to end of list with key {key}'
         )
 
         return value

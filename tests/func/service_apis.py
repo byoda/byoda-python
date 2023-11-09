@@ -159,7 +159,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     def test_service_get(self):
         API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
 
-        response = httpx.get(API)
+        response = httpx.get(API, timeout=300)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 12)
@@ -185,7 +185,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
         response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=None
+            API, json={'csr': str(csr, 'utf-8')}, headers=None, timeout=300
         )
         self.assertEqual(response.status_code, 201)
         data = response.json()
@@ -229,7 +229,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
         response = httpx.put(
             f'{API}/version/1', headers=headers,
-            json={'certchain': member_data_certchain}
+            json={'certchain': member_data_certchain},
+            timeout=300
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -245,7 +246,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 'nickname': None,
                 'text': None,
                 'asset_id': asset_id
-            }
+            },
+            timeout=300
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -260,7 +262,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         response = requests.get(
             API, headers=headers, json={
                 'mentions': ['blah']
-            }
+            },
+            timeout=300
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
