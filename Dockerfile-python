@@ -48,5 +48,3 @@ RUN apt-get update && apt-get install -y \
     && apt-get --yes autoremove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
-
-ENV PYTHONPATH=/opt/byoda/byoda-python

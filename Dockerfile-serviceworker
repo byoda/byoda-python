@@ -9,6 +9,8 @@ WORKDIR /opt/byoda
 
 COPY . byoda-python/
 
+ENV PYTHONPATH=/opt/byoda/byoda-python
+
 CMD cd /opt/byoda/byoda-python \
     && pipenv run python3 svcserver/svcworker.py \
        1> /var/log/byoda/svcworker-stdout.log \
