@@ -1,4 +1,4 @@
-ARG TAG=prod
+ARG TAG=latest
 FROM byoda/byoda-python:$TAG
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
