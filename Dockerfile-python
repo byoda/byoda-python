@@ -16,7 +16,8 @@ RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
     /var/www/wwwroot/logs \
-    byoda-python
+    byoda-python \
+    /opt/byoda/byoda-python
 
 COPY ./Pipfile ./Pipfile.lock byoda-python/
 
