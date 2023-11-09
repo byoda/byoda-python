@@ -16,7 +16,6 @@ from datetime import timezone
 from ipaddress import ip_address
 from ipaddress import IPv4Address
 
-from byoda.datamodel.schema import Schema
 from byoda.datatypes import MemberStatus
 
 from byoda.datacache.kv_cache import KVCache
@@ -35,11 +34,11 @@ class MemberDb:
     Store for registered members
 
     The metadata of a member is stored in the MEMBER_ID_META_FORMAT
-    ('{member_id}-meta) while the actual data is stored using the member_id
+    ('{member_id}-meta') while the actual data is stored using the member_id
     string as key
     '''
 
-    def __init__(self, schema: Schema = None):
+    def __init__(self, service_id: int | None = None):
         '''
         Do not call this constructor directly. Use MemberDb.setup() instead
 
@@ -48,10 +47,9 @@ class MemberDb:
         :raises: (none)
         '''
 
-        self.schema: Schema | None = schema
-        self._service_id = None
+        self._service_id = service_id
 
-    async def setup(connection_string: str, schema: Schema = None):
+    async def setup(connection_string: str, service_id: int | None = None):
         '''
         Factory for the MemberDB class
 
@@ -59,14 +57,10 @@ class MemberDb:
         :param schema: the schema to use for validation of the data
         '''
 
-        self = MemberDb(schema)
-        kvcache = await KVCache.create(connection_string)
-
+        self = MemberDb(service_id)
+        kvcache = await KVCache.create(connection_string, service_id)
         self.kvcache: KVCache = kvcache
 
-        if not await kvcache.exists(MEMBERS_LIST):
-            _LOGGER.debug('Creating the list of members')
-            await kvcache.push(MEMBERS_LIST, '')
         return self
 
     @property
@@ -212,7 +206,7 @@ class MemberDb:
         kvcache: KVCache = self.kvcache
         members = await kvcache.get_list(MEMBERS_LIST)
 
-        return [UUID(member.decode('utf-8')) for member in members]
+        return [UUID(member.decode('utf-8')) for member in members if member]
 
     async def delete_members_list(self):
         '''

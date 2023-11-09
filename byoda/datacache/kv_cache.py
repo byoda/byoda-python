@@ -39,7 +39,7 @@ class KVCache(ABC):
 
         # We can't set namespace here as the config.server object may not
         # have been set yet at this stage of the initialization of the server
-        self.namespace = None
+        self.namespace: str = None
 
         if identifier is not None:
             self.identifier = identifier
@@ -85,7 +85,8 @@ class KVCache(ABC):
             self.namespace = config.server.network.name + self._identifier
 
         self.namespace = self.namespace.rstrip(':')
-        return f'{config.server.server_type.value}:{self.namespace}:{str(key)}'
+        value: str = f'{config.server.server_type.value}:{self.namespace}:{str(key)}'
+        return value
 
     @abstractmethod
     def exists(self, key: str) -> bool:

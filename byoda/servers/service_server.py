@@ -79,15 +79,15 @@ class ServiceServer(Server):
         '''
 
         self = ServiceServer(network, app_config)
+        config.server = self
 
         self.search_db: SearchDB = await SearchDB.setup(
             app_config['svcserver']['cache'], self.service
         )
 
         self.member_db: MemberDb = await MemberDb.setup(
-            app_config['svcserver']['cache']
+            app_config['svcserver']['cache'], self.service.service_id
         )
-        self.member_db.service_id = self.service.service_id
 
         return self
 
