@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y \
        unzip \
        curl \
        git \
-    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && cd /opt/byoda/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
     && apt-get --yes remove build-essential \
     && apt-get --yes autoremove \
     && apt-get -y clean \
