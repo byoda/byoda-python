@@ -1,4 +1,4 @@
-FROM byoda/byoda-pod:dev
+FROM byoda/byoda-python-web:$TAG
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
@@ -6,8 +6,6 @@ LABEL org.opencontainers.image.authors="steven@byoda.org"
 ### nginx bits
 ###
 COPY podserver/files/robots.txt /var/www/wwwroot/
-COPY podserver/files/dhparam.pem /etc/nginx/ssl/
-RUN openssl rand 80 >/etc/nginx/ssl/sslticket.key
 COPY podserver/files/nginx.conf /etc/nginx/
 COPY podserver/files/virtualserver.conf.jinja2 /etc/nginx/conf.d/
 
