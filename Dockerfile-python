@@ -4,7 +4,6 @@ LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 # TODO
 # 1: run uvicorn/fastapi/app as non-root user
-# 2: use nginx from Nginx Inc docker repo
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
@@ -65,24 +64,3 @@ RUN apt-get update && apt-get install -y \
     && apt-get --yes autoremove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
-
-
-###
-### nginx bits
-###
-COPY podserver/files/robots.txt /var/www/wwwroot/
-COPY podserver/files/dhparam.pem /etc/nginx/ssl/
-RUN openssl rand 80 >/etc/nginx/ssl/sslticket.key
-COPY podserver/files/nginx.conf /etc/nginx/
-COPY podserver/files/virtualserver.conf.jinja2 /etc/nginx/conf.d/
-
-# Location of htaccess file defined in byoda-python:podserver/bootstrap/nginxconfig.py
-RUN touch /etc/nginx/htaccess.db
-
-
-COPY podserver/files/config.yml byoda-python/
-COPY podserver/files/startup.sh .
-
-COPY . byoda-python/
-
-CMD "/podserver/startup.sh"
