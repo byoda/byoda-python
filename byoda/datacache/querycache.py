@@ -12,7 +12,8 @@ from os import makedirs
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+
+from byoda.datamodel.network import Network
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
@@ -20,6 +21,8 @@ from byoda.datatypes import CacheType
 from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -64,8 +67,8 @@ class QueryCache:
         cache = QueryCache(member, cache_tech=cache_tech)
         _LOGGER.debug(f'Creating query cache using {cache.filepath}')
         cache.backend: KVCache = await KVCache.create(
-            cache.filepath, identifier=str(member.member_id),
-            cache_tech=cache_tech, cache_type=CacheType.QUERY_ID
+            cache.filepath, cache_tech=cache_tech,
+            cache_type=CacheType.QUERY_ID
         )
 
         return cache

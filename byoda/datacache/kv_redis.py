@@ -7,13 +7,16 @@ storing data about their members
 :license    : GPLv3
 '''
 
+from typing import Self
 from logging import getLogger
 
 import orjson
 
 import redis.asyncio as redis
 
-from .kv_cache import KVCache, DEFAULT_CACHE_EXPIRATION
+from byoda.datatypes import CacheType
+
+from .kv_cache import KVCache
 
 from byoda.util.logger import Logger
 
@@ -21,28 +24,38 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class KVRedis(KVCache):
-    def __init__(self, identifier: str = None):
+    def __init__(self,  service_id: int, network_name: str,
+                 server_type: str, cache_type: CacheType) -> Self:
         '''
         Constructor. Do not call directly, use the factory KVRedis.setup()
         instead
 
-        :param connection_string: format 'host:port:password'
+        :param service_id: the service ID, used for the key annotations
+        :param network_name: the network name, used for the key annotations
+        :param server_type: the server type, used for the key annotations
         :param identifier: string to include when formatting the key,
-        typically this would be the service_id
+        for example the member ID
         '''
 
-        self.default_cache_expiration = DEFAULT_CACHE_EXPIRATION
+        self.default_cache_expiration = KVCache.DEFAULT_CACHE_EXPIRATION
 
-        super().__init__(identifier=identifier)
+        super().__init__(
+            service_id=service_id, network_name=network_name,
+            server_type=server_type, identifier=cache_type.value
+        )
 
         self.driver = None
 
-    async def setup(connection_string: str, identifier: str = None):
+    async def setup(connection_string: str, service_id: int, network_name: str,
+                    server_type: str, cache_type: CacheType) -> Self:
         '''
         Factory for KVRedis class
         '''
 
-        self: KVRedis = KVRedis(identifier)
+        self: KVRedis = KVRedis(
+            service_id=service_id, network_name=network_name,
+            server_type=server_type, cache_type=cache_type
+        )
 
         self.driver = await redis.from_url(connection_string)
 
@@ -266,7 +279,7 @@ class KVRedis(KVCache):
         return value
 
     async def set(self, key: str, value: object,
-                  expiration: int = DEFAULT_CACHE_EXPIRATION) -> bool:
+                  expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
         Sets a key to the specified value. If the value is a dict
         or a list then it gets converted to a JSON string
@@ -387,7 +400,7 @@ class KVRedis(KVCache):
         return val
 
     async def incr(self, key: str, amount: int = 1,
-                   expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration=KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         Increments a counter, creates the counter is it doesn't exist already
         '''
@@ -402,7 +415,7 @@ class KVRedis(KVCache):
         return int(value)
 
     async def decr(self, key: str, amount: int = 1,
-                   expiration=DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration=KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         Decrements a counter, sets it to 0 if it does not exist
         or goes below 0

@@ -8,17 +8,21 @@ about registered clients
 '''
 
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 from ipaddress import ip_address
 from ipaddress import IPv4Address
 
 from byoda.datatypes import MemberStatus
+from byoda.datatypes import CacheTech
+from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -38,7 +42,7 @@ class MemberDb:
     string as key
     '''
 
-    def __init__(self, service_id: int | None = None):
+    def __init__(self, service_id: int, network_name: str):
         '''
         Do not call this constructor directly. Use MemberDb.setup() instead
 
@@ -47,9 +51,11 @@ class MemberDb:
         :raises: (none)
         '''
 
-        self._service_id = service_id
+        self._service_id: int = service_id
+        self.network_name: str = network_name
 
-    async def setup(connection_string: str, service_id: int | None = None):
+    async def setup(connection_string: str, service_id: int, network_name: str
+                    ) -> Self:
         '''
         Factory for the MemberDB class
 
@@ -57,8 +63,13 @@ class MemberDb:
         :param schema: the schema to use for validation of the data
         '''
 
-        self = MemberDb(service_id)
-        kvcache = await KVCache.create(connection_string, service_id)
+        self = MemberDb(service_id, network_name)
+        kvcache = await KVCache.create(
+            connection_string, service_id=service_id,
+            network_name=network_name, server_type='ServiceServer',
+            cache_type=CacheType.MEMBERDB, cache_tech=CacheTech.REDIS
+        )
+
         self.kvcache: KVCache = kvcache
 
         return self

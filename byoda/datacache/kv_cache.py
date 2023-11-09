@@ -10,19 +10,20 @@ provide encryption/decryption capabilities
 :license    : GPLv3
 '''
 
-from abc import ABC, abstractmethod
+from typing import Self
 from logging import getLogger
-from byoda.util.logger import Logger
+from typing import TypeVar
+from abc import ABC, abstractmethod
 
-from byoda import config
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
 
+from byoda.util.logger import Logger
+
 _LOGGER: Logger = getLogger(__name__)
 
-# 3 days default expiration
-DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
+Server = TypeVar('Server')
 
 # TODO: review
 # ldbm at https://pypi.org/project/lmdbm/
@@ -30,26 +31,34 @@ DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
 
 
 class KVCache(ABC):
-    def __init__(self, identifier: str = None):
+    DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
+
+    def __init__(self, service_id: int, network_name: str,
+                 server_type: str, identifier: str | None = None,):
         '''
-        Constructur for the KVCache base class
+        Constructur for the KVCache base class. The parameters are used to
+        to generate a namespace (prefix) for the keys in the cache. The
+        namespace always ends with ':'
 
         :param identifier: string to include in the key annotation
+        :param network_name: network_name to include in the key annotation
+        :param server_type: server_type to include in the key annotation
+        :returns: self
         '''
 
-        # We can't set namespace here as the config.server object may not
-        # have been set yet at this stage of the initialization of the server
-        self.namespace: str = None
+        self.namespace: str = f'{server_type}:{network_name}-{service_id}:'
 
-        if identifier is not None:
-            self.identifier = identifier
-        else:
-            self.identifier = ''
+        if identifier:
+            self.namespace += f'{identifier.rstrip(":")}:'
+
+        self.service_id: int = service_id
 
     @staticmethod
-    async def create(connection_string: str, identifier: str = None,
+    async def create(connection_string: str, network_name: str | None = None,
+                     service_id: int | None = None, 
+                     server_type: Server | None = None,
                      cache_tech: CacheTech = CacheTech.REDIS,
-                     cache_type: CacheType = None):
+                     cache_type: CacheType = None) -> Self:
         '''
         Factory for a KV Cache
 
@@ -67,10 +76,12 @@ class KVCache(ABC):
             kvs = await KVSqlite.create(connection_string, cache_type)
             return kvs
         elif cache_tech == CacheTech.REDIS:
-            if cache_type:
-                raise ValueError('Cache type not supported for Redis')
             from .kv_redis import KVRedis
-            kvr = await KVRedis.setup(connection_string, identifier)
+            kvr = await KVRedis.setup(
+                connection_string, service_id=service_id,
+                network_name=network_name, server_type=server_type,
+                cache_type=cache_type
+            )
             return kvr
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
@@ -81,11 +92,8 @@ class KVCache(ABC):
         key will always be a string.
         '''
 
-        if not self.namespace:
-            self.namespace = config.server.network.name + self._identifier
+        value: str = f'{self.namespace}:{str(key)}'
 
-        self.namespace = self.namespace.rstrip(':')
-        value: str = f'{config.server.server_type.value}:{self.namespace}:{str(key)}'
         return value
 
     @abstractmethod

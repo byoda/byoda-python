@@ -21,6 +21,7 @@ from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import DataRequestType
 from byoda.datatypes import CacheTech
+from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -115,8 +116,10 @@ class AssetCache:
         elif cache_tech == CacheTech.REDIS:
             from .kv_redis import KVRedis
             self.backend = await KVRedis.setup(
-                connection_string=connection_string,
-                identifier=f'Service-{self.service_id}:'
+                connection_string, service_id=service.service_id,
+                network_name=service.network.name, server_type='ServiceServer',
+                cache_type=CacheType.ASSETDB
+
             )
         else:
             raise NotImplementedError(

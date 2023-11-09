@@ -148,6 +148,9 @@ class CacheType(Enum):
     OBJECT       = 'object'
     DATA         = 'data'
     ASSET        = 'asset'
+    ASSETDB      = 'AssetDb'
+    MEMBERDB     = 'MemberDb'
+    SEARCHDB     = 'SearchDb'
 
 CounterFilter = dict[str, str | UUID]
 

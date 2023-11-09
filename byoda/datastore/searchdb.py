@@ -15,6 +15,7 @@ from byoda.util.logger import Logger
 from byoda.datamodel.service import Service
 
 from byoda.datatypes import CacheTech
+from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -56,8 +57,9 @@ class SearchDB:
 
         self = SearchDB(service)
         self.kvcache = await KVCache.create(
-            connection_string, identifier=service.service_id,
-            cache_tech=CacheTech.REDIS
+            connection_string, service_id=service.service_id,
+            network_name=service.network.name, server_type='ServiceServer',
+            cache_type=CacheType.SEARCHDB, cache_tech=CacheTech.REDIS
         )
 
         return self

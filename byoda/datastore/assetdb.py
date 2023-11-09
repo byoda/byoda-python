@@ -1,5 +1,5 @@
 '''
-Class MemberDb stores information for the Service and Directory servers
+Class AssetDb stores information for the Service and Directory servers
 about registered clients
 
 :maintainer : Steven Hessing <steven@byoda.org>
@@ -38,19 +38,23 @@ class AssetDb:
     string as key
     '''
 
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str, service_id: int,
+                 network_name: str, server_type: str):
         '''
         Initializes the DB. The DB consists of both a list of asset_ids,
         a hash of the metadata for each member_id and a hash of the actual
         data for the member
         '''
 
-        self.kvcache = KVCache.create(connection_string)
-        self._service_id = None
+        self.kvcache = KVCache.create(
+            connection_string, service_id=service_id,
+            network_name=network_name, server_type=server_type)
+
+        self._service_id = service_id
 
     @property
     def service_id(self):
-        return self.kvcache.identifier
+        return self.kvcache.service_id
 
     @service_id.setter
     def service_id(self, service_id: int):

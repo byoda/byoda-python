@@ -24,7 +24,7 @@ from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.datacache.kv_cache import DEFAULT_CACHE_EXPIRATION
+from byoda.datacache.kv_cache import KVCache
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
@@ -79,14 +79,14 @@ class ServiceServer(Server):
         '''
 
         self = ServiceServer(network, app_config)
-        config.server = self
+        service: Service = self.service
 
         self.search_db: SearchDB = await SearchDB.setup(
-            app_config['svcserver']['cache'], self.service
+            app_config['svcserver']['cache'], service
         )
 
         self.member_db: MemberDb = await MemberDb.setup(
-            app_config['svcserver']['cache'], self.service.service_id
+            app_config['svcserver']['cache'], service.service_id, network.name
         )
 
         return self
@@ -140,7 +140,7 @@ class ServiceServer(Server):
         self.asset_cache: AssetCache = await AssetCache.setup(
             connection_string, self.service,
             asset_class=ASSET_CLASS,
-            expiration_window=DEFAULT_CACHE_EXPIRATION
+            expiration_window=KVCache.DEFAULT_CACHE_EXPIRATION
         )
 
     async def review_jwt(self, jwt: JWT):

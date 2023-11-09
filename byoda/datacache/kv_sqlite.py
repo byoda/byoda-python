@@ -43,7 +43,7 @@ class KVSqlite(KVCache):
         '''
 
         super().__init__(identifier=None)
-        self.default_cache_expiration = DEFAULT_CACHE_EXPIRATION
+        self.default_cache_expiration = KVCache.DEFAULT_CACHE_EXPIRATION
         self.cache_file = cache_file
         self.cache_type: CacheType = cache_type
 
@@ -156,7 +156,7 @@ class KVSqlite(KVCache):
         return orjson.loads(data)
 
     async def set(self, key: str, value: object,
-                  expiration: int = DEFAULT_CACHE_EXPIRATION) -> bool:
+                  expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> bool:
         '''
         Sets the key with values in the cache. The value with be serialized
         for storage in
@@ -198,7 +198,7 @@ class KVSqlite(KVCache):
             return False
 
     async def incr(self, key: str | UUID, value: int = 1,
-                   expiration: int = DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         increments the value for the key in the cache
 
@@ -257,7 +257,7 @@ class KVSqlite(KVCache):
         return new_value
 
     async def decr(self, key: str | UUID, value: int = 1,
-                   expiration: int = DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
         '''
         increments the value for the key in the cache
 

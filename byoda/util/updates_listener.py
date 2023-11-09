@@ -42,7 +42,7 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datacache.assetcache import AssetCache
 
-from byoda.datacache.kv_cache import DEFAULT_CACHE_EXPIRATION
+from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 
@@ -66,7 +66,8 @@ class UpdatesListener:
 
     def __init__(self, class_name: str, service_id: int,
                  member_id: UUID, network_name: str, tls_secret: Secret,
-                 cache_expiration: int = DEFAULT_CACHE_EXPIRATION) -> Self:
+                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                 ) -> Self:
         '''
         Listen for updates to a class from a remote pod and store the updates
         in a cache
@@ -250,7 +251,8 @@ class UpdateListenerService(UpdatesListener):
     def __init__(self, class_name: str, service_id: int, member_id: UUID,
                  network_name: str, tls_secret: Secret,
                  asset_cache: AssetCache, target_lists: set[str],
-                 cache_expiration: int = DEFAULT_CACHE_EXPIRATION) -> Self:
+                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                 ) -> Self:
         '''
         Constructor, do not call directly. Use UpdateListenerService.setup()
 
@@ -273,7 +275,8 @@ class UpdateListenerService(UpdatesListener):
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
                     asset_cache: AssetCache, target_lists: set[str],
-                    cache_expiration: int = DEFAULT_CACHE_EXPIRATION) -> Self:
+                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                    ) -> Self:
         '''
         Factory
 
@@ -330,7 +333,8 @@ class UpdateListenerMember(UpdatesListener):
     '''
 
     def __init__(self, class_name: str, member: Member, dest_class_name: str,
-                 cache_expiration: int = DEFAULT_CACHE_EXPIRATION) -> Self:
+                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                 ) -> Self:
         '''
         Constructor, do not call directly, use UpdateListenerMember.setup()
 
@@ -365,7 +369,8 @@ class UpdateListenerMember(UpdatesListener):
         )
 
     async def setup(class_name: str, member: Member, dest_class_name: str,
-                    cache_expiration: int = DEFAULT_CACHE_EXPIRATION) -> Self:
+                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                    ) -> Self:
         '''
         Factory
 
