@@ -33,8 +33,10 @@ Server = TypeVar('Server')
 class KVCache(ABC):
     DEFAULT_CACHE_EXPIRATION = 3 * 24 * 60 * 60
 
-    def __init__(self, service_id: int, network_name: str,
-                 server_type: str, identifier: str | None = None,):
+    def __init__(self, service_id: int | None = None,
+                 network_name: str | None = None,
+                 server_type: str | None = None,
+                 identifier: str | None = None):
         '''
         Constructur for the KVCache base class. The parameters are used to
         to generate a namespace (prefix) for the keys in the cache. The
@@ -55,7 +57,7 @@ class KVCache(ABC):
 
     @staticmethod
     async def create(connection_string: str, network_name: str | None = None,
-                     service_id: int | None = None, 
+                     service_id: int | None = None,
                      server_type: Server | None = None,
                      cache_tech: CacheTech = CacheTech.REDIS,
                      cache_type: CacheType = None) -> Self:
