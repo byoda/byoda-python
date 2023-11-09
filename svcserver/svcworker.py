@@ -121,7 +121,7 @@ async def main():
                 # We need to catch any exception to make sure we can try
                 # adding the member_id back to the list of member_ids in the
                 # MemberDb
-                _LOGGER.warning(f'Got exception: {exc}')
+                _LOGGER.exception(f'Got exception: {exc}')
 
             if not wait_time:
                 wait_time = 0.1
@@ -167,7 +167,7 @@ async def reconcile_member_listeners(
 
         _LOGGER.debug(f'Initiating sync and listener for member {member_id}')
         await listener.get_all_data()
-        await listener.get_updates(task_group)
+        await listener.setup_listen_assets(task_group)
 
         members_seen[member_id] = listener
 
