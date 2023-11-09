@@ -331,7 +331,7 @@ class KVRedis(KVCache):
 
         return value
 
-    async def get_list(self, key) -> object:
+    async def get_list(self, key: str) -> object:
         '''
         Gets the list of values of a key
         '''

@@ -94,7 +94,7 @@ class KVCache(ABC):
         key will always be a string.
         '''
 
-        value: str = f'{self.namespace}:{str(key)}'
+        value: str = f'{self.namespace}{str(key)}'
 
         return value
 
