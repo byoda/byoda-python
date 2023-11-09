@@ -19,7 +19,7 @@ RUN mkdir -p \
     byoda-python \
     /opt/byoda/byoda-python
 
-COPY ./Pipfile ./Pipfile.lock byoda-python/
+COPY ./Pipfile ./Pipfile.lock /opt/byoda/byoda-python/
 
 # BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
 # https://www.bento4.com/
