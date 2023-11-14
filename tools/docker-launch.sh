@@ -6,7 +6,7 @@ export TAG=latest
 if [ -d ".git" ]; then
     RESULT=$(grep byoda .git/config)
     if [ "$?" -eq "0" ]; then
-        RESULT=$(git status | head -1 | grep 'branch master')
+        RESULT=$(git status | head -1 | grep 'branch main')
         if [ "$?" -eq "1" ]; then
             export TAG=dev
         fi
