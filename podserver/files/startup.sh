@@ -38,6 +38,7 @@ cat <<EOF
 EOF
 
 # First see if we need to generate or renew a Let's Encrypt certificate
+# TODO: try to get a previously saved certificate from cloud storage
 if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
     if [[ -f "/etc/letsencrypt/live/${CUSTOM_DOMAIN}/privkey.pem" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
@@ -95,20 +96,6 @@ if [[ -z "${FAILURE}" ]]; then
 fi
 
 if [[ -z "${FAILURE}" ]]; then
-    echo "{\"message\": \"Starting discover worker\"}"
-    nice -20 pipenv run podserver/discover_worker.py \
-        1>/var/www/wwwroot/logs/discover-stdout.log \
-        2>/var/www/wwwroot/logs/discover-stderr.log &
-
-    if [[ "$?" != "0" ]]; then
-        echo "{\"message\": \"Discoverworker failed\"}"
-        FAILURE=1
-    else
-        echo "{\"message\": \"Discoverworker exited successfully\"}"
-    fi
-fi
-
-if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting feed worker\"}"
     nice -20 pipenv run podserver/feed_worker.py \
         1>/var/www/wwwroot/logs/feed-stdout.log \
@@ -133,7 +120,6 @@ if [[ -z "${FAILURE}" ]]; then
     rm -rf /var/run/podserver.pid
     echo "{\"message\": \"Starting the web application server\"}"
     pipenv run python3 -m gunicorn \
-        -p /var/run/podserver.pid \
         -c gunicorn.conf.py \
         podserver.main:app
     if [[ "$?" != "0" ]]; then

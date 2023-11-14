@@ -1,15 +1,9 @@
 '''
-/service/api API
+API for submitting App certificates for signature by the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
-
-It takes 3 steps for a pod to become a member of service:
-1: POST service/api/v1/service/member to get a CSR for a membersigned
-2: PUT directory/api/v1/service/member to get the DNS record created
-3: PUT service/api/v1/service/member to tell service that the pod with
-   the membership is up and running
 '''
 
 

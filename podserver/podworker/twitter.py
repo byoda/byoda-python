@@ -20,10 +20,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.data_import.twitter import Twitter
 
-from podserver.codegen.grapqhql_queries_4294929430 import QUERY_TWEETS
-from podserver.codegen.grapqhql_queries_4294929430 import APPEND_TWEETS
-from podserver.codegen.grapqhql_queries_4294929430 import APPEND_TWITTER_MEDIAS
-
 from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
@@ -31,12 +27,46 @@ _LOGGER: Logger = getLogger(__name__)
 NEWEST_TWEET_FILE: str = 'newest_tweet.txt'
 
 
-async def twitter_update_task(server: PodServer):
+async def run_twitter_startup_tasks(server: PodServer, account: Account,
+                                    twitter_import_service_id: int) -> None:
+    '''
+    Sets up task for importing YouTube videos
 
-    raise NotImplementedError(
+    :param account: the account of this pod
+    :param youtube_import_service_id: The service to run the Youtube import on
+    :returns: (none)
+    :raises: (none)
+    '''
+
+    _LOGGER.error(
         'Twitter update task needs to be refactored '
         'to use DataRestApiClient'
     )
+
+    twitter_member: Member = await account.get_membership(
+        twitter_import_service_id, with_pubsub=False
+    )
+    if twitter_member:
+        try:
+            _LOGGER.debug('Found membership for Twitter import')
+            if Twitter.twitter_integration_enabled():
+                _LOGGER.info('Enabling Twitter integration')
+                server.twitter_client = Twitter.client()
+                user = server.twitter_client.get_user()
+                server.twitter_client.extract_user_data(user)
+
+                fetch_tweets(
+                    server.twitter_client, twitter_import_service_id
+                )
+        except Exception as exc:
+            _LOGGER.exception(f'Exception during startup: {exc}')
+            raise
+    else:
+        _LOGGER.debug('Did not find membership of address book')
+
+
+async def twitter_update_task(server: PodServer):
+
     try:
         if server.twitter_client:
             _LOGGER.debug('Update Twitter data')

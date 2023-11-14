@@ -40,7 +40,7 @@ from byoda.secrets.secret import Secret
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.datacache.assetcache import AssetCache
+from byoda.datacache.asset_cache import AssetCache
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -65,15 +65,17 @@ class UpdatesListener:
     '''
 
     def __init__(self, class_name: str, service_id: int,
-                 member_id: UUID, network_name: str, tls_secret: Secret,
+                 remote_member_id: UUID, network_name: str, tls_secret: Secret,
                  cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
                  ) -> Self:
         '''
         Listen for updates to a class from a remote pod and store the updates
         in a cache
 
-        :param data_class: the source of the data
+        :param class_name: the source data class for the data
         :param member_id: the member ID of the remote pod to listen to
+        :param network_name: the name of the network that the pod is in
+        :param tls_secret: our TLS secret of either our pod or service
         :param cache_expiry: the time in seconds after which the data should
         be expired
         :returns: self
@@ -81,7 +83,7 @@ class UpdatesListener:
 
         self.class_name: str = class_name
         self.service_id: int = service_id
-        self.member_id: UUID = member_id
+        self.remote_member_id: UUID = remote_member_id
         self.cache_expiration: int = cache_expiration
         self.network_name: str = network_name
         self.tls_secret: Secret = tls_secret
@@ -102,12 +104,13 @@ class UpdatesListener:
         while has_more_assets:
             resp: HttpResponse = await DataApiClient.call(
                 self.service_id, self.class_name, DataRequestType.QUERY,
-                secret=self.tls_secret, member_id=self.member_id,
+                secret=self.tls_secret, member_id=self.remote_member_id,
                 network=self.network_name, first=first, after=after,
             )
             if resp.status_code != 200:
                 _LOGGER.debug(
-                    f'Failed to get assets from member {self.member_id}: '
+                    f'Failed to get assets from member '
+                    f'{self.remote_member_id}: '
                     f'{resp.status_code}: {resp.text}'
                 )
                 return assets_retrieved
@@ -119,14 +122,15 @@ class UpdatesListener:
             except ValueError as exc:
                 _LOGGER.debug(
                     'Received corrupt data '
-                    f'from member {self.member_id}: {exc}'
+                    f'from member {self.remote_member_id}: {exc}'
                 )
                 return assets_retrieved
 
             assets_retrieved += response.total_count
             _LOGGER.debug(
                 f'Received {response.total_count} assets from request from '
-                f'member {self.member_id}, total is now {assets_retrieved}'
+                f'member {self.remote_member_id}, total is now '
+                f'{assets_retrieved}'
             )
 
             for edge in response.edges or []:
@@ -136,6 +140,11 @@ class UpdatesListener:
 
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
+
+        _LOGGER.debug(
+            f'Synced {assets_retrieved} assets '
+            f'from {self.remote_member_id}'
+        )
 
         return assets_retrieved
 
@@ -154,7 +163,7 @@ class UpdatesListener:
 
         _LOGGER.debug(
             f'Initiating listening to updates for class {self.class_name} '
-            f'of member {self.member_id}'
+            f'of member {self.remote_member_id}'
         )
 
         task_group.start_soon(self.get_updates)
@@ -175,7 +184,7 @@ class UpdatesListener:
 
         service_id: int = self.service_id
         _LOGGER.debug(
-            f'Connecting to remote member {self.member_id} for updates '
+            f'Connecting to remote member {self.remote_member_id} for updates '
             f'to class {self.class_name} of service {self.service_id}'
         )
 
@@ -186,7 +195,7 @@ class UpdatesListener:
             try:
                 async for result in DataWsApiClient.call(
                         service_id, self.class_name, DataRequestType.UPDATES,
-                        self.tls_secret, member_id=self.member_id,
+                        self.tls_secret, member_id=self.remote_member_id,
                         network=self.network_name
                 ):
                     updates_data: dict = orjson.loads(result)
@@ -194,7 +203,7 @@ class UpdatesListener:
                     _LOGGER.debug(
                         f'Appending data from class {self.class_name} '
                         f'originating from {edge.origin_id} '
-                        f'received from member {self.member_id}'
+                        f'received from member {self.remote_member_id}'
                         f'to asset cache: {edge.node}'
                     )
 
@@ -216,23 +225,24 @@ class UpdatesListener:
             except (ConnectionClosedOK, ConnectionClosedError,
                     WebSocketException, ConnectionRefusedError) as exc:
                 _LOGGER.debug(
-                    f'Websocket client transport error to {self.member_id}. '
-                    f'Will reconnect in {reconnect_delay} secs: {exc}'
+                    f'Websocket client transport error to '
+                    f'{self.remote_member_id}. Will reconnect '
+                    f'in {reconnect_delay} secs: {exc}'
                 )
             except socket_gaierror as exc:
                 _LOGGER.debug(
-                    f'Websocket connection to member {self.member_id} '
+                    f'Websocket connection to member {self.remote_member_id} '
                     f'failed: {exc}'
                 )
             except CancelledError as exc:
                 _LOGGER.debug(
-                    f'Websocket connection to member {self.member_id} '
+                    f'Websocket connection to member {self.remote_member_id} '
                     f'cancelled by asyncio: {exc}'
                 )
             except Exception as exc:
                 _LOGGER.debug(
-                    f'Failed to establish connection to the membership '
-                    f'of our pod: {exc}'
+                    f'Failed to establish connection '
+                    f'to {self.remote_member_id}: {exc}'
                 )
 
             await sleep(reconnect_delay)
@@ -243,7 +253,8 @@ class UpdatesListener:
 
             if last_alive - datetime.now(tz=timezone.utc) > timedelta(days=30):
                 raise RuntimeError(
-                    f'Member {self.member_id} has not been seen for 30 days'
+                    f'Member {self.remote_member_id} has not been seen for '
+                    '30 days'
                 )
 
 
@@ -271,6 +282,18 @@ class UpdateListenerService(UpdatesListener):
 
         self.asset_cache: AssetCache = asset_cache
         self.target_lists: set[str] = target_lists
+
+    def matches(self, member_id: UUID, service_id: int, source_class_name: str
+                ) -> bool:
+        '''
+        Checks whether a listener matches the provided parameters
+        '''
+
+        return (
+            self.remote_member_id == member_id
+            and self.service_id == service_id
+            and self.class_name == source_class_name
+        )
 
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
@@ -332,7 +355,8 @@ class UpdateListenerMember(UpdatesListener):
     WebSocket APIs.
     '''
 
-    def __init__(self, class_name: str, member: Member, dest_class_name: str,
+    def __init__(self, class_name: str, member: Member, remote_member_id: UUID,
+                 dest_class_name: str,
                  cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
                  ) -> Self:
         '''
@@ -347,13 +371,12 @@ class UpdateListenerMember(UpdatesListener):
         :raises: (none)
         '''
 
-        member_id: UUID = member.member_id
         service_id: int = member.service_id
         network: Network = member.network
         network_name: str = network.name
 
         super().__init__(
-            class_name, service_id, member_id, network_name,
+            class_name, service_id, remote_member_id, network_name,
             member.tls_secret, cache_expiration
         )
 
@@ -368,14 +391,29 @@ class UpdateListenerMember(UpdatesListener):
                 member.member_id
         )
 
-    async def setup(class_name: str, member: Member, dest_class_name: str,
+    def matches(self, member_id: UUID, service_id: int, source_class_name: str,
+                dest_class_name: str) -> bool:
+        '''
+        Checks whether a listener matches the provided parameters
+        '''
+
+        return (
+            self.remote_member_id == member_id
+            and self.service_id == service_id
+            and self.class_name == source_class_name
+            and self.dest_class_name == dest_class_name
+        )
+
+    async def setup(class_name: str, member: Member, remote_member_id: UUID,
+                    dest_class_name: str,
                     cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
                     ) -> Self:
         '''
         Factory
 
         :param data_class: class to retrieve data from
-        :param member: the member to retrieve the data from
+        :param member: our membership of the service
+        :param remote_member_id: the member to retrieve the data from
         :param dest_class_name: the class to store the data in
         :param cache_expiration: the time in seconds after which the data
         must be expired
@@ -384,7 +422,8 @@ class UpdateListenerMember(UpdatesListener):
         '''
 
         self = UpdateListenerMember(
-            class_name, member, dest_class_name, cache_expiration
+            class_name, member, remote_member_id, dest_class_name,
+            cache_expiration
         )
 
         return self

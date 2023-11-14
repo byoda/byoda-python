@@ -244,19 +244,19 @@ async def process_message(message: PubSubMessage, server: PodServer,
 
     _LOGGER.debug(
         f'Received data from class {message.class_name} for '
-        f'asset ID {message.data.get("asset_id")}'
+        f'asset ID {message.node.get("asset_id")}'
     )
 
     # TODO: use HTTP call here so that counters for the feed class
     # get updated
     await MemberData.append_data(
-        server, member, feed_class_name, message.data,
+        server, member, feed_class_name, message.node,
         message.origin_id, message.origin_id_type,
         message.origin_class_name
     )
 
     delete_filter_set = DataFilterSet.from_data_class_data(
-        incoming_class.referenced_class, message.data
+        incoming_class.referenced_class, message.node
     )
     _LOGGER.debug(
         f'Deleting data from class {incoming_class} '

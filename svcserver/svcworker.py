@@ -36,7 +36,7 @@ from byoda.datamodel.schema import Schema
 
 from byoda.datastore.memberdb import MemberDb
 
-from byoda.datacache.assetcache import AssetCache
+from byoda.datacache.asset_cache import AssetCache
 
 from byoda.storage.filestorage import FileStorage
 
@@ -162,7 +162,7 @@ async def reconcile_member_listeners(
         m_id for m_id in member_ids if m_id not in members_seen
     ]
     _LOGGER.debug(f'Unseen members: {len(unseen_members)}')
-    
+
     for member_id in unseen_members:
         _LOGGER.debug(f'Got a new member {member_id}')
 

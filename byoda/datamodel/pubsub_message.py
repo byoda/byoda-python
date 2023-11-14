@@ -11,7 +11,6 @@ derive
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import orjson
 
@@ -20,6 +19,8 @@ from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datatypes import IdType
 from byoda.datatypes import PubSubMessageType
 from byoda.datatypes import PubSubMessageAction
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -33,7 +34,7 @@ class PubSubMessage():
     '''
 
     __slots__ = [
-        'action', 'class_name', 'data_class', 'data', 'type',
+        'action', 'class_name', 'data_class', 'node', 'type',
         'origin_id', 'origin_id_type', 'origin_class_name'
     ]
 
@@ -44,7 +45,7 @@ class PubSubMessage():
         self.action: PubSubMessageAction | None = None
         self.class_name: str | None = None
         self.data_class: SchemaDataItem | None = None
-        self.data: dict[str, object] | None = None
+        self.node: dict[str, object] | None = None
 
         self.origin_id: UUID | None = None
         self.origin_id_type: IdType | None = None
@@ -121,7 +122,7 @@ class PubSubDataMessage(PubSubMessage):
         super().__init__(PubSubMessageType.DATA)
 
         self.action = action
-        self.data: dict[str, object] = data['data']
+        self.node: dict[str, object] = data['node']
         self.data_class: SchemaDataItem = data_class
 
         self.class_name: str | None = None
@@ -175,7 +176,7 @@ class PubSubDataMessage(PubSubMessage):
         )
         msg.data_class: SchemaDataItem = data_class
         msg.class_name: str = data_class.name
-        msg.data: dict[str, object] = data
+        msg.node: dict[str, object] = data
 
         return msg
 
@@ -188,7 +189,7 @@ class PubSubDataMessage(PubSubMessage):
             'type': self.type,
             'action': self.action,
             'class_name': self.class_name,
-            'data': self.data,
+            'node': self.node,
             'origin_id': self.origin_id,
             'origin_id_type': self.origin_id_type,
             'origin_class_name': self.origin_class_name,
@@ -229,10 +230,11 @@ class PubSubDataAppendMessage(PubSubDataMessage):
         '''
 
         all_data: dict[str, object] = {
-            'data': data,
+            'node': data,
             'origin_id': origin_id,
             'origin_id_type': origin_id_type,
-            'origin_class_name': origin_class_name
+            'origin_class_name': origin_class_name,
+            'hops': 0,
         }
         msg = PubSubDataAppendMessage(all_data, data_class)
 
@@ -274,8 +276,8 @@ class PubSubDataAppendMessage(PubSubDataMessage):
         msg.class_name: str = msg.data_class.name
 
         referenced_class: SchemaDataItem = msg.data_class.referenced_class
-        msg.data: dict[str, object] = referenced_class.normalize(
-            data_dict.get('data')
+        msg.node: dict[str, object] = referenced_class.normalize(
+            data_dict.get('node')
         )
 
         return msg
