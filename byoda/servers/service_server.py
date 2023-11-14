@@ -18,7 +18,7 @@ from byoda.datamodel.network import Network
 from byoda.datastore.memberdb import MemberDb
 from byoda.datastore.searchdb import SearchDB
 
-from byoda.datacache.assetcache import AssetCache
+from byoda.datacache.asset_cache import AssetCache
 
 from byoda.secrets.member_data_secret import MemberDataSecret
 

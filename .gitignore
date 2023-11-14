@@ -19,6 +19,10 @@ svcserver/codegen/*
 podserver/files/authorized_keys
 podserver/files/config.yml
 
+# memray files
+memray*.bin
+memray*.html
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

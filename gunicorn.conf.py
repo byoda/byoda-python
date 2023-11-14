@@ -35,7 +35,7 @@ else:
 
 # backlog - The maximum number of pending connections
 # Generally in range 64-2048
-backlog = 64
+backlog = 2048
 
 # ===============================================
 #           Worker Processes
@@ -69,11 +69,15 @@ worker_class: str = "uvicorn.workers.UvicornWorker"
 # A positive integer generally in the 2-4 x $(NUM_CORES) range
 threads = 1
 
-
 # keep_alive - The number of seconds to wait for requests on a
 # Keep-Alive connection
 # Generally set in the 1-5 seconds range.
 keep_alive: int = 3600
+
+# max_requests - the number of requests processed by a worker
+# after which the worker will restart to avoid memory leaks
+max_requests: int = 4096
+max_requests_jitter: int = 60
 
 # ===============================================
 #           Security
@@ -151,7 +155,7 @@ raw_env: list[str] = []
 # pidfile - A filename to use for the PID file
 # If not set, no PID file will be written.
 # Note, this is set on the command line by startup.sh script
-pidfile: str | None = None
+pidfile: str | None = '/var/run/podserver.pid'
 
 # worker_tmp_dir - A directory to use for the worker heartbeat temporary file
 # If not set, the default temporary directory will be used.
@@ -174,7 +178,7 @@ group: str | None = None
 # A valid value for the os.umask(mode) call or a string compatible with
 # int(value, 0) (0 means Python guesses the base, so values like “0”, “0xFF”,
 # “0022” are valid for decimal, hex, and octal representations)
-umask: int = 0
+umask: int = 0o007
 
 # initgroups - If true, set the worker process’s group access list with all of
 # the groups of which the specified username is a member, plus the specified
@@ -373,6 +377,7 @@ dogstatsd_tags: str = ''
 # This affects things like `ps` and `top`.
 # It defaults to ‘gunicorn’.
 proc_name: str = 'gunicorn'
+# proc_name: str = 'appserver'
 
 # TODO: this is probably not working
 ws_per_message_deflate: bool = False

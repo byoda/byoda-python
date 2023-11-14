@@ -278,7 +278,8 @@ class UpdatesModel(BaseModel):
 
 class UpdatesResponseModel(BaseModel):
     node: dict[str, object] = Field(description='The data that was updated')
-    query_id: UUID = Field(
+    query_id: UUID | None = Field(
+        default=None,
         description='The query ID of the original Updates API request'
     )
     origin_id: UUID = Field(
@@ -295,5 +296,6 @@ class UpdatesResponseModel(BaseModel):
         description='The number of hops the update response has traveled'
     )
     filter: DataFilterType | None = Field(
-        default=None, description='The filter from the Updates API request'
+        default=None,
+        description='The filter from the original Updates API request'
     )

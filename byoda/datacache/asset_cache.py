@@ -41,13 +41,15 @@ AssetType = TypeVar('AssetType')
 
 @dataclass
 class AssetCacheItem:
-    data: AssetType
-    member_id: UUID
     expires: float
+    node: AssetType
+    origin: UUID
     cursor: str
 
 
 class AssetCache:
+    ASSET_UPLOADED_LIST: str = 'recently_uploaded_assets'
+
     '''
     AssetCache contains two functionalities:
 
@@ -162,18 +164,30 @@ class AssetCache:
         '''
 
         while True:
-            item: AssetCacheItem = await self.backend.rpop_json_list(
+            item: dict[str, object] = await self.backend.rpop_json_list(
                 self.json_key(list_name)
             )
             if not item:
                 break
 
-            asset_id: UUID = item['data']['asset_id']
-            member_id = item['member_id']
+            asset_id: UUID = item['node']['asset_id']
+            member_id = item['origin']
             await self.delete_asset_from_cache(list_name, member_id, asset_id)
 
         result = await self.backend.delete_json_list(self.json_key(list_name))
         return bool(result)
+
+    async def pos(self, list_name: str, cursor: str) -> int:
+        '''
+        Gets the position of an item in the list
+
+        :param cursor: the cursor of the item to find
+        :returns: the position of the item in the list
+        '''
+
+        key: str = self.json_key(list_name)
+
+        return await self.backend.pos(key, cursor)
 
     async def lpush(self, list_name: str, data: object | AssetType,
                     member_id: UUID, cursor: str, expires: float = None
@@ -211,10 +225,10 @@ class AssetCache:
         )
 
         asset_item = AssetCacheItem(
-            member_id=member_id,
+            origin=member_id,
             expires=expires,
             cursor=cursor,
-            data=data
+            node=data
         )
 
         await self.add_asset_to_cache(list_name, member_id, data)
@@ -264,10 +278,10 @@ class AssetCache:
         )
 
         asset_item = AssetCacheItem(
-            member_id=member_id,
+            origin=member_id,
             expires=expires,
             cursor=cursor,
-            data=data
+            node=data
         )
 
         await self.add_asset_to_cache(list_name, member_id, data)
@@ -292,10 +306,10 @@ class AssetCache:
             return None
 
         asset_item = AssetCacheItem(**data)
-        asset_item.data = self.asset_class(**asset_item.data)
+        asset_item.node = self.asset_class(**asset_item.node)
 
-        member_id: UUID = asset_item.member_id
-        asset_id: UUID = asset_item.data.asset_id
+        member_id: UUID = asset_item.origin
+        asset_id: UUID = asset_item.node.asset_id
 
         await self.delete_asset_from_cache(list_name, member_id, asset_id)
 
@@ -318,7 +332,7 @@ class AssetCache:
             results = []
             for data_item in data:
                 asset_item = AssetCacheItem(**data_item)
-                asset_item.data = self.asset_class(**asset_item.data)
+                asset_item.node = self.asset_class(**asset_item.node)
                 results.append(asset_item)
             return results
 
@@ -395,7 +409,12 @@ class AssetCache:
         asset_id: UUID | str = asset_data['asset_id']
         key = AssetCache.get_asset_key(list_name, member_id, asset_id)
 
-        return await self.backend.set(key, asset_data)
+        # We want the our expiration logic to expire items, not the Redis
+        # cache eviction. But we also don't want to have thombstones in
+        # the DB so we do set an expiration
+        return await self.backend.set(
+            key, asset_data, 2 * KVCache.DEFAULT_CACHE_EXPIRATION
+        )
 
     async def delete_asset_from_cache(self, list_name: str,
                                       member_id: UUID | str,
@@ -456,8 +475,8 @@ class AssetCache:
             cache_item: AssetCacheItem = await self.rpop(list_name)
             if cache_item.expires > timestamp:
                 _LOGGER.debug(
-                    f'Found asset {cache_item.data.asset_id} from '
-                    f'member {cache_item.member_id} that '
+                    f'Found asset {cache_item.node.asset_id} from '
+                    f'member {cache_item.origin} that '
                     f'expiring at {cache_item.expires}, '
                     'so it has not expired yet'
                 )
@@ -470,8 +489,8 @@ class AssetCache:
 
             refreshed_asset: AssetType | None = None
             try:
-                member_id: UUID = cache_item.member_id
-                asset: AssetType = cache_item.data
+                member_id: UUID = cache_item.origin
+                asset: AssetType = cache_item.node
                 asset_id: UUID = asset.asset_id
 
                 if str(member_id).startswith('aaaaaaaa'):
@@ -502,7 +521,7 @@ class AssetCache:
 
         for refreshed_asset in reversed(cache_items):
             await self.rpush(
-                list_name, refreshed_asset.data, refreshed_asset.member_id,
+                list_name, refreshed_asset.node, refreshed_asset.origin,
                 refreshed_asset.cursor, refreshed_asset.expires
             )
             items_renewed += 1
@@ -540,10 +559,10 @@ class AssetCache:
         node: dict[str, object] = data['edges'][0]['node']
         timestamp: float = datetime.now(tz=timezone.utc).timestamp()
         asset = AssetCacheItem(
-            member_id=member_id,
+            origin=member_id,
             expires=timestamp + self.expiration_window,
             cursor=data['edges'][0]['cursor'],
-            data=self.asset_class(**node)
+            node=self.asset_class(**node)
         )
 
         return asset

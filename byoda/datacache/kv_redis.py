@@ -44,6 +44,7 @@ class KVRedis(KVCache):
             server_type=server_type, identifier=cache_type.value
         )
 
+        self.connection_string: str = None
         self.driver = None
 
     async def setup(connection_string: str, service_id: int, network_name: str,
@@ -57,6 +58,7 @@ class KVRedis(KVCache):
             server_type=server_type, cache_type=cache_type
         )
 
+        self.connection_string: str = connection_string
         self.driver = await redis.from_url(connection_string)
 
         await self.driver.ping()
@@ -82,10 +84,7 @@ class KVRedis(KVCache):
 
         result: bool = await self.driver.exists(key)
 
-        if result:
-            _LOGGER.debug(f'JSON list {key} exists')
-        else:
-            _LOGGER.debug(f'JSON list {key} does not exist')
+        _LOGGER.debug(f'JSON list {key} exists: {bool(result)}')
 
         return result
 

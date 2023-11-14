@@ -180,7 +180,7 @@ class PubSubNng(PubSub):
             raise ValueError('PubSubNng not setup for sending')
 
         _LOGGER.debug(
-            f'Sending message to {self.connection_string}: {message.data}'
+            f'Sending message to {self.connection_string}: {message.node}'
         )
 
         val = message.to_bytes()

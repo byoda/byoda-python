@@ -18,9 +18,10 @@ import shutil
 import asyncio
 import unittest
 import httpx
-from uuid import uuid4
 
+from uuid import uuid4
 from multiprocessing import Process
+
 import uvicorn
 
 from cryptography.hazmat.primitives import serialization
@@ -30,11 +31,11 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.service import Service
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.secrets.secret import Secret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
-
-from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.service_server import ServiceServer
 
@@ -49,8 +50,10 @@ from svcserver.routers import service as ServiceRouter
 from svcserver.routers import member as MemberRouter
 from svcserver.routers import search as SearchRouter
 from svcserver.routers import status as StatusRouter
+from svcserver.routers import data as DataRouter
 
 from tests.lib.util import get_test_uuid
+
 
 # Settings must match config.yml used by directory server
 TEST_DIR = '/tmp/byoda-tests/svc-apis'
@@ -70,8 +73,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
         with open(CONFIG_FILE) as file_desc:
             TestDirectoryApis.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
@@ -108,25 +109,28 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         shutil.copy(DUMMY_SCHEMA, TEST_DIR + '/' + service_file)
 
-        svc = Service(
+        service = Service(
             network=network, service_id=app_config['svcserver']['service_id']
         )
         if service_file:
-            await svc.examine_servicecontract(service_file)
+            await service.examine_servicecontract(service_file)
 
-        await svc.create_secrets(
+        await service.create_secrets(
             network.services_ca, local=True,
             password=app_config['svcserver']['private_key_password']
         )
 
-        config.server = await ServiceServer.setup(network, app_config)
+        server = await ServiceServer.setup(network, app_config)
+        config.server: ServiceServer = server
+
         storage = FileStorage(app_config['svcserver']['root_dir'])
         await config.server.load_network_secrets(storage_driver=storage)
 
         await config.server.load_secrets(
             app_config['svcserver']['private_key_password']
         )
-        await config.server.load_schema(verify_contract_signatures=False)
+
+        await server.load_schema(verify_contract_signatures=False)
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
@@ -135,7 +139,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         app = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
             'v0.0.1',
-            [ServiceRouter, MemberRouter, SearchRouter, StatusRouter],
+            [
+                ServiceRouter,
+                MemberRouter,
+                SearchRouter,
+                StatusRouter,
+                DataRouter
+            ],
             lifespan=None, trace_server=config.trace_server,
         )
 
@@ -153,7 +163,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(1)
 
     @classmethod
-    async def asyncTDown(self):
+    async def asyncTearDown(self):
         TestDirectoryApis.PROCESS.terminate()
 
     def test_service_get(self):
@@ -168,7 +178,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['name'], 'dummyservice')
         # Schema is not signed for this test case
         # self.assertEqual(len(data['signatures']), 2)
-        schema = Schema(data)           # noqa: F841
+        Schema(data)           # noqa: F841
 
     async def test_member_putpost(self):
         API = BASE_URL + '/v1/service/member'
@@ -310,4 +320,5 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
+    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

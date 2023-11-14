@@ -50,6 +50,38 @@ LOCK_TIMEOUT: int = 3 * 24 * 60 * 60
 YOUTUBE_IMPORT_INTERVAL: int = 3 * 60 * 60
 
 
+async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
+                                    youtube_import_service_id: int) -> None:
+    '''
+    Sets up task for importing YouTube videos
+
+    :param account: the account of this pod
+    :param youtube_import_service_id: The service to run the Youtube import on
+    :returns: (none)
+    :raises: (none)
+    '''
+
+    youtube_member: Member = await account.get_membership(
+        youtube_import_service_id, with_pubsub=False
+    )
+    if youtube_member:
+        try:
+            _LOGGER.debug('Running startup tasks for membership of YouTube')
+            schema: Schema = youtube_member.schema
+            schema.get_data_classes(with_pubsub=False)
+            await data_store.setup_member_db(
+                youtube_member.member_id, youtube_import_service_id,
+                youtube_member.schema
+            )
+        except Exception as exc:
+            _LOGGER.exception(f'Exception during startup: {exc}')
+            raise
+    else:
+        _LOGGER.debug(
+            'Did not find membership for import of YouTube videos'
+        )
+
+
 async def youtube_update_task(server: PodServer, service_id: int):
     account: Account = server.account
     member: Member = await account.get_membership(service_id)

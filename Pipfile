@@ -72,6 +72,7 @@ deprecated = "*"
 anyio = "*"
 redis = {extras = ["hiredis"], version = "*"}
 redis-om = "*"
+memray = "*"
 
 [dev-packages]
 flake8 = "*"
