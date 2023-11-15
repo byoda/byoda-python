@@ -325,7 +325,7 @@ class AssetCache:
         '''
 
         data: list[AssetCacheItem] = await self.backend.json_range(
-            self.json_key(list_name), start, end
+            self.json_key(list_name), start, start + end
         )
 
         if data:

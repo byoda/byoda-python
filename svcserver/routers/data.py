@@ -35,7 +35,7 @@ MAX_PAGE_SIZE: int = 100
 
 @router.get('/data', status_code=200)
 async def get_data(request: Request,
-                   list: str | None = AssetCache.ASSET_UPLOADED_LIST,
+                   list_name: str | None = AssetCache.ASSET_UPLOADED_LIST,
                    first: int = DEFAULT_PAGING_SIZE, after: int = 0
                    ) -> QueryResponseModel:
     '''
@@ -52,7 +52,7 @@ async def get_data(request: Request,
 
     first = min(first, MAX_PAGE_SIZE)
 
-    asset_items = await asset_cache.get_range(list, after, first + 1)
+    asset_items = await asset_cache.get_range(list_name, after, first + 1)
     has_next_page: bool = False
     if len(asset_items) > first:
         asset_items = asset_items[:-1]
