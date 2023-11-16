@@ -12,9 +12,9 @@ import yaml
 import shutil
 import unittest
 
+from copy import copy
 from uuid import UUID
 from datetime import datetime
-from datetime import timezone
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -164,21 +164,75 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         result = await asset_cache.create_list(list_name)
         self.assertTrue(result)
 
-        item_count: int = 6
-        for n in range(1, item_count):
-            asset_data['asset_id'] = get_test_uuid()
+        all_asset_count: int = 110
+        all_assets: list[dict[str, UUID | str | int | float | datetime]] = []
+        for n in range(0, all_asset_count):
+            new_asset_data = copy(asset_data)
+            new_asset_data['asset_id'] = str(get_test_uuid())
             result = await asset_cache.lpush(
-                list_name, asset_data, member_id, f'{n}*test',
+                list_name, new_asset_data, member_id, f'{n}*test',
             )
-            self.assertEqual(result, n)
+            self.assertEqual(result, n + 1)
+            all_assets.append(new_asset_data)
 
-        resp: HttpResponse = await ApiClient.call(
-            'http://localhost:8000/api/v1/service/data', app=config.app
-        )
+        api_url: str = 'http://localhost:8000/api/v1/service/data'
+        resp: HttpResponse = await ApiClient.call(api_url, app=config.app)
 
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertGreaterEqual(len(data), 5)
+        self.assertGreaterEqual(data['total_count'], 25)
+        asset_id = data['edges'][0]['node']['asset_id']
+        self.assertEqual(
+            asset_id, str(all_assets[all_asset_count - 1]['asset_id'])
+        )
+        self.assertNotEqual(data['edges'][1]['node']['asset_id'], asset_id)
+
+        step: int = 25
+        for loop in range(0, 5):
+            after = loop * 25
+            resp: HttpResponse = await ApiClient.call(
+                f'{api_url}?first={step}&after={after}', app=config.app
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            if loop >= 4:
+                self.assertEqual(data['total_count'], 10)
+                self.assertEqual(len(data['edges']), 10)
+            else:
+                self.assertEqual(data['total_count'], step)
+                self.assertEqual(len(data['edges']), step)
+
+            api_asset_id: str
+            all_asset_id: str
+            all_data_index: int
+            api_asset_count: int = len(data['edges'])
+            for count in range(0, api_asset_count):
+                api_asset_id = data['edges'][count]['node']['asset_id']
+
+                all_data_index = (all_asset_count - 1) - (loop * step) - count
+                all_asset_id = str(all_assets[all_data_index]['asset_id'])
+                self.assertEqual(api_asset_id, all_asset_id)
+
+        after = 20
+        resp: HttpResponse = await ApiClient.call(
+            f'http://localhost:8000/api/v1/service/data?after={after}',
+            app=config.app
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['total_count'], step)
+        self.assertEqual(len(data['edges']), step)
+
+        start_asset_id: str = data['edges'][0]['node']['asset_id']
+        end_asset_id: str = data['edges'][step-1]['node']['asset_id']
+
+        all_assets_index = all_asset_count - 1 - after
+        self.assertEqual(
+            start_asset_id, all_assets[all_assets_index]['asset_id']
+        )
+        self.assertEqual(
+            end_asset_id, all_assets[all_assets_index - step + 1]['asset_id']
+        )
 
 
 if __name__ == '__main__':

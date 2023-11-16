@@ -378,7 +378,7 @@ fi
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
 
-sudo docker run -d \
+sudo docker run -d --memory=800m \
     --name byoda --restart=unless-stopped \
     --pull always \
     -e "LOGLEVEL=${LOGLEVEL}" \

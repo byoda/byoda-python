@@ -22,49 +22,72 @@ from byoda.util.logger import Logger
 
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
-from tests.lib.defines import AZURE_POD_ACCOUNT_ID
-from tests.lib.defines import AZURE_POD_MEMBER_ID
+from tests.lib.defines import TEST_IDS
 
 TEST_DIR = '/tmp/byoda-tests/proxy_test'
 
 
 class TestCors(unittest.TestCase):
     def test_cors_headers(self):
-        direct_account_fqdn = f'{AZURE_POD_ACCOUNT_ID}.accounts.byoda.net'
-        do_request(self, direct_account_fqdn)
+        for cloud, ids in TEST_IDS.items():
+            _LOGGER.debug(f'Testing cloud: {cloud}')
 
-        direct_member_fqdn = \
-            f'{AZURE_POD_MEMBER_ID}.members-{ADDRESSBOOK_SERVICE_ID}.byoda.net'
-        do_request(self, direct_member_fqdn)
+            if cloud != 'home':
+                direct_account_fqdn = f'{ids["account_id"]}.accounts.byoda.net'
+                do_request(self, cloud, direct_account_fqdn)
 
-        proxy_fqdn = 'proxy.byoda.net'
+                direct_member_fqdn = (
+                    f'{ids["member_id"]}.members-{ADDRESSBOOK_SERVICE_ID}'
+                    '.byoda.net'
+                )
+                do_request(self, cloud, direct_member_fqdn)
 
-        proxy_account_api_prefix = f'/{AZURE_POD_ACCOUNT_ID}'
-        do_request(
-            self, proxy_fqdn,
-            api_prefix=proxy_account_api_prefix
-        )
+            proxy_fqdn = 'proxy.byoda.net'
 
-        proxy_member_api_prefix = \
-            f'/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}'
-        do_request(
-            self, proxy_fqdn,
-            api_prefix=proxy_member_api_prefix
-        )
+            proxy_account_api_prefix = f'/{ids["account_id"]}'
+            do_request(
+                self, cloud, proxy_fqdn,
+                api_prefix=proxy_account_api_prefix
+            )
+
+            proxy_member_api_prefix = \
+                f'/{ADDRESSBOOK_SERVICE_ID}/{ids["member_id"]}'
+            do_request(
+                self, cloud, proxy_fqdn,
+                api_prefix=proxy_member_api_prefix
+            )
 
 
-def do_request(testcase, fqdn: str, api_prefix: str = '/'):
+def do_request(testcase, cloud: str, fqdn: str, api_prefix: str = '/'):
     if api_prefix and api_prefix[-1] != '/':
         api_prefix = api_prefix + '/'
 
-    location = f'https://{fqdn}'
-    url = f'{location}{api_prefix}api/v1/status'
+    locations: list[str] = [
+        f'https://{fqdn}',
+        f'https://www.byoda.net',
+        f'https://addressbook.byoda.org',
+        f'https://byoda.tube',
+        f'https://www.byoda.tube',
+        'http://localhost:3000'
+    ]
+
+    location: str
+    for location in locations:
+        do_location(testcase, cloud, fqdn, location, api_prefix)
+
+
+def do_location(testcase, cloud: str, fqdn: str, location: str, api_prefix: str):
+    url = f'https://{fqdn}{api_prefix}api/v1/status'
 
     request_headers = CaseInsensitiveDict()
     request_headers['Access-Control-Request-Method'] = 'POST'
     request_headers['Access-Control-Request-Headers'] = 'content-type'
     request_headers['Origin'] = location
 
+    _LOGGER.debug(
+        f'Checking CORS headers in {cloud} cloud '
+        f'for {url} with location {location}'
+    )
     resp = httpx.options(url, verify=False, headers=request_headers)
     testcase.assertEqual(resp.status_code, 200)
 
