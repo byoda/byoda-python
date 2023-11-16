@@ -50,3 +50,22 @@ HOME_POD_ACCOUNT_ID: str = '1dbe1eb8-0421-424f-b5bf-411265630ad4'
 HOME_POD_MEMBER_ID: str = 'b06e1928-57ef-4e22-a022-7c82be091674'
 HOME_POD_MEMBER_FQDN: str = f'{HOME_POD_MEMBER_ID}.members-{ADDRESSBOOK_SERVICE_ID}.byoda.net'
 HOME_POD_CUSTOM_DOMAIN: str = 'home.byoda.me'
+
+TEST_IDS: dict[str, dict[str, str]] = {
+    'azure': {
+        'account_id': AZURE_POD_ACCOUNT_ID,
+        'member_id': AZURE_POD_MEMBER_ID,
+    },
+    'home': {
+        'account_id': HOME_POD_ACCOUNT_ID,
+        'member_id': HOME_POD_MEMBER_ID,
+    },
+    'aws': {
+        'account_id': AWS_POD_ACCOUNT_ID,
+        'member_id': AWS_POD_MEMBER_ID,
+    },
+    'gcp': {
+        'account_id': GCP_POD_ACCOUNT_ID,
+        'member_id': GCP_POD_MEMBER_ID,
+    },
+}
