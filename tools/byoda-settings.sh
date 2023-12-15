@@ -29,7 +29,7 @@ export YOUTUBE_CHANNEL=
 export YOUTUBE_API_KEY=
 
 # To manage how often the import process runs, set the following variable
-export YOUTUBE_IMPORT_INTERVAL=240
+export YOUTUBE_IMPORT_INTERVAL=$(echo $((180 + RANDOM % 120)))
 
 # The moderation app to send requests for videos imported from YouTube
 export MODERATION_FQDN="modtest.byoda.io"
@@ -69,6 +69,8 @@ export LOCAL_WWWROOT_DIRECTORY=/var/www/wwwroot
 # If you are not running in a cloud VM then you can change this to the
 # directory where all data of the pod should be stored
 export BYODA_ROOT_DIR=/byoda
+
+export LOGDIR=/var/log/byoda
 
 # set DEBUG if you are interested in debug logs and troubleshooting the
 # processes in the pod.

@@ -80,6 +80,7 @@ class ServiceServer(Server):
         '''
 
         self = ServiceServer(network, app_config)
+        config.server: ServiceServer = self
         service: Service = self.service
 
         self.search_db: SearchDB = await SearchDB.setup(

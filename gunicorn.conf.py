@@ -255,7 +255,7 @@ strip_header_spaces: bool = False
 # accesslog - The Access log file to write to.
 # “-” means log to stdout.
 # accesslog = '-'
-# accesslog = '/var/www/wwwroot/logs/gunicorn-access.log'
+# accesslog = '/var/log/byoda/gunicorn-access.log'
 accesslog = '/dev/null'
 
 # access_log_format - The access log format
@@ -298,7 +298,7 @@ disable_redirect_access_to_syslog: bool = False
 # errorlog - The Error log file to write to.
 # “-” means log to stderr.
 # errorlog = '-'
-errorlog = '/var/www/wwwroot/logs/gunicorn-error.log'
+errorlog = os.environ.get('LOGDIR', '/var/log/byoda') + '/gunicorn-error.log'
 
 # loglevel - The granularity of Error log outputs.
 # Valid level names are:

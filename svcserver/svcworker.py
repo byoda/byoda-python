@@ -159,7 +159,8 @@ async def reconcile_member_listeners(
     )
 
     unseen_members: list[UUID] = [
-        m_id for m_id in member_ids if m_id not in members_seen
+        m_id for m_id in member_ids
+        if m_id not in members_seen and not is_test_uuid(m_id)
     ]
     _LOGGER.debug(f'Unseen members: {len(unseen_members)}')
 
@@ -169,7 +170,8 @@ async def reconcile_member_listeners(
         listener = await UpdateListenerService.setup(
             asset_class, service.service_id, member_id,
             service.network.name, service.tls_secret,
-            asset_cache, asset_upload_lists
+            asset_cache, asset_upload_lists,
+            exclude_false_values=['screen_orientation_horizontal']
         )
 
         _LOGGER.debug(f'Initiating sync and listener for member {member_id}')

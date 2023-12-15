@@ -47,6 +47,7 @@ class KVRedis(KVCache):
         self.connection_string: str = None
         self.driver = None
 
+    @staticmethod
     async def setup(connection_string: str, service_id: int, network_name: str,
                     server_type: str, cache_type: CacheType) -> Self:
         '''

@@ -8,13 +8,15 @@ Model a Youtube channel
 '''
 
 import re
-import asyncio
 
+from random import random
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone, timedelta
 
 import orjson
+
+from anyio import sleep
 
 from httpx import AsyncClient as AsyncHttpClient
 
@@ -30,9 +32,12 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.util.api_client.api_client import HttpResponse
 
+from byoda.exceptions import ByodaRuntimeError
+
 from byoda.util.logger import Logger
 
 from .youtube_video import YouTubeVideo
+from .youtube_thumbnail import YouTubeThumbnail
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -60,7 +65,8 @@ class YouTubeChannel:
                       bento4_directory: str | None = None,
                       moderate_request_url: str | None = None,
                       moderate_jwt_header: str | None = None,
-                      moderate_claim_url: str | None = None):
+                      moderate_claim_url: str | None = None,
+                      ingest_interval: int = 0) -> None:
         '''
         persist any video not yet in the public_assets collection to that
         collection, including downloading the video, packaging it, and
@@ -89,9 +95,14 @@ class YouTubeChannel:
 
                 if result is None:
                     _LOGGER.debug(f'Failed to persist video {video.video_id}')
-            except ValueError:
+
+                if ingest_interval:
+                    random_delay = \
+                        random() * ingest_interval + ingest_interval / 2
+                    await sleep(random_delay)
+            except (ValueError, ByodaRuntimeError) as exc:
                 _LOGGER.exception(
-                    'Could not persist video %s', video.video_id
+                    f'Could not persist video {video.video_id}: {exc}'
                 )
 
     async def scrape(self, already_ingested_videos: dict[str, dict] = {},
@@ -147,18 +158,59 @@ class YouTubeChannel:
             script.text
         ).group(1)
 
-        data = orjson.loads(raw_data)
+        try:
+            data = orjson.loads(raw_data)
+        except orjson.JSONDecodeError as exc:
+            _LOGGER.debug(
+                f'Failed parsing JSON data for channel {self.channel_id}: '
+                f'{exc}'
+            )
+            return
 
-        self.find_videos(data, already_ingested_videos, self.ingest_videos)
+        # Also interesting is data['metadata']['microsoft']
+        channel_thumbnails: list[dict[str, str]] = []
+        try:
+            keys: list[str] = [
+                'metadata', 'channelMetadataRenderer', 'avatar', 'thumbnails'
+            ]
+            channel_thumbnails = YouTubeChannel._datagetter(data, keys)
+        except (IndexError, KeyError) as exc:
+            _LOGGER.debug(f'Failed to parse channel metadata: {exc}')
+
+        creator_thumbnail: YouTubeThumbnail | None = None
+        if (channel_thumbnails and isinstance(channel_thumbnails, list)
+                and len(channel_thumbnails)
+                and isinstance(channel_thumbnails[0], dict)
+                and channel_thumbnails[0].get('url')):
+            creator_thumbnail = YouTubeThumbnail(None, channel_thumbnails[0])
+
+        self.find_videos(
+            data, already_ingested_videos, self.ingest_videos,
+            creator_thumbnail
+        )
 
         _LOGGER.debug(
             f'Scraped {len(self.videos)} videos from '
             f'YouTube channel {self.name}'
         )
 
+    @staticmethod
+    def _datagetter(data: dict, keys: list[str]) -> object:
+        if not keys:
+            return data
+
+        if keys[0] in data:
+            if len(keys) == 1:
+                return data[keys[0]]
+
+            return YouTubeChannel._datagetter(data[keys[0]], keys[1:])
+
+        return None
+
     def find_videos(self, data: dict | list | int | str | float,
                     already_ingested_videos: dict[str, dict],
-                    ingest_videos: bool) -> None:
+                    ingest_videos: bool,
+                    creator_thumbnail: YouTubeThumbnail | None) -> None:
         '''
         Find the videos in the by walking through the deserialized
         output of a scrape of a YouTube channel
@@ -173,7 +225,8 @@ class YouTubeChannel:
             for item in data:
                 if type(item) in (dict, list):
                     self.find_videos(
-                        item, already_ingested_videos, ingest_videos
+                        item, already_ingested_videos, ingest_videos,
+                        creator_thumbnail
                     )
 
         if not isinstance(data, dict):
@@ -185,7 +238,8 @@ class YouTubeChannel:
             for value in data.values():
                 if type(value) in (dict, list):
                     self.find_videos(
-                        value, already_ingested_videos, self.ingest_videos
+                        value, already_ingested_videos, self.ingest_videos,
+                        creator_thumbnail
                     )
 
             return
@@ -230,20 +284,23 @@ class YouTubeChannel:
             if ingest_videos:
                 status = IngestStatus.NONE
 
-        video = YouTubeVideo.scrape(video_id)
+        video = YouTubeVideo.scrape(video_id, ingest_videos, creator_thumbnail)
 
-        if video:
-            # Video IDs may appear multiple times in scraped data
-            # so we set the ingest status for the class instance
-            # AND for the dict of already ingested videos
-            video._transition_state(IngestStatus.QUEUED_START)
+        if not video:
+            # This can happen if we decide not to import the video
+            return
 
-            if video_id not in already_ingested_videos:
-                already_ingested_videos[video_id] = {}
-            already_ingested_videos[video_id]['ingest_status'] = \
-                video.ingest_status
+        # Video IDs may appear multiple times in scraped data
+        # so we set the ingest status for the class instance
+        # AND for the dict of already ingested videos
+        video._transition_state(IngestStatus.QUEUED_START)
 
-            self.videos[video_id] = video
+        if video_id not in already_ingested_videos:
+            already_ingested_videos[video_id] = {}
+        already_ingested_videos[video_id]['ingest_status'] = \
+            video.ingest_status
+
+        self.videos[video_id] = video
 
     def get_channel_id(self):
         '''
@@ -313,7 +370,7 @@ class YouTubeChannel:
                 part="id, snippet",
 
             )
-            response, retries = self._call_api(request)
+            response, retries = await self._call_api(request)
             # Search API of YouTube Data API consumes 100 credits per call
             api_requests += 100 + retries
 
@@ -346,7 +403,7 @@ class YouTubeChannel:
                     part="id, snippet",
 
                 )
-                response, retries = self._call_api(request)
+                response, retries = await self._call_api(request)
                 # Search API of YouTube Data API consumes 100 credits per call
                 api_requests += 100 + retries
 
@@ -400,12 +457,14 @@ class YouTubeChannel:
                     not self.ingest_videos or ingest_status != 'external')):
                 continue
 
-            video: YouTubeVideo = YouTubeVideo.scrape(video_id)
+            video: YouTubeVideo = YouTubeVideo.scrape(
+                video_id, already_ingested_videos, None
+            )
             video.published_time = published_at
 
             self.videos[video.video_id] = video
 
-    def _call_api(self, request: dict) -> tuple[dict, int]:
+    async def _call_api(self, request: dict) -> tuple[dict, int]:
         '''
         Calls the YouTube data API with the given request
 
@@ -425,7 +484,7 @@ class YouTubeChannel:
             delay = retry_delay[retries]
             if delay:
                 _LOGGER.debug(f'Retry {retries}, delaying {delay} seconds')
-                asyncio.sleep(retry_delay[retries])
+                await sleep(retry_delay[retries])
 
             try:
                 response = request.execute()

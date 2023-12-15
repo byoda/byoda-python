@@ -143,6 +143,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         network: Network = server.network
 
         channel: str = 'Dathes:ALL'
+        # channel: str = 'accountabletech'
         # channel: str = 'PolyMatter'
         # channel: str = 'History Matters'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
@@ -179,7 +180,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             member, storage_driver, ingested_videos,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
-            moderate_claim_url=mod_claim_url
+            moderate_claim_url=mod_claim_url,
+            ingest_interval=4
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -207,7 +209,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
 
         await yt.persist_videos(
-            member, storage_driver, ingested_videos
+            member, storage_driver, ingested_videos, ingest_interval=4
         )
 
     async def test_import_videos(self):

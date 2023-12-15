@@ -63,7 +63,27 @@ class PubSubMessage():
         Classes derived from PubSubMessage should override this method
         '''
 
-        raise NotImplementedError
+        data = {
+            'type': self.type,
+            'action': self.action,
+            'class_name': self.class_name,
+            'data_class': self.data_class,
+            'node': self.node,
+            'origin_id': self.origin_id,
+            'origin_id_type': self.origin_id_type,
+            'origin_class_name': self.origin_class_name,
+        }
+
+        if self.type and isinstance(self.type, PubSubMessageType):
+            data['type'] = self.type.value
+
+        if self.action and isinstance(self.action, PubSubMessageAction):
+            data['action'] = self.action.value
+
+        if self.data_class and isinstance(self.data_class, SchemaDataItem):
+            data['data_class'] = self.data_class.class_name
+
+        return data
 
     @staticmethod
     def parse(message: bytes, schema: Schema = None):
@@ -119,10 +139,16 @@ class PubSubDataMessage(PubSubMessage):
         :param data: the metadata and payload data for the message
         '''
 
+        if not data:
+            raise ValueError(
+                f'Data cannot be empty for action {action} '
+                f'for class {data_class.name}'
+            )
+
         super().__init__(PubSubMessageType.DATA)
 
         self.action = action
-        self.node: dict[str, object] = data['node']
+        self.node: dict[str, object] = data.get('node')
         self.data_class: SchemaDataItem = data_class
 
         self.class_name: str | None = None

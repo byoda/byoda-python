@@ -69,13 +69,13 @@ This procedure assumes you have access to an existing linux system
         --name ${RESTRICTED_CONTAINER} \
         --acount-name ${STORAGE_ACCOUNT} \
         --resource-group ${RG} \
-        --public-access container
+        --public-access blob
 
     az storage container create \
         --name ${PUBLIC_CONTAINER} \
         --acount-name ${STORAGE_ACCOUNT} \
         --resource-group ${RG} \
-        --public-access container
+        --public-access blob
     ```
 
 7. Create a network security group

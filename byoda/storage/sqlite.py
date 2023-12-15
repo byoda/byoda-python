@@ -292,6 +292,7 @@ class SqliteStorage(Sql):
             _LOGGER.debug(f'Successfully created backup of {backup_file}')
         except Exception:
             _LOGGER.exception('Failed to backup database')
+            raise
 
         await backup_conn.close()
         await local_conn.close()

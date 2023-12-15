@@ -6,6 +6,8 @@
 :license    : GPLv3
 '''
 
+import re
+
 from uuid import UUID
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -44,7 +46,7 @@ ORIGNAL_URL_HEADER = 'original-url'
 # curl -s -v 'https://cdn.byoda.io/restricted/restricted.html?service_id=4294929430&key_id=1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&member_id=94f23c4b-1721-4ffe-bfed-90f86d07611a' --header 'Authorization: bearer 1234567890'      # noqa: E501
 
 # against pod:
-# curl -k -s -v 'https://94f23c4b-1721-4ffe-bfed-90f86d07611a.members-4294929430.byoda.net/restricted/restricted.html'                                                                                                                      # noqa: E501
+# curl -k -s -v 'https://94f23c4b-1721-4ffe-bfed-90f86d07611a.members-4294929430.byoda.net/restricted/index.html?service_id=4294929430&member_id=66e41ad6-c295-4843-833c-5e523d34cce1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&key_id=1' --header 'Authorization: 1234567890'   # noqa: E501
 
 
 @router.get('/asset')
@@ -57,13 +59,13 @@ async def get_asset(request: Request, service_id: int = None,
     '''
 
     # TODO: use FastAPI dependent function for getting Headers
-    token: str = request.headers.get('Authorization')
+    incoming_token: str = request.headers.get('Authorization')
     key_id: str = request.headers.get('X-Authorizationkeyid')
 
     _LOGGER.debug(
         f'Received request for token check, service_id={service_id}, '
         f'member_id={member_id}, asset_id={asset_id}, '
-        f'key_id={key_id}, token={token}'
+        f'key_id={key_id}, incoming_token={incoming_token}'
     )
 
     if not service_id or not member_id or not asset_id:
@@ -85,13 +87,13 @@ async def get_asset(request: Request, service_id: int = None,
         )
         raise HTTPException(403, 'key_id is not an integer')
 
-    if not token:
+    if not incoming_token:
         _LOGGER.debug('No token provided in Authorization header')
         raise HTTPException(403, 'No token provided')
 
-    if token.startswith('Bearer ') or token.startswith('bearer '):
-        token = token[7:]
-        _LOGGER.debug(f'Extracted token: {token}')
+    if incoming_token.lower().startswith('bearer '):
+        incoming_token = incoming_token[len('bearer '):]
+        _LOGGER.debug(f'Extracted token: {incoming_token}')
 
     server: PodServer = config.server
     account: Account = server.account
@@ -119,15 +121,31 @@ async def get_asset(request: Request, service_id: int = None,
     key: ContentKey = keys_dict.get(key_id)
     if not key:
         _LOGGER.debug(f'Key_id {key_id} specified in request does not exist')
-        raise HTTPException(403, 'Invalid key_id')
+        raise HTTPException(400, 'Invalid key_id')
 
     _LOGGER.debug(f'Generating token with key_id {key_id}: {key.key}')
-    generated_token = key.generate_token(service_id, member_id, asset_id)
+    generated_token = key.generate_token(
+        service_id=service_id, member_id=member_id, asset_id=asset_id
+    )
+
+    # HACK: for some asset_ids, '+' and whitespace show up in tokens so we
+    # remove non alphanumeric characters
+    generated_token = re.sub(r'^\W+|\W+$', '', generated_token)
+    incoming_token = re.sub(r'^\W+|\W+$', '', generated_token)
+
     _LOGGER.debug(f'Looking for match with token: {generated_token}')
 
-    if generated_token != token:
-        _LOGGER.debug(f'Token mismatch: {token} != {generated_token}')
+    if generated_token != incoming_token:
+        _LOGGER.debug(
+            f'Token mismatch for member {member_id}: '
+            f'{incoming_token} (received) != {generated_token} (generated)'
+        )
         raise HTTPException(403, 'Invalid token')
+
+    _LOGGER.debug(
+        'Access is allowed as tokens match: '
+        f'{incoming_token} - {generated_token}'
+    )
 
     return None
 

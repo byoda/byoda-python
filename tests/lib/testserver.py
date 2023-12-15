@@ -61,7 +61,7 @@ from podserver.routers import accountdata as AccountDataRouter
 from podserver.routers import content_token as ContentTokenRouter
 
 _LOGGER = None
-LOG_FILE = '/var/www/wwwroot/logs/pod.log'
+LOG_FILE = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 

@@ -37,6 +37,14 @@ cat <<EOF
 }
 EOF
 
+if [ -z "${LOGDIR}" ]; then
+    export LOGDIR='/var/log/byoda'
+fi
+
+if [ ! -d  "${LOGDIR}" ]; then
+    mkdir $LOGDIR
+fi
+
 # First see if we need to generate or renew a Let's Encrypt certificate
 # TODO: try to get a previously saved certificate from cloud storage
 if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
@@ -44,11 +52,11 @@ if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
         # With the '--standalone' option, certbot will run its own HTTP webserver
         echo "{\"message\": \"Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}\"}"
-        pipenv run certbot --quiet renew --standalone 2>&1 1>>/var/www/wwwroot/logs/letsencrypt.log
+        pipenv run certbot --quiet renew --standalone 2>&1 1>>${LOGDIR}/letsencrypt.log
     else
         echo "{\"message\": \"Generating a Lets Encrypt certificate for custom domain ${CUSTOM_DOMAIN}\"}"
         # With the '--standalone' option, certbot will run its own HTTP webserver
-        pipenv run certbot --quiet certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>/var/www/wwwlogs/pod/letsencrypt.log
+        pipenv run certbot --quiet certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
     fi
 fi
 
@@ -84,8 +92,8 @@ if [[ -z "${FAILURE}" ]]; then
     # pod_worker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
     nice -20 pipenv run podserver/pod_worker.py \
-        1>/var/www/wwwroot/logs/worker-stdout.log \
-        2>/var/www/wwwroot/logs/worker-stderr.log &
+        1>${LOGDIR}/worker-stdout.log \
+        2>${LOGDIR}/worker-stderr.log &
 
     if [[ "$?" != "0" ]]; then
         echo "{\"message\": \"Podworker failed\"}"
@@ -98,8 +106,8 @@ fi
 if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting feed worker\"}"
     nice -20 pipenv run podserver/feed_worker.py \
-        1>/var/www/wwwroot/logs/feed-stdout.log \
-        2>/var/www/wwwroot/logs/feed-stderr.log &
+        1>${LOGDIR}/feed-stdout.log \
+        2>${LOGDIR}/feed-stderr.log &
 
     if [[ "$?" != "0" ]]; then
         echo "{\"message\": \"Feedworker failed\"}"

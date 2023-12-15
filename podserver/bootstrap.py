@@ -67,7 +67,7 @@ from podserver.util import get_environment_vars
 
 _LOGGER: Logger | None = None
 
-LOGFILE: str = '/var/www/wwwroot/logs/bootstrap.log'
+LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/bootstrap.log'
 
 
 async def main(argv):

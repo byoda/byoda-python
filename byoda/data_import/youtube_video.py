@@ -11,7 +11,9 @@ import shutil
 import subprocess
 
 from enum import Enum
-from uuid import UUID, uuid4
+from uuid import UUID
+from uuid import uuid4
+from typing import Self
 from logging import getLogger
 from byoda.util.logger import Logger
 from datetime import datetime
@@ -265,14 +267,18 @@ class YouTubeVideo:
         'published_time': 'published_timestamp',
         'url': 'asset_url',
         'channel_creator': 'creator',
+        'creator_thumbnail': 'creator_thumbnail',
         'url': 'asset_url',
         'created_time': 'created_timestamp',
+        'duration': 'duration',
         'asset_type': 'asset_type',
         'asset_id': 'asset_id',
         'locale': 'locale',
         'publisher': 'publisher',
         'ingest_status': 'ingest_status',
         'merkle_root_hash': 'asset_merkle_root_hash',
+        'screen_orientation_horizontal': 'screen_orientation_horizontal',
+        'categories': 'categories',
     }
 
     def __init__(self):
@@ -282,6 +288,8 @@ class YouTubeVideo:
         self.long_title: str | None = None
         self.description: str | None = None
         self.channel_creator: str | None = None
+        self.creator_thumbnail_asset: YouTubeThumbnail | None = None
+        self.creator_thumbnail: str | None = None
         self.channel_id: str | None = None
         self.published_time: datetime | None = None
         self.published_time_info: str | None = None
@@ -294,6 +302,7 @@ class YouTubeVideo:
         self.availability: str | None = None
         self.embedable: bool | None = None
         self.age_limit: int | None = None
+        self.screen_orientation_horizontal: bool = True
 
         # Duration of the video in seconds
         self.duration: int | None = None
@@ -313,6 +322,7 @@ class YouTubeVideo:
         self.asset_id: UUID = uuid4()
         self.locale: str | None = None
         self.annotations: list[str] = []
+        self.categories: list[str] = []
 
         self.created_time: datetime = datetime.now(tz=timezone.utc)
 
@@ -323,11 +333,15 @@ class YouTubeVideo:
         self.playlistId: str | None = None
 
     @staticmethod
-    def scrape(video_id: str, cache_file: str = None):
+    def scrape(video_id: str, ingest_videos: bool,
+               creator_thumbnail: YouTubeThumbnail | None,
+               cache_file: str = None) -> Self:
         '''
         Collects data about a video by scraping the webpage for the video
 
         :param video_id: YouTube video ID
+        :param ingest_videos: whether the video will be ingested
+        :param creator_thumbnail: URL to thumbnail of the creator of the video
         :param cache_file: read data from file instead of scraping the web
         page
         '''
@@ -362,6 +376,15 @@ class YouTubeVideo:
                         ).decode('utf-8')
                     )
 
+            if video_info.get('is_live'):
+                _LOGGER.debug(f'Skipping live video {video_id}')
+                return
+
+            embedable: bool = video_info.get('playable_in_embed', True)
+            if not (embedable or ingest_videos):
+                _LOGGER.debug(f'Skipping non-embedable video {video_id}')
+                return
+
             video.description = video_info.get('description')
             video.title = video_info.get('title')
             video.view_count = video_info.get('view_count')
@@ -375,6 +398,12 @@ class YouTubeVideo:
             video.view_count = video_info.get('view_count')
             video.duration = video_info.get('duration')
             video.annotations = video_info.get('tags')
+            video.categories = video_info.get('categories')
+            video.creator_thumbnail_asset = creator_thumbnail
+
+            # For full ingested assets, the _ingest_video method
+            # updates the url of the thumbnail
+            video.creator_thumbnail = creator_thumbnail.url
 
             video.published_time: datetime = dateutil_parser.parse(
                 video_info['upload_date']
@@ -400,9 +429,18 @@ class YouTubeVideo:
                 chapter = YouTubeVideoChapter(chapter_data)
                 video.chapters.append(chapter)
 
+            max_height: int = 0
+            max_width: int = 0
             for format_data in video_info.get('formats') or []:
                 format = YouTubeFormat.from_dict(format_data)
+                if format.height and format.height > max_height:
+                    max_height = format.height
+                if format.width and format.width > max_width:
+                    max_width = format.width
                 video.encoding_profiles[format.format_id] = format
+
+            if max_height > max_width:
+                video.screen_orientation_horizontal = False
 
         return video
 
@@ -777,32 +815,51 @@ class YouTubeVideo:
 
         tmp_dir = self._get_tempdir(storage_driver)
 
-        download_dir: str | None = self.download(
-            TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
-        )
-        if not download_dir:
-            return None
+        try:
+            download_dir: str | None = self.download(
+                TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
+            )
+            if not download_dir:
+                return None
 
-        pkg_dir = self.package_streams(tmp_dir, bento4_dir=bento4_directory)
-
-        await self.upload(pkg_dir, storage_driver)
-
-        for thumbnail in self.thumbnails.values():
-            _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
-            await thumbnail.ingest(
-                self.asset_id, storage_driver, member, pkg_dir
+            pkg_dir = self.package_streams(
+                tmp_dir, bento4_dir=bento4_directory
             )
 
-        tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
-        self.merkle_root_hash = tree.as_string()
+            await self.upload(pkg_dir, storage_driver)
 
-        tree_filename: str = tree.save(pkg_dir)
-        await storage_driver.copy(
-            f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
-            storage_type=StorageType.RESTRICTED, exist_ok=True
-        )
+            for thumbnail in self.thumbnails.values():
+                _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
+                await thumbnail.ingest(
+                    self.asset_id, storage_driver, member, pkg_dir
+                )
 
-        self._delete_tempdir(storage_driver)
+            if self.creator_thumbnail_asset:
+                _LOGGER.debug(
+                    'Starting ingest of creator thumbnail from '
+                    f'{self.creator_thumbnail_asset.url}'
+                )
+                self.creator_thumbnail = \
+                    await self.creator_thumbnail_asset.ingest(
+                        self.asset_id, storage_driver, member, pkg_dir
+                    )
+
+            tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
+            self.merkle_root_hash = tree.as_string()
+
+            tree_filename: str = tree.save(pkg_dir)
+            await storage_driver.copy(
+                f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
+                storage_type=StorageType.RESTRICTED, exist_ok=True
+            )
+        except Exception as exc:
+            _LOGGER.exception(
+                f'Ingesting asset for YouTube video {self.video_id} failed: '
+                f'{exc}'
+            )
+            raise
+        finally:
+            self._delete_tempdir(storage_driver)
 
         self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
             member_id=member.member_id, service_id=member.service_id,

@@ -22,6 +22,16 @@ domain with a domain registrar (like [hover.com](https://www.hover.com/)) and cr
 The Postgres server is the storage backend for the PowerDNS DNS server
 ```
 
+# Install docker from the official docker repo
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
 mkdir -p ~/.secrets
 chmod 700 ~/.secrets
 
@@ -35,23 +45,13 @@ export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
 sudo mkdir -p /var/lib/postgresql/data
 sudo chown -R 999:999 /var/lib/postgresql/
 
-# Install docker from the official docker repo
-sudo mkdir -m 0755 -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
 # https://github.com/docker-library/postgres
 sudo docker run -d --restart unless-stopped \
     --publish=5432:5432 \
     -v /var/lib/postgresql/data:/var/lib/postgresql/data \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
-     postgres:15
+     postgres:latest
 
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client
@@ -73,7 +73,7 @@ cat >/tmp/byodadns.sql <<EOF
 CREATE DATABASE byodadns;
 CREATE USER powerdns PASSWORD '${SQL_DNS_PASSWORD}';
 GRANT ALL ON DATABASE byodadns TO powerdns;
-ALTER DATABASE byodadns OWNER TO powerdns
+ALTER DATABASE byodadns OWNER TO powerdns;
 EOF
 
 psql -h localhost -U postgres -d postgres -f /tmp/byodadns.sql

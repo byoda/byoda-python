@@ -10,7 +10,6 @@ and pod servers and the functional test cases
 import os
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from starlette.middleware import Middleware
 from starlette_context import plugins
@@ -30,6 +29,8 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter \
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
