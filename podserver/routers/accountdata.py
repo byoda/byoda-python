@@ -8,7 +8,6 @@ memberdata API
 
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -20,10 +19,15 @@ from byoda.datamodel.member import Member
 from byoda.models import AccountDataDownloadResponseModel
 
 from byoda.datatypes import IdType
+from byoda.datatypes import CloudType
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.util.logger import Logger
+
 from byoda import config
+
+from ..podworker.datastore_maintenance import backup_datastore
 
 from ..dependencies.pod_api_request_auth import AuthDep
 
@@ -79,3 +83,44 @@ async def get_accountdata(request: Request, service_id: int, auth: AuthDep):
 
     # return {'data': member.data}
     return {'data': {}}
+
+
+@router.post('/account/data/backup')
+async def backup_accountdata(request: Request, auth: AuthDep):
+    '''
+    Get metadata for the membership of a service.
+
+    :param service_id: service_id of the service
+    :raises: HTTPException 404
+    '''
+
+    server: PodServer = config.server
+    account: Account = server.account
+
+    _LOGGER.debug(
+        f'Account data backup request received from IP {request.client.host} '
+        f'by {auth.id_type.value}{auth.account_id}'
+    )
+    await auth.authenticate(account)
+
+    if auth.id_type != IdType.ACCOUNT or auth.account_id != account.account_id:
+        raise HTTPException(
+            status_code=401, detail='Not authorized to access this service'
+        )
+
+    #
+    # End of authorization
+    #
+
+    if server.cloud == CloudType.LOCAL:
+        raise HTTPException(
+            status_code=400,
+            detail='Backups not available for pods not running in the cloud'
+        )
+
+    # BUG: calling backup_datastore works from podworker but fails on
+    # appserver on byoda/storage/sqlite.py:290 
+    # TypeError: backup() argument 'target' must be sqlite3.Connection,
+    # not TracedConnectionProxy"
+
+    await backup_datastore(server)

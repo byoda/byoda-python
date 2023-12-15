@@ -23,16 +23,18 @@ export PASSPHRASE=$(grep PRIVATE_KEY_SECRET ~/byoda-settings.sh  | head -1 | cut
 
 export ACCOUNT_CERT=/byoda/network-byoda.net/account-pod/pod-cert.pem
 export ACCOUNT_KEY=/byoda/private/network-byoda.net-account-pod.key
-export ACCOUNT_ID=$( \
-        openssl x509 -in $ACCOUNT_CERT -noout -text | \
-        grep accounts | \
-        grep -v accounts-ca | \
-        head -1 | \
-        awk '{ print $16; } ' | \
-        cut -f 1 -d . \
-)
-export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
-export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
+if [ -f  ${ACCOUNT_CERT} ]; then
+    export ACCOUNT_ID=$( \
+            openssl x509 -in $ACCOUNT_CERT -noout -text | \
+            grep accounts | \
+            grep -v accounts-ca | \
+            head -1 | \
+            awk '{ print $16; } ' | \
+            cut -f 1 -d . \
+    )
+    export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
+    export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
+fi
 export ACCOUNT_PASSWORD=$(grep ACCOUNT_SECRET ~/byoda-settings.sh | head -1 | cut -f 2 -d '=' | sed 's|"||g')
 
 if [ -z "${CUSTOM_DOMAIN}" ]; then

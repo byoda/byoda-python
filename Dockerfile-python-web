@@ -24,7 +24,7 @@ RUN mkdir -p \
     /etc/nginx/ssl \
     /var/cache/nginx/proxy_temp \
     /var/cache/nginx/objectstorage \
-    /var/www/wwwroot/logs \
+    /var/log/byoda \
     byoda-python
 
 COPY ./Pipfile ./Pipfile.lock byoda-python/

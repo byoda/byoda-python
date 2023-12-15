@@ -15,7 +15,7 @@ WORKDIR /podserver
 RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
-    /var/www/wwwroot/logs \
+    /var/log/byoda \
     byoda-python \
     /opt/byoda/byoda-python
 

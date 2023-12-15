@@ -50,6 +50,7 @@ class YouTube:
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     MODERATION_REQUEST_API: str = '/api/v1/moderate/asset'
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
+    INGEST_INTERVAL_SECONDS: int = 60
 
     def __init__(self, api_key: str | None = None):
         '''
@@ -138,7 +139,8 @@ class YouTube:
                              bento4_directory: str | None = None,
                              moderate_request_url: str | None = None,
                              moderate_jwt_header: str | None = None,
-                             moderate_claim_url: str | None = None):
+                             moderate_claim_url: str | None = None,
+                             ingest_interval: int = INGEST_INTERVAL_SECONDS):
         '''
         Persist the videos to storage. Videos are stored in the data store.
         If ingest of videos is enabled for this channel then the videos are
@@ -150,6 +152,13 @@ class YouTube:
         videos
         :param bento4_directory: this parameter is required if we download the
         assets and repackage them
+        :param moderate_request_url: URL where to submit the request to review
+        the moderation claim for thevideo
+        :param moderate_jwt_header: JWT header to use for calling the
+        moderation API
+        :param moderate_claim_url:
+        :param ingest_interval: interval in seconds between ingesting videos to
+        avoid overloading YouTube API
         :param ValueError: if the storage driver is not specified and we ingest
         videos
         '''
@@ -166,7 +175,8 @@ class YouTube:
                 bento4_directory,
                 moderate_request_url=moderate_request_url,
                 moderate_jwt_header=moderate_jwt_header,
-                moderate_claim_url=moderate_claim_url
+                moderate_claim_url=moderate_claim_url,
+                ingest_interval=ingest_interval
             )
 
     async def scrape_videos(self,

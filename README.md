@@ -111,7 +111,7 @@ source tools/set_env.sh
 
 ## Basic info about the pod
 
-- The logs of the pod are stored in /var/www/wwwroot/logs. The ```docker-launsh.sh``` script volume-mounts this directory for the pod. The certs and data files are stored in the cloud or locally on your server. In either case, are (also) availble under /byoda, which is also volume-mounted in the pod by the ```docker-launch.sh``` script.
+- The logs of the pod are stored in /var/log/byoda. The ```docker-launsh.sh``` script volume-mounts this directory for the pod. The certs and data files are stored in the cloud or locally on your server. In either case, are (also) availble under /byoda, which is also volume-mounted in the pod by the ```docker-launch.sh``` script.
 - The 'directory server' for byoda.net creates a DNS record for each pod based on the ACCOUNT_ID of the pod. The ACCOUNT_ID is stored in the ~/.byoda-account_id file on your VM/server. The FQDN is '<ACCOUNT_ID>.accounts.byoda.net'. Make sure to save this ACCOUNT_ID as well to a secure place
 - You can log into the web-interface of the pod using basic auth via the account FQDN. You will get a warning in your browser about a certificate signed by an unknown CA but you can ignore the warning. The username is the first 8 characters of your ACCOUNT_ID, as shown in the output of the ```tools/set_env.sh``` script and the password is the string you've set for the ACCOUNT_SECRET variable in the docker-launch.sh script. You can use it a.o. to browse the OpenAPI docs ('/docs/' and '/redoc/') of your pod.
 

@@ -73,7 +73,7 @@ from podworker.youtube import youtube_update_task
 
 _LOGGER: Logger | None = None
 
-LOGFILE: str = '/var/www/wwwroot/logs/worker.log'
+LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/worker.log'
 ADDRESSBOOK_ID: int = 4294929430
 YOUTUBE_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID

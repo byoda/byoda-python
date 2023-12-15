@@ -16,6 +16,14 @@ else
     exit 1
 fi
 
+ACCOUNT_FILE=$HOME/.byoda-account_id
+
+###
+### Pick up local settings for this byoda pod
+###
+echo "Loading settings from byoda-settings.sh"
+source $HOME/byoda-settings.sh
+
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 WIPE_MEMBERSHIPS=0
@@ -69,11 +77,6 @@ while [ $# -ge 1 ]; do
     shift
 done
 
-###
-### Pick up local settings for this byoda pod
-###
-echo "Loading settings from byoda-settings.sh"
-source ~/byoda-settings.sh
 
 if [[ "${TAG}" != "latest" && "${TAG}" != "dev" ]]; then
     echo "Invalid tag: ${TAG}"
@@ -117,8 +120,8 @@ if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
 fi
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
-    echo "Wiping logs: ${LOCAL_WWWROOT_DIRECTORY}/*.log"
-    sudo rm -f ${LOCAL_WWWROOT_DIRECTORY}/logs/*.log
+    echo "Wiping logs: ${LOGDIR}/*.log"
+    sudo rm -f ${LOGDIR}/*.log
 fi
 
 export NGINXCONF_VOLUME_MOUNT=""
@@ -149,8 +152,6 @@ export NETWORK="byoda.net"
 
 # Set DAEMONIZE to FALSE to debug the pod_worker
 export DAEMONIZE=TRUE
-
-ACCOUNT_FILE=~/.byoda-account_id
 
 DOCKER=$(which docker)
 
@@ -335,7 +336,7 @@ fi
 if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
     rm ${ACCOUNT_FILE}
-    sudo rm -f -I --preserve-root=all /var/www/wwwroot/logs/*
+    sudo rm -f -I --preserve-root=all ${LOGDIR}/*
     sudo rm ${BYODA_ROOT_DIR}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
         echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
@@ -347,9 +348,9 @@ if [ -f "${ACCOUNT_FILE}" ]; then
     ACCOUNT_ID=$(cat ${ACCOUNT_FILE})
     echo "Reading account_id from ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
 else
-    ACCOUNT_ID=$(uuid -v 4)
+    ACCOUNT_ID=$(uuidgen)
     if [ $? -ne 0 ]; then
-        echo "Failed to run 'uuid', please install it"
+        echo "Failed to run 'uuidgen', please install it"
         exit 1
     fi
     echo $ACCOUNT_ID >${ACCOUNT_FILE}
@@ -381,11 +382,13 @@ echo "Creating container for account_id ${ACCOUNT_ID}"
 sudo docker run -d --memory=800m \
     --name byoda --restart=unless-stopped \
     --pull always \
+    --mount type=tmpfs,tmpfs-size=100M,destination=/tmp \
     -e "LOGLEVEL=${LOGLEVEL}" \
     -e "WORKER_LOGLEVEL=${WORKER_LOGLEVEL}" \
     -e "LOGFILE=${LOGFILE}" \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
+    -e "LOGDIR=${LOGDIR}" \
     -e "BACKUP_INTERVAL=${BACKUP_INTERVAL}" \
     -e "CLOUD=${CLOUD}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
@@ -411,6 +414,7 @@ sudo docker run -d --memory=800m \
     -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
     -e "TRACE_SERVER=${TRACE_SERVER}" \
     -v ${BYODA_ROOT_DIR}:/byoda \
+    -v ${LOGDIR}:${LOGDIR} \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${NGINXCONF_VOLUME_MOUNT} \

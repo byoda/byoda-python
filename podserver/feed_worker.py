@@ -47,7 +47,7 @@ from podserver.util import get_environment_vars
 
 MAX_RECONNECT_DELAY: int = 300
 
-LOGFILE: str = '/var/www/wwwroot/logs/feed.log'
+LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/feed.log'
 
 _LOGGER: Logger | None = None
 

@@ -1,5 +1,5 @@
 '''
-This file is copy&paste from the generated code by the podserver.
+Imports for the pydantic data models we generate
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2023
@@ -209,12 +209,15 @@ class asset(BaseModel):
     annotations: list[str] | None = Field(default=None, description="annotations for the asset, things like &#39;genre:action&#39; or &#39;city:San Francisco&#39;")
     asset_merkle_root_hash: str | None = Field(default=None, description="the base64-encoded merkle root hash of the asset. The full hash tree can be downloaded by taking the asset_url and replace the filename in that url with &#39;merkle-tree.db&#39;")
     asset_url: str | None = Field(default=None, description="Location of the asset")
+    categories: list[str] | None = Field(default=None, description="categories for the asset, things like &#39;Education&#39; or &#39;Comedy")
     channel_id: UUID | None = Field(default=None, description="UUID of the channel, if any, that the asset was posted to")
     claims: list[claim] | None = Field(default=None, description="list of claims for the asset")
     content_warnings: list[str] | None = Field(default=None, description="list of terms with potential triggers, such as violence, or cursing")
     contents: str | None = Field(default=None, description="text for the asset")
     copyright_years: list[int] | None = Field(default=None, description="None")
     creator: str | None = Field(default=None, description="creator of the asset")
+    creator_thumbnail: str | None = Field(default=None, description="URL for the creator&#39;s thumbnail")
+    duration: float | None = Field(default=None, description="the duration of the video")
     encoding_profiles: list[str] | None = Field(default=None, description="DEPRECATED: encoding profile used for the asset")
     forum: str | None = Field(default=None, description="forum, if any, that the asset was posted to")
     ingest_status: str | None = Field(default=None, description="status of the ingest process")

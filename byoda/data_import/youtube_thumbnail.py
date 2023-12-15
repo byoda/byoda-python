@@ -46,8 +46,13 @@ class YouTubeThumbnail:
         self.url: str = data.get('url')
         self.width: int = data.get('width', 0)
         self.height: int = data.get('height', 0)
-        self.preference: str = str(data.get('preference'))
         self.id: str = data.get('id')
+
+        self.preference: str = data.get('preference')
+        if self.preference:
+            self.preference = str(self.preference)
+        else:
+            self.preference = ''
 
         if size:
             self.size = YouTubeThumbnailSize(size)
@@ -87,6 +92,7 @@ class YouTubeThumbnail:
         :param storage_driver: the storage driver to persist the thumbnail to
         :param member: the member to which the video belongs
         :param work_dir: the directory to store the thumbnail temporarily in
+        :returns: the URL of the thumbnail in storage
         '''
 
         _LOGGER.debug(f'Downloading thumbnail {self.url}')

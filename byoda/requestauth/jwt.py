@@ -236,7 +236,7 @@ class JWT:
         :returns: JWT
         '''
 
-        if authorization.startswith('bearer'):
+        if authorization.lower().startswith('bearer'):
             authorization = authorization[len('bearer'):]
 
         authorization = authorization.strip()

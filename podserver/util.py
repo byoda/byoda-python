@@ -58,6 +58,7 @@ def get_environment_vars() -> dict:
         'account_id': os.environ.get('ACCOUNT_ID'),
         'account_secret': os.environ.get('ACCOUNT_SECRET'),
         'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
+        'debug': os.environ.get('DEBUG', False),
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
         'logfile': os.environ.get('LOGFILE', None),
         'worker_loglevel': os.environ.get('WORKER_LOGLEVEL', 'WARNING'),
@@ -75,9 +76,10 @@ def get_environment_vars() -> dict:
     if data['cloud'] == CloudType.LOCAL and not data['root_dir']:
         data['root_dir'] = os.environ['HOME'] + '/.byoda'
 
-    data['debug'] = False
-
     if data.get('loglevel', '').upper() == 'DEBUG':
+        data['debug'] = True
+
+    if data.get('worker_loglevel', '').upper() == 'DEBUG':
         data['debug'] = True
 
     data['bootstrap'] = False

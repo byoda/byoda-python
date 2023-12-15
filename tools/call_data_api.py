@@ -8,7 +8,7 @@ on the 'byoda-python' repository to be available on the local
 file system
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021
+:copyright  : Copyright 2023
 :license    : GPLv3
 '''
 
@@ -21,7 +21,6 @@ import argparse
 
 from uuid import UUID
 from uuid import uuid4
-from logging import getLogger
 
 import httpx
 
@@ -41,6 +40,8 @@ from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.logger import Logger
 
 from podserver.util import get_environment_vars
+
+from logging import getLogger
 
 from byoda import config
 

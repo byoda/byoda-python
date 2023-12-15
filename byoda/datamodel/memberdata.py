@@ -627,11 +627,11 @@ class MemberData(dict):
                 # We run the data through the filters but the filters
                 # work on and return arrays
                 filtered_items: list[dict]
-                if isinstance(message.data, int):
-                    filtered_items = [message.data]
+                if isinstance(message.node, int):
+                    filtered_items = [message.node]
                 else:
                     filtered_items: list[dict] = DataFilterSet.filter(
-                        updates_filter, [message.data],
+                        updates_filter, [message.node],
                         data_class.referenced_class
                     )
                 _LOGGER.debug(
@@ -717,7 +717,7 @@ class MemberData(dict):
                 matches_filter = True
                 if counter_filter:
                     for field_name, value in counter_filter.items():
-                        if message.data.get(field_name) != value:
+                        if message.node.get(field_name) != value:
                             matches_filter = False
 
                 if not matches_filter:

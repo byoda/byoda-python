@@ -48,6 +48,8 @@ from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 
 from byoda.requestauth.jwt import JWT
 
+from byoda.util.test_tooling import is_test_uuid
+
 from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
@@ -298,7 +300,8 @@ class UpdateListenerService(UpdatesListener):
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
                     asset_cache: AssetCache, target_lists: set[str],
-                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
+                    exclude_false_values: list[str] = []
                     ) -> Self:
         '''
         Factory
@@ -307,6 +310,9 @@ class UpdateListenerService(UpdatesListener):
         :param member: the member to retrieve the data from
         :param asset_cache: the cache to store the data in
         :param target_lists: the lists to add the asset to
+        :param exclude_false_values: the fields to check for False values,
+        the value of the field in the data of an asset is False than that asset
+        will not be stored in cache
         :returns: self
         :raises: (none)
         '''
@@ -319,6 +325,8 @@ class UpdateListenerService(UpdatesListener):
         for target_list in self.target_lists:
             if not await self.asset_cache.exists_list(target_list):
                 await self.asset_cache.create_list(target_list)
+
+        self.exclude_false_values: list[str] = exclude_false_values or []
 
         return self
 
@@ -334,6 +342,22 @@ class UpdateListenerService(UpdatesListener):
         :raises: (none)
         '''
 
+        if is_test_uuid(data['asset_id']):
+            if not data.get('video_thumbnails') or not data.get['title']:
+                _LOGGER.debug(
+                    'Not importing test asset without thumbnails: '
+                    f'{data["asset_id"]}'
+                )
+                return False
+
+        for exclude in self.exclude_false_values:
+            if data.get(exclude) is False:
+                _LOGGER.debug(
+                    f'Not importing video: {data["asset_id"]}, {exclude} is '
+                    f'{data[exclude]}'
+                )
+                return False
+
         for dest_class_name in self.target_lists:
             _LOGGER.debug(
                 f'Adding asset {data["asset_id"]} from member {origin_id} '
@@ -342,6 +366,8 @@ class UpdateListenerService(UpdatesListener):
             await self.asset_cache.lpush(
                 dest_class_name, data, origin_id, cursor
             )
+
+        return True
 
 
 class UpdateListenerMember(UpdatesListener):

@@ -31,9 +31,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from byoda import config
-from byoda.util.logger import Logger
-
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
@@ -51,6 +48,10 @@ from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
 
+from byoda.util.logger import Logger
+
+from byoda import config
+
 from .routers import account as AccountRouter
 from .routers import member as MemberRouter
 from .routers import authtoken as AuthTokenRouter
@@ -59,7 +60,7 @@ from .routers import accountdata as AccountDataRouter
 from .routers import content_token as ContentTokenRouter
 
 _LOGGER: Logger | None = None
-LOG_FILE: str = '/var/www/wwwroot/logs/pod.log'
+LOG_FILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 

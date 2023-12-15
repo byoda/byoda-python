@@ -965,6 +965,11 @@
                         "type": "string",
                         "#properties": ["index"]
                     },
+                    "creator_thumbnail": {
+                        "description": "URL for the creator's thumbnail",
+                        "type": "string",
+                        "format": "iri"
+                    },
                     "published_timestamp": {
                         "description": "date-time of first publication of the content",
                         "type": "string",
@@ -1025,6 +1030,17 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "categories": {
+                        "description": "categories for the asset, things like 'Education' or 'Comedy",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "duration": {
+                        "description": "the duration of the video",
+                        "type": "number"
                     },
                     "forum": {
                         "description": "forum, if any, that the asset was posted to",
