@@ -359,13 +359,17 @@ class UpdateListenerService(UpdatesListener):
                 return False
 
         for dest_class_name in self.target_lists:
-            _LOGGER.debug(
-                f'Adding asset {data["asset_id"]} from member {origin_id} '
-                f'to list {dest_class_name}'
+            exists: bool = await self.asset_cache.asset_exists_in_cache(
+                dest_class_name, origin_id, data['asset_id']
             )
-            await self.asset_cache.lpush(
-                dest_class_name, data, origin_id, cursor
-            )
+            if not exists:
+                _LOGGER.debug(
+                    f'Adding asset {data["asset_id"]} from member {origin_id} '
+                    f'to list {dest_class_name}'
+                )
+                await self.asset_cache.lpush(
+                    dest_class_name, data, origin_id, cursor
+                )
 
         return True
 

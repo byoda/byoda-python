@@ -217,6 +217,7 @@ async def main(argv):
             await member.update_registration()
             await member.create_nginx_config()
 
+        await server.bootstrap_join_services(data['join_service_ids'])
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
