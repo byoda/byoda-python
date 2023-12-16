@@ -20,6 +20,10 @@ export PRIVATE_KEY_SECRET="changeme"
 export AWS_ACCESS_KEY_ID="changeme"
 export AWS_SECRET_ACCESS_KEY="changeme"
 
+# The pod will join the command-separated services listed in the following
+# variable
+export JOIN_SERVICE_IDS=""
+
 # To import the metadata of your YouTube videos, edit the following variables.
 # Use quotes "" if the name of the channel contains whitespace
 export YOUTUBE_CHANNEL=
@@ -27,6 +31,9 @@ export YOUTUBE_CHANNEL=
 # To import using the YouTube Data API instead of scraping youtube.com, set
 # the this variable to your API key:
 export YOUTUBE_API_KEY=
+
+# For with service should Youtube videos be imported?
+export YOUTUBE_IMPORT_SERVICE_ID=4294929430
 
 # To manage how often the import process runs, set the following variable
 export YOUTUBE_IMPORT_INTERVAL=$(echo $((180 + RANDOM % 120)))

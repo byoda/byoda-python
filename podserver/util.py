@@ -71,6 +71,9 @@ def get_environment_vars() -> dict:
         'roles': ['pod'],
         'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
         'moderation_app_id': os.environ.get('MODERATION_APP_ID'),
+        'join_service_ids': [
+            int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',') if x
+        ],
     }
 
     if data['cloud'] == CloudType.LOCAL and not data['root_dir']:

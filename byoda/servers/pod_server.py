@@ -69,7 +69,11 @@ class PodServer(Server):
 
         self.server_type = ServerType.POD
         self.cloud: CloudType = cloud_type
-        self.service_summaries: dict[int:dict] = None
+
+        # TODO: don't believe we use self.service_summaries. We only use
+        # (self.)network.service_summaries
+        self.service_summaries: dict[int:dict[str, str | int | None]] = {}
+
         self.bootstrapping: bool = bootstrapping
 
         self.data_store: DataStore | None = None
@@ -105,11 +109,12 @@ class PodServer(Server):
         url = network.paths.get(Paths.NETWORKSERVICES_API)
         resp: HttpResponse = await RestApiClient.call(url)
 
-        self.network.service_summaries = dict()
+        network.service_summaries: dict[int, dict[str, str | int | None]] = {}
         if resp.status_code == 200:
             summaries = resp.json()
             for summary in summaries.get('service_summaries', []):
-                self.network.service_summaries[summary['service_id']] = summary
+                service_id: int = summary['service_id']
+                network.service_summaries[service_id] = summary
 
             _LOGGER.debug(
                 f'Read summaries for {len(self.network.service_summaries)} '
@@ -120,6 +125,38 @@ class PodServer(Server):
                 'Failed to retrieve list of services from the network: '
                 f'HTTP {resp.status_code}'
             )
+
+    async def bootstrap_join_services(self, service_ids: list[int]):
+        '''
+        Joins the services listed in the 'JOIN_SERVICE_IDS'
+        environment variable, if we are not already member of them
+        '''
+
+        # We first need to get registered services as that will tell
+        # us the version of the schema that we should join.
+
+        await self.get_registered_services()
+        service_summaries: dict[int, dict[str, str | int | None]] = \
+            self.network.service_summaries
+
+        service_id: int
+        for service_id in service_ids or []:
+            _LOGGER.debug(
+                f'Processing bootstrap join for service {service_id}'
+            )
+
+            if service_id in self.account.memberships():
+                _LOGGER.debug(f'We already joined service {service_id}')
+                continue
+
+            if service_id not in service_summaries:
+                _LOGGER.debug(
+                    f'Can not join service {service_id}: not found in network'
+                )
+                continue
+
+            version: int = service_summaries[service_id]['version']
+            await self.account.join(service_id, version)
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,
