@@ -64,8 +64,8 @@ async def lifespan(app: FastAPI):
         root_directory=app_config['svcserver']['root_dir']
     )
 
-    if not os.environ.get('SERVER_NAME') and config.server.network.name:
-        os.environ['SERVER_NAME'] = config.server.network.name
+    if (not os.environ.get('SERVER_NAME') and network.name):
+        os.environ['SERVER_NAME'] = network.name
 
     config.server = await ServiceServer.setup(network, app_config)
     server: ServiceServer = config.server
