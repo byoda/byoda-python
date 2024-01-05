@@ -351,7 +351,7 @@ class YouTubeVideo:
         video.video_id = video_id
         video.url = YouTubeVideo.VIDEO_URL.format(video_id=video_id)
 
-        ydl_opts = {'quiet': True}
+        ydl_opts: dict[str, bool] = {'quiet': True}
         with YoutubeDL(ydl_opts) as ydl:
             video_info: dict[str, any] = {}
             if cache_file:
@@ -505,7 +505,7 @@ class YouTubeVideo:
         :returns: the data to be signed by the moderation server
         '''
 
-        claim_data = {
+        claim_data: dict[str, any] = {
             'asset_id': self.asset_id,
             'asset_type': self.asset_type,
             'asset_url': self.url,
@@ -535,7 +535,7 @@ class YouTubeVideo:
         :returns: the claim
         '''
 
-        claim_request = await ClaimRequest.from_api(
+        claim_request: Claim = await ClaimRequest.from_api(
             moderate_request_url, jwt_header, claims, self.as_claim_data()
         )
 
@@ -590,7 +590,7 @@ class YouTubeVideo:
                         f'Getting moderation claim for video {self.video_id} '
                         f'signed by {moderate_request_url}'
                     )
-                    claims = ['youtube-moderated:1']
+                    claims: list[str] = ['youtube-moderated:1']
                     claim_request: ClaimRequest = await self.get_claim_request(
                         moderate_request_url, moderate_jwt_header, claims
 
@@ -616,7 +616,7 @@ class YouTubeVideo:
             )
             self._transition_state(IngestStatus.EXTERNAL)
 
-        asset = {}
+        asset: dict[str, any] = {}
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
             value = getattr(self, field)
             if value:
@@ -627,7 +627,9 @@ class YouTubeVideo:
 
         if claim_request:
             if claim_request.signature:
-                claim_data = await self.download_claim(moderate_claim_url)
+                claim_data: dict[str, any] = await self.download_claim(
+                    moderate_claim_url
+                )
 
                 # Moderation server returns the data that is covered by
                 # its signature but we don't need that info as we already
@@ -752,7 +754,7 @@ class YouTubeVideo:
 
         return work_dir
 
-    async def download_claim(self, moderate_claim_url: str) -> dict:
+    async def download_claim(self, moderate_claim_url: str) -> dict[str, any]:
         '''
         Downloads a signed claim
         '''
@@ -768,7 +770,7 @@ class YouTubeVideo:
                 f'{moderate_claim_url}: {resp.status_code}'
             )
 
-        claim_data = resp.json()
+        claim_data: dict[str, any] = resp.json()
 
         return claim_data
 
@@ -849,7 +851,8 @@ class YouTubeVideo:
 
             tree_filename: str = tree.save(pkg_dir)
             await storage_driver.copy(
-                f'{pkg_dir}/{tree_filename}', f'{self.asset_id}/{tree_filename}',
+                f'{pkg_dir}/{tree_filename}',
+                f'{self.asset_id}/{tree_filename}',
                 storage_type=StorageType.RESTRICTED, exist_ok=True
             )
         except Exception as exc:

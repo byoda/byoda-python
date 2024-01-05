@@ -17,6 +17,7 @@ import os
 import sys
 import unittest
 
+from uuid import UUID
 from typing import TypeVar
 from datetime import datetime
 from datetime import timezone
@@ -201,7 +202,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 ),
             }
         }
-        updated_count = await call_data_api(
+        updated_count: dict[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.UPDATE,
             data_filter={'asset_id': {'eq': ALL_DATA[0]['data']['asset_id']}},
@@ -210,14 +211,14 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(updated_count, 1)
 
-        all_data = await call_data_api(
+        all_data: dict[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             data_filter={'asset_id': {'eq': asset_id}},
             auth_header=member_auth_header, app=APP
         )
         self.assertEqual(all_data['total_count'], 1)
-        node = all_data['edges'][0]['node']
+        node: dict[str, any] = all_data['edges'][0]['node']
         self.assertEqual(node['asset_type'], 'audio')
         self.assertEqual(node['asset_id'], str(asset_id))
 
@@ -665,8 +666,8 @@ async def populate_data_rest(test, service_id: int, class_name: str,
     global ALL_DATA
     ALL_DATA = []
     for count in range(0, record_count):
-        asset_id = get_test_uuid()
-        vars = {
+        asset_id: UUID = get_test_uuid()
+        vars: dict[str, any] = {
             'created_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
             ),

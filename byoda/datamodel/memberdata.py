@@ -70,6 +70,7 @@ from byoda.requestauth.requestauth import RequestAuth
 from byoda.secrets.data_secret import InvalidSignature
 
 from byoda.storage import FileMode
+
 from byoda.storage.pubsub import PubSub
 
 from byoda.util.logger import Logger
@@ -106,30 +107,59 @@ class MemberData(dict):
     by the schema of services
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'member', 'unvalidated_data', 'paths'
     ]
 
-    def __init__(self, member: Member):
+    def __init__(self, member: Member) -> None:
         self.member: Member = member
         self.unvalidated_data: dict = None
 
         self.paths: Paths = member.paths
 
-    def initalize(self) -> None:
+    async def initialize(self) -> None:
         '''
         Initializes the data for a new membership. Every service
-        contract must include
+        contract must include The 'member_id', 'joined', 'schema_versions',
+        and 'auto_upgrade' fields.
+
+        :returns: (none)
+        :raises ValueError: if there is no data in the data store for the
+        'member' data class
         '''
 
-        if 'member' in self:
-            if self['member'].get('member_id'):
-                raise ValueError('Member structure already exists')
-        else:
-            self['member'] = {}
+        member: Member = self.member
+        schema: Schema = member.schema
 
-        self['member']['member_id'] = str(self.member.member_id)
-        self['member']['joined'] = datetime.now(timezone.utc).isoformat()
+        member.joined = datetime.now(timezone.utc)
+        member.schema_versions: list[int] = [schema.version]
+
+        member_data: dict[str, str | int | bool] = {
+            'member_id': str(member.member_id),
+            'joined': member.joined.isoformat(),
+            'schema_versions': member.schema_versions,
+            'auto_upgrade': member.auto_upgrade,
+        }
+
+        data_store: DataStore = config.server.data_store
+        await data_store.mutate(
+            member.member_id, 'member', member_data, None, None, None
+        )
+
+    async def load_member_settings(self) -> None:
+        data_store: DataStore = config.server.data_store
+        member: Member = self.member
+        data_class: SchemaDataObject = member.schema.data_classes['member']
+        data: list[QueryResult] = await data_store.query(
+            member.member_id, data_class, None, 1, None, [],
+        )
+
+        if not data:
+            raise ValueError('No member data found')
+
+        data_class: SchemaDataObject = member.schema.data_classes['member']
+        member_data: dict[str, any] = data_class.normalize(data[0][0])
+        return member_data
 
     def normalize(self) -> None:
         '''
@@ -200,7 +230,9 @@ class MemberData(dict):
         Saves the protected symmetric key
         '''
 
-        filepath = self.paths.get(self.paths.MEMBER_DATA_SHARED_SECRET_FILE)
+        filepath: str = self.paths.get(
+            self.paths.MEMBER_DATA_SHARED_SECRET_FILE
+        )
 
         await self.member.storage_driver.write(
             filepath, self.member.data_secret.protected_shared_key,
@@ -220,12 +252,12 @@ class MemberData(dict):
             # DataFilter logic uses 'and' logic when multiple filters are
             # specified. So we only use DataFilterSet when we have a single
             # relation to filter on.
-            relation = relations
+            relation: str | list[str] = relations
             if isinstance(relations, list) and len(relations) == 1:
                 relation = relations[0]
 
             if isinstance(relation, str):
-                link_filter = {
+                link_filter: dict[str, dict[str, str]] = {
                     'relation': {
                         'eq': relation
                     }
@@ -381,10 +413,27 @@ class MemberData(dict):
 
         :param service_id: the service being queried
         :param class_name: the class for which to change the dict
+        :param query_id: the query ID of the incoming request
+        :param fields: the fields requested to be returned
+        :param remote_addr: host that originated the Data query
+        :param data_filter: the filter to apply to the data
+        :param first: how many objects to return
+        :param after: cursor for the record after which data should be returned
+        :param depth: number of hops to proxy the request to
+        :param relations: list of network relations to proxy the request to
+        :param remote_member_id: the UUID of the member to proxy the request to
+        :param timestamp: the timestamp of the query as set by the pod
+        originating the query, used to expire old queries
+        :param origin_member_id: the ID of the member that originated the query
+        :param origin_signature: the signature of the query as set by the pod
+        originating the query
+        :param signature_format_version: the version of the signature format
         :param query: the REST query requested by the client, provided to
         use as basis for proxying the request
         :param remote_addr: host that originated the Data query
         :param auth: provides information on the authentication for the request
+        :param class_ref: the Pydantic-derived data class to validate the data
+        :param edge_class_ref: the data class to normalize the results to
         :returns: list of 'edge responses', as defined in the Request Modeling
         Jinja templates for each data class
         :raises: ValueError
@@ -557,7 +606,7 @@ class MemberData(dict):
                 query.timestamp, query.origin_member_id
             )
 
-        all_data = await proxy.proxy_request(
+        all_data = await proxy.proxy_query_request(
             class_name, query, data_request_type, sending_member_id
         )
 
@@ -609,7 +658,7 @@ class MemberData(dict):
         )
 
         schema: Schema = member.schema
-        data_class = schema.data_classes[class_name]
+        data_class: SchemaDataItem = schema.data_classes[class_name]
 
         sub = PubSub.setup(
             data_class.name, data_class, member.schema, is_sender=False
@@ -640,6 +689,7 @@ class MemberData(dict):
                 for item in filtered_items:
                     data = {
                         'node': item,
+                        'cursor': message.cursor,
                         'filter': message.filter,
                         'origin_id': message.origin_id,
                         'origin_id_type': message.origin_id_type,
@@ -695,8 +745,8 @@ class MemberData(dict):
             class_name, query_id=query_id, depth=depth, relations=relations
         )
 
-        data_class = member.schema.data_classes[class_name]
-        sub = PubSub.setup(
+        data_class: SchemaDataItem = member.schema.data_classes[class_name]
+        sub: PubSub = PubSub.setup(
             data_class.name, data_class, member.schema, is_sender=False
         )
 
@@ -884,9 +934,9 @@ class MemberData(dict):
                 )
 
             proxy: DataProxy = DataProxy(member)
-            object_count: int = await proxy.proxy_request(
-                class_name, append_model, DataRequestType.APPEND,
-                auth.member_id
+
+            object_count: int = await proxy.proxy_append_request(
+                class_name, append_model
             )
             return object_count
 
@@ -940,7 +990,7 @@ class MemberData(dict):
                 member.service_id, class_name
             )
 
-        cursor = Table.get_cursor_hash(
+        cursor: str = Table.get_cursor_hash(
             data, member_id, required_field_names
         )
 
@@ -980,8 +1030,9 @@ class MemberData(dict):
         for key in keys:
             await counter_cache.update(key, 1, table, None)
 
-        message = PubSubDataAppendMessage.create(
-            data, data_class, origin_id, origin_id_type, origin_class_name
+        message: PubSubDataAppendMessage = PubSubDataAppendMessage.create(
+            data, data_class, origin_id, origin_id_type, origin_class_name,
+            cursor
         )
         pubsub_class: PubSub = data_class.pubsub_class
         # pubsub_class is None if this function was called by something other
@@ -1130,10 +1181,11 @@ class MemberData(dict):
             # No PubSub message needs to be sent
             return object_count
 
-        message = PubSubDataMutateMessage.create(
+        message: PubSubDataMutateMessage = PubSubDataMutateMessage.create(
             update_data, data_class, data_filter_set, origin_id=origin_id,
             origin_id_type=origin_id_type,
-            origin_class_name=origin_class_name
+            origin_class_name=origin_class_name,
+            cursor=cursor
         )
         pubsub_class: PubSub = data_class.pubsub_class
         # pubsub_class is None if this function was called by something other

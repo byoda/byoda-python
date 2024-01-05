@@ -23,6 +23,7 @@ CREATE TABLE records (
   disabled              BOOL DEFAULT 'f',
   ordername             VARCHAR(255),
   auth                  BOOL DEFAULT 't',
+  db_expire             INT DEFAULT NULL,
   CONSTRAINT domain_exists
   FOREIGN KEY(domain_id) REFERENCES domains(id)
   ON DELETE CASCADE,

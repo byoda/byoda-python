@@ -111,7 +111,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         schema.get_data_classes(with_pubsub=False)
         schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-        await server.setup_asset_cache(app_config['svcserver']['cache'])
+        await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server

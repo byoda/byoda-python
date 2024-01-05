@@ -13,6 +13,7 @@ import sys
 import shutil
 import unittest
 
+from uuid import UUID
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -33,15 +34,22 @@ from tests.lib.util import get_test_uuid
 _LOGGER: Logger = getLogger(__name__)
 
 NETWORK: str = config.DEFAULT_NETWORK
-SCHEMA: str = 'tests/collateral/addressbook.json'
+
+SCHEMA_PATH: str = os.environ.get(
+    os.environ.get('LOCAL_SERVICE_CONTRACT')
+)
+if not SCHEMA_PATH:
+    SCHEMA_PATH = 'tests/collateral/addressbook.json'
+
+SCHEMA_FILE: str = os.path.basename(SCHEMA_PATH)
 
 TEST_DIR: str = '/tmp/byoda-tests/pod-memberdata-normalize'
 BASE_URL: str = 'http://localhost:{PORT}/api'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        shutil.copy('tests/collateral/addressbook.json', TEST_DIR)
+    async def asyncSetUp(self) -> None:
+        shutil.copy(SCHEMA_PATH, TEST_DIR)
         os.environ['ROOT_DIR'] = TEST_DIR
         os.environ['PRIVATE_BUCKET'] = 'byoda'
         os.environ['RESTRICTED_BUCKET'] = 'byoda'
@@ -57,20 +65,20 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await setup_network()
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         pass
 
     # noqa: F841
-    async def test_load_schema(self):
-        uuid = get_test_uuid()
-        now = datetime.now(timezone.utc)
+    async def test_load_schema(self) -> None:
+        uuid: UUID = get_test_uuid()
+        now: datetime = datetime.now(timezone.utc)
 
-        schema = await Schema.get_schema(
-            'addressbook.json', config.server.network.paths.storage_driver,
+        schema: Schema = await Schema.get_schema(
+            SCHEMA_FILE, config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
-        data_classes = schema.get_data_classes()
-        data = {
+        data_classes: dict[str, object] = schema.get_data_classes()
+        data: dict[str, any] = {
             'person': {
                 'given_name': 'Steven',
                 'family_name': 'Hessing',

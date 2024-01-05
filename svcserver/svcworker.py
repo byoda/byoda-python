@@ -152,7 +152,7 @@ async def reconcile_member_listeners(
     :return: (none)
     '''
 
-    member_ids = await member_db.get_members()
+    member_ids: list[UUID] = await member_db.get_members()
     _LOGGER.debug(
         f'Reconciling member listeners (currently {len(members_seen)}) '
         f'with members (currently {len(member_ids)})'
@@ -306,10 +306,16 @@ async def setup_server() -> (Service, ServiceServer):
         network=network.name,
         root_directory=app_config['svcserver']['root_dir']
     )
-    server = await ServiceServer.setup(network, app_config)
+    server: ServiceServer = await ServiceServer.setup(network, app_config)
+
+    _LOGGER.debug(
+        'Setup service server completed, now loading network secrets'
+    )
+
     storage = FileStorage(app_config['svcserver']['root_dir'])
     await server.load_network_secrets(storage_driver=storage)
 
+    _LOGGER.debug('Now loading service secrets')
     await server.load_secrets(
         password=app_config['svcserver']['private_key_password']
     )
@@ -326,7 +332,7 @@ async def setup_server() -> (Service, ServiceServer):
     schema.get_data_classes(with_pubsub=False)
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(app_config['svcserver']['cache'])
+    await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
 
     return service, server
 

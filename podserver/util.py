@@ -49,7 +49,7 @@ def get_environment_vars() -> dict:
       - daemonize: bool, only used for pod_worker
     '''
 
-    data = {
+    data: dict[str, str | bool | int] = {
         'cloud': CloudType(os.environ.get('CLOUD', 'LOCAL')),
         'private_bucket': os.environ.get('PRIVATE_BUCKET'),
         'restricted_bucket': os.environ.get('RESTRICTED_BUCKET'),

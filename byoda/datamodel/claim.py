@@ -41,7 +41,7 @@ from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
-CLAIM_FORMAT_VERSION = [
+CLAIM_FORMAT_VERSION: list[None | dict[str, str | dict[str, str]]] = [
     None,
     {
         'hash_algorithm': 'SHA256',
@@ -57,7 +57,7 @@ CLAIM_FORMAT_VERSION = [
     }
 ]
 
-CLAIM_FIELDS = {
+CLAIM_FIELDS: dict[str, dict[str, UUID | list[str] | IdType | datetime]] = {
     'claim_id': {'type': UUID},
     'claims': {'type': list[str]},
     'issuer_id': {'type': str},
@@ -84,7 +84,7 @@ class Claim:
     Class for managing claims and their signatures
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'claim_id', 'claims', 'issuer_id', 'issuer_type',
         'claim_status', 'request_id', 'object_type',
         'keyfield', 'keyfield_id', 'object_fields',

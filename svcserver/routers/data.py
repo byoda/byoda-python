@@ -7,7 +7,6 @@
 '''
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -17,8 +16,12 @@ from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.asset_cache import AssetCacheItem
 
 from byoda.servers.service_server import ServiceServer
+
+from byoda.util.logger import Logger
+
 from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
@@ -52,13 +55,16 @@ async def get_data(request: Request,
 
     first = min(first, MAX_PAGE_SIZE)
 
-    asset_items = await asset_cache.get_range(list_name, after, first + 1)
+    asset_items: list[AssetCacheItem] = await asset_cache.get_range(
+        list_name, after, first + 1
+    )
+
+    end_cursor: str | None = None
     has_next_page: bool = False
     if len(asset_items) > first:
+        end_cursor = asset_items[-1].cursor
         asset_items = asset_items[:-1]
         has_next_page = True
-
-    end_cursor = asset_items[-1].cursor if asset_items else None
 
     edges: list[EdgeResponse] = []
     for item in asset_items:

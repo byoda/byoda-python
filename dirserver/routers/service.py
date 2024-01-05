@@ -49,6 +49,8 @@ from byoda.models.ipaddress import IpAddressResponseModel
 from byoda.datastore.certstore import CertStore
 from byoda.datastore.dnsdb import DnsDb
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda.secrets.secret import Secret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
@@ -100,7 +102,7 @@ async def get_services(request: Request, skip: int = 0, count: int = 0):
         count = min(len(network.services), MAX_SERVICE_LIST)
 
     services = list(network.services.values())
-    result = {
+    result: dict[str, list[str, str | int]] = {
         'service_summaries': [
             {
                 'service_id': service.service_id,
@@ -392,7 +394,7 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
     # verify the signatures again
 
     status = ReviewStatusType.ACCEPTED
-    errors = []
+    errors: list[str] = []
 
     if not schema.signatures:
         status = ReviewStatusType.REJECTED
@@ -436,8 +438,8 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
             if service.schema and schema.version <= service.schema.version:
                 status = ReviewStatusType.REJECTED
                 errors.append(
-                    f'Schema version {schema.version} is less than current '
-                    f'schema version '
+                    f'Schema version {schema.version} is not higher than '
+                    f'current schema version {service.schema.version}'
                 )
             else:
                 service_contract = Schema(schema.as_dict())
@@ -455,8 +457,8 @@ async def patch_service(request: Request, schema: SchemaModel, service_id: int,
                     service.schema.create_signature(
                         network.data_secret, SignatureType.NETWORK
                     )
-                    storage_driver = network.paths.storage_driver
-                    filepath = network.paths.get(Paths.SERVICE_FILE)
+                    storage_driver: FileStorage = network.paths.storage_driver
+                    filepath: str = network.paths.get(Paths.SERVICE_FILE)
                     await service_contract.save(filepath, storage_driver)
                 except InvalidSignature:
                     status = ReviewStatusType.REJECTED

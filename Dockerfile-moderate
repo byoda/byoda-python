@@ -20,7 +20,5 @@ CMD cd /opt/byoda/byoda-python \
        --proxy-allow-from '*' \
        --forwarded-allow-ips '*' \
        -p /var/run/modserver.pid \
-       --error-logfile /var/log/byoda/gunicorn-mod-error.log \
-       --access-logfile /var/log/byoda/gunicorn-mod-access.log \
        -c gunicorn.conf.py \
        modserver.main:app

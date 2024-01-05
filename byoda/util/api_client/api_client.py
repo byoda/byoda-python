@@ -17,6 +17,7 @@ from logging import getLogger
 from datetime import datetime
 from datetime import timezone
 from urllib.parse import urlparse
+from urllib.parse import ParseResult
 from collections import namedtuple
 
 import orjson
@@ -53,8 +54,6 @@ _LOGGER: Logger = getLogger(__name__)
 Server = TypeVar('Server')
 Network = TypeVar('Network')
 Secret = TypeVar('Secret')
-
-
 
 
 class ClientAuthType(Enum):
@@ -129,7 +128,7 @@ class ApiClient:
 
         self.port = port
 
-        parsed_url = urlparse(api)
+        parsed_url: ParseResult = urlparse(api)
 
         # We maintain a cache of sessions based on the authentication
         # requirements of the remote host and whether to use for verifying
@@ -183,7 +182,7 @@ class ApiClient:
         if secret:
             if not storage:
                 # HACK: podserver and svcserver use different attributes
-                storage = server.storage_driver
+                storage: FileStorage = server.storage_driver
 
             cert_filepath: str = storage.local_path + secret.cert_file
             key_filepath: str = secret.get_tmp_private_key_filepath()

@@ -59,6 +59,7 @@ _LOGGER: Logger = getLogger(__name__)
 BYODA_PRIVATE_SERVICE = 0
 
 Network = TypeVar('Network')
+ServiceServer = TypeVar('ServiceServer')
 
 
 class RegistrationStatus(Enum):
@@ -83,7 +84,7 @@ class Service:
     ]
 
     def __init__(self, network: Network = None, service_id: int = None,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
         '''
         Constructor, can be used by the service but also by the
         network, an app or an account or member to model the service.
@@ -98,6 +99,7 @@ class Service:
         :param service_id: the service_id for the service
         '''
 
+        _LOGGER.debug('Initializing service')
         self.name: str = None
         self.service_id: int = service_id
 
@@ -136,6 +138,7 @@ class Service:
         self.paths: Paths = copy(network.paths)
         self.paths.service_id = self.service_id
 
+        self.storage_driver: FileStorage
         if storage_driver:
             self.storage_driver = storage_driver
         else:
@@ -515,7 +518,7 @@ class Service:
             )
         }
 
-        url = self.paths.get(Paths.NETWORKSERVICE_POST_API)
+        url: str = self.paths.get(Paths.NETWORKSERVICE_POST_API)
         resp: HttpResponse = await RestApiClient.call(
             url, HttpMethod.POST, data=data
         )
@@ -640,7 +643,7 @@ class Service:
         ServerType.SERVICE
         '''
 
-        server = config.server
+        server: ServiceServer = config.server
         if server and not server.server_type == ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
@@ -650,11 +653,11 @@ class Service:
                 'by the network'
             )
 
-        key_path = self.tls_secret.save_tmp_private_key()
-        data_certchain = {'certchain': self.data_secret.certchain_as_pem()}
+        key_path: str = self.tls_secret.save_tmp_private_key()
+        data_certchain: dict[str, str] = {'certchain': self.data_secret.certchain_as_pem()}
 
-        url = self.paths.get(Paths.NETWORKSERVICE_API)
-        resp = await RestApiClient.call(
+        url: str = self.paths.get(Paths.NETWORKSERVICE_API)
+        resp: HttpResponse = await RestApiClient.call(
             url, HttpMethod.PUT, secret=self.tls_secret, data=data_certchain,
             service_id=self.service_id
         )
@@ -675,6 +678,11 @@ class Service:
                 filepath = self.paths.get(Paths.SERVICE_FILE, self.service_id)
             else:
                 filepath = self.paths.get(filepath, service_id=self.service_id)
+
+        _LOGGER.debug(
+            f'Downloading schema for service_id {self.service_id} using '
+            f'template {Paths.SERVICE_CONTRACT_DOWNLOAD}'
+        )
 
         resp = await ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id

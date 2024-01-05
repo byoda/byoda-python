@@ -20,7 +20,5 @@ CMD cd /opt/byoda/byoda-python \
        --proxy-allow-from '*' \
        --forwarded-allow-ips '*' \
        -p /var/run/svcserver.pid \
-       --error-logfile /var/log/byoda/gunicorn-service-error.log \
-       --access-logfile /var/log/byoda/gunicorn-service-access.log \
        -c gunicorn.conf.py \
        svcserver.main:app

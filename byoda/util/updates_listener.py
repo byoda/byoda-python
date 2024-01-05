@@ -25,6 +25,7 @@ from anyio.abc import TaskGroup
 from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import WebSocketException
 from websockets.exceptions import ConnectionClosedOK
+from byoda.datamodel.memberdata import EdgeResponse
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
@@ -51,6 +52,8 @@ from byoda.requestauth.jwt import JWT
 from byoda.util.test_tooling import is_test_uuid
 
 from byoda.util.logger import Logger
+
+from byoda.exceptions import ByodaRuntimeError
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -104,11 +107,19 @@ class UpdatesListener:
         assets_retrieved: int = 0
 
         while has_more_assets:
-            resp: HttpResponse = await DataApiClient.call(
-                self.service_id, self.class_name, DataRequestType.QUERY,
-                secret=self.tls_secret, member_id=self.remote_member_id,
-                network=self.network_name, first=first, after=after,
-            )
+            try:
+                resp: HttpResponse = await DataApiClient.call(
+                    self.service_id, self.class_name, DataRequestType.QUERY,
+                    secret=self.tls_secret, member_id=self.remote_member_id,
+                    network=self.network_name, first=first, after=after,
+                )
+            except ByodaRuntimeError as exc:
+                _LOGGER.debug(
+                    f'Failed to get assets from member '
+                    f'{self.remote_member_id}: {exc}'
+                )
+                return assets_retrieved
+
             if resp.status_code != 200:
                 _LOGGER.debug(
                     f'Failed to get assets from member '
@@ -135,6 +146,7 @@ class UpdatesListener:
                 f'{assets_retrieved}'
             )
 
+            edge: EdgeResponse
             for edge in response.edges or []:
                 await self.store_asset_in_cache(
                     edge.node, edge.origin, edge.cursor
@@ -192,7 +204,7 @@ class UpdatesListener:
 
         # Aggressive retry as we're talking to our own pod
         reconnect_delay: int = 0.2
-        last_alive = datetime.now(tz=timezone.utc)
+        last_alive: datetime = datetime.now(tz=timezone.utc)
         while True:
             try:
                 async for result in DataWsApiClient.call(
@@ -205,7 +217,7 @@ class UpdatesListener:
                     _LOGGER.debug(
                         f'Appending data from class {self.class_name} '
                         f'originating from {edge.origin_id} '
-                        f'received from member {self.remote_member_id}'
+                        f'received from member {self.remote_member_id} '
                         f'to asset cache: {edge.node}'
                     )
 
@@ -217,7 +229,7 @@ class UpdatesListener:
                         continue
 
                     await self.store_asset_in_cache(
-                        edge.node, edge.origin_id, None
+                        edge.node, edge.origin_id, edge.cursor
                     )
 
                     # We received data from the remote pod, so reset the
@@ -364,8 +376,8 @@ class UpdateListenerService(UpdatesListener):
             )
             if not exists:
                 _LOGGER.debug(
-                    f'Adding asset {data["asset_id"]} from member {origin_id} '
-                    f'to list {dest_class_name}'
+                    f'Adding asset {data["asset_id"]} with cursor {cursor} '
+                    f'from member {origin_id} to list {dest_class_name}'
                 )
                 await self.asset_cache.lpush(
                     dest_class_name, data, origin_id, cursor
@@ -488,12 +500,20 @@ class UpdateListenerMember(UpdatesListener):
         # We set 'internal-True', which means this API call will
         # bypass the nginx proxy and directly go to http://localhost:8000/
         query_id: UUID = uuid4()
-        resp: HttpResponse = await DataApiClient.call(
-            self.member.service_id, self.dest_class_name,
-            DataRequestType.APPEND, member_id=self.member.member_id,
-            data=request_data, headers=self.member_jwt.as_header(),
-            query_id=query_id, internal=True
-        )
+        try:
+            resp: HttpResponse = await DataApiClient.call(
+                self.member.service_id, self.dest_class_name,
+                DataRequestType.APPEND, member_id=self.member.member_id,
+                data=request_data, headers=self.member_jwt.as_header(),
+                query_id=query_id, internal=True
+            )
+        except ByodaRuntimeError as exc:
+            _LOGGER.warning(
+                f'Failed to append video {data.get("asset_id")} '
+                f'to class {self.dest_class_name} '
+                f'with query_id {query_id}: {exc}'
+            )
+            return False
 
         if resp.status_code != 200:
             _LOGGER.warning(

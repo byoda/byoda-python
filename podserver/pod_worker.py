@@ -79,15 +79,19 @@ YOUTUBE_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 
 
-async def main(argv):
-    server = await setup_worker(argv)
+async def main(argv) -> None:
+    server: PodServer = await setup_worker(argv)
     account: Account = server.account
 
-    youtube_import_service_id: int = int(
-        os.environ.get(
-            'YOUTUBE_IMPORT_SERVICE_ID', YOUTUBE_IMPORT_SERVICE_ID
+    try:
+        youtube_import_service_id: int = int(
+            os.environ.get(
+                'YOUTUBE_IMPORT_SERVICE_ID', YOUTUBE_IMPORT_SERVICE_ID
+            )
         )
-    )
+    except ValueError:
+        youtube_import_service_id: int = YOUTUBE_IMPORT_SERVICE_ID
+
     twitter_import_service_id: int = TWITTER_IMPORT_SERVICE_ID
 
     await setup_recurring_tasks(server, youtube_import_service_id)
@@ -113,8 +117,8 @@ async def main(argv):
             try:
                 await run_pending()
                 await sleep(1)
-            except Exception:
-                _LOGGER.exception('Exception during run_pending')
+            except Exception as exc:
+                _LOGGER.exception(f'Exception during run_pending: {exc}')
 
 
 async def run_startup_tasks(server: PodServer, data_store: DataStore,

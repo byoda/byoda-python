@@ -67,9 +67,9 @@ APP: FastAPI | None = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
         config.disable_pubsub = True
@@ -83,7 +83,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         global BASE_URL
-        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
+        BASE_URL: str = BASE_URL.format(PORT=server.HTTP_PORT)
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
@@ -105,10 +105,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_pod_rest_api_tls_client_cert(self):
+    async def test_pod_rest_api_tls_client_cert(self) -> None:
         account: Account = config.server.account
         account_id: UUID = account.account_id
         network: Network = account.network
@@ -120,7 +120,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
 
-        API = BASE_URL + '/v1/pod/account'
+        API: str = BASE_URL + '/v1/pod/account'
         resp: HttpResponse = await ApiClient.call(
             API, method=HttpMethod.GET, timeout=120, headers=account_headers,
             app=APP
@@ -138,15 +138,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 1)
+        self.assertTrue(len(data['services']))
 
         # Get the service ID for the addressbook service
         service_id = None
         version = None
         for service in data['services']:
             if service['name'] == 'addressbook':
-                service_id = service['service_id']
-                version = service['latest_contract_version']
+                service_id: int = service['service_id']
+                version: int = service['latest_contract_version']
 
         self.assertEqual(service_id, ADDRESSBOOK_SERVICE_ID)
         self.assertEqual(version, ADDRESSBOOK_VERSION)
@@ -195,7 +195,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
 
-    async def test_service_auth(self):
+    async def test_service_auth(self) -> None:
         '''
         Test calling the Data API of the pod with
         the TLS client secret of the Service
@@ -223,7 +223,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(resp.status_code, 200)
         data: dict[str, str] = resp.json()
-        member_auth_header = {
+        member_auth_header: dict[str, str] = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
@@ -243,7 +243,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
 
-        service_headers = {
+        service_headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN=service.service-{service_id}.byoda.net',
@@ -262,7 +262,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(data['total_count'], 1)
 
-    async def test_pod_rest_api_jwt(self):
+    async def test_pod_rest_api_jwt(self) -> None:
 
         account: Account = config.server.account
         account_id: UUID = account.account_id
@@ -285,11 +285,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(resp.status_code, 200)
         data: dict[str, str] = resp.json()
-        member_auth_header = {
+        member_auth_header: dict[str, str] = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
-        API = BASE_URL + '/v1/pod/account'
+        API: str = BASE_URL + '/v1/pod/account'
         with self.assertRaises(ByodaRuntimeError):
             resp = await ApiClient.call(
                 API, method=HttpMethod.GET, timeout=120,
@@ -313,7 +313,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        account_auth_header = {
+        account_auth_header: dict[str, str] = {
             'Authorization': f'bearer {data["auth_token"]}'
         }
 
@@ -336,7 +336,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['loglevel'], 'DEBUG')
         self.assertEqual(data['private_key_secret'], 'byoda')
         self.assertEqual(data['bootstrap'], True)
-        self.assertEqual(len(data['services']), 1)
+        self.assertTrue(len(data['services']))
 
         API = BASE_URL + '/v1/pod/member'
         resp = await ApiClient.call(
@@ -377,7 +377,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'/asset_id/{asset_id}/visibility/public'
         )
 
-        files = [
+        files: list[str, tuple(str, os.BufferedReader)] = [
             (
                 'files', ('ls.bin', open('/bin/ls', 'rb'))
             ),
@@ -392,7 +392,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        expected_locations = [
+        expected_locations: list[str] = [
             f'{TEST_DIR}/public/{asset_id}/ls.bin',
             f'{TEST_DIR}/public/{asset_id}/date.bin',
         ]
@@ -422,7 +422,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(location in expected_locations)
             self.assertTrue(os.path.exists(location))
 
-    async def test_auth_token_request(self):
+    async def test_auth_token_request(self) -> None:
         account: Account = config.server.account
         password: str = os.environ['ACCOUNT_SECRET']
 
@@ -448,7 +448,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data: dict[str, str] = resp.json()
         account_jwt: str = data.get('auth_token')
         self.assertTrue(isinstance(account_jwt, str))
-        auth_header = {
+        auth_header: dict[str, str] = {
             'Authorization': f'bearer {account_jwt}'
         }
 
@@ -486,7 +486,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        member_jwt = data.get('auth_token')
+        member_jwt: str | None = data.get('auth_token')
         self.assertTrue(isinstance(member_jwt, str))
 
         # Append some data

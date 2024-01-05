@@ -257,7 +257,7 @@ class DataApiClient:
         return data_url, port
 
     @staticmethod
-    async def close_all():
+    async def close_all() -> None:
         await ApiClient.close_all()
 
     @staticmethod

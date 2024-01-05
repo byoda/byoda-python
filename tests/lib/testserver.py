@@ -16,6 +16,7 @@ import sys
 ### Test change     # noqa: E266
 ###
 import shutil
+from uuid import UUID
 from tests.lib.util import get_test_uuid
 ###
 ###
@@ -214,14 +215,14 @@ async def lifespan(app: FastAPI):
 
     local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
     if local_service_contract:
-        dest = TEST_DIR + '/' + local_service_contract
-        dest_dir = os.path.dirname(dest)
+        dest: str = TEST_DIR + '/' + local_service_contract
+        dest_dir: str = os.path.dirname(dest)
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copyfile(
             local_service_contract, TEST_DIR + '/' + local_service_contract
         )
 
-    member_id = get_test_uuid()
+    member_id: UUID = get_test_uuid()
     await account.join(
         service['service_id'], service['version'], server.local_storage,
         member_id=member_id, local_service_contract=local_service_contract
@@ -242,6 +243,8 @@ async def lifespan(app: FastAPI):
 
     await account.load_memberships()
 
+    auto_joins: list[int] = data['join_service_ids']
+
     for member in account.memberships.values():
         await member.enable_data_apis(
             app, server.data_store, server.cache_store
@@ -257,6 +260,16 @@ async def lifespan(app: FastAPI):
             storage_driver=server.local_storage,
             overwrite=True
         )
+
+        # We may have joined services (either the enduser or the bootstrap
+        # script with the 'auto-join' environment variable. But account.join()
+        # can not persist the membership settings so we do that here. We check
+        # here whether those values have been set and, if not, we set them.
+        try:
+            await member.load_settings()
+        except ValueError:
+            member.auto_upgrade: bool = member.service.service_id in auto_joins
+            await member.data.initialize()
 
         cors_origins.add(f'https://{member.tls_secret.common_name}')
 

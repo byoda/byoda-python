@@ -27,8 +27,9 @@ import uvicorn
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
-from byoda.datastore.document_store import DocumentStoreType
+from byoda.datamodel.account import Account
 
+from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.app_server import AppServer
 
@@ -36,6 +37,7 @@ from byoda.datatypes import CloudType
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
 
+from byoda.requestauth.jwt import JWT
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpMethod
@@ -76,15 +78,15 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         config.debug = True
         config.tls_cert_file = '/tmp/cert.pem'
         with open(CONFIG_FILE) as file_desc:
-            TestApis.APP_CONFIG = yaml.load(
+            TestApis.APP_CONFIG: dict[str, dict[str, any]] = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
             )
 
-        app_config = TestApis.APP_CONFIG
+        app_config: dict[str, dict[str, any]] = TestApis.APP_CONFIG
         app_config['appserver']['root_dir'] = TEST_DIR
         try:
             shutil.rmtree(TEST_DIR)
@@ -93,23 +95,23 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
 
-        claim_dir = app_config['appserver']['claim_dir']
+        claim_dir: str = app_config['appserver']['claim_dir']
         for status in ClaimStatus:
             os.makedirs(f'{claim_dir}/{status.value}', exist_ok=True)
 
-        paths = {
+        paths: dict[str, str] = {
             'key': '/private/network-byoda.net/service-4294929430/apps/',
             'pem': '/network-byoda.net/service-4294929430/apps/'
         }
         os.makedirs(f'{TEST_DIR}{paths["key"]}', exist_ok=True)
         os.makedirs(f'{TEST_DIR}{paths["pem"]}', exist_ok=True)
-        files = (
+        files: tuple[str, str, str, str] = (
             f'app-{TEST_APP_ID}-cert.pem', f'app-data-{TEST_APP_ID}-cert.pem',
             f'app-{TEST_APP_ID}.key', f'app-data-{TEST_APP_ID}.key'
         )
         for file in files:
-            file_type = file[-3:]
-            filepath = paths[file_type] + file
+            file_type: str = file[-3:]
+            filepath: str = paths[file_type] + file
             shutil.copyfile(
                 f'{COLLATERAL_DIR}/local/{file}',
                 f'{TEST_DIR}{filepath}'
@@ -171,21 +173,23 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         TestApis.PROCESS.terminate()
 
     async def test_moderation_asset_post_jwt(self):
-        API = BASE_URL + '/moderate/asset'
+        API: str = BASE_URL + '/moderate/asset'
         server: AppServer = config.server
 
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
-        account = await setup_account(network_data)
+        network_data: dict[str, str] = await setup_network(
+            delete_tmp_dir=False
+        )
+        account: Account = await setup_account(network_data)
 
         member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         with open(config.tls_cert_file, 'wb') as file_desc:
             file_desc.write(member.tls_secret.cert_as_pem())
 
-        network_name = TestApis.APP_CONFIG['application']['network']
+        network_name: str = TestApis.APP_CONFIG['application']['network']
 
-        claim_data = {
+        claim_data: dict[str, any] = {
             'claims': ['blah 5', 'gaap 4'],
             'claim_data': {
                 'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
@@ -214,7 +218,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             }
         }
 
-        ssl_headers = {
+        ssl_headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN={member.member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
@@ -236,7 +240,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['status'], 'pending')
         self.assertIsNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
-        request_file = server.get_claim_filepath(
+        request_file: str = server.get_claim_filepath(
             ClaimStatus.PENDING, data['request_id']
         )
         self.assertTrue(os.path.exists(request_file))
@@ -244,8 +248,12 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         #
         # Test with JWT
         #
-        jwt = member.create_jwt(target_id=TEST_APP_ID, target_type=IdType.APP)
-        jwt_headers = {'Authorization': f'bearer {jwt.encoded}'}
+        jwt: JWT = member.create_jwt(
+            target_id=TEST_APP_ID, target_type=IdType.APP
+        )
+        jwt_headers: dict[str, str] = {
+            'Authorization': f'bearer {jwt.encoded}'
+        }
 
         # Make sure asset_id is unique
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
@@ -253,7 +261,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             API, HttpMethod.POST, headers=jwt_headers, data=claim_data,
         )
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        data: dict[str, any] = resp.json()
         self.assertEqual(data['status'], 'pending')
         self.assertIsNone(data['signature'])
         self.assertIsNotNone(data['request_id'])
@@ -281,7 +289,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(data['cert_fingerprint'])
         self.assertIsNotNone(data['cert_expiration'])
 
-        claim_file = server.get_claim_filepath(
+        claim_file: str = server.get_claim_filepath(
             ClaimStatus.ACCEPTED, claim_data['claim_data']['asset_id']
         )
         self.assertTrue(os.path.exists(claim_file))

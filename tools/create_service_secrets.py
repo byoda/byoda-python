@@ -14,24 +14,33 @@ import asyncio
 import shutil
 import argparse
 
+from uuid import uuid4
+
 import httpx
 
 from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
+
+from byoda.datastore.document_store import DocumentStoreType
+
 from byoda.servers.server import Server
 
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 
+from byoda.servers.pod_server import PodServer
+
+from podserver.util import get_environment_vars
+
 from byoda import config
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
 _ROOT_DIR = os.environ['HOME'] + '/.byoda'
 
 
-async def main(argv):
+async def main(argv) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
@@ -42,19 +51,23 @@ async def main(argv):
     parser.add_argument(
         '--local', default=True, action='store_false'
     )
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
-    # Network constructor expects parameters to be in a dict
-    network_data = {
-        'private_key_password': args.password,
-        'cloud': 'LOCAL',
-        'private_bucket': None,
-        'restricted_bucket': None,
-        'public_bucket': None,
-        'roles': [],
-        'network': args.network,
-        'root_dir': args.root_directory,
-    }
+    if not os.environ.get('ROOT_DIR'):
+        os.environ['ROOT_DIR'] = args.root_directory
+
+    os.environ['PRIVATE_BUCKET'] = 'byoda'
+    os.environ['RESTRICTED_BUCKET'] = 'byoda'
+    os.environ['PUBLIC_BUCKET'] = 'byoda'
+    os.environ['CLOUD'] = 'LOCAL'
+    os.environ['NETWORK'] = args.network
+    os.environ['ACCOUNT_ID'] = str(uuid4())
+    os.environ['ACCOUNT_SECRET'] = 'test'
+    os.environ['LOGLEVEL'] = 'DEBUG'
+    os.environ['PRIVATE_KEY_SECRET'] = args.password
+    os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
+
+    network_data: dict[str, str | int | bool | None] = get_environment_vars()
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -62,24 +75,34 @@ async def main(argv):
         json_out=False
     )
 
-    root_dir = args.root_directory
+    root_dir: str = args.root_directory
 
     if root_dir.startswith('/tmp') and os.path.exists(root_dir):
         _LOGGER.debug(f'Wiping temporary root directory: {root_dir}')
         shutil.rmtree(root_dir)
 
-    network_dir = f'{root_dir}/network-{args.network}'
-    network_cert_filepath = (
+    network_dir: str = f'{root_dir}/network-{args.network}'
+    network_cert_filepath: str = (
         network_dir + f'/network-{args.network}-root-ca-cert.pem'
     )
 
     if not os.path.exists(network_cert_filepath):
         os.makedirs(network_dir, exist_ok=True)
-        resp = httpx.get(f'https://dir.{args.network}/root-ca.pem')
+        resp: httpx.Response = httpx.get(f'https://dir.{args.network}/root-ca.pem')
         with open(network_cert_filepath, 'w') as file_desc:
             file_desc.write(resp.text)
 
-    network = await load_network(args, network_data)
+    config.server = PodServer(bootstrapping=False)
+
+    await config.server.set_document_store(
+        DocumentStoreType.OBJECT_STORE, config.server.cloud,
+        private_bucket=network_data['private_bucket'],
+        restricted_bucket=network_data['restricted_bucket'],
+        public_bucket=network_data['public_bucket'],
+        root_dir=network_data['root_dir']
+    )
+
+    network: Network = await load_network(args, network_data)
 
     service = Service(network=network)
     if args.schema:
