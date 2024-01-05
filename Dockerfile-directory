@@ -20,8 +20,6 @@ CMD cd /opt/byoda/byoda-python \
        --forwarded-allow-ips '*' \
        --bind 0.0.0.0:8000  \
        -p /var/run/dirserver.pid \
-       --error-logfile /var/log/byoda/gunicorn-directory-error.log \
-       --access-logfile /var/log/byoda/gunicorn-directory-access.log \
        -c gunicorn.conf.py \
        dirserver.main:app
 

@@ -27,7 +27,6 @@ import orjson
 from anyio import TASK_STATUS_IGNORED
 from anyio import create_task_group
 from anyio import sleep
-
 from anyio.abc import TaskStatus
 
 from byoda.datamodel.network import Network
@@ -148,7 +147,7 @@ async def call_api(test, member: Member, class_name: str,
     '''
 
     '''
-    resp = await call_data_api(
+    resp: dict[str, object] | int | None = await call_data_api(
         member.service_id, class_name, action, data=data,
         member=member, data_filter=data_filter,
         auth_header=headers, test=test, internal=True
@@ -171,7 +170,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         network_data['account_id'] = get_account_id(network_data)
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -196,10 +195,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_graphql_websocket_append(self):
+    async def test_graphql_websocket_append(self) -> None:
         account: Account = config.server.account
         network: Network = account.network
         service_id: int = ADDRESSBOOK_SERVICE_ID
@@ -303,7 +302,7 @@ if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result = sock.connect_ex(('127.0.0.1', 8000))
+    result: int = sock.connect_ex(('127.0.0.1', 8000))
     if result != 0:
         raise RuntimeError(
             'These websocket tests need a running pod server on port 8000'

@@ -24,12 +24,13 @@ DNS_DIRSERVER_EXPIRES: datetime = datetime.now(tz=timezone.utc)
 
 
 class DnsResolver:
-    def __init__(self, network: str):
+    def __init__(self, network: str) -> None:
+        _LOGGER.debug('Initializing DNS resolver')
         # HACK: avoid test cases from needing their own DNS server
         if network in ('byodafunctest.net'):
             self.network = 'byoda.net'
         else:
-            self.network = network
+            self.network: str = network
 
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = 1
@@ -39,12 +40,16 @@ class DnsResolver:
                 or DNS_DIRSERVER_EXPIRES < datetime.now(tz=timezone.utc)):
             self._update_dirserver_ips()
 
+        _LOGGER.debug('Initialized DNS resolver')
+
     def _update_dirserver_ips(self):
+        _LOGGER.debug('Updating directory server IP addresses')
+
         self.resolver.nameservers = ['1.1.1.1', '8.8.8.8']
-        ips = self.resolve(
+        ips: list[str] = self.resolve(
             f'dir.{self.network}', force=True
         )
-        ips_as_str = [str(ip) for ip in ips]
+        ips_as_str: list[str] = [str(ip) for ip in ips]
 
         global DNS_DIRSERVER_ADDRESSES
         DNS_DIRSERVER_ADDRESSES = ips_as_str
@@ -55,11 +60,14 @@ class DnsResolver:
         )
         global DNS_DIRSERVER_EXPIRES
         DNS_DIRSERVER_EXPIRES = datetime.now(tz=timezone.utc)
+        _LOGGER.debug('Updated directory server IP addresses')
 
     def resolve(self, fqdn: str, force: bool = False) -> list[IpAddress]:
         '''
         Looks up the DNS A records for the provided FQDN
         '''
+
+        _LOGGER.debug(f'Resolving FQDN: {fqdn}')
 
         if not force and DNS_DIRSERVER_EXPIRES < datetime.now(tz=timezone.utc):
             self._update_dirserver_ips()

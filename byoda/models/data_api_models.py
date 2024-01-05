@@ -278,6 +278,7 @@ class UpdatesModel(BaseModel):
 
 class UpdatesResponseModel(BaseModel):
     node: dict[str, object] = Field(description='The data that was updated')
+    cursor: str = Field(description='The cursor of the updated data')
     query_id: UUID | None = Field(
         default=None,
         description='The query ID of the original Updates API request'

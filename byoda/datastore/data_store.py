@@ -197,7 +197,7 @@ class DataStore:
                      origin_id: UUID | None, origin_id_type: IdType | None,
                      data_filter_set: DataFilterSet = None) -> int:
         '''
-        mutate the data in the cache store for the data class
+        mutate the data in the data store for the data class
 
         :param member_id: member_id for the member DB to execute the command on
         :param class_name: the name of the data_class that we need to append to
@@ -214,7 +214,7 @@ class DataStore:
             origin_class_name=None, data_filter_set=data_filter_set
         )
 
-    @TRACER.start_as_current_span('CacheStore.append')
+    @TRACER.start_as_current_span('DataStore.append')
     async def append(self, member_id: UUID, data_class: SchemaDataArray,
                      data: dict[str, object], cursor: str,
                      origin_id: UUID, origin_id_type: IdType) -> int:
@@ -228,7 +228,7 @@ class DataStore:
         :returns: the number of rows added to the table
         '''
 
-        result = await self.backend.append(
+        result: int = await self.backend.append(
             member_id, data_class.name, data, cursor, origin_id,
             origin_id_type, origin_class_name=None
         )
@@ -242,5 +242,5 @@ class DataStore:
             member_id, class_name, data_filter_set
         )
 
-    async def close(self):
+    async def close(self) -> None:
         await self.backend.close()

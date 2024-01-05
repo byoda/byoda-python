@@ -48,8 +48,11 @@ MARKER_ACCESS_CONTROL: str = '#accesscontrol'
 # How many records should a Data query return by default
 DEFAULT_QUERY_SIZE: int = 40
 
-MemberInfo = namedtuple('MemberInfo', ['member_id', 'service_id', 'status', 'timestamp'])
-NetworkLink = namedtuple('NetworkLink', ['member_id', 'relation', 'created_timestamp'])
+# Where the pod stores the decrypted ssl key so that nginx can access it
+TEMP_SSL_DIR: str = '/var/tmp/ssl'
+
+MemberInfo: namedtuple = namedtuple('MemberInfo', ['member_id', 'service_id', 'status', 'timestamp'])
+NetworkLink: namedtuple = namedtuple('NetworkLink', ['member_id', 'relation', 'created_timestamp','annotations'])
 
 AnyScalarType = \
     str | bytes | int | float | bool | UUID | datetime | date | time

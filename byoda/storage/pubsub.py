@@ -7,6 +7,7 @@ derive
 :license    : GPLv3
 '''
 
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -48,7 +49,7 @@ class PubSub:
     def setup(connection_string: str, data_class: SchemaDataItem,
               service_id: int, is_counter: bool = False,
               is_sender: bool = False,
-              pubsub_tech: PubSubTech = PubSubTech.NNG):
+              pubsub_tech: PubSubTech = PubSubTech.NNG) -> Self:
         '''
         Factory for PubSub
         '''

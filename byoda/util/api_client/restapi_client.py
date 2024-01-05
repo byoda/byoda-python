@@ -63,9 +63,9 @@ class RestApiClient:
                 _LOGGER.debug(
                     'Removing identifier from end of request for POST call'
                 )
-                paths = api.split('/')
+                paths: list[str] = api.split('/')
                 int(paths[-1])
-                shortend_api = '/'.join(paths[0:-1])
+                shortend_api: str = '/'.join(paths[0:-1])
                 _LOGGER.debug(
                     f'Modified POST API call from {api} to {shortend_api}'
                 )
@@ -83,7 +83,7 @@ class RestApiClient:
         return resp
 
     @staticmethod
-    async def close_all():
+    async def close_all() -> None:
         await ApiClient.close_all()
 
     @staticmethod

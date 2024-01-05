@@ -60,7 +60,7 @@ async def main(args) -> None:
 
     app_config['svcserver']['root_dir'] = WORK_DIR
     if args.redis:
-        app_config['svcserver']['cache'] = args.redis
+        app_config['svcserver']['asset_cache'] = args.redis
 
     network = Network(app_config['svcserver'], app_config['application'])
 
@@ -92,7 +92,7 @@ async def main(args) -> None:
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
     cache = await AssetCache.setup(
-        app_config['svcserver']['cache'], service, 'asset',
+        app_config['svcserver']['asset_cache'], service, 'asset',
         KVCache.DEFAULT_CACHE_EXPIRATION
     )
     print(cache)

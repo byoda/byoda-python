@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     # with other process so we do it right at the start
     PubSubNng.cleanup()
 
-    network_data = get_environment_vars()
+    network_data: dict[str, str | int | bool | None] = get_environment_vars()
 
     server: PodServer = PodServer(
         bootstrapping=bool(network_data.get('bootstrap'))
@@ -147,6 +147,8 @@ async def lifespan(app: FastAPI):
 
     await account.load_memberships()
 
+    auto_joins: list[int] = network_data['join_service_ids']
+
     for member in account.memberships.values():
         await member.enable_data_apis(
             app, server.data_store, server.cache_store
@@ -162,6 +164,16 @@ async def lifespan(app: FastAPI):
             storage_driver=server.local_storage,
             overwrite=True
         )
+
+        # We may have joined services (either the enduser or the bootstrap
+        # script with the 'auto-join' environment variable. But account.join()
+        # can not persist the membership settings so we do that here. We check
+        # here whether those values have been set and, if not, we set them.
+        try:
+            await member.load_settings()
+        except ValueError:
+            member.auto_upgrade = member.service.service_id in auto_joins
+            await member.data.initialize()
 
         cors_origins.add(f'https://{member.tls_secret.common_name}')
 

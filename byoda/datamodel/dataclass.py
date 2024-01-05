@@ -262,7 +262,7 @@ class SchemaDataItem:
         )
 
     @staticmethod
-    def create(class_name: str, schema_data: dict, schema: Schema,
+    def create(class_name: str, schema_data: dict[str, any], schema: Schema,
                classes: dict = {}, with_pubsub: bool = True):
         '''
         Factory for instances of classes derived from SchemaDataItem
@@ -276,7 +276,7 @@ class SchemaDataItem:
         obsolete in the service schema
         '''
 
-        item_type = schema_data.get('type')
+        item_type: str | None = schema_data.get('type')
         if not item_type:
             raise ValueError(f'No type found in {class_name}')
 
@@ -533,6 +533,11 @@ class SchemaDataObject(SchemaDataItem):
             self.defined_class = True
 
         for field, field_properties in schema_data['properties'].items():
+            if 'type' not in field_properties:
+                raise ValueError(
+                    f'No type defined for field {field} of class {class_name}, '
+                    f'which is a data class: {self.defined_class}'
+                )
             if field_properties['type'] == 'object':
                 raise ValueError(
                     f'Nested objects under object {class_name} are '
@@ -570,9 +575,9 @@ class SchemaDataObject(SchemaDataItem):
         Normalizes the values in a dict
         '''
 
-        data = copy(value)
+        data: dict = copy(value)
         for field in data:
-            data_class = self.fields.get(field)
+            data_class: SchemaDataItem | None = self.fields.get(field)
             if not data_class:
                 # This can happen now that we store objects that have
                 # an array of other objects as JSON strings

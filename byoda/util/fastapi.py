@@ -39,7 +39,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 def setup_api(title: str, description: str, version: str, routers: list,
               lifespan: callable, trace_server: str = '127.0.0.1') -> FastAPI:
-    middleware = [
+    middleware: list[Middleware] = [
         Middleware(
             CORSMiddleware, allow_origins=[], allow_credentials=True,
             allow_methods=['*'], allow_headers=['*'], expose_headers=['*'],
@@ -61,7 +61,7 @@ def setup_api(title: str, description: str, version: str, routers: list,
 
     config.app = app
 
-    resource = Resource.create(
+    resource: Resource = Resource.create(
         attributes={SERVICE_NAME: title.replace(' ', '-')}
     )
     provider = TracerProvider(resource=resource)
@@ -95,7 +95,7 @@ def setup_api(title: str, description: str, version: str, routers: list,
             multiprocess.MultiProcessCollector(registry)
             return make_asgi_app(registry=registry)
 
-        metrics_app = make_metrics_app()
+        metrics_app: callable[..., any] = make_metrics_app()
         app.mount("/metrics", metrics_app)
 
     for router in routers:
@@ -104,7 +104,7 @@ def setup_api(title: str, description: str, version: str, routers: list,
     return app
 
 
-def update_cors_origins(hosts: str | list[str]):
+def update_cors_origins(hosts: str | list[str]) -> None:
     '''
     Updates the starlette CORS middleware to add the provided hosts
 
@@ -134,7 +134,7 @@ def update_cors_origins(hosts: str | list[str]):
             for host in hosts:
                 if (not host.startswith('https://') and
                         not host.startswith('http://') and host != '*'):
-                    host = f'https://{host}'
+                    host: str = f'https://{host}'
 
                 if host not in middleware.options['allow_origins']:
                     _LOGGER.debug(f'Adding CORS host: {host}')

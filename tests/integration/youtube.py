@@ -72,7 +72,7 @@ API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -89,7 +89,9 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         shutil.copytree('tests/collateral/local/video_asset', asset_dir)
 
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
+        network_data: dict[str, str] = await setup_network(
+            delete_tmp_dir=False
+        )
 
         config.test_case = 'TEST_CLIENT'
         config.disable_pubsub = True
@@ -125,10 +127,10 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_API_KEY] = ''
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_scrape_videos(self):
+    async def test_scrape_videos(self) -> None:
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
@@ -149,9 +151,10 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
         yt = YouTube()
-        ingested_videos = await YouTube.load_ingested_videos(
-            member.member_id, data_class, data_store
-        )
+        ingested_videos: dict[str, dict[str, str]] = \
+            await YouTube.load_ingested_videos(
+                member.member_id, data_class, data_store
+            )
         self.assertEqual(len(ingested_videos), 0)
 
         ingested_videos = {
@@ -168,12 +171,12 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         await yt.get_videos(ingested_videos)
         self.assertGreaterEqual(len(yt.channels[channel_name].videos), 1)
 
-        jwt = JWT.create(
+        jwt: JWT = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
             ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_APP_ID,
             expiration_days=3
         )
-        mod_url = f'https://{MODTEST_FQDN}'
+        mod_url: str = f'https://{MODTEST_FQDN}'
         mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
         await yt.persist_videos(
@@ -199,7 +202,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             headers=member_auth, app=APP,
         )
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        data: dict[str, list[dict[str, dict[str, any]]]] = resp.json()
         self.assertGreaterEqual(len(data), 2)
         self.assertEqual(len(data['edges'][0]['node']['claims']), 1)
 
@@ -212,7 +215,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             member, storage_driver, ingested_videos, ingest_interval=4
         )
 
-    async def test_import_videos(self):
+    async def test_import_videos(self) -> None:
         _LOGGER.info('Disabled API import tests')
         return
 

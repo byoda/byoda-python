@@ -66,7 +66,7 @@ async def setup_network(test_dir: str | None) -> dict[str, str]:
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
 
-    data = get_environment_vars()
+    data: dict[str, str | int | bool | None] = get_environment_vars()
 
     config.server = PodServer(bootstrapping=False)
 
@@ -98,13 +98,13 @@ async def get_jwt_header(id: UUID | str, base_url: str = BASE_URL,
         secret = os.environ['ACCOUNT_SECRET']
 
     if member_token:
-        service_id = ADDRESSBOOK_SERVICE_ID
+        service_id: int = ADDRESSBOOK_SERVICE_ID
     else:
         service_id = None
 
-    url = base_url + '/v1/pod/authtoken'
+    url: str = base_url + '/v1/pod/authtoken'
 
-    data = {
+    data: dict[str, str] = {
         'username': str(id)[:8],
         'password': secret,
         'service_id': service_id,
@@ -112,10 +112,10 @@ async def get_jwt_header(id: UUID | str, base_url: str = BASE_URL,
     }
 
     _LOGGER.debug(f'Calling URL: {url} with data {json.dumps(data)}')
-    server = config.server
-    resp = httpx.post(url, json=data)
+    server: PodServer = config.server
+    resp: httpx.Response = httpx.post(url, json=data)
     try:
-        result = resp.json()
+        result: any = resp.json()
         if resp.status_code != 200:
             await server.shutdown()
             raise PermissionError(f'Failed to get auth token: {result}')
@@ -124,14 +124,14 @@ async def get_jwt_header(id: UUID | str, base_url: str = BASE_URL,
         raise ValueError(f'Failed to get auth token: {resp.text}')
 
     _LOGGER.debug(f'JWT acquisition: {resp.status_code} - {resp.text}')
-    auth_header = {
+    auth_header: dict[str, str] = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
 
     return auth_header
 
 
-async def main(argv: list[str]):
+async def main(argv: list[str]) -> None:
 
     await setup_network(None)
     parser = argparse.ArgumentParser()
@@ -170,7 +170,7 @@ async def main(argv: list[str]):
         '--debug', default=False, action='store_true'
     )
 
-    args = parser.parse_args(argv[1:])
+    args: argparse.Namespace = parser.parse_args(argv[1:])
 
     global _LOGGER
     if args.debug:

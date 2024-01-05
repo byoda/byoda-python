@@ -10,8 +10,10 @@ Class for modeling an account on a network
 from copy import copy
 from uuid import UUID
 from uuid import uuid4
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
+from datetime import datetime
 
 from fastapi import FastAPI
 
@@ -38,6 +40,7 @@ from byoda.storage import FileStorage
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_secret import CertificateSigningRequest
 from byoda.secrets.member_data_secret import MemberDataSecret
 from byoda.secrets.secret import Secret
 from byoda.secrets.membersca_secret import MembersCaSecret
@@ -60,6 +63,7 @@ from byoda import config
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
+from byoda.util.api_client.restapi_client import HttpResponse
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -77,12 +81,13 @@ class Member:
     This class is expected to only be used in the podserver
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'member_id', 'service_id', 'account', 'network', 'service', 'schema',
         'data', 'paths', 'document_store', 'data_store', 'cache_store',
         'query_cache', 'counter_cache', 'storage_driver',
         'private_key_password', 'tls_secret', 'data_secret',
-        'service_data_secret', 'service_ca_secret', 'service_ca_certchain'
+        'service_data_secret', 'service_ca_secret', 'service_ca_certchain',
+        'joined', 'schema_versions', 'auto_upgrade'
 
     ]
 
@@ -110,6 +115,17 @@ class Member:
         self.network: Network = self.account.network
 
         self.schema: Schema | None = None
+
+        # These 3 fields are retrieved from the 'Member' object in the
+        # datastore
+        self.joined: datetime | None = None
+        # What we tell others on which versions of the schema we support
+        self.schema_versions: list[int] = []
+        # Should  we automatically upgrade to new versions of the service
+        # contract when they become available
+        # TODO: needs to be implemented in the podworker
+        self.auto_upgrade: bool = False
+
         self.data: MemberData | None = None
 
         self.paths: Paths = copy(account.paths)
@@ -141,7 +157,7 @@ class Member:
         )
 
     async def setup(self, local_service_contract: str = None,
-                    new_membership: bool = True):
+                    new_membership: bool = True) -> None:
         '''
         Sets up a membership for use by the pod. This method is expected
         to only be called by the appserver or workers on the pod, or test
@@ -257,6 +273,15 @@ class Member:
                 'service contract'
             )
 
+    async def load_member_settings(self) -> None:
+        '''
+        Loads the member settings for the membership from the 'member'
+        object in the service contract.
+        '''
+
+        _LOGGER.debug('Loading member settings')
+        self.data.load_member_settings
+
     def as_dict(self) -> dict:
         '''
         Returns the metdata for the membership, complying with the
@@ -266,7 +291,7 @@ class Member:
         if not self.schema:
             raise ValueError('Schema not available')
 
-        data = {
+        data: dict[str, str | int | UUID] = {
             'account_id': self.account.account_id,
             'network': self.network.name,
             'member_id': self.member_id,
@@ -288,14 +313,17 @@ class Member:
                      account: Account, local_storage: FileStorage,
                      member_id: UUID = None,
                      members_ca: MembersCaSecret = None,
-                     local_service_contract: str = None):
+                     local_service_contract: str = None) -> Self:
         '''
         Factory for a new membership
 
         :param service: the service to become a member from
         :param schema_version: the version of the service contract to use
         :param account: the account becoming a member
+        :param local_storage:
         :param member_id: the memebr ID
+        :param members_ca: the CA to sign the member cert with, only used
+        for test cases
         :param local_service_contract: The service contract to sideload from
         the local file system. This parameter must only be used by test cases
         '''
@@ -309,7 +337,7 @@ class Member:
         _LOGGER.debug('Creating membership')
         member = Member(
             service.service_id, account,
-            local_service_contract=local_service_contract
+            local_service_contract=local_service_contract,
         )
         await member.setup(
             local_service_contract=local_service_contract, new_membership=True
@@ -352,11 +380,10 @@ class Member:
         member.data_secret.create_shared_key()
 
         member.data = MemberData(member)
-        member.data.initalize()
 
         await member.data.save_protected_shared_key()
 
-        filepath = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
+        filepath: str = member.paths.get(member.paths.MEMBER_SERVICE_FILE)
         await member.schema.save(filepath, member.paths.storage_driver)
 
         return member
@@ -631,10 +658,10 @@ class Member:
 
         _LOGGER.debug('Registering the pod with the network and service')
         # Register with the service to get our CSR signed
-        csr = await secret.create_csr()
+        csr: CertificateSigningRequest = await secret.create_csr()
 
-        payload = {'csr': secret.csr_as_pem(csr)}
-        resp = await RestApiClient.call(
+        payload: dict[str, str] = {'csr': secret.csr_as_pem(csr)}
+        resp: HttpResponse = await RestApiClient.call(
             self.paths.get(Paths.SERVICEMEMBER_API),
             HttpMethod.POST, data=payload
         )
@@ -725,7 +752,7 @@ class Member:
         # the Service CA to the root CA, including the self-signed root CA
         # cert. The file is hosted by the nginx configuration for the
         # Service server, in the 'ssl_client_certificate' directive.
-        resp = await ApiClient.call(
+        resp: HttpResponse = await ApiClient.call(
             Paths.SERVICE_CACERT_DOWNLOAD,
             service_id=self.service_id,
             network_name=self.network.name
@@ -755,7 +782,7 @@ class Member:
             filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
         if await self.storage_driver.exists(filepath):
-            schema = await Schema.get_schema(
+            schema: Schema = await Schema.get_schema(
                 filepath, self.storage_driver,
                 service_data_secret=self.service.data_secret,
                 network_data_secret=self.network.data_secret,
@@ -775,6 +802,22 @@ class Member:
             _LOGGER.debug('Not verifying schema signatures')
 
         return schema
+
+    async def load_settings(self) -> None:
+        '''
+        Loads the settings for the membership from the 'Member' data classs
+
+        :returns: (none)
+        :raises ValueError: if the data class for the member settings has
+        no values
+        '''
+
+        member_settings: dict[str, any] = \
+            await self.data.load_member_settings()
+
+        self.joined = member_settings['joined']
+        self.schema_versions = member_settings['schema_versions']
+        self.auto_upgrade = member_settings['auto_upgrade']
 
     async def enable_data_apis(self, app: FastAPI, data_store: DataStore,
                                cache_store: CacheStore) -> None:

@@ -38,7 +38,7 @@ class FileMode(Enum):
 
 
 class FileStorage:
-    __slots__ = ['cloud_type', 'local_path']
+    __slots__: list[str] = ['cloud_type', 'local_path']
 
     '''
     Class that abstracts storing data in object storage while
@@ -46,7 +46,7 @@ class FileStorage:
     '''
 
     def __init__(self, local_path: str,
-                 cloud_type: CloudType = CloudType.LOCAL):
+                 cloud_type: CloudType = CloudType.LOCAL) -> None:
 
         # These properties are only applicable if this instance
         # is derived from one of the cloud-storage classes
@@ -113,7 +113,7 @@ class FileStorage:
             )
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')
-            storage = await FileStorage.setup(root_dir)
+            storage: FileStorage = await FileStorage.setup(root_dir)
         else:
             raise NotImplementedError(
                 f'There is no support for cloud {cloud}'
@@ -137,6 +137,8 @@ class FileStorage:
 
         # We mimic k/v store where there are no 'directories' or 'folders'
         # that you have to create
+        relative_path: str
+        filename: str
         relative_path, filename = os.path.split(filepath)
         relative_path = relative_path.rstrip('/')
 
@@ -151,7 +153,7 @@ class FileStorage:
                 '/' + relative_path
             )
         else:
-            dirpath = (
+            dirpath: str = (
                 self.local_path.rstrip('/') + '/' + PUBLIC_POSTFIX +
                 '/' + relative_path
             )
@@ -169,6 +171,8 @@ class FileStorage:
         Open a file on the local file system
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(filepath, storage_type)
 
         _LOGGER.debug(f'Opening local file {dirpath}/{filename}')
@@ -176,14 +180,14 @@ class FileStorage:
             f'{dirpath}/{filename}', f'{open_mode.value}{file_mode.value}'
         )
 
-    def close(self, file_descriptor: BinaryIO):
+    def close(self, file_descriptor: BinaryIO) -> None:
         '''
         Closes a file descriptor as returned by self.open()
         '''
 
         file_descriptor.close()
 
-    async def close_clients(self):
+    async def close_clients(self) -> None:
         '''
         Dummy function for Cloud Storage clients like Azure that need their
         async clients to be closed explicitly
@@ -201,15 +205,17 @@ class FileStorage:
         :returns: str or bytes, depending on the file_mode parameter
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
 
-        updated_filepath = f'{dirpath}/{filename}'
-        openmode = f'r{file_mode.value}'
+        updated_filepath: str = f'{dirpath}/{filename}'
+        openmode: str = f'r{file_mode.value}'
 
         with open(updated_filepath, openmode) as file_desc:
-            data = file_desc.read()
+            data: dict[str, dict] = file_desc.read()
 
         _LOGGER.debug(
             f'Read {len(data or [])} bytes from local file {updated_filepath}'
@@ -271,6 +277,8 @@ class FileStorage:
         :param file_mode: read file as text or as binary
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
@@ -287,11 +295,13 @@ class FileStorage:
         :returns: whether the file exists or not
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, create_dir=False, storage_type=storage_type
         )
 
-        exists = os.path.exists(f'{dirpath}/{filename}')
+        exists: bool = os.path.exists(f'{dirpath}/{filename}')
         if not exists:
             _LOGGER.debug(
                 'File not found in local filesystem: '
@@ -300,7 +310,7 @@ class FileStorage:
         return exists
 
     def save(self, filepath: str, data: str,
-             file_mode: FileMode = FileMode.BINARY):
+             file_mode: FileMode = FileMode.BINARY) -> None:
         '''
         Saves file to local file system, even when called via a
         cloud storage class derived from this class
@@ -310,13 +320,15 @@ class FileStorage:
         :param file_mode: write file as text or as binary
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(filepath)
 
         with open(dirpath + filename, f'w{file_mode.value}') as file_desc:
             file_desc.write(data)
 
     async def move(self, src_filepath: str, dest_filepath: str,
-                   storage_type: StorageType = StorageType.PRIVATE):
+                   storage_type: StorageType = StorageType.PRIVATE) -> None:
         '''
         Moves the file to the destination file
         :param src_filepath: absolute full path + file name of the source file
@@ -325,6 +337,8 @@ class FileStorage:
         :raises: FileNotFoundError, PermissionError
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             dest_filepath, create_dir=True, storage_type=storage_type)
 
@@ -338,6 +352,8 @@ class FileStorage:
         :returns: whether the file exists or not
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
@@ -367,7 +383,7 @@ class FileStorage:
         if not filepath:
             filepath = '/'
 
-        bucket = self.get_bucket(storage_type=storage_type)
+        bucket: str = self.get_bucket(storage_type=storage_type)
 
         filepath = f'{bucket}/{filepath}'
 
@@ -383,7 +399,7 @@ class FileStorage:
         :returns: str
         '''
 
-        path = self.local_path
+        path: str = self.local_path
         if storage_type == StorageType.PUBLIC:
             path += PUBLIC_POSTFIX
         elif storage_type == StorageType.RESTRICTED:
@@ -403,7 +419,8 @@ class FileStorage:
         exists
         '''
 
-        dirpath, filename = self.get_full_path(
+        dirpath: str
+        dirpath, _ = self.get_full_path(
             directory, create_dir=False, storage_type=storage_type
         )
         _LOGGER.debug(f'Creating directory: {dirpath}')
@@ -418,6 +435,8 @@ class FileStorage:
         :returns: the number of seconds since epoch that the file was modified
         '''
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, create_dir=False, storage_type=storage_type
         )
@@ -431,10 +450,13 @@ class FileStorage:
         Copies a file on the local file system
         '''
 
+        dest_dirpath: str
+        dest_filename: str
         dest_dirpath, dest_filename = self.get_full_path(
             dest, storage_type=storage_type
         )
 
+        dest_filepath: str
         dest_filepath = dest_dirpath + '/' + dest_filename
 
         if os.path.exists(dest_filename) and not exist_ok:
@@ -446,7 +468,7 @@ class FileStorage:
         if not os.path.exists(dest_dirpath):
             os.makedirs(dest_dirpath, exist_ok=True)
 
-        result = shutil.copyfile(src, dest_filepath)
+        result: str = shutil.copyfile(src, dest_filepath)
 
         _LOGGER.debug(
             f'Copied src to '
@@ -461,9 +483,9 @@ class FileStorage:
         Gets the folders/directories for a directory on the a filesystem
         '''
 
-        folders = []
+        folders: list = []
 
-        dir_path = self.get_full_path(
+        dir_path: str = self.get_full_path(
             folder_path, storage_type=storage_type
         )[0]
 
@@ -476,8 +498,9 @@ class FileStorage:
 
     @staticmethod
     def get_content_type(filepath) -> str:
+        file_extension: str
         _, file_extension = os.path.splitext(filepath)
-        content_type = ContentTypes.get(
+        content_type: str = ContentTypes.get(
             file_extension, 'application/octet-stream'
         )
         return content_type

@@ -171,7 +171,7 @@ class PubSubNng(PubSub):
         _LOGGER.debug(f'Deleting directory: {PubSubNng.PUBSUB_DIR}')
         shutil.rmtree(PubSubNng.PUBSUB_DIR, ignore_errors=True)
 
-    async def send(self, message: PubSubMessage):
+    async def send(self, message: PubSubMessage) -> None:
         '''
         Serializes the data and sends it to the socket
         '''
@@ -183,7 +183,7 @@ class PubSubNng(PubSub):
             f'Sending message to {self.connection_string}: {message.node}'
         )
 
-        val = message.to_bytes()
+        val: bytes = message.to_bytes()
         await self.pub.asend(val)
 
     async def recv(self, expected_class_name: str | None = None

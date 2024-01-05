@@ -128,7 +128,7 @@ class SqlTable(Table):
             'reference': 'TEXT',
         }[val.lower()]
 
-    async def create(self):
+    async def create(self) -> None:
         '''
         Create the table
         '''
@@ -157,7 +157,7 @@ class SqlTable(Table):
 
         await self.reconcile_table_columns()
 
-    async def reconcile_table_columns(self):
+    async def reconcile_table_columns(self) -> None:
         '''
         When a table has been modified in a new version of the schema,
         new columns may have been added and the above 'CREATE TABLE'
@@ -414,9 +414,10 @@ class SqlTable(Table):
         values: dict[str, object] = {}
 
         # We first generate the list of variables
+        column: SchemaDataItem
         stmt: str = '('
         for column in self.columns.values():
-            value = data.get(column.name)
+            value: str = data.get(column.name)
 
             # We only include columns for which a value is available
             # in the 'data' dict
@@ -426,7 +427,7 @@ class SqlTable(Table):
             # Add the column to the list of columns
             stmt += f'{column.storage_name}, '
 
-            db_value = self.convert_to_storage_type(column, value)
+            db_value: object = self.convert_to_storage_type(column, value)
 
             values[column.storage_name] = db_value
 
@@ -620,7 +621,7 @@ class ObjectSqlTable(SqlTable):
         # SqLite 'UPSERT' does not work here as it depends on a constraint
         # violation for detecting an existing row. We may not have constraints
         # in the data model for the field in the service schema
-        stmt = f'DELETE FROM {self.table_name}'
+        stmt: str = f'DELETE FROM {self.table_name}'
         await self.sql_store.execute(
             stmt, member_id=self.member_id, data=None, autocommit=True
         )
@@ -628,6 +629,8 @@ class ObjectSqlTable(SqlTable):
         stmt = f'INSERT INTO {self.table_name} '
         values: dict[str, object] = {}
 
+        values_stmt: str
+        values_data: dict[str, object]
         values_stmt, values_data = self.sql_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,
@@ -859,7 +862,7 @@ class ArraySqlTable(SqlTable):
         :returns: the number of rows added to the table
         '''
 
-        stmt = f'INSERT INTO {self.table_name} '
+        stmt: str = f'INSERT INTO {self.table_name} '
         values: dict[str, object] = {}
 
         values_stmt, values_data = self.sql_values_clause(

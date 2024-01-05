@@ -6,6 +6,7 @@ Cert manipulation
 :license    : GPLv3
 '''
 
+import os
 import re
 import tempfile
 import subprocess
@@ -40,6 +41,7 @@ from certvalidator import ValidationError, PathBuildingError
 from byoda.storage.filestorage import FileStorage, FileMode
 
 from byoda.datatypes import IdType
+
 from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
@@ -773,8 +775,7 @@ class Secret:
 
         return self.cert.fingerprint(hashes.SHA256())
 
-    def save_tmp_private_key(self, filepath: str = '/var/tmp/private.key'
-                             ) -> str:
+    def save_tmp_private_key(self, filepath: str) -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
         so both the requests library and nginx can read it
@@ -787,15 +788,14 @@ class Secret:
 
         _LOGGER.debug('Saving private key to %s', filepath)
 
-        private_key_pem = self.private_key_as_pem()
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        private_key_pem: str = self.private_key_as_pem()
         with open(filepath, 'w') as file_desc:
             file_desc.write(private_key_pem)
 
         return filepath
 
-    def get_tmp_private_key_filepath(self,
-                                     filepath: str = '/var/tmp/private.key'
-                                     ) -> str:
+    def get_tmp_private_key_filepath(self, filepath: str) -> str:
         '''
         Gets the location where on local storage the unprotected private
         key is stored

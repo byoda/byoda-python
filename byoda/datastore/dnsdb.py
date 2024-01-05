@@ -17,12 +17,14 @@ import logging
 
 from enum import Enum
 from uuid import UUID
+from typing import Self
 from logging import getLogger
 from byoda.util.logger import Logger
 from ipaddress import ip_address
 from ipaddress import IPv4Address
 
 from sqlalchemy import MetaData, Table, delete, event, and_
+from sqlalchemy import Insert, Select, Delete
 from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
@@ -39,6 +41,11 @@ _LOGGER: Logger = getLogger(__name__)
 
 DEFAULT_TTL = 1800
 DEFAULT_TTL_TXT = 60
+
+
+# TODO: we should be creating NS records for services using
+# a list of configurable DNS servers
+NAMESERVER_FQDNS: list[str] = ['dir.byoda.net']
 
 DEFAULT_DB_EXPIRE = 7 * 24 * 60 * 60
 
@@ -57,7 +64,8 @@ class DnsDb:
     - domain : the domain for the network, ie. 'byoda.net'
     '''
 
-    def __init__(self, network: str):
+    def __init__(self, network: str, nameservers: list[str] = NAMESERVER_FQDNS
+                 ) -> None:
         '''
 
         Constructor for the DnsDb class
@@ -67,12 +75,13 @@ class DnsDb:
         :returns: none)
         '''
 
-        self.domain = network
+        self.domain: str = network
+        self.nameservers: list[str] = nameservers
 
         self._metadata = MetaData()
         self._engine = None
 
-        self._domain_ids = {}
+        self._domain_ids: dict[str, int] = {}
 
         # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
 
@@ -103,12 +112,11 @@ class DnsDb:
             Column('disabled', Boolean),
             Column('ordername', String(255)),
             Column('auth', Boolean),
-
             Column('db_expire', Integer)
         )
 
     @staticmethod
-    async def setup(connectionstring: str, network_name: str):
+    async def setup(connectionstring: str, network_name: str) -> Self:
         '''
         Factory for DnsDb class
 
@@ -126,9 +134,9 @@ class DnsDb:
             )
 
         # Ensure the 'accounts' subdomain for the network exists
-        subdomain = f'accounts.{network_name}'
+        subdomain: str = f'accounts.{network_name}'
         with dnsdb._engine.connect() as conn:
-            domain_id = await dnsdb._get_domain_id(conn, subdomain)
+            domain_id: int = await dnsdb._get_domain_id(conn, subdomain)
             dnsdb._domain_ids[subdomain] = domain_id
 
         return dnsdb
@@ -168,7 +176,7 @@ class DnsDb:
         :raises: ValueError if the FQDN does not have the correct format
         '''
 
-        subdomains = fqdn.split('.')
+        subdomains: list[str] = fqdn.split('.')
         if '_' in subdomains[0]:
             # IdType.MEMBER
             uuid, service_id = subdomains[0].split('_')
@@ -193,7 +201,7 @@ class DnsDb:
         record.
 
         :param uuid: account or member. Must be None for IdType.SERVICE
-        :param id_type: instance of byoda.datatypes.IdType
+        :param id_type:
         :param ip_addr: client ip
         :param service_id: service identifier
         :returns: whether existing DNS records were updated
@@ -205,7 +213,7 @@ class DnsDb:
         )
 
         db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
-        fqdn = self.compose_fqdn(uuid, id_type, service_id=service_id)
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id=service_id)
 
         record_replaced = False
 
@@ -232,7 +240,7 @@ class DnsDb:
                     )
                     continue
 
-                record_replaced = record_replaced or await self.remove(
+                record_replaced: bool = record_replaced or await self.remove(
                     uuid, id_type, dns_record_type, service_id=service_id
                 )
             except KeyError:
@@ -241,13 +249,15 @@ class DnsDb:
             with self._engine.connect() as conn:
                 # TODO: when we have multiple directory servers, the local
                 # 'cache' of domains_id might be out of date
-                hostname, subdomain = fqdn.split('.', 1)
+                subdomain: str = fqdn.split('.', 1)[1]
                 if subdomain not in self._domain_ids:
-                    domain_id = await self._upsert_subdomain(conn, subdomain)
+                    domain_id: bool = await self._upsert_subdomain(
+                        conn, subdomain
+                        )
                 else:
                     domain_id = self._domain_ids[subdomain]
 
-                stmt = insert(
+                stmt: Insert = insert(
                     self._records_table
                 ).values(
                     name=fqdn, content=str(value), domain_id=domain_id,
@@ -276,7 +286,7 @@ class DnsDb:
 
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
-        fqdn = self.compose_fqdn(uuid, id_type, service_id)
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
 
         return await self.lookup_fqdn(fqdn, dns_record_type)
 
@@ -295,7 +305,7 @@ class DnsDb:
         _LOGGER.debug(f'Performing lookup for {fqdn}')
         with self._engine.connect() as conn:
             _LOGGER.debug(f'Performing lookup for {fqdn}')
-            stmt = select(
+            stmt: Select[tuple[any, any]] = select(
                 self._records_table.c.id, self._records_table.c.content
             ).where(
                 and_(
@@ -311,7 +321,7 @@ class DnsDb:
                 _LOGGER.error(f'Failed to execute SQL statement: {exc}')
                 return
 
-            values = [domain.content for domain in domains]
+            values: list[str] = [domain.content for domain in domains]
 
             if not len(values):
                 raise KeyError(
@@ -324,7 +334,7 @@ class DnsDb:
                     f'record: {", ".join(values)}'
                 )
 
-        value = values[0]
+        value: str = values[0]
         if dns_record_type == DnsRecordType.A:
             value = IPv4Address(value)
 
@@ -343,11 +353,11 @@ class DnsDb:
 
         self._validate_parameters(uuid, id_type, service_id=service_id)
 
-        fqdn = self.compose_fqdn(uuid, id_type, service_id)
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
 
         with self._engine.connect() as conn:
             if dns_record_type == DnsRecordType.TXT:
-                stmt = delete(
+                stmt: Delete = delete(
                     self._records_table
                 ).where(
                     and_(
@@ -367,7 +377,7 @@ class DnsDb:
                 domains = result.fetchall()
 
                 for domain in domains:
-                    stmt = delete(
+                    stmt: Delete = delete(
                         self._records_table
                     ).where(
                         and_(
@@ -397,7 +407,7 @@ class DnsDb:
         if subdomain in self._domain_ids:
             return self._domain_ids[subdomain]
 
-        stmt = select(
+        stmt: Select[tuple[any]] = select(
             self._domains_table.c.id
         ).where(
             self._domains_table.c.name == subdomain
@@ -419,14 +429,16 @@ class DnsDb:
                     f'Could not find or create ID for domain {subdomain}'
                 )
         else:
-            domain_id = first.id
+            domain_id: int = first.id
 
         return domain_id
 
     async def _upsert_subdomain(self, conn: Engine, subdomain: str,
                                 ) -> bool:
         '''
-        Adds subdomain to list of domains
+        Adds subdomain to list of domains, with SOA and NS records. NS
+        records both in the new subdomain and in the network (ie. 'byoda.net')
+        domain
 
         :param conn: instance of connection to Postgresql
         :param subdomain: string with the domain to add
@@ -451,10 +463,10 @@ class DnsDb:
         _LOGGER.debug(f'Upserting domain {subdomain}')
         conn.execute(stmt)
 
-        domain_id = await self._get_domain_id(conn, subdomain)
+        domain_id: int = await self._get_domain_id(conn, subdomain)
         self._domain_ids[subdomain] = domain_id
 
-        soa = \
+        soa: str = \
             f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
         stmt = insert(
             self._records_table
@@ -464,39 +476,42 @@ class DnsDb:
             type='SOA', ttl=DEFAULT_TTL, prio=0,
             auth=True
         )
-        # on_conflict requires a constraint on the 'name' column of the
-        # 'records' table
-        # on_conflict_stmt = stmt.on_conflict_do_nothing(
-        #    index_elements=['name']
-        # )
         conn.execute(stmt)
 
-        ns = 'dir.byoda.net.'
-        stmt = insert(
-            self._records_table
-        ).values(
-            name='@', content=ns,
-            domain_id=domain_id,
-            type='NS', ttl=DEFAULT_TTL, prio=0,
-            auth=True
-        )
-        # on_conflict requires a constraint on the 'name' column of the
-        # 'records' table
-        # on_conflict_stmt = stmt.on_conflict_do_nothing(
-        #    index_elements=['name']
-        # )
+        network_domain_id: int = await self._get_domain_id(conn, self.domain)
+
+        nameserver: str
+        for nameserver in self.nameservers:
+            stmt: Insert = insert(
+                self._records_table
+            ).values(
+                name=f'{subdomain}', content=nameserver,
+                domain_id=domain_id,
+                type='NS', ttl=DEFAULT_TTL, prio=0,
+                auth=True
+            )
+
+            stmt: Insert = insert(
+                self._records_table
+            ).values(
+                name=f'{subdomain}', content=nameserver,
+                domain_id=network_domain_id,
+                type='NS', ttl=DEFAULT_TTL, prio=0,
+                auth=True
+            )
 
         conn.execute(stmt)
 
         _LOGGER.debug(
-            f'Created subdomain {subdomain} with SOA {soa} and NS {ns}'
+            f'Created subdomain {subdomain} with SOA {soa} and NS for '
+            f'{",".join(self.nameservers)}'
         )
 
         return domain_id
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
                              ip_addr: ip_address = None,
-                             service_id: int | None = None):
+                             service_id: int | None = None) -> None:
         '''
         Validate common parameters for DnsDb member functions. Normalize
         data types where appropriate

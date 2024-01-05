@@ -115,12 +115,13 @@ class NginxConfig(TargetConfig):
         self.restricted_bucket: str = restricted_bucket
         self.private_bucket: str = private_bucket
 
+        self.config_filepath: str
         if self.subdomain == IdType.ACCOUNT.value:
             self.config_filepath = f'{directory}/account.conf'
         else:
             self.config_filepath = f'{directory}/member-{identifier}.conf'
 
-        self.template_filepath = f'{directory}/{filename}' + '.jinja2'
+        self.template_filepath: str = f'{directory}/{filename}' + '.jinja2'
 
     def exists(self) -> bool:
         '''

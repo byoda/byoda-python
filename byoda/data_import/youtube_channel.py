@@ -84,7 +84,7 @@ class YouTubeChannel:
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
             try:
-                result = await video.persist(
+                result: bool | None = await video.persist(
                     member, storage_driver,
                     self.ingest_videos, already_ingested_videos,
                     bento4_directory,
@@ -97,7 +97,7 @@ class YouTubeChannel:
                     _LOGGER.debug(f'Failed to persist video {video.video_id}')
 
                 if ingest_interval:
-                    random_delay = \
+                    random_delay: float = \
                         random() * ingest_interval + ingest_interval / 2
                     await sleep(random_delay)
             except (ValueError, ByodaRuntimeError) as exc:
@@ -121,9 +121,9 @@ class YouTubeChannel:
 
         if filename:
             with open(filename, 'r') as file_desc:
-                data = file_desc.read()
+                data: str = file_desc.read()
         else:
-            headers = {
+            headers: dict[str, str] = {
                 'User-Agent': (
                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                     'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -131,7 +131,7 @@ class YouTubeChannel:
                 )
             }
             async with AsyncHttpClient(headers=headers) as client:
-                url = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
+                url: str = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
                     channel_name=self.name.lstrip('@')
                 ).replace(' ', '')
 
@@ -232,7 +232,7 @@ class YouTubeChannel:
         if not isinstance(data, dict):
             return
 
-        video_id = data.get('videoId')
+        video_id: str | None = data.get('videoId')
 
         if not video_id:
             for value in data.values():
@@ -255,9 +255,9 @@ class YouTubeChannel:
 
         if video_id in already_ingested_videos:
             try:
-                status = already_ingested_videos[video_id].get(
-                        'ingest_status'
-                    )
+                status: IngestStatus | None = \
+                    already_ingested_videos[video_id].get('ingest_status')
+
                 if isinstance(status, str):
                     status = IngestStatus(status)
             except ValueError:

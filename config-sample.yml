@@ -11,7 +11,8 @@ svcserver:
   name: 'serviceserver'
   logfile: '/tmp/byoda-service-SERVICE_ID.log'
   root_dir: 'BYODA_HOME'
-  cache: 'redis://<hostname>:<port>:<password>'
+  member_cache: 'redis://<hostname>:<port>:<password>'
+  asset_cache: 'redis://<hostname>:<port>:<password>'
     roles:
     - service
   service_id: SERVICE_ID

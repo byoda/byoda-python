@@ -47,7 +47,7 @@ ASSET_CLASS: str = 'public_assets'
 
 
 class ServiceServer(Server):
-    def __init__(self, network: Network, app_config: dict):
+    def __init__(self, network: Network, app_config: dict) -> None:
         '''
         Initiates a service server
 
@@ -55,6 +55,7 @@ class ServiceServer(Server):
         schema be verified. Test cases may specify this as 'False'
         '''
 
+        _LOGGER.debug('Initializing service server')
         super().__init__(network)
 
         self.server_type = ServerType.SERVICE
@@ -70,6 +71,8 @@ class ServiceServer(Server):
 
         self.dns_resolver = DnsResolver(network.name)
 
+        _LOGGER.debug('Initialized service server')
+
     async def setup(network: Network, app_config: dict) -> Self:
         '''
         Sets up a service server with asychronous member_DB and search DB
@@ -83,20 +86,22 @@ class ServiceServer(Server):
         config.server: ServiceServer = self
         service: Service = self.service
 
+        connection_string: str = app_config['svcserver']['member_cache']
+        _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
         self.search_db: SearchDB = await SearchDB.setup(
-            app_config['svcserver']['cache'], service
+            connection_string, service
         )
 
         self.member_db: MemberDb = await MemberDb.setup(
-            app_config['svcserver']['cache'], service.service_id, network.name
+            connection_string, service.service_id, network.name
         )
 
         return self
 
-    async def load_network_secrets(self, storage_driver: FileStorage = None):
+    async def load_network_secrets(self, storage_driver: FileStorage = None) -> None:
         await self.network.load_network_secrets(storage_driver=storage_driver)
 
-    async def load_secrets(self, password: str):
+    async def load_secrets(self, password: str) -> None:
         await self.service.load_secrets(
             with_private_key=True,
             password=password
@@ -115,6 +120,10 @@ class ServiceServer(Server):
         :raises: (none)
         '''
 
+        _LOGGER.debug(
+            'Loading schema, checking signatures: '
+            f'{verify_contract_signatures}'
+        )
         service: Service = self.service
         schema_file: str = service.paths.get(Paths.SERVICE_FILE)
         await service.load_schema(

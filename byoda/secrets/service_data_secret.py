@@ -24,7 +24,7 @@ Network = TypeVar('Network')
 
 
 class ServiceDataSecret(DataSecret):
-    __slots__ = ['service_id', 'network']
+    __slots__: list[str] = ['service_id', 'network']
 
     def __init__(self, service_id: int, network: Network):
         '''

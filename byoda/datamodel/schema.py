@@ -10,6 +10,7 @@ import os
 import sys
 import orjson
 
+from typing import Self
 from copy import deepcopy
 from types import CodeType
 from typing import TypeVar
@@ -74,7 +75,7 @@ class Schema:
     #     'listen_relations', 'pydantic_requests'
     # ]
 
-    def __init__(self, schema: dict, verify_signatures: bool = True):
+    def __init__(self, schema: dict, verify_signatures: bool = True) -> None:
         '''
         Construct a schema. The number of class properties is kept
         to a minimum to avoid these properties from getting out of
@@ -144,7 +145,8 @@ class Schema:
         Get the metadata of the schema as dict
         '''
 
-        data = {
+        # BUG: does not include follow_relations field
+        data: dict[str, str | int | list[str]] = {
             'service_id': self.service_id,
             'version': self.version,
             'name': self.name,
@@ -157,7 +159,8 @@ class Schema:
 
         return data
 
-    def as_string(self):
+    # BUG: as_string returns bytes
+    def as_string(self) -> bytes:
         '''
         Returns the schema as a string of json data presented
         for creating or verifying a signature for the schema
@@ -171,14 +174,14 @@ class Schema:
     async def get_schema(filepath: str, storage_driver: FileStorage,
                          service_data_secret: ServiceDataSecret,
                          network_data_secret: NetworkDataSecret,
-                         verify_contract_signatures: bool = True):
+                         verify_contract_signatures: bool = True) -> Self:
         '''
         Facory to read schema from a file
         '''
 
         _LOGGER.debug(f'Loading schema from {filepath}')
-        data = await storage_driver.read(filepath)
-        json_schema = orjson.loads(data)
+        data: str = await storage_driver.read(filepath)
+        json_schema: dict[str, any] = orjson.loads(data)
 
         schema = Schema(
             json_schema, verify_signatures=verify_contract_signatures
@@ -266,7 +269,7 @@ class Schema:
         else:
             message_signature = NetworkSignature(secret, hash_algo=hash_algo)
 
-        schema_str = self.as_string()
+        schema_str: bytes = self.as_string()
         message_signature.sign_message(schema_str)
 
         # Add the signature to the original JSON Schema
@@ -274,7 +277,7 @@ class Schema:
             message_signature.as_dict()
 
     def verify_signature(self, secret: Secret, signature_type: SignatureType,
-                         hash_algo: str = 'SHA256'):
+                         hash_algo: str = 'SHA256') -> None:
         '''
         Verifies the signature of the data contract. The signature by the
         service only covers the data contract, the signature by the network
@@ -300,8 +303,8 @@ class Schema:
         if SignatureType.NETWORK.value in schema['signatures']:
             # A signature of a schema never covers the network signature so
             # we remove it from the schema
-            original_schema = deepcopy(schema)
-            signature = NetworkSignature.from_dict(
+            original_schema: dict[str, object] = deepcopy(schema)
+            signature: MessageSignature = NetworkSignature.from_dict(
                 schema['signatures'].pop(SignatureType.NETWORK.value),
                 data_secret=self.network_data_secret
             )
@@ -333,7 +336,7 @@ class Schema:
                          ) -> dict[str, object]:
         '''
         Finds all objects in the JSON schema for which we will
-        need to generate @strawberry.type classes
+        need to generate pydantic classes
 
         :param pubsub: whether to create a PubSub instance for the class
         :returns:
@@ -345,14 +348,16 @@ class Schema:
         # the service
 
         # First we go over the 'defined' classes
-        classes = self.json_schema['jsonschema'].get("$defs", {})
+        classes: dict[str, dict] = self.json_schema['jsonschema'].get(
+            "$defs", {}
+        )
 
         for iteration in (1, 2, 3):
-            classes_todo = {}
+            classes_todo: dict = {}
             for class_name, class_properties in classes.items():
                 _LOGGER.debug(f'Parsing defined class {class_name}')
                 try:
-                    dataclass = SchemaDataItem.create(
+                    dataclass: SchemaDataItem = SchemaDataItem.create(
                         class_name, class_properties, self, self.data_classes,
                         with_pubsub=with_pubsub
                     )
@@ -377,11 +382,12 @@ class Schema:
         if classes_todo:
             raise ValueError(
                 'Could not resolve circular class definition for classes: '
-                ', '.join(classes_todo.keys())
+                + ', '.join(classes_todo.keys())
             )
 
         # now we iterate over the top-level classes
-        properties = self.json_schema['jsonschema']['properties']
+        properties: dict[str, any] = \
+            self.json_schema['jsonschema']['properties']
         for class_name, class_properties in properties.items():
             _LOGGER.debug(f'Parsing class {class_name}')
             dataclass = SchemaDataItem.create(
@@ -414,6 +420,7 @@ class Schema:
         :raises: ValueError
         '''
 
+        _LOGGER.debug('Generating data models')
         if (self.verify_signatures
                 and not (SignatureType.NETWORK in self.verified_signatures and
                          SignatureType.SERVICE in self.verified_signatures)):
@@ -446,7 +453,7 @@ class Schema:
             f'{self.version}.py'
         )
 
-        module_name = self.get_module_name()
+        module_name: str = self.get_module_name()
         self.generate_module(
             data_model_contents, module_name, data_model_code_filename
         )
@@ -530,7 +537,7 @@ class Schema:
 
         return module
 
-    def enable_data_apis(self, app: FastAPI):
+    def enable_data_apis(self, app: FastAPI) -> None:
         '''
         Generate & enable the REST Data APIs for the schema
 
@@ -589,7 +596,7 @@ class Schema:
         return self.json_schema['service_id']
 
     @service_id.setter
-    def service_id(self, value: int):
+    def service_id(self, value: int) -> None:
         '''
         Sets the service_id for the service contract
         '''
@@ -619,7 +626,7 @@ class Schema:
         return self.json_schema['version']
 
     @version.setter
-    def version(self, value: int):
+    def version(self, value: int) -> None:
         '''
         Sets the version of the service contract
         '''
@@ -649,7 +656,7 @@ class Schema:
         return self.json_schema['name']
 
     @name.setter
-    def name(self, value: str):
+    def name(self, value: str) -> None:
         '''
         Sets the name of the service
         '''
@@ -676,7 +683,7 @@ class Schema:
         return self.json_schema['description']
 
     @description.setter
-    def description(self, value: str):
+    def description(self, value: str) -> None:
         '''
         Sets the description for the service
         '''
@@ -703,7 +710,7 @@ class Schema:
         return self.json_schema['owner']
 
     @owner.setter
-    def owner(self, value: str):
+    def owner(self, value: str) -> None:
         '''
         Sets the name of the owner of the service, ie. a person,
         an organization or a company
@@ -731,7 +738,7 @@ class Schema:
         return self.json_schema['website']
 
     @website.setter
-    def website(self, value: str):
+    def website(self, value: str) -> None:
         '''
         Sets the URL for the website for the service
         '''
@@ -747,7 +754,7 @@ class Schema:
         self.json_schema['website'] = value
 
     @property
-    def supportemail(self: str):
+    def supportemail(self: str) -> str:
         '''
         Gets the email address for getting support for the service
         '''

@@ -1052,7 +1052,7 @@ class DataFilterSet:
         if not isinstance(filter_set, DataFilterSet):
             filter_set = DataFilterSet(filter_set, data_class)
 
-        results = []
+        results: list = []
         for item in data:
             include = True
             for field, filters in filter_set.filters.items():
@@ -1077,8 +1077,8 @@ class DataFilterSet:
         '''
 
         filter_set = DataFilterSet(filters)
-        remaining = []
-        removed = []
+        remaining: list = []
+        removed: list = []
         for item in data:
             include = True
             for field, filters in filter_set.filters.items():

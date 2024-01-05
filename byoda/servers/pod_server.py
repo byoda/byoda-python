@@ -145,7 +145,7 @@ class PodServer(Server):
                 f'Processing bootstrap join for service {service_id}'
             )
 
-            if service_id in self.account.memberships():
+            if service_id in self.account.memberships:
                 _LOGGER.debug(f'We already joined service {service_id}')
                 continue
 
@@ -156,7 +156,7 @@ class PodServer(Server):
                 continue
 
             version: int = service_summaries[service_id]['version']
-            await self.account.join(service_id, version)
+            await self.account.join(service_id, version, self.local_storage)
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,
@@ -256,7 +256,7 @@ class PodServer(Server):
 
         return secret
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         '''
         Shuts down the server
         '''
@@ -267,5 +267,5 @@ class PodServer(Server):
 
         await ApiClient.close_all()
 
-    def accepts_jwts(self):
+    def accepts_jwts(self) -> bool:
         return True

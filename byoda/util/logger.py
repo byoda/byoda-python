@@ -28,9 +28,9 @@ class Logger(logging.Logger):
     '''
 
     @staticmethod
-    def getLogger(appname, loglevel=None,
-                  json_out=True, extra=None, logfile=None,
-                  debug=False, verbose=False):
+    def getLogger(appname, loglevel: int = None, json_out: bool = True,
+                  extra: bool = None, logfile: str = None,
+                  debug: bool = False, verbose: bool = False):
         '''
         Factory for Logger class. Returns logger with specified
         name. The default log level is logging.WARNING. The debug flag
@@ -98,11 +98,7 @@ class Logger(logging.Logger):
         root_logger.setLevel(loglevel)
 
         if not logfile:
-            if debug or verbose:
-                logging_handler = logging.StreamHandler(sys.stderr)
-            else:
-                logfile = LOGFILE
-                logging_handler = logging.FileHandler(logfile)
+            logging_handler = logging.StreamHandler(sys.stdout)
         else:
             logging_handler = logging.FileHandler(logfile)
 
@@ -161,26 +157,30 @@ class Logger(logging.Logger):
 
 
 class ByodaJsonFormatter(jsonlogger.JsonFormatter):
-    def __init__(self, logger, extra=None):
+    def __init__(self, logger, extra: dict[str, any] | None = None) -> None:
+
         if extra is None:
             extra = {}
-        self.extra = extra
+
+        self.extra: dict[str, any] = extra
         super(ByodaJsonFormatter, self).__init__(logger, extra)
 
-    def add_fields(self, log_record, record, message_dict):
+    def add_fields(self, log_record, record, message_dict) -> None:
         super(ByodaJsonFormatter, self).add_fields(
             log_record, record, message_dict
         )
         if not log_record.get('timestamp'):
             # this doesn't use record.created, so it is slightly off
-            now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            now: str = datetime.now(timezone.utc).strftime(
+                '%Y-%m-%dT%H:%M:%S.%fZ'
+            )
             log_record['timestamp'] = now
         if log_record.get('level'):
             log_record['level'] = log_record['level'].upper()
         else:
             log_record['level'] = record.levelname
 
-        extra = self.extra.copy()
+        extra: dict[str, any] = self.extra.copy()
         try:
             extra.update(context.data)
         except RuntimeError:

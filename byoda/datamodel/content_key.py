@@ -48,12 +48,12 @@ class ContentKey:
     under the /opt/byoda/keys directory
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'key', 'key_id', 'not_before', 'not_after', 'table', 'status'
     ]
 
     def __init__(self, key: str, key_id: int, not_before: datetime,
-                 not_after: datetime, table: Table = None):
+                 not_after: datetime, table: Table = None) -> None:
         '''
         Instantiate a ContentKey instance
 
@@ -87,7 +87,7 @@ class ContentKey:
         if self.not_after <= now:
             self.status: ContentKeyStatus = ContentKeyStatus.EXPIRED
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         '''
         We give precedence to the active key that has become most
         recently 'active'. This allows us to initially create keys
@@ -168,7 +168,7 @@ class ContentKey:
 
         return ContentKey(key, key_id, not_before, not_after, table)
 
-    async def persist(self, table: Table = None):
+    async def persist(self, table: Table = None) -> None:
         '''
         Persist the key to the sql table
         '''
@@ -187,7 +187,7 @@ class ContentKey:
             if field.required
         ]
         data: dict[str, object] = self.as_dict()
-        cursor = Table.get_cursor_hash(data, None, required_fields)
+        cursor: str = Table.get_cursor_hash(data, None, required_fields)
 
         await table.append(
             self.as_dict(), cursor, origin_id=None, origin_id_type=None,

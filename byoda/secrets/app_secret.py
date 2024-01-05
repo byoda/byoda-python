@@ -10,13 +10,15 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
+from byoda.datatypes import TEMP_SSL_DIR
+
+from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -131,4 +133,4 @@ class AppSecret(Secret):
         key is stored
         '''
 
-        return f'/var/tmp/private-app-{self.app_id}.key'
+        return f'{TEMP_SSL_DIR}/private-app-{self.app_id}.key'

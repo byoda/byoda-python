@@ -162,7 +162,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
     await server.set_cache_store(CacheStoreType.SQLITE)
 
     services = list(server.network.service_summaries.values())
-    service = [
+    service: list[dict[str, any]] = [
         service
         for service in services
         if service['name'] == 'addressbook'

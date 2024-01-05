@@ -30,18 +30,6 @@ server {
         add_header X-XSS-Protection "1; mode=block";
     }
 
-    location /logs {
-        root   /var/log/byoda/;
-        set $cloud_path '/var/log/byoda/';
-        add_header X-Frame-Options DENY;
-        add_header X-Content-Type-Options nosniff;
-        add_header X-XSS-Protection "1; mode=block";
-
-        auth_basic  "Log Area";
-        # Location of auth file defined in byoda-python:/podserver/bootstrap/nginxconfig.py
-        auth_basic_user_file /etc/nginx/htaccess.db;
-    }
-
     location /docs {
         set $cors "0";
         satisfy any;

@@ -121,7 +121,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         schema.get_data_classes(with_pubsub=False)
         schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-        await server.setup_asset_cache(app_config['svcserver']['cache'])
+        await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
@@ -158,7 +158,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         asset_cache: AssetCache = server.asset_cache
 
         if await asset_cache.exists_list(list_name):
-            result = await asset_cache.delete_list(list_name)
+            result: bool = await asset_cache.delete_list(list_name)
             self.assertTrue(result)
 
         result = await asset_cache.create_list(list_name)
@@ -167,7 +167,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         all_asset_count: int = 110
         all_assets: list[dict[str, UUID | str | int | float | datetime]] = []
         for n in range(0, all_asset_count):
-            new_asset_data = copy(asset_data)
+            new_asset_data: dict[str, object] = copy(asset_data)
             new_asset_data['asset_id'] = str(get_test_uuid())
             result = await asset_cache.lpush(
                 list_name, new_asset_data, member_id, f'{n}*test',
@@ -219,7 +219,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             app=config.app
         )
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        data: any = resp.json()
         self.assertEqual(data['total_count'], step)
         self.assertEqual(len(data['edges']), step)
 

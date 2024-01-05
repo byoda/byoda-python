@@ -493,6 +493,7 @@ class Account:
 
         :param service_id: The ID of the service to join
         :param schema_version: the version of the schema that has been accepted
+        :param local_storage:
         :param members_ca: The CA to sign the member secret. This parameter is
         only used for test cases
         :param member_id: The UUID to use for the member_id
@@ -512,7 +513,7 @@ class Account:
         if local_service_contract:
             await service.examine_servicecontract(local_service_contract)
 
-        member = await Member.create(
+        member: Member = await Member.create(
             service, schema_version, self, local_storage, member_id=member_id,
             members_ca=members_ca,
             local_service_contract=local_service_contract

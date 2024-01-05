@@ -33,9 +33,9 @@ class PubSubMessage():
     Generic class for PubSub messages
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'action', 'class_name', 'data_class', 'node', 'type',
-        'origin_id', 'origin_id_type', 'origin_class_name'
+        'origin_id', 'origin_id_type', 'origin_class_name', 'cursor'
     ]
 
     def __init__(self, message_type: PubSubMessageType):
@@ -46,6 +46,8 @@ class PubSubMessage():
         self.class_name: str | None = None
         self.data_class: SchemaDataItem | None = None
         self.node: dict[str, object] | None = None
+
+        self.cursor: str | None = None
 
         self.origin_id: UUID | None = None
         self.origin_id_type: IdType | None = None
@@ -63,12 +65,13 @@ class PubSubMessage():
         Classes derived from PubSubMessage should override this method
         '''
 
-        data = {
+        data: dict[str, any] = {
             'type': self.type,
             'action': self.action,
             'class_name': self.class_name,
             'data_class': self.data_class,
             'node': self.node,
+            'cursor': self.cursor,
             'origin_id': self.origin_id,
             'origin_id_type': self.origin_id_type,
             'origin_class_name': self.origin_class_name,
@@ -96,7 +99,7 @@ class PubSubMessage():
 
         '''
 
-        all_data = orjson.loads(message)
+        all_data: any = orjson.loads(message)
 
         msg_type: str = all_data['type'].lower()
         action: str = all_data['action'].lower()
@@ -106,11 +109,17 @@ class PubSubMessage():
         )
         if msg_type == PubSubMessageType.DATA.value:
             if action == PubSubMessageAction.APPEND.value:
-                msg = PubSubDataAppendMessage.parse(all_data, schema)
+                msg: PubSubDataAppendMessage = PubSubDataAppendMessage.parse(
+                    all_data, schema
+                )
             elif action == PubSubMessageAction.DELETE.value:
-                msg = PubSubDataDeleteMessage.parse(all_data, schema)
+                msg: PubSubDataDeleteMessage = PubSubDataDeleteMessage.parse(
+                    all_data, schema
+                )
             elif action == PubSubMessageAction.MUTATE.value:
-                msg = PubSubDataMutateMessage.parse(all_data, schema)
+                msg: PubSubDataMutateMessage = PubSubDataMutateMessage.parse(
+                    all_data, schema
+                )
             else:
                 _LOGGER.exception(f'Unknown message action: {action}')
                 raise ValueError(f'Unknown message action: {action}')
@@ -120,7 +129,7 @@ class PubSubMessage():
 
         return msg
 
-    def create(data: object):
+    def create(data: object) -> None:
         '''
         Factory for creating messages, all classes derived from PubSubMessage
         must implemented this method
@@ -131,7 +140,7 @@ class PubSubMessage():
 
 class PubSubDataMessage(PubSubMessage):
     def __init__(self, action: PubSubMessageAction, data: object,
-                 data_class: SchemaDataItem | None = None):
+                 data_class: SchemaDataItem | None = None) -> None:
         '''
         Constructor for Data messages.
 
@@ -149,6 +158,7 @@ class PubSubDataMessage(PubSubMessage):
 
         self.action = action
         self.node: dict[str, object] = data.get('node')
+
         self.data_class: SchemaDataItem = data_class
 
         self.class_name: str | None = None
@@ -167,8 +177,7 @@ class PubSubDataMessage(PubSubMessage):
 
         self.filter: str | None = data.get('filter')
 
-        if data_class:
-            self.class_name: str = data_class.name
+        self.cursor: str = data.get('cursor')
 
     @staticmethod
     def parse(data: bytes, schema: Schema):
@@ -183,7 +192,8 @@ class PubSubDataMessage(PubSubMessage):
                data_class: SchemaDataItem,
                origin_id: UUID | None = None,
                origin_id_type: IdType | None = None,
-               origin_class_name: str | None = None):
+               origin_class_name: str | None = None,
+               cursor: str | None = None):
         '''
         Factory for creating a PubSubDataMessage
 
@@ -198,7 +208,7 @@ class PubSubDataMessage(PubSubMessage):
 
         msg = PubSubDataMessage(
             action, origin_id=origin_id, origin_id_type=origin_id_type,
-            origin_class_name=origin_class_name
+            origin_class_name=origin_class_name, cursor=cursor
         )
         msg.data_class: SchemaDataItem = data_class
         msg.class_name: str = data_class.name
@@ -216,6 +226,7 @@ class PubSubDataMessage(PubSubMessage):
             'action': self.action,
             'class_name': self.class_name,
             'node': self.node,
+            'cursor': self.cursor,
             'origin_id': self.origin_id,
             'origin_id_type': self.origin_id_type,
             'origin_class_name': self.origin_class_name,
@@ -242,7 +253,8 @@ class PubSubDataAppendMessage(PubSubDataMessage):
     def create(data: object, data_class: SchemaDataItem,
                origin_id: UUID | None = None,
                origin_id_type: IdType | None = None,
-               origin_class_name: str | None = None):
+               origin_class_name: str | None = None,
+               cursor: str | None = None):
         '''
         Factory for creating a PubSubDataAppendMessage
 
@@ -251,6 +263,7 @@ class PubSubDataAppendMessage(PubSubDataMessage):
         :param origin_id:
         :param origin_id_type:
         :param origin_class_name:
+        :param cursor:
         :returns: PubSubDataAppendMessage
         :raises:
         '''
@@ -260,6 +273,7 @@ class PubSubDataAppendMessage(PubSubDataMessage):
             'origin_id': origin_id,
             'origin_id_type': origin_id_type,
             'origin_class_name': origin_class_name,
+            'cursor': cursor,
             'hops': 0,
         }
         msg = PubSubDataAppendMessage(all_data, data_class)
@@ -278,8 +292,17 @@ class PubSubDataAppendMessage(PubSubDataMessage):
         :raises: ValueError
         '''
 
+        data_dict: dict
         if isinstance(data, bytes):
-            data_dict = orjson.loads(data)
+            message_data: any = orjson.loads(data)
+            if not isinstance(message_data, dict):
+                _LOGGER.exception(
+                    f'Data provided is not a dict or bytes: {type(data)}'
+                )
+                raise ValueError(
+                    f'Data provided is not a dict or bytes: {type(data)}'
+                )
+            data_dict = message_data
         elif isinstance(data, dict):
             data_dict = data
         else:
@@ -329,7 +352,8 @@ class PubSubDataMutateMessage(PubSubDataMessage):
                data_filter_set: DataFilterSet,
                origin_id: UUID | None = None,
                origin_id_type: IdType | None = None,
-               origin_class_name: str | None = None):
+               origin_class_name: str | None = None,
+               cursor: str | None = None):
         '''
         Factory for creating a PubSubDataMutateMessage
 
@@ -338,12 +362,14 @@ class PubSubDataMutateMessage(PubSubDataMessage):
         :param origin_id:
         :param origin_id_type:
         :param origin_class_name:
+        :param cursor:
         :returns: PubSubDataMutateMessage
         :raises:
         '''
 
         all_data: dict[str, object] = {
             'data': data,
+            'cursor': cursor,
             'origin_id': origin_id,
             'origin_id_type': origin_id_type,
             'origin_class_name': origin_class_name,

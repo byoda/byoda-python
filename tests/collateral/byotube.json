@@ -1,9 +1,9 @@
 {
-    "description": "A simple network to maintain contacts",
+    "description": "Bring your own tube",
     "jsonschema": {
-        "$id": "https://service.service-4294929430.byoda.net/service/addressbook",
+        "$id": "https://service.service-16384.byoda.net/service/byotube",
         "$schema": "https://json-schema.org/draft/2020-12/schema#",
-        "description": "A simple network to maintain contacts",
+        "description": "The schema for the byotube service",
         "properties": {
             "member": {
                 "#accesscontrol": {
@@ -30,11 +30,6 @@
                         "format": "uuid",
                         "type": "string"
                     },
-                    "supported_schema_version": {
-                        "description": "DEPRECATED: The newest version of the schema supported by the pod",
-                        "type": "string",
-                        "#obsolete": true
-                    },
                     "schema_versions": {
                         "#accesscontrol": {
                             "service": {
@@ -57,63 +52,6 @@
                 },
                 "type": "object",
                 "required": ["joined", "member_id"]
-            },
-            "person": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete"]
-                    },
-                    "service": {
-                        "permissions": ["read"]
-                    },
-                    "network": {
-                        "permissions": [
-                            {
-                                "permission": "read",
-                                "distance": 1,
-                                "relation": ["friend", "family"],
-                                "source_signature_required": true
-                            }
-                        ]
-                    }
-                },
-                "properties": {
-                    "additional_names": {
-                        "description": "Any middle names",
-                        "type": "string"
-                    },
-                    "avatar_url": {
-                        "type": "string"
-                    },
-                    "email": {
-                        "format": "idn-email",
-                        "type": "string",
-                        "#accesscontrol": {
-                            "service": {
-                                "permissions": [
-                                    {
-                                        "permission": "search",
-                                        "match": "exact",
-                                        "casesensitive": false
-                                    }
-                                ]
-                            }
-                        }
-                    },
-                    "family_name": {
-                        "description": "Your surname",
-                        "type": "string"
-                    },
-                    "given_name": {
-                        "description": "Your first given name",
-                        "type": "string"
-                    },
-                    "homepage_url": {
-                        "type": "string"
-                    }
-                },
-                "type": "object",
-                "required": ["given_name", "family_name", "email"]
             },
             "network_links": {
                 "#accesscontrol": {
@@ -157,26 +95,26 @@
                     "$ref": "#/schemas/network_link_inbound"
                 }
             },
-            "incoming_claims": {
+            "datalogs": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                        "permissions": ["read", "delete", "append"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "#/schemas/claim"
+                    "$ref": "#/schemas/datalog"
                 }
             },
-            "verified_claims": {
+            "restricted_content_keys": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                        "permissions": ["read", "delete", "append", "subscribe"]
                     }
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "#/schemas/claim"
+                    "$ref": "#/schemas/restricted_content_key"
                 }
             },
             "channels": {
@@ -197,9 +135,6 @@
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
-                    },
-                    "network": {
-                        "permissions": ["read"]
                     }
 
                 },
@@ -223,15 +158,19 @@
                     "$ref": "#/schemas/asset_reaction"
                 }
             },
-            "datalogs": {
+            "messages": {
                 "#accesscontrol": {
                     "member": {
-                        "permissions": ["read", "delete", "append"]
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    },
+                    "any_member": {
+                        "permissions": ["append"]
                     }
+
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "#/schemas/datalog"
+                    "$ref": "#/schemas/message"
                 }
             },
             "incoming_assets": {
@@ -271,101 +210,9 @@
                 "items": {
                     "$ref": "#/schemas/asset"
                 }
-            },
-            "service_assets": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "append", "subscribe"]
-                    },
-                    "any_member": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/asset"
-                }
-            },
-            "apps": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "append", "subscribe"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/app"
-                }
-            },
-            "network_assets": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "update", "append", "subscribe"]
-                    },
-                    "network": {
-                        "permissions": [
-                            {
-                                "permission": "read",
-                                "distance": 3,
-                                "relation": ["friend", "family"],
-                                "source_signature_required": true,
-                                "anonimized_responses": true
-                            }
-                        ]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/asset"
-                }
-            },
-            "restricted_content_keys": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "append", "subscribe"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/restricted_content_key"
-                }
-            },
-            "twitter_medias": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append", "subscribe"]
-                    },
-                    "any_member": {
-                        "permissions": ["read"]
-                    },
-                    "service": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/twitter_media"
-                }
-            },
-            "tweets": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "delete", "append", "subscribe"]
-                    },
-                    "any_member": {
-                        "permissions": ["read"]
-                    },
-                    "service": {
-                        "permissions": ["read"]
-                    }
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/tweet"
-                }
             }
         },
-        "title": "addressbook",
+        "title": "BYO Tube",
         "type": "object",
         "$defs": {
             "network_link": {
@@ -402,7 +249,7 @@
             "network_invite": {
                 "$id": "/schemas/network_invite",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "An invite to network with another member",
+                "description": "An invite we received to network with another member",
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
@@ -455,21 +302,6 @@
                         "description": "The relation the other member has with you",
                         "type": "string"
                     },
-                    "text": {
-                        "description": "The text of the invitation provded by the other member",
-                        "type": "string"
-                    },
-                    "signature": {
-                        "description": "DEPRECATED: The text of the invitation provded by the other member",
-                        "type": "string",
-                        "#obsolete": true
-                    },
-                    "signature_expiration": {
-                        "description": "DEPRECATED: The expiration date/time for the certificate used to generate the signature",
-                        "format": "date-time",
-                        "type": "string",
-                        "#obsolete": true
-                    },
                     "claims": {
                         "description": "list of claims for the asset",
                         "type": "array",
@@ -479,93 +311,6 @@
                     }
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
-            },
-            "messages": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete", "append", "subscribe"]
-                    },
-                    "network": {
-                        "permissions": ["append"]
-                    }
-
-                },
-                "type": "array",
-                "items": {
-                    "$ref": "#/schemas/message"
-                }
-            },
-            "app": {
-                "$id": "/schemas/app",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "An app approved by the service",
-                "type": "object",
-                "properties": {
-                    "app_id": {
-                        "description": "the UUID for the app",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "app_type": {
-                        "description": "the type of app, ie. 'moderation', 'identity' etc. etc.",
-                        "type": "string"
-                    },
-                    "status": {
-                        "description": "the status of the app as specified by the member, ie. 'active', 'inactive', 'preferred', etc. etc.",
-                        "type": "string"
-                    },
-                    "description": {
-                        "description": "A brief description of the app",
-                        "type": "string"
-                    },
-                    "app_urls": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "/schemas/app_url"
-                        }
-                    }
-                },
-                "required": ["app_id", "app_type", "status"]
-            },
-            "app_url": {
-                "$id": "/schemas/app_url",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "a URL available from an app",
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "description": "the functionality provided by the app at this URL",
-                        "type": "string"
-                    },
-                    "url": {
-                        "description": "the url for the API",
-                        "type": "string",
-                        "format": "url"
-                    },
-                    "app_id": {
-                        "description": "the UUID for the app",
-                        "type": "string",
-                        "format": "uuid"
-                    }
-                },
-                "required": ["name", "url", "app_id"]
-            },
-            "monetization": {
-                "$id": "/schemas/monetization",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "method for monetization content",
-                "type": "object",
-                "properties": {
-                    "monetization_id": {
-                        "description": "the UUID for the monetization method",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "monetization_scheme": {
-                        "description": "the scheme for monetization, ie. 'ad-supported', 'creator-subscription', 'service-subscription', 'pay-per-view, etc. etc.",
-                        "type": "string"
-                    }
-                }
             },
             "asset_link": {
                 "$id": "/schemas/asset_link",
@@ -603,13 +348,8 @@
                         "description": "What relation you have with asset, such as read, liked, etc.",
                         "type": "string"
                     },
-                    "signature": {
-                        "description": "the digital signature using our data cert of the concatenation of member_id, asset_id, asset_url, and relation",
-                        "type": "string",
-                        "#obsolete": true
-                    },
                     "bookmark": {
-                        "description": "Bookmark for the asset where to resume consumption of the asset",
+                        "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
                         "type": "string"
                     }
                 },
@@ -650,7 +390,7 @@
                         "type": "string"
                     },
                     "claims": {
-                        "description": "list of claims for the asset",
+                        "description": "list of claims for the reaction",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/claim"
@@ -829,31 +569,6 @@
                 },
                 "required": ["created_timestamp", "remote_addr", "operation", "object"]
             },
-            "annotation": {
-                "$id": "/schemas/annotation",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "type": "object",
-                "description": "An annotation for an asset. The 'key' field is optional, in which case the 'value' field acts as a tag",
-                "required": ["annotation_id", "asset_id", "value"],
-                "properties": {
-                    "annotation_id": {
-                        "description": "The UUID of the annotation",
-                        "type": "string",
-                        "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
-                    },
-                    "key": {
-                        "description": "The key for the annotation",
-                        "type": "string"
-                    },
-                    "asset_id": {
-                        "description": "The ID of the public_asset that this annotation is for",
-                        "type": "string",
-                        "format": "uuid",
-                        "#properties": ["index"]
-                    }
-                }
-            },
             "video_chapter": {
                 "$id": "/schemas/video-chapter",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -923,7 +638,7 @@
                 "type": "object",
                 "description": "A claim signed by a party.",
                 "required": [
-                    "claim_id", "issuer_id", "issuer_type", "object_type", "keyfield", "keyfield_id",
+                    "claim_id", "issuer_id", "issuer_type",  "keyfield", "keyfield_id",
                     "object_fields", "requester_id", "requester_type",
                     "signature", "signature_timestamp", "signature_format_version",
                     "signature_url", "renewal_url", "confirmation_url",
@@ -946,12 +661,6 @@
                         "description": "The UUID of the claim issuer",
                         "type": "string",
                         "format": "uuid"
-                    },
-                    "issuer": {
-                        "description": "(obsolete, replaced by issuer_id field)",
-                        "type": "string",
-                        "format": "uuid",
-                        "#obsolete": true
                     },
                     "issuer_type": {
                         "description": "what type of entity issued this claim",
@@ -1041,10 +750,10 @@
                         "type": "string"
                     },
                     "asset_id": {
-                            "description": "The UUID of the asset",
-                            "type": "string",
-                            "format": "uuid",
-                            "#properties": ["primary_key", "index", "counter"]
+                        "description": "The UUID of the asset",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -1071,13 +780,6 @@
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/video_chapter"
-                        }
-                    },
-                    "monetizations": {
-                        "description": "enabled monetizations for the asset",
-                        "type": "array",
-                        "items": {
-                            "$ref": "/schemas/monetization"
                         }
                     },
                     "locale": {
@@ -1166,28 +868,8 @@
                         "description": "the duration of the video",
                         "type": "number"
                     },
-                    "forum": {
-                        "description": "forum, if any, that the asset was posted to",
-                        "type": "string"
-                    },
                     "channel_id": {
                         "description": "UUID of the channel, if any, that the asset was posted to",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "root_asset_id": {
-                        "#properties": ["counter", "index"],
-                        "description": "ID of asset that is the root of the thread",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "root_asset_class": {
-                        "description": "top-level class of the root asset in the schema (ie. public_asset)",
-                        "type": "string"
-                    },
-                    "response_to_asset_id": {
-                        "#properties": ["counter", "index"],
-                        "description": "ID of asset that this asset is a response to",
                         "type": "string",
                         "format": "uuid"
                     },
@@ -1195,175 +877,12 @@
                         "description": "status of the ingest process",
                         "type": "string"
                     },
-                    "encoding_profiles": {
-                        "description": "DEPRECATED: encoding profile used for the asset",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "#obsolete": true
-                    },
                     "screen_orientation_horizontal": {
                         "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
                         "type": "boolean"
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
-            },
-            "twitter_account": {
-                "#accesscontrol": {
-                    "member": {
-                        "permissions": ["read", "update", "delete"]
-                    },
-                    "service": {
-                        "permissions": ["read"]
-                    },
-                    "any_member": {
-                        "permissions": ["read"]
-                    }
-                },
-                "properties": {
-                    "twitter_id": {
-                        "description": "Twitter ID for the person",
-                        "type": "string"
-                    },
-                    "created_timestamp": {
-                        "description": "Date & time when the Twitter account was created",
-                        "format": "date-time",
-                        "type": "string"
-                    },
-                    "name": {
-                        "#accesscontrol": {
-                            "service": {
-                                "permissions": [
-                                    {
-                                        "permission": "search",
-                                        "match": "exact",
-                                        "casesensitive": false
-                                    }
-                                ]
-                            }
-                        },
-                        "description": "Twitter name of the person",
-                        "type": "string"
-                    },
-                    "url": {
-                        "description": "URL for the person",
-                        "type": "string",
-                        "format": "iri"
-                    },
-                    "display_url": {
-                        "description": "Text to display for the URL for the person",
-                        "type": "string"
-                    },
-                    "pinned_tweet_id": {
-                        "description": "ID of the pinned tweet",
-                        "type": "string"
-                    },
-                    "profile_image_url": {
-                        "description": "URL for the profile image",
-                        "type": "string",
-                        "format": "iri"
-                    },
-                    "followers_count": {
-                        "description": "Number of followers",
-                        "type": "integer"
-                    },
-                    "following_count": {
-                        "description": "Number of people the person is following",
-                        "type": "integer"
-                    },
-                    "tweet_count": {
-                        "description": "Number of tweets",
-                        "type": "integer"
-                    },
-                    "listed_count": {
-                        "description": "Number of times the person has been listed",
-                        "type": "integer"
-                    },
-                    "handle": {
-                        "#accesscontrol": {
-                            "service": {
-                                "permissions": [
-                                    {
-                                        "permission": "search",
-                                        "match": "exact",
-                                        "casesensitive": true
-                                    }
-                                ]
-                            }
-                        },
-                        "description": "Twitter handle of the person",
-                        "type": "string"
-                    },
-                    "verified": {
-                        "description": "Whether the person is verified",
-                        "type": "boolean"
-                    },
-                    "withheld": {
-                        "description": "Twitter User.withheld field",
-                        "type": "string"
-                    }
-                },
-                "type": "object",
-                "required": ["twitter_id", "name", "username"]
-            },
-            "twitter_media": {
-                "$id": "/schemas/twitter_media",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "a Twitter tweet",
-                "type": "object",
-                "properties": {
-                    "created_timestamp": {
-                        "description": "time the asset was added to the pod",
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "height": {
-                        "description": "height of the media",
-                        "type": "integer"
-                    },
-                    "width": {
-                        "description": "width of the media",
-                        "type": "integer"
-                    },
-                    "alt_text": {
-                        "description": "alernative text for the media if it can't be displayed",
-                        "type": "string"
-                    },
-                    "duration": {
-                        "description": "duration of the media",
-                        "type": "integer"
-                    },
-                    "media_key": {
-                        "description": "Twitter media key",
-                        "type": "string"
-                    },
-                    "preview_image_url": {
-                        "description": "URL of a preview image for the media",
-                        "type": "string"
-                    },
-                    "media_type": {
-                        "description": "type of media",
-                        "type": "string"
-                    },
-                    "view_count": {
-                        "description": "number of times the media has been viewed",
-                        "type": "integer"
-                    },
-                    "variants": {
-                        "description": "list of variants for the media",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "url": {
-                        "description": "URL of the media",
-                        "type": "string"
-                    }
-                },
-                "required": ["media_key"]
             },
             "channel": {
                 "$id": "/schemas/channel",
@@ -1385,127 +904,66 @@
                         "description": "name of the channel",
                         "type": "string"
                     },
+                    "channel_thumbnail_url": {
+                        "description": "URL for the channel's thumbnail",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "channel_banner_url": {
+                        "description": "URL for the channel's banner",
+                        "type": "string",
+                        "format": "uri"
+                    },
                     "description": {
-                        "description": "description of the channel",
+                        "description": "information about the channel",
                         "type": "string"
+                    },
+                    "external_urls": {
+                        "description": "links to external sites",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/external_link"
+                        }
                     }
                 }
             },
-            "tweet": {
-                "$id": "/schemas/tweet",
+            "external_link": {
+                "$id": "/schemas/external_links",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "a Twitter tweet",
+                "description": "links to external sites",
                 "type": "object",
                 "properties": {
-                    "created_timestamp": {
-                        "description": "time the asset was created",
-                        "format": "date-time",
-                        "type": "string"
-                    },
-                    "asset_id": {
-                        "description": "The Twitter ID of the asset",
-                        "type": "string"
-                    },
-                    "lang": {
-                        "description": "language the contents of the tweet is in",
-                        "type": "string"
-                    },
-                    "creator": {
-                        "description": "creator of the asset",
-                        "type": "string"
-                    },
-                    "contents": {
-                        "description": "text for the asset",
-                        "type": "string"
-                    },
-                    "response_to": {
-                        "description": "Twitter ID of person who created the tweet this is a response to",
-                        "type": "string"
-                    },
-                    "conversation_id": {
-                        "description": "ID of the conversation this asset is part of",
-                        "type": "string"
-                    },
-                    "geo": {
-                        "description": "geographic location of the tweet",
-                        "type": "string"
-                    },
-                    "retweet_count": {
-                        "description": "number of times the tweet has been retweeted",
+                    "priority": {
+                        "description": "priority of the link, informs in what order links should be presented",
                         "type": "integer"
                     },
-                    "reply_count": {
-                        "description": "number of times the tweet has been replied to",
-                        "type": "integer"
+                    "name": {
+                        "description": "name of the link",
+                        "type": "string"
                     },
-                    "like_count": {
-                        "description": "number of times the tweet has been liked",
-                        "type": "integer"
-                    },
-                    "quote_count": {
-                        "description": "number of times the tweet has been quoted",
-                        "type": "integer"
-                    },
-                    "mentions": {
-                        "description": "list of Twitter IDs of people mentioned in the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "urls": {
-                        "description": "list of URLs in the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "references": {
-                        "description": "list of Twitter IDs of people who quoted or replied to the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "media_ids": {
-                        "description": "list of media uuids for attachments in the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "hashtags": {
-                        "description": "list of hashtags in the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "assets": {
-                        "description": "list of assets in the tweet",
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
+                    "url": {
+                        "description": "URL of the link",
+                        "type": "string",
+                        "format": "uri"
                     }
-                },
-                "required": ["created_timestamp", "asset_id", "contents"]
+                }
             }
         }
     },
-    "name": "addressbook",
+    "name": "BYO.Tube",
     "owner": "Steven Hessing",
     "max_query_depth": 5,
-    "service_id": 4294929430,
+    "service_id": 16384,
     "signatures": {},
-    "supportemail": "steven@byoda.org",
+    "supportemail": "support@byo.tube",
     "version": 1,
-    "website": "https://addressbook.byoda.org/",
+    "website": "https://byo.tube/",
     "cors_origins": [
-        "www.byoda.net",
-        "addressbook.byoda.org",
+        "byo.tube",
+        "www.byo.tube",
         "byoda.tube",
-        "www.byoda.tube"
+        "www.byoda.tube",
+        "api.byoda.tube"
     ],
     "listen_relations": [
         {

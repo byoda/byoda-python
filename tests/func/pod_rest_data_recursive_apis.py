@@ -142,15 +142,14 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         # Append fails here because the Azure POD does not have
         # a network_link to us yet
-        resp: HttpResponse = await DataApiClient.call(
-            service_id, class_name, DataRequestType.APPEND,
-            data=data, remote_member_id=AZURE_POD_MEMBER_ID, depth=1,
-            headers=member_auth_header,
-            member_id=AZURE_POD_MEMBER_ID, app=APP, timeout=TIMEOUT,
-        )
-        append_count = resp.json()
-
-        self.assertEqual(append_count, 0)
+        with self.assertRaises(ByodaRuntimeError):
+            resp: HttpResponse = await DataApiClient.call(
+                service_id, class_name, DataRequestType.APPEND,
+                data=data, remote_member_id=AZURE_POD_MEMBER_ID, depth=1,
+                headers=member_auth_header,
+                member_id=AZURE_POD_MEMBER_ID, app=APP, timeout=TIMEOUT,
+            )
+            append_count = resp.json()
 
         await add_to_azure_pod_network_links(self, account, service_id)
 
@@ -160,17 +159,17 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             headers=member_auth_header,
             member_id=AZURE_POD_MEMBER_ID, app=APP, timeout=TIMEOUT,
         )
-        append_count = resp.text
+        append_count: str = resp.text
 
         self.assertEqual(int(append_count), 1)
 
-    async def test_pod_rest_data_api_recursive_query(self):
+    async def test_pod_rest_data_api_recursive_query(self) -> None:
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
         member_id: UUID = member.member_id
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: dict[str, str] = await get_member_auth_header(
             self, member.member_id
         )
 
@@ -286,7 +285,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         # Recursive query (depth=2), with network_links added to Azure POD
         # depth = 2: local pod + azure pod + home pod
-        recursive_data = await call_data_api(
+        recursive_data: dict | None = await call_data_api(
             self, service_id, class_name,
             action=DataRequestType.QUERY, first=50, depth=2,
             relations=['friend'], auth_header=member_auth_header

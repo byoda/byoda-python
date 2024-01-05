@@ -85,7 +85,8 @@ async def get_current_network_links(account: Account, data_store: DataStore
 
         for listen_relation in listen_relations or []:
             wanted_relations: list[str] = listen_relation.relations or []
-            listen_class_name: str = listen_relation.class_name
+            listen_class: SchemaDataArray = \
+                schema.data_classes[listen_relation.class_name]
             dest_class_name: str = listen_relation.destination_class
 
             # BUG: we currently support only one listen relartion per service
@@ -94,7 +95,7 @@ async def get_current_network_links(account: Account, data_store: DataStore
             member_listeners: dict[UUID, UpdateListenerMember] = \
                 await get_network_links_listeners(
                     data_store, member, wanted_relations,
-                    listen_class_name, dest_class_name
+                    listen_class, dest_class_name
                 )
 
             updates_listeners |= member_listeners
@@ -105,7 +106,7 @@ async def get_current_network_links(account: Account, data_store: DataStore
 
 async def get_network_links_listeners(data_store: DataStore, member: Member,
                                       wanted_relations: list[str],
-                                      listen_class_name: str,
+                                      listen_class: SchemaDataArray,
                                       dest_class_name: str,
                                       ) -> dict[UUID, UpdateListenerMember]:
     '''
@@ -153,7 +154,7 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
 
         if remote_member_id not in listeners:
             listener = await UpdateListenerMember.setup(
-                listen_class_name, member, remote_member_id, dest_class_name,
+                listen_class, member, remote_member_id, dest_class_name,
             )
 
             listeners[listener.remote_member_id] = listener
@@ -304,6 +305,7 @@ def review_message(message: PubSubMessage, relations: list[str]
             origin_class_name=message.class_name,
             origin_id=message.origin_id,
             origin_id_type=message.origin_id_type,
+            cursor=message.cursor,
             node=link_data
         )
         link = NetworkLink(**resp.node)

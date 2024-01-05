@@ -19,6 +19,8 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
+from byoda.datatypes import TEMP_SSL_DIR
+
 from .secret import Secret
 
 _LOGGER: Logger = getLogger(__name__)
@@ -111,7 +113,7 @@ class AccountSecret(Secret):
 
         return fqdn
 
-    def save_tmp_private_key(self):
+    def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the AccountSecret so nginx and the python
         requests module can use it.
@@ -126,4 +128,4 @@ class AccountSecret(Secret):
         key is stored
         '''
 
-        return '/var/tmp/private-account.key'
+        return f'{TEMP_SSL_DIR}/{self.account_id}/private-account.key'

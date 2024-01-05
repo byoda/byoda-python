@@ -18,18 +18,17 @@ Services typically need to store data about their members. With Byoda, services 
 To install Redis, first install docker as per the [Docker instructions](https://docs.docker.com/engine/install/ubuntu/) and then launch the redis container.
 
 ```bash
-sudo mkdir -p /opt/redis/config
 sudo mkdir -p /opt/redis/data
-
+sudo mkdir -p /opt/redis/etc
 sudo docker run -d --restart unless-stopped \
     -p 6379:6379 \
-    -p 6380:8001    \
-    -v /opt/redis/etc:/opt/redis-stack/etc \
     -v /opt/redis/data:/data \
-    --name redis-stack redis/redis-stack:latest
+    -v /opt/redis/etc/redis-stack.conf:/redis-stack.conf \
+    --name redis redis/redis-stack-server:latest
 ```
 
-You can review the configuration in /opt/redis/config/redis-stack.conf for any changes that may be needed
+To set up replicas of the master
+
 
 ## 2: Pick a value for the service ID
 
@@ -134,6 +133,7 @@ from the addressbook.json service contract to your contract.
     - "joined": { "format": "date-time", "type": "string"}
     - "member_id": {"type": "string"}
     - "supported_versions": {"type": "string"} # command separated list of supported schema versions
+    - "auto_upgrade": {"type": "boolean"} # if true, the plan is for the pod to automatically upgrade the schema of the member to the latest version supported by the service
 - network_links of type array using the /schemas/network_link as reference
 - datalogs of type array using the /schemas/memberlog as reference
 - incoming_claims: claims from other people that you haven't verified yet
@@ -218,8 +218,10 @@ export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 sudo pip3 install passgen
 PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
-tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
+pipenv run tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
 ```
+
+Make sure you retrieved the generated secret to protect the private key of the Service CA as described in the previous alinea. Look for the line with '!!' in it. Delete the service log file after you have extracted and persisted the secret protecting the private key.
 
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
 
@@ -241,7 +243,7 @@ ssh ${SERVER_IP} "rm ${SERVICE_DIR}/private/network-${BYODA_NETWORK}-service-${S
 
 ## 5: Signing your schema
 
-There are two signatures for a schema: the ServiceData secret provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
+There are two signatures for a schema: the ServiceData secret you have just created, provides the 'service' signature and the NetworkServicesCA provides the 'network' signature.
 
 As you just created the ServiceData secret in step #2, you can generate the service signature but you'll have to ask the directory server of the network to provide the network signature by calling the PATCH /api/v1/network/service API. Both steps are implemented by the '[tools/sign_data_contract.py](https://github.com/byoda/byoda-python/blob/master/tools/sign_data_contract.py)' script. Before you can run the tool, you have to create a config.yml, that later will also be used when you start the server. Copy the config-sample.yml file in the byoda-python directory to config.yml, remove the 'dirserver' block and edit the configuration as appropriate.
 

@@ -32,7 +32,7 @@ export YOUTUBE_CHANNEL=
 # the this variable to your API key:
 export YOUTUBE_API_KEY=
 
-# For with service should Youtube videos be imported?
+# The service for which Youtube videos should be imported
 export YOUTUBE_IMPORT_SERVICE_ID=4294929430
 
 # To manage how often the import process runs, set the following variable

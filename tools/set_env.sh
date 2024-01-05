@@ -6,8 +6,19 @@
 # copyright  : Copyright 2021, 2022, 2023
 # license    : GPLv3
 
-if [[ $_ == $0 ]]; then
-    echo "$_: This script must be sourced instead of executed, e.g. 'source $_'"
+
+PARAM=$_
+COMMAND=$0
+
+if [ ! -f ~/.byoda-account_id ]; then
+    if [[ "${PARAM}" == "${COMMAND}" ]]; then
+        exit 0
+    fi
+    return
+fi
+
+if [[ "${PARAM}" == "${COMMAND}" ]]; then
+    echo "$COMMAND: This script must be sourced instead of executed, e.g. 'source $COMMAND'"
     exit 1
 fi
 

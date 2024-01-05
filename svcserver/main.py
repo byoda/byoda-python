@@ -10,9 +10,11 @@ import os
 import sys
 import yaml
 
+from typing import Generator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+
 from byoda.util.fastapi import setup_api, update_cors_origins
 
 from byoda.datamodel.network import Network
@@ -42,13 +44,17 @@ _LOGGER = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+async def lifespan(app: FastAPI) -> Generator[None, any, None]:
+    config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
-        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+        app_config: dict[str, str | int | bool | None] = yaml.load(
+            file_desc, Loader=yaml.SafeLoader
+        )
 
-    debug = app_config['application']['debug']
-    verbose = not debug
+    debug: bool = app_config['application']['debug']
+    verbose: bool = not debug
+
+    global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['svcserver'].get('logfile')
@@ -64,13 +70,17 @@ async def lifespan(app: FastAPI):
         root_directory=app_config['svcserver']['root_dir']
     )
 
-    if (not os.environ.get('SERVER_NAME') and network.name):
+    if not os.environ.get('SERVER_NAME') and network.name:
         os.environ['SERVER_NAME'] = network.name
 
-    config.server = await ServiceServer.setup(network, app_config)
-    server: ServiceServer = config.server
+    _LOGGER.debug('Going to set up service server')
+    server: ServiceServer = await ServiceServer.setup(network, app_config)
+    _LOGGER.debug('Setup service server completed')
+
+    config.server = server
     service: Service = server.service
 
+    _LOGGER.debug('Setting up document store')
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
         cloud_type=CloudType.LOCAL,
@@ -80,25 +90,32 @@ async def lifespan(app: FastAPI):
         root_dir=app_config['svcserver']['root_dir']
     )
 
+    _LOGGER.debug('Loading network secrets')
     await server.load_network_secrets()
 
+    _LOGGER.debug('Setting up service secrets')
     await server.load_secrets(
         app_config['svcserver']['private_key_password']
     )
+
+    _LOGGER.debug('Loading schema')
     await server.load_schema()
     schema: Schema = service.schema
     schema.get_data_classes(with_pubsub=False)
+
+    _LOGGER.debug('Generating data models')
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(app_config['svcserver']['cache'])
+    await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
 
+    _LOGGER.debug('Registering service')
     await server.service.register_service()
 
     update_cors_origins(app_config['svcserver']['cors_origins'])
 
     _LOGGER.debug('Lifespan startup complete')
 
-    config.trace_server = app_config['application'].get(
+    config.trace_server: str = app_config['application'].get(
         'trace_server', config.trace_server
     )
 
@@ -107,7 +124,7 @@ async def lifespan(app: FastAPI):
     _LOGGER.info('Shutting down server')
 
 
-app = setup_api(
+app: FastAPI = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
     'network', 'v0.0.1',
     [

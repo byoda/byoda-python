@@ -53,14 +53,14 @@ Schema = TypeVar('Schema')
 
 
 class DataProxy:
-    __slots__ = [
+    __slots__: list[str] = [
         'member', 'schema', 'class_name',
         'incoming_depth', 'updated_depth',
         'incoming_query', 'updated_query',
         'request_type', 'data_request_type',
     ]
 
-    def __init__(self, member: Member):
+    def __init__(self, member: Member) -> None:
         self.member: Member = member
 
         if not member.schema:
@@ -68,64 +68,116 @@ class DataProxy:
 
         self.schema: Schema = member.schema
 
-        self.data_request_type: DataRequestType | None = None
-        self.clear()
-
-    def clear(self):
-        '''
-        Clear state from previous queries
-        '''
-
         self.incoming_depth: int = None
         self.updated_depth: int = None
-
-        self.incoming_query: QueryModel = None
+        self.incoming_query: QueryModel | AppendModel = None
+        self.data_request_type: DataRequestType | None = None
         self.updated_query: QueryModel = None
 
         self.class_name: str | None = None
 
+    def clear(self) -> None:
+        '''
+        Clear state from previous queries
+        '''
+
+        self.class_name = None
+        self.updated_depth = None
+        self.updated_query = None
+        self.incoming_depth = None
+        self.incoming_query = None
+
     @TRACER.start_as_current_span('DataProxy.request')
-    async def proxy_request(self, class_name: str,
-                            query: QueryModel | AppendModel,
-                            data_request_type: DataRequestType,
-                            sending_member_id: UUID) -> list[dict]:
+    async def proxy_query_request(self, class_name: str,
+                                  query: QueryModel,
+                                  sending_member_id: UUID
+                                  ) -> list[dict[str, any]]:
         '''
         Manipulates the original request to decrement the query depth by 1,
         sends the updated request to all network links that have one of the
-        provided relations
+        provided relations in the query, and returns the results.
 
         :param class_name: the object requested in the query
         :param query: the original query string received by the pod
         :param data_request_type:
         :param sending_member_id: member ID of the pod that sent the request
-        :returns: the results
+        :returns: the results as a list of dicts, with the UUID of the remote
+        member as the key and the returned data as the value
         '''
 
         if query.depth < 1:
             raise ValueError('Requests with depth < 1 are not proxied')
 
         self.clear()
+
         self.class_name = class_name
 
-        self.incoming_query: QueryModel | AppendModel = query
-        self.incoming_depth: int = query.depth
-        self.updated_query: QueryModel | AppendModel = copy(
-            self.incoming_query
-        )
-        self.updated_depth: int = self.incoming_depth - 1
-        self.updated_query.depth: int = self.updated_depth
+        self.incoming_query = query
+        self.incoming_depth = query.depth
 
-        self.data_request_type: DataRequestType = data_request_type
+        self.updated_depth = self.incoming_depth - 1
+        self.updated_query = copy(self.incoming_query)
+        self.updated_query.depth = self.updated_depth
 
-        network_data = await self._proxy_request(sending_member_id)
+        self.data_request_type: DataRequestType = DataRequestType.QUERY
 
-        if not network_data:
+        network_data: list[tuple[UUID, dict | None | Exception]] = \
+            await self._proxy_query_request(sending_member_id)
+
+        targets: list[UUID] = await self._get_proxy_targets(sending_member_id)
+
+        if not targets:
+            _LOGGER.debug('No targets to proxy query to')
             return []
 
-        if data_request_type == DataRequestType.QUERY:
-            all_data = self._process_network_query_data(network_data)
-        else:
-            all_data = self._process_network_append_data(network_data)
+        _LOGGER.debug(
+            f'Pod to proxy query request to {len(targets)} pod(s): '
+            f'{",".join([str(target) for target in targets])}'
+        )
+
+        tasks = set()
+        for target in targets:
+            _LOGGER.debug(f'Creating task to proxy request to {target}')
+            task: asyncio.Task[tuple[UUID], list[dict[str, any]]] = \
+                asyncio.create_task(self._exec_data_query(target))
+            tasks.add(task)
+
+        network_data: list[any, BaseException] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
+
+        processed_data: list[tuple[UUID, dict | None | Exception]] = []
+        pod_responses: int = 0
+        for target_data in network_data:
+            if isinstance(target_data, ByodaRuntimeError):
+                _LOGGER.debug(
+                    f'Got error from upstream pod: {str(network_data)}'
+                )
+                processed_data.append((target, target_data))
+            else:
+                pod_responses += 1
+                try:
+                    target: UUID
+                    data: dict[str, any] | None | Exception
+                    target, data = target_data
+                    processed_data.append((target, data))
+                    _LOGGER.debug(f'Target {target} returned {data}')
+                except TypeError:
+                    _LOGGER.debug(
+                        f'Got error from upstream pod: {str(network_data)}'
+                    )
+
+        _LOGGER.debug(
+            f'Received data from {pod_responses} pods out of {len(targets)} '
+            f'total items received: {len(processed_data or [])}'
+        )
+
+        if not processed_data:
+            return []
+
+        all_data: list[dict] = self._process_network_query_data(
+                processed_data
+        )
 
         return all_data
 
@@ -155,7 +207,7 @@ class DataProxy:
             )
             return targets
 
-        targets = []
+        targets: list[UUID] = []
         for target in network_links:
             # Matching relations is case insensitive
             relation: str = target.relation.lower()
@@ -186,14 +238,10 @@ class DataProxy:
 
         return targets
 
-    async def _proxy_request(self, sending_member_id: UUID
-                             ) -> list[tuple[UUID, dict | None | Exception]]:
+    async def proxy_append_request(self, class_name: str, append: AppendModel
+                                   ) -> int | None:
         '''
-        Sends the REST Data query to remote pods. If remote_member_id is
-        specified then the request will only be proxied to that member.
-        Otherwise, the request will be proxided to all members that
-        are in our network with one of the specified relations, or,
-        if no relations ar especified, to every member in our network.
+        Sends the REST Append Data query to a remote pod.
 
         :param query: the original request that was received
         :param relations: the relations that the query should be send to
@@ -201,51 +249,50 @@ class DataProxy:
         :returns: list of responses per pod member ID
         '''
 
-        targets: list[UUID] = await self._get_proxy_targets(sending_member_id)
+        depth: int = append.depth
+        if depth < 1:
+            raise ValueError('Requests with depth < 1 are not proxied')
 
-        _LOGGER.debug(
-            f'Pods to proxy request to: {",".join([str(t) for t in targets])}'
-        )
-
-        tasks = set()
-
-        if not targets:
-            return []
-
-        for target in targets:
-            _LOGGER.debug(f'Creating task to proxy request to {target}')
-            task = asyncio.create_task(
-                self._exec_data_query(target)
+        if depth > 1:
+            raise ValueError(
+                f'Append requests with depth > 1 are not supported: {depth}'
             )
-            tasks.add(task)
 
-        network_data = await asyncio.gather(*tasks, return_exceptions=True)
+        self.clear()
 
-        processed_data: list[tuple[UUID, dict | None | Exception]] = []
-        pod_responses: int = 0
-        for target_data in network_data:
-            if isinstance(target_data, ByodaRuntimeError):
-                _LOGGER.debug(
-                    f'Got error from upstream pod: {str(network_data)}'
-                )
-                processed_data.append((target, target_data))
-            else:
-                pod_responses += 1
-                try:
-                    target, data = target_data
-                    processed_data.append((target, data))
-                    _LOGGER.debug(f'Target {target} returned {data}')
-                except TypeError:
-                    _LOGGER.debug(
-                        f'Got error from upstream pod: {str(network_data)}'
-                    )
+        self.class_name = class_name
 
-        _LOGGER.debug(
-            f'Received data from {pod_responses} pods out of {len(targets)} '
-            f'total items received: {len(processed_data or [])}'
+        self.incoming_query = append
+        self.incoming_depth = append.depth
+
+        self.updated_depth = self.incoming_depth - 1
+        self.updated_query = copy(self.incoming_query)
+        self.updated_query.depth = self.updated_depth
+
+        self.data_request_type: DataRequestType = DataRequestType.QUERY
+
+        target: UUID = self.incoming_query.remote_member_id
+        if not target:
+            raise ValueError('Append requests must have a remote member ID')
+
+        network_data: tuple[UUID, list[dict]] = await self._exec_data_query(
+            target
         )
 
-        return processed_data
+        remote_id: UUID = network_data[0]
+        data: int = network_data[1]
+
+        if target != remote_id:
+            _LOGGER.warning(f'Expected data pod {target} but got {remote_id }')
+            return (remote_id, None)
+
+        if isinstance(data, ByodaRuntimeError):
+            _LOGGER.debug(
+                f'Got error from upstream pod: {str(network_data)}'
+            )
+            return (remote_id, None)
+        else:
+            return data
 
     async def _exec_data_query(self, target: UUID) -> tuple[UUID, list[dict]]:
         '''
@@ -264,7 +311,7 @@ class DataProxy:
             target, service_id, network.name
         )
 
-        url = DATA_API_URL.format(
+        url: str = DATA_API_URL.format(
             protocol='https', fqdn=fqdn, port=POD_TO_POD_PORT,
             service_id=service_id, class_name=self.class_name,
             action=self.data_request_type.value
@@ -276,7 +323,7 @@ class DataProxy:
             data=data_query
         )
 
-        data = resp.json()
+        data: dict[str, any] = resp.json()
 
         if not data:
             _LOGGER.debug(f'Did not get data back from target {target}')
@@ -319,7 +366,7 @@ class DataProxy:
                 _LOGGER.debug(f'POD {target_id} returned no data')
                 continue
 
-            edges = target_data['edges']
+            edges: list[dict[str, any]] = target_data['edges']
 
             _LOGGER.debug(
                 f'Got {len(edges)} items from remote pod {target_id}'
@@ -343,12 +390,13 @@ class DataProxy:
         '''
 
         # We only support to append to 1 remote pod
-        target_id, target_data = network_data[0]
+        target_data: dict | Exception | None
+        target_data = network_data[0][1]
         if not target_data:
             raise ValueError('Append for proxied Data query has no data')
 
         if isinstance(target_data, Exception):
-            _LOGGER.debug('Appending to remote pod failed')
+            _LOGGER.debug(f'Appending to remote pod failed: {target_data}')
             return 0
 
         return 1

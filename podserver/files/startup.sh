@@ -52,11 +52,11 @@ if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
         # With the '--standalone' option, certbot will run its own HTTP webserver
         echo "{\"message\": \"Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}\"}"
-        pipenv run certbot --quiet renew --standalone 2>&1 1>>${LOGDIR}/letsencrypt.log
+        pipenv run certbot --quiet renew --standalone --max-log-backups 3 --logs-dir /var/log/byoda  2>&1 1>>${LOGDIR}/letsencrypt.log
     else
         echo "{\"message\": \"Generating a Lets Encrypt certificate for custom domain ${CUSTOM_DOMAIN}\"}"
         # With the '--standalone' option, certbot will run its own HTTP webserver
-        pipenv run certbot --quiet certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
+        pipenv run certbot --quiet certonly --standalone --max-log-backups 3 --logs-dir /var/log/byoda -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
     fi
 fi
 

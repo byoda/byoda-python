@@ -131,14 +131,16 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         sub = PubSub.setup('test', data_class, schema, is_sender=False)
 
-        message = PubSubDataAppendMessage.create(test_data, data_class)
+        message: PubSubDataAppendMessage = PubSubDataAppendMessage.create(
+            test_data, data_class, 'test1234'
+            )
         await pub.send(message)
         values = await sub.recv()
 
         value: PubSubDataAppendMessage = values[0]
         self.assertEqual(value.data, test_data)
 
-    async def test_one_sender_one_receiver_delete(self):
+    async def test_one_sender_one_receiver_delete(self) -> None:
         _LOGGER.debug('test_one_sender_one_receiver_delete')
 
         storage: FileStorage = FileStorage(TEST_DIR)
@@ -191,7 +193,9 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             PubSub.setup('test', data_class, schema, is_sender=False),
             PubSub.setup('test', data_class, schema, is_sender=False)
         ]
-        message = PubSubDataAppendMessage.create(test_data, data_class)
+        message: PubSubDataAppendMessage = PubSubDataAppendMessage.create(
+            test_data, data_class, 'test1234'
+        )
         await pub.send(message)
         messages: list[PubSubDataAppendMessage] = [
             await subs[0].recv(),
@@ -235,9 +239,13 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         sub = PubSub.setup('test', data_class, schema, is_sender=False)
 
-        test_messages = [
-            PubSubDataAppendMessage.create(test_data[0], data_class),
-            PubSubDataAppendMessage.create(test_data[1], data_class)
+        test_messages: list[PubSubDataAppendMessage] = [
+            PubSubDataAppendMessage.create(
+                test_data[0], data_class, 'test1234'
+            ),
+            PubSubDataAppendMessage.create(
+                test_data[1], data_class, 'test1234'
+            )
         ]
 
         await pubs[0].send(test_messages[0])
