@@ -966,7 +966,9 @@
         "api.byoda.tube",
         "byo.host",
         "www.byo.host",
-        "api.byo.host"
+        "api.byo.host",
+        "proxy.byoda.net",
+        "token.byoda.net"
     ],
     "listen_relations": [
         {

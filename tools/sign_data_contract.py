@@ -42,10 +42,10 @@ from byoda import config
 
 _LOGGER = None
 
-_ROOT_DIR = os.environ['HOME'] + '/.byoda'
+_ROOT_DIR: str = os.environ['HOME'] + '/.byoda'
 
 
-async def main(argv):
+async def main(argv) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
@@ -56,15 +56,15 @@ async def main(argv):
     parser.add_argument('--contract', '-c', type=str)
     parser.add_argument('--config', '-o', type=str, default='config.yml')
     parser.add_argument('--local', default=False, action='store_true')
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     # Network constructor expects parameters to be in a dict
 
     with open(args.config) as file_desc:
         app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
-    root_dir = app_config['svcserver']['root_dir']
-    password = app_config['svcserver']['private_key_password']
+    root_dir: str = app_config['svcserver']['root_dir']
+    password: str = app_config['svcserver']['private_key_password']
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
@@ -89,7 +89,9 @@ async def main(argv):
     )
     await config.server.load_network_secrets()
 
-    service = await load_service(args, config.server.network, password)
+    service: Service = await load_service(
+        args, config.server.network, password
+    )
 
     if not args.local:
         service.registration_status = await service.get_registration_status()
@@ -123,7 +125,7 @@ async def main(argv):
     if (result is not False and (
             not args.signing_party
             or args.signing_party == SignatureType.NETWORK.value)):
-        result = await create_network_signature(service, args, password)
+        result: bool = await create_network_signature(service, args, password)
 
     if not result:
         _LOGGER.error('Failed to get the network signature')
@@ -134,7 +136,7 @@ async def main(argv):
         root_dir = os.getcwd()
 
     storage_driver = FileStorage(root_dir)
-    filepath = service.paths.get(Paths.SERVICE_FILE)
+    filepath: str = service.paths.get(Paths.SERVICE_FILE)
     _LOGGER.debug(f'Saving signed schema to {filepath}')
     await service.schema.save(filepath, storage_driver=storage_driver)
 
@@ -156,7 +158,7 @@ async def load_service(args, network: Network, password: str):
     return service
 
 
-def create_service_signature(service: Service):
+def create_service_signature(service: Service) -> None:
     '''
     Creates the signature of the service for the schema
     '''
