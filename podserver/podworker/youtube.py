@@ -66,7 +66,10 @@ async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
     )
     if youtube_member:
         try:
-            _LOGGER.debug('Running startup tasks for membership of YouTube')
+            _LOGGER.debug(
+                f'Running startup tasks for membership of '
+                f'service {youtube_import_service_id} for YouTube import'
+            )
             schema: Schema = youtube_member.schema
             schema.get_data_classes(with_pubsub=False)
             await data_store.setup_member_db(
@@ -78,7 +81,8 @@ async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
             raise
     else:
         _LOGGER.debug(
-            'Did not find membership for import of YouTube videos'
+            f'Did not find membership of service {youtube_import_service_id} '
+            'for import of YouTube videos'
         )
 
 

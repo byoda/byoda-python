@@ -2,6 +2,9 @@
 ### Start of variables that you can configure
 ###
 
+# Which release train do we want to be on?
+export TAG=latest
+
 # How often should backups be created? This only applies to pods
 # running in public clouds. As it incurs some (fairly minor) traffic
 # costs, we set the interval to 4 hours (= 240 minutes)

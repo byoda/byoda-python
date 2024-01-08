@@ -81,7 +81,7 @@ class Logger(logging.Logger):
 
         # For the logger, strip off any directory and any extension
         # from appname (for if appname=sys.argv[0])
-        appname = os.path.splitext(os.path.basename(appname))[0].rstrip('.py')
+        appname: str = os.path.splitext(os.path.basename(appname))[0].rstrip('.py')
 
         # loglevel takes precedence over debug and verbose
         if not loglevel:

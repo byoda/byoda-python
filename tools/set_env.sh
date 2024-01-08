@@ -69,28 +69,28 @@ echo "Account page                      : ${HOME_PAGE}/"
 echo "OpenAPI redoc                     : ${HOME_PAGE}/redoc"
 echo "POD logs                          : ${HOME_PAGE}/logs/{pod[worker].log,nginx-access.log,nginx-error.log}"
 
-# The address book service
-export SERVICE_ADDR_ID=4294929430
-export MEMBER_ADDR_CERT=/byoda/network-byoda.net/account-pod/service-${SERVICE_ADDR_ID}/network-byoda.net-member-${SERVICE_ADDR_ID}-cert.pem
-export MEMBER_ADDR_KEY=/byoda/private/network-byoda.net-account-pod-member-${SERVICE_ADDR_ID}.key
-if [ -f  ${MEMBER_ADDR_CERT} ]; then
-    export MEMBER_ADDR_ID=$( \
-        openssl x509 -in $MEMBER_ADDR_CERT -noout -text | \
+# The byo.tube service
+export SERVICE_BYOTUBE_ID=16384
+export MEMBER_BYOTUBE_CERT=/byoda/network-byoda.net/account-pod/service-${SERVICE_BYOTUBE_ID}/network-byoda.net-member-${SERVICE_BYOTUBE_ID}-cert.pem
+export MEMBER_BYOTUBE_KEY=/byoda/private/network-byoda.net-account-pod-member-${SERVICE_BYOTUBE_ID}.key
+if [ -f  ${MEMBER_BYOTUBE_CERT} ]; then
+    export MEMBER_BYOTUBE_ID=$( \
+        openssl x509 -in $MEMBER_BYOTUBE_CERT -noout -text | \
         grep members | \
         grep -v members-ca | \
         head -1 | \
         awk '{ print $16; } ' | \
         cut -f 1 -d . \
     )
-    export MEMBER_ADDR_FQDN=${MEMBER_ADDR_ID}.members-${SERVICE_ADDR_ID}.byoda.net
+    export MEMBER_BYOTUBE_FQDN=${MEMBER_BYOTUBE_ID}.members-${SERVICE_BYOTUBE_ID}.byoda.net
 fi
-export MEMBER_USERNAME=$(echo ${MEMBER_ADDR_ID} | cut -d '-' -f 1)
-export MEMBER_ID=${MEMBER_ADDR_ID}
+export MEMBER_USERNAME=$(echo ${MEMBER_BYOTUBE_ID} | cut -d '-' -f 1)
+export MEMBER_ID=${MEMBER_BYOTUBE_ID}
 
 echo ""
-echo "Address book service ID           : ${SERVICE_ADDR_ID}"
-echo "Member ID                         : ${MEMBER_ADDR_ID}"
-echo "Member FQDN                       : ${MEMBER_ADDR_FQDN}"
+echo "BYOTube book service ID           : ${SERVICE_BYOTUBE_ID}"
+echo "Member ID                         : ${MEMBER_BYOTUBE_ID}"
+echo "Member FQDN                       : ${MEMBER_BYOTUBE_FQDN}"
 echo "Member username                   : ${MEMBER_USERNAME}"
-echo "Member cert                       : ${MEMBER_ADDR_CERT}"
-echo "Member key                        : ${MEMBER_ADDR_KEY}"
+echo "Member cert                       : ${MEMBER_BYOTUBE_CERT}"
+echo "Member key                        : ${MEMBER_BYOTUBE_KEY}"

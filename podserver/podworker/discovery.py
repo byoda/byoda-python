@@ -8,7 +8,6 @@ Various utility classes, variables and functions
 
 import os
 
-from time import sleep as sync_sleep
 from uuid import UUID
 from datetime import datetime
 from logging import getLogger
@@ -24,6 +23,7 @@ from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.table import ResultData
 from byoda.datamodel.table import QueryResult
 
+from byoda.models.data_api_models import NetworkLink
 from byoda.models.data_api_models import UpdatesResponseModel
 
 from byoda.datatypes import MARKER_NETWORK_LINKS
@@ -38,16 +38,6 @@ from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.util.logger import Logger
 
-try:
-    from podserver.codegen.pydantic_service_4294929430_1 import \
-        network_link as NetworkLink
-except ModuleNotFoundError:
-    # If the pod starts for the first time, the generated code is
-    # not immediately available so we wait a bit for the app server
-    # to create it and try again
-    sync_sleep(60)
-    from podserver.codegen.pydantic_service_4294929430_1 import \
-        network_link as NetworkLink
 
 _LOGGER: Logger = getLogger(__name__)
 

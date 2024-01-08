@@ -154,7 +154,7 @@ class ServiceServer(Server):
             expiration_window=KVCache.DEFAULT_CACHE_EXPIRATION
         )
 
-    async def review_jwt(self, jwt: JWT):
+    async def review_jwt(self, jwt: JWT) -> None:
         '''
         Reviews the JWT for processing on a service server
 
@@ -171,7 +171,7 @@ class ServiceServer(Server):
                 'Service API can only be called with a JWT for a member'
             )
 
-    async def get_jwt_secret(self, jwt: JWT):
+    async def get_jwt_secret(self, jwt: JWT) -> MemberDataSecret:
         '''
         Load the secret used to sign the jwt. As a service is the CA for
         member secrets, the service server should have access to the public
@@ -186,5 +186,5 @@ class ServiceServer(Server):
 
         return secret
 
-    def accepts_jwts(self):
+    def accepts_jwts(self) -> bool:
         return True

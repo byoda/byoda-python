@@ -22,13 +22,13 @@ class Paths:
     to the location of various files
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         '_root_directory', '_account', '_network', 'service_id',
         'storage_driver', 'account_id'
     ]
 
     # Default value for the pirectory prepended to paths
-    _ROOT_DIR = os.environ['HOME'] + '/.byoda/'
+    _ROOT_DIR: str = os.environ['HOME'] + '/.byoda/'
 
     # Templates for location of directories and files
     # all paths not starting with '/' will have the root directory prepended

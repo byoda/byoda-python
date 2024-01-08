@@ -59,7 +59,7 @@ async def post_asset_moderation(request: Request,
 
     asset_id: UUID = claim_request.claim_data.asset_id
 
-    data = claim_request.model_dump()
+    data: dict[str, any] = claim_request.model_dump()
     data['request_id'] = str(request_id)
     data['request_timestamp'] = datetime.now(tz=timezone.utc)
     data['requester_id'] = auth.id
@@ -81,11 +81,11 @@ async def post_asset_moderation(request: Request,
 
     claim_signature: str | None = None
     if whitelisted:
-        data_fields = sorted(
+        data_fields: list[str] = sorted(
             claim_request.claim_data.model_dump().keys()
         )
 
-        claim = Claim.build(
+        claim: Claim = Claim.build(
             claim_request.claims, server.app_id, IdType.APP,
             claim_request.claim_data.asset_type, 'asset_id',
             claim_request.claim_data.asset_id,
@@ -122,7 +122,7 @@ async def post_asset_moderation(request: Request,
         signature_timestamp: datetime = claim.signature_timestamp
     else:
         data['status'] = ClaimStatus.PENDING.value
-        request_file = server.get_claim_filepath(
+        request_file: str = server.get_claim_filepath(
             ClaimStatus.PENDING, request_id
         )
         with open(request_file, 'wb') as claim_file:

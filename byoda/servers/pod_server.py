@@ -85,7 +85,7 @@ class PodServer(Server):
         self.twitter_client: Twitter | None = None
         self.youtube_client: YouTube | None = None
 
-    async def load_secrets(self, password: str = None):
+    async def load_secrets(self, password: str = None) -> None:
         '''
         Loads the secrets used by the podserver
         '''
@@ -106,7 +106,7 @@ class PodServer(Server):
 
         network: Network = self.network
 
-        url = network.paths.get(Paths.NETWORKSERVICES_API)
+        url: str = network.paths.get(Paths.NETWORKSERVICES_API)
         resp: HttpResponse = await RestApiClient.call(url)
 
         network.service_summaries: dict[int, dict[str, str | int | None]] = {}
@@ -126,7 +126,7 @@ class PodServer(Server):
                 f'HTTP {resp.status_code}'
             )
 
-    async def bootstrap_join_services(self, service_ids: list[int]):
+    async def bootstrap_join_services(self, service_ids: list[int]) -> None:
         '''
         Joins the services listed in the 'JOIN_SERVICE_IDS'
         environment variable, if we are not already member of them
@@ -134,6 +134,11 @@ class PodServer(Server):
 
         # We first need to get registered services as that will tell
         # us the version of the schema that we should join.
+
+        _LOGGER.debug(f'Got bootstrap joins for {service_ids}')
+
+        account: Account = self.account
+        data_store: DataStore = self.data_store
 
         await self.get_registered_services()
         service_summaries: dict[int, dict[str, str | int | None]] = \
@@ -156,7 +161,13 @@ class PodServer(Server):
                 continue
 
             version: int = service_summaries[service_id]['version']
-            await self.account.join(service_id, version, self.local_storage)
+            member: Member = await account.join(
+                service_id, version, self.local_storage, with_reload=False
+            )
+            await data_store.setup_member_db(
+                member_id=member.member_id, service_id=service_id,
+                schema=member.schema
+            )
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,

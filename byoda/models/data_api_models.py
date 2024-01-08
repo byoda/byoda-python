@@ -43,7 +43,19 @@ DEFAULT_PAGE_LENGTH: int = 40
 
 class BaseModel(PydanticBaseModel):
     class Config:
-        extra = 'forbid'
+        extra: str = 'forbid'
+
+
+# This is a generic model for NetworkLink. Service schemas must include
+# these three fields and match their definitions but may add additional fields.
+class NetworkLink(BaseModel):
+    created_timestamp: datetime = Field(
+        description="time the network link was created"
+    )
+    member_id: UUID = Field(description="The UUID of the other member")
+    relation: str = Field(
+        description="What relation you have with the other member"
+    )
 
 
 def check_positive(v: int) -> FieldValidationInfo:

@@ -13,6 +13,7 @@ import base64
 
 from uuid import uuid4
 from uuid import UUID
+from typing import Self
 from datetime import datetime
 from datetime import timezone
 from dataclasses import dataclass
@@ -203,7 +204,7 @@ class Claim:
               object_fields: list[str],
               requester_id: UUID, requester_type: IdType,
               signature_url: str, renewal_url: str,
-              confirmation_url, claim_id: UUID | None = None) -> None:
+              confirmation_url, claim_id: UUID | None = None) -> Self:
         '''
         Factory for creating an instance of the class
         '''

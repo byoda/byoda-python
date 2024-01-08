@@ -56,6 +56,7 @@ from byoda.util.logger import Logger
 from byoda.util.test_tooling import is_test_uuid
 
 from byoda import config
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 # Time out waiting for a member from the list of members to
 # get info from the Person table
@@ -70,7 +71,7 @@ ASSET_CLASS: str = 'public_assets'
 ASSET_UPLOADED_LIST: str = 'recently_uploaded_assets'
 
 
-async def main():
+async def main() -> None:
     service, server = await setup_server()
 
     _LOGGER.debug(
@@ -92,7 +93,7 @@ async def main():
                 _LOGGER.debug(f'Sleeping for {round(wait_time, 3)} seconds')
                 await sleep(wait_time)
 
-            wait_time = 0.1
+            wait_time = 15
 
             member_id: UUID | None = None
             try:
@@ -114,9 +115,10 @@ async def main():
                     server.asset_cache, [ASSET_UPLOADED_LIST], task_group
                 )
 
-                wait_time = await update_member(
-                    service, member_id, server.member_db
-                )
+                if service.service_id == ADDRESSBOOK_SERVICE_ID:
+                    wait_time = await update_member(
+                        service, member_id, server.member_db
+                    )
             except Exception as exc:
                 # We need to catch any exception to make sure we can try
                 # adding the member_id back to the list of member_ids in the
@@ -167,7 +169,7 @@ async def reconcile_member_listeners(
     for member_id in unseen_members:
         _LOGGER.debug(f'Got a new member {member_id}')
 
-        listener = await UpdateListenerService.setup(
+        listener: UpdateListenerService = await UpdateListenerService.setup(
             asset_class, service.service_id, member_id,
             service.network.name, service.tls_secret,
             asset_cache, asset_upload_lists,
@@ -187,7 +189,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
     '''
 
     try:
-        data = await member_db.get_meta(member_id)
+        data: dict[str, any] = await member_db.get_meta(member_id)
     except TypeError as exc:
         _LOGGER.exception(f'Invalid data for member: {member_id}: {exc}')
         return None
@@ -200,7 +202,7 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
         data['data_secret'], data['status']
     )
 
-    wait_time = next_member_wait(data['last_seen'])
+    wait_time: int = next_member_wait(data['last_seen'])
 
     #
     # Here is where we can do stuff
@@ -231,27 +233,28 @@ async def update_member_info(service: Service, member_db: MemberDb,
     :raises: (none)
     '''
 
-    resp: HttpResponse = await DataApiClient.call(
-        service.service_id, 'person', DataRequestType.QUERY,
-        secret=service.tls_secret, member_id=member_id
-    )
-
-    body = resp.json()
-
-    edges = body['edges']
-    if not edges:
-        _LOGGER.debug(f'Did not get any info from the pod: {body}')
-    else:
-        person_data = edges[0]['node']
-        _LOGGER.info(
-            f'Got data from member {member_id}: '
-            f'{orjson.dumps(person_data)}'
+    if service.service_id == 16384:
+        resp: HttpResponse = await DataApiClient.call(
+            service.service_id, 'person', DataRequestType.QUERY,
+            secret=service.tls_secret, member_id=member_id
         )
-        await member_db.set_data(member_id, person_data)
 
-        await member_db.kvcache.set(
-            person_data['email'], str(member_id)
-        )
+        body = resp.json()
+
+        edges = body['edges']
+        if not edges:
+            _LOGGER.debug(f'Did not get any info from the pod: {body}')
+        else:
+            person_data = edges[0]['node']
+            _LOGGER.info(
+                f'Got data from member {member_id}: '
+                f'{orjson.dumps(person_data)}'
+            )
+            await member_db.set_data(member_id, person_data)
+
+            await member_db.kvcache.set(
+                person_data['email'], str(member_id)
+            )
 
 
 def next_member_wait(last_seen: datetime) -> int:
@@ -267,7 +270,7 @@ def next_member_wait(last_seen: datetime) -> int:
     :raises: (none)
     '''
 
-    now = datetime.now(timezone.utc)
+    now: datetime = datetime.now(timezone.utc)
 
     wait_time: datetime = (
         last_seen + timedelta(seconds=MEMBER_PROCESS_INTERVAL) - now
@@ -276,18 +279,20 @@ def next_member_wait(last_seen: datetime) -> int:
     if wait_time.seconds < 0:
         wait_time.seconds = 0
 
-    wait = min(wait_time.seconds, MAX_WAIT)
+    wait: int = min(wait_time.seconds, MAX_WAIT)
 
     return wait
 
 
 async def setup_server() -> (Service, ServiceServer):
-    config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+    config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
-        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+        app_config: dict[str, str | int | bool] = yaml.load(
+            file_desc, Loader=yaml.SafeLoader
+        )
 
+    debug: str = app_config['application']['debug']
     global _LOGGER
-    debug = app_config['application']['debug']
     _LOGGER = Logger.getLogger(
         sys.argv[0], json_out=True,
         debug=app_config['application'].get('debug', False),
@@ -307,6 +312,7 @@ async def setup_server() -> (Service, ServiceServer):
         root_directory=app_config['svcserver']['root_dir']
     )
     server: ServiceServer = await ServiceServer.setup(network, app_config)
+    config.server = server
 
     _LOGGER.debug(
         'Setup service server completed, now loading network secrets'
@@ -319,10 +325,8 @@ async def setup_server() -> (Service, ServiceServer):
     await server.load_secrets(
         password=app_config['svcserver']['private_key_password']
     )
-    config.server = server
 
     service: Service = server.service
-    service.tls_secret.save_tmp_private_key()
 
     if not await service.paths.service_file_exists(service.service_id):
         await service.download_schema(save=True)

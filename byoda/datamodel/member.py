@@ -112,7 +112,7 @@ class Member:
         self.service_id: int = int(service_id)
 
         self.account: Account = account
-        self.network: Network = self.account.network
+        self.network: Network = account.network
 
         self.schema: Schema | None = None
 
@@ -172,6 +172,7 @@ class Member:
             verify_signatures = True
 
         filepath: str = self.paths.service_file(self.service_id)
+        network: Network = self.network
         if self.service_id not in self.network.services:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
@@ -204,7 +205,7 @@ class Member:
                     'without loading the schema'
                 )
                 self.service = await Service.get_service(
-                    self.network, filepath=filepath,
+                    network, filepath=filepath,
                     verify_signatures=verify_signatures,
                     load_schema=False
                 )
@@ -216,15 +217,15 @@ class Member:
                     f'Service contract file {filepath} does not exist'
                 )
                 self.service = Service(
-                    self.network, service_id=self.service_id,
+                    network, service_id=self.service_id,
                 )
 
-            self.network.services[self.service_id] = self.service
+            network.services[self.service_id] = self.service
         else:
             _LOGGER.debug(
                 f'Membership for {self.service_id} already in memory'
             )
-            self.service = self.network.services[self.service_id]
+            self.service: Service = network.services[self.service_id]
 
         if not self.service.data_secret:
             await self.service.download_data_secret(
@@ -356,6 +357,7 @@ class Member:
             _LOGGER.debug(f'Creating new member_id: {member_id}')
             member.member_id = uuid4()
 
+        _LOGGER.debug(f'New member ID {member.member_id}')
         if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
@@ -374,7 +376,7 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
-        _LOGGER.debug('Creating member secrets')
+        _LOGGER.debug(f'Creating member secrets for member {member.member_id}')
         await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
@@ -668,7 +670,7 @@ class Member:
         if resp.status_code != 201:
             raise RuntimeError('Certificate signing request failed')
 
-        cert_data = resp.json()
+        cert_data: dict[str, any] = resp.json()
 
         secret.from_string(
             cert_data['signed_cert'], certchain=cert_data['cert_chain']
@@ -844,7 +846,7 @@ class Member:
 
         schema.enable_data_apis(app)
 
-    async def verify_schema_signatures(self, schema: Schema):
+    async def verify_schema_signatures(self, schema: Schema) -> None:
         '''
         Verify the signatures for the schema, a.k.a. data contract
 
@@ -887,14 +889,14 @@ class Member:
 
         return await self.data.load_network_links()
 
-    async def load_data(self, key: str, filters: list[str] = None):
+    async def load_data(self, key: str, filters: list[str] = None) -> None:
         '''
         Loads the data stored for the membership
         '''
 
         await self.data.load(key, filters)
 
-    async def save_data(self, data):
+    async def save_data(self, data) -> None:
         '''
         Saves the data for the membership
         '''
@@ -902,17 +904,17 @@ class Member:
         _LOGGER.debug(f'Saving member data of {len(data)} bytes')
         await self.data.save(data)
 
-    async def download_secret(self, member_id: UUID = None):
+    async def download_secret(self, member_id: UUID = None) -> MemberSecret:
 
         if not member_id:
             member_id = self.member_id
         elif isinstance(member_id, str):
             member_id = UUID(member_id)
 
-        fqdn = MemberSecret.create_commonname(
+        fqdn: str = MemberSecret.create_commonname(
             member_id, self.service_id, self.network.name
         )
-        resp = await ApiClient.call(
+        resp: HttpResponse = await ApiClient.call(
             f'https://{fqdn}/member-cert.pem'
         )
 
@@ -922,7 +924,7 @@ class Member:
                 f'{resp.status_code}'
             )
 
-        certchain = resp.text
+        certchain: str = resp.text
 
         secret = MemberSecret(member_id, self.service_id, self.account)
         secret.from_string(certchain)

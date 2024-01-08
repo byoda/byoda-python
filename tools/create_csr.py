@@ -1,7 +1,30 @@
 #!/usr/bin/env python3
 
 '''
-Create a CSR for signature by the CA
+Create a CSRs for the TLS and the Data secret for signature by the CA
+
+See documentation in docs/infrastructure/create_an_app.md
+
+Example invocation:
+    pipenv run tools/create_csr.py \
+        --type app \
+        --network byoda.net \
+        --service-id <service-id> \
+        --fqdn <app-api-fqdn> \
+        --password <private-key-password> \
+        --debug
+
+On the Service Apps CA server, you can run the corresponding sign_csr.py tool for both the TLS CSR and the Data CSR:
+    pipenv run tools/sign_csr.py \
+        --type app \
+        --network byoda.net \
+        --service-id <service-id> \
+        --root-dir /opt/byoda/service-<service_id> \
+        --out-dir /tmp \
+        --debug \
+        --csr-file /opt/byoda/service-<service_id>/private/network-<network>/apps/app-<app_id>-csr.pem
+
+Run sign_csr both for the TLS and the Data CSRs
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021
@@ -66,24 +89,25 @@ async def prep_network(test_dir: str, network_name: str = DEFAULT_NETWORK
     return await setup_network(delete_tmp_dir=True)
 
 
-async def main(argv):
+async def main(argv) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', '-n', type=str, default=DEFAULT_NETWORK)
     parser.add_argument(
-        '--service_id', '-s', type=str, default=DEFAULT_SERVICE_ID
+        '--service-id', '-s', type=str, default=DEFAULT_SERVICE_ID
     )
     parser.add_argument('--app-id', '-a', type=str, default=uuid4())
     parser.add_argument('--type', '-t', type=str, default='app')
     parser.add_argument('--fqdn', '-f', type=str)
-    parser.add_argument(
-        '--password', '-p', type=str, default=os.environ.get('BYODA_PASSWORD')
-    )
+    parser.add_argument('--password', '-p', type=str)
     parser.add_argument('--out_dir', '-o', type=str, default='/tmp')
     parser.add_argument(
         '--debug', default=False, action='store_true'
     )
 
     args = parser.parse_args(argv[1:])
+
+    if not args.password:
+        raise ValueError('Must provide password for private key')
 
     global _LOGGER
     if args.debug:
@@ -106,37 +130,39 @@ async def main(argv):
     await prep_network(None, args.network)
 
     secret = AppSecret(args.app_id, args.service_id, config.server.network)
-    csr_filepath = f'{args.out_dir}/app-{args.fqdn}.csr'
-    key_filepath = f'{args.out_dir}/app-{args.fqdn}.key'
+    csr_filepath: str = f'{args.out_dir}/app-{args.fqdn}.csr'
+    key_filepath: str = f'{args.out_dir}/app-{args.fqdn}.key'
     await create_csr(
-        secret, csr_filepath, key_filepath, args.fqdn, args.out_dir,
-        args.password
+        secret, csr_filepath, key_filepath, args.fqdn, args.password
     )
 
     secret = AppDataSecret(args.app_id, args.service_id, config.server.network)
     csr_filepath = f'{args.out_dir}/app-data-{args.fqdn}.csr'
     key_filepath = f'{args.out_dir}/app-data-{args.fqdn}.key'
     await create_csr(
-        secret, csr_filepath, key_filepath, args.fqdn, args.out_dir,
-        args.password
+        secret, csr_filepath, key_filepath, args.fqdn, args.password
+    )
+    _LOGGER.debug(
+        'Signing of CSR succeeded, now available for retrival '
+        'from the service server'
     )
 
     await RestApiClient.close_all()
 
 
 async def create_csr(secret: Secret, csr_filepath: str, key_filepath: str,
-                     fqdn: str, out_dir: str, password: str):
+                     fqdn: str, password: str) -> None:
     if os.path.exists(csr_filepath):
         raise FileExistsError(f'CSR file {csr_filepath} already exists')
 
     csr = await secret.create_csr(fqdn)
-    csr_pem = secret.csr_as_pem(csr)
+    csr_pem: str = secret.csr_as_pem(csr)
 
     _LOGGER.debug(f'Saving CSR to {csr_filepath}')
     with open(csr_filepath, 'w') as file_desc:
         file_desc.write(csr_pem)
 
-    private_key_pem = secret.private_key_as_pem(password)
+    private_key_pem: str = secret.private_key_as_pem(password)
 
     _LOGGER.debug(f'Saving private key to {key_filepath}')
     with open(key_filepath, 'w') as file_desc:

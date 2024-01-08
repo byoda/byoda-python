@@ -1,28 +1,24 @@
 #!/bin/bash
 
-
-export TAG=latest
-
-if [ -d ".git" ]; then
-    RESULT=$(grep byoda .git/config)
-    if [ "$?" -eq "0" ]; then
-        RESULT=$(git status | head -1 | grep 'branch main')
-        if [ "$?" -eq "1" ]; then
-            export TAG=dev
-        fi
-    fi
-else
-    echo "Not in a git repository"
-    exit 1
-fi
-
-ACCOUNT_FILE=$HOME/.byoda-account_id
-
 ###
 ### Pick up local settings for this byoda pod
 ###
 echo "Loading settings from byoda-settings.sh"
-source $HOME/byoda-settings.sh
+source /home/ubuntu/byoda-settings.sh
+
+if [ -z "${TAG}" ]; then
+    if [ -d ".git" ]; then
+        RESULT=$(grep byoda .git/config)
+        if [ "$?" -eq "0" ]; then
+            RESULT=$(git status | head -1 | grep 'branch main')
+            if [ "$?" -eq "1" ]; then
+                export TAG=dev
+            fi
+        fi
+    fi
+fi
+
+ACCOUNT_FILE=$HOME/.byoda-account_id
 
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
@@ -85,7 +81,8 @@ fi
 
 echo "Using Byoda container byoda-pod:${TAG}"
 
-if [[ "${PRIVATE_BUCKET}" == "changeme" || "${RESTRICTED_BUCKET}" == "changeme" || "${PUBLIC_BUCKET}" == "changeme" ||"${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
+if [[ "${PRIVATE_BUCKET}" == "changeme" || "${RESTRICTED_BUCKET}" == "changeme" || "${PUBLIC_BUCKET}" == "changeme" ||"${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_
+SECRET}" == "changeme" ]]; then
     echo "Set the PRIVATE_BUCKET, RESTRICTED_BUCKET, PUBLIC_BUCKET, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
@@ -169,8 +166,6 @@ echo "    ${SYSTEM_VERSION}"
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
     echo "Running in cloud: ${CLOUD}"
-    echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
     sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         which az > /dev/null 2>&1
@@ -178,6 +173,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
             echo "azure-cli not found, please install it with 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'"
             exit 1
         fi
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         STORAGE_ACCOUNT=$(echo ${PRIVATE_BUCKET} | cut -f 1 -d ':')
         echo "Wiping all data of the pod on storage account"
         az storage blob delete-batch -s byoda --account-name ${STORAGE_ACCOUNT} --auth-mode login
@@ -371,7 +369,7 @@ export BOOTSTRAP=BOOTSTRAP
 sudo docker stop byoda 2>/dev/null
 sudo docker rm byoda  2>/dev/null
 
-if [[ "${CLOUD}" != "LOCAL" ]]; then
+if [[ "${CLOUD}" != "LOCAL" && "${TAG}" == "dev" ]]; then
     # Wipe the cache directory
     sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
     sudo mkdir -p ${BYODA_ROOT_DIR}

@@ -77,13 +77,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
 
         global BASE_URL
-        BASE_URL: str = BASE_URL.format(PORT=server.HTTP_PORT)
+        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
