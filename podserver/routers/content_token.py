@@ -201,6 +201,10 @@ async def content_token(request: Request, service_id: int, asset_id: UUID,
 
     key: ContentKey = await ContentKey.get_active_content_key(table=key_table)
 
+    if not key:
+        _LOGGER.error('No tokens available')
+        raise HTTPException(400, 'No tokens available')
+
     content_token: str = key.generate_token(
         service_id, member.member_id, asset_id
     )

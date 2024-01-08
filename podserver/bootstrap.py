@@ -208,6 +208,8 @@ async def main(argv) -> None:
         nginx_config.create(htaccess_password=account.password)
         nginx_config.reload()
 
+        await account.load_memberships()
+
         await server.bootstrap_join_services(data['join_service_ids'])
 
         await account.load_memberships()

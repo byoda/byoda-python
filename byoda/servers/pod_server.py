@@ -169,6 +169,9 @@ class PodServer(Server):
             version: int = service_summaries[service_id]['version']
             # This joins the service (create secrets, register with the
             # service) but does not persist the membership
+            _LOGGER.debug(
+                f'Auto-joining service {service_id}, version {version}'
+            )
             member: Member = await account.join(
                 service_id, version, self.local_storage, with_reload=False
             )
@@ -183,6 +186,9 @@ class PodServer(Server):
             # This first one we create using the account ID. The byohost
             # server will generated the same key and distribute it to the
             # CDN
+            _LOGGER.debug(
+                f'Auto-generating content key for service {service_id}'
+            )
             key_table: Table = data_store.get_table(
                 member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
             )
