@@ -307,15 +307,17 @@ class Account:
         )
         return jwt
 
-    async def register(self):
+    async def register(self) -> None:
         '''
         Register the pod with the directory server of the network
         '''
 
         # Register pod to directory server
-        url = self.paths.get(Paths.NETWORKACCOUNT_API)
+        url: str = self.paths.get(Paths.NETWORKACCOUNT_API)
 
-        resp = await RestApiClient.call(url, HttpMethod.PUT, self.tls_secret)
+        resp: HttpResponse = await RestApiClient.call(
+            url, HttpMethod.PUT, self.tls_secret
+        )
 
         _LOGGER.debug(
             f'Registered account with directory server: {resp.status_code}'
@@ -360,7 +362,9 @@ class Account:
 
         member = Member(service_id, self, member_id=member_id)
 
-        local_service_contract = os.environ.get('LOCAL_SERVICE_CONTRACT')
+        local_service_contract: str | None = os.environ.get(
+            'LOCAL_SERVICE_CONTRACT'
+        )
         if local_service_contract and not config.debug:
             raise ValueError(
                 'LOCAL_SERVICE_CONTRACT is set but config.debug is not set'
@@ -430,7 +434,7 @@ class Account:
             service_id: int = member_info.service_id
             member_id: UUID = member_info.member_id
             if service_id not in self.memberships:
-                member = await self.load_membership(
+                member: Member = await self.load_membership(
                     service_id, member_id, with_pubsub=with_pubsub
                 )
                 await data_store.setup_member_db(
@@ -487,7 +491,8 @@ class Account:
     async def join(self, service_id: int, schema_version: int,
                    local_storage: FileStorage,
                    members_ca: MembersCaSecret = None, member_id: UUID = None,
-                   local_service_contract: str = None) -> Member:
+                   local_service_contract: str = None, with_reload: bool = True
+                   ) -> Member:
         '''
         Join a service for the first time
 
@@ -542,7 +547,8 @@ class Account:
 
         await member.create_nginx_config()
 
-        reload_gunicorn()
+        if with_reload:
+            reload_gunicorn()
 
         self.memberships[service_id] = member
 

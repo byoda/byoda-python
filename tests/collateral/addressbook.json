@@ -1505,7 +1505,9 @@
         "www.byoda.net",
         "addressbook.byoda.org",
         "byoda.tube",
-        "www.byoda.tube"
+        "www.byoda.tube",
+        "proxy.byoda.net",
+        "token.byoda.net"
     ],
     "listen_relations": [
         {

@@ -160,7 +160,7 @@ class Node:
 
 class ByoMerkleTree(BaseMerkleTree):
     def __init__(self, directory: str = None, algorithm: str = 'sha256',
-                 **opts):
+                 **opts) -> None:
         '''
         Initializes the merkle tree for the asset folder
         '''
@@ -173,7 +173,7 @@ class ByoMerkleTree(BaseMerkleTree):
 
         super().__init__(algorithm, **opts)
 
-    def __str__(self, indent=2, trim=8):
+    def __str__(self, indent=2, trim=8) -> str:
         '''
         :returns: visual representation of the tree
         :rtype: str
@@ -183,7 +183,7 @@ class ByoMerkleTree(BaseMerkleTree):
 
         return self.root.expand(indent, trim) + '\n'
 
-    def as_string(self, state: int = None):
+    def as_string(self, state: int = None) -> str:
         return base64.b64encode(self.get_state(state)).decode('utf-8')
 
     def _encode_entry(self, data: bytes) -> bytes:
@@ -218,7 +218,7 @@ class ByoMerkleTree(BaseMerkleTree):
         digest = self._hash_nodes(node.digest, tail.digest)
         if node.is_root():
             self.root = Node(digest, node, tail)
-            index = self._get_size()
+            index: int = self._get_size()
             return index
 
         curr = node.parent
@@ -257,7 +257,7 @@ class ByoMerkleTree(BaseMerkleTree):
             leaf.digest for leaf in self.leaves[offset: offset + width]
         ]
 
-    def _get_size(self):
+    def _get_size(self) -> int:
         '''
         :returns: current number of leaves
         :rtype: int
@@ -292,7 +292,7 @@ class ByoMerkleTree(BaseMerkleTree):
             current tree size.
         '''
 
-        currsize = self._get_size()
+        currsize: int = self._get_size()
 
         if size is None:
             size = currsize

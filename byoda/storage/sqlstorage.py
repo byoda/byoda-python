@@ -34,7 +34,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class Sql:
-    def __init__(self):
+    def __init__(self) -> None:
         self.account_db_file: str = None
         self.member_db_files: dict[str, str] = {}
 
@@ -71,7 +71,7 @@ class Sql:
         a list of rows returned by the query
         '''
 
-        datafile = self.database_filepath(member_id)
+        datafile: str = self.database_filepath(member_id)
 
         if member_id:
             _LOGGER.debug(

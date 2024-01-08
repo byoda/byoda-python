@@ -13,6 +13,7 @@ currently only supports Sqlite3.
 
 from enum import Enum
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -47,14 +48,14 @@ class DataStoreType(Enum):
 
 
 class DataStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self.backend: SqliteStorage | None = None
         self.store_type: DataStoreType | None = None
 
     @staticmethod
     async def get_data_store(server: PodServer,
                              storage_type: DataStoreType,
-                             data_secret: DataSecret):
+                             data_secret: DataSecret) -> Self:
         '''
         Factory for initiating a document store
         '''
@@ -155,7 +156,7 @@ class DataStore:
         returned
         '''
 
-        data = await self.backend.get_memberships(status)
+        data: dict[UUID, any] = await self.backend.get_memberships(status)
 
         results: dict[UUID, object] = {
             member_id: membership._asdict()

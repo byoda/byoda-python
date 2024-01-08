@@ -8,8 +8,12 @@ a server that hosts a BYODA Service
 '''
 
 from typing import TypeVar
+from hashlib import sha256
 from logging import getLogger
-from byoda.util.logger import Logger
+
+from byoda.datamodel.table import Table
+from byoda.datamodel.content_key import ContentKey
+from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
@@ -31,6 +35,8 @@ from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -85,7 +91,7 @@ class PodServer(Server):
         self.twitter_client: Twitter | None = None
         self.youtube_client: YouTube | None = None
 
-    async def load_secrets(self, password: str = None):
+    async def load_secrets(self, password: str = None) -> None:
         '''
         Loads the secrets used by the podserver
         '''
@@ -106,7 +112,7 @@ class PodServer(Server):
 
         network: Network = self.network
 
-        url = network.paths.get(Paths.NETWORKSERVICES_API)
+        url: str = network.paths.get(Paths.NETWORKSERVICES_API)
         resp: HttpResponse = await RestApiClient.call(url)
 
         network.service_summaries: dict[int, dict[str, str | int | None]] = {}
@@ -126,7 +132,7 @@ class PodServer(Server):
                 f'HTTP {resp.status_code}'
             )
 
-    async def bootstrap_join_services(self, service_ids: list[int]):
+    async def bootstrap_join_services(self, service_ids: list[int]) -> None:
         '''
         Joins the services listed in the 'JOIN_SERVICE_IDS'
         environment variable, if we are not already member of them
@@ -134,6 +140,11 @@ class PodServer(Server):
 
         # We first need to get registered services as that will tell
         # us the version of the schema that we should join.
+
+        _LOGGER.debug(f'Got bootstrap joins for {service_ids}')
+
+        account: Account = self.account
+        data_store: DataStore = self.data_store
 
         await self.get_registered_services()
         service_summaries: dict[int, dict[str, str | int | None]] = \
@@ -156,7 +167,40 @@ class PodServer(Server):
                 continue
 
             version: int = service_summaries[service_id]['version']
-            await self.account.join(service_id, version, self.local_storage)
+            # This joins the service (create secrets, register with the
+            # service) but does not persist the membership
+            _LOGGER.debug(
+                f'Auto-joining service {service_id}, version {version}'
+            )
+            member: Member = await account.join(
+                service_id, version, self.local_storage, with_reload=False
+            )
+
+            # This updates account.db so the podserver knows it is a member
+            await data_store.setup_member_db(
+                member_id=member.member_id, service_id=service_id,
+                schema=member.schema
+            )
+
+            # Make sure we have a restricted token key for this service
+            # This first one we create using the account ID. The byohost
+            # server will generated the same key and distribute it to the
+            # CDN
+            _LOGGER.debug(
+                f'Auto-generating content key for service {service_id}'
+            )
+            key_table: Table = data_store.get_table(
+                member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
+            )
+
+            key_secret: str = sha256(
+                (str(account.account_id) + str(service_id)).encode('utf-8')
+            ).hexdigest()
+
+            key: ContentKey = await ContentKey.create(
+                key=key_secret, table=key_table
+            )
+            await key.persist()
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,

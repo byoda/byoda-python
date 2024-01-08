@@ -168,11 +168,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(2)
 
     @classmethod
-    async def asyncTearDown(cls):
+    async def asyncTearDown(cls) -> None:
         await ApiClient.close_all()
         TestApis.PROCESS.terminate()
 
-    async def test_moderation_asset_post_jwt(self):
+    async def test_moderation_asset_post_jwt(self) -> None:
         API: str = BASE_URL + '/moderate/asset'
         server: AppServer = config.server
 

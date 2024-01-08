@@ -80,6 +80,10 @@ TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 
 
 async def main(argv) -> None:
+    # Before we do anything, we first wait for the podserver
+    # to startup and do what it needs to do
+    await sleep(60)
+
     server: PodServer = await setup_worker(argv)
     account: Account = server.account
 
@@ -89,6 +93,7 @@ async def main(argv) -> None:
                 'YOUTUBE_IMPORT_SERVICE_ID', YOUTUBE_IMPORT_SERVICE_ID
             )
         )
+        _LOGGER.debug(f'Using service {youtube_import_service_id} for Youtube')
     except ValueError:
         youtube_import_service_id: int = YOUTUBE_IMPORT_SERVICE_ID
 
@@ -203,7 +208,7 @@ async def setup_worker(argv: list[str]) -> PodServer:
 
     data: dict[str, str] = get_environment_vars()
 
-    debug = data.get('debug', False)
+    debug: str | bool = data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can

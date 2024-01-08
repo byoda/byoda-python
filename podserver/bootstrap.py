@@ -41,6 +41,8 @@ import sys
 import logging
 import asyncio
 
+from uuid import UUID
+
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 
@@ -70,9 +72,9 @@ _LOGGER: Logger | None = None
 LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/bootstrap.log'
 
 
-async def main(argv):
+async def main(argv) -> None:
     # Remaining environment variables used:
-    data = get_environment_vars()
+    data: dict[str, str | int | bool] = get_environment_vars()
 
     debug: bool = data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
@@ -208,6 +210,10 @@ async def main(argv):
 
         await account.load_memberships()
 
+        await server.bootstrap_join_services(data['join_service_ids'])
+
+        await account.load_memberships()
+
         for member in account.memberships.values():
             member.tls_secret.save_tmp_private_key()
             await member.tls_secret.save(
@@ -217,7 +223,6 @@ async def main(argv):
             await member.update_registration()
             await member.create_nginx_config()
 
-        await server.bootstrap_join_services(data['join_service_ids'])
     except Exception:
         _LOGGER.exception('Exception during startup')
         raise
@@ -225,22 +230,22 @@ async def main(argv):
     logging.shutdown()
 
 
-async def run_bootstrap_tasks(account: Account):
+async def run_bootstrap_tasks(account: Account) -> None:
     '''
     When we are bootstrapping, we create any data that is missing from
     the data store.
     '''
 
-    account_id = account.account_id
+    account_id: UUID = account.account_id
 
     _LOGGER.debug('Starting bootstrap tasks')
     try:
         await account.tls_secret.load(
             password=account.private_key_password
         )
-        common_name = account.tls_secret.common_name
+        common_name: str = account.tls_secret.common_name
         if not common_name.startswith(str(account.account_id)):
-            error_msg = (
+            error_msg: str = (
                 f'Common name of existing account secret {common_name} '
                 f'does not match ACCOUNT_ID environment variable {account_id}'
             )

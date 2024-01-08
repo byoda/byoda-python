@@ -52,7 +52,11 @@ LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/feed.log'
 _LOGGER: Logger | None = None
 
 
-async def main(argv):
+async def main(argv) -> None:
+    # Before we do anything, we first wait for the podserver
+    # to startup and do what it needs to do
+    await sleep(60)
+
     data: dict[str, str] = get_environment_vars()
 
     debug = data.get('debug', False)
