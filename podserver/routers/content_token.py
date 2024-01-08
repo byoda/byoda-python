@@ -43,7 +43,7 @@ ORIGNAL_URL_HEADER = 'original-url'
 # curl 'http://localhost/restricted/index.html?service_id=4294929430&member_id=66e41ad6-c295-4843-833c-5e523d34cce1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&key_id=1' --header 'Authorization: 1234567890'                            # noqa: E501
 #
 # against cdn:
-# curl -s -v 'https://cdn.byoda.io/restricted/restricted.html?service_id=4294929430&key_id=1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&member_id=94f23c4b-1721-4ffe-bfed-90f86d07611a' --header 'Authorization: bearer 1234567890'      # noqa: E501
+# curl -s -v 'https://cdn.byo.host/restricted/restricted.html?service_id=4294929430&key_id=1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&member_id=94f23c4b-1721-4ffe-bfed-90f86d07611a' --header 'Authorization: bearer 1234567890'      # noqa: E501
 
 # against pod:
 # curl -k -s -v 'https://94f23c4b-1721-4ffe-bfed-90f86d07611a.members-4294929430.byoda.net/restricted/index.html?service_id=4294929430&member_id=66e41ad6-c295-4843-833c-5e523d34cce1&asset_id=066a050a-03e6-43d5-8d77-9e14fba0ed3b&key_id=1' --header 'Authorization: 1234567890'   # noqa: E501

@@ -194,20 +194,20 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             'claim_data': {
                 'asset_id': '3f293e6d-65a8-41c6-887d-6c6260aea8b8',
                 'asset_type': 'public_assets',
-                'asset_url': 'https://cdn.byoda.io/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',      # noqa: E501
+                'asset_url': 'https://cdn.byo.host/restricted/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/video.mpd',      # noqa: E501
                 'asset_merkle_root_hash':
                     'JM/gRbo5diTfTkuVLTPCjDE4ZWTwXRwHH8pwlJKkCXM=',
                 'video_thumbnails': [
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',          # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',                 # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',               # noqa: E501
-                    'https://cdn.byoda.io/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.webp',          # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/default.jpg',                 # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/mqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/hqdefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/sddefault.jpg',               # noqa: E501
+                    'https://cdn.byo.host/public/4294929430/94f23c4b-1721-4ffe-bfed-90f86d07611a/3f293e6d-65a8-41c6-887d-6c6260aea8b8/maxresdefault.jpg',           # noqa: E501
                 ],
                 'creator': 'Dathes',
                 'publisher': 'NotYouTube',
