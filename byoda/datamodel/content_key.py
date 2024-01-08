@@ -13,6 +13,7 @@ import operator
 
 from uuid import UUID
 from enum import Enum
+from typing import Self
 from base64 import b64encode
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -79,7 +80,7 @@ class ContentKey:
         self.table: Table = table
 
         self.status = ContentKeyStatus.INACTIVE
-        now = datetime.now(tz=timezone.utc)
+        now: datetime = datetime.now(tz=timezone.utc)
 
         if self.not_before <= now:
             self.status: ContentKeyStatus = ContentKeyStatus.ACTIVE
@@ -111,7 +112,7 @@ class ContentKey:
         else:
             raise NotImplementedError(f'Unknown status: {self.status}')
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str | int | datetime | float]:
         return {
             'key': self.key,
             'key_id': self.key_id,
@@ -121,7 +122,7 @@ class ContentKey:
 
     @staticmethod
     async def create(key: str = None, key_id: int = None, not_before: datetime = None,
-               not_after: datetime = None, table: Table = None):
+               not_after: datetime = None, table: Table = None) -> Self:
         '''
         Creates a new ContentKey instance. This method does not save the
         key to the table. The key_id is automatically generated if the table
@@ -143,9 +144,9 @@ class ContentKey:
             raise ValueError('key_id must be specified if no table is provided')
 
         if key_id is None:
-            keys = await ContentKey.get_content_keys(table=table)
+            keys: list[ContentKey] = await ContentKey.get_content_keys(table=table)
 
-            keys_sorted_by_key_id = sorted(
+            keys_sorted_by_key_id: list[ContentKey] = sorted(
                 keys, key=operator.attrgetter('key_id'), reverse=True
             )
 
@@ -197,7 +198,7 @@ class ContentKey:
     @staticmethod
     async def get_content_keys(table: Table = None, filepath: str = None,
                                status: ContentKeyStatus = None
-                               ) -> list['ContentKey']:
+                               ) -> list[Self]:
         '''
         Gets the restricted content keys from the table or file and returns a
         list of ContentKey instances. The returned list is sorted based on
@@ -261,7 +262,8 @@ class ContentKey:
         return keys
 
     @staticmethod
-    async def get_active_content_key(table: Table = None, filepath: str = None):
+    async def get_active_content_key(table: Table = None, filepath: str = None
+                                     ) -> Self | None:
         '''
         Returns the most recent active content key from the table or file
 
@@ -273,7 +275,7 @@ class ContentKey:
         :returns: ContentKey or None
         '''
 
-        active_keys = await ContentKey.get_content_keys(
+        active_keys: list[ContentKey] = await ContentKey.get_content_keys(
             table=table, filepath=filepath, status=ContentKeyStatus.ACTIVE
         )
 
@@ -295,9 +297,9 @@ class ContentKey:
         digest.update(str(member_id).encode('utf-8'))
         digest.update(str(asset_id).encode('utf-8'))
         digest.update(self.key.encode('utf-8'))
-        token = digest.finalize()
+        token: bytes = digest.finalize()
 
-        encoded_token = b64encode(token).decode('utf-8').replace(' ', '+')
+        encoded_token: str = b64encode(token).decode('utf-8').replace(' ', '+')
         _LOGGER.debug(
             f'Generated token with service_id {service_id}, member_id: {member_id} '
             f'and asset_id: {asset_id} for key_id {self.key_id}: {encoded_token}'
@@ -307,7 +309,7 @@ class ContentKey:
 
     def generate_url_query_parameters(self, service_id: int, member_id: UUID | str,
                                       asset_id: UUID | str) -> str:
-        data = '&'.join(
+        data: str = '&'.join(
             [
                 f'service_id={service_id}',
                 f'member_id={member_id}',

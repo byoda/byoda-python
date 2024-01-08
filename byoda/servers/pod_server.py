@@ -8,8 +8,12 @@ a server that hosts a BYODA Service
 '''
 
 from typing import TypeVar
+from hashlib import sha256
 from logging import getLogger
-from byoda.util.logger import Logger
+
+from byoda.datamodel.table import Table
+from byoda.datamodel.content_key import ContentKey
+from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
@@ -31,6 +35,8 @@ from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -161,13 +167,34 @@ class PodServer(Server):
                 continue
 
             version: int = service_summaries[service_id]['version']
+            # This joins the service (create secrets, register with the
+            # service) but does not persist the membership
             member: Member = await account.join(
                 service_id, version, self.local_storage, with_reload=False
             )
+
+            # This updates account.db so the podserver knows it is a member
             await data_store.setup_member_db(
                 member_id=member.member_id, service_id=service_id,
                 schema=member.schema
             )
+
+            # Make sure we have a restricted token key for this service
+            # This first one we create using the account ID. The byohost
+            # server will generated the same key and distribute it to the
+            # CDN
+            key_table: Table = data_store.get_table(
+                member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
+            )
+
+            key_secret: str = sha256(
+                (str(account.account_id) + str(service_id)).encode('utf-8')
+            ).hexdigest()
+
+            key: ContentKey = await ContentKey.create(
+                key=key_secret, table=key_table
+            )
+            await key.persist()
 
     async def set_document_store(self, store_type: DocumentStoreType,
                                  cloud_type: CloudType = None,

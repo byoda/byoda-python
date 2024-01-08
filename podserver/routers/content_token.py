@@ -108,15 +108,18 @@ async def get_asset(request: Request, service_id: int = None,
         member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
     )
 
-    keys = await ContentKey.get_content_keys(
+    keys: list[ContentKey] = await ContentKey.get_content_keys(
         table=key_table, status=ContentKeyStatus.ACTIVE
     )
 
     if not keys:
+        # We want to err on the side of caution and allow access if there
+        # is an issue with the keys as we priority the availability of the
+        # service
         _LOGGER.debug('No active keys found')
-        raise HTTPException(400, f'No keys found for member {member_id}')
+        return None
 
-    keys_dict = {key.key_id: key for key in keys}
+    keys_dict: dict[int, ContentKey] = {key.key_id: key for key in keys}
 
     key: ContentKey = keys_dict.get(key_id)
     if not key:
@@ -124,7 +127,7 @@ async def get_asset(request: Request, service_id: int = None,
         raise HTTPException(400, 'Invalid key_id')
 
     _LOGGER.debug(f'Generating token with key_id {key_id}: {key.key}')
-    generated_token = key.generate_token(
+    generated_token: str = key.generate_token(
         service_id=service_id, member_id=member_id, asset_id=asset_id
     )
 
@@ -174,7 +177,7 @@ async def content_token(request: Request, service_id: int, asset_id: UUID,
     member: Member = await account.get_membership(service_id)
 
     data_store: DataStore = server.data_store
-    key_table = data_store.get_table(
+    key_table: Table = data_store.get_table(
         member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
     )
 
@@ -198,7 +201,9 @@ async def content_token(request: Request, service_id: int, asset_id: UUID,
 
     key: ContentKey = await ContentKey.get_active_content_key(table=key_table)
 
-    content_token = key.generate_token(service_id, member.member_id, asset_id)
+    content_token: str = key.generate_token(
+        service_id, member.member_id, asset_id
+    )
 
     return {
         'key_id': key.key_id,
