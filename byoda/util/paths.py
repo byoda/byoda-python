@@ -121,13 +121,13 @@ class Paths:
     # Content download URLs
     RESTRICTED_ASSET_POD_URL = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa
     RESTRICTED_ASSET_CDN_URL = 'https://cdn.byo.host/restricted/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
-    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
+    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{service_id}/{member_id}/{asset_id}/{filename}'            # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,
                  network: str = None,
                  service_id: int = None,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
         '''
         Initiate instance with root_dir and account parameters
 
@@ -141,11 +141,12 @@ class Paths:
         :raises: (none)
         '''
 
-        self._root_directory = root_directory
+        self._root_directory: str = root_directory
 
-        self._account = account
-        self._network = network
-        self.service_id = service_id
+        self._account: str = account
+        self._network: str = network
+        self.service_id: int = service_id
+        self.storage_driver: FileStorage
         if storage_driver:
             self.storage_driver = storage_driver
         else:
@@ -197,7 +198,7 @@ class Paths:
         for an instance of this class
         '''
 
-        path = path_template.replace('{network}', network)
+        path: str = path_template.replace('{network}', network)
 
         if service_id is not None:
             path = path.replace('{service_id}', str(service_id))
@@ -219,7 +220,7 @@ class Paths:
         return path
 
     async def exists(self, path_template: str, service_id: int = None,
-                     member_alias: str = None):
+                     member_alias: str = None) -> bool:
         '''
         Checks if a path exists
 
@@ -245,7 +246,7 @@ class Paths:
         is specified
         '''
 
-        directory = self.get(
+        directory: str = self.get(
             path_template, service_id=service_id
         )
 
@@ -255,90 +256,90 @@ class Paths:
         return directory
 
     @property
-    def root_directory(self):
+    def root_directory(self) -> str:
         return self.get(self._root_directory)
 
     # Secrets directory
-    def secrets_directory(self):
+    def secrets_directory(self) -> str:
         return self.get(self.SECRETS_DIR)
 
-    async def secrets_directory_exists(self):
+    async def secrets_directory_exists(self) -> bool:
         return await self.exists(self.SECRETS_DIR)
 
-    async def create_secrets_directory(self):
+    async def create_secrets_directory(self) -> str:
         return await self._create_directory(
             self._root_directory + '/' + self.SECRETS_DIR
         )
 
     # Network directory
     @property
-    def network(self):
+    def network(self) -> str:
         return self._network
 
     @network.setter
-    def network(self, value):
+    def network(self, value) -> None:
         self._network = value
 
-    def network_directory(self):
+    def network_directory(self) -> str:
         return self.get(self.NETWORK_DIR)
 
-    async def network_directory_exists(self):
+    async def network_directory_exists(self) -> bool:
         return await self.exists(self.NETWORK_DIR)
 
-    async def create_network_directory(self):
+    async def create_network_directory(self) -> str:
         return await self._create_directory(
             self._root_directory + '/' + self.NETWORK_DIR
         )
 
     # Account directory
     @property
-    def account(self):
+    def account(self) -> str:
         return self._account
 
     @account.setter
-    def account(self, value):
+    def account(self, value) -> None:
         self._account = value
 
-    def account_directory(self, account_id: UUID = None):
+    def account_directory(self, account_id: UUID = None) -> str:
         return self.get(self.ACCOUNT_DIR, account_id=account_id)
 
-    async def account_directory_exists(self):
+    async def account_directory_exists(self) -> bool:
         return await self.exists(self.ACCOUNT_DIR)
 
-    async def create_account_directory(self):
+    async def create_account_directory(self) -> str | None:
         if not await self.account_directory_exists():
             return await self._create_directory(
                 self._root_directory + '/' + self.ACCOUNT_DIR
             )
 
     # service directory
-    def service(self, service_id):
+    def service(self, service_id) -> str:
         return self.get(service_id)
 
-    def service_directory(self, service_id):
+    def service_directory(self, service_id) -> str:
         return self.get(self.SERVICE_DIR, service_id=service_id)
 
-    async def service_directory_exists(self, service_id):
+    async def service_directory_exists(self, service_id) -> bool:
         return await self.exists(self.SERVICE_DIR, service_id=service_id)
 
-    async def create_service_directory(self, service_id):
+    async def create_service_directory(self, service_id) -> str:
         return await self._create_directory(
             self._root_directory + '/' + self.SERVICE_DIR,
             service_id=service_id
         )
 
     # Membership directory
-    def member_directory(self, service_id):
+    def member_directory(self, service_id) -> str:
         return self.get(
             self.MEMBER_DIR, service_id=service_id
         )
 
-    async def member_directory_exists(self, service_id):
+    async def member_directory_exists(self, service_id) -> bool:
         return await self.exists(
             self.MEMBER_DIR, service_id=service_id
         )
 
-    async def create_member_directory(self, service_id):
+    async def create_member_directory(self, service_id) -> str:
         await self._create_directory(
             self._root_directory + '/' + self.MEMBER_DIR, service_id=service_id
         )
@@ -346,24 +347,24 @@ class Paths:
             self.MEMBER_DIR + '/data', service_id=service_id
         )
 
-    def member_service_file(self, service_id):
+    def member_service_file(self, service_id) -> str:
         return self.get(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
-    async def member_service_file_exists(self, service_id):
+    async def member_service_file_exists(self, service_id) -> bool:
         return await self.exists(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
-    async def create_member_service_directory(self, service_id):
+    async def create_member_service_directory(self, service_id) -> str:
         return await self._create_directory(
             self.MEMBER_SERVICE_FILE, service_id=service_id
         )
 
     # Service files
-    def service_file(self, service_id):
+    def service_file(self, service_id) -> str:
         return self.get(self.SERVICE_FILE, service_id=service_id)
 
-    async def service_file_exists(self, service_id):
+    async def service_file_exists(self, service_id) -> bool:
         return await self.exists(self.SERVICE_FILE, service_id=service_id)
