@@ -28,6 +28,7 @@ from cryptography.hazmat.primitives import hashes
 from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
 
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -82,10 +83,21 @@ class ContentKey:
         self.status = ContentKeyStatus.INACTIVE
         now: datetime = datetime.now(tz=timezone.utc)
 
-        if self.not_before <= now:
+        _LOGGER.debug(
+            f'Checking status of content key starting at {self.not_before}, '
+            f'expiring at {self.not_after} '
+        )
+
+        if self.not_before > now:
+            _LOGGER.debug(f'Key is not yet active: {self.not_before} > {now}')
+        else:
+            _LOGGER.debug(f'Key might be active, {self.not_before} <= {now}')
             self.status: ContentKeyStatus = ContentKeyStatus.ACTIVE
 
-        if self.not_after <= now:
+        if self.not_after > now:
+            _LOGGER.debug(f'Key has not yet expired: {self.not_after} > {now}')
+        else:
+            _LOGGER.debug(f'Key has expired, {self.not_after} <= {now}')
             self.status: ContentKeyStatus = ContentKeyStatus.EXPIRED
 
     def __lt__(self, other) -> bool:
@@ -169,6 +181,20 @@ class ContentKey:
 
         return ContentKey(key, key_id, not_before, not_after, table)
 
+    @staticmethod
+    def from_dict(data: dict[str, str | int | datetime | float]) -> Self:
+        '''
+        Creates a new ContentKey instance from a dict
+
+        :param data: dict with the following keys: key: str, key_id: int,
+        not_before: datetime, not_after: datetime
+        :returns: ContentKey
+        '''
+
+        return ContentKey(
+            data['key'], data['key_id'], data['not_before'], data['not_after']
+        )
+
     async def persist(self, table: Table = None) -> None:
         '''
         Persist the key to the sql table
@@ -196,8 +222,7 @@ class ContentKey:
         )
 
     @staticmethod
-    async def get_content_keys(table: Table = None, filepath: str = None,
-                               status: ContentKeyStatus = None
+    async def get_content_keys(table: Table, status: ContentKeyStatus = None
                                ) -> list[Self]:
         '''
         Gets the restricted content keys from the table or file and returns a
@@ -215,55 +240,34 @@ class ContentKey:
         contain the required fields
         '''
 
-        if bool(table) == bool(filepath):
-            raise ValueError('Either table or filepath must be specified')
-
-        if table:
-            data: list[QueryResult] = await table.query()
-            _LOGGER.debug(
-                f'Found {len(data or ())} keys for restricted content in '
-                f'SQL table {table.table_name}'
-            )
-            # We strip the metadata from the data retrieved from the DB
-            key_data: list[dict[str, int | float | datetime | str]] = \
-                [item_data[0] for item_data in data or []]
-        else:
-            with open(filepath, 'rb') as file_desc:
-                key_data: list[dict[str, int | float | datetime | str]] = \
-                    orjson.loads(file_desc.read())
-
-            _LOGGER.debug(
-                f'Found {len(key_data or ())} keys for restricted content in '
-                f'file {filepath}'
-            )
-
-        keys: list[ContentKey] = []
-        item: dict[str, int | float | datetime | str]
-        for item in key_data or ():
-            if ('key' not in item or 'key_id' not in item or 'not_before' not in item
-                    or 'not_after' not in item):
-                raise ValueError(
-                    f'Incompatible data: {", ".join(item.keys())}'
-                )
-
-            content_key = ContentKey(
-                item['key'], item['key_id'], item['not_before'], item['not_after']
-            )
-            if not status or status == content_key.status:
-                keys.append(content_key)
-
-        keys.sort(reverse=True)
+        all_key_data: list[QueryResult] = await table.query()
 
         _LOGGER.debug(
-            f'Still got {len(keys)} keys after filtering for status {status}'
+            f'Found {len(all_key_data or ())} keys for restricted content keys in '
+            f'SQL table {table.table_name}'
         )
 
+        all_keys: list[ContentKey] = []
+        for key_data in all_key_data or []:
+            content_key: ContentKey = ContentKey.from_dict(key_data.data)
+            all_keys.append(content_key)
 
-        return keys
+        filtered_keys: list[ContentKey] = []
+        content_key: ContentKey
+        for content_key in all_keys or []:
+            if not status or status == content_key.status:
+                filtered_keys.append(content_key)
+
+        _LOGGER.debug(
+            f'Still got {len(filtered_keys)} keys after filtering for status {status}'
+        )
+
+        filtered_keys = sorted(filtered_keys)
+
+        return filtered_keys
 
     @staticmethod
-    async def get_active_content_key(table: Table = None, filepath: str = None
-                                     ) -> Self | None:
+    async def get_active_content_key(table: Table) -> Self | None:
         '''
         Returns the most recent active content key from the table or file
 
@@ -276,7 +280,7 @@ class ContentKey:
         '''
 
         active_keys: list[ContentKey] = await ContentKey.get_content_keys(
-            table=table, filepath=filepath, status=ContentKeyStatus.ACTIVE
+            table=table, status=ContentKeyStatus.ACTIVE
         )
 
         if not active_keys:

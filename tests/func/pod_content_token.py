@@ -76,7 +76,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         global BASE_URL
-        BASE_URL: str = BASE_URL.format(PORT=server.HTTP_PORT)
+        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account: Account = await setup_account(
@@ -150,59 +150,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await key_table.delete(DataFilterSet({'key_id': {'eq': key_id}}))
 
-    async def test_restricted_content_keys_file(self) -> None:
-        keys: list[ContentKey] = []
-        content_key: ContentKey = await ContentKey.create(
-            key=uuid4(), key_id=1, not_before=None, not_after=None,
-        )
-        keys.append(content_key.as_dict())
-        content_key = await ContentKey.create(
-            key=uuid4(), key_id=2,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(weeks=52),
-            not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=520),
-        )
-        keys.append(content_key.as_dict())
-        content_key = await ContentKey.create(
-            key=uuid4(), key_id=5,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(days=1),
-            not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=1),
-        )
-        keys.append(content_key.as_dict())
-        content_key = await ContentKey.create(
-            key=uuid4(), key_id=6,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(days=2),
-            not_after=datetime.now(tz=timezone.utc) - timedelta(days=1),
-        )
-        keys.append(content_key.as_dict())
-
-        key_data: bytes = orjson.dumps(keys, option=orjson.OPT_SERIALIZE_UUID)
-        with open(TEST_FILE, 'wb') as file_desc:
-            file_desc.write(key_data.decode('utf-8'))
-
-        keys = await ContentKey.get_content_keys(filepath=TEST_FILE)
-        self.assertEqual(len(keys), 4)
-
-        keys = await ContentKey.get_content_keys(
-            filepath=TEST_FILE, status=ContentKeyStatus.ACTIVE
-        )
-        self.assertEqual(len(keys), 2)
-
-        keys = await ContentKey.get_content_keys(
-            filepath=TEST_FILE, status=ContentKeyStatus.INACTIVE
-        )
-        self.assertEqual(len(keys), 1)
-
-        keys = await ContentKey.get_content_keys(
-            filepath=TEST_FILE, status=ContentKeyStatus.EXPIRED
-        )
-        self.assertEqual(len(keys), 1)
-
-        content_key = await ContentKey.get_active_content_key(
-            filepath=TEST_FILE
-        )
-        self.assertIsNotNone(content_key)
-        self.assertEqual(content_key.key_id, 5)
-
     async def test_restricted_content_keys_table(self) -> None:
         account: Account = config.server.account
         account_member: Member | None = await account.get_membership(
@@ -215,123 +162,98 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         await table.delete(data_filters={})
-        content_key: ContentKey = await ContentKey.create(
+
+        first_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None, not_before=None, not_after=None,
             table=table
         )
+        await first_content_key.persist(table)
+        # Key 1: now to 2497 (not expired)
+        await test_content_keys(self, table, 1)
 
-        await content_key.persist(table)
-
-        keys: list[ContentKey] = await ContentKey.get_content_keys(table=table)
-        self.assertEqual(len(keys), 1)
-
-        content_key = await ContentKey.create(
+        second_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=5,
             not_before=datetime.now(tz=timezone.utc) - timedelta(weeks=52),
             not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=520),
             table=table
         )
+        await second_content_key.persist(table)
+        # Key_id 1 (created 1st): now to 2497 (not-expired)
+        # Key_id 5 (created 2nd): -52w to + 10y (not-expired, oldest)
+        await test_content_keys(self, table, 2)
+        await test_content_keys(self, table, 1, ContentKeyStatus.INACTIVE)
+        await test_content_keys(self, table, 0, ContentKeyStatus.EXPIRED)
+        await test_content_keys(self, table, 1, ContentKeyStatus.ACTIVE)
 
-        key_id: int = content_key.key_id
-        await content_key.persist(table)
-        keys = await ContentKey.get_content_keys(table=table)
-        self.assertEqual(len(keys), 2)
-
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.INACTIVE
+        first_retrieved_content_key: ContentKey = \
+            await ContentKey.get_active_content_key(table)
+        self.assertIsNotNone(first_retrieved_content_key)
+        self.assertEqual(
+            second_content_key.key_id, first_retrieved_content_key.key_id
         )
-        self.assertEqual(len(keys), 1)
 
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.EXPIRED
-        )
-        self.assertEqual(len(keys), 0)
-
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.ACTIVE
-        )
-        self.assertEqual(len(keys), 1)
-
-        content_key = await ContentKey.get_active_content_key(table=table)
-        self.assertIsNotNone(content_key)
-        self.assertEqual(key_id, content_key.key_id)
-
-        content_key = await ContentKey.create(
+        third_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None,
             not_before=datetime.now(tz=timezone.utc) - timedelta(days=1),
             not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=1),
             table=table
         )
-        self.assertEqual(content_key.key_id, key_id + 1)
-        key_id = content_key.key_id
-        await content_key.persist()
-
-        keys = await ContentKey.get_content_keys(table=table)
-        self.assertEqual(len(keys), 3)
-
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.ACTIVE
+        await third_content_key.persist()
+        # Key_id 1 (created 1st): now to 2497 (not-expired)
+        # Key_id 5 (created 2nd): -52w to + 10y (not-expired, oldest)
+        # Key_id 6 (created 3rd): -1d to + 1w (not expired)
+        self.assertEqual(
+            third_content_key.key_id, first_retrieved_content_key.key_id + 1
         )
-        self.assertEqual(len(keys), 2)
+        await test_content_keys(self, table, 3)
+        await test_content_keys(self, table, 2, ContentKeyStatus.ACTIVE)
+        await test_content_keys(self, table, 1, ContentKeyStatus.INACTIVE)
+        await test_content_keys(self, table, 0, ContentKeyStatus.EXPIRED)
 
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.INACTIVE
+        second_retrieved_content_key: ContentKey = \
+            await ContentKey.get_active_content_key(table=table)
+        self.assertIsNotNone(first_retrieved_content_key)
+        self.assertEqual(
+            second_content_key.key_id, second_retrieved_content_key.key_id
         )
-        self.assertEqual(len(keys), 1)
 
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.EXPIRED
-        )
-        self.assertEqual(len(keys), 0)
-
-        content_key = await ContentKey.get_active_content_key(table=table)
-        self.assertIsNotNone(content_key)
-        self.assertEqual(key_id, content_key.key_id)
-
-        content_key = await ContentKey.create(
+        fourth_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None,
             not_before=datetime.now(tz=timezone.utc) - timedelta(days=2),
             not_after=datetime.now(tz=timezone.utc) - timedelta(days=1),
             table=table
         )
+        await fourth_content_key.persist()
+        # Key_id 1 (created 1st): now to 2497 (not-expired)
+        # Key_id 5 (created 2nd): -52w to + 10y (not-expired, oldest)
+        # Key_id 6 (created 3rd): -1d to + 1w (not expired)
+        # Key_id 7 (created 4th): -2d to -1d (expired)
 
-        await content_key.persist()
+        await test_content_keys(self, table, 4)
+        await test_content_keys(self, table, 2, ContentKeyStatus.ACTIVE)
+        await test_content_keys(self, table, 1, ContentKeyStatus.INACTIVE)
+        await test_content_keys(self, table, 1, ContentKeyStatus.EXPIRED)
 
-        keys = await ContentKey.get_content_keys(table=table)
-        self.assertEqual(len(keys), 4)
-
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.ACTIVE
+        second_retrieved_content_key: ContentKey | None = \
+            await ContentKey.get_active_content_key(table=table)
+        self.assertIsNotNone(second_retrieved_content_key)
+        self.assertEqual(
+            second_content_key.key_id, second_retrieved_content_key.key_id
         )
-        self.assertEqual(len(keys), 2)
 
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.INACTIVE
-        )
-        self.assertEqual(len(keys), 1)
-
-        keys = await ContentKey.get_content_keys(
-            table=table, status=ContentKeyStatus.EXPIRED
-        )
-        self.assertEqual(len(keys), 1)
-
-        content_key = await ContentKey.get_active_content_key(table=table)
-        self.assertIsNotNone(content_key)
-        self.assertEqual(key_id, content_key.key_id)
-
-    async def test_restricted_content_token(self):
-        account = config.server.account
-        service_id = ADDRESSBOOK_SERVICE_ID
+    async def test_restricted_content_token(self) -> None:
+        account: Account = config.server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
 
         data_store: DataStore = config.server.data_store
-        table = data_store.get_table(
+        table: Table = data_store.get_table(
             member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
         await table.delete(data_filters={})
 
-        content_key = await ContentKey.create(
+        content_key: ContentKey = await ContentKey.create(
             key=str(uuid4()), key_id=100,
             not_before=datetime.now(tz=timezone.utc) - timedelta(days=1),
             not_after=datetime.now(tz=timezone.utc) + timedelta(days=1),
@@ -367,7 +289,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        url = BASE_URL + '/v1/pod/content/asset'
+        url: str = BASE_URL + '/v1/pod/content/asset'
         result: HttpResponse = await ApiClient.call(
             url, method=HttpMethod.GET, headers={
                 'Authorization': f'Bearer {token}',
@@ -383,6 +305,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             app=APP
         )
         self.assertEqual(result.status_code, 200)
+
+
+async def test_content_keys(test, table, keys_expected,
+                            status: ContentKeyStatus | None = None
+                            ) -> list[ContentKey]:
+    keys: list[ContentKey] = await ContentKey.get_content_keys(
+        table=table, status=status
+    )
+    test.assertEqual(len(keys), keys_expected)
+    return keys
 
 
 if __name__ == '__main__':

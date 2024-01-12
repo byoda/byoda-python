@@ -162,7 +162,7 @@ async def content_token(request: Request, service_id: int, asset_id: UUID,
 
     _LOGGER.debug(
         f'Received request for restricted content token, '
-        f'service_id={service_id},  asset_id={asset_id}, '
+        f'service_id={service_id}, asset_id={asset_id}, '
         f'token={token} signed by {signedby} from {request.client.host}'
     )
 
