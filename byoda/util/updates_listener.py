@@ -101,6 +101,9 @@ class UpdatesListener:
         :returns: number of assets retrieved
         '''
 
+        _LOGGER.debug(
+            f'Getting all assets from member {self.remote_member_id}'
+        )
         has_more_assets: bool = True
         first: int = 100
         after: str | None = None

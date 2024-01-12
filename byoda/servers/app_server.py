@@ -7,6 +7,7 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
+import os
 from uuid import UUID
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -22,6 +23,7 @@ from byoda.storage.filestorage import FileStorage
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
 from byoda.datatypes import ClaimStatus
+from byoda.datatypes import AppType
 
 from byoda.requestauth.jwt import JWT
 
@@ -33,7 +35,8 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class AppServer(Server):
-    def __init__(self, app_id: UUID | str, network: Network, app_config: dict):
+    def __init__(self, app_type: AppType, app_id: UUID | str,
+                 network: Network, app_config: dict, routers) -> None:
         '''
         Initiates a service server
         '''
@@ -53,10 +56,18 @@ class AppServer(Server):
 
         self.local_storage: FileStorage = self.paths.storage_driver
 
-        self.fqdn = app_config['appserver']['fqdn']
+        if app_type == AppType.MODERATE:
+            self.fqdn: str = app_config['modserver']['fqdn']
 
-        self.claim_dir: str = app_config['appserver']['claim_dir']
-        self.whitelist_dir: str = app_config['appserver']['whitelist_dir']
+            self.claim_dir: str = app_config['modserver']['claim_dir']
+            self.whitelist_dir: str = app_config['modserver']['whitelist_dir']
+
+            os.makedirs(self.whitelist_dir, exist_ok=True)
+
+            for status in ClaimStatus:
+                os.makedirs(f'{self.claim_dir}/{status.value}', exist_ok=True)
+        elif app_type == AppType.CDN:
+            self.keys_dir: str = app_config['cdnserver']['keys_dir']
 
         network.paths: Paths = self.paths
 

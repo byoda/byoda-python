@@ -84,7 +84,7 @@ class Secret:
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'private_key', 'private_key_file', 'cert', 'cert_file', 'paths',
         'password', 'common_name', 'service_id', 'id_type', 'sans',
         'storage_driver', 'cert_chain', 'is_root_cert', 'ca',
@@ -92,14 +92,14 @@ class Secret:
     ]
 
     # When should the secret be renewed
-    RENEW_WANTED = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now() + timedelta(days=90)
     RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
 
     # We don't sign any CSRs as we are not a CA
     ACCEPTED_CSRS = None
 
     def __init__(self, cert_file: str = None, key_file: str = None,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
         '''
         Constructor
 

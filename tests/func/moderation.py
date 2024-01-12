@@ -36,6 +36,7 @@ from byoda.servers.app_server import AppServer
 from byoda.datatypes import CloudType
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
+from byoda.datatypes import AppType
 
 from byoda.requestauth.jwt import JWT
 from byoda.util.api_client.api_client import ApiClient
@@ -57,8 +58,8 @@ from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
-from modserver.routers import moderate as ModerateRouter
-from modserver.routers import status as StatusRouter
+from appserver.routers import moderate as ModerateRouter
+from appserver.routers import status as StatusRouter
 
 Member = TypeVar('Member')
 
@@ -93,9 +94,9 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         except FileNotFoundError:
             pass
 
-        os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
+        os.makedirs(app_config['modserver']['whitelist_dir'], exist_ok=True)
 
-        claim_dir: str = app_config['appserver']['claim_dir']
+        claim_dir: str = app_config['modserver']['claim_dir']
         for status in ClaimStatus:
             os.makedirs(f'{claim_dir}/{status.value}', exist_ok=True)
 
@@ -122,7 +123,8 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         )
 
         server = AppServer(
-            app_config['appserver']['app_id'], network, app_config
+            AppType.MODERATE, app_config['appserver']['app_id'], network,
+            app_config
         )
 
         await server.set_document_store(

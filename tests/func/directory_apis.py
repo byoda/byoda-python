@@ -17,16 +17,22 @@ import yaml
 import orjson
 import shutil
 import asyncio
-import unittest
-import httpx
-from uuid import uuid4
 from copy import copy
+from uuid import uuid4
+from uuid import UUID
+
+import httpx
+import unittest
+
+import uvicorn
 
 from cryptography import x509
+from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization
 
 from multiprocessing import Process
-import uvicorn
+
+from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
@@ -36,6 +42,8 @@ from byoda.servers.directory_server import DirectoryServer
 from byoda.util.message_signature import SignatureType
 
 from byoda.secrets.secret import Secret
+from byoda.secrets.secret import CertChain
+from byoda.secrets.account_secret import CertificateSigningRequest
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.service_secret import ServiceSecret
@@ -54,15 +62,15 @@ from dirserver.routers import service as ServiceRouter
 from dirserver.routers import member as MemberRouter
 
 # Settings must match config.yml used by directory server
-NETWORK = 'test.net'
-DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
-SERVICE_ID = 12345678
+NETWORK: str = 'test.net'
+DEFAULT_SCHEMA: str = 'tests/collateral/dummy-unsigned-service-schema.json'
+SERVICE_ID: int = 12345678
 
-CONFIG_FILE = 'tests/collateral/config.yml'
-TEST_DIR = '/tmp/byoda-tests/dir_apis'
-SERVICE_DIR = TEST_DIR + '/service'
-TEST_PORT = 9000
-BASE_URL = f'http://localhost:{TEST_PORT}/api'
+CONFIG_FILE: str = 'tests/collateral/config.yml'
+TEST_DIR: str = '/tmp/byoda-tests/dir_apis'
+SERVICE_DIR: str = TEST_DIR + '/service'
+TEST_PORT: int = 9000
+BASE_URL: str = f'http://localhost:{TEST_PORT}/api'
 
 _LOGGER = None
 
@@ -71,16 +79,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
-            TestDirectoryApis.APP_CONFIG = yaml.load(
+            TestDirectoryApis.APP_CONFIG: dict[str, any] = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
             )
 
-        app_config = TestDirectoryApis.APP_CONFIG
-        app_config['dirserver']['root_dir'] = TEST_DIR
+        app_config: dict[str, any] = TestDirectoryApis.APP_CONFIG
+        app_config['dirserver']['root_dir']: str = TEST_DIR
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -92,7 +100,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'/services/service-{SERVICE_ID}'
         )
 
-        network = await Network.create(
+        network: Network = await Network.create(
             app_config['application']['network'],
             app_config['dirserver']['root_dir'],
             app_config['dirserver']['private_key_password'],
@@ -104,7 +112,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server)
 
-        app = setup_api(
+        app: FastAPI = setup_api(
             'Byoda test dirserver', 'server for testing directory APIs',
             'v0.0.1', [AccountRouter, ServiceRouter, MemberRouter],
             lifespan=None, trace_server=config.trace_server,
@@ -123,23 +131,23 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(1)
 
     @classmethod
-    async def asyncTearDown(cls):
+    async def asyncTearDown(cls) -> None:
         TestDirectoryApis.PROCESS.terminate()
 
-    def test_network_account_put(self):
+    def test_network_account_put(self) -> None:
         API = BASE_URL + '/v1/network/account'
 
-        uuid = uuid4()
+        uuid: UUID = uuid4()
 
-        network_name = TestDirectoryApis.APP_CONFIG['application']['network']
+        network_name: str = TestDirectoryApis.APP_CONFIG['application']['network']
 
         # PUT, with auth
-        headers = {
+        headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
         }
-        response = httpx.put(API, headers=headers)
+        response: httpx.Response = httpx.put(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
@@ -170,7 +178,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Subject': f'CN={fqdn}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
-        response = httpx.post(
+        response: httpx.Response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
         self.assertEqual(response.status_code, 201)
@@ -202,43 +210,43 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         # Retry same CSR, without client cert:
-        response = httpx.post(
+        response: httpx.Response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}, headers=None
         )
         self.assertEqual(response.status_code, 401)
 
-    async def test_network_service_creation(self):
+    async def test_network_service_creation(self) -> None:
         API = BASE_URL + '/v1/network/service'
 
         # We can not use deepcopy here so do two copies
-        network = copy(config.server.network)
+        network: Network = copy(config.server.network)
         network.paths = copy(config.server.network.paths)
         network.paths._root_directory = SERVICE_DIR
         if not await network.paths.secrets_directory_exists():
             await network.paths.create_secrets_directory()
 
-        service_id = SERVICE_ID
+        service_id: int = SERVICE_ID
         serviceca_secret = ServiceCaSecret(
             service_id=service_id, network=network
         )
         csr = await serviceca_secret.create_csr()
-        csr = csr.public_bytes(serialization.Encoding.PEM)
+        csr: bytes = csr.public_bytes(serialization.Encoding.PEM)
 
-        response = httpx.post(
+        response: httpx.Response = httpx.post(
             API, json={'csr': str(csr, 'utf-8')}
         )
         self.assertEqual(response.status_code, 201)
         data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
+        issuing_ca_cert: Certificate = x509.load_pem_x509_certificate(       # noqa:F841
             data['cert_chain'].encode()
         )
-        serviceca_cert = x509.load_pem_x509_certificate(        # noqa:F841
+        serviceca_cert: Certificate = x509.load_pem_x509_certificate(        # noqa:F841
             data['signed_cert'].encode()
         )
         # TODO: populate a secret from a CertChain
         serviceca_secret.cert = serviceca_cert
         serviceca_secret.cert_chain = [issuing_ca_cert]
-        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
+        network_data_cert: Certificate = x509.load_pem_x509_certificate(     # noqa:F841
             data['network_data_cert_chain'].encode()
         )
 
@@ -250,13 +258,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         await testsecret.load(with_private_key=False)
 
         service_secret = ServiceSecret(service_id, network)
-        service_csr = await service_secret.create_csr()
-        certchain = serviceca_secret.sign_csr(service_csr)
+        service_csr: CertificateSigningRequest = \
+            await service_secret.create_csr()
+        certchain: CertChain = serviceca_secret.sign_csr(service_csr)
         service_secret.from_signed_cert(certchain)
         await service_secret.save()
 
-        service_cn = Secret.extract_commonname(certchain.signed_cert)
-        serviceca_cn = Secret.extract_commonname(serviceca_cert)
+        service_cn: str = Secret.extract_commonname(certchain.signed_cert)
+        serviceca_cn: str = Secret.extract_commonname(serviceca_cert)
 
         # Create and register the the public cert of the data secret,
         # which the directory server needs to validate the service signature
@@ -264,12 +273,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         service_data_secret = ServiceDataSecret(
             service_id, network
         )
-        service_data_csr = await service_data_secret.create_csr()
-        data_certchain = serviceca_secret.sign_csr(service_data_csr)
+        service_data_csr: CertificateSigningRequest =\
+            await service_data_secret.create_csr()
+        data_certchain: CertChain = serviceca_secret.sign_csr(service_data_csr)
         service_data_secret.from_signed_cert(data_certchain)
         await service_data_secret.save()
 
-        headers = {
+        headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject': f'CN={service_cn}',
             'X-Client-SSL-Issuing-CA': f'CN={serviceca_cn}'
@@ -277,7 +287,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         data_certchain = service_data_secret.certchain_as_pem()
 
-        response = httpx.put(
+        response: httpx.Response = httpx.put(
             API + '/service_id/' + str(service_id), headers=headers,
             json={'certchain': data_certchain}
         )
@@ -287,7 +297,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Send the service schema
         with open(DEFAULT_SCHEMA) as file_desc:
-            data = file_desc.read()
+            data: str = file_desc.read()
             schema_data = orjson.loads(data)
 
         schema_data['service_id'] = service_id
@@ -315,7 +325,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # Get the fully-signed data contract for the service
         API = BASE_URL + '/v1/network/service'
 
-        response = httpx.get(API + f'/service_id/{service_id}')
+        response: httpx.Response = httpx.get(API + f'/service_id/{service_id}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 12)
@@ -331,7 +341,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
-        service_summary = data['service_summaries'][0]
+        service_summary: str = data['service_summaries'][0]
         self.assertEqual(service_summary['service_id'], SERVICE_ID)
         self.assertEqual(service_summary['version'], 1)
         self.assertEqual(service_summary['name'], 'dummyservice')
@@ -347,7 +357,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'CN=members-ca.members-ca-{service_id}.{network.name}'
         }
 
-        response = httpx.put(API, headers=headers)
+        response: httpx.Response = httpx.put(API, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')

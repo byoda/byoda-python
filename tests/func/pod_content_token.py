@@ -23,6 +23,7 @@ import orjson
 
 from fastapi import FastAPI
 
+from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.content_key import ContentKey
 from byoda.datamodel.content_key import ContentKeyStatus
@@ -65,9 +66,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = "TEST_CLIENT"
         config.disable_pubsub = True
@@ -75,10 +76,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         global BASE_URL
-        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
+        BASE_URL: str = BASE_URL.format(PORT=server.HTTP_PORT)
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -103,15 +104,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_restricted_content_key_api(self):
-        account = config.server.account
+    async def test_restricted_content_key_api(self) -> None:
+        account: Account = config.server.account
         member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         data_store: DataStore = config.server.data_store
-        key_table = data_store.get_table(
+        key_table: Table = data_store.get_table(
             member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
@@ -126,14 +127,14 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         # TODO: use key_table.get_cursor_hash()
-        cursor = Table.get_cursor_hash(data, None, list(data.keys()))
+        cursor: str = Table.get_cursor_hash(data, None, list(data.keys()))
         await key_table.append(
             data, cursor, origin_id=None, origin_id_type=None,
             origin_class_name=None
         )
-        url = BASE_URL + '/v1/pod/content/token'
-        asset_id = uuid4()
-        query_params = {
+        url: str = BASE_URL + '/v1/pod/content/token'
+        asset_id: UUID = uuid4()
+        query_params: dict[str, str | int] = {
             'asset_id': str(asset_id),
             'service_id': ADDRESSBOOK_SERVICE_ID,
             'class_name': 'public_assets',
@@ -149,9 +150,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await key_table.delete(DataFilterSet({'key_id': {'eq': key_id}}))
 
-    async def test_restricted_content_keys_file(self):
+    async def test_restricted_content_keys_file(self) -> None:
         keys: list[ContentKey] = []
-        content_key = await ContentKey.create(
+        content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=1, not_before=None, not_after=None,
         )
         keys.append(content_key.as_dict())
@@ -174,8 +175,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         keys.append(content_key.as_dict())
 
-        key_data = orjson.dumps(keys, option=orjson.OPT_SERIALIZE_UUID)
-        with open(TEST_FILE, 'w') as file_desc:
+        key_data: bytes = orjson.dumps(keys, option=orjson.OPT_SERIALIZE_UUID)
+        with open(TEST_FILE, 'wb') as file_desc:
             file_desc.write(key_data.decode('utf-8'))
 
         keys = await ContentKey.get_content_keys(filepath=TEST_FILE)
@@ -202,24 +203,26 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(content_key)
         self.assertEqual(content_key.key_id, 5)
 
-    async def test_restricted_content_keys_table(self):
-        account = config.server.account
-        account_member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
+    async def test_restricted_content_keys_table(self) -> None:
+        account: Account = config.server.account
+        account_member: Member | None = await account.get_membership(
+            ADDRESSBOOK_SERVICE_ID
+        )
 
         data_store: DataStore = config.server.data_store
-        table = data_store.get_table(
+        table: Table = data_store.get_table(
             account_member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
         await table.delete(data_filters={})
-        content_key = await ContentKey.create(
+        content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None, not_before=None, not_after=None,
             table=table
         )
 
         await content_key.persist(table)
 
-        keys = await ContentKey.get_content_keys(table=table)
+        keys: list[ContentKey] = await ContentKey.get_content_keys(table=table)
         self.assertEqual(len(keys), 1)
 
         content_key = await ContentKey.create(
@@ -229,7 +232,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             table=table
         )
 
-        key_id = content_key.key_id
+        key_id: int = content_key.key_id
         await content_key.persist(table)
         keys = await ContentKey.get_content_keys(table=table)
         self.assertEqual(len(keys), 2)

@@ -18,8 +18,6 @@ if [ -z "${TAG}" ]; then
     fi
 fi
 
-ACCOUNT_FILE=$HOME/.byoda-account_id
-
 WIPE_ALL=0
 WIPE_MEMBER_DATA=0
 WIPE_MEMBERSHIPS=0
@@ -81,8 +79,7 @@ fi
 
 echo "Using Byoda container byoda-pod:${TAG}"
 
-if [[ "${PRIVATE_BUCKET}" == "changeme" || "${RESTRICTED_BUCKET}" == "changeme" || "${PUBLIC_BUCKET}" == "changeme" ||"${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_
-SECRET}" == "changeme" ]]; then
+if [[ "${PRIVATE_BUCKET}" == "changeme" || "${RESTRICTED_BUCKET}" == "changeme" || "${PUBLIC_BUCKET}" == "changeme" ||"${ACCOUNT_SECRET}" == "changeme" || "${PRIVATE_KEY_SECRET}" == "changeme" ]]; then
     echo "Set the PRIVATE_BUCKET, RESTRICTED_BUCKET, PUBLIC_BUCKET, ACCOUNT_SECRET and PRIVATE_KEY_SECRET variables in this script"
     exit 1
 fi
@@ -166,7 +163,6 @@ echo "    ${SYSTEM_VERSION}"
 if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     export CLOUD=Azure
     echo "Running in cloud: ${CLOUD}"
-    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
         which az > /dev/null 2>&1
         if [ $? -ne 0 ]; then
@@ -175,6 +171,7 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
         echo "Wiping ${BYODA_ROOT_DIR}"
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
 
         STORAGE_ACCOUNT=$(echo ${PRIVATE_BUCKET} | cut -f 1 -d ':')
         echo "Wiping all data of the pod on storage account"
@@ -185,6 +182,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         az storage blob delete-batch -s byoda --account-name ${PRIVATE_BUCKET} --auth-mode login \
            --pattern private/network-${NETWORK}-account-pod-member-*.key
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
@@ -200,6 +200,9 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern private/network-${NETWORK}/account-pod/data/*
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
@@ -215,10 +218,10 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
 elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
-    echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
-    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         which gcloud > /dev/null 2>&1
         if [ $? -ne 0 ]; then
             echo "gcloud-cli not found, please install it"
@@ -229,6 +232,9 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         gcloud alpha storage rm --recursive gs://${RESTRICTED_BUCKET}/*
         gcloud alpha storage rm --recursive gs://${PUBLIC_BUCKET}/*
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         echo "Wiping data and secrets for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}-account-pod-member-*.key
         gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/network-${NETWORK}/account-pod/service-*/*
@@ -240,6 +246,9 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
             exit 1
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         echo "Wiping data and service contracts for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
         gcloud alpha storage rm --recursive gs://${RESTRICTED_BUCKET}/network-${NETWORK}/account-pod/service-*/service-contract.json
@@ -257,10 +266,10 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         echo "Set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables in this script"
         exit 1
     fi
-    echo "Wiping ${BYODA_ROOT_DIR}"
-    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
-    sudo mkdir -p ${BYODA_ROOT_DIR}
     if [[ "${WIPE_ALL}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         which aws > /dev/null 2>&1
         if [ $? -ne 0 ]; then
             echo "aws-cli-v2 not found, please install it"
@@ -270,6 +279,9 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         aws s3 rm -f s3://${PRIVATE_BUCKET}private/private --recursive
         aws s3 rm -f s3://${PRIVATE_BUCKET}private/network-${NETWORK} --recursive
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
         echo "Wiping data and secrets for memberships not supported on AWS yet"
@@ -284,6 +296,9 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
             exit 1
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        echo "Wiping ${BYODA_ROOT_DIR}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+
         # echo "Wiping data and service contracts for all memberships of the pod"
         # TODO
         echo "Wiping data and secrets for memberships not supported on AWS yet"
@@ -303,8 +318,6 @@ else
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
         sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
-        sudo mkdir -p ${BYODA_ROOT_DIR}
-        rm ${ACCOUNT_FILE}
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
@@ -333,7 +346,6 @@ fi
 
 if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
-    rm ${ACCOUNT_FILE}
     sudo rm -f -I --preserve-root=all ${LOGDIR}/*
     sudo rm ${BYODA_ROOT_DIR}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
@@ -342,18 +354,7 @@ if [[ "${WIPE_ALL}" == "1" ]]; then
     fi
 fi
 
-if [ -f "${ACCOUNT_FILE}" ]; then
-    ACCOUNT_ID=$(cat ${ACCOUNT_FILE})
-    echo "Reading account_id from ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
-else
-    ACCOUNT_ID=$(uuidgen)
-    if [ $? -ne 0 ]; then
-        echo "Failed to run 'uuidgen', please install it"
-        exit 1
-    fi
-    echo $ACCOUNT_ID >${ACCOUNT_FILE}
-    echo "Writing account_id to ${ACCOUNT_FILE}: ${ACCOUNT_ID}"
-fi
+sudo mkdir -p ${BYODA_ROOT_DIR}
 
 if [ -z "${LOGLEVEL}" ]; then
     export LOGLEVEL=INFO
@@ -369,18 +370,13 @@ export BOOTSTRAP=BOOTSTRAP
 sudo docker stop byoda 2>/dev/null
 sudo docker rm byoda  2>/dev/null
 
-if [[ "${CLOUD}" != "LOCAL" && "${TAG}" == "dev" ]]; then
-    # Wipe the cache directory
-    sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
-    sudo mkdir -p ${BYODA_ROOT_DIR}
-fi
-
 echo "Creating container for account_id ${ACCOUNT_ID}"
 
 sudo docker run -d --memory=800m \
     --name byoda --restart=unless-stopped \
     --pull always \
     --mount type=tmpfs,tmpfs-size=100M,destination=/tmp \
+    -e "DEBUG=${DEBUG}" \
     -e "LOGLEVEL=${LOGLEVEL}" \
     -e "WORKER_LOGLEVEL=${WORKER_LOGLEVEL}" \
     -e "LOGFILE=${LOGFILE}" \
@@ -403,6 +399,7 @@ sudo docker run -d --memory=800m \
     -e "YOUTUBE_API_KEY=${YOUTUBE_API_KEY}" \
     -e "YOUTUBE_IMPORT_SERVICE_ID=${YOUTUBE_IMPORT_SERVICE_ID}" \
     -e "YOUTUBE_IMPORT_INTERVAL=${YOUTUBE_IMPORT_INTERVAL}" \
+    -e "CDN_APP_ID=${CDN_APP_ID}" \
     -e "MODERATION_FQDN=${MODERATION_FQDN}" \
     -e "MODERATION_APP_ID=${MODERATION_APP_ID}" \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \

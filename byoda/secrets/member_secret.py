@@ -8,9 +8,9 @@ Cert manipulation for accounts and members
 
 from uuid import UUID
 from copy import copy
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -18,6 +18,8 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
+
+from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -108,7 +110,7 @@ class MemberSecret(Secret):
         return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
-    def create_commonname(member_id: UUID, service_id: int, network: str):
+    def create_commonname(member_id: UUID, service_id: int, network: str) -> str:
         '''
         generates the FQDN for the common name in the Member TLS secret
         '''
@@ -132,13 +134,13 @@ class MemberSecret(Secret):
         return common_name
 
     async def load(self, with_private_key: bool = True,
-                   password: str = 'byoda'):
+                   password: str = 'byoda') -> None:
         await super().load(
             with_private_key=with_private_key, password=password
         )
         self.member_id = UUID(self.common_name.split('.')[0])
 
-    def save_tmp_private_key(self):
+    def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the MemberSecret so nginx and the python
         requests module can use it.
@@ -161,7 +163,7 @@ class MemberSecret(Secret):
     @staticmethod
     async def download(member_id: UUID, service_id: int,
                        network: Network | str, paths: Paths,
-                       root_ca_cert_file: str):
+                       root_ca_cert_file: str) -> Self:
         '''
         Factory that downloads the member-data secret from the remote member
 

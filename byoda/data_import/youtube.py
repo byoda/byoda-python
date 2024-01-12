@@ -52,14 +52,14 @@ class YouTube:
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
     INGEST_INTERVAL_SECONDS: int = 60
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None) -> None:
         '''
         Constructor. If the 'YOUTUBE_API_KEY environment variable is
         set then it will use that key to call the YouTube Data API. Otherwise
         it will scrape the YouTube website.
         '''
-        self.integration_enabled = YouTube.youtube_integration_enabled()
-        self.api_enabled = YouTube.youtube_api_integration_enabled()
+        self.integration_enabled: bool = YouTube.youtube_integration_enabled()
+        self.api_enabled: bool = YouTube.youtube_api_integration_enabled()
 
         self.api_client: YouTubeResource | None = None
 
@@ -71,6 +71,7 @@ class YouTube:
             self.api_client = build('youtube', 'v3', developerKey=self.api_key)
 
         self.channels: dict[str, YouTubeChannel] = {}
+        name: str
         for name in os.environ.get(YouTube.ENVIRON_CHANNEL, '').split(','):
             ingest: bool = False
             if ':' in name:
@@ -84,7 +85,7 @@ class YouTube:
 
     @staticmethod
     def youtube_integration_enabled() -> bool:
-        result = os.environ.get(YouTube.ENVIRON_CHANNEL) is not None
+        result: bool = os.environ.get(YouTube.ENVIRON_CHANNEL) is not None
 
         _LOGGER.debug(f'YouTube integration enabled: {result}')
 
@@ -92,8 +93,8 @@ class YouTube:
 
     @staticmethod
     def youtube_api_integration_enabled() -> bool:
-        integration_enabled = YouTube.youtube_integration_enabled()
-        api_enabled = os.environ.get(YouTube.ENVIRON_API_KEY)
+        integration_enabled: bool = YouTube.youtube_integration_enabled()
+        api_enabled: str | None = os.environ.get(YouTube.ENVIRON_API_KEY)
 
         result = bool(integration_enabled and api_enabled)
         _LOGGER.debug(f'YouTube API integration enabled: {result}')

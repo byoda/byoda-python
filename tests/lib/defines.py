@@ -18,6 +18,9 @@ DATA_API_WS_URL: str = 'ws://localhost:{PORT}/api/v1/data/{service_id}/{class_na
 ADDRESSBOOK_SERVICE_ID: int = 4294929430
 ADDRESSBOOK_VERSION: int = 1
 
+BYOTUBE_SERVICE_ID: int = 16384
+BYOTUBE_VERSION: int = 1
+
 # Test moderation API server
 MODTEST_FQDN: str = 'modtest.byoda.io'
 MODTEST_APP_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')

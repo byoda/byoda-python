@@ -24,7 +24,7 @@ from byoda.util.logger import Logger
 _LOGGER: Logger = getLogger(__name__)
 
 
-async def backup_datastore(server: PodServer):
+async def backup_datastore(server: PodServer) -> None:
     '''
     Backs up the account DB and membership DBs to the cloud
     '''
@@ -37,7 +37,7 @@ async def backup_datastore(server: PodServer):
         _LOGGER.exception('Backup of data store failed')
 
 
-async def database_maintenance(server: PodServer):
+async def database_maintenance(server: PodServer) -> None:
     '''
     This is the place for database maintenance tasks,
     ie. for Sqlite3 it performs WAL compaction

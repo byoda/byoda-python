@@ -70,9 +70,9 @@ ALL_DATA: list[dict[str, AnyScalarType]] = []
 
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
         config.disable_pubsub = True
@@ -80,7 +80,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -104,16 +104,16 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_data_to_filter(self):
-        server : PodServer = config.server
+    async def test_data_to_filter(self) -> None:
+        server: PodServer = config.server
         account: Account = server.account
         member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
         schema: Schema = member.schema
         object_data_class = schema.data_classes['asset']
-        data = {
+        data: dict[str, str] = {
             'asset_id': 'aaaaaaaa-8fd6-4673-afa1-d3129e61faf3',
             'created_timestamp': '2023-10-29T05:15:39.495695+00:00',
             'asset_type': 'video'
@@ -133,15 +133,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(delete_filter, DataFilterSet))
 
 
-    async def test_pod_rest_data_api_mutate_jwt(self):
+    async def test_pod_rest_data_api_mutate_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
 
         class_name = 'person'
-        data = {
+        data: dict[str, dict[str, str]] = {
             'data': {
                 'given_name': 'givenname',
                 'family_name': 'familyname',
@@ -165,15 +165,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         data['data']['additional_names'] = None
         self.assertEqual(data['data'], result_data)
 
-    async def test_object_fields(self):
+    async def test_object_fields(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
 
         class_name = 'person'
-        data = {
+        data: dict[str, dict[str, str]] = {
             'data': {
                 'given_name': 'givenname',
                 'family_name': 'familyname',
@@ -194,7 +194,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             action=DataRequestType.QUERY, fields=fields,
             auth_header=member_auth_header, app=APP
         )
-        result_data = result['edges'][0]['node']
+        result_data: str = result['edges'][0]['node']
 
         # Requested fields
         self.assertIsNotNone(result_data['given_name'])
@@ -207,16 +207,16 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         # Not requested nor required
         self.assertIsNone(result_data['avatar_url'])
 
-    async def test_pod_rest_data_api_object_with_array(self):
+    async def test_pod_rest_data_api_object_with_array(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
 
         class_name: str = 'member'
 
-        data = {
+        data: dict[str, dict[str, any]] = {
             'data': {
                 'joined': str(datetime.now(tz=timezone.utc).isoformat()),
                 'member_id': get_test_uuid(),
@@ -235,7 +235,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             auth_header=member_auth_header, expect_success=False,
             app=APP
         )
-        node = resp['edges'][0]['node']
+        node: str = resp['edges'][0]['node']
         self.assertEqual(node['member_id'], str(data['data']['member_id']))
         self.assertEqual(
             node['schema_versions'], data['data']['schema_versions']

@@ -61,6 +61,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             'was set'
         )
 
+    username: str
     if auth_request.service_id:
         member: Member = await account.get_membership(auth_request.service_id)
         if not member:
@@ -81,6 +82,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             status_code=401, detail='Invalid username/password'
         )
 
+    jwt: JWT
     if auth_request.target_type == IdType.ACCOUNT:
         jwt = account.create_jwt()
     elif auth_request.target_type == IdType.MEMBER:

@@ -12,12 +12,13 @@ from logging import getLogger
 from byoda.util.logger import Logger
 
 from fastapi import FastAPI
-from byoda.util.api_client.api_client import HttpResponse
-
 
 from byoda.secrets.secret import Secret
 
-from .api_client import ApiClient, HttpMethod
+from byoda.util.api_client.api_client import HttpResponse
+
+from .api_client import ApiClient
+from .api_client import HttpMethod
 
 
 _LOGGER: Logger = getLogger(__name__)
@@ -27,7 +28,7 @@ class RestApiClient:
     '''
     '''
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod

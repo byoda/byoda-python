@@ -66,7 +66,7 @@ TEST_DIR = '/tmp/byoda-tests/pod-rest-apis'
 APP: FastAPI | None = None
 
 
-class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
+class TestPodApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)

@@ -10,13 +10,6 @@
 PARAM=$_
 COMMAND=$0
 
-if [ ! -f ~/.byoda-account_id ]; then
-    if [[ "${PARAM}" == "${COMMAND}" ]]; then
-        exit 0
-    fi
-    return
-fi
-
 if [[ "${PARAM}" == "${COMMAND}" ]]; then
     echo "$COMMAND: This script must be sourced instead of executed, e.g. 'source $COMMAND'"
     exit 1
@@ -30,12 +23,12 @@ export PYTHONPATH=$PYTHONPATH:$(pwd):~/byoda-python:~/src/byoda-python:/root/byo
 export NETWORK="byoda.net"
 
 export ROOT_CA=/byoda/network-$NETWORK/network-$NETWORK-root-ca-cert.pem
-export PASSPHRASE=$(grep PRIVATE_KEY_SECRET ~/byoda-settings.sh  | head -1 | cut -f 2 -d '=' | sed 's|"||g')
+export PASSPHRASE=${PRIVATE_KEY_SECRET}
 
 export ACCOUNT_CERT=/byoda/network-byoda.net/account-pod/pod-cert.pem
 export ACCOUNT_KEY=/byoda/private/network-byoda.net-account-pod.key
 if [ -f  ${ACCOUNT_CERT} ]; then
-    export ACCOUNT_ID=$( \
+    export CERT_ACCOUNT_ID=$( \
             openssl x509 -in $ACCOUNT_CERT -noout -text | \
             grep accounts | \
             grep -v accounts-ca | \
@@ -43,10 +36,14 @@ if [ -f  ${ACCOUNT_CERT} ]; then
             awk '{ print $16; } ' | \
             cut -f 1 -d . \
     )
+    if [ "${CERT_ACCOUNT_ID}" != "${ACCOUNT_ID}" ]; then
+        echo "WARNING: Account ID in cert (${CERT_ACCOUNT_ID}) does not match ACCOUNT_ID (${ACCOUNT_ID}) from byoda-settings.sh"
+        export ACCOUNT_ID=${CERT_ACCOUNT_ID}
+    fi
     export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
     export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
 fi
-export ACCOUNT_PASSWORD=$(grep ACCOUNT_SECRET ~/byoda-settings.sh | head -1 | cut -f 2 -d '=' | sed 's|"||g')
+export ACCOUNT_PASSWORD=${ACCOUNT_SECRET}
 
 if [ -z "${CUSTOM_DOMAIN}" ]; then
     export HOME_PAGE="https://${ACCOUNT_ID}.accounts.byoda.net"

@@ -311,12 +311,13 @@ async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_clas
         )
     except WebSocketDisconnect as exc:
         _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')
-        raise
+        return
     except ConnectionClosedError as exc:
         _LOGGER.debug(f'Websocket connection closed: {exc}')
-        raise
+        return
     except WebSocketException:
-        raise
+        _LOGGER.debug(f'Websocket exception: {exc}')
+        return
     except Exception as exc:
         _LOGGER.exception(f'Failure to process websocket request: {exc}')
         raise
@@ -373,12 +374,13 @@ async def {{ data_class.name }}_updates_{{ data_class.service_id }}_{{ data_clas
         )
     except WebSocketDisconnect as exc:
         _LOGGER.debug(f'Websocket client {host} disconnected: {exc}')
-        raise
+        return
     except ConnectionClosedError as exc:
         _LOGGER.debug(f'Websocket connection closed: {exc}')
-        raise
-    except WebSocketException:
-        raise
+        return
+    except WebSocketException as exc:
+        _LOGGER.debug(f'Websocket exception: {exc}')
+        return
     except Exception as exc:
         _LOGGER.exception(f'Failure to process websocket request: {exc}')
         raise

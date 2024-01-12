@@ -10,6 +10,8 @@ import os
 import sys
 import yaml
 
+from typing import Generator
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -20,6 +22,7 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import ClaimStatus
+from byoda.datatypes import AppType
 
 from byoda.servers.app_server import AppServer
 
@@ -31,34 +34,45 @@ from byoda import config
 
 from .routers import status as StatusRouter
 from .routers import moderate as ModerateRouter
-
+from .routers import cdn as CdnRouter
 _LOGGER = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    config_file = os.environ.get('CONFIG_FILE', 'config.yml')
+async def lifespan(app: FastAPI) -> Generator[None, any, None]:
+    config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
-        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+        app_config: dict[str, any] = yaml.load(
+            file_desc, Loader=yaml.SafeLoader
+        )
 
-    debug = app_config['application']['debug']
-    verbose = not debug
+    debug: str = app_config['application']['debug']
+    verbose: bool = not bool(debug)
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['appserver'].get('logfile')
     )
 
-    os.makedirs(app_config['appserver']['whitelist_dir'], exist_ok=True)
-    claim_dir = app_config['appserver']['claim_dir']
-    for status in ClaimStatus:
-        os.makedirs(f'{claim_dir}/{status.value}', exist_ok=True)
+    app_type: AppType = AppType(app_config['appserver']['app_type'])
+
+    routers: list = [StatusRouter]
+
+    if app_type == AppType.CDN:
+        routers.append(CdnRouter)
+    elif app_type == AppType.MODERATION:
+        routers.append(ModerateRouter)
+    else:
+        raise ValueError(f'Unknown app type {app_type}')
 
     network = Network(
         app_config['appserver'], app_config['application']
     )
 
-    server = AppServer(app_config['appserver']['app_id'], network, app_config)
+    server = AppServer(
+        app_type, app_config['appserver']['app_id'], network, app_config,
+        routers
+    )
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,
@@ -82,17 +96,35 @@ async def lifespan(app: FastAPI):
 
     _LOGGER.debug('Lifespan startup complete')
 
-    config.trace_server = app_config['application'].get(
-        'trace_server', config.trace_server
-    )
+    if config.trace_server:
+        config.trace_server = app_config['application'].get(
+            'trace_server', config.trace_server
+        )
 
     yield
 
     _LOGGER.info('Shutting down server')
 
+
+# eeks, we need to do this before we import the routers
+_config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
+with open(_config_file) as file_desc:
+    _app_config: dict[str, any] = yaml.load(
+        file_desc, Loader=yaml.SafeLoader
+    )
+
+_routers: list = [StatusRouter]
+_app_type: AppType = AppType(_app_config['appserver']['app_type'])
+if _app_type == AppType.CDN:
+    _routers.append(CdnRouter)
+elif _app_type == AppType.MODERATE:
+    _routers.append(ModerateRouter)
+else:
+    raise ValueError(f'Unknown app type {_app_type}')
+
 app = setup_api(
-    'BYODA directory server', 'The directory server for a BYODA network',
-    'v0.0.1', [StatusRouter, ModerateRouter],
+    'BYODA app server', 'A generic app server for a BYODA network',
+    'v0.0.1', _routers,
     lifespan=lifespan, trace_server=config.trace_server,
 )
 

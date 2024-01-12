@@ -51,6 +51,9 @@ DEFAULT_QUERY_SIZE: int = 40
 # Where the pod stores the decrypted ssl key so that nginx can access it
 TEMP_SSL_DIR: str = '/var/tmp/ssl'
 
+# This is the API path used by the CDN App server
+CDN_KEYS_API: str = '/api/v1/cdn/content_keys'
+
 MemberInfo: namedtuple = namedtuple('MemberInfo', ['member_id', 'service_id', 'status', 'timestamp'])
 NetworkLink: namedtuple = namedtuple('NetworkLink', ['member_id', 'relation', 'created_timestamp','annotations'])
 
@@ -79,6 +82,12 @@ class ServerType(Enum):
     DIRECTORY   = 'directory'
     SERVICE     = 'service'
     APP         = 'app'
+
+
+class AppType(Enum):
+    MODERATE    = 'moderate'
+    CDN         = 'cdn'
+    IDENTITY    = 'identity'
 
 
 class ClaimStatus(Enum):
