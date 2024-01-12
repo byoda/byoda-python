@@ -68,7 +68,7 @@ class Server:
         # on a shared webserver
         self.shared_webserver: bool = False
 
-    async def load_secrets(self, password: str = None):
+    async def load_secrets(self, password: str = None) -> None:
         '''
         Loads the secrets of the server
         '''
@@ -96,16 +96,16 @@ class Server:
 
         self.local_storage: FileStorage = None
 
-    async def review_jwt(self, jwt: JWT):
+    async def review_jwt(self, jwt: JWT) -> None:
         raise NotImplementedError
 
-    async def get_jwt_secret(self, jwt: JWT):
+    async def get_jwt_secret(self, jwt: JWT) -> None:
         raise NotImplementedError
 
-    def accepts_jwts(self):
+    def accepts_jwts(self) -> None:
         raise NotImplementedError
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         '''
         Shuts down the server
         '''

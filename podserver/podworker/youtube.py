@@ -50,7 +50,7 @@ LOCK_TIMEOUT: int = 3 * 24 * 60 * 60
 YOUTUBE_IMPORT_INTERVAL: int = 3 * 60 * 60
 
 
-async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
+async def run_youtube_startup_tasks(server: PodServer,
                                     youtube_import_service_id: int) -> None:
     '''
     Sets up task for importing YouTube videos
@@ -60,6 +60,9 @@ async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
     :returns: (none)
     :raises: (none)
     '''
+
+    account: Account = server.account
+    data_store: DataStore = server.data_store
 
     youtube_member: Member = await account.get_membership(
         youtube_import_service_id, with_pubsub=False
@@ -79,6 +82,11 @@ async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
         except Exception as exc:
             _LOGGER.exception(f'Exception during startup: {exc}')
             raise
+
+        if YouTube.youtube_integration_enabled():
+            if ':' in os.environ.get(YouTube.ENVIRON_CHANNEL, ''):
+                _LOGGER.debug('Running YouTube import as startup task')
+                await youtube_update_task(server, youtube_import_service_id)
     else:
         _LOGGER.debug(
             f'Did not find membership of service {youtube_import_service_id} '
@@ -86,7 +94,8 @@ async def run_youtube_startup_tasks(account: Account, data_store: DataStore,
         )
 
 
-async def youtube_update_task(server: PodServer, service_id: int):
+
+async def youtube_update_task(server: PodServer, service_id: int) -> None:
     account: Account = server.account
     member: Member = await account.get_membership(service_id)
     schema: Schema = member.schema
@@ -111,7 +120,7 @@ async def youtube_update_task(server: PodServer, service_id: int):
     moderation_url: str = f'https://{moderation_fqdn}'
     moderation_request_url: str = \
         moderation_url + YouTube.MODERATION_REQUEST_API
-    moderation_claim_url = moderation_url + YouTube.MODERATION_CLAIM_URL
+    moderation_claim_url: str = moderation_url + YouTube.MODERATION_CLAIM_URL
 
     moderation_app_id: str | UUID = os.environ.get('MODERATION_APP_ID')
     if moderation_app_id and isinstance(moderation_app_id, str):
@@ -122,7 +131,7 @@ async def youtube_update_task(server: PodServer, service_id: int):
     network: Network = server.network
 
     if moderation_app_id:
-        jwt = JWT.create(
+        jwt: JWT = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
             ADDRESSBOOK_SERVICE_ID, IdType.APP, moderation_app_id,
             expiration_days=3
@@ -131,9 +140,10 @@ async def youtube_update_task(server: PodServer, service_id: int):
     else:
         jwt_header: str | None = None
 
-    ingested_videos = await YouTube.load_ingested_videos(
-        member.member_id, data_class, data_store
-    )
+    ingested_videos: dict[str, dict[str, str]] = \
+        await YouTube.load_ingested_videos(
+            member.member_id, data_class, data_store
+        )
 
     # Add a random delay between import runs to avoid overloading YouTube
     interval: int = int(

@@ -23,7 +23,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 class App:
     def __init__(self, app_id: UUID, service: Service,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
         self.app_id: UUID = app_id
         self.service: Service = service
         self.network: Network = service.network
@@ -38,7 +38,7 @@ class App:
         )
 
     async def load_secrets(self, with_private_key: bool = True,
-                           password: str = None):
+                           password: str = None) -> None:
         '''
         Loads the secrets for the app from the local storage or from the cloud
         '''

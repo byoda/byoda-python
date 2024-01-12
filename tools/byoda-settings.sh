@@ -5,6 +5,17 @@
 # Which release train do we want to be on?
 export TAG=latest
 
+# Which BYODA network do we want to use
+NETWORK="byoda.net"
+
+# You can set ACCOUNT_ID to an uuid4. If not set, and there is no account
+# cert yet then a random ACCOUNT_ID will be generated
+# export ACCOUNT_ID=
+
+# Set the following two variables to long random strings
+export ACCOUNT_SECRET='changeme'
+export PRIVATE_KEY_SECRET='changeme'
+
 # How often should backups be created? This only applies to pods
 # running in public clouds. As it incurs some (fairly minor) traffic
 # costs, we set the interval to 4 hours (= 240 minutes)
@@ -15,15 +26,12 @@ export PRIVATE_BUCKET="changeme"
 export RESTRICTED_BUCKET="changeme"
 export PUBLIC_BUCKET="changeme"
 
-# Set the following two variables to long random strings
-export ACCOUNT_SECRET="changeme"
-export PRIVATE_KEY_SECRET="changeme"
 
 # These variables need to be set only for pods on AWS:
-export AWS_ACCESS_KEY_ID="changeme"
-export AWS_SECRET_ACCESS_KEY="changeme"
+export AWS_ACCESS_KEY_ID='changeme'
+export AWS_SECRET_ACCESS_KEY='changeme'
 
-# The pod will join the command-separated services listed in the following
+# The pod will join the comma-separated services listed in the following
 # variable
 export JOIN_SERVICE_IDS=""
 
@@ -43,7 +51,11 @@ export YOUTUBE_IMPORT_INTERVAL=$(echo $((180 + RANDOM % 120)))
 
 # The moderation app to send requests for videos imported from YouTube
 export MODERATION_FQDN="modtest.byoda.io"
-export MODERATION_APP_ID="3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22"
+export MODERATION_APP_ID="'bafc564d-0ba1-4821-ab1f-821f830cf8e6'"
+
+# The moderation values for BYO.Tube are
+# export MODERATION_FQDN="api.byomod.org"
+# export MODERATION_APP_ID="3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22"
 
 # To import your Twitter public tweets, sign up for Twitter Developer
 # program at https://developer.twitter.com/ and set the following three

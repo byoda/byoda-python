@@ -21,4 +21,4 @@ CMD cd /opt/byoda/byoda-python \
        --forwarded-allow-ips '*' \
        -p /var/run/modserver.pid \
        -c gunicorn.conf.py \
-       modserver.main:app
+       appserver.main:app

@@ -9,6 +9,8 @@ Helper functions to set up tests
 import os
 import shutil
 
+from uuid import UUID
+
 import orjson
 
 from byoda import config
@@ -35,8 +37,11 @@ from tests.lib.util import get_test_uuid
 from tests.lib.defines import MODTEST_FQDN
 from tests.lib.defines import MODTEST_APP_ID
 
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import ADDRESSBOOK_VERSION
 
-def mock_environment_vars(test_dir: str):
+
+def mock_environment_vars(test_dir: str) -> None:
     '''
     Sets environment variables needed by setup_network() and setup_account
     '''
@@ -63,7 +68,7 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
     config.debug = True
 
-    data = get_environment_vars()
+    data: dict[str, str] = get_environment_vars()
 
     if delete_tmp_dir:
         try:
@@ -107,7 +112,9 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
 async def setup_account(data: dict[str, str], test_dir: str = None,
                         local_service_contract: str = 'addressbook.json',
-                        clean_pubsub: bool = True
+                        clean_pubsub: bool = True,
+                        service_id: int = ADDRESSBOOK_SERVICE_ID,
+                        version: int = ADDRESSBOOK_VERSION
                         ) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -115,8 +122,8 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
         PubSubNng.cleanup()
 
     if test_dir and local_service_contract:
-        dest = f'{test_dir}/{local_service_contract}'
-        dest_dir = os.path.dirname(dest)
+        dest: str = f'{test_dir}/{local_service_contract}'
+        dest_dir: str = os.path.dirname(dest)
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copyfile(local_service_contract, dest)
 
@@ -173,9 +180,9 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
     global ADDRESSBOOK_VERSION
     ADDRESSBOOK_VERSION = service['version']
 
-    member_id = get_test_uuid()
+    member_id: UUID = get_test_uuid()
     await account.join(
-        ADDRESSBOOK_SERVICE_ID, ADDRESSBOOK_VERSION, local_storage,
+        service_id, version, local_storage,
         member_id=member_id, local_service_contract=local_service_contract
     )
 

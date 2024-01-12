@@ -397,6 +397,20 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             all_data['edges'][-1]['cursor'], all_data['page_info']['end_cursor']
         )
 
+        data_filter: DataFilterType = {
+            'ingest_status': {'eq': 'published'}
+        }
+
+        filter_batch = await call_data_api(
+            service_id, class_name, test=self,
+            action=DataRequestType.QUERY,
+            first=None, after=None,
+            data_filter=data_filter,
+            auth_header=member_auth_header, app=APP
+        )
+
+        self.assertEqual(len(filter_batch['edges']), total_records/2)
+
         asset_id: str = all_data['edges'][0]['node']['asset_id']
         data_filter: DataFilterType = {
             'asset_id': {'eq': asset_id}
@@ -678,6 +692,7 @@ async def populate_data_rest(test, service_id: int, class_name: str,
             'subject': 'just a test asset',
             'contents': 'some utf-8 markdown string',
             'keywords': ["just", "testing"],
+            'ingest_status': ['published', 'external'][count % 2],
             'video_thumbnails': [
                 {
                     'thumbnail_id': get_test_uuid(),

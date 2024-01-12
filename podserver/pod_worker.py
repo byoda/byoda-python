@@ -58,8 +58,10 @@ from byoda import config
 
 from podserver.util import get_environment_vars
 
-from podserver.podworker.discovery import get_current_network_links
+from podworker.discovery import get_current_network_links
 from podworker.discovery import listen_local_network_links_tables
+
+from podworker.cdn_keys import upload_content_keys
 
 from podworker.datastore_maintenance import backup_datastore
 from podworker.datastore_maintenance import database_maintenance
@@ -102,8 +104,7 @@ async def main(argv) -> None:
     await setup_recurring_tasks(server, youtube_import_service_id)
 
     listeners: dict[UUID, UpdateListenerMember] = await run_startup_tasks(
-        server, server.data_store, youtube_import_service_id,
-        twitter_import_service_id
+        server, youtube_import_service_id, twitter_import_service_id
     )
 
     task_group: TaskGroup
@@ -126,8 +127,7 @@ async def main(argv) -> None:
                 _LOGGER.exception(f'Exception during run_pending: {exc}')
 
 
-async def run_startup_tasks(server: PodServer, data_store: DataStore,
-                            youtube_import_service_id: int,
+async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
                             twitter_import_service_id: int
                             ) -> list[UpdateListenerMember]:
     '''
@@ -142,14 +142,15 @@ async def run_startup_tasks(server: PodServer, data_store: DataStore,
     _LOGGER.debug('Running pod_worker startup tasks')
 
     account: Account = server.account
+    data_store: DataStore = server.data_store
+
     server.twitter_client = None
 
     updates_listeners: dict[UUID, UpdateListenerMember] = \
         await get_current_network_links(account, data_store)
 
-    await run_youtube_startup_tasks(
-        account, data_store, youtube_import_service_id
-    )
+    await upload_content_keys(server)
+    await run_youtube_startup_tasks(server, youtube_import_service_id)
 
     await run_twitter_startup_tasks(server, account, twitter_import_service_id)
 
@@ -166,6 +167,9 @@ async def setup_recurring_tasks(server: PodServer,
     every(1).minutes.do(
         account.update_memberships, data_store, cache_store, False
     )
+
+    _LOGGER.debug('Scheduling to upload content keys')
+    every(1).hour.do(upload_content_keys, server)
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
     every(10).minutes.do(database_maintenance, server)

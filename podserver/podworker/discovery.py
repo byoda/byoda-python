@@ -38,6 +38,7 @@ from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.util.logger import Logger
 
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -79,7 +80,7 @@ async def get_current_network_links(account: Account, data_store: DataStore
                 schema.data_classes[listen_relation.class_name]
             dest_class_name: str = listen_relation.destination_class
 
-            # BUG: we currently support only one listen relartion per service
+            # BUG: we currently support only one listen relation per service
             # otherwise we need have a dict
             # listeners[remote_member_id][source_class][dest_class]
             member_listeners: dict[UUID, UpdateListenerMember] = \
@@ -131,7 +132,7 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
     link: ResultData
     for link in network_links:
         try:
-            remote_member_id = link.get('member_id')
+            remote_member_id: UUID = link.get('member_id')
             if not isinstance(remote_member_id, UUID):
                 remote_member_id = UUID(remote_member_id)
         except (TypeError, ValueError) as exc:
@@ -143,9 +144,12 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
             continue
 
         if remote_member_id not in listeners:
-            listener = await UpdateListenerMember.setup(
-                listen_class, member, remote_member_id, dest_class_name,
+            listener: UpdateListenerMember = await UpdateListenerMember.setup(
+                listen_class.name, member, remote_member_id, dest_class_name,
             )
+            if config.debug:
+                # In debug mode we get all assets from the pods we follow
+                await listener.get_all_data()
 
             listeners[listener.remote_member_id] = listener
 

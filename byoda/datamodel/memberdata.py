@@ -40,12 +40,13 @@ from opentelemetry.sdk.trace import Tracer
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
+
+from byoda.datamodel.table import Table
 from byoda.datamodel.table import ResultData
 from byoda.datamodel.table import QueryResult
 
 from byoda.datamodel.data_proxy import DataProxy
 
-from byoda.datamodel.table import Table
 
 from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataMutateMessage
@@ -531,7 +532,6 @@ class MemberData(dict):
 
         # We ask for 'query.first + 1) as we want to know if there are
         # more items available for pagination
-        # TODO: figure out a way to return metadata for the retrieved data
         with TRACER.start_as_current_span('MemberData.get from store'):
             if data_class.cache_only:
                 cache_store: CacheStore = server.cache_store

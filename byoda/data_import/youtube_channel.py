@@ -130,7 +130,8 @@ class YouTubeChannel:
                     'Chrome/112.0.0.0 Safari/537.36'
                 )
             }
-            async with AsyncHttpClient(headers=headers) as client:
+            async with AsyncHttpClient(headers=headers, follow_redirects=True
+                                       ) as client:
                 url: str = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
                     channel_name=self.name.lstrip('@')
                 ).replace(' ', '')
