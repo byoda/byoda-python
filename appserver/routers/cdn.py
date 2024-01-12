@@ -1,5 +1,5 @@
 '''
-/data API
+CDN App server /content_keys API API
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
@@ -8,7 +8,6 @@
 
 import os
 
-from uuid import UUID
 from logging import getLogger
 from byoda.util.logger import Logger
 from datetime import datetime

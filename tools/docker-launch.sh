@@ -14,7 +14,10 @@ if [ -z "${TAG}" ]; then
             if [ "$?" -eq "1" ]; then
                 export TAG=dev
             fi
+        else
+            export TAG=latest
         fi
+    export TAG=latest
     fi
 fi
 
