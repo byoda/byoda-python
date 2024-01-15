@@ -28,10 +28,10 @@ from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
-NGINX_SITE_CONFIG_DIR: str = '/etc/nginx/conf.d'
-NGINX_PID_FILE: str = '/run/nginx.pid'
+ANGIE_SITE_CONFIG_DIR: str = '/etc/angie/conf.d'
+ANGIE_PID_FILE: str = '/run/angie.pid'
 
-HTACCESS_FILE: str = '/etc/nginx/htaccess.db'
+HTACCESS_FILE: str = '/etc/angie/htaccess.db'
 
 
 class TargetConfig(ABC):
@@ -54,7 +54,7 @@ class TargetConfig(ABC):
         return NotImplementedError
 
 
-class NginxConfig(TargetConfig):
+class AngieConfig(TargetConfig):
     def __init__(self, directory: str, filename: str, identifier: UUID,
                  subdomain: str, cert_filepath: str, key_filepath: str,
                  alias: str, network: str, public_cloud_endpoint: str,
@@ -64,7 +64,7 @@ class NginxConfig(TargetConfig):
                  shared_webserver: bool = False, public_bucket: str = None,
                  restricted_bucket: str = None, private_bucket: str = None):
         '''
-        Manages nginx configuration files for virtual servers
+        Manages angie configuration files for virtual servers
 
         :param identifier: either the account_id or the member_id
         :param subdomain: subdomain of the CN for the cert
@@ -72,9 +72,9 @@ class NginxConfig(TargetConfig):
         :param key_filepath: location of the unencrypted private key
         :param alias: alias for the account or membership
         :param network: name of the joined network
-        :param directory: location of the template and final nginx
+        :param directory: location of the template and final angie
         configuration file
-        :param filename: name of the nginx configuration file to be
+        :param filename: name of the angie configuration file to be
         created
         :param public_cloud_endpoint: URL for the endpoint of the
         public bucket
@@ -84,8 +84,8 @@ class NginxConfig(TargetConfig):
         private bucket
         :param service_id: service ID for the membership, if applicable
         :param custom_domain: a custom domain to use for the virtual server
-        :param shared_webserver: set to False if the nginx service is only
-        used for the podserver, set to True if an nginx server outside
+        :param shared_webserver: set to False if the angie service is only
+        used for the podserver, set to True if an angie server outside
         of the pod is used.
         :param public_bucket: the FQDN for the AWS/GCP bucket or Azure storage
         :param restricted_bucket: the FQDN for the AWS/GCP bucket or Azure
@@ -125,14 +125,14 @@ class NginxConfig(TargetConfig):
 
     def exists(self) -> bool:
         '''
-        Does the Nginx configuration file already exist?
+        Does the Angie configuration file already exist?
         '''
 
         return os.path.exists(self.config_filepath)
 
     def create(self, htaccess_password: str = 'byoda'):
         '''
-        Creates the nginx virtual server configuration file. Also
+        Creates the angie virtual server configuration file. Also
         creates a 'htaccess' file that restricts access to the
         /logs folder on the virtual server. The username is the first
         substring of the identifier, up to but not including the first
@@ -188,31 +188,31 @@ class NginxConfig(TargetConfig):
 
     def reload(self):
         '''
-        Reload the nginx process, if it is running
+        Reload the angie process, if it is running
         '''
 
         server: PodServer = config.server
 
         try:
-            with open(NGINX_PID_FILE) as file_desc:
+            with open(ANGIE_PID_FILE) as file_desc:
                 try:
                     pid = int(file_desc.readline().strip())
                     os.kill(pid, signal.SIGHUP)
                     _LOGGER.debug(
-                        'Sent SIGHUP to nginx process with pid %s', pid
+                        'Sent SIGHUP to angie process with pid %s', pid
                     )
                 except ValueError:
-                    # No valid value in pid file means that nginx is not
+                    # No valid value in pid file means that angie is not
                     # running, which can happen on a dev workstation
-                    _LOGGER.warning('Could not find pid of nginx process')
+                    _LOGGER.warning('Could not find pid of angie process')
 
         except FileNotFoundError:
             if not server.shared_webserver:
                 _LOGGER.debug(
-                    'Unable to read NGINX pid file: %s', NGINX_PID_FILE
+                    'Unable to read ANGIE pid file: %s', ANGIE_PID_FILE
                 )
             else:
                 _LOGGER.debug(
-                    'Not reloading nginx because we are behind a shared '
+                    'Not reloading angie because we are behind a shared '
                     'webserver'
                 )

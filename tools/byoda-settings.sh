@@ -69,11 +69,11 @@ export TWITTER_USERNAME=
 # 'Certificates and browsers' in the README.md file.
 export CUSTOM_DOMAIN=
 
-# To install the pod on a (physical) server that already has nginx running,
+# To install the pod on a (physical) server that already has angie running,
 # set the SHARED_WEBSERVER variable to 'SHARED_WEBSERVER'
 export SHARED_WEBSERVER=
 
-# To install the pod on a (physical) server that already has nginx running,
+# To install the pod on a (physical) server that already has angie running,
 # and listens to port 80, and you want to use a CUSTOM_DOMAIN, unset the
 # MANAGE_CUSTOM_DOMAIN_CERT variable
 export MANAGE_CUSTOM_DOMAIN_CERT="MANAGE_CUSTOM_DOMAIN_CERT"

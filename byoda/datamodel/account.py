@@ -545,7 +545,7 @@ class Account:
         await member.create_query_cache()
         await member.create_counter_cache()
 
-        await member.create_nginx_config()
+        await member.create_angie_config()
 
         if with_reload:
             reload_gunicorn()

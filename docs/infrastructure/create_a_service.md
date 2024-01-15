@@ -4,13 +4,13 @@ There are 4 phases/steps to set up a service
 
 ## 1: Install required software
 
-Install nginx as reverse proxy as per the [instructions of F5/Nginx](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/)
+Install angie as reverse proxy as per the [instructions of F5/Angie](https://docs.angie.com/angie/admin-guide/installing-angie/installing-angie-open-source/)
 
-Then install the nginx.conf file
+Then install the angie.conf file
 
 ```bash
-sudo cp docs/files/nginx-service.conf /etc/nginx/nginx.conf
-sudo nginx -s reload
+sudo cp docs/files/angie-service.conf /etc/angie/angie.conf
+sudo angie -s reload
 ```
 
 Services typically need to store data about their members. With Byoda, services are not allowed to persist data (with just a very few exceptions) about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
@@ -274,7 +274,7 @@ export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
 pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
 # Set file ownership of the unencrypted private key to the user/group used
-# by nginx so it can read the private key
+# by angie so it can read the private key
 sudo chown www-data:www-data /var/tmp/service-${SERVICE_ID}.key
 ```
 
@@ -295,16 +295,16 @@ docker run -d   --name byoda-service \
     -v ${BYODA_HOME}/byoda-python/config.yml:${BYODA_HOME}/byoda-python/config.yml \
     byoda/byoda-service:latest
 
-NGINX_USER=www-data
+ANGIE_USER=www-data
 mkdir -p ${SERVICE_DIR}/network-${BYODA_DOMAIN}/account-pod
-sudo chown -R ${NGINX_USER}:${NGINX_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
+sudo chown -R ${ANGIE_USER}:${ANGIE_USER} ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services,account-pod}
 if [ -f /var/tmp/service-${SERVICE_ID}.key ]; then
-    sudo chown ${NGINX_USER}:${NGINX_USER} /var/tmp/service-${SERVICE_ID}.key
+    sudo chown ${ANGIE_USER}:${ANGIE_USER} /var/tmp/service-${SERVICE_ID}.key
 fi
 ```
 
-The service daemon will create an Nginx configuration file under /etc/nginx/conf.d
-and make nginx load that new configuration.
+The service daemon will create an Angie configuration file under /etc/angie/conf.d
+and make angie load that new configuration.
 
 To test the service certificate signed by the root CA of the network, you can use openssl and/or curl:
 

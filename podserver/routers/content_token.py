@@ -34,7 +34,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 router = APIRouter(prefix='/api/v1/pod/content', dependencies=[])
 
-# This HTTP header is set by the auth_request processing config of the nginx
+# This HTTP header is set by the auth_request processing config of the angie
 # server
 ORIGNAL_URL_HEADER = 'original-url'
 
@@ -54,7 +54,7 @@ async def get_asset(request: Request, service_id: int = None,
                     member_id: UUID = None, asset_id: UUID = None):
 
     '''
-    This is an internal API called by a sub-request in nginx. It is
+    This is an internal API called by a sub-request in angie. It is
     not accessible externally
     '''
 

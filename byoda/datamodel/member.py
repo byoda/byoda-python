@@ -53,8 +53,8 @@ from byoda.util.paths import Paths
 
 from byoda.util.fastapi import update_cors_origins
 
-from byoda.util.nginxconfig import NginxConfig
-from byoda.util.nginxconfig import NGINX_SITE_CONFIG_DIR
+from byoda.util.angieconfig import AngieConfig
+from byoda.util.angieconfig import ANGIE_SITE_CONFIG_DIR
 
 from byoda.util.logger import Logger
 
@@ -406,9 +406,9 @@ class Member:
         _LOGGER.debug('Creating counter cache for membership')
         self.counter_cache = await CounterCache.create(self)
 
-    async def create_nginx_config(self) -> None:
+    async def create_angie_config(self) -> None:
         '''
-        Generates the Nginx virtual server configuration for
+        Generates the Angie virtual server configuration for
         the membership
         '''
 
@@ -418,8 +418,8 @@ class Member:
         server: PodServer = config.server
         cloud: str = server.cloud.value
 
-        nginx_config = NginxConfig(
-            directory=NGINX_SITE_CONFIG_DIR,
+        angie_config = AngieConfig(
+            directory=ANGIE_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
             identifier=self.member_id,
             subdomain=f'{IdType.MEMBER.value}{self.service_id}',
@@ -455,8 +455,8 @@ class Member:
             ),
         )
 
-        nginx_config.create()
-        nginx_config.reload()
+        angie_config.create()
+        angie_config.reload()
 
     def update_schema(self, version: int) -> None:
         '''
@@ -729,7 +729,7 @@ class Member:
     async def load_service_cacert(self) -> None:
         '''
         Downloads the Service CA cert and writes it to local
-        storage for us by the nginx configuration for the membership
+        storage for us by the angie configuration for the membership
         '''
 
         server: Server = config.server
@@ -752,7 +752,7 @@ class Member:
 
         # The downloaded cert downloaded here is the complete certchain from
         # the Service CA to the root CA, including the self-signed root CA
-        # cert. The file is hosted by the nginx configuration for the
+        # cert. The file is hosted by the angie configuration for the
         # Service server, in the 'ssl_client_certificate' directive.
         resp: HttpResponse = await ApiClient.call(
             Paths.SERVICE_CACERT_DOWNLOAD,

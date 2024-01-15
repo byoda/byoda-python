@@ -58,7 +58,7 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
-from byoda.util.nginxconfig import NginxConfig, NGINX_SITE_CONFIG_DIR
+from byoda.util.angieconfig import AngieConfig, ANGIE_SITE_CONFIG_DIR
 
 from byoda.util.logger import Logger
 
@@ -168,8 +168,8 @@ async def main(argv) -> None:
         server.custom_domain = data['custom_domain']
         server.shared_webserver = data['shared_webserver']
 
-        nginx_config = NginxConfig(
-            directory=NGINX_SITE_CONFIG_DIR,
+        angie_config = AngieConfig(
+            directory=ANGIE_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
             identifier=data['account_id'],
             subdomain=IdType.ACCOUNT.value,
@@ -205,8 +205,8 @@ async def main(argv) -> None:
             ),
         )
 
-        nginx_config.create(htaccess_password=account.password)
-        nginx_config.reload()
+        angie_config.create(htaccess_password=account.password)
+        angie_config.reload()
 
         await account.load_memberships()
 
@@ -221,7 +221,7 @@ async def main(argv) -> None:
                 storage_driver=server.local_storage
             )
             await member.update_registration()
-            await member.create_nginx_config()
+            await member.create_angie_config()
 
     except Exception:
         _LOGGER.exception('Exception during startup')

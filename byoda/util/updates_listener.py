@@ -501,7 +501,7 @@ class UpdateListenerMember(UpdatesListener):
         }
 
         # We set 'internal-True', which means this API call will
-        # bypass the nginx proxy and directly go to http://localhost:8000/
+        # bypass the angie proxy and directly go to http://localhost:8000/
         query_id: UUID = uuid4()
         try:
             resp: HttpResponse = await DataApiClient.call(

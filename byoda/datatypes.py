@@ -26,7 +26,7 @@ DATA_WS_API_INTERNAL_URL: str = \
     'ws://127.0.0.1:{port}/api/v1/data/{service_id}/{class_name}/{action}'
 
 # FastAPI has a bug where the websocket app needs to be under the same path
-# as te HTTP app, otherwise it will return a 403. In the nginx configuration,
+# as te HTTP app, otherwise it will return a 403. In the angie configuration,
 # we map incoming websocket requests for /vs-api/ to /api/ to work around this
 # FastAPI bug.
 DATA_API_PROXY_URL: str = \
@@ -48,7 +48,7 @@ MARKER_ACCESS_CONTROL: str = '#accesscontrol'
 # How many records should a Data query return by default
 DEFAULT_QUERY_SIZE: int = 40
 
-# Where the pod stores the decrypted ssl key so that nginx can access it
+# Where the pod stores the decrypted ssl key so that angie can access it
 TEMP_SSL_DIR: str = '/var/tmp/ssl'
 
 # This is the API path used by the CDN App server
@@ -187,7 +187,7 @@ class StorageType(Enum):
 
 
 # ContentType is used by cloud storage drivers to specify the content type
-# For local storage, nginx takes care of setting the content type
+# For local storage, angie takes care of setting the content type
 ContentTypes: dict[str, str] = {
     '.mpd': 'application/dash+xml',
     '.m3u8': 'application/vnd.apple.mpegurl',
@@ -281,9 +281,9 @@ class SearchType(Enum):
 
 class TlsStatus(str, Enum):
     '''
-    TLS status as reported by nginx variable 'ssl_client_verify':
-    http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
-    Nginx ssl_verify_client is configured for 'optional' or 'on'. M-TLS client
+    TLS status as reported by angie variable 'ssl_client_verify':
+    http://angie.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_verify
+    Angie ssl_verify_client is configured for 'optional' or 'on'. M-TLS client
     certs must always be signed as we do not configure 'optional_no_ca' so
     'FAILED' requests should never make it to the application service
     '''

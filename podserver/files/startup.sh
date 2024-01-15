@@ -65,13 +65,13 @@ if [[ "$?" != "0" ]]; then
     FAILURE=1
 fi
 
-# Start nginx first
+# Start angie first
 if [[ -z "${FAILURE}" && -z "${SHARED_WEBSERVER}" ]]; then
-    nginx
+    /usr/sbin/angie
 fi
 
 if [[ "$?" != "0" ]]; then
-    echo "{\"error\": \"Nginx failed to start\"}"
+    echo "{\"error\": \"Angie failed to start\"}"
     FAILURE=1
 fi
 

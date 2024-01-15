@@ -142,7 +142,7 @@ class MemberSecret(Secret):
 
     def save_tmp_private_key(self) -> str:
         '''
-        Save the private key for the MemberSecret so nginx and the python
+        Save the private key for the MemberSecret so angie and the python
         requests module can use it.
         '''
         return super().save_tmp_private_key(

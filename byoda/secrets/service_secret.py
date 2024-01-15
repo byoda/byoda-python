@@ -128,7 +128,7 @@ class ServiceSecret(Secret):
 
     def save_tmp_private_key(self):
         '''
-        Save the private key for the ServiceSecret so nginx and the python
+        Save the private key for the ServiceSecret so angie and the python
         requests module can use it.
         '''
         return super().save_tmp_private_key(
