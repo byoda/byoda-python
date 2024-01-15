@@ -64,7 +64,7 @@ echo ""
 echo "Custom domain                     : ${CUSTOM_DOMAIN}"
 echo "Account page                      : ${HOME_PAGE}/"
 echo "OpenAPI redoc                     : ${HOME_PAGE}/redoc"
-echo "POD logs                          : ${HOME_PAGE}/logs/{pod[worker].log,nginx-access.log,nginx-error.log}"
+echo "POD logs                          : ${HOME_PAGE}/logs/{pod[worker].log,angie-access.log,angie-error.log}"
 
 # The byo.tube service
 export SERVICE_BYOTUBE_ID=16384

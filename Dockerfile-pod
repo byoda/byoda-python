@@ -4,14 +4,14 @@ FROM byoda/byoda-python-web:$TAG
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 ###
-### nginx bits
+### angie bits
 ###
 COPY podserver/files/robots.txt /var/www/wwwroot/
-COPY podserver/files/nginx.conf /etc/nginx/
-COPY podserver/files/virtualserver.conf.jinja2 /etc/nginx/conf.d/
+COPY podserver/files/angie.conf /etc/angie/
+COPY podserver/files/virtualserver.conf.jinja2 /etc/angie/conf.d/
 
-# Location of htaccess file defined in byoda-python:podserver/bootstrap/nginxconfig.py
-RUN touch /etc/nginx/htaccess.db
+# Location of htaccess file defined in byoda-python:podserver/bootstrap/angieconfig.py
+RUN touch /etc/angie/htaccess.db
 
 
 COPY podserver/files/config.yml byoda-python/

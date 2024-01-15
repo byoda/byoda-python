@@ -120,7 +120,7 @@ class AppSecret(Secret):
 
     def save_tmp_private_key(self):
         '''
-        Save the private key for the AppSecret so nginx and the python
+        Save the private key for the AppSecret so angie and the python
         requests module can use it.
         '''
         return super().save_tmp_private_key(

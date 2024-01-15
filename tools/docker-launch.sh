@@ -4,7 +4,28 @@
 ### Pick up local settings for this byoda pod
 ###
 echo "Loading settings from byoda-settings.sh"
-source /home/ubuntu/byoda-settings.sh
+
+# Do not use $HOME or ~ as this script is run by cloud-init
+# under the root account
+if [ ! -d /home/azureuser ]; then
+    export HOME_DIR="/home/ubuntu"
+else
+    # We are running on azure.byoda.me
+    export HOME_DIR="/home/azureuser"
+fi
+
+if [ -f ${HOME_DIR}/byoda-settings.sh ]; then
+    echo "Loading settings from ${HOME_DIR}/byoda-settings.sh"
+    source ${HOME_DIR}/byoda-settings.sh
+fi
+if [ -f  ${HOME_DIR}/byoda-user-settings ]; then
+    echo "Loading settings from ${HOME_DIR}/byoda-user-settings.sh"
+    source ${HOME_DIR}/byoda-user-settings.sh
+fi
+if [ -f  ${HOME_DIR}/byoda-generic-settings ]; then
+    echo "Loading settings from ${HOME_DIR}/byoda-generic-settings.sh"
+    source ${HOME_DIR}/byoda-generic-settings.sh
+fi
 
 if [ -z "${TAG}" ]; then
     if [ -d ".git" ]; then
@@ -116,15 +137,20 @@ if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     export WWWROOT_VOLUME_MOUNT="-v ${LOCAL_WWWROOT_DIRECTORY}:/var/www/wwwroot"
 fi
 
+if [ -z "${LOGDIR}" ]; then
+    echo LOGDIR variable is not set
+    exit 1
+fi
+
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     echo "Wiping logs: ${LOGDIR}/*.log"
     sudo rm -f ${LOGDIR}/*.log
 fi
 
-export NGINXCONF_VOLUME_MOUNT=""
+export ANGIECONF_VOLUME_MOUNT=""
 if [[ "${SHARED_WEBSERVER}" == "SHARED_WEBSERVER" ]]; then
     echo "Running on a shared webserver"
-    export NGINXCONF_VOLUME_MOUNT="-v /etc/nginx/conf.d:/etc/nginx/conf.d -v /tmp:/tmp"
+    export ANGIECONF_VOLUME_MOUNT="-v /etc/angie/conf.d:/etc/angie/conf.d"
     if [[ ! -z "${CUSTOM_DOMAIN}" && "${MANAGE_CUSTOM_DOMAIN_CERT}" == "MANAGE_CUSTOM_DOMAIN_CERT" ]]; then
         echo "Using custom domain: ${CUSTOM_DOMAIN}"
         export PORT_MAPPINGS="-p 8000:8000 -p 80:80"
@@ -417,6 +443,6 @@ sudo docker run -d --memory=800m \
     -v ${LOGDIR}:${LOGDIR} \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
-    ${NGINXCONF_VOLUME_MOUNT} \
+    ${ANGIECONF_VOLUME_MOUNT} \
     --ulimit nofile=65536:65536 \
     byoda/byoda-pod:${TAG}

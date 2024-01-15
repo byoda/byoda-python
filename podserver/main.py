@@ -4,7 +4,7 @@ POD server for Bring Your Own Data and Algorithms
 The podserver relies on podserver/bootstrap.py to set up
 the account, its secrets, restoring the database files
 from the cloud storage, registering the pod and creating
-the nginx configuration files for the account and for
+the angie configuration files for the account and for
 existing memberships.
 
 Suported environment variables:

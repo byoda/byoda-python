@@ -64,7 +64,7 @@ class Server:
         # their browsers
         self.custom_domain: str | None = None
 
-        # The POD will manage the nginx process if it is not running
+        # The POD will manage the angie process if it is not running
         # on a shared webserver
         self.shared_webserver: bool = False
 

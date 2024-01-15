@@ -778,13 +778,13 @@ class Secret:
     def save_tmp_private_key(self, filepath: str) -> str:
         '''
         Create an unencrypted copy of the key to the /tmp directory
-        so both the requests library and nginx can read it
+        so both the requests library and angie can read it
 
         :returns: filename to which the key was saved
         :raises: (none)
         '''
 
-        # private key is used both by nginx server and requests client
+        # private key is used both by angie server and requests client
 
         _LOGGER.debug('Saving private key to %s', filepath)
 

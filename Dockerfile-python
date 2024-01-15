@@ -10,12 +10,11 @@ ENV LANG=C.UTF-8
 WORKDIR /podserver
 
 ###
-### Byoda, nginx bits
+### Byoda, angie bits
 ###
 RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
-    /var/log/byoda \
     byoda-python \
     /opt/byoda/byoda-python
 

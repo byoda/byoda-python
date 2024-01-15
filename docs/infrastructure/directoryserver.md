@@ -225,16 +225,16 @@ docker run -d   --name byoda-directory \
 
 
 
-We install nginx as reverse proxy in for the directory server:
+We install angie as reverse proxy in for the directory server:
 ```
-sudo apt install nginx
-sudo rm -f /etc/nginx/conf.d/default.conf
-sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-nginx-virtualserver.conf /etc/nginx/conf.d/default.conf
+sudo apt install angie
+sudo rm -f /etc/angie/conf.d/default.conf
+sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-angie-virtualserver.conf /etc/angie/conf.d/default.conf
 
-sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/nginx/conf.d/default.conf
-sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/nginx/conf.d/default.conf
+sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/angie/conf.d/default.conf
+sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/angie/conf.d/default.conf
 ```
-Now nginx is installed we can set the file permissions to user 'www-data'
+Now angie is installed we can set the file permissions to user 'www-data'
 
 ```
 sudo chmod 555 ${ROOT_DIR}/private
@@ -244,18 +244,18 @@ sudo chown -R www-data ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
 sudo chmod 755 ${ROOT_DIR}/network-${BYODA_DOMAIN}/services
 ```
 
-You can't start NGINX just yet as the directory server must have a trusted TLS cert/key. Set up a [Let's Encrypt](https://www.letsencrypt.org) install on the directory server. Please follow the instructions from Let's Encrypt on how to do this. I recommend adding a virtual server to nginx for HTTP on port 80 for web-based verification of ownership of your domain and installing a cronjob to renew the cert/key periodically.
+You can't start ANGIE just yet as the directory server must have a trusted TLS cert/key. Set up a [Let's Encrypt](https://www.letsencrypt.org) install on the directory server. Please follow the instructions from Let's Encrypt on how to do this. I recommend adding a virtual server to angie for HTTP on port 80 for web-based verification of ownership of your domain and installing a cronjob to renew the cert/key periodically.
 
-Now we just have to start nginx and the directory server
+Now we just have to start angie and the directory server
 
 ```
-sudo systemctl start dirserver nginx
+sudo systemctl start dirserver angie
 ```
 
 It is necessary to run a reverse proxy to support browser clients. Browsers do not use the root CA cert of the Byoda network so will refuse to connect to the pod directly. The convention is that clients can connect to:
 https://proxy.<network-domain>/<service_id>/<member_id> to connect to the pod.
 
-You will need to request an SSL certificate for 'proxy.<network-domain>'. Nginx can be used as a reverse proxy with the following virtual server configuration:
+You will need to request an SSL certificate for 'proxy.<network-domain>'. Angie can be used as a reverse proxy with the following virtual server configuration:
 ```
 server {
     listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;

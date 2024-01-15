@@ -95,7 +95,7 @@ class RequestAuth:
         X-Client-SSL-Cert
         X-Forwarded-For
 
-    With nginx this can be achieved by:
+    With angie this can be achieved by:
         listen 443 ssl;
         ssl_certificate_key /path/to/unencrypted/private.key;
         ssl_certificate  /path/to/fullchain.pem;
@@ -111,7 +111,7 @@ class RequestAuth:
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
     The uvicorn server must be run with the '--proxy-headers' setting
-    to parse the X-Forwarded-For header set by nginx and present it
+    to parse the X-Forwarded-For header set by angie and present it
     to the web application as client IP
     '''
 
