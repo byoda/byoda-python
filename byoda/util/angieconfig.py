@@ -14,11 +14,8 @@ from logging import getLogger
 from byoda.util.logger import Logger
 from abc import ABC
 from abc import abstractmethod
-from htpasswd.basic import UserExists
 
 from jinja2 import Template
-
-import htpasswd
 
 from byoda.datatypes import IdType
 
@@ -30,8 +27,6 @@ _LOGGER: Logger = getLogger(__name__)
 
 ANGIE_SITE_CONFIG_DIR: str = '/etc/angie/conf.d'
 ANGIE_PID_FILE: str = '/run/angie.pid'
-
-HTACCESS_FILE: str = '/etc/angie/htaccess.db'
 
 
 class TargetConfig(ABC):
@@ -130,16 +125,18 @@ class AngieConfig(TargetConfig):
 
         return os.path.exists(self.config_filepath)
 
-    def create(self, htaccess_password: str = 'byoda'):
+    def create(self) -> None:
         '''
-        Creates the angie virtual server configuration file. Also
-        creates a 'htaccess' file that restricts access to the
-        /logs folder on the virtual server. The username is the first
+        Creates the angie virtual server configuration file.
+        The username is the first
         substring of the identifier, up to but not including the first
         '-'.
         '''
 
-        _LOGGER.debug('Rendering template %s', self.template_filepath)
+        _LOGGER.debug(
+            f'Rendering template {self.template_filepath} '
+            f'to {self.config_filepath}'
+        )
         try:
             with open(self.template_filepath) as file_desc:
                 templ = Template(file_desc.read())
@@ -148,7 +145,7 @@ class AngieConfig(TargetConfig):
             with open(filepath) as file_desc:
                 templ = Template(file_desc.read())
 
-        output = templ.render(
+        output: str = templ.render(
             identifier=str(self.identifier),
             subdomain=self.subdomain,
             cert_filepath=self.cert_filepath,
@@ -169,24 +166,13 @@ class AngieConfig(TargetConfig):
             private_bucket=self.private_bucket,
         )
 
+        _LOGGER.debug(
+            f'Writing angie configuration file {self.config_filepath}'
+        )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
 
-        if self.subdomain == IdType.ACCOUNT.value:
-            # We also create a htpasswd file
-            if not os.path.exists(HTACCESS_FILE):
-                # Create an empty HTACCESS file
-                open(HTACCESS_FILE, 'w')
-
-            with htpasswd.Basic(HTACCESS_FILE, mode='md5') as userdb:
-                try:
-                    username = self.identifier.split('-')[0]
-                    userdb.add(username, htaccess_password)
-                except UserExists:
-                    pass
-            _LOGGER.debug('Created htaccess.db file')
-
-    def reload(self):
+    def reload(self) -> None:
         '''
         Reload the angie process, if it is running
         '''

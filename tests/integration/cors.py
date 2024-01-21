@@ -33,10 +33,11 @@ class TestCors(unittest.TestCase):
             _LOGGER.debug(f'Testing cloud: {cloud}')
 
             if cloud != 'home':
-                direct_account_fqdn = f'{ids["account_id"]}.accounts.byoda.net'
+                direct_account_fqdn: str = \
+                    f'{ids["account_id"]}.accounts.byoda.net'
                 do_request(self, cloud, direct_account_fqdn)
 
-                direct_member_fqdn = (
+                direct_member_fqdn: str = (
                     f'{ids["member_id"]}.members-{ADDRESSBOOK_SERVICE_ID}'
                     '.byoda.net'
                 )
@@ -64,10 +65,10 @@ def do_request(testcase, cloud: str, fqdn: str, api_prefix: str = '/'):
 
     locations: list[str] = [
         f'https://{fqdn}',
-        f'https://www.byoda.net',
-        f'https://addressbook.byoda.org',
-        f'https://byoda.tube',
-        f'https://www.byoda.tube',
+        'https://www.byoda.net',
+        'https://addressbook.byoda.org',
+        'https://byoda.tube',
+        'https://www.byoda.tube',
         'http://localhost:3000'
     ]
 
@@ -76,8 +77,9 @@ def do_request(testcase, cloud: str, fqdn: str, api_prefix: str = '/'):
         do_location(testcase, cloud, fqdn, location, api_prefix)
 
 
-def do_location(testcase, cloud: str, fqdn: str, location: str, api_prefix: str):
-    url = f'https://{fqdn}{api_prefix}api/v1/status'
+def do_location(testcase, cloud: str, fqdn: str, location: str,
+                api_prefix: str) -> None:
+    url: str = f'https://{fqdn}{api_prefix}api/v1/status'
 
     request_headers = CaseInsensitiveDict()
     request_headers['Access-Control-Request-Method'] = 'POST'
@@ -88,7 +90,9 @@ def do_location(testcase, cloud: str, fqdn: str, location: str, api_prefix: str)
         f'Checking CORS headers in {cloud} cloud '
         f'for {url} with location {location}'
     )
-    resp = httpx.options(url, verify=False, headers=request_headers)
+    resp: httpx.Response = httpx.options(
+        url, verify=False, headers=request_headers
+    )
     testcase.assertEqual(resp.status_code, 200)
 
     testcase.assertEqual(
@@ -100,6 +104,9 @@ def do_location(testcase, cloud: str, fqdn: str, location: str, api_prefix: str)
     testcase.assertEqual(
         resp.headers['access-control-allow-credentials'], 'true'
     )
+
+    # This test case passes only because we're testing against nginx/angie
+    # starlette.middleware.cors.CORSMiddleware doesn't return this header
     testcase.assertEqual(resp.headers['access-control-allow-origin'], location)
     testcase.assertEqual(
         resp.headers['access-control-allow-headers'], 'content-type'

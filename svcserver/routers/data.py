@@ -16,7 +16,6 @@ from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
-from byoda.datacache.asset_cache import AssetCacheItem
 
 from byoda.servers.service_server import ServiceServer
 
@@ -38,8 +37,8 @@ MAX_PAGE_SIZE: int = 100
 
 @router.get('/data', status_code=200)
 async def get_data(request: Request,
-                   list_name: str | None = AssetCache.ASSET_UPLOADED_LIST,
-                   first: int = DEFAULT_PAGING_SIZE, after: int = 0
+                   list_name: str | None = AssetCache.DEFAULT_ASSET_LIST,
+                   first: int = DEFAULT_PAGING_SIZE, after: str | None = None
                    ) -> QueryResponseModel:
     '''
     This API is called by pods
@@ -55,30 +54,23 @@ async def get_data(request: Request,
 
     first = min(first, MAX_PAGE_SIZE)
 
-    asset_items: list[AssetCacheItem] = await asset_cache.get_range(
-        list_name, after, first + 1
+    edges: list[EdgeResponse] = await asset_cache.get_list_assets(
+        list_name, after=after, first=first + 1
     )
 
-    end_cursor: str | None = None
     has_next_page: bool = False
-    if len(asset_items) > first:
-        end_cursor = asset_items[-1].cursor
-        asset_items = asset_items[:-1]
+    if len(edges) > first:
+        edges = edges[:-1]
         has_next_page = True
 
-    edges: list[EdgeResponse] = []
-    for item in asset_items:
-        edge = EdgeResponse(
-            node=item.node,
-            cursor=item.cursor or '',
-            origin=item.origin
-        )
-        edges.append(edge)
+    end_cursor = None
+    if edges and isinstance(edges, list) and len(edges) > 0:
+        end_cursor: str | None = edges[-1].cursor
 
     page = PageInfoResponse(has_next_page=has_next_page, end_cursor=end_cursor)
 
     return QueryResponseModel(
-        total_count=len(asset_items),
+        total_count=len(edges),
         edges=edges,
         page_info=page
     )

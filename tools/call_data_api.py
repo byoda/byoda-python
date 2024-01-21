@@ -46,6 +46,7 @@ from logging import getLogger
 from byoda import config
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import BYOTUBE_SERVICE_ID
 from tests.lib.defines import BASE_URL
 
 _LOGGER: Logger = getLogger('')
@@ -61,6 +62,7 @@ async def setup_network(test_dir: str | None) -> dict[str, str]:
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(uuid4())
+    os.environ['ACCOUNT_USERNAME'] = 'test@test.com'
     os.environ['ACCOUNT_SECRET'] = 'test'
     os.environ['LOGLEVEL'] = 'DEBUG'
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
@@ -91,21 +93,19 @@ async def setup_network(test_dir: str | None) -> dict[str, str]:
 
 
 async def get_jwt_header(id: UUID | str, base_url: str = BASE_URL,
-                         secret: str | None = None, member_token: bool = True
-                         ) -> dict[str, str]:
+                         service_id: int | None = BYOTUBE_SERVICE_ID,
+                         username: str | None = None,
+                         secret: str | None = None) -> dict[str, str]:
 
+    if not username:
+        username = os.environ.get('ACCOUNT_USERNAME', str(id)[:8])
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
-
-    if member_token:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
-    else:
-        service_id = None
 
     url: str = base_url + '/v1/pod/authtoken'
 
     data: dict[str, str] = {
-        'username': str(id)[:8],
+        'username': username,
         'password': secret,
         'service_id': service_id,
         'target_type': IdType.MEMBER.value,
@@ -139,7 +139,7 @@ async def main(argv: list[str]) -> None:
         '--network', '-n', type=str, default=config.DEFAULT_NETWORK
     )
     parser.add_argument(
-        '--service_id', '-s', type=str, default=ADDRESSBOOK_SERVICE_ID
+        '--service_id', '-s', type=str, default=BYOTUBE_SERVICE_ID
     )
     parser.add_argument(
         '--member_id', '-i', type=str, default=os.environ.get('MEMBER_ID')
@@ -221,8 +221,8 @@ async def main(argv: list[str]) -> None:
 
     if password:
         auth_header: dict[str, str] | None = await get_jwt_header(
-            member_id, base_url=base_url, secret=password,
-            member_token=True
+            member_id, service_id=args.service_id, base_url=base_url,
+            secret=password
         )
     else:
         auth_header = None

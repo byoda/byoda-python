@@ -391,7 +391,7 @@ class ApiClient:
         return resp
 
     @staticmethod
-    async def close_all():
+    async def close_all() -> None:
         '''
         Closes all AsyncHttpClient sessions to avoid warnings at the end of
         the calling program

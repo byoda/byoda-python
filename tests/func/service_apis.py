@@ -15,14 +15,13 @@ import sys
 import os
 import yaml
 import shutil
-import asyncio
 import unittest
-import httpx
 
-from uuid import uuid4
-from multiprocessing import Process
+from httpx import Response
+from httpx import AsyncClient
+from uuid import UUID
 
-import uvicorn
+from fastapi import FastAPI
 
 from cryptography.hazmat.primitives import serialization
 
@@ -30,11 +29,14 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.service import Service
+from byoda.secrets.membersca_secret import MembersCaSecret
 
 from byoda.storage.filestorage import FileStorage
 
 from byoda.secrets.secret import Secret
+from byoda.secrets.secret import CertChain
 from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.member_secret import CertificateSigningRequest
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.servers.service_server import ServiceServer
@@ -56,29 +58,31 @@ from tests.lib.util import get_test_uuid
 
 
 # Settings must match config.yml used by directory server
-TEST_DIR = '/tmp/byoda-tests/svc-apis'
-NETWORK = 'test.net'
-DUMMY_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
-SERVICE_ID = 12345678
+TEST_DIR: str = '/tmp/byoda-tests/svc-apis'
+NETWORK: str = 'test.net'
+DUMMY_SCHEMA: str = 'tests/collateral/dummy-unsigned-service-schema.json'
+SERVICE_ID: int = 12345678
 
-CONFIG_FILE = 'tests/collateral/config.yml'
-TEST_PORT = 8000
-BASE_URL = f'http://localhost:{TEST_PORT}/api'
+CONFIG_FILE: str = 'tests/collateral/config.yml'
+TEST_PORT: int = 8000
+BASE_URL: str = f'http://localhost:{TEST_PORT}/api'
+
+APP: FastAPI | None = None
 
 _LOGGER = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    PROCESS = None
-    APP_CONFIG = None
+    PROCESS: int | None = None
+    APP_CONFIG: dict[str, any] | None = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         with open(CONFIG_FILE) as file_desc:
             TestDirectoryApis.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
             )
 
-        app_config = TestDirectoryApis.APP_CONFIG
+        app_config: dict[str, any] = TestDirectoryApis.APP_CONFIG
 
         app_config['svcserver']['service_id'] = SERVICE_ID
         app_config['svcserver']['root_dir'] = TEST_DIR
@@ -90,20 +94,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        service_dir = (
+        service_dir: str = (
             f'{TEST_DIR}/network-'
             f'{app_config["application"]["network"]}'
             f'/services/service-{SERVICE_ID}'
         )
         os.makedirs(service_dir)
 
-        network = await Network.create(
+        network: Network = await Network.create(
             app_config['application']['network'],
             TEST_DIR,
             app_config['svcserver']['private_key_password']
         )
 
-        service_file = network.paths.get(
+        service_file: str = network.paths.get(
             Paths.SERVICE_FILE, service_id=SERVICE_ID
         )
 
@@ -120,7 +124,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             password=app_config['svcserver']['private_key_password']
         )
 
-        server = await ServiceServer.setup(network, app_config)
+        server: ServiceServer = await ServiceServer.setup(network, app_config)
         config.server: ServiceServer = server
 
         storage = FileStorage(app_config['svcserver']['root_dir'])
@@ -136,7 +140,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'TRACE_SERVER', config.trace_server
         )
 
-        app = setup_api(
+        global APP
+        APP = setup_api(
             'Byoda test svcserver', 'server for testing service APIs',
             'v0.0.1',
             [
@@ -149,29 +154,31 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             lifespan=None, trace_server=config.trace_server,
         )
 
-        TestDirectoryApis.PROCESS = Process(
-            target=uvicorn.run,
-            args=(app,),
-            kwargs={
-                'host': '0.0.0.0',
-                'port': TEST_PORT,
-                'log_level': 'debug'
-            },
-            daemon=True
-        )
-        TestDirectoryApis.PROCESS.start()
-        await asyncio.sleep(1)
+        # TestDirectoryApis.PROCESS = Process(
+        #     target=uvicorn.run,
+        #     args=(APP,),
+        #     kwargs={
+        #         'host': '0.0.0.0',
+        #         'port': TEST_PORT,
+        #         'log_level': 'debug'
+        #     },
+        #     daemon=True
+        # )
+        # TestDirectoryApis.PROCESS.start()
+        # await sleep(1)
 
     @classmethod
-    async def asyncTearDown(self):
-        TestDirectoryApis.PROCESS.terminate()
+    async def asyncTearDown(self) -> None:
+        # TestDirectoryApis.PROCESS.terminate()
+        pass
 
-    def test_service_get(self):
-        API = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
+    async def test_service_get(self) -> None:
+        API: str = BASE_URL + f'/v1/service/service/{SERVICE_ID}'
 
-        response = httpx.get(API, timeout=300)
+        async with AsyncClient(app=APP) as client:
+            response: Response = await client.get(API, timeout=300)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data: dict[str, any] = response.json()
         self.assertEqual(len(data), 12)
         self.assertEqual(data['service_id'], SERVICE_ID)
         self.assertEqual(data['version'], 1)
@@ -180,23 +187,25 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # self.assertEqual(len(data['signatures']), 2)
         Schema(data)           # noqa: F841
 
-    async def test_member_putpost(self):
-        API = BASE_URL + '/v1/service/member'
+    async def test_member_putpost(self) -> None:
+        API: str = BASE_URL + '/v1/service/member'
 
-        service = config.server.service
+        service: Service = config.server.service
 
-        member_id = uuid4()
+        member_id: UUID = get_test_uuid()
 
         # HACK: MemberSecret takes an Account instance as third parameter but
         # we use a Service instance instead
-        service.paths.account = 'pod'
-        secret = MemberSecret(member_id, SERVICE_ID, service)
+        pod_account = Account(get_test_uuid(), service.network)
+        secret = MemberSecret(member_id, SERVICE_ID, pod_account)
         csr = await secret.create_csr()
         csr = csr.public_bytes(serialization.Encoding.PEM)
 
-        response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=None, timeout=300
-        )
+        async with AsyncClient(app=APP) as client:
+            response: Response = await client.post(
+                API, json={'csr': str(csr, 'utf-8')}, headers=None,
+                timeout=300
+            )
         self.assertEqual(response.status_code, 201)
         data = response.json()
 
@@ -204,119 +213,57 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue('cert_chain' in data)
         self.assertTrue('service_data_cert_chain' in data)
 
-        signed_secret = MemberSecret(member_id, SERVICE_ID, service)
+        signed_secret = MemberSecret(
+            member_id, SERVICE_ID, paths=service.paths,
+            network_name=service.network.name
+        )
         signed_secret.from_string(
             data['signed_cert'], certchain=data['cert_chain']
         )
 
-        service_data_cert_chain = secret.from_string(       # noqa: F841
+        service_data_cert_chain: None = secret.from_string(       # noqa: F841
             data['service_data_cert_chain']
         )
 
-        membersecret_commonname = Secret.extract_commonname(signed_secret.cert)
-        memberscasecret_commonname = Secret.extract_commonname(
+        membersecret_commonname: str = Secret.extract_commonname(
+            signed_secret.cert
+        )
+        memberscasecret_commonname: str = Secret.extract_commonname(
             signed_secret.cert_chain[0]
         )
 
         # PUT, with auth
         # In the PUT body we put the member data secret as a service may
         # have use for it in the future.
-        pod_account = Account(uuid4(), service.network)
+        pod_account = Account(get_test_uuid(), service.network)
         member_data_secret = MemberDataSecret(
             member_id, SERVICE_ID, pod_account
         )
-        csr = await member_data_secret.create_csr()
-        cert_chain = service.members_ca.sign_csr(csr)
+        csr: CertificateSigningRequest = await member_data_secret.create_csr()
+        members_ca: MembersCaSecret = service.members_ca
+        cert_chain: CertChain = members_ca.sign_csr(csr)
         member_data_secret.from_signed_cert(cert_chain)
-        member_data_certchain = member_data_secret.certchain_as_pem()
+        member_data_certchain: str = member_data_secret.certchain_as_pem()
 
-        headers = {
+        headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
                 f'CN={membersecret_commonname}',
             'X-Client-SSL-Issuing-CA':
                 f'CN={memberscasecret_commonname}'
         }
-        response = httpx.put(
-            f'{API}/version/1', headers=headers,
-            json={'certchain': member_data_certchain},
-            timeout=300
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['ipv4_address'], '127.0.0.1')
-        self.assertEqual(data['ipv6_address'], None)
+        async with AsyncClient(app=APP) as client:
 
-        asset_id = str(get_test_uuid())
-        API = BASE_URL + '/v1/service/search/asset'
-        response = httpx.post(
-            API, headers=headers, json={
-                'hashtags': ['gaap'],
-                'mentions': ['blah'],
-                'nickname': None,
-                'text': None,
-                'asset_id': asset_id
-            },
-            timeout=300
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertTrue(
-            membersecret_commonname.startswith(data[0]['member_id'])
-        )
-        self.assertEqual(asset_id, data[0]['asset_id'])
+            response: Response = await client.put(
+                f'{API}/version/1', headers=headers,
+                json={'certchain': member_data_certchain},
+                timeout=300
+            )
 
-        # TODO: see how we can use json parameter with httpx.get()
-        import requests
-        response = requests.get(
-            API, headers=headers, json={
-                'mentions': ['blah']
-            },
-            timeout=300
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertGreaterEqual(len(data), 2)
-        self.assertTrue(
-            membersecret_commonname.startswith(data[-1]['member_id'])
-        )
-        self.assertEqual(asset_id, data[-1]['asset_id'])
-
-        response = requests.get(
-            API, headers=headers, json={
-                'mentions': ['blah']
-            }
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        total_items = len(data)
-
-        response = requests.delete(
-            API, headers=headers, json={
-                'hashtags': None,
-                'mentions': ['blah'],
-                'nickname': None,
-                'text': None,
-                'asset_id': asset_id
-            }
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertTrue(
-            membersecret_commonname.startswith(data[0]['member_id'])
-        )
-        self.assertEqual(asset_id, data[0]['asset_id'])
-
-        response = requests.get(
-            API, headers=headers, json={
-                'mentions': ['blah']
-            }
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), total_items - 1)
+            self.assertEqual(response.status_code, 200)
+            data: any = response.json()
+            self.assertEqual(data['ipv4_address'], '127.0.0.1')
+            self.assertEqual(data['ipv6_address'], None)
 
 
 if __name__ == '__main__':

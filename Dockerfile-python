@@ -7,10 +7,11 @@ LABEL org.opencontainers.image.authors="steven@byoda.org"
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
+
 WORKDIR /podserver
 
 ###
-### Byoda, angie bits
+### Byoda
 ###
 RUN mkdir -p \
     /var/log/byoda \
@@ -20,8 +21,6 @@ RUN mkdir -p \
 
 COPY ./Pipfile ./Pipfile.lock /opt/byoda/byoda-python/
 
-# BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
-# https://www.bento4.com/
 RUN apt-get update && apt-get install -y \
        ubuntu-keyring \
        curl \

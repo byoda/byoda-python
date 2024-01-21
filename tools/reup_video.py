@@ -16,7 +16,7 @@ from anyio import run
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_redis import KVRedis
-
+from byoda.datacache.asset_cache import AssetCache
 from byoda.util.logger import Logger
 
 from byoda import config
@@ -25,7 +25,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 _LOGGER: Logger = getLogger('')
 
-DEFAULT_LIST: str = 'recently_uploaded_assets'
+
 
 
 async def main(argv: list[str]):
@@ -40,7 +40,9 @@ async def main(argv: list[str]):
     parser.add_argument(
         '--redis', '-r', type=str, default='redis://localhost:6379'
     )
-    parser.add_argument('--list', '-l', type=str, default=DEFAULT_LIST)
+    parser.add_argument(
+        '--list', '-l', type=str, default=AssetCache.DEFAULT_ASSET_LIST
+    )
 
     args = parser.parse_args(argv[1:])
 

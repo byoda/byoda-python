@@ -14,17 +14,15 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
+from byoda.datamodel.config import ServerConfig
 
 from byoda.datastore.memberdb import MemberDb
-from byoda.datastore.searchdb import SearchDB
 
 from byoda.datacache.asset_cache import AssetCache
 
 from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.storage.filestorage import FileStorage
-
-from byoda.datacache.kv_cache import KVCache
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import IdType
@@ -47,7 +45,8 @@ ASSET_CLASS: str = 'public_assets'
 
 
 class ServiceServer(Server):
-    def __init__(self, network: Network, app_config: dict) -> None:
+    def __init__(self, network: Network, app_config: dict | ServerConfig
+                 ) -> None:
         '''
         Initiates a service server
 
@@ -62,9 +61,14 @@ class ServiceServer(Server):
 
         self.local_storage = network.paths.storage_driver
 
+        service_id: int
+        # HACK: svcworker has moved to ServerConfig
+        if isinstance(app_config, ServerConfig):
+            service_id = app_config.server_config['service_id']
+        else:
+            service_id = app_config['svcserver']['service_id']
         self.service = Service(
-            network=self.network,
-            service_id=app_config['svcserver']['service_id']
+            network=self.network, service_id=service_id
         )
 
         self.asset_cache: AssetCache | None = None
@@ -73,7 +77,8 @@ class ServiceServer(Server):
 
         _LOGGER.debug('Initialized service server')
 
-    async def setup(network: Network, app_config: dict) -> Self:
+    async def setup(network: Network, app_config: dict | ServerConfig
+                    ) -> Self:
         '''
         Sets up a service server with asychronous member_DB and search DB
 
@@ -86,11 +91,14 @@ class ServiceServer(Server):
         config.server: ServiceServer = self
         service: Service = self.service
 
-        connection_string: str = app_config['svcserver']['member_cache']
+        server_config: dict[str, any]
+        if isinstance(app_config, ServerConfig):
+            server_config = app_config.server_config
+        else:
+            server_config = app_config['svcserver']
+
+        connection_string: str = server_config['member_cache']
         _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
-        self.search_db: SearchDB = await SearchDB.setup(
-            connection_string, service
-        )
 
         self.member_db: MemberDb = await MemberDb.setup(
             connection_string, service.service_id, network.name
@@ -98,7 +106,8 @@ class ServiceServer(Server):
 
         return self
 
-    async def load_network_secrets(self, storage_driver: FileStorage = None) -> None:
+    async def load_network_secrets(self, storage_driver: FileStorage = None
+                                   ) -> None:
         await self.network.load_network_secrets(storage_driver=storage_driver)
 
     async def load_secrets(self, password: str) -> None:
@@ -143,15 +152,8 @@ class ServiceServer(Server):
         :raises: ValueError
         '''
 
-        if not self.service.schema:
-            raise ValueError(
-                'schema must be loaded before asset cache can be initialized'
-            )
-
         self.asset_cache: AssetCache = await AssetCache.setup(
-            connection_string, self.service,
-            asset_class=ASSET_CLASS,
-            expiration_window=KVCache.DEFAULT_CACHE_EXPIRATION
+            connection_string
         )
 
     async def review_jwt(self, jwt: JWT) -> None:

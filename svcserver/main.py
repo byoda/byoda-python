@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from byoda.util.fastapi import setup_api, update_cors_origins
+from byoda.util.fastapi import setup_api
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -47,8 +47,8 @@ _LOGGER = None
 async def lifespan(app: FastAPI) -> Generator[None, any, None]:
     config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
-        app_config: dict[str, str | int | bool | None] = yaml.load(
-            file_desc, Loader=yaml.SafeLoader
+        app_config: dict[str, str | int | bool | None] = yaml.safe_load(
+            file_desc
         )
 
     debug: bool = app_config['application']['debug']
@@ -111,8 +111,6 @@ async def lifespan(app: FastAPI) -> Generator[None, any, None]:
     _LOGGER.debug('Registering service')
     await server.service.register_service()
 
-    update_cors_origins(app_config['svcserver']['cors_origins'])
-
     _LOGGER.debug('Lifespan startup complete')
 
     config.trace_server: str = app_config['application'].get(
@@ -123,6 +121,12 @@ async def lifespan(app: FastAPI) -> Generator[None, any, None]:
 
     _LOGGER.info('Shutting down server')
 
+
+config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
+with open(config_file) as file_desc:
+    app_config: dict[str, str | int | bool | None] = yaml.safe_load(
+        file_desc
+    )
 
 app: FastAPI = setup_api(
     'BYODA service server', 'A server hosting a service in a BYODA '
@@ -136,6 +140,7 @@ app: FastAPI = setup_api(
         DataRouter
     ],
     lifespan=lifespan, trace_server=config.trace_server,
+    cors=app_config['svcserver']['cors_origins']
 )
 
 config.app = app

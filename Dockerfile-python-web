@@ -8,6 +8,7 @@ LABEL org.opencontainers.image.authors="steven@byoda.org"
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
 WORKDIR /podserver
+ENV PYTHONPATH=/podserver/byoda-python
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 

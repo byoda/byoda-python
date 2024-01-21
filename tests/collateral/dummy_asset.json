@@ -1,0 +1,93 @@
+{
+    "created_timestamp": 1705448755.613762,
+    "asset_id": "a9a5e665-7637-4dc1-b734-cbe2e960b912",
+    "asset_type": "video",
+    "asset_url": "https://dummy.url/asset",
+    "published_timestamp": 1605448755.613762,
+    "asset_merkle_root_hash": "this is a merkle hash",
+    "video_thumbnails": [
+        {
+            "thumbnail_id": "109aa2fe-f957-4786-8b05-05d783304123",
+            "url": "https://dummy.url/thumbnail_1",
+            "width": 1280,
+            "height": 720,
+            "preference": "not",
+            "size": "1280x720"
+        },
+        {
+            "thumbnail_id": "209aa2fe-f957-4786-8b05-05d783304123",
+            "url": "https://dummy.url/thumbnail_2",
+            "width": 1920,
+            "height": 1080,
+            "preference": "hot",
+            "size": "1920x1080"
+        }
+    ],
+    "video_chapters": [
+        {
+            "chapter_id": "309aa2fe-f957-4786-8b05-05d783304123",
+            "start": 10.5,
+            "end": 20.5,
+            "title": "Chapter 1"
+        },
+        {
+            "chapter_id": "409aa2fe-f957-4786-8b05-05d783304123",
+            "start": 20.5,
+            "end": 30.5
+        }
+    ],
+    "locale": "en-US",
+    "creator": "John Doe",
+    "creator_thumbnail": "https://dummy.url/creator_thumbnail",
+    "content_warnings": ["are not", "fun"],
+    "claims": [
+        {
+            "claim_id": "509aa2fe-f957-4786-8b05-05d783304123",
+            "issuer_id": "609aa2fe-f957-4786-8b05-05d783304123",
+            "issuer_type": "members-",
+            "object_type": "public_asset",
+            "keyfield": "asset_id",
+            "keyfield_id": "19a5e665-7637-4dc1-b734-cbe2e960b912",
+            "object_fields": [
+                "created_timestamp",
+                "asset_id",
+                "asset_type",
+                "claims",
+                "asset_merkle_root_hash",
+                "video_thumbnails",
+                "video_chapters",
+                "locale",
+                "creator",
+                "content_warnings",
+                "copyright_years",
+                "title",
+                "contents",
+                "keywords",
+                "annotations"
+            ],
+            "requester_id": "709aa2fe-f957-4786-8b05-05d783304123",
+            "requester_type": "members-",
+            "signature": "this is a signature",
+            "signature_timestamp": 1605448755.613762,
+            "signature_format_version": 1,
+            "signature_url": "https://dummy.url/signature",
+            "renewal_url": "https://dummy.url/renewal",
+            "confirmation_url": "https://dummy.url/confirmation",
+            "cert_fingerprint": "this is a cert fingerprint",
+            "cert_expiration": 1905448755,
+            "claims": [
+                "nonfiction_violence: 2"
+            ]
+        }
+    ],
+    "copyright_years": [1984, 1985],
+    "title": "This is a title",
+    "contents": "this is a movie",
+    "keywords": ["are", "fun"],
+    "annotations": ["are", "also", "fun"],
+    "categories": ["are", "sometimes", "fun"],
+    "duration": 5400.5,
+    "channel_id": "809aa2fe-f957-4786-8b05-05d783304123",
+    "ingest_status": "published",
+    "screen_orientation_horizontal": true
+}

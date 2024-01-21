@@ -19,10 +19,10 @@ from typing_extensions import Annotated
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
+from pydantic import Base64Str
 from pydantic import Field
 from pydantic import FieldValidationInfo
 from pydantic.functional_validators import AfterValidator
-from pydantic import Base64Str
 from pydantic import BaseModel as PydanticBaseModel
 
 from byoda.datatypes import IdType
@@ -38,7 +38,7 @@ from byoda.limits import MAX_RELATIONS_QUERY_LEN
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
 
-DEFAULT_PAGE_LENGTH: int = 40
+DEFAULT_PAGE_LENGTH: int = 20
 
 
 class BaseModel(PydanticBaseModel):
@@ -312,3 +312,72 @@ class UpdatesResponseModel(BaseModel):
         default=None,
         description='The filter from the original Updates API request'
     )
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class Claim(PydanticBaseModel):
+    claim_id: UUID
+    issuer_id: UUID
+    issuer_type: IdType
+    object_type: str
+    keyfield: str
+    keyfield_id: UUID
+    object_fields: list[str]
+    requester_id: UUID
+    requester_type: IdType
+    signature: str
+    signature_timestamp: datetime
+    signature_format_version: float
+    signature_url: str
+    renewal_url: str
+    confirmation_url: str
+    cert_fingerprint: str
+    cert_expiration: datetime
+    claims: list[str] | None = None
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class VideoThumbnail(PydanticBaseModel):
+    thumbnail_id: UUID
+    url: str
+    width: int
+    height: int
+    preference: str | None = None
+    size: str | None = None
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class VideoChapter(PydanticBaseModel):
+    chapter_id: UUID
+    start: float
+    end: float
+    title: str | None = None
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class Asset(PydanticBaseModel):
+    created_timestamp: datetime
+    asset_id: UUID
+    asset_type: str
+    asset_url: str | None = None
+    asset_merkle_root_hash: str | None = None
+    video_thumbnails: list[VideoThumbnail] | None = None
+    video_chapters: list[VideoChapter] | None = None
+    locale: str | None = None
+    creator: str | None = None
+    creator_thumbnail: str | None = None
+    published_timestamp: datetime | None = None
+    content_warnings: list[str] | None = None
+    claims: list[Claim] | None = None
+    copyright_years: list[int] | None = None
+    publisher: str | None = None
+    publisher_asset_id: str | None = None
+    title: str | None = None
+    contents: str | None = None
+    keywords: list[str] | None = None
+    annotations: list[str] | None = None
+    categories: list[str] | None = None
+    duration: float | None = None
+    channel_id: UUID | None = None
+    ingest_status: str | None = None
+    screen_orientation_horizontal: bool | None = None

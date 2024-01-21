@@ -12,6 +12,10 @@ NETWORK="byoda.net"
 # cert yet then a random ACCOUNT_ID will be generated
 # export ACCOUNT_ID=
 
+# If ACCOUNT_USERNAME is not set, then the first part of ACCOUNT_ID will be
+# used as the username
+export ACCOUNT_USERNAME=
+
 # Set the following two variables to long random strings
 export ACCOUNT_SECRET='changeme'
 export PRIVATE_KEY_SECRET='changeme'
@@ -104,4 +108,6 @@ export LOGLEVEL=CRITICAL
 export WORKER_LOGLEVEL=CRITICAL
 
 # Set up tracing (for debugging purposes). Requires a Jaeger server
+# Setting it to 127.0.0.1 means that trace messages will be sent
+# to the host we're running, which normally means they will be ignored
 export TRACE_SERVER="127.0.0.1"

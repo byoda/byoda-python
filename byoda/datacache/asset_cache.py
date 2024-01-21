@@ -9,22 +9,19 @@ Asset Cache maintains lists of assets
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
-from types import ModuleType
 from logging import getLogger
 from datetime import datetime
-from datetime import timezone
-from dataclasses import dataclass
 
-from byoda.datamodel.network import Network
-from byoda.datamodel.service import Service
-from byoda.datamodel.schema import Schema
+from fastapi.encoders import jsonable_encoder
 
 from byoda.datatypes import DataRequestType
-from byoda.datatypes import CacheTech
-from byoda.datatypes import CacheType
 
-from byoda.datacache.kv_cache import KVCache
+from byoda.models.data_api_models import EdgeResponse as Edge
+from byoda.models.data_api_models import Asset
 
+# from byoda.secrets.service_secret import ServiceSecret
+
+from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.util.api_client.data_api_client import DataApiClient
@@ -32,150 +29,57 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
+from byoda.datacache.searchable_cache import SearchableCache
+
 _LOGGER: Logger = getLogger(__name__)
+
 
 Member = TypeVar('Member')
 
 AssetType = TypeVar('AssetType')
 
 
-@dataclass
-class AssetCacheItem:
-    expires: float
-    node: AssetType
-    origin: UUID
-    cursor: str
-
-
-class AssetCache:
-    ASSET_UPLOADED_LIST: str = 'recently_uploaded_assets'
+class AssetCache(SearchableCache):
+    ASSET_KEY_PREFIX: str = 'assets:'
+    DEFAULT_ASSET_LIST: str = 'recent_uploads'
+    DEFAULT_ASSET_EXPIRATION: int = 60 * 60 * 24 * 3  # 3 days
+    # The worker stores here all the lists that have been generated
+    # based on the assets it has collected.
+    LIST_OF_LISTS_KEY: str = 'list_of_lists'
+    # This list used to refresh assets in the cache. The list is
+    # ordered from newest to oldest asset in the cache
+    ALL_ASSETS_LIST: str = 'all_assets'
 
     '''
-    AssetCache contains two functionalities:
-
-    - Maintaining lists of assets, lists could be 'For you',
-    'Recently uploaded', 'ball sports', etc. This class has
-    functions to add assets to the begin of a list and to renew or expire
-    assets from the list
-    - Simple cache of asset with keys 'list_name:member_id:asset_id' to
-    check whether an asset might be in a list. There is no guarantee that
-    the cache of the assets remains up to date, so it is only used to
-    prevent duplicate assets, even if it means an asset is no longer
-    in a list because it was expired.
+    Stores assets in a cache and provides methods to search for them.
     '''
 
-    def __init__(self, service: Service, asset_class: str,
-                 expiration_window: float, cache_tech: CacheTech):
+    def __init__(self, connection_string: str) -> None:
         '''
-        Do not use this constructor, use the AssetCache.setup() factory instead
+        Initialize the AssetCache class.
 
-        :param service: The service running this cache
-        :param asset_class: the data class to cache
-        :param expiration_window: the number of seconds before an item expires
-        :param cache_tech: only CacheTech.REDIS is implemented
-        :returns: self
-        :raises: (none)
+        :param connection_string: The connection string to the Redis server.
+        :return: None
+        :raises: None
         '''
 
-        schema: Schema = service.schema
-        self.service_id: int = service.service_id
-        self.schema_version: int = service.schema.version
-
-        self.tls_secret: ServiceSecret = service.tls_secret
-        self.asset_class_name: str = asset_class
-        self.expiration_window: float = expiration_window
-        self.cache_tech: CacheTech = cache_tech
-
-        network: Network = service.network
-        self.network_name = network.name
-
-        self.key: str = 'AssetCache'
-
-        self.backend: KVCache
-
-        module: ModuleType = schema.get_module()
-        asset_class = module.asset
-        self.asset_class: AssetType = asset_class
+        super().__init__(connection_string)
 
     @staticmethod
-    async def setup(connection_string: str, service: Service,
-                    asset_class: str, expiration_window: int,
-                    cache_tech: CacheTech = CacheTech.REDIS) -> Self:
+    async def setup(connection_string: str) -> Self:
         '''
-        Factory for AssetCache
+        Setup the cache and return an instance.
 
-        :param connection_string: connection string for Redis server
-        :param service_id: the service_id of the service that we are running
-        :param cache_tech: only CacheTech.REDIS is implemented
+        :param connection_string: The connection string to the Redis server.
+        :return: An instance of the AssetCache class.
+        :raises: None
         '''
 
-        self = AssetCache(
-            service, asset_class, expiration_window, cache_tech=cache_tech
-        )
+        self: AssetCache = AssetCache(connection_string)
+        await self.create_search_index()
+        await self.load_functions()
 
-        if cache_tech == CacheTech.SQLITE:
-            raise NotImplementedError('AssetCache not implemented for SQLITE')
-        elif cache_tech == CacheTech.REDIS:
-            from .kv_redis import KVRedis
-            self.backend = await KVRedis.setup(
-                connection_string, service_id=service.service_id,
-                network_name=service.network.name, server_type='ServiceServer',
-                cache_type=CacheType.ASSETDB
-
-            )
-        else:
-            raise NotImplementedError(
-                f'AssetCache not implemented for {cache_tech.value}'
-            )
-
-        # if not self.json_exists(self.key):
-        #     self.create_json_list()
         return self
-
-    async def close(self):
-        await self.backend.close()
-
-    def json_key(self, name: str) -> str:
-        return f'{self.key}:AssetList:{name}'
-
-    async def exists_list(self, list_name: str) -> int:
-        '''
-        Checks whether the list exists in the cache
-        '''
-
-        return await self.backend.exists_json_list(self.json_key(list_name))
-
-    async def create_list(self, list_name: str, data: list = []) -> bool:
-        '''
-        Creates a JSON list for the specified key
-
-        :param key: the name of the list
-        '''
-
-        return await self.backend.create_json_list(
-            self.json_key(list_name), data
-        )
-
-    async def delete_list(self, list_name: str) -> bool:
-        '''
-        Deletes the query_id from the cache
-
-        :returns: True if the query_id was deleted, False if it did not exist
-        '''
-
-        while True:
-            item: dict[str, object] = await self.backend.rpop_json_list(
-                self.json_key(list_name)
-            )
-            if not item:
-                break
-
-            asset_id: UUID = item['node']['asset_id']
-            member_id = item['origin']
-            await self.delete_asset_from_cache(list_name, member_id, asset_id)
-
-        result = await self.backend.delete_json_list(self.json_key(list_name))
-        return bool(result)
 
     async def pos(self, list_name: str, cursor: str) -> int:
         '''
@@ -189,235 +93,267 @@ class AssetCache:
 
         return await self.backend.pos(key, cursor)
 
-    async def lpush(self, list_name: str, data: object | AssetType,
-                    member_id: UUID, cursor: str, expires: float = None
-                    ) -> int:
+    async def add_asset(self, member_id, asset: dict) -> None:
         '''
-        Adds the data to the start of a JSON list
+        Add an asset to the cache.
 
-        :param list_name: the name of the list
-        :param data: the asset to add to the list
-        :param member_id: the member_id of the member that owns the asset
-        :param cursor: the cursor of the asset
-        :param expires: the timestamp when the asset expires
-        :returns: the length of the list after the push operation
+        :param member_id: The member that originated the asset.
+        :param asset: The asset to add.
+        :return: None
+        :raises: None
         '''
 
-        if not isinstance(data, dict):
-            data = data.model_dump()
+        pydantic_asset: Asset = Asset(**asset)
 
-        asset_id: UUID = data['asset_id']
-        if await self.asset_exists_in_cache(list_name, member_id, asset_id):
-            _LOGGER.debug(
-                f'Asset {asset_id} from member {member_id} already exists in '
-                'cache'
-            )
-            return False
+        # We use short_append to make sure vertically oriented assets
+        # go to separate lists from horizontally oriented assets.
+        short_append: str = ''
+        if pydantic_asset.duration <= 60:
+            pydantic_asset.screen_orientation_horizontal = False
+            short_append = '-short'
 
-        timestamp: float = datetime.now(tz=timezone.utc).timestamp()
-        if not expires:
-            expires = timestamp + self.expiration_window
-
-        delay = int(expires - timestamp)
-        _LOGGER.debug(
-            f'Adding asset {data["asset_id"]} from member {member_id}'
-            f'with expiration in {delay} seconds '
+        # the 'all_assets' list is a special list that contains all assets, so
+        # we can refresh assets in the cache before they expire
+        lists_set: set[str] = set(
+            [
+                AssetCache.DEFAULT_ASSET_LIST + short_append,
+                AssetCache.ALL_ASSETS_LIST
+            ]
         )
 
-        asset_item = AssetCacheItem(
+        categories: list[str] | None = pydantic_asset.categories
+        if len(categories) > 2:
+            categories = categories[:2]
+
+        keywords: list[str] = pydantic_asset.keywords
+        if len(keywords) > 4:
+            keywords = keywords[:4]
+
+        annotations: list[str] = pydantic_asset.annotations
+        if len(annotations) > 4:
+            annotations = annotations[:4]
+
+        # Create the lists that we will add the asset to.
+        # Structure is: <category>-<keyword>-<annotation>-<short>
+        category: str
+        keyword: str
+        annotation: str
+        for category in pydantic_asset.categories:
+            list_name: str = category + short_append
+            lists_set.add(list_name)
+            for keyword in pydantic_asset.keywords:
+                list_name: str = category + '-' + keyword + short_append
+                lists_set.add(list_name)
+                for annotation in pydantic_asset.annotations:
+                    list_name = (
+                        category + '-' + keyword + '-' + annotation +
+                        short_append
+                    )
+                    lists_set.add(list_name)
+
+        # We don't want too many lists
+        if len(lists_set) > 32:
+            lists_set = set((list(lists_set))[:32])
+
+        lists_set.add(pydantic_asset.creator + short_append)
+
+        # We override the cursor that the member may have set as that cursor
+        # is only unique(-ish) for the member. We need a cursor that is unique
+        # globally.
+        server_cursor: str = self.get_cursor(
+            member_id, pydantic_asset.asset_id
+        )
+
+        asset_edge: Edge[Asset] = Edge[Asset](
+            node=pydantic_asset,
             origin=member_id,
-            expires=expires,
-            cursor=cursor,
-            node=data
+            cursor=server_cursor
         )
 
-        await self.add_asset_to_cache(list_name, member_id, data)
+        # We replace UUIDs with strings and datetimes with timestamps. The
+        # get_asset() method will case to Pydantic model and that will return
+        # the values to their proper type
+        asset_data: dict[str, any] = jsonable_encoder(asset_edge)
 
-        result = await self.backend.lpush_json_list(
-            self.json_key(list_name), asset_item.__dict__
+        # We want to store timestamp as a number so people can sort and
+        # filter on it
+        asset_data['node']['created_timestamp'] = \
+            asset_edge.node.created_timestamp.timestamp()
+
+        asset_data['node']['published_timestamp'] = \
+            asset_edge.node.published_timestamp.timestamp()
+
+        await self.json_set(
+            lists_set, AssetCache.ASSET_KEY_PREFIX, asset_data
         )
 
-        if result is False:
-            result = 0
+        await self.update_list_of_lists(lists_set)
 
-        return result
-
-    async def rpush(self, list_name: str, data: object | AssetType,
-                    member_id: UUID, cursor: str, expires: float = None
-                    ) -> bool:
-        '''
-        Adds the data to the end of a JSON list
-
-        :param list_name: the name of the list
-        :param data: the asset to add to the list
-        :param member_id: the member_id of the member that owns the asset
-        :param cursor: the cursor of the asset
-        :param expires: the timestamp when the asset expires
-        :returns: True if the data was added to the list
-        '''
-
-        if not isinstance(data, dict):
-            data = data.model_dump()
-
-        if await self.asset_exists_in_cache(
-                list_name, member_id, data['asset_id']):
-            _LOGGER.debug(
-                f'Asset {data["asset_id"]} from member {member_id} '
-                'already exists in cache'
-            )
-            return False
-
-        timestamp: float = datetime.now(tz=timezone.utc).timestamp()
-        if not expires:
-            expires = timestamp + self.expiration_window
-
-        delay = int(expires - timestamp)
         _LOGGER.debug(
-            f'Adding asset {data["asset_id"]} from member {member_id}'
-            f'with expiration in {delay} seconds '
+            f'Added asset {pydantic_asset.asset_id} '
+            f'to cache for {len(lists_set)} lists'
         )
 
-        asset_item = AssetCacheItem(
-            origin=member_id,
-            expires=expires,
-            cursor=cursor,
-            node=data
-        )
-
-        await self.add_asset_to_cache(list_name, member_id, data)
-
-        return await self.backend.lpush_json_list(
-            self.json_key(list_name), asset_item.__dict__
-        )
-
-    async def rpop(self, list_name: str) -> AssetCacheItem | None:
+    async def get_asset_by_key(self, asset_key: str) -> Edge:
         '''
-        Pops the item from the end of the list
+        Get an asset by its key.
 
-        :param list_name: the name of the list
-        :returns: the item or None if the list is empty
+        :param asset_key: The key of the asset to get.
+        :return: The asset.
+        :raises: None
         '''
 
-        data: dict = await self.backend.rpop_json_list(
-            self.json_key(list_name)
+        asset_data: any = await self.json_get(asset_key)
+        if not asset_data:
+            raise FileNotFoundError(f'Asset not found for key: {asset_key}')
+
+        asset_data['node'] = Asset(**asset_data['node'])
+        edge = Edge(**asset_data)
+        return edge
+
+    async def search(self, query: str, offset: int = 0, num: int = 10
+                     ) -> list[Edge]:
+        '''
+        Searches for the text in the asset cache
+
+        :param query: The query to perform
+        :param first: The index of the first search result to return
+        :param num: The maximum number of search results to return
+        :returns: a list of assets
+        '''
+
+        data: list[dict[str, str | dict[str, any]]] = \
+            await super().search(query, offset, num)
+
+        results: list[Edge] = []
+        for item in data or []:
+            item['node'] = Asset(**item['node'])
+            results.append(Edge(**item))
+
+        return results
+
+    async def get_asset_expiration(self, node: str | Edge) -> int:
+        '''
+        Gets the expiration time of an asset
+
+        :param node: either the cursor of the asset to get the expiration time
+        for or the edge of the asset to get the expiration time for
+        :returns: the expiration time of the asset
+        '''
+
+        if isinstance(node, Edge):
+            cursor: str = self.get_cursor(node.origin, node.node.asset_id)
+        else:
+            cursor = node
+
+        asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
+
+        _LOGGER.debug('Getting asset expiration for asset key: ' + asset_key)
+
+        return await self.get_expiration(asset_key)
+
+    async def get_list_assets(self,
+                              asset_list: str = DEFAULT_ASSET_LIST,
+                              first: int = 20, after: str | None = None
+                              ) -> list[Edge]:
+        '''
+        Get a page worth of assets from a list
+        '''
+
+        data: list[dict] = await self.get_list_values(
+            asset_list, AssetCache.ASSET_KEY_PREFIX, first=first, after=after
         )
 
-        if not data:
+        results: list[Edge] = []
+        for item in data:
+            asset: Asset = Asset(**item['node'])
+            if type(asset.created_timestamp) in (int, float):
+                asset.created_timestamp = \
+                    datetime.fromtimestamp(asset.created_timestamp)
+                asset.published_timestamp = \
+                    datetime.fromtimestamp(asset.published_timestamp)
+            item['node'] = asset
+            results.append(Edge(**item))
+
+        return results
+
+    async def get_oldest_asset(self) -> Edge | None:
+        '''
+        Get the oldest asset in the cache, that needs to
+        be refreshed first
+
+        :returns: the cache key for the oldest asset in the cache
+        '''
+
+        list_name: str = AssetCache.ALL_ASSETS_LIST
+        asset_key: str | None = await self.pop_last_list_item(list_name)
+        if not asset_key:
             return None
 
-        asset_item = AssetCacheItem(**data)
-        asset_item.node = self.asset_class(**asset_item.node)
+        edge: Edge = await self.get_asset_by_key(asset_key)
+        return edge
 
-        member_id: UUID = asset_item.origin
-        asset_id: UUID = asset_item.node.asset_id
-
-        await self.delete_asset_from_cache(list_name, member_id, asset_id)
-
-        return asset_item
-
-    async def get_range(self, list_name: str, start: int = 0, end: int = -1
-                        ) -> list[AssetCacheItem]:
-
+    async def push_newest_asset(self, edge: Edge) -> int:
         '''
-        Gets a list of items from the cache
+        Pushes the newest asset to the top of the list
 
-        :returns: list of items
+        :returns: The length of the list after adding the item
         '''
 
-        data: list[AssetCacheItem] = await self.backend.json_range(
-            self.json_key(list_name), start, start + end
+        cursor: str = self.get_cursor(edge.origin, edge.node.asset_id)
+        asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
+
+        list_name: str = AssetCache.ALL_ASSETS_LIST
+
+        return await self.prepend_list(list_name, asset_key)
+
+    async def update_list_of_lists(self, lists: set[str]) -> None:
+        '''
+        Update the list of lists.
+
+        :param lists: The lists to add to the list of lists.
+        :return: None
+        :raises: None
+        '''
+
+        await self.client.sadd(AssetCache.LIST_OF_LISTS_KEY, *lists)
+
+    async def get_list_of_lists(self) -> set[str] | None:
+        '''
+        Get the list of lists.
+
+        :return: The list of lists.
+        :raises: None
+        '''
+
+        lists: set[bytes] = await self.client.smembers(
+            AssetCache.LIST_OF_LISTS_KEY
         )
+        return lists
 
-        if data:
-            results = []
-            for data_item in data:
-                asset_item = AssetCacheItem(**data_item)
-                asset_item.node = self.asset_class(**asset_item.node)
-                results.append(asset_item)
-            return results
-
-        return []
-
-    async def len(self, list_name: str) -> int:
+    async def exists_list(self, list_name: str) -> bool:
         '''
-        Gets the length of a JSON list
+        Check if a list exists.
 
-        :param key: the name of the list
-        :returns: the length of the list
+        :param list_name: The name of the list to check.
+        :return: True if the list exists, False otherwise.
+        :raises: None
         '''
 
-        return await self.backend.json_len(self.json_key(list_name))
+        return await self.client.exists(self.get_list_key(list_name))
 
-    async def get(self, list_name: str, pos: int = 0) -> AssetCacheItem | None:
+    async def delete_list(self, list_name: str) -> None:
         '''
-        Gets a single item from the cache
+        Delete a list.
 
-        :returns: item
-        '''
-
-        result = await self.get_range(list_name, pos, pos + 1)
-
-        if len(result) == 1:
-            return result[0]
-
-        return None
-
-    @staticmethod
-    def get_asset_key(list_name: str, member_id: UUID | str,
-                      asset_id: UUID | str) -> str:
-        '''
-        Get key for the asset in the cache
-
-        :param list_name: the name of the list to check
-        :param member_id: the member_id of the member that owns the asset
-        :param asset_id: the asset_id of the asset
-        :returns: str
-        :raises: (none)
+        :param list_name: The name of the list to delete.
+        :return: None
+        :raises: None
         '''
 
-        return f'AssetCache:{list_name}:Asset:{member_id}:{asset_id}'
+        return bool(await self.client.delete(self.get_list_key(list_name)))
 
-    async def asset_exists_in_cache(self, list_name: str,
-                                    member_id: UUID | str,
-                                    asset_id: UUID | str) -> bool:
-        '''
-        Checks whether an asset is in the cache
-
-        :param list_name: the name of the list to check
-        :param member_id: the member_id of the member that owns the asset
-        :param asset_id: the asset_id of the asset
-        :returns: str
-        :raises: (none)
-        '''
-
-        key: str = AssetCache.get_asset_key(list_name, member_id, asset_id)
-
-        return await self.backend.exists(key)
-
-    async def add_asset_to_cache(self, list_name: str, member_id: UUID | str,
-                                 asset_data: dict[str, object]) -> bool:
-        '''
-        Adds an asset to the cache
-
-        :param list_name: the name of the list to check
-        :param member_id: the member_id of the member that owns the asset
-        :param asset_id: the asset_id of the asset
-        :returns: str
-        :raises: (none)
-        '''
-
-        asset_id: UUID | str = asset_data['asset_id']
-        key = AssetCache.get_asset_key(list_name, member_id, asset_id)
-
-        # We want the our expiration logic to expire items, not the Redis
-        # cache eviction. But we also don't want to have thombstones in
-        # the DB so we do set an expiration
-        return await self.backend.set(
-            key, asset_data, 2 * KVCache.DEFAULT_CACHE_EXPIRATION
-        )
-
-    async def delete_asset_from_cache(self, list_name: str,
-                                      member_id: UUID | str,
+    async def delete_asset_from_cache(self,  member_id: UUID | str,
                                       asset_id: UUID | str) -> bool:
         '''
         Deletes asset from the cache
@@ -429,107 +365,13 @@ class AssetCache:
         :raises: (none)
         '''
 
-        key: str = AssetCache.get_asset_key(list_name, member_id, asset_id)
+        key: str = AssetCache.get_asset_key(member_id, asset_id)
 
         return await self.backend.delete(key)
 
-    async def expire(self, list_name: str,
-                     timestamp: datetime | int | float = None,
-                     ) -> tuple[int, int]:
-        '''
-        Expires items in the cache.
-
-        In this class, we are pushing new items to the front of the list,
-        the list is ordered from newest to oldest. We are using this by
-        starting expiring things from the end of the list moving forward
-        until we find an item that has not yet expired.
-
-        We remove items from the end of the list, and if we can renew
-        it then we add it to a temporary list. Once we have found an
-        item that has not expired yet or we have emptied the list, we
-        add back items that were expired but that we were able to
-        refresh
-
-        :param list_name: the name of the list
-        :param timestamp: the timestamp before which items should be expired
-        :param tls_secret: the TLS secret to use when calling members
-        to see if the asset still exists
-        :returns: tuple with the number of items expired and the number of
-        items renewed
-        '''
-
-        if not timestamp:
-            timestamp = datetime.now(tz=timezone.utc).timestamp()
-        elif isinstance(timestamp, datetime):
-            timestamp = timestamp.timestamp()
-
-        items_expired: int = 0
-        items_renewed: int = 0
-        cache_items: list[dict] = []
-
-        while True:
-            count = await self.len(list_name)
-            if count == 0:
-                break
-
-            cache_item: AssetCacheItem = await self.rpop(list_name)
-            if cache_item.expires > timestamp:
-                _LOGGER.debug(
-                    f'Found asset {cache_item.node.asset_id} from '
-                    f'member {cache_item.origin} that '
-                    f'expiring at {cache_item.expires}, '
-                    'so it has not expired yet'
-                )
-                cache_items.append(cache_item)
-                # This item did not expire but we are re-adding
-                # it back to the list so we don't want this asset
-                # to be counted as renewed
-                items_renewed -= 1
-                break
-
-            refreshed_asset: AssetType | None = None
-            try:
-                member_id: UUID = cache_item.origin
-                asset: AssetType = cache_item.node
-                asset_id: UUID = asset.asset_id
-
-                if str(member_id).startswith('aaaaaaaa'):
-                    _LOGGER.debug('Not attempting to renew test asset')
-                else:
-                    refreshed_asset = await self._refresh_asset(
-                        member_id, asset_id
-                    )
-                    cache_items.append(refreshed_asset)
-            except FileNotFoundError:
-                _LOGGER.debug(
-                    f'Member {member_id} no longer stores '
-                    f'asset {asset_id}'
-                )
-                await self.delete_asset_from_cache(
-                    list_name, member_id, asset_id
-                )
-            except Exception as exc:
-                _LOGGER.debug(
-                    f'Unable to renew cached asset {asset_id} '
-                    f'from member {member_id}: {exc}')
-
-            if not refreshed_asset:
-                items_expired += 1
-
-        # now we add refreshed assets back to the list,
-        # making sure we descend in age of the assets
-
-        for refreshed_asset in reversed(cache_items):
-            await self.rpush(
-                list_name, refreshed_asset.node, refreshed_asset.origin,
-                refreshed_asset.cursor, refreshed_asset.expires
-            )
-            items_renewed += 1
-
-        return items_expired, items_renewed
-
-    async def _refresh_asset(self, member_id: UUID, asset_id: UUID
-                             ) -> AssetCacheItem:
+    async def refresh_asset(self, edge: Edge, asset_class_name: str,
+                            tls_secret: MemberSecret | ServiceSecret
+                            ) -> Edge:
         '''
         Renews an asset in the cache
 
@@ -540,14 +382,20 @@ class AssetCache:
         :returns: the renewed asset
         '''
 
-        resp = await self._asset_query(member_id, asset_id)
+        member_id: UUID = edge.origin
+        node: Asset = edge.node
+        asset_id: UUID = node.asset_id
+
+        resp: HttpResponse = await self._asset_query(
+            member_id, asset_id, asset_class_name, tls_secret
+        )
 
         if resp.status_code != 200:
             raise FileNotFoundError
 
         data = resp.json()
 
-        if not data or data['total_count'] == 0:
+        if not data or data.get('total_count') == 0:
             raise FileNotFoundError
 
         if data['total_count'] > 1:
@@ -557,17 +405,17 @@ class AssetCache:
             )
 
         node: dict[str, object] = data['edges'][0]['node']
-        timestamp: float = datetime.now(tz=timezone.utc).timestamp()
-        asset = AssetCacheItem(
+        asset = Edge(
             origin=member_id,
-            expires=timestamp + self.expiration_window,
             cursor=data['edges'][0]['cursor'],
             node=self.asset_class(**node)
         )
 
         return asset
 
-    async def _asset_query(self, member_id: UUID, asset_id: UUID = None,
+    async def _asset_query(self, member_id: UUID, asset_id: UUID,
+                           asset_class_name: str,
+                           tls_secret: MemberSecret | ServiceSecret
                            ) -> HttpResponse:
         '''
         Queries the data API of a member for an asset
@@ -583,10 +431,10 @@ class AssetCache:
             data_filter: dict = {'asset_id': {'eq': asset_id}}
 
         resp: HttpResponse = await DataApiClient.call(
-            self.service_id, self.asset_class_name,
-            action=DataRequestType.QUERY, secret=self.tls_secret,
-            network=self.network_name,
-            member_id=member_id, data_filter=data_filter, first=1,
+            tls_secret.service_id, asset_class_name,
+            action=DataRequestType.QUERY, secret=tls_secret,
+            network=tls_secret.network, member_id=member_id,
+            data_filter=data_filter, first=1,
         )
 
         return resp

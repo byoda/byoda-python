@@ -51,16 +51,23 @@ ORIGNAL_URL_HEADER = 'original-url'
 
 @router.get('/asset')
 async def get_asset(request: Request, service_id: int = None,
-                    member_id: UUID = None, asset_id: UUID = None):
+                    member_id: UUID = None, asset_id: UUID = None,
+                    incoming_token: str | None = None,
+                    key_id: str | None = None):
 
     '''
     This is an internal API called by a sub-request in angie. It is
     not accessible externally
     '''
 
-    # TODO: use FastAPI dependent function for getting Headers
-    incoming_token: str = request.headers.get('Authorization')
-    key_id: str = request.headers.get('X-Authorizationkeyid')
+    # We prefer token and key_id as query parameters because when
+    # you send GETs without custom parameters, the browser does
+    # not have to make preflight/OPTIONS requests
+    if not incoming_token:
+        incoming_token: str = request.headers.get('Authorization')
+
+    if not key_id:
+        key_id: str = request.headers.get('X-Authorizationkeyid')
 
     _LOGGER.debug(
         f'Received request for token check, service_id={service_id}, '

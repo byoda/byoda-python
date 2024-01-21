@@ -6,6 +6,7 @@
 :license    : GPLv3
 '''
 
+import os
 
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -68,9 +69,11 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             raise HTTPException(
                 status_code=401, detail='Invalid username/password'
             )
-        username = str(member.member_id)[:8]
+        username = os.environ.get('ACCOUNT_USERNAME', str(member.member_id)[:8])
     else:
-        username = str(account.account_id)[:8]
+        username = os.environ.get(
+            'ACCOUNT_USERNAME', str(account.account_id)[:8]
+        )
 
     if (auth_request.username != username
             or auth_request.password != account.password):

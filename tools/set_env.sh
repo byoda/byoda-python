@@ -41,7 +41,11 @@ if [ -f  ${ACCOUNT_CERT} ]; then
         export ACCOUNT_ID=${CERT_ACCOUNT_ID}
     fi
     export ACCOUNT_FQDN=${ACCOUNT_ID}.accounts.byoda.net
-    export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
+    export ACCOUNT_USERNAME_ORIGIN="environment"
+    if [ -z "${ACCOUNT_USERNAME}" ]; then
+        export ACCOUNT_USERNAME=$(echo $ACCOUNT_ID | cut -d '-' -f 1)
+        export ACCOUNT_USERNAME_ORIGIN="account_id"
+    fi
 fi
 export ACCOUNT_PASSWORD=${ACCOUNT_SECRET}
 
@@ -81,7 +85,15 @@ if [ -f  ${MEMBER_BYOTUBE_CERT} ]; then
     )
     export MEMBER_BYOTUBE_FQDN=${MEMBER_BYOTUBE_ID}.members-${SERVICE_BYOTUBE_ID}.byoda.net
 fi
-export MEMBER_USERNAME=$(echo ${MEMBER_BYOTUBE_ID} | cut -d '-' -f 1)
+
+if [ "${ACCOUNT_USERNAME_ORIGIN}" == "environment" ]; then
+    # if account username was set based on an environment variable, use that
+    # for member username, otherwise take the first bits of the member_id
+    export MEMBER_USERNAME=${ACCOUNT_USERNAME}
+else
+    export MEMBER_USERNAME=$(echo ${MEMBER_BYOTUBE_ID} | cut -d '-' -f 1)
+fi
+
 export MEMBER_ID=${MEMBER_BYOTUBE_ID}
 
 echo ""
