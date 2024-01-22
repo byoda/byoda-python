@@ -21,7 +21,10 @@ This test will delete in the Redis server:
 import os
 import sys
 import unittest
+
 import subprocess
+
+import orjson
 
 from uuid import UUID
 from uuid import uuid4
@@ -29,43 +32,31 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import UTC
 
-import orjson
-
-from redis.commands.search.result import Result
-
-from byoda.datamodel.memberdata import EdgeResponse as Edge
-
+from byoda.datacache.searchable_cache import KEY_PREFIX
 from byoda.datacache.searchable_cache import SearchableCache
-from byoda.datacache.searchable_cache import LUA_FUNCTIONS_FILE
-from byoda.datacache.asset_cache import AssetCache
-
+from byoda.datacache.asset_cache import AssetNode
 from byoda.util.logger import Logger
+
+LUA_SCRIPT_FILEPATH: str = 'tests/collateral/test_redis_lua.lua'
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.11:6379')
 
 TESTLIST: str = 'testlualist'
 
 
-class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
+class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     async def asyncSetUp() -> None:
-        cache: AssetCache = await AssetCache.setup(REDIS_URL)
+        cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
 
         await cache.client.function_flush('SYNC')
         await cache.client.ft(cache.index_name).dropindex()
-        await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
-
-        await cache.delete_list(AssetCache.ALL_ASSETS_LIST)
-
         list_key: str = cache.get_list_key(TESTLIST)
         keys: list[str] = await cache.client.keys(f'{list_key}*')
         for key in keys:
             await cache.client.delete(key)
 
-        keys: list[str] = await cache.client.keys(
-            f'{ AssetCache.ASSET_KEY_PREFIX}*'
-        )
-
+        keys: list[str] = await cache.client.keys(f'{KEY_PREFIX}*')
         for key in keys:
             await cache.client.delete(key)
 
@@ -75,44 +66,7 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown() -> None:
         pass
 
-    async def test_asset_model(self) -> None:
-        with open('tests/collateral/dummy_asset.json', 'r') as file:
-            data: dict[str, any] = orjson.loads(file.read())
-
-        cache: AssetCache = await AssetCache.setup(REDIS_URL)
-
-        member_id: UUID = uuid4()
-        await cache.add_asset(member_id, data)
-        count: int
-        for count in range(0, 10):
-            # We need to change the member_id to make sure that the
-            # cursor is unique.
-            member_id = uuid4()
-            data['asset_id'] = str(uuid4())
-            await cache.add_asset(member_id, data)
-
-        lists: set[str] = await cache.get_list_of_lists()
-        self.assertIsNotNone(lists)
-        self.assertEqual(len(lists), 30)
-
-        results: list[Edge] = await cache.get_list_assets()
-        self.assertEqual(len(results), 11)
-
-        cursor: str = results[0].cursor
-        expires: int = await cache.get_asset_expiration(cursor)
-        self.assertTrue(expires > 3600)
-
-        item: str | None = await cache.get_oldest_asset()
-        result: int = await cache.push_newest_asset(item)
-        self.assertEqual(result, 11)
-        await cache.close()
-
     async def test_lua_get_list_values(self) -> None:
-        '''
-        These tests execute the Redis CLI to feed it a Lua script that
-        performs the same function as the get_list_values() method of
-        '''
-
         cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
         self.assertIsNotNone(cache)
 
@@ -123,7 +77,7 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         )
 
         data: list[dict[str, any]]
-
+        # Run without 'first' or 'after' argument
         data = call_lua_script(self)
         self.assertEqual(len(data), 20)
 
@@ -144,31 +98,17 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         await cache.close()
 
-    async def test_search_searchable_cache(self) -> None:
+    async def test_search(self) -> None:
         cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
 
         member_id: UUID = uuid4()
 
-        await populate_cache(
+        assets: list[dict[str, str | dict[str, any]]] = await populate_cache(
             cache, TESTLIST, member_id
         )
-        result: Result = \
-            await cache.client.ft(cache.index_name).search('Fight')
-
-        self.assertEqual(result.total, 1)
-        self.assertEqual(len(result.docs), 1)
-
-    async def test_search_asset_cache(self) -> None:
-        cache: AssetCache = await AssetCache.setup(REDIS_URL)
-
-        member_id: UUID = uuid4()
-        await populate_cache(
-            cache, TESTLIST, member_id
-        )
-
-        results: list[Edge] = await cache.search('Fight')
-
-        self.assertEqual(len(results), 1)
+        result = await cache.client.ft(cache.index_name).search('Fight')
+        self.assertEqual(result['total_results'.encode('utf-8')], 1)
+        self.assertEqual(len(result['results'.encode('utf-8')]), 1)
 
     async def test_pagination(self) -> None:
         cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
@@ -180,25 +120,21 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         )
 
         data: list
-        data = await cache.get_list_values(
-            TESTLIST, AssetCache.ASSET_KEY_PREFIX
-            )
+        data = await cache.get_list_values(TESTLIST, KEY_PREFIX)
         self.assertEqual(len(data), 20)
 
         data = await cache.get_list_values(
-            TESTLIST,  AssetCache.ASSET_KEY_PREFIX, after=assets[5]['cursor'],
-            first=5
+            TESTLIST, KEY_PREFIX, after=assets[5]['cursor'], first=5
         )
         self.assertEqual(len(data), 5)
 
         data = await cache.get_list_values(
-            TESTLIST,  AssetCache.ASSET_KEY_PREFIX, after=assets[5]['cursor'],
-            first=10
+            TESTLIST, KEY_PREFIX, after=assets[5]['cursor'], first=10
         )
         self.assertEqual(len(data), 5)
 
         data = await cache.get_list_values(
-            TESTLIST,  AssetCache.ASSET_KEY_PREFIX, after=assets[15]['cursor']
+            TESTLIST, KEY_PREFIX, after=assets[15]['cursor']
         )
         self.assertEqual(len(data), 15)
 
@@ -212,8 +148,8 @@ def call_lua_script(test, first: int | None = None, after: str | None = None
 
     cmd: list[str] = [
         'redis-cli', '-3', '-u', REDIS_URL,
-        '--eval', LUA_FUNCTIONS_FILE,
-        f'lists:{TESTLIST}', ',', AssetCache.ASSET_KEY_PREFIX
+        '--eval', LUA_SCRIPT_FILEPATH,
+        f'lists:{TESTLIST}', ',', 'assets'
     ]
     if first or after:
         # The comma in the parameters to 'redis-cli' separate the 'KEYS'
@@ -251,23 +187,19 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
         asset_id: UUID = uuid4()
         cursor: str = cache.get_cursor(member_id, asset_id)
 
-        asset_edge: dict[str, str] = {
+        asset: dict[str, str] = {
             'cursor': cursor,
-            'origin': str(member_id),
             'node': {
                 'asset_id': str(asset_id),
                 'description': 'blah blah blah',
-                'asset_type': 'video',
                 'title': titles[counter],
                 'ingest_status': ['published', 'external'][counter % 2],
                 'creator': ['me', 'you'][int(counter / 5) % 2],
                 'created_timestamp': created.timestamp()
             }
         }
-        await cache.json_set(
-            [asset_list], SearchableCache.KEY_PREFIX, asset_edge
-        )
-        assets.append(asset_edge)
+        await cache.json_set(asset_list, KEY_PREFIX, member_id, asset)
+        assets.append(asset)
 
     return assets
 

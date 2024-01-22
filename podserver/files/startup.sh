@@ -20,6 +20,7 @@ cat <<EOF
         "PYTHONPATH": "${PYTHONPATH}",
         "NETWORK": "${NETWORK}",
         "ACCOUNT_ID": "${ACCOUNT_ID}",
+        "ACCOUNT_USERNAME": "${ACCOUNT_USERNAME}",
         "ACCOUNT_SECRET": "${ACCOUNT_SECRET}",
         "PRIVATE_KEY_SECRET": "${PRIVATE_KEY_SECRET}",
         "BOOTSTRAP": "${BOOTSTRAP}",

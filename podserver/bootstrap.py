@@ -11,10 +11,6 @@ Bootstrap use cases are based on
 - Whether the Account DB is available (locally or from the cloud)
 - Whether the Account DB can be downloaded from object storage
 
-TODO: If the Account DB file is not locally available and can't be
-downloaded from the cloud, the pod must only start if the BOOTSTRAP environment
-variable is set. Otherwise, data of existing memberships could be lost
-
 Suported environment variables:
 CLOUD: 'AWS', 'AZURE', 'GCP', 'LOCAL'
 PUBLIC_BUCKET (*)
@@ -22,6 +18,7 @@ RESTRICTED_BUCKET (*)
 PUBLIC_BUCKET (*)
 NETWORK
 ACCOUNT_ID
+ACCOUNT_USERNAME
 ACCOUNT_SECRET
 PRIVATE_KEY_SECRET: secret to protect the private key
 LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -205,7 +202,7 @@ async def main(argv) -> None:
             ),
         )
 
-        angie_config.create(htaccess_password=account.password)
+        angie_config.create()
         angie_config.reload()
 
         await account.load_memberships()

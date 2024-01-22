@@ -7,18 +7,6 @@ from the cloud storage, registering the pod and creating
 the angie configuration files for the account and for
 existing memberships.
 
-Suported environment variables:
-CLOUD: 'AWS', 'LOCAL'
-PRIVATE_BUCKET
-RESTRICTED_BUCKET
-PUBLIC_BUCKET
-NETWORK
-ACCOUNT_ID
-ACCOUNT_SECRET
-PRIVATE_KEY_SECRET: secret to protect the private key
-LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
-ROOT_DIR: where files need to be cached (if object storage is used) or stored
-
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
@@ -60,7 +48,6 @@ from .routers import accountdata as AccountDataRouter
 from .routers import content_token as ContentTokenRouter
 
 _LOGGER: Logger | None = None
-LOG_FILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
@@ -93,7 +80,7 @@ async def lifespan(app: FastAPI):
     else:
         os.umask(0x0077)
 
-    logfile: str = network_data.get('logfile')
+    logfile: str = network_data.get('logdir', '/var/log/byoda') + '/pod.log'
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], json_out=config.debug, debug=config.debug,

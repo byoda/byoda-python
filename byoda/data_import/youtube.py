@@ -165,6 +165,12 @@ class YouTube:
         '''
 
         for channel in self.channels.values():
+            # Do not try to import channels without names, which could happen
+            # if the YOUTUBE_CHANNEL has two ','s in a row or a
+            # trailing ','
+            if not channel:
+                continue
+
             if channel.ingest_videos and not storage_driver:
                 raise ValueError(
                     'We need a storage driver to download videos '

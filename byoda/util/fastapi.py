@@ -38,12 +38,16 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 def setup_api(title: str, description: str, version: str, routers: list,
-              lifespan: callable, trace_server: str = '127.0.0.1') -> FastAPI:
+              lifespan: callable, trace_server: str = '127.0.0.1',
+              cors: list[str] = []) -> FastAPI:
+
+    updated_cors_hosts: list[str] = review_cors_hosts(cors)
+
     middleware: list[Middleware] = [
         Middleware(
-            CORSMiddleware, allow_origins=[], allow_credentials=True,
-            allow_methods=['*'], allow_headers=['*'], expose_headers=['*'],
-            max_age=86400
+            CORSMiddleware, allow_origins=updated_cors_hosts,
+            allow_credentials=True, allow_methods=['*'],
+            allow_headers=['*'], expose_headers=['*'], max_age=86400
         ),
         Middleware(
             RawContextMiddleware,
@@ -104,6 +108,36 @@ def setup_api(title: str, description: str, version: str, routers: list,
     return app
 
 
+def review_cors_hosts(hosts: str | list[str]) -> list[str]:
+    '''
+    Make sure all CORS hosts start with http:// or https://
+
+    :param hosts: list of hosts to review
+    :return: list of hosts with http:// or https:// prepended
+    '''
+
+    if isinstance(hosts, str):
+        hosts = [hosts]
+    elif isinstance(hosts, set):
+        hosts = list(hosts)
+
+    updated_cors_hosts: list[str] = []
+    for host in hosts or []:
+        if host == '*':
+            return ['*']
+
+        if not host.startswith('https://') and not host.startswith('http://'):
+            updated_host: str = f'https://{host}'
+            updated_cors_hosts.append(updated_host)
+        else:
+            updated_cors_hosts.append(host)
+
+    if config.debug:
+        updated_cors_hosts.append('http://localhost:3000')
+
+    return updated_cors_hosts
+
+
 def update_cors_origins(hosts: str | list[str]) -> None:
     '''
     Updates the starlette CORS middleware to add the provided hosts
@@ -115,28 +149,21 @@ def update_cors_origins(hosts: str | list[str]) -> None:
         _LOGGER.debug('No CORS hosts to add')
         return
 
-    if isinstance(hosts, str):
-        hosts = [hosts]
-    elif isinstance(hosts, set):
-        hosts = list(hosts)
-
-    if config.debug:
-        hosts.append('http://localhost:3000')
-
     app: FastAPI = config.app
 
     if config.test_case and not hasattr(app, 'user_middleware'):
         _LOGGER.debug('NOT updating CORS hosts')
         return
 
+    updated_cors_hosts: list[str] = review_cors_hosts(hosts)
     for middleware in app.user_middleware or []:
         if middleware.cls == CORSMiddleware:
-            for host in hosts:
-                if (not host.startswith('https://') and
-                        not host.startswith('http://') and host != '*'):
-                    host: str = f'https://{host}'
+            if not hasattr(middleware, 'options'):
+                raise KeyError('CORS middleware has no options attribute')
 
-                if host not in middleware.options['allow_origins']:
+            for host in updated_cors_hosts:
+                origins: str | None = middleware.options.get('allow_origins')
+                if host not in origins or []:
                     _LOGGER.debug(f'Adding CORS host: {host}')
                     # app.user_middleware is a reference to
                     # app.middleware_stack.app (or vice versa)

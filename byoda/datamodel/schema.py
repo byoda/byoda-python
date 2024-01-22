@@ -23,7 +23,6 @@ from byoda.util.logger import Logger
 import jinja2
 
 from fastapi import FastAPI
-from jsonschema import Draft202012Validator
 
 from byoda.datamodel.dataclass import SchemaDataItem
 
@@ -132,10 +131,6 @@ class Schema:
         self.verified_signatures: set[MessageSignature] = set()
         self._service_signature: ServiceSignature = None
         self._network_signature: NetworkSignature = None
-
-        self.validator: Draft202012Validator = Draft202012Validator(
-            self.json_schema
-        )
 
         self.service_data_secret: ServiceDataSecret = None
         self.network_data_secret: NetworkDataSecret = None

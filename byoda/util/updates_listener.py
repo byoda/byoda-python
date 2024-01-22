@@ -205,8 +205,7 @@ class UpdatesListener:
             f'to class {self.class_name} of service {self.service_id}'
         )
 
-        # Aggressive retry as we're talking to our own pod
-        reconnect_delay: int = 0.2
+        reconnect_delay: int = 0.5
         last_alive: datetime = datetime.now(tz=timezone.utc)
         while True:
             try:
@@ -239,6 +238,9 @@ class UpdatesListener:
                     # reconnect # delay
                     reconnect_delay = 0.2
                     last_alive = datetime.now(tz=timezone.utc)
+
+                    # no need to sleep if we've been successful
+                    continue
             except (ConnectionClosedOK, ConnectionClosedError,
                     WebSocketException, ConnectionRefusedError) as exc:
                 _LOGGER.debug(
@@ -262,13 +264,16 @@ class UpdatesListener:
                     f'to {self.remote_member_id}: {exc}'
                 )
 
+            _LOGGER.debug(f'Reconnect delay is now {reconnect_delay}')
             await sleep(reconnect_delay)
 
             reconnect_delay += 2 * random() * reconnect_delay
             if reconnect_delay > UpdatesListener.MAX_RECONNECT_DELAY:
                 reconnect_delay = UpdatesListener.MAX_RECONNECT_DELAY
 
-            if last_alive - datetime.now(tz=timezone.utc) > timedelta(days=30):
+            not_seen_for: timedelta = \
+                last_alive - datetime.now(tz=timezone.utc)
+            if not_seen_for > timedelta(days=7):
                 raise RuntimeError(
                     f'Member {self.remote_member_id} has not been seen for '
                     '30 days'
@@ -278,7 +283,7 @@ class UpdatesListener:
 class UpdateListenerService(UpdatesListener):
     def __init__(self, class_name: str, service_id: int, member_id: UUID,
                  network_name: str, tls_secret: Secret,
-                 asset_cache: AssetCache, target_lists: set[str],
+                 asset_cache: AssetCache,
                  cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
                  ) -> Self:
         '''
@@ -298,7 +303,6 @@ class UpdateListenerService(UpdatesListener):
         )
 
         self.asset_cache: AssetCache = asset_cache
-        self.target_lists: set[str] = target_lists
 
     def matches(self, member_id: UUID, service_id: int, source_class_name: str
                 ) -> bool:
@@ -314,9 +318,9 @@ class UpdateListenerService(UpdatesListener):
 
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
-                    asset_cache: AssetCache, target_lists: set[str],
+                    asset_cache: AssetCache,
                     cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
-                    exclude_false_values: list[str] = []
+
                     ) -> Self:
         '''
         Factory
@@ -334,14 +338,8 @@ class UpdateListenerService(UpdatesListener):
 
         self = UpdateListenerService(
             class_name, service_id, member_id, network_name, tls_secret,
-            asset_cache, target_lists, cache_expiration
+            asset_cache, cache_expiration
         )
-        target_list: str
-        for target_list in self.target_lists:
-            if not await self.asset_cache.exists_list(target_list):
-                await self.asset_cache.create_list(target_list)
-
-        self.exclude_false_values: list[str] = exclude_false_values or []
 
         return self
 
@@ -365,27 +363,7 @@ class UpdateListenerService(UpdatesListener):
                 )
                 return False
 
-        for exclude in self.exclude_false_values:
-            if data.get(exclude) is False:
-                _LOGGER.debug(
-                    f'Not importing video: {data["asset_id"]}, {exclude} is '
-                    f'{data[exclude]}'
-                )
-                return False
-
-        for dest_class_name in self.target_lists:
-            exists: bool = await self.asset_cache.asset_exists_in_cache(
-                dest_class_name, origin_id, data['asset_id']
-            )
-            if not exists:
-                _LOGGER.debug(
-                    f'Adding asset {data["asset_id"]} with cursor {cursor} '
-                    f'from member {origin_id} to list {dest_class_name}'
-                )
-                await self.asset_cache.lpush(
-                    dest_class_name, data, origin_id, cursor
-                )
-
+        await self.asset_cache.add_asset(origin_id, data)
         return True
 
 

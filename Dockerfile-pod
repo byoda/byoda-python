@@ -1,7 +1,78 @@
-ARG TAG=dev
-FROM byoda/byoda-python-web:$TAG
+FROM ubuntu:23.04
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
+
+# TODO
+# 1: run uvicorn/fastapi/app as non-root user
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8
+
+WORKDIR /podserver
+ENV PYTHONPATH=/podserver/byoda-python
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
+
+###
+### Byoda, angie bits
+###
+RUN mkdir -p \
+    /var/log/byoda \
+    /byoda/network-byoda.net/ \
+    /etc/angie/ssl \
+    /var/cache/angie/proxy_temp \
+    /var/cache/angie/objectstorage \
+    /var/log/angie \
+    /var/log/nginx \
+    byoda-python
+
+
+COPY podserver/files/dhparam.pem /etc/angie/ssl/
+
+RUN apt-get update && apt-get install -y curl
+RUN curl -o /etc/apt/trusted.gpg.d/angie-signing.gpg https://angie.software/keys/angie-signing.gpg
+
+COPY podserver/files/angie.list /etc/apt/sources.list.d/
+
+COPY ./Pipfile ./Pipfile.lock byoda-python/
+
+# BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
+# https://www.bento4.com/
+RUN apt-get update && apt-get install -y \
+       ubuntu-keyring \
+       curl \
+       ca-certificates \
+       build-essential \
+       python3 \
+       python3-pip \
+       python3-distutils \
+       python3-setuptools \
+       libssl-dev \
+       libffi-dev \
+       python3-dev \
+       pipenv \
+       libpq-dev \
+       libnng1 \
+       sqlite3 \
+       libaugeas0 \
+       unzip \
+       curl \
+       git \
+       angie \
+       angie-console-light \
+    && curl -s https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-640.x86_64-unknown-linux.zip -o bento4.zip \
+    && unzip bento4.zip \
+    && mkdir bento4 \
+    && mv Bento4-*-linux/* bento4 \
+    && rm -rf Bento4-SDK-1-6-0-640.x86_64-unknown-linux \
+    && rm bento4.zip \
+    && rm -f /etc/angie/conf.d/default.conf \
+    && openssl rand 80 >/etc/angie/ssl/sslticket.key \
+    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && apt-get --yes autoremove \
+    && apt-get --yes remove build-essential \
+    && apt-get -y clean \
+    && rm -rf /var/lib/apt/lists/*
 
 ###
 ### angie bits
@@ -10,8 +81,6 @@ COPY podserver/files/robots.txt /var/www/wwwroot/
 COPY podserver/files/angie.conf /etc/angie/
 COPY podserver/files/virtualserver.conf.jinja2 /etc/angie/conf.d/
 
-# Location of htaccess file defined in byoda-python:podserver/bootstrap/angieconfig.py
-RUN touch /etc/angie/htaccess.db
 
 
 COPY podserver/files/config.yml byoda-python/

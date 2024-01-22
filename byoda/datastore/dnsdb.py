@@ -235,7 +235,7 @@ class DnsDb:
                 if existing_value and value == str(existing_value):
                     # Nothing to change
                     _LOGGER.debug(
-                        f'No DNS changed needed for FQDN {fqdn} with IP '
+                        f'No DNS changed needes for FQDN {fqdn} with IP '
                         f'{value}'
                     )
                     continue

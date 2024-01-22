@@ -67,7 +67,6 @@ The JSON file at the top-level must have the following keys:
 | jsonschema   | jsonschema | the JSON Schema for the data for the service                          |
 |--------------|------------|-----------------------------------------------------------------------|
 
-We use the python [fastjsonschema](https://horejsek.github.io/python-fastjsonschema/) module for validating data against the JSON Schema, which states support for JSON Schema draft 4, 5, and 7.
 We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
 of the following support:
 

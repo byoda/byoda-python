@@ -73,13 +73,13 @@ TEST_DIR = '/tmp/byoda-tests/datacache'
 APP: FastAPI | None = None
 
 
-class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
+class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = "TEST_CLIENT"
         config.disable_pubsub = True

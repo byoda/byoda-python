@@ -82,6 +82,7 @@ async def prep_network(test_dir: str, network_name: str = DEFAULT_NETWORK
     os.environ['RESTRICTED_BUCKET'] = 'dummy'       # Not used
     os.environ['PUBLIC_BUCKET'] = 'dummy'           # Not used
     os.environ['ACCOUNT_ID'] = str(uuid4())         # Not used
+    os.environ['ACCOUNT_USERNAME'] = 'dummy'        # Not used
     os.environ['ACCOUNT_SECRET'] = 'dummy'          # Not used
     os.environ['PRIVATE_KEY_SECRET'] = 'dummmy'     # Not used
     os.environ['BOOTSTRAP'] = 'dummy'               # Not used

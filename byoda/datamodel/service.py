@@ -208,7 +208,7 @@ class Service:
         return service
 
     @property
-    def fqdn(self):
+    def fqdn(self) -> str:
         return self.tls_secret.common_name
 
     async def load_schema(self, filepath: str = None,

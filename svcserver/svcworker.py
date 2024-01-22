@@ -5,13 +5,11 @@ Worker that performs queries against registered members of
 the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
-import os
 import sys
-import yaml
 
 from uuid import UUID
 from datetime import datetime
@@ -27,16 +25,18 @@ from anyio.abc import TaskGroup
 
 from httpx import ConnectError
 from httpx import HTTPError
+from pytz import UTC
 
 from byoda.datatypes import DataRequestType
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.config import ServerConfig
+
+from byoda.models.data_api_models import EdgeResponse
 
 from byoda.datastore.memberdb import MemberDb
-
-from byoda.datacache.asset_cache import AssetCache
 
 from byoda.storage.filestorage import FileStorage
 
@@ -47,6 +47,8 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 
+from byoda.secrets.service_secret import ServiceSecret
+
 from byoda.servers.service_server import ServiceServer
 
 from byoda.exceptions import ByodaRuntimeError
@@ -56,22 +58,27 @@ from byoda.util.logger import Logger
 from byoda.util.test_tooling import is_test_uuid
 
 from byoda import config
+
+from byoda.datacache.asset_cache import AssetCache
+
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 # Time out waiting for a member from the list of members to
 # get info from the Person table
 MAX_WAIT: int = 15 * 60
 
-# Max time to wait before connecting to the next member
+# Max time to wait before connecting to the next member again
 # to get info from the Person table
 MEMBER_PROCESS_INTERVAL: int = 8 * 60 * 60
 
-ASSET_CLASS: str = 'public_assets'
+CACHE_STALE_THRESHOLD: int = 4 * 60 * 60
 
-ASSET_UPLOADED_LIST: str = 'recently_uploaded_assets'
+ASSET_CLASS: str = 'public_assets'
 
 
 async def main() -> None:
+    service: Service
+    server: ServiceServer
     service, server = await setup_server()
 
     _LOGGER.debug(
@@ -85,15 +92,16 @@ async def main() -> None:
     async with create_task_group() as task_group:
         # Set up the listeners for the members that are already in the cache
         await reconcile_member_listeners(
-            member_db, members_seen, service, ASSET_CLASS,
-            server.asset_cache, [ASSET_UPLOADED_LIST], task_group
+            member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
+            task_group
         )
         while True:
             if wait_time:
-                _LOGGER.debug(f'Sleeping for {round(wait_time, 3)} seconds')
-                await sleep(wait_time)
+                await refresh_assets(
+                    wait_time, service.tls_secret, server.asset_cache
+                )
 
-            wait_time = 15
+            wait_time = MAX_WAIT
 
             member_id: UUID | None = None
             try:
@@ -112,9 +120,11 @@ async def main() -> None:
 
                 await reconcile_member_listeners(
                     member_db, members_seen, service, ASSET_CLASS,
-                    server.asset_cache, [ASSET_UPLOADED_LIST], task_group
+                    server.asset_cache, task_group
                 )
 
+                # TODO: develop logic to figure out what data to collect
+                # for each service without hardcoding
                 if service.service_id == ADDRESSBOOK_SERVICE_ID:
                     wait_time = await update_member(
                         service, member_id, server.member_db
@@ -135,10 +145,41 @@ async def main() -> None:
                 await member_db.add_member(member_id)
 
 
+async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
+                         asset_cache: AssetCache) -> None:
+    now: float = datetime.now(tz=UTC).timestamp()
+    end_time: float = now + time_available
+    while now < end_time:
+        edge: EdgeResponse | None = await asset_cache.get_oldest_asset()
+        if not edge:
+            _LOGGER.debug('No assets to refresh')
+            break
+
+        expires_in: float = await asset_cache.get_asset_expiration(edge)
+        if expires_in > CACHE_STALE_THRESHOLD:
+            _LOGGER.debug(
+                f'Asset {edge.node.asset_id} expires in {expires_in} '
+                f'seconds, skipping'
+            )
+            break
+
+        try:
+            asset_cache.refresh_asset(edge, ASSET_CLASS, tls_secret)
+        except Exception as exc:
+            _LOGGER.debug(
+                f'Failed to refresh asset {edge.node.asset_id} '
+                f'from member {edge.origin}: {exc}'
+            )
+
+    sleep_period: float = end_time - datetime.now(tz=UTC).timestamp()
+    if sleep_period > 0:
+        await sleep(sleep_period)
+
+
 async def reconcile_member_listeners(
         member_db: MemberDb, members_seen: dict[UUID, UpdateListenerService],
         service: Service, asset_class_name: str, asset_cache: AssetCache,
-        asset_upload_lists: list[str], task_group: TaskGroup) -> None:
+        task_group: TaskGroup) -> None:
     '''
     Sets up asset sync and listener for members not seen before.
 
@@ -149,7 +190,6 @@ async def reconcile_member_listeners(
     :param service:
     :param asset_class:
     :param asset_cache:
-    :param asset_upload_list: the list of assets in the asset cache
     :param task_group:
     :return: (none)
     '''
@@ -166,14 +206,13 @@ async def reconcile_member_listeners(
     ]
     _LOGGER.debug(f'Unseen members: {len(unseen_members)}')
 
+    network: Network = service.network
     for member_id in unseen_members:
         _LOGGER.debug(f'Got a new member {member_id}')
 
         listener: UpdateListenerService = await UpdateListenerService.setup(
             asset_class_name, service.service_id, member_id,
-            service.network.name, service.tls_secret,
-            asset_cache, asset_upload_lists,
-            exclude_false_values=['screen_orientation_horizontal']
+            network.name, service.tls_secret, asset_cache
         )
 
         _LOGGER.debug(f'Initiating sync and listener for member {member_id}')
@@ -186,6 +225,8 @@ async def reconcile_member_listeners(
 async def update_member(service: Service, member_id: UUID, member_db: MemberDb
                         ) -> int | None:
     '''
+    This code runs for the addressbook test service, collecting information
+    about members and making it searchable.
     '''
 
     try:
@@ -239,13 +280,13 @@ async def update_member_info(service: Service, member_db: MemberDb,
             secret=service.tls_secret, member_id=member_id
         )
 
-        body = resp.json()
+        body: dict[list[dict[str, any]]] = resp.json()
 
-        edges = body['edges']
+        edges: list[dict[str, any]] = body['edges']
         if not edges:
             _LOGGER.debug(f'Did not get any info from the pod: {body}')
         else:
-            person_data = edges[0]['node']
+            person_data: dict[str, any] = edges[0]['node']
             _LOGGER.info(
                 f'Got data from member {member_id}: '
                 f'{orjson.dumps(person_data)}'
@@ -285,45 +326,42 @@ def next_member_wait(last_seen: datetime) -> int:
 
 
 async def setup_server() -> (Service, ServiceServer):
-    config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
-    with open(config_file) as file_desc:
-        app_config: dict[str, str | int | bool] = yaml.load(
-            file_desc, Loader=yaml.SafeLoader
-        )
+    server_config = ServerConfig('svcserver', is_worker=True)
 
-    debug: str = app_config['application']['debug']
     global _LOGGER
+    verbose: bool = \
+        not server_config.debug and server_config.loglevel == 'INFO'
+
     _LOGGER = Logger.getLogger(
         sys.argv[0], json_out=True,
-        debug=app_config['application'].get('debug', False),
-        loglevel=app_config['application'].get('loglevel', 'INFO'),
-        logfile=app_config['svcserver']['worker_logfile']
+        debug=server_config.debug, verbose=verbose,
+        logfile=server_config.logfile, loglevel=server_config.loglevel
     )
 
-    if debug:
+    if server_config.debug:
         global MAX_WAIT
         MAX_WAIT = 300
 
     network = Network(
-        app_config['svcserver'], app_config['application']
+        server_config.server_config, server_config.app_config
     )
     network.paths = Paths(
         network=network.name,
-        root_directory=app_config['svcserver']['root_dir']
+        root_directory=server_config.server_config['root_dir']
     )
-    server: ServiceServer = await ServiceServer.setup(network, app_config)
+    server: ServiceServer = await ServiceServer.setup(network, server_config)
     config.server = server
 
     _LOGGER.debug(
         'Setup service server completed, now loading network secrets'
     )
 
-    storage = FileStorage(app_config['svcserver']['root_dir'])
+    storage = FileStorage(server_config.server_config['root_dir'])
     await server.load_network_secrets(storage_driver=storage)
 
     _LOGGER.debug('Now loading service secrets')
     await server.load_secrets(
-        password=app_config['svcserver']['private_key_password']
+        password=server_config.server_config['private_key_password']
     )
 
     service: Service = server.service
@@ -336,7 +374,7 @@ async def setup_server() -> (Service, ServiceServer):
     schema.get_data_classes(with_pubsub=False)
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
+    await server.setup_asset_cache(server_config.server_config['asset_cache'])
 
     return service, server
 

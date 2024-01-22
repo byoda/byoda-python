@@ -151,7 +151,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ByodaRuntimeError):
             class_name: str = 'public_assets'
-            resp = await DataApiClient.call(
+            resp: HttpResponse = await DataApiClient.call(
                 service_id=service_id, class_name=class_name,
                 action=DataRequestType.APPEND,
                 depth=0, data=data,

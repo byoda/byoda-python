@@ -8,8 +8,8 @@ Helper functions for tests
 
 from uuid import UUID
 from uuid import uuid4
-from datetime import datetime
-from datetime import timezone
+
+import orjson
 
 from fastapi import FastAPI
 
@@ -20,27 +20,22 @@ from byoda.datatypes import DataRequestType
 from byoda.datatypes import DataFilterType
 
 from byoda.util.api_client.data_api_client import DataApiClient
+from byoda.util.api_client.api_client import HttpResponse
 
-from podserver.codegen.pydantic_service_4294929430_1 import (
-    asset as Asset,
-    video_chapter as Video_chapter,
-    video_thumbnail as Video_thumbnail,
-    claim as Claim,
-    monetization as Monetization
-)
+from podserver.codegen.pydantic_service_4294929430_1 import asset as Asset
 
 TEST_ASSET_ID: UUID = '32af2122-4bab-40bb-99cb-4f696da49e26'
 
 
 def get_test_uuid() -> UUID:
     id = str(uuid4())
-    id = 'aaaaaaaa' + id[8:]
+    id: str = 'aaaaaaaa' + id[8:]
     id = UUID(id)
     return id
 
 
 def get_account_tls_headers(account_id: UUID, network: str) -> dict:
-    account_headers = {
+    account_headers: dict[str, str] = {
         'X-Client-SSL-Verify': 'SUCCESS',
         'X-Client-SSL-Subject':
             f'CN={account_id}.accounts.{network}',
@@ -54,7 +49,7 @@ def get_member_tls_headers(member_id: UUID, network: str | Network,
     if isinstance(network, Network):
         network = network.name
 
-    member_headers = {
+    member_headers: dict[str, str] = {
         'X-Client-SSL-Verify': 'SUCCESS',
         'X-Client-SSL-Subject':
             f'CN={member_id}.members-{service_id}.{network}',
@@ -96,7 +91,7 @@ async def call_data_api(service_id: int, class_name: str,
     if member:
         member_id = member.member_id
 
-    resp = await DataApiClient.call(
+    resp: HttpResponse = await DataApiClient.call(
         service_id=service_id, class_name=class_name, action=action,
         first=first, after=after, depth=depth, fields=fields,
         data_filter=data_filter, data=data, member_id=member_id,
@@ -122,91 +117,20 @@ async def call_data_api(service_id: int, class_name: str,
     return result
 
 
-def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:
+def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:
     '''
     Creates and returns an asset object with dummy data.
     '''
+
+    with open('tests/collateral/dummy_asset.json') as file_desc:
+        data: str = file_desc.read()
+        asset_data: dict[str, any] = orjson.loads(data)
+        asset: Asset = Asset(**asset_data)
 
     if not asset_id:
         asset_id = get_test_uuid()
     if not isinstance(asset_id, UUID):
         asset_id = UUID(asset_id)
 
-    thumbnail_1 = Video_thumbnail(
-        thumbnail_id=str(get_test_uuid()), width=640, height=480,
-        size='640x480', preference='default', url='https://thumbnail_url',
-    )
-    thumbnail_2 = Video_thumbnail(
-        thumbnail_id=str(get_test_uuid()), width=320, height=2480,
-        size='320x240', preference='default', url='https://thumbnail2_url',
-    )
-
-    chapter_1 = Video_chapter(
-        chapter_id=str(get_test_uuid()), start=0.0, end=10.0, title='chapter',
-    )
-
-    chapter_2 = Video_chapter(
-        chapter_id=str(get_test_uuid()), start=0.0, end=10.0, title='chapter',
-    )
-
-    claim_1 = Claim(
-        claim_id=str(get_test_uuid()),
-        cert_expiration=datetime.now(tz=timezone.utc).isoformat(),
-        cert_fingerprint='claim1_fingerprint',
-        issuer_id=str(get_test_uuid()),
-        issuer_type='app', keyfield='asset_id',
-        requester_id=str(get_test_uuid()), requester_type='member',
-        keyfield_id=str(asset_id),
-        object_fields=['blah1', 'blah12'], object_type='public_assets',
-        signature='blah', signature_format_version=1,
-        signature_timestamp=datetime.now(tz=timezone.utc).isoformat(),
-        signature_url='https://signature_url',
-        renewal_url='https://renewal_url',
-        confirmation_url='https://confirmation_url',
-        claims=['claim11', 'claim12', 'claim13']
-    )
-
-    claim_2 = Claim(
-        claim_id=str(get_test_uuid()),
-        cert_expiration=datetime.now(tz=timezone.utc).isoformat(),
-        cert_fingerprint='claim2_fingerprint',
-        issuer_id=str(get_test_uuid()),
-        issuer_type='app', keyfield='asset_id',
-        keyfield_id=str(asset_id),
-        object_fields=['blah2', 'blah22'], object_type='public_assets',
-        requester_id=str(get_test_uuid()), requester_type='member',
-        signature='blah', signature_format_version=1,
-        signature_timestamp=datetime.now(tz=timezone.utc).isoformat(),
-        signature_url='https://signature2_url',
-        renewal_url='https://renewal2_url',
-        confirmation_url='https://confirmation2_url',
-        claims=['claim21', 'claim22', 'claim23']
-    )
-
-    monetization_1 = Monetization(
-        monetization_id=str(get_test_uuid()),
-        monetization_scheme='free'
-    )
-
-    asset = Asset(
-        asset_id=asset_id, asset_type='video',
-        created_timestamp=datetime.now(tz=timezone.utc),
-        asset_merkle_root_hash='1',
-        asset_url='https://asset_url',
-        channel_id=get_test_uuid(),
-        content_warnings=['warning1', 'warning2'],
-        contents='contents',
-        copyright_years=[102, 1492],
-        creator='byoda',
-        ingest_status='published',
-        published_timestamp=datetime.now(tz=timezone.utc),
-        publisher='byoda',
-        publisher_asset_id='byoda',
-        screen_orientation_horizontal=True,
-        title='asset', subject='asset',
-        video_thumbnails=[thumbnail_1, thumbnail_2],
-        video_chapters=[chapter_1, chapter_2],
-        claims=[claim_1, claim_2],
-        monetizations=[monetization_1]
-    )
+    asset.asset_id = asset_id
     return asset

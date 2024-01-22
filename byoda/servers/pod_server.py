@@ -241,7 +241,7 @@ class PodServer(Server):
 
         return self.cache_store
 
-    async def review_jwt(self, jwt: JWT):
+    async def review_jwt(self, jwt: JWT) -> None:
         '''
         Reviews the JWT for processing on a pod server
 

@@ -66,117 +66,20 @@ class KVRedis(KVCache):
 
         return self
 
-    async def close(self):
+    async def close(self) -> None:
         '''
         Closes the connection to the Redis server
         '''
 
         await self.driver.close()
 
-    async def exists_json_list(self, key: str) -> bool:
-        '''
-        Checks if the list exists
 
-        :param key: the name of the list
-        :returns: True if the list exists, False otherwise
+    def _prep(self, data: object) -> dict | list:
+        '''
+        Preps a data structure for storage in the cache
         '''
 
-        key = self.get_annotated_key(key)
-
-        result: bool = await self.driver.exists(key)
-
-        _LOGGER.debug(f'JSON list {key} exists: {bool(result)}')
-
-        return result
-
-    async def create_json_list(self, key: str, data: list = []) -> bool:
-        '''
-        Creates an empty JSON list for the specified key
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        new_data: dict = self._prep(data)
-
-        return await self.driver.json().set(key, '.', new_data)
-
-    async def delete_json_list(self, key: str) -> bool:
-        '''
-        Deletes a JSON list
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        return await self.driver.json().delete(key)
-
-    async def lpush_json_list(self, key: str, data: dict) -> bool:
-        '''
-        Pushes an object to the end of a JSON list
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        new_data = self._prep(data)
-
-        return await self.driver.json().arrinsert(key, '.', 0, new_data)
-
-    async def rpush_json_list(self, key: str, data: dict) -> bool:
-        '''
-        Pushes an object to the end of a JSON list
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        new_data = self._prep(data)
-
-        return await self.driver.json().arrappend(key, '.', new_data)
-
-    async def rpop_json_list(self, key: str) -> dict:
-        '''
-        Pops an object from the end of a JSON list
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        return await self.driver.json().arrpop(key, '.')
-
-    async def json_range(self, key: str, start: int = 0, end: int = -1
-                         ) -> list:
-        '''
-        Gets a range of values from a JSON list
-
-        :param key: the name of the list
-        :param start: the start index
-        :param end: the end index
-        '''
-
-        key = self.get_annotated_key(key)
-
-        return await self.driver.json().get(key, f'$.[{start}:{end}]')
-
-    async def json_len(self, key: str) -> int:
-        '''
-        Gets the length of a JSON list
-
-        :param key: the name of the list
-        '''
-
-        key = self.get_annotated_key(key)
-
-        return await self.driver.json().arrlen(key)
-
-    def _prep(self, data: object) -> object:
-        new_data = {}
+        new_data: dict = {}
 
         if isinstance(data, dict):
             for key, value in data.items():
@@ -207,13 +110,40 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        ret = await self.driver.exists(key)
+        ret: any = await self.driver.exists(key)
 
-        exists = ret != 0
+        exists: bool = ret != 0
 
         _LOGGER.debug(f'Key {key} exist: {exists}')
 
         return exists
+
+    async def json_get(self, list: str, key: str) -> object:
+        '''
+        Gets the value for the specified key from the cache. If the value
+        retrieved on the cache is a string that starts with '{' and ends with
+        '}' then an attempt is made to parse the string as JSON. If the parsing
+        succeeds, the resulting object is returned.
+        '''
+
+        key = self.get_annotated_key(key)
+
+        value: any = await self.driver.json_get(list, key)
+
+        _LOGGER.debug(f'Got value {value} for key {key}')
+        if isinstance(value, bytes):
+            data: str = value.decode('utf-8')
+            _LOGGER.debug(f'Converted data to string: {data}')
+
+            if len(data) > 1 and data[0] == '{' and data[-1] == '}':
+                try:
+                    _LOGGER.debug('Attempting to deserialize JSON data')
+                    data = orjson.loads(value)
+                    value = data
+                except orjson.JSONDecodeError:
+                    pass
+
+        return value
 
     async def get(self, key: str) -> object:
         '''
@@ -225,11 +155,11 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        value = await self.driver.get(key)
+        value: any = await self.driver.get(key)
 
         _LOGGER.debug(f'Got value {value} for key {key}')
         if isinstance(value, bytes):
-            data = value.decode('utf-8')
+            data: str = value.decode('utf-8')
             _LOGGER.debug(f'Converted data to string: {data}')
 
             if len(data) > 1 and data[0] == '{' and data[-1] == '}':
@@ -249,7 +179,7 @@ class KVRedis(KVCache):
 
         key = self.get_annotated_key(key)
 
-        pos = await self.driver.lpos(key, value)
+        pos: any = await self.driver.lpos(key, value)
 
         if pos is not None:
             _LOGGER.debug(
@@ -265,16 +195,25 @@ class KVRedis(KVCache):
     async def get_next(self, key, timeout: int = 0) -> object:
         '''
         Gets the first item of a list value for the key
+
+        :param timeout: if > 0 then the operation will block until a value
+        is available or the timeout expires but no longer than the timeout
         '''
 
-        key = self.get_annotated_key(key)
+        key: str = self.get_annotated_key(key)
 
-        value = await self.driver.blpop(key, timeout=timeout)
+        if timeout >= 0:
+            value: any = await self.driver.blpop(key, timeout=timeout)
+        else:
+            value: any = await self.driver.lpop(key)
 
-        if type(value) in (list, tuple):
-            value = value[-1]
+        if value:
+            if type(value) in (list, tuple):
+                value = value[-1]
 
-        _LOGGER.debug(f'Popped {value} from start of list for key {key}')
+            _LOGGER.debug(f'Popped {value} from start of list for key {key}')
+        else:
+            _LOGGER.debug(f'No value found in list for key {key}')
 
         return value
 

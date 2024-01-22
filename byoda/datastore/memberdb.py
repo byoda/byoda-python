@@ -111,10 +111,12 @@ class MemberDb:
         '''
 
         kvcache: KVCache = self.kvcache
-        value = await kvcache.get_next(MEMBERS_LIST, timeout=timeout)
+        value: str | bytes = await kvcache.get_next(MEMBERS_LIST, timeout=-1)
 
         if isinstance(value, bytes):
             value = UUID(value.decode('utf-8'))
+        elif isinstance(value, str):
+            value = UUID(value)
 
         return value
 

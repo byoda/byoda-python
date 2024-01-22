@@ -18,11 +18,11 @@ if [ -f ${HOME_DIR}/byoda-settings.sh ]; then
     echo "Loading settings from ${HOME_DIR}/byoda-settings.sh"
     source ${HOME_DIR}/byoda-settings.sh
 fi
-if [ -f  ${HOME_DIR}/byoda-user-settings ]; then
+if [ -f  ${HOME_DIR}/byoda-user-settings.sh ]; then
     echo "Loading settings from ${HOME_DIR}/byoda-user-settings.sh"
     source ${HOME_DIR}/byoda-user-settings.sh
 fi
-if [ -f  ${HOME_DIR}/byoda-generic-settings ]; then
+if [ -f  ${HOME_DIR}/byoda-generic-settings.sh ]; then
     echo "Loading settings from ${HOME_DIR}/byoda-generic-settings.sh"
     source ${HOME_DIR}/byoda-generic-settings.sh
 fi
@@ -125,7 +125,7 @@ if [ ! -z "${CUSTOM_DOMAIN}" ]; then
 
     if [ -n "${LETSENCRYPT_DIRECTORY}" ]; then
         if [ ! -d "${LETSENCRYPT_DIRECTORY}" ]; then
-            mkdir -p ${LETSENCRYPT_DIRECTORY}
+            sudo mkdir -p ${LETSENCRYPT_DIRECTORY}
         fi
         export LETSENCRYPT_VOLUME_MOUNT="-v ${LETSENCRYPT_DIRECTORY}:/etc/letsencrypt"
     fi
@@ -401,6 +401,42 @@ sudo docker rm byoda  2>/dev/null
 
 echo "Creating container for account_id ${ACCOUNT_ID}"
 
+echo "DEBUG: ${DEBUG}"
+echo "LOGLEVEL=${LOGLEVEL}"
+echo "WORKER_LOGLEVEL: ${WORKER_LOGLEVEL}"
+echo "LOGFILE: ${LOGFILE}"
+echo "CLOUD: ${CLOUD}"
+echo "PRIVATE_BUCKET: ${PRIVATE_BUCKET}"
+echo "RESTRICTED_BUCKET: ${RESTRICTED_BUCKET}"
+echo "PUBLIC_BUCKET: ${PUBLIC_BUCKET}"
+echo "NETWORK: ${NETWORK}"
+echo "ACCOUNT_ID: ${ACCOUNT_ID}"
+echo "ACCOUNT_USERNAME: ${ACCOUNT_USERNAME}"
+echo "ACCOUNT_SECRET: xxxxxxxx"
+echo "PRIVATE_KEY_SECRET: xxxxxxxxx"
+echo "BOOTSTRAP: ${BOOTSTRAP}"
+echo "JOIN_SERVICE_IDS: ${JOIN_SERVICE_IDS}"
+echo "ROOT_DIR: /byoda"
+echo "YOUTUBE_CHANNEL: ${YOUTUBE_CHANNEL}"
+echo "YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}"
+echo "YOUTUBE_IMPORT_SERVICE_ID: ${YOUTUBE_IMPORT_SERVICE_ID}"
+echo "YOUTUBE_IMPORT_INTERVAL: ${YOUTUBE_IMPORT_INTERVAL}"
+echo "CDN_APP_ID: ${CDN_APP_ID}"
+echo "MODERATION_FQDN: ${MODERATION_FQDN}"
+echo "MODERATION_APP_ID: ${MODERATION_APP_ID}"
+echo "CUSTOM_DOMAIN: ${CUSTOM_DOMAIN}"
+echo "MANAGE_CUSTOM_DOMAIN_CERT: ${MANAGE_CUSTOM_DOMAIN_CERT}"
+echo "SHARED_WEBSERVER: ${SHARED_WEBSERVER}"
+echo "TRACE_SERVER: ${TRACE_SERVER}"
+echo "BYODA root directory: ${BYODA_ROOT_DIR}"
+echo "LOGDIR: ${LOGDIR}"
+echo "PORT_MAPPINGS: ${PORT_MAPPINGS}"
+echo "AWS_CREDENTIALS: xxxxxxxxxx"
+echo "WWWROOT_VOLUME_MOUNT: ${WWWROOT_VOLUME_MOUNT}"
+echo "LETSENCRYPT_VOLUME_MOUNT: ${LETSENCRYPT_VOLUME_MOUNT}"
+echo "ANGIECONF_VOLUME_MOUNT: ${ANGIECONF_VOLUME_MOUNT}"
+
+echo "Launching container"
 sudo docker run -d --memory=800m \
     --name byoda --restart=unless-stopped \
     --pull always \
@@ -419,6 +455,7 @@ sudo docker run -d --memory=800m \
     -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
     -e "NETWORK=${NETWORK}" \
     -e "ACCOUNT_ID=${ACCOUNT_ID}" \
+    -e "ACCOUNT_USERNAME=${ACCOUNT_USERNAME}" \
     -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
     -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
     -e "BOOTSTRAP=BOOTSTRAP" \

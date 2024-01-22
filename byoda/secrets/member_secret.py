@@ -32,8 +32,9 @@ Network = TypeVar('Network')
 class MemberSecret(Secret):
     __slots__: list[str] = ['member_id', 'network', 'service_id', 'account_id']
 
-    def __init__(self, member_id: UUID, service_id: int, account: Account,
-                 paths: Paths = None, network_name: str = None) -> None:
+    def __init__(self, member_id: UUID, service_id: int,
+                 account: Account | None = None, paths: Paths = None,
+                 network_name: str = None) -> None:
         '''
         Class for the member secret of an account for a service
 
@@ -59,7 +60,9 @@ class MemberSecret(Secret):
                 'Either network_name or account must be specified'
             )
 
-        self.account_id: UUID = account.account_id
+        self.account_id = None
+        if account:
+            self.account_id: UUID = account.account_id
 
         if network_name is None:
             network_name = account.network.name

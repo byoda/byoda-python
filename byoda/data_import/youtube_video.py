@@ -965,7 +965,7 @@ class YouTubeVideo:
 
         self._transition_state(IngestStatus.PACKAGING)
 
-        result = subprocess.run(
+        result: subprocess.CompletedProcess[str] = subprocess.run(
             [
                 f'{bento4_dir}/bin/mp4dash',
                 '--no-split', '--use-segment-list',

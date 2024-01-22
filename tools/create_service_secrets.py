@@ -62,6 +62,7 @@ async def main(argv) -> None:
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = args.network
     os.environ['ACCOUNT_ID'] = str(uuid4())
+    os.environ['ACCOUNT_USERNAME'] = 'dummy'
     os.environ['ACCOUNT_SECRET'] = 'test'
     os.environ['LOGLEVEL'] = 'DEBUG'
     os.environ['PRIVATE_KEY_SECRET'] = args.password

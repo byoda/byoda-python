@@ -36,7 +36,7 @@ class KVCache(ABC):
     def __init__(self, service_id: int | None = None,
                  network_name: str | None = None,
                  server_type: str | None = None,
-                 identifier: str | None = None):
+                 identifier: str | None = None) -> None:
         '''
         Constructur for the KVCache base class. The parameters are used to
         to generate a namespace (prefix) for the keys in the cache. The
@@ -75,11 +75,13 @@ class KVCache(ABC):
 
         if cache_tech == CacheTech.SQLITE:
             from .kv_sqlite import KVSqlite
-            kvs = await KVSqlite.create(connection_string, cache_type)
+            kvs: KVSqlite = await KVSqlite.create(
+                connection_string, cache_type
+            )
             return kvs
         elif cache_tech == CacheTech.REDIS:
             from .kv_redis import KVRedis
-            kvr = await KVRedis.setup(
+            kvr: KVRedis = await KVRedis.setup(
                 connection_string, service_id=service_id,
                 network_name=network_name, server_type=server_type,
                 cache_type=cache_type

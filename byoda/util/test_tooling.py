@@ -16,5 +16,5 @@ _LOGGER: Logger = getLogger(__name__)
 UUID_TEST_MARKER: str = 'aaaaaaaa'
 
 
-def is_test_uuid(uuid: UUID | str):
+def is_test_uuid(uuid: UUID | str) -> bool:
     return str(uuid).lower().startswith(UUID_TEST_MARKER)

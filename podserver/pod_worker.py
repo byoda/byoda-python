@@ -4,18 +4,6 @@
 Manages recurring activities such as checking for new service contracts and
 data secrets
 
-Suported environment variables:
-CLOUD: 'AWS', 'AZURE', 'GCP', 'LOCAL'
-PRIVATE_BUCKET
-RESTRICTED_BUCKET
-PUBLIC_BUCKET
-NETWORK
-ACCOUNT_ID
-ACCOUNT_SECRET
-PRIVATE_KEY_SECRET: secret to protect the private key
-LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
-ROOT_DIR: where files need to be cached (if object storage is used) or stored
-
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3
