@@ -14,18 +14,21 @@ else
     export HOME_DIR="/home/azureuser"
 fi
 
-if [ -f ${HOME_DIR}/byoda-settings.sh ]; then
-    echo "Loading settings from ${HOME_DIR}/byoda-settings.sh"
-    source ${HOME_DIR}/byoda-settings.sh
-fi
-if [ -f  ${HOME_DIR}/byoda-user-settings.sh ]; then
-    echo "Loading settings from ${HOME_DIR}/byoda-user-settings.sh"
-    source ${HOME_DIR}/byoda-user-settings.sh
-fi
 if [ -f  ${HOME_DIR}/byoda-generic-settings.sh ]; then
     echo "Loading settings from ${HOME_DIR}/byoda-generic-settings.sh"
     source ${HOME_DIR}/byoda-generic-settings.sh
 fi
+
+if [ -f ${HOME_DIR}/byoda-settings.sh ]; then
+    echo "Loading settings from ${HOME_DIR}/byoda-settings.sh"
+    source ${HOME_DIR}/byoda-settings.sh
+fi
+
+if [ -f  ${HOME_DIR}/byoda-user-settings.sh ]; then
+    echo "Loading settings from ${HOME_DIR}/byoda-user-settings.sh"
+    source ${HOME_DIR}/byoda-user-settings.sh
+fi
+
 
 if [ -z "${TAG}" ]; then
     if [ -d ".git" ]; then

@@ -15,8 +15,19 @@ if [[ "${PARAM}" == "${COMMAND}" ]]; then
     exit 1
 fi
 
-if [ -f ~/byoda-settings.sh ]; then
-    source ~/byoda-settings.sh
+if [ -f  ${HOME}/byoda-generic-settings.sh ]; then
+    echo "Loading settings from ${HOME}/byoda-generic-settings.sh"
+    source ${HOME}/byoda-generic-settings.sh
+fi
+
+if [ -f ${HOME}/byoda-settings.sh ]; then
+    echo "Loading settings from ${HOME}/byoda-settings.sh"
+    source ${HOME}/byoda-settings.sh
+fi
+
+if [ -f  ${HOME}/byoda-user-settings.sh ]; then
+    echo "Loading settings from ${HOME}/byoda-user-settings.sh"
+    source ${HOME}/byoda-user-settings.sh
 fi
 
 export PYTHONPATH=$PYTHONPATH:$(pwd):~/byoda-python:~/src/byoda-python:/root/byoda-python:/root/src/byoda-python

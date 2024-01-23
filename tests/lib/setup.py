@@ -13,7 +13,7 @@ from uuid import UUID
 
 import orjson
 
-from byoda import config
+from passlib.context import CryptContext
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -32,6 +32,8 @@ from byoda.storage.filestorage import FileStorage
 from byoda.storage.pubsub_nng import PubSubNng
 
 from podserver.util import get_environment_vars
+
+from byoda import config
 
 from tests.lib.util import get_test_uuid
 from tests.lib.defines import MODTEST_FQDN
@@ -135,7 +137,8 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
 
     server.account: Account = account
 
-    account.password: str = data.get('account_secret')
+    password_hash_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    account.password: str = password_hash_context.hash(data['account_secret'])
 
     await account.create_account_secret()
     if not account.tls_secret.cert:
