@@ -453,8 +453,9 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         }
 
         #
-        # Now we'll get a account JWT by using the account JWT and
-        # the Data API call will fail
+        # Now we'll get a member JWT by using the account JWT and
+        # the Data API call will fail while Data API call with
+        # member JWT will succeed
         #
         resp = await ApiClient.call(
             f'{BASE_URL}/v1/pod/authtoken/service_id/{service_id}',
@@ -462,6 +463,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
+        member_jwt = data.get('auth_token')
         self.assertTrue(isinstance(data.get("auth_token"), str))
 
         with self.assertRaises(ByodaRuntimeError):
@@ -469,6 +471,11 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
                 service_id, class_name, DataRequestType.QUERY,
                 headers={'Authorization': f'bearer {account_jwt}'}, app=APP
             )
+
+        resp = await DataApiClient.call(
+            service_id, class_name, DataRequestType.QUERY,
+            headers={'Authorization': f'bearer {member_jwt}'}, app=APP
+        )
 
         #
         # and then we get a member JWT using username/password

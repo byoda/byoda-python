@@ -133,14 +133,14 @@ Currently there is only a test service called 'address book'. We can use curl to
 
 ```bash
 curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
-    --pass $PASSPHRASE https://$ACCOUNT_FQDN:444/api/v1/pod/account | jq .
+    --pass $PRIVATE_KEY_SECRET https://$ACCOUNT_FQDN:444/api/v1/pod/account | jq .
 ```
 
 We can make our pod join the address book service:
 
 ```bash
 curl -s -X POST --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY \
-     --pass $PASSPHRASE \
+     --pass $PRIVATE_KEY_SECRET \
     https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID/version/1 | jq .
 ```
 
@@ -149,7 +149,7 @@ The pod returns amongst others the cert & key that you can use to call the APIs 
 We can confirm that our pod has joined the service with:
 
 ```bash
-curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PASSPHRASE \
+curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PRIVATE_KEY_SECRET \
     https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
@@ -390,7 +390,7 @@ export MEMBER_JWT=$( \
 With this JWT for calling APIs of the service, we can call the _search_ API of the address book service
 
 ```bash
-curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+curl -s --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PRIVATE_KEY_SECRET \
     https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/email/steven@byoda.org  | jq .
 ```
 
@@ -494,7 +494,7 @@ When it is importing tweets, the worker in the pod will call a backend server of
 sudo chmod a+rwx /byoda
 cd byoda-python
 source tools/set_env.sh
-curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PASSPHRASE \
+curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PRIVATE_KEY_SECRET \
     --data '{"mentions": ["glynmoody"]}' \
     -H "Content-Type: application/json" \
     https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .

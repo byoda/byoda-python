@@ -67,6 +67,7 @@ deprecated = "*"
 anyio = "*"
 redis = {extras = ["hiredis"], version = "*"}
 pipenv = "*"
+passlib = {extras = ["bcrypt"], version = "*"}
 
 [dev-packages]
 flake8 = "*"

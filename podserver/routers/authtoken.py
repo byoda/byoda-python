@@ -15,6 +15,8 @@ from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
 
+from passlib.context import CryptContext
+
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
@@ -69,17 +71,23 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             raise HTTPException(
                 status_code=401, detail='Invalid username/password'
             )
-        username = os.environ.get('ACCOUNT_USERNAME', str(member.member_id)[:8])
+        username = os.environ.get('ACCOUNT_USERNAME', str(
+            member.member_id)[:8]
+        )
     else:
         username = os.environ.get(
             'ACCOUNT_USERNAME', str(account.account_id)[:8]
         )
 
+    context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_verified: bool = context.verify(
+        auth_request.password, account.password
+    )
     if (auth_request.username != username
-            or auth_request.password != account.password):
+            or not password_verified):
         _LOGGER.warning(
             'Login with invalid password for '
-            f'username {username}'
+            f'username {auth_request.username}'
         )
         raise HTTPException(
             status_code=401, detail='Invalid username/password'
@@ -143,6 +151,6 @@ async def post_member_auth_token(request: Request, service_id: int,
 
     member: Member = await account.get_membership(service_id)
 
-    jwt = member.create_jwt()
+    jwt: JWT = member.create_jwt()
 
     return {'auth_token': jwt.encoded}
