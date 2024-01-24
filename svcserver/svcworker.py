@@ -164,7 +164,7 @@ async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
             break
 
         try:
-            asset_cache.refresh_asset(edge, ASSET_CLASS, tls_secret)
+            await asset_cache.refresh_asset(edge, ASSET_CLASS, tls_secret)
         except Exception as exc:
             _LOGGER.debug(
                 f'Failed to refresh asset {edge.node.asset_id} '
