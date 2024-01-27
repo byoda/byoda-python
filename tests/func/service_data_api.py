@@ -200,14 +200,15 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             new_asset_data['asset_id'] = str(get_test_uuid())
             new_asset_data['title'] = titles[n % 5]
             new_asset_data['creator'] = creators[n % 10]
+            new_asset_data['ingest_status'] = ['external', 'published'][n % 2]
             await asset_cache.add_asset(
                 member_id, new_asset_data
             )
             all_assets.append(new_asset_data)
 
         api_url: str = 'http://localhost:8000/api/v1/service/data'
-        resp: HttpResponse = await ApiClient.call(api_url, app=config.app)
 
+        resp: HttpResponse = await ApiClient.call(api_url, app=config.app)
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertGreaterEqual(data['total_count'], 25)
@@ -216,6 +217,16 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             asset_id, str(all_assets[all_asset_count - 1]['asset_id'])
         )
         self.assertNotEqual(data['edges'][1]['node']['asset_id'], asset_id)
+
+        resp: HttpResponse = await ApiClient.call(
+            api_url, params={'ingest_status': 'published'}, app=config.app)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertGreaterEqual(data['total_count'], 25)
+        for edge in data['edges']:
+            self.assertEqual(
+                edge['node']['ingest_status'], 'published'
+            )
 
         # So we've created a list of 110 items by adding items one by end to
         # the front. In the list in the cache, the first item of the list is
@@ -253,6 +264,20 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
             after: str = data['page_info']['end_cursor']
 
+        # Now we test with filter
+        api_url: str = 'http://localhost:8000/api/v1/service/data'
+
+        resp: HttpResponse = await ApiClient.call(
+            api_url, params={'ingest_status': 'external'}, app=config.app)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertGreaterEqual(data['total_count'], 25)
+        for edge in data['edges']:
+            self.assertEqual(
+                edge['node']['ingest_status'], 'external'
+            )
+
+        # Here we'll test search
         api_url: str = 'http://localhost:8000/api/v1/service/search/asset'
         async with AsyncClient(app=config.app) as client:
             resp: HttpResponse = await client.get(

@@ -83,8 +83,7 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         member_id: UUID = uuid4()
         await cache.add_asset(member_id, data)
-        count: int
-        for count in range(0, 10):
+        for _ in range(0, 10):
             # We need to change the member_id to make sure that the
             # cursor is unique.
             member_id = uuid4()
@@ -141,6 +140,13 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         data = call_lua_script(self, 20, 'notacursor')
         self.assertEqual(len(data), 20)
+
+        filter_name = 'ingest_status'
+        filter_value = 'external'
+        data = call_lua_script(
+            self, filter_name=filter_name, filter_value=filter_value
+        )
+        self.assertEqual(len(data), 10)
 
         await cache.close()
 
@@ -202,26 +208,32 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(data), 15)
 
+        data = await cache.get_list_values(
+            TESTLIST,  AssetCache.ASSET_KEY_PREFIX, after=assets[16]['cursor'],
+            filter_name='ingest_status', filter_value='external'
+        )
+        self.assertEqual(len(data), 8)
         await cache.close()
 
 
-def call_lua_script(test, first: int | None = None, after: str | None = None
-                    ) -> list[dict[str, any]]:
+def call_lua_script(test, first: int = 25, after: str | None = None,
+                    filter_name: str | None = None,
+                    filter_value: str | None = None) -> list[dict[str, any]]:
     if after and not first:
         raise ValueError('Cannot specify "after" without "first"')
 
+    # The comma in the parameters to 'redis-cli' separate the 'KEYS'
+    # from the 'ARGV' arguments, see:
+    # https://redis.io/docs/interact/programmability/lua-debugging/
     cmd: list[str] = [
         'redis-cli', '-3', '-u', REDIS_URL,
         '--eval', LUA_FUNCTIONS_FILE,
-        f'lists:{TESTLIST}', ',', AssetCache.ASSET_KEY_PREFIX
+        f'lists:{TESTLIST}', ',', AssetCache.ASSET_KEY_PREFIX,
+        f'{first}', f'{after}'
     ]
-    if first or after:
-        # The comma in the parameters to 'redis-cli' separate the 'KEYS'
-        # from the 'ARGV' arguments, see:
-        # https://redis.io/docs/interact/programmability/lua-debugging/
-        cmd.append(f'{first}')
-        if after:
-            cmd.append(f'{after}')
+
+    if filter_name:
+        cmd.extend([filter_name, filter_value])
 
     result: subprocess.CompletedProcess = subprocess.run(
         cmd, capture_output=True,

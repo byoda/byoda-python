@@ -253,7 +253,9 @@ class SearchableCache:
 
     async def get_list_values(self, asset_list: str, key_prefix: str,
                               first: int = DEFAULT_PAGE_LENGTH,
-                              after: str = None) -> list:
+                              after: str = None,
+                              filter_name: str | None = None,
+                              filter_value: any = None) -> list:
         '''
         Gets the values of the requested assets in a list
 
@@ -271,8 +273,14 @@ class SearchableCache:
         if not after:
             after = ''
 
+        if filter_value:
+            filter_value = str(filter_value)
+
         data: list[bytes] = await self._function_get_list_assets(
-            keys=[asset_list], args=[key_prefix, first, after]
+            keys=[asset_list], args=[
+                key_prefix, first, after or '', filter_name or '',
+                filter_value or ''
+            ]
         )
         results: list = []
         for item in data:

@@ -33,6 +33,7 @@ from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.claim import ClaimRequest
+from byoda.datamodel.claim import Claim
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
@@ -80,7 +81,7 @@ class YouTubeFragment:
         self.duration: float | None = None
         self.path: str | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str | float]:
         '''
         Returns a dict representation of the fragment
         '''
@@ -92,7 +93,7 @@ class YouTubeFragment:
         }
 
     @staticmethod
-    def from_dict(data: dict[str, str | float]):
+    def from_dict(data: dict[str, str | float]) -> Self:
         '''
         Factory for YouTubeFragment, parses data are provided
         by yt-dlp
@@ -110,7 +111,7 @@ class YouTubeFormat:
     Models a track (audio, video, or storyboard of YouTube video
     '''
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.format_id: str | None = None
         self.format_note: str | None = None
         self.ext: str | None = None
@@ -138,7 +139,7 @@ class YouTubeFormat:
         self.aspect_ratio: str | None = None
         self.format: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f'YouTubeFormat('
             f'{self.format_id}, {self.format_note}, {self.ext}, '
@@ -149,12 +150,12 @@ class YouTubeFormat:
             ')'
         )
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, any]:
         '''
         Returns a dict representation of the video
         '''
 
-        data = {
+        data: dict[str, any] = {
             'format_id': self.format_id,
             'format_note': self.format_note,
             'ext': self.ext,
@@ -188,7 +189,7 @@ class YouTubeFormat:
 
         return data
 
-    def from_dict(data: dict[str, any]):
+    def from_dict(data: dict[str, any]) -> Self:
         '''
         Factory using data retrieved using the 'yt-dlp' tool
         '''
@@ -228,20 +229,22 @@ class YouTubeFormat:
         format.format = data.get('format')
 
         for fragment_data in data.get('fragments', []):
-            fragment = YouTubeFragment.from_dict(fragment_data)
+            fragment: YouTubeFragment = YouTubeFragment.from_dict(
+                fragment_data
+            )
             format.fragments.append(fragment)
 
         return format
 
 
 class YouTubeVideoChapter:
-    def __init__(self, chapter_info: dict[str, float | str]):
-        self.chapter_id = uuid4()
+    def __init__(self, chapter_info: dict[str, float | str]) -> None:
+        self.chapter_id: UUID = uuid4()
         self.start_time: float = chapter_info.get('start_time')
         self.end_time: float = chapter_info.get('end_time')
         self.title: str = chapter_info.get('title')
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str, UUID, float]:
         '''
         Returns a dict representation of the chapter
         '''
@@ -281,7 +284,7 @@ class YouTubeVideo:
         'categories': 'categories',
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.video_id: str | None = None
         self.title: str | None = None
         self.kind: str | None = None
@@ -432,7 +435,7 @@ class YouTubeVideo:
             max_height: int = 0
             max_width: int = 0
             for format_data in video_info.get('formats') or []:
-                format = YouTubeFormat.from_dict(format_data)
+                format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
                 if format.height and format.height > max_height:
                     max_height = format.height
                 if format.width and format.width > max_width:
@@ -480,7 +483,7 @@ class YouTubeVideo:
 
         return published_at
 
-    def _transition_state(self, ingest_status: IngestStatus | str):
+    def _transition_state(self, ingest_status: IngestStatus | str) -> None:
         '''
         Transition the ingest state of the video
 
@@ -618,7 +621,7 @@ class YouTubeVideo:
 
         asset: dict[str, any] = {}
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
-            value = getattr(self, field)
+            value: any = getattr(self, field)
             if value:
                 if isinstance(value, Enum):
                     asset[mapping] = value.value

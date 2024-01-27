@@ -38,7 +38,8 @@ MAX_PAGE_SIZE: int = 100
 @router.get('/data', status_code=200)
 async def get_data(request: Request,
                    list_name: str | None = AssetCache.DEFAULT_ASSET_LIST,
-                   first: int = DEFAULT_PAGING_SIZE, after: str | None = None
+                   first: int = DEFAULT_PAGING_SIZE, after: str | None = None,
+                   ingest_status: str | None = None
                    ) -> QueryResponseModel:
     '''
     This API is called by pods
@@ -54,8 +55,13 @@ async def get_data(request: Request,
 
     first = min(first, MAX_PAGE_SIZE)
 
+    filter_name: str | None = None
+    if ingest_status:
+        filter_name = 'ingest_status'
+
     edges: list[EdgeResponse] = await asset_cache.get_list_assets(
-        list_name, after=after, first=first + 1
+        list_name, after=after, first=first + 1,
+        filter_name=filter_name, filter_value=ingest_status
     )
 
     has_next_page: bool = False
