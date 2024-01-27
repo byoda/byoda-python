@@ -254,14 +254,23 @@ class AssetCache(SearchableCache):
 
     async def get_list_assets(self,
                               asset_list: str = DEFAULT_ASSET_LIST,
-                              first: int = 20, after: str | None = None
-                              ) -> list[Edge]:
+                              first: int = 20, after: str | None = None,
+                              filter_name: str | None = None,
+                              filter_value: str | None = None) -> list[Edge]:
         '''
         Get a page worth of assets from a list
+
+        :param asset_list: the name of the list to get the assets from
+        :param first: the number of assets to get
+        :param after: the cursor of the asset to start from
+        :param filter_name: the name of the field to filter on
+        :param filter_value: the value of the field to filter on
+        :returns: a list of asset edges
         '''
 
         data: list[dict] = await self.get_list_values(
-            asset_list, AssetCache.ASSET_KEY_PREFIX, first=first, after=after
+            asset_list, AssetCache.ASSET_KEY_PREFIX, first=first, after=after,
+            filter_name=filter_name, filter_value=filter_value
         )
 
         results: list[Edge] = []

@@ -328,10 +328,10 @@ def next_member_wait(last_seen: datetime) -> int:
 async def setup_server() -> (Service, ServiceServer):
     server_config = ServerConfig('svcserver', is_worker=True)
 
-    global _LOGGER
     verbose: bool = \
         not server_config.debug and server_config.loglevel == 'INFO'
 
+    global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], json_out=True,
         debug=server_config.debug, verbose=verbose,
