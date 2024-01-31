@@ -71,6 +71,8 @@ class ServerConfig:
         self.logfile: str = self.server_config.get('logfile')
         self.loglevel: str = self.app_config.get('loglevel', 'INFO')
 
+        self.listen_port: int = self.server_config.get('listen_port')
+
         # Are we an application server or a workr
         self.is_worker: bool = is_worker
         if is_worker:
@@ -79,6 +81,9 @@ class ServerConfig:
             )
             self.logfile: str = self.server_config.get(
                 'worker_logfile', self.logfile
+            )
+            self.listen_port: int = self.server_config.get(
+                'worker_metrics_port'
             )
 
         # Debug should be set as YAML bool (ie. True or False) but we take

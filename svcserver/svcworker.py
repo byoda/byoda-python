@@ -9,6 +9,7 @@ the service
 :license    : GPLv3
 '''
 
+import os
 import sys
 
 from uuid import UUID
@@ -26,6 +27,10 @@ from anyio.abc import TaskGroup
 from httpx import ConnectError
 from httpx import HTTPError
 from pytz import UTC
+
+from prometheus_client import start_http_server
+from prometheus_client import Counter
+from prometheus_client import Gauge
 
 from byoda.datatypes import DataRequestType
 
@@ -75,10 +80,13 @@ CACHE_STALE_THRESHOLD: int = 4 * 60 * 60
 
 ASSET_CLASS: str = 'public_assets'
 
+PROMETHEUS_EXPORTER_PORT: int = 5000
+
 
 async def main() -> None:
     service: Service
     server: ServiceServer
+
     service, server = await setup_server()
 
     _LOGGER.debug(
@@ -148,11 +156,18 @@ async def main() -> None:
 async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
                          asset_cache: AssetCache) -> None:
     now: float = datetime.now(tz=UTC).timestamp()
+
+    metrics: dict[str, Counter | Gauge] = config.metrics
+    metric: str
+
     end_time: float = now + time_available
     while now < end_time:
         edge: EdgeResponse | None = await asset_cache.get_oldest_asset()
         if not edge:
             _LOGGER.debug('No assets to refresh')
+            metric = 'svcworker_no_assets_needing_refresh'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
             break
 
         expires_in: float = await asset_cache.get_asset_expiration(edge)
@@ -165,6 +180,9 @@ async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
 
         try:
             await asset_cache.refresh_asset(edge, ASSET_CLASS, tls_secret)
+            metric = 'svcworker_refresh_asset_runs'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
         except Exception as exc:
             _LOGGER.debug(
                 f'Failed to refresh asset {edge.node.asset_id} '
@@ -200,11 +218,19 @@ async def reconcile_member_listeners(
         f'with members (currently {len(member_ids)})'
     )
 
+    metrics: dict[str, Counter | Gauge] = config.metrics
+    metric: str = 'svcworker_total_members'
+    if metrics and metric in metrics:
+        metrics[metric].set(len(member_ids))
+
     unseen_members: list[UUID] = [
         m_id for m_id in member_ids
         if m_id not in members_seen and not is_test_uuid(m_id)
     ]
     _LOGGER.debug(f'Unseen members: {len(unseen_members)}')
+    metric = 'svcworker_unseen_members'
+    if metrics and metric in metrics:
+        metrics[metric].set(len(unseen_members))
 
     network: Network = service.network
     for member_id in unseen_members:
@@ -352,6 +378,15 @@ async def setup_server() -> (Service, ServiceServer):
     server: ServiceServer = await ServiceServer.setup(network, server_config)
     config.server = server
 
+    setup_exporter_metrics()
+
+    listen_port: int = os.environ.get(
+        'WORKER_METRICS_PORT',
+        server_config.listen_port or PROMETHEUS_EXPORTER_PORT
+    )
+
+    start_http_server(listen_port)
+
     _LOGGER.debug(
         'Setup service server completed, now loading network secrets'
     )
@@ -377,6 +412,25 @@ async def setup_server() -> (Service, ServiceServer):
     await server.setup_asset_cache(server_config.server_config['asset_cache'])
 
     return service, server
+
+
+def setup_exporter_metrics() -> None:
+    config.metrics = {
+        'svcworker_total_members': Gauge(
+            'svcworker_total_members', 'Number of members in MemberDB'
+        ),
+        'svcworker_unseen_members': Gauge(
+            'svcworker_unseen_members', 'Number of unseen members'
+        ),
+        'svcworker_no_assets_needing_refresh': Counter(
+            'svcworker_no_assets_needing_refresh',
+            'number of times we need to refresh assets'
+        ),
+        'svcworker_refresh_asset_runs': Counter(
+            'svcworker_refresh_asset_runs',
+            'number of times we had to run the refresh asset procedure'
+        ),
+    }
 
 
 if __name__ == '__main__':

@@ -17,6 +17,9 @@ from ssl import SSLContext
 
 from fastapi import FastAPI
 
+from prometheus_client import Counter
+from prometheus_client import Gauge
+
 from byoda.servers.server import Server
 
 
@@ -67,3 +70,8 @@ ssl_contexts: dict[str, SSLContext] = {}
 
 # Setting for OpenTelemetry tracing
 trace_server: str = '127.0.0.1'
+
+# Metrics for exporters. We don't instantiate specific metrics here
+# as workers use prometheus-exporter module while app servers should
+# use OpenTelemetry prometheus exporter
+metrics: dict[str, Counter | Gauge] = {}

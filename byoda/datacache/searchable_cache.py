@@ -214,9 +214,10 @@ class SearchableCache:
         result: bytes = await self.client.ft(
             self.index_name
         ).create_index(schema, definition=definition)
-
         if result and result != 'OK':
             raise RuntimeError('Failed to create search index')
+
+        _LOGGER.debug(f'Created search index: {self.index_name}')
 
         return None
 
@@ -241,6 +242,8 @@ class SearchableCache:
         if num > 100:
             num = 10
 
+        _LOGGER.debug(f'Received search query: {query}')
+
         query = Query(query).paging(offset, num).timeout(5 * 1000)
         results: Result = await self.client.ft(self.index_name).search(query)
 
@@ -248,6 +251,8 @@ class SearchableCache:
         for doc in results.docs:
             doc_data = orjson.loads(doc.json)
             data.append(doc_data)
+
+        _LOGGER.debug(f'Found {len(data)} assets for query: {query}')
 
         return data
 
@@ -292,8 +297,7 @@ class SearchableCache:
         return results
 
     async def json_get(self, key_prefix: str, member_id: UUID | None = None,
-                       asset_id: UUID | None = None
-                       ) -> object:
+                       asset_id: UUID | None = None) -> object:
         '''
         Gets a JSON value from the cache
 

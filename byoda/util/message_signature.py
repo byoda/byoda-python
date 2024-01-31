@@ -78,7 +78,7 @@ class MessageSignature:
         '''
 
         if not data:
-            raise ValueError('No data in provided in dict')
+            raise ValueError('No signatures available in service schema')
 
         sig = MessageSignature(data_secret, data['hash_algorithm'])
         sig.base64_signature = data['signature']
