@@ -463,45 +463,6 @@ export YOUTUBE_IMPORT_INTERVAL=240
 
 If you just set the *YOUTUBE_CHANNEL* to the name of your channel then only the metadata of your YouTube videos will be ingested but the playback URL will point to youtube.com. If you specify _<channel-name>:ALL_ then the pod will additionally ingest all the video and audio files and store it in your AWS/GCP storage bucket of Azure storage-account. The playback URL will then point to the byoda CDN (cdn.byo.host), which will fetch the content from your the angie server running in your pod, which will retrieve the requested content from your storage-bucket/account. Keep in mind that ingesting the video and audio files will incur costs for your storage account. Streaming the content via the CDN and your pod will incur cloud costs for the network traffic of both your pod and your storage account.
 
-## Twitter integration
-
-To enable research into search and discovery on distributed social networks, the pod has the capability to import tweets from Twitter. This will give the byoda network an initial set of data to experiment with. To enable importing Tweets you have to sign up to the [Twitter Developer program](https://developer.twitter.com/en). Signing up is unfortunately no longer free. After signing up, you go to the developer portal, create a 'project', select the project and then at the center top of the screen select 'Keys and tokens'. Generate an 'API key and secret' and write down those two bits. On your server, you can then edit the ```byoda-settings.sh``` script and edit the following variables:
-
-```bash
-# Set this to the API key you generated on the Twitter Dev portal
-export TWITTER_API_KEY=
-
-# Set this to the secret you generated on the Twitter Dev portal
-export TWITTER_KEY_SECRET=
-
-# Select your own handle or, if you don't tweet much,
-# set it to a handle of someone you like. Sample value: 'byoda_org'
-export TWITTER_USERNAME=
-```
-
-When you launch the pod with these settings, a worker process in the pod will read the tweets from Twitter and store them in your pod. You can confirm that the tweets have been imported using the call_data_api tool:
-
-```bash
-cd byoda-python
-export PYTHONPATH=.
-source tools/set_env.sh
-pipenv run tools/call_data_api.py --object tweets --action query
-```
-
-When it is importing tweets, the worker in the pod will call a backend server of the 'address book' service to upload metadata about the tweets. This provides the data for a search API. At this time, you can call it to look for mentions or hashtags.
-
-```bash
-sudo chmod a+rwx /byoda
-cd byoda-python
-source tools/set_env.sh
-curl -s -X GET --cacert $ROOT_CA --cert $MEMBER_ADDR_CERT --key $MEMBER_ADDR_KEY --pass $PRIVATE_KEY_SECRET \
-    --data '{"mentions": ["glynmoody"]}' \
-    -H "Content-Type: application/json" \
-    https://service.service-$SERVICE_ADDR_ID.byoda.net/api/v1/service/search/asset  | jq .
-```
-
-The search API does not return the content but returns the member_id and asset_id so you can request the content from the pod that has stored the content.
-
 ## TODO
 
 The byoda software is currently alpha quality. There are no web UIs or mobile apps yet. curl and 'call-data_api' are currently the only user interface.

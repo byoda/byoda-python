@@ -518,7 +518,10 @@ class Secret:
                 f'got {len(cert_data)} bytes'
             )
         else:
-            raise FileNotFoundError(f'cert file not found: {self.cert_file}')
+            filepath: str = "/".join(
+                self.storage_driver.get_full_path(self.cert_file)
+            )
+            raise FileNotFoundError(f'cert file not found: {filepath}')
 
         self.from_string(cert_data)
 

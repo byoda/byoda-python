@@ -1,6 +1,13 @@
 '''
 API server for Bring Your Own Data and Algorithms
 
+To run this service in a test environment:
+- mkdir /tmp/byoda-tests/svcserver/
+- cd /tmp/byoda-tests/svcserver/
+- cp -r ~/src/byoda-python/tests/collateral/local/addressbook-service/* .
+- cd network-byoda.net/services/service-4294929430/
+- scp azureuser@dir.byoda.net:/opt/byoda/dirserver/network-byoda.net/services/service-4294929430/service-contract.json .
+
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023
 :license    : GPLv3

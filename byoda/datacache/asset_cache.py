@@ -14,12 +14,13 @@ from datetime import datetime
 
 from fastapi.encoders import jsonable_encoder
 
+from prometheus_client import Counter
+from prometheus_client import Gauge
+
 from byoda.datatypes import DataRequestType
 
 from byoda.models.data_api_models import EdgeResponse as Edge
 from byoda.models.data_api_models import Asset
-
-# from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
@@ -30,6 +31,8 @@ from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.logger import Logger
 
 from byoda.datacache.searchable_cache import SearchableCache
+
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -75,6 +78,50 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
+        metrics: dict[str, Gauge | Counter] = config.metrics
+        if metrics:
+            metrics.update(
+                {
+                    'assetcache_total_lists': Gauge(
+                        'assetcache_total_lists', 'total lists in assetcache',
+                    ),
+                    'assetcache_lists_per_asset': Gauge(
+                        'assetcache_lists_per_asset',
+                        'lists per asset in assetcache',
+                    ),
+                    'assetcache_short_assets_added': Counter(
+                        'assetcache_short_assets_added',
+                        'short assets (<60s) added to assetcache',
+                    ),
+                    'assetcache_long_assets_added': Counter(
+                        'assetcache_long_assets_added',
+                        'long assets (>60s) added to assetcache',
+                    ),
+                    'assetcache_asset_found': Counter(
+                        'assetcache_asset_found', 'assets found in assetcache',
+                    ),
+                    'assetcache_asset_not_found': Counter(
+                        'assetcache_asset_not_found',
+                        'assets not found in assetcache',
+                    ),
+                    'assetcache_refresh_asset_failures': Counter(
+                        'assetcache_refresh_asset_failures',
+                        'Failures to call REST API of pod to refresh an asset',
+                    ),
+                    'assetcache_refresh_asset_api_calls': Counter(
+                        'assetcache_refresh_asset_api_calls',
+                        'API calls to pods to refresh an asset',
+                    ),
+                    'assetcache_refreshable_asset_not_found': Counter(
+                        'assetcache_refreshable_asset_not_found',
+                        'Assets not found in pods when refreshing',
+                    ),
+                    'assetcache_refreshable_asset_dupes': Counter(
+                        'assetcache_refreshable_asset_dupes',
+                        'Multiple assets found in pod when refreshing',
+                    ),
+                }
+            )
         self: AssetCache = AssetCache(connection_string)
         await self.create_search_index()
         await self.load_functions()
@@ -103,33 +150,45 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
+        metrics: dict[str, Gauge | Counter] = config.metrics
+
         pydantic_asset: Asset = Asset(**asset)
 
         # We use short_append to make sure vertically oriented assets
         # go to separate lists from horizontally oriented assets.
         short_append: str = ''
+        metric: str
         if pydantic_asset.duration <= 60:
             pydantic_asset.screen_orientation_horizontal = False
             short_append = '-short'
+            metric = 'assetcache_short_assets_added'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
+        else:
+            metric = 'assetcache_long_assets_added'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
 
-        # the 'all_assets' list is a special list that contains all assets, so
-        # we can refresh assets in the cache before they expire
-        lists_set: set[str] = set(
-            [
-                AssetCache.DEFAULT_ASSET_LIST + short_append,
-                AssetCache.ALL_ASSETS_LIST
-            ]
-        )
+        lists_set: set[str] = set()
 
-        categories: list[str] | None = pydantic_asset.categories
+        categories: list[str] | None = [
+            category.lower() for category in pydantic_asset.categories
+            if isinstance(category, str)
+        ]
         if len(categories) > 2:
             categories = categories[:2]
 
-        keywords: list[str] = pydantic_asset.keywords
+        keywords: list[str] = [
+            keyword.lower() for keyword in pydantic_asset.keywords
+            if isinstance(keyword, str)
+        ]
         if len(keywords) > 4:
             keywords = keywords[:4]
 
-        annotations: list[str] = pydantic_asset.annotations
+        annotations: list[str] = [
+            annotation.lower() for annotation in pydantic_asset.annotations
+            if isinstance(annotation, str)
+        ]
         if len(annotations) > 4:
             annotations = annotations[:4]
 
@@ -139,12 +198,17 @@ class AssetCache(SearchableCache):
         keyword: str
         annotation: str
         for category in pydantic_asset.categories:
+            category = category.lower()
             list_name: str = category + short_append
             lists_set.add(list_name)
+
             for keyword in pydantic_asset.keywords:
+                keyword = keyword.lower()
                 list_name: str = category + '-' + keyword + short_append
                 lists_set.add(list_name)
+
                 for annotation in pydantic_asset.annotations:
+                    annotation = annotation.lower()
                     list_name = (
                         category + '-' + keyword + '-' + annotation +
                         short_append
@@ -152,10 +216,19 @@ class AssetCache(SearchableCache):
                     lists_set.add(list_name)
 
         # We don't want too many lists
-        if len(lists_set) > 32:
-            lists_set = set((list(lists_set))[:32])
+        if len(lists_set) > 30:
+            lists_set = set((list(lists_set))[:30])
+
+        # the 'all_assets' list is a special list that contains all assets, so
+        # we can refresh assets in the cache before they expire
+        lists_set.add(AssetCache.ALL_ASSETS_LIST)
+        lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
 
         lists_set.add(pydantic_asset.creator + short_append)
+
+        metric = 'assetcache_lists_per_asset'
+        if metrics and metric in metrics:
+            metrics[metric].set(len(lists_set))
 
         # We override the cursor that the member may have set as that cursor
         # is only unique(-ish) for the member. We need a cursor that is unique
@@ -188,6 +261,8 @@ class AssetCache(SearchableCache):
         )
 
         await self.update_list_of_lists(lists_set)
+        if metrics and 'assetcache_total_lists' in metrics:
+            metrics['assetcache_total_lists'].set(len(lists_set))
 
         _LOGGER.debug(
             f'Added asset {pydantic_asset.asset_id} '
@@ -203,9 +278,19 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
+        metrics: dict[str, Gauge | Counter] = config.metrics
+
         asset_data: any = await self.json_get(asset_key)
+        metric: str
         if not asset_data:
+            metric = 'assetcache_asset_not_found'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
             raise FileNotFoundError(f'Asset not found for key: {asset_key}')
+
+        metric = 'assetcache_asset_found'
+        if metrics and metric in metrics:
+            metrics[metric].inc()
 
         asset_data['node'] = Asset(**asset_data['node'])
         edge = Edge(**asset_data)
@@ -376,6 +461,11 @@ class AssetCache(SearchableCache):
 
         key: str = AssetCache.get_asset_key(member_id, asset_id)
 
+        metrics: dict[str, Gauge | Counter] = config.metrics
+        metric: str = 'assetcache_deleted_assets'
+        if metrics and metric in metrics:
+            metrics[metric].inc()
+
         return await self.backend.delete(key)
 
     async def refresh_asset(self, edge: Edge, asset_class_name: str,
@@ -395,16 +485,31 @@ class AssetCache(SearchableCache):
         node: Asset = edge.node
         asset_id: UUID = node.asset_id
 
-        resp: HttpResponse = await self._asset_query(
-            member_id, asset_id, asset_class_name, tls_secret
-        )
+        metrics: dict[str, Gauge | Counter] = config.metrics
 
+        try:
+            resp: HttpResponse = await self._asset_query(
+                member_id, asset_id, asset_class_name, tls_secret
+            )
+        except Exception as exc:
+            _LOGGER.debug(
+                f'Error calling data API of member {member_id}: {exc}'
+            )
+            raise
+
+        metric: str
         if resp.status_code != 200:
+            metric = 'assetcache_refresh_asset_failures'
+            if metrics and metric in metrics:
+                metrics['assetcache_refresh_asset_failures'].inc()
             raise FileNotFoundError
 
         data = resp.json()
 
         if not data or data.get('total_count') == 0:
+            metric = 'assetcache_refreshable_asset_not_found'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
             raise FileNotFoundError
 
         if data['total_count'] > 1:
@@ -412,6 +517,9 @@ class AssetCache(SearchableCache):
                 f'Multiple assets found for asset_id {asset_id} '
                 f'from member {member_id}, using only the first one'
             )
+            metric = 'assetcache_refreshable_asset_dupes'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
 
         node: dict[str, object] = data['edges'][0]['node']
         asset = Edge(
@@ -435,6 +543,8 @@ class AssetCache(SearchableCache):
         :returns: the asset
         '''
 
+        metrics: dict[str, Gauge | Counter] = config.metrics
+
         data_filter: dict[str, dict[str, object]] | None = None
         if asset_id:
             data_filter: dict = {'asset_id': {'eq': asset_id}}
@@ -445,5 +555,9 @@ class AssetCache(SearchableCache):
             network=tls_secret.network, member_id=member_id,
             data_filter=data_filter, first=1,
         )
+
+        metric: str = 'assetcache_refresh_asset_api_calls'
+        if metrics and metric in metrics:
+            metrics[metric].inc()
 
         return resp

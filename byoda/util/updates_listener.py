@@ -25,7 +25,11 @@ from anyio.abc import TaskGroup
 from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import WebSocketException
 from websockets.exceptions import ConnectionClosedOK
-from byoda.datamodel.memberdata import EdgeResponse
+
+from prometheus_client import Counter
+from prometheus_client import Gauge
+
+from byoda.datamodel.memberdata import EdgeResponse as Edge
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.member import Member
@@ -54,6 +58,8 @@ from byoda.util.test_tooling import is_test_uuid
 from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
+
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -109,6 +115,7 @@ class UpdatesListener:
         after: str | None = None
         assets_retrieved: int = 0
 
+        metrics: dict[str, Gauge, Counter] = config.metrics
         while has_more_assets:
             try:
                 resp: HttpResponse = await DataApiClient.call(
@@ -121,6 +128,8 @@ class UpdatesListener:
                     f'Failed to get assets from member '
                     f'{self.remote_member_id}: {exc}'
                 )
+                if metrics and 'failed_get_all_data' in metrics:
+                    metrics['failed_get_all_data'].inc()
                 return assets_retrieved
 
             if resp.status_code != 200:
@@ -129,6 +138,8 @@ class UpdatesListener:
                     f'{self.remote_member_id}: '
                     f'{resp.status_code}: {resp.text}'
                 )
+                if metrics and 'failed_get_all_data' in metrics:
+                    metrics['failed_get_all_data'].inc()
                 return assets_retrieved
 
             data: list[dict[str, object]] = resp.json()
@@ -140,6 +151,9 @@ class UpdatesListener:
                     'Received corrupt data '
                     f'from member {self.remote_member_id}: {exc}'
                 )
+                metric = 'updateslistener_received_corrupt_data'
+                if metrics and metric in metrics:
+                    metrics[metric].inc()
                 return assets_retrieved
 
             assets_retrieved += response.total_count
@@ -148,8 +162,11 @@ class UpdatesListener:
                 f'member {self.remote_member_id}, total is now '
                 f'{assets_retrieved}'
             )
+            metric = 'received_assets'
+            if metrics and metric in metrics:
+                metrics[metric].inc(response.total_count)
 
-            edge: EdgeResponse
+            edge: Edge
             for edge in response.edges or []:
                 await self.store_asset_in_cache(
                     edge.node, edge.origin, edge.cursor
@@ -162,6 +179,9 @@ class UpdatesListener:
             f'Synced {assets_retrieved} assets '
             f'from {self.remote_member_id}'
         )
+        metric = 'got_all_data_from_pod'
+        if metrics and metric in metrics:
+            metrics[metric].inc()
 
         return assets_retrieved
 
@@ -205,6 +225,8 @@ class UpdatesListener:
             f'to class {self.class_name} of service {self.service_id}'
         )
 
+        metrics: dict[str, Gauge, Counter] | None = config.metrics
+
         reconnect_delay: int = 0.5
         last_alive: datetime = datetime.now(tz=timezone.utc)
         while True:
@@ -234,8 +256,12 @@ class UpdatesListener:
                         edge.node, edge.origin_id, edge.cursor
                     )
 
+                    metric: str = 'updateslistener_updates_received'
+                    if metrics and metric in metrics:
+                        metrics[metric].inc()
+
                     # We received data from the remote pod, so reset the
-                    # reconnect # delay
+                    # reconnect delay
                     reconnect_delay = 0.2
                     last_alive = datetime.now(tz=timezone.utc)
 
@@ -248,21 +274,33 @@ class UpdatesListener:
                     f'{self.remote_member_id}. Will reconnect '
                     f'in {reconnect_delay} secs: {exc}'
                 )
+                metric = 'updateslistener_websocket_client_transport_errors'
+                if metrics and metric in metrics:
+                    metrics[metric].inc()
             except socket_gaierror as exc:
                 _LOGGER.debug(
                     f'Websocket connection to member {self.remote_member_id} '
                     f'failed: {exc}'
                 )
+                metric = 'updateslistener_websocket_client_connection_errors'
+                if metrics and metric in metrics:
+                    metrics[metric].inc()
             except CancelledError as exc:
                 _LOGGER.debug(
                     f'Websocket connection to member {self.remote_member_id} '
                     f'cancelled by asyncio: {exc}'
                 )
+                metric = 'updateslistener_websocket_client_cancelled_errors'
+                if metrics and metric in metrics:
+                    metrics[metric].inc()
             except Exception as exc:
                 _LOGGER.debug(
                     f'Failed to establish connection '
                     f'to {self.remote_member_id}: {exc}'
                 )
+                metric = 'updateslistener_websocket_exception_errors'
+                if metrics and metric in metrics:
+                    metrics[metric].inc()
 
             _LOGGER.debug(f'Reconnect delay is now {reconnect_delay}')
             await sleep(reconnect_delay)
@@ -276,7 +314,7 @@ class UpdatesListener:
             if not_seen_for > timedelta(days=7):
                 raise RuntimeError(
                     f'Member {self.remote_member_id} has not been seen for '
-                    '30 days'
+                    '7 days'
                 )
 
 
@@ -302,6 +340,57 @@ class UpdateListenerService(UpdatesListener):
             cache_expiration
         )
 
+        metrics: dict[str, Counter | Gauge] = config.metrics
+
+        metric: str = 'updateslistener_received_corrupt_data'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of pods that returned corrupt data'
+            )
+        metric = 'updateslistener_updates_received'
+        if metric not in metrics:
+            metrics[metric] = Counter(metric, 'Number of updates received')
+
+        metric = 'updateslistener_websocket_client_transport_errors'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of websocket client transport errors'
+            )
+
+        metric = 'updateslistener_websocket_client_connection_errors'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of websocket client connection errors'
+            )
+
+        metric = 'updateslistener_websocket_client_cancelled_errors'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of websocket client cancelled errors'
+            )
+
+        metric = 'updateslistener_websocket_exception_errors'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of unclassified websocket errors'
+            )
+
+        metric = 'updateslistener_assets_stored_in_cache'
+        if metric not in metrics:
+            metrics[metric] = Counter(metric, "Assets stored in cache")
+
+        metric = 'updateslistener_assets_seen'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets already seen by a listener'
+            )
+
+        metric = 'updateslistener_assets_unseen'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets not yet seen by a listener'
+            )
+
         self.asset_cache: AssetCache = asset_cache
 
     def matches(self, member_id: UUID, service_id: int, source_class_name: str
@@ -310,11 +399,20 @@ class UpdateListenerService(UpdatesListener):
         Checks whether a listener matches the provided parameters
         '''
 
-        return (
+        seen: bool = (
             self.remote_member_id == member_id
             and self.service_id == service_id
             and self.class_name == source_class_name
         )
+
+        metrics: dict[str, Counter | Gauge] = config.metrics
+        metric: str
+        if metrics:
+            metric = 'updateslistener_assets_seen'
+            if seen and metric in metrics:
+                metrics[metric].inc()
+            elif not seen and 'updateslistener_assets_unseen' in metrics:
+                metrics['updateslistener_assets_unseen'].inc()
 
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
@@ -364,6 +462,12 @@ class UpdateListenerService(UpdatesListener):
                 return False
 
         await self.asset_cache.add_asset(origin_id, data)
+
+        metrics: dict[str, Counter | Gauge] = config.metrics
+        metric: str = 'updateslistener_assets_stored_in_cache'
+        if metrics and metric in metrics:
+            metrics[metric].inc()
+
         return True
 
 
@@ -490,7 +594,8 @@ class UpdateListenerMember(UpdatesListener):
             )
         except ByodaRuntimeError as exc:
             _LOGGER.warning(
-                f'Failed to append video {data.get("asset_id")} '
+                f'Got exception when appending '
+                f'video {data.get("asset_id")} '
                 f'to class {self.dest_class_name} '
                 f'with query_id {query_id}: {exc}'
             )
@@ -500,7 +605,7 @@ class UpdateListenerMember(UpdatesListener):
             _LOGGER.warning(
                 f'Failed to append video {data.get("asset_id")} '
                 f'to class {self.dest_class_name} '
-                f'with query_id {query_id}: {resp.status_code}'
+                f'with query_id {query_id}: {resp.text or resp.status_code}'
             )
             return False
 
