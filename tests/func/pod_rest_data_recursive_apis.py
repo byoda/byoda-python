@@ -314,7 +314,7 @@ async def call_data_api(test, service_id: int, class_name: str,
                         auth_header: str = None, expect_success: bool = True
                         ) -> dict | None:
 
-    resp = await DataApiClient.call(
+    resp: HttpResponse = await DataApiClient.call(
         service_id=service_id, class_name=class_name, action=action,
         first=first, after=after, depth=depth, fields=fields,
         relations=relations, data_filter=data_filter, data=data,
@@ -341,7 +341,10 @@ async def call_data_api(test, service_id: int, class_name: str,
     return result
 
 
-async def add_to_azure_pod_network_links(test, account: Account, service_id: int):
+async def add_to_azure_pod_network_links(test, account: Account,
+                                         service_id: int) -> None:
+    azure_member_auth_header: str
+    azure_fqdn: str
     azure_member_auth_header, azure_fqdn = await get_azure_pod_jwt(
         account, TEST_DIR
     )
@@ -350,7 +353,7 @@ async def add_to_azure_pod_network_links(test, account: Account, service_id: int
     member_id: UUID = member.member_id
 
     # Add network_link to Azure POD
-    data = {
+    data: dict[str, dict[str, str]] = {
         'data': {
             'member_id': str(member.member_id),
             'relation': 'friend',
@@ -365,7 +368,7 @@ async def add_to_azure_pod_network_links(test, account: Account, service_id: int
         data=data, timeout=TIMEOUT, headers=azure_member_auth_header,
         member_id=AZURE_POD_MEMBER_ID
     )
-    append_count = resp.json()
+    append_count: int = resp.json()
 
     test.assertEqual(append_count, 1)
 
@@ -376,7 +379,7 @@ async def add_to_azure_pod_network_links(test, account: Account, service_id: int
         timeout=TIMEOUT, headers=azure_member_auth_header,
         member_id=AZURE_POD_MEMBER_ID
     )
-    azure_network_data = resp.json()
+    azure_network_data: dict[str, any] = resp.json()
     test.assertEqual(azure_network_data['total_count'], 1)
     test.assertEqual(len(azure_network_data['edges']), 1)
 
@@ -388,7 +391,7 @@ async def populate_data_rest(test, service_id: int, class_name: str,
     global ALL_DATA
     ALL_DATA = []
     for count in range(0, record_count):
-        vars = {
+        vars: dict[str, any] = {
             'created_timestamp': str(
                 datetime.now(tz=timezone.utc).isoformat()
             ),

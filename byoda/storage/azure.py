@@ -21,8 +21,8 @@ Azure Storage has limitation of 250 storage accounts per subscription per region
 :license    : GPLv3
 '''
 
+from typing import BinaryIO
 from logging import getLogger
-from byoda.util.logger import Logger
 from tempfile import TemporaryFile
 from collections import namedtuple
 
@@ -36,6 +36,8 @@ from azure.core.exceptions import ResourceNotFoundError
 
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
+
+from byoda.util.logger import Logger
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
@@ -400,9 +402,12 @@ class AzureFileStorage(FileStorage):
         :parm file_mode: how the file should be opened
         '''
 
-        blob_client = self._get_blob_client(dest, storage_type=storage_type)
-        file_desc = super().open(source, OpenMode.READ, file_mode.BINARY)
+        blob_client: BlobClient = self._get_blob_client(
+            dest, storage_type=storage_type
+        )
+        file_desc: BinaryIO = super().open(source, OpenMode.READ, file_mode.BINARY)
         await blob_client.upload_blob(file_desc, overwrite=exist_ok)
+        file_desc.close()
 
         _LOGGER.debug(
             f'Uploaded {source} to "{dest}" on Azure storage account '
