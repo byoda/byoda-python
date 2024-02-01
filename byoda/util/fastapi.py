@@ -134,6 +134,7 @@ def review_cors_hosts(hosts: str | list[str]) -> list[str]:
 
     if config.debug:
         updated_cors_hosts.append('http://localhost:3000')
+        updated_cors_hosts.append('http://127.0.0.1:3000')
 
     return updated_cors_hosts
 

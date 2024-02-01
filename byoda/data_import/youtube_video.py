@@ -827,7 +827,7 @@ class YouTubeVideo:
             if not download_dir:
                 return None
 
-            pkg_dir = self.package_streams(
+            pkg_dir: str = self.package_streams(
                 tmp_dir, bento4_dir=bento4_directory
             )
 
@@ -886,8 +886,8 @@ class YouTubeVideo:
         self._transition_state(IngestStatus.UPLOADING)
 
         for filename in os.listdir(pkg_dir):
-            source = f'{pkg_dir}/{filename}'
-            dest = f'{self.asset_id}/{filename}'
+            source: str = f'{pkg_dir}/{filename}'
+            dest: str = f'{self.asset_id}/{filename}'
             _LOGGER.debug(
                 f'Copying {source} to {dest} on RESTRICTED storage'
             )
@@ -898,16 +898,17 @@ class YouTubeVideo:
             )
 
     def _get_tempdir(self, storage_driver: FileStorage) -> str:
-        tmp_dir = storage_driver.local_path + 'tmp/' + self.video_id
+        tmp_dir: str = storage_driver.local_path + 'tmp/' + self.video_id
 
         return tmp_dir
 
     def _delete_tempdir(self, storage_driver: FileStorage) -> None:
-        tmp_dir = self._get_tempdir(storage_driver)
+        tmp_dir: str = self._get_tempdir(storage_driver)
         shutil.rmtree(tmp_dir)
 
     def filter_encoding_profiles(
-            self, wanted_encoding_profiles: dict[str, dict[str, str | bool]]):
+            self, wanted_encoding_profiles: dict[str, dict[str, str | bool]]
+            ) -> set[int]:
         '''
         Filters the encoding profiles to only include the wanted formats
 

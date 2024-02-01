@@ -11,15 +11,18 @@ The profile server uses noSQL storage for profile data
 
 import logging
 
+from typing import Self
+from io import BufferedRandom
 from logging import getLogger
-from byoda.util.logger import Logger
-from tempfile import NamedTemporaryFile
 from tempfile import TemporaryFile
+from tempfile import NamedTemporaryFile
 
 import boto3
 from botocore import exceptions as aws_exceptions
 
 from byoda.datatypes import StorageType, CloudType
+
+from byoda.util.logger import Logger
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode
@@ -28,7 +31,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class AwsFileStorage(FileStorage):
-    __slots__ = ['driver', 'buckets']
+    __slots__: list[str] = ['driver', 'buckets']
 
     '''
     Provides access to AWS S3 object storage
@@ -55,7 +58,7 @@ class AwsFileStorage(FileStorage):
 
         super().__init__(root_dir, cloud_type=CloudType.AWS)
 
-        self.buckets = {
+        self.buckets: dict[str, str] = {
             StorageType.PRIVATE.value: private_bucket,
             StorageType.RESTRICTED.value: restricted_bucket,
             StorageType.PUBLIC.value: public_bucket,
@@ -70,7 +73,7 @@ class AwsFileStorage(FileStorage):
 
     @staticmethod
     async def setup(private_bucket: str, restricted_bucket: str,
-                    public_bucket: str, root_dir: str):
+                    public_bucket: str, root_dir: str) -> Self:
         '''
         Factory for AwsFileStorage
 
@@ -84,7 +87,7 @@ class AwsFileStorage(FileStorage):
         return AwsFileStorage(private_bucket, restricted_bucket,
                               public_bucket, root_dir)
 
-    async def close_clients(self):
+    async def close_clients(self) -> None:
         '''
         Closes the azure container clients. An instance of this class can
         not be used anymore after this method is called.
@@ -99,8 +102,8 @@ class AwsFileStorage(FileStorage):
 
         return filepath.lstrip('/')
 
-    def get_storage_prefix(self, bucket):
-        path = 'gs://{}/'.format(bucket)
+    def get_storage_prefix(self, bucket) -> str:
+        path: str = 'gs://{}/'.format(bucket)
 
         return path
 
@@ -169,11 +172,11 @@ class AwsFileStorage(FileStorage):
             if isinstance(data, str):
                 data = data.encode('utf-8')
 
-            file_descriptor = TemporaryFile(mode='w+b')
+            file_descriptor: BufferedRandom = TemporaryFile(mode='w+b')
             file_descriptor.write(data)
             file_descriptor.seek(0)
 
-        key = self._get_key(filepath)
+        key: str = self._get_key(filepath)
 
         # TODO: test case for setting content-type
         if not content_type:
@@ -209,8 +212,8 @@ class AwsFileStorage(FileStorage):
     async def delete(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
 
-        key = self._get_key(filepath)
-        response = self.driver.delete_object(
+        key: str = self._get_key(filepath)
+        response: dict[str, any] = self.driver.delete_object(
             Bucket=self.buckets[storage_type.value], Key=key
         )
 
@@ -230,7 +233,7 @@ class AwsFileStorage(FileStorage):
         if filepath is None:
             filepath = ''
 
-        bucket = self.get_bucket(storage_type)
+        bucket: str = self.get_bucket(storage_type)
         return f'https://{bucket}/{filepath}'
 
     def get_bucket(self, storage_type: StorageType = StorageType.PRIVATE
@@ -245,14 +248,14 @@ class AwsFileStorage(FileStorage):
         bucket: str = self.buckets[storage_type.value]
 
         try:
-            data = self.driver.head_bucket(Bucket=bucket)
+            data: dict[str, any] = self.driver.head_bucket(Bucket=bucket)
         except aws_exceptions.ClientError:
             _LOGGER.exception(f'Bucket not found: {bucket}')
             raise
 
         region = data['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region']
 
-        bucket_fqdn = \
+        bucket_fqdn: str = \
             f'{self.buckets[storage_type.value]}.s3-{region}.amazonaws.com'
 
         return bucket_fqdn
@@ -278,7 +281,9 @@ class AwsFileStorage(FileStorage):
         :parm file_mode: how the file should be opened
         '''
 
-        key = self._get_key(dest)
+        key: str = self._get_key(dest)
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(source, create_dir=False)
 
         # TODO: test case for setting content-type
@@ -302,17 +307,17 @@ class AwsFileStorage(FileStorage):
         '''
         # For AWS S3, the folder path must contain a '/' at the end
         folder_path = folder_path.rstrip('/') + '/'
-        result = self.driver.list_objects(
+        result: dict[str, any] = self.driver.list_objects(
             Bucket=self.buckets[storage_type.value],
             Prefix=folder_path, Delimiter='/'
         )
         folders = set()
         for folder in result.get('CommonPrefixes', []):
-            path = folder['Prefix'].rstrip('/')
+            path: str = folder['Prefix'].rstrip('/')
             if folder_path:
-                path = path[len(folder_path):]
+                path: str = path[len(folder_path):]
 
-            final_path = path.split('/')[-1]
+            final_path: str = path.split('/')[-1]
             if not prefix or final_path.startswith(prefix):
                 folders.add(final_path)
 

@@ -8,14 +8,17 @@ pods
 '''
 
 import base64
-import asyncio
 
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from collections import namedtuple
 from datetime import datetime
+
+from anyio import create_task_group
+from anyio import create_memory_object_stream
+from anyio.streams.memory import MemoryObjectSendStream
 
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
@@ -38,6 +41,8 @@ from byoda.models.data_api_models import AppendModel
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
+from byoda.util.logger import Logger
+
 from byoda import config
 
 from ..exceptions import ByodaRuntimeError
@@ -50,6 +55,8 @@ POD_TO_POD_PORT = 444
 Network = TypeVar('Network')
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
+
+ProxyResponse = namedtuple('ProxyResponse', ['target', 'data'])
 
 
 class DataProxy:
@@ -121,9 +128,6 @@ class DataProxy:
 
         self.data_request_type: DataRequestType = DataRequestType.QUERY
 
-        network_data: list[tuple[UUID, dict | None | Exception]] = \
-            await self._proxy_query_request(sending_member_id)
-
         targets: list[UUID] = await self._get_proxy_targets(sending_member_id)
 
         if not targets:
@@ -135,37 +139,27 @@ class DataProxy:
             f'{",".join([str(target) for target in targets])}'
         )
 
-        tasks = set()
-        for target in targets:
-            _LOGGER.debug(f'Creating task to proxy request to {target}')
-            task: asyncio.Task[tuple[UUID], list[dict[str, any]]] = \
-                asyncio.create_task(self._exec_data_query(target))
-            tasks.add(task)
-
-        network_data: list[any, BaseException] = await asyncio.gather(
-            *tasks, return_exceptions=True
-        )
-
-        processed_data: list[tuple[UUID, dict | None | Exception]] = []
+        processed_data: list[ProxyResponse] = []
         pod_responses: int = 0
-        for target_data in network_data:
-            if isinstance(target_data, ByodaRuntimeError):
-                _LOGGER.debug(
-                    f'Got error from upstream pod: {str(network_data)}'
-                )
-                processed_data.append((target, target_data))
-            else:
-                pod_responses += 1
-                try:
-                    target: UUID
-                    data: dict[str, any] | None | Exception
-                    target, data = target_data
-                    processed_data.append((target, data))
-                    _LOGGER.debug(f'Target {target} returned {data}')
-                except TypeError:
+        send_stream, receive_stream = \
+            create_memory_object_stream[ProxyResponse]()
+        try:
+            async with create_task_group() as task_group:
+                for target in targets:
                     _LOGGER.debug(
-                        f'Got error from upstream pod: {str(network_data)}'
+                        f'Creating task to proxy request to {target}'
                     )
+                    task_group.start_soon(
+                        self._exec_data_query, target, send_stream
+                    )
+                async with receive_stream:
+                    async for response in receive_stream:
+                        pod_responses += 1
+                        processed_data.append(response)
+
+        except* ByodaRuntimeError as exc_group:
+            for exc in exc_group.exceptions:
+                _LOGGER.debug(f'Got exception connecting to a pod: {str(exc)}')
 
         _LOGGER.debug(
             f'Received data from {pod_responses} pods out of {len(targets)} '
@@ -294,7 +288,9 @@ class DataProxy:
         else:
             return data
 
-    async def _exec_data_query(self, target: UUID) -> tuple[UUID, list[dict]]:
+    async def _exec_data_query(self, target: UUID,
+                               send_stream: MemoryObjectSendStream
+                               ) -> tuple[UUID, list[dict]]:
         '''
         Execute the REST Data query
 
@@ -338,7 +334,8 @@ class DataProxy:
                 f'Data API request returned {len(data)} data class: {data}'
             )
 
-        return (target, data)
+        await send_stream.send(ProxyResponse(target, data))
+        send_stream.close()
 
     def _process_network_query_data(self,
                                     network_data: list[QueryResponseModel]
@@ -430,14 +427,14 @@ class DataProxy:
                 f'Signature format {signature_format_version} not supported'
             )
 
-        plaintext = DataProxy._create_plaintext(
+        plaintext: str = DataProxy._create_plaintext(
             service_id, relations, filters, timestamp, origin_member_id
         )
-        secret = await MemberDataSecret.download(
+        secret: MemberDataSecret = await MemberDataSecret.download(
             origin_member_id, service_id, network.name
         )
 
-        origin_signature_decoded = base64.b64decode(origin_signature)
+        origin_signature_decoded: bytes = base64.b64decode(origin_signature)
 
         secret.verify_message_signature(plaintext, origin_signature_decoded)
 
@@ -470,14 +467,14 @@ class DataProxy:
         a Data query
         '''
 
-        plaintext = DataProxy._create_plaintext(
+        plaintext: str = DataProxy._create_plaintext(
             service_id, relations, filters, timestamp, origin_member_id
         )
 
         if not member_data_secret:
             member_data_secret: MemberDataSecret = self.member.data_secret
 
-        signature = member_data_secret.sign_message(plaintext)
-        signature_encoded = base64.b64encode(signature).decode('utf-8')
+        signature: bytes = member_data_secret.sign_message(plaintext)
+        signature_encoded: str = base64.b64encode(signature).decode('utf-8')
 
         return signature_encoded

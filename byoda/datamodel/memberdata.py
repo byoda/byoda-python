@@ -606,8 +606,8 @@ class MemberData(dict):
                 query.timestamp, query.origin_member_id
             )
 
-        all_data = await proxy.proxy_query_request(
-            class_name, query, data_request_type, sending_member_id
+        all_data: list[dict[str, any]] = await proxy.proxy_query_request(
+            class_name, query, sending_member_id
         )
 
         _LOGGER.debug(
