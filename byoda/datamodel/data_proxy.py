@@ -427,14 +427,14 @@ class DataProxy:
                 f'Signature format {signature_format_version} not supported'
             )
 
-        plaintext = DataProxy._create_plaintext(
+        plaintext: str = DataProxy._create_plaintext(
             service_id, relations, filters, timestamp, origin_member_id
         )
-        secret = await MemberDataSecret.download(
+        secret: MemberDataSecret = await MemberDataSecret.download(
             origin_member_id, service_id, network.name
         )
 
-        origin_signature_decoded = base64.b64decode(origin_signature)
+        origin_signature_decoded: bytes = base64.b64decode(origin_signature)
 
         secret.verify_message_signature(plaintext, origin_signature_decoded)
 
@@ -467,14 +467,14 @@ class DataProxy:
         a Data query
         '''
 
-        plaintext = DataProxy._create_plaintext(
+        plaintext: str = DataProxy._create_plaintext(
             service_id, relations, filters, timestamp, origin_member_id
         )
 
         if not member_data_secret:
             member_data_secret: MemberDataSecret = self.member.data_secret
 
-        signature = member_data_secret.sign_message(plaintext)
-        signature_encoded = base64.b64encode(signature).decode('utf-8')
+        signature: bytes = member_data_secret.sign_message(plaintext)
+        signature_encoded: str = base64.b64encode(signature).decode('utf-8')
 
         return signature_encoded
