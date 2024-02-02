@@ -263,30 +263,40 @@ class DataProxy:
         self.updated_query = copy(self.incoming_query)
         self.updated_query.depth = self.updated_depth
 
-        self.data_request_type: DataRequestType = DataRequestType.QUERY
+        self.data_request_type: DataRequestType = DataRequestType.APPEND
 
         target: UUID = self.incoming_query.remote_member_id
         if not target:
             raise ValueError('Append requests must have a remote member ID')
 
-        network_data: tuple[UUID, list[dict]] = await self._exec_data_query(
-            target
+        member: Member = self.member
+        network: Network = member.network
+        service_id: int = member.service_id
+
+        fqdn: str = MemberSecret.create_commonname(
+            target, service_id, network.name
+        )
+        url: str = DATA_API_URL.format(
+            protocol='https', fqdn=fqdn, port=POD_TO_POD_PORT,
+            service_id=service_id, class_name=self.class_name,
+            action=self.data_request_type.value
         )
 
-        remote_id: UUID = network_data[0]
-        data: int = network_data[1]
+        data_query: dict[str, object] = self.updated_query.model_dump()
+        resp: HttpResponse = await ApiClient.call(
+            url, method='POST', secret=member.tls_secret,
+            data=data_query
+        )
 
-        if target != remote_id:
-            _LOGGER.warning(f'Expected data pod {target} but got {remote_id }')
-            return (remote_id, None)
-
-        if isinstance(data, ByodaRuntimeError):
+        if resp.status_code != 200:
             _LOGGER.debug(
-                f'Got error from upstream pod: {str(network_data)}'
+                f'Got status code {resp.status_code} from remote pod'
             )
-            return (remote_id, None)
-        else:
-            return data
+            return None
+
+        data: dict[str, any] = resp.json()
+
+        return data
 
     async def _exec_data_query(self, target: UUID,
                                send_stream: MemoryObjectSendStream

@@ -83,11 +83,8 @@
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
-                    "network": {
-                        "permissions": ["read", "append"]
-                    },
                     "any_member": {
-                        "permissions": ["append"]
+                        "permissions": ["read", "append", "subscribe"]
                     }
                 },
                 "type": "array",
@@ -131,7 +128,7 @@
                     "$ref": "#/schemas/channel"
                 }
             },
-            "asset_links": {
+            "asset_reactions": {
                 "#accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
@@ -140,7 +137,7 @@
                 },
                 "type": "array",
                 "items": {
-                    "$ref": "#/schemas/asset_link"
+                    "$ref": "#/schemas/asset_reaction"
                 }
             },
             "asset_reactions_received": {
@@ -164,9 +161,20 @@
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
                     "any_member": {
-                        "permissions": ["append"]
+                        "permissions": ["read", "append"]
                     }
 
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/message"
+                }
+            },
+            "private_messages": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    }
                 },
                 "type": "array",
                 "items": {
@@ -312,49 +320,6 @@
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
             },
-            "asset_link": {
-                "$id": "/schemas/asset_link",
-                "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "links to other assets, that you have read, liked, etc.",
-                "type": "object",
-                "properties": {
-                    "created_timestamp": {
-                        "description": "time the asset link was created",
-                        "format": "date-time",
-                        "type": "string"
-                    },
-                    "member_id": {
-                        "description": "The UUID of the member that published the asset",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "asset_class": {
-                        "description": "The name of the asset class that this link points to",
-                        "type": "string"
-                    },
-                    "asset_id": {
-                        "#properties": ["counter"],
-                        "description": "The UUID of the asset",
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "asset_url": {
-                        "description": "URL to an asset not hosted by a member of the service",
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "relation": {
-                        "#properties": ["counter"],
-                        "description": "What relation you have with asset, such as read, liked, etc.",
-                        "type": "string"
-                    },
-                    "bookmark": {
-                        "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
-                        "type": "string"
-                    }
-                },
-                "required": ["created_timestamp", "member_id", "relation"]
-            },
             "asset_reaction": {
                 "$id": "/schemas/asset_reaction",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -378,6 +343,11 @@
                         "type": "string",
                         "format":  "uuid"
                     },
+                    "asset_url": {
+                        "description": "Playback URL of the asset",
+                        "type": "string",
+                        "format": "uri"
+                    },
                     "asset_class": {
                         "#properties": ["index", "counter"],
                         "description": "The UUID of our asset",
@@ -387,6 +357,14 @@
                     "relation": {
                         "#properties": ["index", "counter"],
                         "description": "What relation the other member has with our asset, for example liked",
+                        "type": "string"
+                    },
+                    "bookmark": {
+                        "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
+                        "type": "string"
+                    },
+                    "list": {
+                        "description": "The list that the member puts the asset in, for example, the list of assets about beekeeping",
                         "type": "string"
                     },
                     "claims": {
@@ -402,7 +380,7 @@
             "message": {
                 "$id": "/schemas/message",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
-                "description": "A message sent to another member",
+                "description": "A message sent to another member or a comment under a video",
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
@@ -419,21 +397,35 @@
                     "sender_id": {
                         "description": "The UUID of the member that sent the message",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["index"]
+                    },
+                    "creator": {
+                        "description": "creator of the message",
+                        "type": "string",
+                        "#properties": ["index"]
+                    },
+                    "creator_thumbnail": {
+                        "description": "URL for the creator's thumbnail",
+                        "type": "string",
+                        "format": "iri"
                     },
                     "thread_id": {
                         "description": "The UUID of the thread that the message belongs to",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["index"]
                     },
                     "in_response_to_id": {
                         "description": "The UUID of the message that this message is a response to",
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "#properties": ["index"]
                     },
                     "subject": {
                         "description": "The subject of the message",
-                        "type": "string"
+                        "type": "string",
+                        "#properties": ["index"]
                     },
                     "contents": {
                         "description": "The contents of the message",
@@ -891,7 +883,7 @@
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
-                        "description": "time the asset was created",
+                        "description": "time the channel was created",
                         "format": "date-time",
                         "type": "string"
                     },
@@ -900,8 +892,18 @@
                         "type": "string",
                         "format": "uuid"
                     },
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string",
+                        "#properties": ["index"]
+                    },
+                    "creator_thumbnail": {
+                        "description": "URL for the creator's thumbnail",
+                        "type": "string",
+                        "format": "iri"
+                    },
                     "name": {
-                        "description": "name of the channel",
+                        "description": "name of the channel, typically the name of the creator",
                         "type": "string"
                     },
                     "channel_thumbnail_url": {
@@ -923,6 +925,13 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/schemas/external_link"
+                        }
+                    },
+                    "claims": {
+                        "description": "list of claims for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
                         }
                     }
                 }

@@ -1062,7 +1062,12 @@ class MemberData(dict):
 
         :param service_id: Service ID for which the Data API was called
         :param class_name: the name of the data class to which to append
-        :param append_model: the data to append
+        :param query_id: a unique ID for the query
+        :param data_filter: data filter used to select the record to update
+        :param depth: depth of recursion, Proxied updates are not yet supported
+        so this value is ignored
+        :remote_member_id: the remote_member_id to proxy this request to.
+        As proxied updates are not supported this value is ignored
         :param remote_addr: host that originated the Data API query
         :param auth: provides information on the authentication for the request
         :param origin_id: The ID from which the data originates. If not
@@ -1147,7 +1152,7 @@ class MemberData(dict):
                 service_id, data_class.name
             )
 
-        cursor = Table.get_cursor_hash(
+        cursor: str = Table.get_cursor_hash(
             data, member_id, required_field_names
         )
 
