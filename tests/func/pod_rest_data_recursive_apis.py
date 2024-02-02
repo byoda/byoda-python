@@ -77,9 +77,9 @@ ALL_DATA: list[dict[str, AnyScalarType]] = []
 
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
         config.disable_pubsub = True
@@ -87,7 +87,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -115,17 +115,17 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
 
-    async def test_pod_rest_data_api_recursive_append(self):
+    async def test_pod_rest_data_api_recursive_append(self) -> None:
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
         member_id: UUID = member.member_id
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: dict[str, str] = await get_member_auth_header(
             self, member.member_id
         )
 
@@ -140,28 +140,14 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             }
         }
 
-        # Append fails here because the Azure POD does not have
-        # a network_link to us yet
-        with self.assertRaises(ByodaRuntimeError):
-            resp: HttpResponse = await DataApiClient.call(
-                service_id, class_name, DataRequestType.APPEND,
-                data=data, remote_member_id=AZURE_POD_MEMBER_ID, depth=1,
-                headers=member_auth_header,
-                member_id=AZURE_POD_MEMBER_ID, app=APP, timeout=TIMEOUT,
-            )
-            append_count = resp.json()
-
-        await add_to_azure_pod_network_links(self, account, service_id)
-
         resp: HttpResponse = await DataApiClient.call(
             service_id, class_name, DataRequestType.APPEND,
             data=data, remote_member_id=AZURE_POD_MEMBER_ID, depth=1,
             headers=member_auth_header,
             member_id=AZURE_POD_MEMBER_ID, app=APP, timeout=TIMEOUT,
         )
-        append_count: str = resp.text
-
-        self.assertEqual(int(append_count), 1)
+        append_count = resp.json()
+        self.assertEqual(append_count, 1)
 
     async def test_pod_rest_data_api_recursive_query(self) -> None:
         account: Account = config.server.account
