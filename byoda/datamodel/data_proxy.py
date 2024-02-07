@@ -365,7 +365,6 @@ class DataProxy:
         proxied_query_exceptions: int = 0
         all_edges: list = []
         for target_id, target_data in network_data:
-            # Do not process errors returned via asyncio.gather
             if isinstance(target_data, Exception):
                 proxied_query_exceptions += 1
                 continue
@@ -461,8 +460,13 @@ class DataProxy:
         plaintext += f'{origin_member_id}'
 
         if filters:
-            for key in sorted(vars(filters)):
-                plaintext += f'{key}{filters[key]}'
+            plaintext += ',{'
+            for key in sorted(filters.keys()):
+                plaintext += f'{key}:'
+                for oper, value in sorted(filters[key].items()):
+                    plaintext += '{' + f'{oper}:"{value}"' + '},'
+
+                plaintext += plaintext.rstrip(',') + '}'
 
         return plaintext
 

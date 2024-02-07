@@ -9,9 +9,10 @@ Cert manipulation
 import struct
 
 from copy import copy
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -28,6 +29,8 @@ from byoda.storage.filestorage import FileStorage
 from byoda.util.paths import Paths
 
 from byoda import config
+
+from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -56,16 +59,16 @@ class DataSecret(Secret):
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'shared_key', 'protected_shared_key', 'fernet'
     ]
 
     # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     def __init__(self, cert_file: str = None, key_file: str = None,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
 
         super().__init__(cert_file, key_file, storage_driver)
 
@@ -98,11 +101,11 @@ class DataSecret(Secret):
         if with_logging:
             _LOGGER.debug('Encrypting data with %d bytes', len(data))
 
-        ciphertext = self.fernet.encrypt(data)
+        ciphertext: bytes = self.fernet.encrypt(data)
         return ciphertext
 
     def encrypt_file(self, file_in: str, file_out: str,
-                     block_size: int = 1 << 16 - 4):
+                     block_size: int = 1 << 16 - 4) -> None:
         '''
         Encrypts a file without Fernet needing to have the whole file in memory
         '''
@@ -110,10 +113,10 @@ class DataSecret(Secret):
         # based on https://stackoverflow.com/questions/69312922/how-to-encrypt-large-file-using-python      # noqa: E501
         with open(file_in, 'rb') as fd_in, open(file_out, 'wb') as fd_out:
             while True:
-                chunk = fd_in.read(block_size)
+                chunk: bytes = fd_in.read(block_size)
                 if len(chunk) == 0:
                     break
-                encrypted = self.encrypt(chunk, with_logging=False)
+                encrypted: bytes = self.encrypt(chunk, with_logging=False)
                 fd_out.write(struct.pack('<I', len(encrypted)))
                 fd_out.write(encrypted)
                 if len(chunk) < block_size:
@@ -135,13 +138,13 @@ class DataSecret(Secret):
         if not self.shared_key:
             raise KeyError('No shared secret available to decrypt')
 
-        data = self.fernet.decrypt(ciphertext)
+        data: bytes = self.fernet.decrypt(ciphertext)
         if with_logging:
             _LOGGER.debug('Decrypted data with %d bytes', len(data))
 
         return data
 
-    def decrypt_file(self, file_in: str, file_out: str):
+    def decrypt_file(self, file_in: str, file_out: str) -> None:
         '''
         Decrypts a file without Fernet needing to have the whole file in memory
         '''
@@ -149,16 +152,16 @@ class DataSecret(Secret):
         # based on https://stackoverflow.com/questions/69312922/how-to-encrypt-large-file-using-python      # noqa: E501
         with open(file_in, 'rb') as fd_in, open(file_out, 'wb') as fd_out:
             while True:
-                size_data = fd_in.read(4)
+                size_data: bytes = fd_in.read(4)
                 if len(size_data) == 0:
                     break
-                chunk = fd_in.read(struct.unpack('<I', size_data)[0])
-                decrypted = self.decrypt(chunk, with_logging=False)
+                chunk: bytes = fd_in.read(struct.unpack('<I', size_data)[0])
+                decrypted: bytes = self.decrypt(chunk, with_logging=False)
                 fd_out.write(decrypted)
 
         _LOGGER.debug(f'Decrypted {file_in} to {file_out}')
 
-    def create_shared_key(self, target_secret=None):
+    def create_shared_key(self, target_secret=None) -> None:
         '''
         Creates an encrypted shared key
 
@@ -169,7 +172,7 @@ class DataSecret(Secret):
         '''
 
         if not target_secret:
-            target_secret = self
+            target_secret: Self = self
 
         _LOGGER.debug(
             f'Creating a shared key protected with cert '
@@ -194,7 +197,7 @@ class DataSecret(Secret):
         _LOGGER.debug('Initializing new Fernet instance')
         self.fernet = Fernet(self.shared_key)
 
-    def load_shared_key(self, protected_shared_key: bytes):
+    def load_shared_key(self, protected_shared_key: bytes) -> None:
         '''
         Loads a protected shared key
 
@@ -245,9 +248,9 @@ class DataSecret(Secret):
 
         chosen_hash = hashes.SHA256()
 
-        digest = DataSecret._get_digest(message, chosen_hash)
+        digest: bytes = DataSecret._get_digest(message, chosen_hash)
 
-        signature = self.private_key.sign(
+        signature: bytes = self.private_key.sign(
             digest,
             padding.PSS(
                 mgf=padding.MGF1(chosen_hash),
@@ -286,7 +289,7 @@ class DataSecret(Secret):
             f'Verifying signature with cert with fingerprint {fingerprint}'
         )
 
-        digest = DataSecret._get_digest(message, chosen_hash)
+        digest: bytes = DataSecret._get_digest(message, chosen_hash)
 
         self.cert.public_key().verify(
             signature,
@@ -313,7 +316,7 @@ class DataSecret(Secret):
             else:
                 hasher.update(message)
                 message = None
-        digest = hasher.finalize()
+        digest: bytes = hasher.finalize()
 
         _LOGGER.debug(f'Generated digest: {digest.hex()}')
 
@@ -337,7 +340,7 @@ class DataSecret(Secret):
             )
 
         _LOGGER.debug(f'Downloading data secret from {url}')
-        cert_data = await Secret.download(
+        cert_data: str | None = await Secret.download(
             url, root_ca_filepath=ca_filepath, network_name=network_name
         )
 

@@ -196,7 +196,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         # First non-recursive query, without data populated
-        local_data = await call_data_api(
+        local_data: dict | None = await call_data_api(
             self, service_id, class_name,
             action=DataRequestType.QUERY, first=50, depth=0,
             auth_header=member_auth_header
@@ -290,10 +290,32 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(recursive_data['total_count'], azure_assets_found + 4)
         self.assertGreaterEqual(len(recursive_data['edges']), azure_assets_found + 4)
 
+        # Recursive query (depth=1), with remote member_id, without filter
+        # depth = 1: local pod + azure pod
+        recursive_data = await call_data_api(
+            self, service_id, class_name,
+            action=DataRequestType.QUERY, first=50, depth=1,
+            remote_member_id=AZURE_POD_MEMBER_ID, auth_header=member_auth_header
+        )
+        self.assertGreaterEqual(recursive_data['total_count'], 3)
+        self.assertGreaterEqual(len(recursive_data['edges']), 3)
+
+        # Recursive query (depth=1), with remote member_id, with filter
+        # depth = 1: local pod + azure pod
+        recursive_data = await call_data_api(
+            self, service_id, class_name,
+            action=DataRequestType.QUERY, first=50, depth=1,
+            remote_member_id=AZURE_POD_MEMBER_ID, auth_header=member_auth_header,
+            data_filter={'asset_id': {'eq': recursive_data['edges'][0]['node']['asset_id']}}
+        )
+        self.assertGreaterEqual(recursive_data['total_count'], 1)
+        self.assertGreaterEqual(len(recursive_data['edges']), 1)
+
 async def call_data_api(test, service_id: int, class_name: str,
                         action: DataRequestType = DataRequestType.QUERY,
                         first: int | None = None, after: str | None = None,
                         depth: int = 0, relations: set[str] | None = None,
+                        remote_member_id: UUID | None = None,
                         fields: set[str] | None = None,
                         data_filter: DataFilterType | None = None,
                         data: dict[str, object] | None = None,
@@ -303,8 +325,8 @@ async def call_data_api(test, service_id: int, class_name: str,
     resp: HttpResponse = await DataApiClient.call(
         service_id=service_id, class_name=class_name, action=action,
         first=first, after=after, depth=depth, fields=fields,
-        relations=relations, data_filter=data_filter, data=data,
-        headers=auth_header,
+        remote_member_id=remote_member_id, relations=relations,
+        data_filter=data_filter, data=data, headers=auth_header,
         app=APP, internal=True
     )
 

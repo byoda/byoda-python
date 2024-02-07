@@ -121,7 +121,7 @@ class Paths:
     # Content download URLs
     RESTRICTED_ASSET_POD_URL = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa
     RESTRICTED_ASSET_CDN_URL = 'https://cdn.byo.host/restricted/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
-    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{service_id}/{member_id}/{asset_id}/{filename}'            # noqa
+    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{service_id}/{member_id}/{asset_id}/{filename}{ext}'       # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

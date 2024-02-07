@@ -10,7 +10,7 @@ Service secret
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -20,6 +20,8 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId
 from byoda.datatypes import CsrSource
+
+from byoda.util.logger import Logger
 
 from .ca_secret import CaSecret
 
@@ -32,8 +34,8 @@ class MembersCaSecret(CaSecret):
     __slots__ = ['network', 'service_id']
 
     # When should the Members CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {
@@ -41,7 +43,7 @@ class MembersCaSecret(CaSecret):
         IdType.MEMBER_DATA: 365
     }
 
-    def __init__(self, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the Service Members CA secret.
 
@@ -119,7 +121,7 @@ class MembersCaSecret(CaSecret):
         '''
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(commonname)
+        entity_id: str = super().review_commonname(commonname)
 
         return entity_id
 
@@ -134,7 +136,7 @@ class MembersCaSecret(CaSecret):
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class        '''
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname, network, MembersCaSecret.ACCEPTED_CSRS,
             service_id=int(service_id), uuid_identifier=True,
             check_service_id=True
@@ -158,8 +160,8 @@ class MembersCaSecret(CaSecret):
             _LOGGER.exception('CSR received while we are not a CA')
             raise ValueError('CSR received while we are not a CA')
 
-        commonname = super().review_csr(csr)
+        commonname: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(commonname)
+        entity_id: EntityId = self.review_commonname(commonname)
 
         return entity_id

@@ -10,7 +10,7 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -19,6 +19,9 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
+
+from byoda.util.logger import Logger
+
 from .data_secret import DataSecret
 
 _LOGGER: Logger = getLogger(__name__)
@@ -31,14 +34,14 @@ class AccountDataSecret(DataSecret):
     The account data secret is used to encrypt account data
     '''
 
-    __slots__ = ['account_id', 'account', 'network']
+    __slots__: list[str] = ['account_id', 'account', 'network']
 
     # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     def __init__(self, account: str = 'pod', account_id: UUID = None,
-                 network: Network = None):
+                 network: Network = None) -> None:
         '''
         Class for the account-data secret. This secret is used to encrypt
         account data and to sign documents
@@ -46,7 +49,7 @@ class AccountDataSecret(DataSecret):
         :raises: (none)
         '''
 
-        self.account_id = account_id
+        self.account_id: UUID = account_id
         if account_id and not isinstance(account_id, UUID):
             self.account_id = UUID(account_id)
 
@@ -60,8 +63,8 @@ class AccountDataSecret(DataSecret):
             key_file=self.paths.get(Paths.ACCOUNT_DATA_KEY_FILE),
             storage_driver=self.paths.storage_driver
         )
-        self.account = self.paths.account
-        self.network = network
+        self.account: str = self.paths.account
+        self.network: Network = network
         self.id_type = IdType.ACCOUNT_DATA
 
     async def create_csr(self, account_id: UUID = None, renew: bool = False
@@ -84,7 +87,7 @@ class AccountDataSecret(DataSecret):
             raise ValueError('Network not defined')
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'{self.account_id}.{self.id_type.value}.{self.network.name}'
         )
 

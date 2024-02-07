@@ -19,7 +19,7 @@ from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import StorageType
-from byoda.datatypes import ContentTypes
+from byoda.datatypes import ContentTypesByExtension
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -500,7 +500,7 @@ class FileStorage:
     def get_content_type(filepath) -> str:
         file_extension: str
         _, file_extension = os.path.splitext(filepath)
-        content_type: str = ContentTypes.get(
+        content_type: str = ContentTypesByExtension.get(
             file_extension, 'application/octet-stream'
         )
         return content_type

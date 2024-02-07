@@ -9,24 +9,35 @@ Model a Youtube channel
 
 import re
 
+from uuid import UUID
+from uuid import uuid4
+from typing import Self
+from shutil import rmtree
 from random import random
+from tempfile import mkdtemp
 from logging import getLogger
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone, timedelta
+from datetime import timedelta
 
 import orjson
 
 from anyio import sleep
-
+from bs4 import BeautifulSoup
+from innertube import InnerTube
 from httpx import AsyncClient as AsyncHttpClient
 
-from bs4 import BeautifulSoup
-
 from googleapiclient.discovery import Resource as YouTubeResource
-
+from byoda.datamodel.claim import Claim
 from byoda.datamodel.member import Member
+from byoda.datamodel.table import QueryResult
+from byoda.datamodel.sqltable import ArraySqlTable
+from byoda.datamodel.datafilter import DataFilterSet
 
+from byoda.datatypes import SocialNetworks
 from byoda.datatypes import IngestStatus
+
+from byoda.datastore.data_store import DataStore
 
 from byoda.storage.filestorage import FileStorage
 
@@ -47,20 +58,81 @@ class YouTubeChannel:
     CHANNEL_URL_WITH_AT: str = SCRAPE_URL + '/@{channel_name}'
     CHANNEL_URL: str = SCRAPE_URL + '/{channel_name}'
     CHANNEL_VIDEOS_URL: str = SCRAPE_URL + '/channel/{channel_id}/videos'
-    CHANNEL_SCRAPE_REGEX = re.compile(r'var ytInitialData = (.*?);')
+    CHANNEL_SCRAPE_REGEX: re.Pattern[str] = re.compile(
+        r'var ytInitialData = (.*?);'
+    )
+    CHANNEL_DATACLASS: str = 'channels'
 
     def __init__(self, name: str = None, channel_id: str = None,
-                 ingest: bool = False, api_client: YouTubeResource = None):
+                 ingest: bool = False, api_client: YouTubeResource = None
+                 ) -> None:
+        '''
+        Models a YouTube channel
 
-        self.name: str = name
-        self.asset_ingest_enabled: bool = False
+        :param name: the name of the channel as it appears in the vanity URL,
+        i.e., for https://www.youtube.com/@HistoryMatters, name is
+        'HistoryMatters'
+        :param channel_id: The YouTube channel ID, i.e. the last part of:
+        https://www.youtube.com/channel/UC22BdTgxefuvUivrjesETjg
+        :param ingest: whether to ingest the A/V streams of the scraped assets
+        :param api_client: the optional YouTube data API client
+        '''
+
+        self.name: str | None = name
+        if self.name:
+            self.name = name.lstrip('@')
+
         self.channel_id: str | None = channel_id
+
+        # e.g. 'History Matters'
+        self.title: str | None = None
+
+        self.description: str | None = None
+        self.keywords: list[str] = []
+        self.is_family_safe: bool = False
+        self.available_country_codes: list[str] = []
+        self.channel_thumbnails: list[YouTubeThumbnail] = []
+
+        # This thumbnail is used for the YouTubeVideo.creator_thumbnail
+        self.channel_thumbnail: YouTubeThumbnail | None = None
+
+        self.banners: list[YouTubeThumbnail] = []
+        self.external_urls: list[str] = []
+        self.claims: list[Claim] = []
+
+        # YouTube does not seem to keep these RSS feeds up to date
+        self.rss_url: str | None = None
+
+        # The number of subscribers and views are not always available
+        self.subs_count: int | None = None
+        self.views_count: int | None = None
+
+        self.asset_ingest_enabled: bool = False
         self.ingest_videos: bool = ingest
         self.api_client: YouTubeResource | None = api_client
 
         self.videos: dict[YouTubeVideo] = {}
 
-    async def persist(self, member: Member, storage_driver: FileStorage,
+    def as_dict(self) -> dict[str, any]:
+        data: dict[str, any] = {
+            'created_timestamp': datetime.now(tz=UTC),
+            'channel_id': self.channel_id,
+            'creator': self.name.lstrip('@'),
+            'description': self.description,
+            'is_family_safe': self.is_family_safe,
+            'available_counter_codes': self.available_country_codes,
+            'channel_thumbnails': [
+                t.as_dict() for t in self.channel_thumbnails
+            ],
+            'banners': [t.as_dict() for t in self.banners],
+            'external_urls': self.external_urls,
+            'claims': []
+        }
+
+        return data
+
+    async def persist(self, member: Member, data_store: DataStore,
+                      storage_driver: FileStorage,
                       already_ingested_videos: dict[str, dict] = {},
                       bento4_directory: str | None = None,
                       moderate_request_url: str | None = None,
@@ -72,6 +144,8 @@ class YouTubeChannel:
         collection, including downloading the video, packaging it, and
         saving it to the file store
         '''
+
+        await self.persist_channel(member, data_store, storage_driver)
 
         # The strategy here is simple: we try to store all videos. persist()
         # first checks whether the video is already in the data store and only
@@ -104,6 +178,53 @@ class YouTubeChannel:
                 _LOGGER.exception(
                     f'Could not persist video {video.video_id}: {exc}'
                 )
+
+    async def persist_channel(self, member: Member, data_store: DataStore,
+                              storage_driver: FileStorage) -> None:
+        '''
+        Persist the creator thumbnails and banners to storage
+        '''
+
+        table: ArraySqlTable = data_store.get_table(
+            member.member_id, YouTubeChannel.CHANNEL_DATACLASS
+        )
+        data_filter: DataFilterSet = DataFilterSet(
+            {'creator': {'eq': self.name}}
+        )
+        rows: list[QueryResult] | None = await table.query(
+            data_filters=data_filter
+        )
+
+        if rows:
+            _LOGGER.debug(f'Creator {self.name} already in the data store')
+            return None
+
+        self.channel_id: UUID = uuid4()
+
+        dirpath: str = mkdtemp(dir='/tmp')
+        thumbnail: YouTubeThumbnail
+        for thumbnail in self.channel_thumbnails:
+            await thumbnail.ingest(
+                video_id=self.channel_id, storage_driver=storage_driver,
+                member=member, work_dir=dirpath
+            )
+
+        for thumbnail in self.banners:
+            await thumbnail.ingest(
+                video_id=self.channel_id, storage_driver=storage_driver,
+                member=member, work_dir=dirpath
+            )
+        rmtree(dirpath)
+
+        channel_data: dict[str, any] = self.as_dict()
+        cursor: str = table.get_cursor_hash(channel_data, member.member_id)
+        await table.append(
+            channel_data, cursor, origin_id=None,
+            origin_id_type=None, origin_class_name=None
+        )
+        _LOGGER.debug(f'Created channel for {self.name} in the data store')
+
+        return None
 
     async def scrape(self, already_ingested_videos: dict[str, dict] = {},
                      filename: str = None) -> None:
@@ -146,48 +267,49 @@ class YouTubeChannel:
 
                 data = resp.text
 
-        soup = BeautifulSoup(data, 'html.parser')
-        script = soup.find(
-            'script', string=YouTubeChannel.CHANNEL_SCRAPE_REGEX
+        parsed_data: dict[str, any] = YouTubeChannel.parse_scrape_data(
+            self.channel_id, data
         )
 
-        if not script:
-            _LOGGER.warning('Did not find text in HTML scrape')
-            return
+        self.external_urls: list[dict[str, int | str]] = \
+            YouTubeChannel.parse_external_urls(
+                parsed_data
+                )
 
-        raw_data = YouTubeChannel.CHANNEL_SCRAPE_REGEX.search(
-            script.text
-        ).group(1)
+        self.channel_thumbnails: list[YouTubeThumbnail] = \
+            YouTubeChannel.parse_thumbnails(parsed_data)
+        if self.channel_thumbnails:
+            self.channel_thumbnail = sorted(
+                self.channel_thumbnails, key=lambda k: k.height
+            )[-1]
 
-        try:
-            data = orjson.loads(raw_data)
-        except orjson.JSONDecodeError as exc:
-            _LOGGER.debug(
-                f'Failed parsing JSON data for channel {self.channel_id}: '
-                f'{exc}'
-            )
-            return
+        self.banners: list[YouTubeThumbnail] = YouTubeChannel.parse_banners(
+            parsed_data
+        )
 
-        # Also interesting is data['metadata']['microsoft']
-        channel_thumbnails: list[dict[str, str]] = []
-        try:
-            keys: list[str] = [
-                'metadata', 'channelMetadataRenderer', 'avatar', 'thumbnails'
-            ]
-            channel_thumbnails = YouTubeChannel._datagetter(data, keys)
-        except (IndexError, KeyError) as exc:
-            _LOGGER.debug(f'Failed to parse channel metadata: {exc}')
+        channel_info: dict[str, any] = YouTubeChannel.parse_nested_dicts(
+            ['metadata', 'channelMetadataRenderer'], parsed_data, dict
+        )
+        if not channel_info:
+            _LOGGER.info(f'No channel metadata found for channel {self.name}')
+            return None
 
-        creator_thumbnail: YouTubeThumbnail | None = None
-        if (channel_thumbnails and isinstance(channel_thumbnails, list)
-                and len(channel_thumbnails)
-                and isinstance(channel_thumbnails[0], dict)
-                and channel_thumbnails[0].get('url')):
-            creator_thumbnail = YouTubeThumbnail(None, channel_thumbnails[0])
+        name: str = channel_info.get('title')
+        if name:
+            self.name = name
 
-        self.find_videos(
-            data, already_ingested_videos, self.ingest_videos,
-            creator_thumbnail
+        if self.name:
+            self.name = self.name.lstrip('@')
+
+        self.description = channel_info.get('description')
+
+        keywords: list[str] = channel_info.get('keywords')
+        if keywords:
+            self.keywords = keywords.split(',')
+
+        await self.find_videos(
+            parsed_data, already_ingested_videos, self.ingest_videos,
+            self.channel_thumbnail
         )
 
         _LOGGER.debug(
@@ -195,23 +317,209 @@ class YouTubeChannel:
             f'YouTube channel {self.name}'
         )
 
-    @staticmethod
-    def _datagetter(data: dict, keys: list[str]) -> object:
-        if not keys:
-            return data
-
-        if keys[0] in data:
-            if len(keys) == 1:
-                return data[keys[0]]
-
-            return YouTubeChannel._datagetter(data[keys[0]], keys[1:])
-
         return None
 
-    def find_videos(self, data: dict | list | int | str | float,
-                    already_ingested_videos: dict[str, dict],
-                    ingest_videos: bool,
-                    creator_thumbnail: YouTubeThumbnail | None) -> None:
+    @staticmethod
+    def parse_thumbnails(data: dict[str, any]) -> list[YouTubeThumbnail]:
+        thumbnails_data: list | None = YouTubeChannel.parse_nested_dicts(
+            [
+                'header', 'c4TabbedHeaderRenderer', 'avatar', 'thumbnails'
+            ], data, list
+        )
+
+        channel_thumbnails: list[YouTubeThumbnail] = []
+        thumbnail_data: dict[str, str | int]
+        for thumbnail_data in thumbnails_data or []:
+            thumbnail = YouTubeThumbnail(None, thumbnail_data)
+            _LOGGER.debug(f'Found thumbnails: {thumbnail.url}')
+            channel_thumbnails.append(thumbnail)
+
+        return channel_thumbnails
+
+    @staticmethod
+    def parse_external_urls(data: dict[str, any]) -> list[str]:
+        '''
+        Parses the external URLs out of the YouTube channel page
+
+        :param data: the YouTube channel page as a dict
+        :returns: list of external URLs
+        '''
+
+        external_links: list[str] = []
+
+        channel_url: str = YouTubeChannel.parse_nested_dicts(
+            ['metadata', 'channelMetadataRenderer', 'vanityChannelUrl'], data,
+            str
+        )
+        url: str | None = None
+        if channel_url:
+            url = channel_url
+        else:
+            channel_urls: list[str] = YouTubeChannel.parse_nested_dicts(
+                [
+                    'metadata', 'channelMetadataRenderer', 'ownerUrls'
+                ], data, list
+            )
+            if channel_urls and isinstance(channel_urls, list):
+                url = channel_urls[0]
+
+        if url:
+            if url.startswith('http://'):
+                url = f'https://{url[len("http://"):]}'
+
+            external_links.append(
+                {'priority': 0, 'name': 'YouTube', 'url': url}
+            )
+
+        links_data: dict[str, dict[str, any]] = \
+            YouTubeChannel.parse_nested_dicts(
+                [
+                    'header', 'c4TabbedHeaderRenderer', 'headerLinks',
+                    'channelHeaderLinksViewModel',
+                ], data, dict
+            )
+
+        if links_data:
+            priority: int = 10
+            for link_data in links_data.values():
+                link: dict[str, str | int] | None = \
+                    YouTubeChannel._generate_external_link(link_data, priority)
+
+                if link:
+                    external_links.append(link)
+                    priority += 10
+
+        return external_links
+
+    @staticmethod
+    def _generate_external_link(link_data: dict, priority: int
+                                ) -> dict[str, str | int] | None:
+        url: str | None = link_data.get('content')
+
+        if not url:
+            return None
+
+        # Strip of the protocol from the url
+        if url.startswith('http://'):
+            url = url[len("http://"):]
+        elif url.startswith('https://'):
+            url = url[len("https://"):]
+
+        # Let's try to figure out with social network the url is pointing to
+        name: str = url.split('/')[0]
+        domain_parts: list[str] = name.split('.')
+        # Strip of 'www'
+        if domain_parts and domain_parts[0] == 'www':
+            domain_parts = domain_parts[1:]
+
+        if len(domain_parts) == 2:
+            name = domain_parts[0]
+        elif domain_parts[-1] in ('tt', 'uk', 'au', 'nz', 'ng'):
+            name = domain_parts[-3]
+        else:
+            if url.startswith('and '):
+                # This is text ' and <n> more link<s>'
+                _LOGGER.debug(
+                    f'TODO: call YT API to get the additional links: {url}'
+                )
+                return
+            else:
+                _LOGGER.info(f'Could not parse link name our of URL: {url}')
+
+        name = SocialNetworks.get(name.lower(), 'www')
+
+        _LOGGER.debug(f'Parsed external link name {name} ouf of {url}')
+        return {
+            'priority': priority, 'name': name, 'url': f'https://{url}'
+        }
+
+    @staticmethod
+    def parse_banners(data: dict[str, any]) -> list[YouTubeThumbnail]:
+        '''
+        Parses the banner images out of the YouTube channel page
+
+        :param data: the YouTube channel page as a dict
+        :returns: list of banners as YouTubeThumbnails
+        '''
+
+        banners: list[YouTubeThumbnail] = []
+
+        banner_type: str
+        for banner_type in ['banner', 'tvBanner', 'mobileBanner']:
+            banner_data: dict[str, str | int] = \
+                YouTubeChannel.parse_nested_dicts(
+                    [
+                        'header', 'c4TabbedHeaderRenderer', banner_type,
+                        'thumbnails'
+                    ], data, list
+                )
+
+            thumbnail_data: dict[str, str | int]
+            for thumbnail_data in banner_data or []:
+                channel_banner: YouTubeThumbnail = YouTubeThumbnail(
+                    None, thumbnail_data, display_hint=banner_type
+                )
+                _LOGGER.debug(f'Found banner: {channel_banner.url}')
+                banners.append(channel_banner)
+
+        return banners
+
+    @staticmethod
+    def parse_scrape_data(channel_id: str, page_data: str) -> dict[str, any]:
+        '''
+        Parse the channel scrape data
+
+        :param data: the data to parse
+        :returns: the parsed data
+        '''
+
+        soup = BeautifulSoup(page_data, 'html.parser')
+        script = soup.find(
+            'script', string=YouTubeChannel.CHANNEL_SCRAPE_REGEX
+        )
+
+        parsed_data: dict[str, any] = {}
+
+        if not script:
+            _LOGGER.warning('Did not find text in HTML scrape')
+            return {}
+
+        raw_data: str = YouTubeChannel.CHANNEL_SCRAPE_REGEX.search(
+            script.text
+        ).group(1)
+
+        try:
+            parsed_data: dict[str, any] = orjson.loads(raw_data)
+        except orjson.JSONDecodeError as exc:
+            _LOGGER.debug(
+                f'Failed parsing JSON data for channel {channel_id}: '
+                f'{exc}'
+            )
+            return {}
+
+        return parsed_data
+
+    @staticmethod
+    def parse_nested_dicts(keys: list[str], data: dict[str, any],
+                           final_type: callable) -> object | None:
+        for key in keys:
+            if key in data:
+                data = data[key]
+            else:
+                return None
+
+        if not isinstance(data, final_type):
+            _LOGGER.debug(
+                f'Expected value of {final_type} but got {type(data)}: {data}'
+            )
+            return None
+
+        return data
+
+    async def find_videos(self, data: dict | list | int | str | float,
+                          already_ingested_videos: dict[str, dict],
+                          ingest_videos: bool,
+                          creator_thumbnail: YouTubeThumbnail | None) -> None:
         '''
         Find the videos in the by walking through the deserialized
         output of a scrape of a YouTube channel
@@ -225,7 +533,7 @@ class YouTubeChannel:
         if isinstance(data, list):
             for item in data:
                 if type(item) in (dict, list):
-                    self.find_videos(
+                    await self.find_videos(
                         item, already_ingested_videos, ingest_videos,
                         creator_thumbnail
                     )
@@ -238,7 +546,7 @@ class YouTubeChannel:
         if not video_id:
             for value in data.values():
                 if type(value) in (dict, list):
-                    self.find_videos(
+                    await self.find_videos(
                         value, already_ingested_videos, self.ingest_videos,
                         creator_thumbnail
                     )
@@ -285,7 +593,9 @@ class YouTubeChannel:
             if ingest_videos:
                 status = IngestStatus.NONE
 
-        video = YouTubeVideo.scrape(video_id, ingest_videos, creator_thumbnail)
+        video = await YouTubeVideo.scrape(
+            video_id, ingest_videos, creator_thumbnail
+        )
 
         if not video:
             # This can happen if we decide not to import the video
@@ -303,16 +613,19 @@ class YouTubeChannel:
 
         self.videos[video_id] = video
 
-    def get_channel_id(self):
+    def get_channel_id(self) -> None:
         '''
-        Gets the channel ID using the YouTube data search API
+        Gets the channel ID using the YouTube Data API
         '''
 
         if not self.api_client:
             raise RuntimeError(
                 'instance not set up for calling YouTube data API'
             )
-
+        if not self.api_client:
+            raise RuntimeError(
+                'instance not set up for calling YouTube data API'
+            )
         request = self.api_client.search().list(
             q=self.name,
             part='id, snippet',
@@ -325,8 +638,81 @@ class YouTubeChannel:
 
         self.channel_id = response['items'][0]['id']['channelId']
 
+    @staticmethod
+    def get_channel(name: str) -> Self:
+        '''
+        Gets the channel ID using the YouTube innertube API
+        '''
+
+        client = InnerTube('WEB')
+        data: dict = client.search(query=name)
+        contents = YouTubeChannel.parse_nested_dicts(
+            [
+                'contents', 'twoColumnSearchResultsRenderer',
+                'primaryContents', 'sectionListRenderer',
+                'contents',
+            ], data, list
+        )
+
+        for item in contents:
+            results = YouTubeChannel.parse_nested_dicts(
+                [
+                    'itemSectionRenderer', 'contents',
+                ], item, list
+            )
+            for result in results or []:
+                channel_data: dict[str, any] = result.get('channelRenderer')
+
+                if not channel_data:
+                    continue
+
+                subs_count: int | None = None
+                subs_count_text: str | None = \
+                    YouTubeChannel.parse_nested_dicts(
+                        [
+                            'videoCountText', 'simpleText',
+                        ], channel_data, str
+                    )
+                if subs_count_text:
+                    try:
+                        subs_count_text = subs_count_text.rstrip(
+                            ' subscribers'
+                        )
+                        multiplier: str = subs_count_text[-1].upper()
+                        if not multiplier.isnumeric():
+                            multis: dict[str, int] = {'K': 1000, 'M': 1000000}
+                            subs_count_pre: float = float(subs_count_text[:-1])
+                            subs_count: int = int(
+                                subs_count_pre * multis[multiplier]
+                            )
+                        else:
+                            subs_count = int(subs_count_text)
+                    except Exception as exc:
+                        _LOGGER.debug(
+                            f'Could not convert subs count to '
+                            f'number: {subs_count_text}: {exc}'
+                        )
+                channel_id: str = channel_data.get('channelId')
+                title: str = channel_data['title'].get('simpleText')
+
+                url: str = YouTubeChannel.parse_nested_dicts(
+                    [
+                        'navigationEndpoint', 'commandMetadata',
+                        'webCommandMetadata', 'url',
+                    ], channel_data, str
+                )
+                url = url.lstrip('/')
+                name = url.lstrip('@')
+                channel = YouTubeChannel(name=name, channel_id=channel_id)
+                channel.title = title
+                channel.subs_count = subs_count
+
+                return channel
+
+        return None
+
     async def import_videos(self, already_ingested_videos: dict[str, str],
-                            max_api_requests: int = 1000):
+                            max_api_requests: int = 1000) -> None:
         '''
         Imports the videos from the YouTube data API. It processes the newest
         videos first and skips any videos that are already imported
@@ -350,7 +736,7 @@ class YouTubeChannel:
         # 1: get videos newer than what have already ingested or, if we
         # haven't ingested any videos yet all videos, # newer than 1970
         published_timestamp: datetime = datetime(
-            1970, 1, 1, tzinfo=timezone.utc
+            1970, 1, 1, tzinfo=UTC
         )
 
         if already_ingested_videos:
@@ -371,6 +757,8 @@ class YouTubeChannel:
                 part="id, snippet",
 
             )
+            response: dict
+            retries: int
             response, retries = await self._call_api(request)
             # Search API of YouTube Data API consumes 100 credits per call
             api_requests += 100 + retries

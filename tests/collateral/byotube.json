@@ -250,6 +250,10 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "last_health_api_success": {
+                        "description": "The last time the health API of the remote pod was successfully called",
+                        "type": "number"
                     }
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
@@ -363,7 +367,7 @@
                         "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
                         "type": "string"
                     },
-                    "list": {
+                    "list_name": {
                         "description": "The list that the member puts the asset in, for example, the list of assets about beekeeping",
                         "type": "string"
                     },
@@ -620,6 +624,15 @@
                     },
                     "preference": {
                         "description": "The preference of the thumbnail, ie. 'default', 'high', 'medium', 'low'",
+                        "type": "string"
+                    },
+                    "youtube_url": {
+                        "description": "The URL of the thumbnail on YouTube",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "display_hint": {
+                        "description": "the type of display this thumbnail was created for",
                         "type": "string"
                     }
                 }
@@ -897,28 +910,41 @@
                         "type": "string",
                         "#properties": ["index"]
                     },
-                    "creator_thumbnail": {
-                        "description": "URL for the creator's thumbnail",
-                        "type": "string",
-                        "format": "iri"
-                    },
-                    "name": {
-                        "description": "name of the channel, typically the name of the creator",
-                        "type": "string"
-                    },
-                    "channel_thumbnail_url": {
-                        "description": "URL for the channel's thumbnail",
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "channel_banner_url": {
-                        "description": "URL for the channel's banner",
-                        "type": "string",
-                        "format": "uri"
-                    },
                     "description": {
                         "description": "information about the channel",
                         "type": "string"
+                    },
+                    "keywords": {
+                        "description": "keywords that apply to all the videos of the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_family_safe": {
+                        "description": "Whether the channel is family safe",
+                        "type": "boolean"
+                    },
+                    "available_country_codes": {
+                        "description": "list of country codes where the channel is available",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "channel_thumbnails": {
+                        "description": "URL for the channel's thumbnail",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/video_thumbnail"
+                        }
+                    },
+                    "banners": {
+                        "description": "Banners for the channel",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/video_thumbnail"
+                        }
                     },
                     "external_urls": {
                         "description": "links to external sites",
@@ -933,6 +959,29 @@
                         "items": {
                             "$ref": "/schemas/claim"
                         }
+                    },
+                    "name": {
+                        "description": "DEPRECATED: use 'creator'",
+                        "type": "string",
+                        "#obsolete": true
+                    },
+                    "creator_thumbnail": {
+                        "description": "DEPRECATED: use 'creator_thumbnails'",
+                        "type": "string",
+                        "format": "iri",
+                        "#obsolete": true
+                    },
+                    "channel_thumbnail_url": {
+                        "description": "DEPRECATED: use 'channel_thumbnails'",
+                        "type": "string",
+                        "format": "uri",
+                        "#obsolete": true
+                    },
+                    "channel_banner_url": {
+                        "description": "DEPRECATED: use 'channel_banners'",
+                        "type": "string",
+                        "format": "uri",
+                        "#obsolete": true
                     }
                 }
             },

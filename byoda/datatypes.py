@@ -88,6 +88,7 @@ class AppType(Enum):
     MODERATE    = 'moderate'
     CDN         = 'cdn'
     IDENTITY    = 'identity'
+    PAYMENT     = 'payment'
 
 
 class ClaimStatus(Enum):
@@ -185,10 +186,76 @@ class StorageType(Enum):
     PUBLIC      = 'public'
     RESTRICTED  = 'restricted'
 
+# This data is used to generate names of external urls for YouTube channels
+# The keys of the dict are the name of the social network in its URL
+SocialNetworks: dict[str, str] = {
+    'facebook': 'Facebook',
+    'twitter': 'Twitter',
+    'x': 'X',
+    'instagram': 'Instagram',
+    'youtube': 'YouTube',
+    'linkedin': 'LinkedIn',
+    'pinterest': 'Pinterest',
+    'tumblr': 'tumblr',
+    'reddit': 'reddit',
+    'snapchat': 'Snapchat',
+    'flickr': 'flickr',
+    'tiktok': 'TikTok',
+    'whatsapp': 'WhatsApp',
+    'telegram': 'Telegram',
+    'signal': 'Signal',
+    'messenger': 'messenger',
+    'parler': 'Parler',
+    'gab': 'Gab',
+    'rumble': 'Rumble',
+    'patreon': 'Patreon',
+    'twitch': 'twitch',
+    'spotify': 'Spotify',
+    'discord': 'Discord',
+    'slack': 'Slack',
+    'nebula': 'Nebula',
+    'wechat': 'WeChat',
+    'douyin': 'Douyin',
+    'kuaishou': 'Kuaishou',
+    'weibo': 'Weibo',
+    'qq': 'QQ',
+    'qzone': 'Qzone',
+    'myjosh': 'Josh',
+    'microsoft': 'Teams',
+    'quora': 'Quora',
+    'skype': 'Skype',
+    'tieba': 'Tieba',
+    'baidu': 'Baidu',
+    'viber': 'Viber',
+    'line': 'Line',
+    'imo': 'Imo',
+    'xiaohongshu': 'Xiaohongshu',
+    'likee': 'Likee',
+    'picsart': 'Picsart',
+    'soundcloud': 'SoundCloud',
+    'onlyfans': 'OnlyFans',
+    'vevo': 'Vevo',
+    'vk': 'VK',
+    'threads': 'Threads',
+    'zoom': 'Zoom',
+    'meet': 'Meet',
+    'clubhouse': 'Clubhouse',
+    'imessage': 'iMessage',
+    'facetime': 'FaceTime',
+    'byo': 'BYO.Tube',
+    'steampowered': 'Steam',
+    'linktr.ee': 'Linktree',
+    'amzn': 'Amazon',
+    'amazon': 'Amazon',
+}
+
+TwoLevelTLDs: list[str] = [
+    'uk', 'nz', 'au', 'ca', 'us', 'eu', 'de', 'fr', 'it', 'es', 'pt', 'br',
+]
 
 # ContentType is used by cloud storage drivers to specify the content type
 # For local storage, angie takes care of setting the content type
-ContentTypes: dict[str, str] = {
+ContentTypesByExtension: dict[str, str] = {
     '.mpd': 'application/dash+xml',
     '.m3u8': 'application/vnd.apple.mpegurl',
     '.mp4': 'video/mp4',
@@ -229,6 +296,47 @@ ContentTypes: dict[str, str] = {
     '.pdf': 'application/pdf',
     '.json': 'application/json',
 }
+
+ContentTypesByType: dict[str, str] = {
+    'application/dash+xml': '.mpd',
+    'application/vnd.apple.mpegurl': '.m3u8',
+    'video/mp4': '.mp4',
+    'video/mp2t': '.ts',
+    'video/mpeg': '.mpeg',
+    'video/quicktime': '.mov',
+    'video/webm': '.webm',
+    'video/ogg': '.ogv',
+    'video/x-msvideo': '.avi',
+    'audio/mp4': '.m4a',
+    'audio/mpeg': '.mp3',
+    'audio/aac': '.aac',
+    'audio/webm': '.weba',
+    'audio/ogg': '.oga',
+    'audio/wav': '.wav',
+    'image/webp': '.webp',
+    'image/jpeg': '.jpg',
+    'image/png':'.png',
+    'image/svg+xml': '.svg',
+    'image/x-icon': '.ico',
+    'image/tiff': '.tif',
+    'image/bmp': '.bmp',
+    'font/ttf': '.ttf',
+    'font/otf': '.otf',
+    'font/woff': '.woff',
+    'font/woff2': '.woff2',
+    'application/xml': '.xml',
+    'application/xhtml+xml': '.xhtml',
+    'application/zip': '.zip',
+    'application/gzip': '.gz',
+    'application/x-tar': '.tar',
+    'application/x-bzip': '.bz',
+    'application/x-bzip2': '.bz2',
+    'application/x-compress': '.z',
+    'text/plain': '.txt',
+    'application/pdf': '.pdf',
+    'application/json': '.json',
+}
+
 
 # The following are used for the 'type' parameter in the service schema
 class DataType(Enum):

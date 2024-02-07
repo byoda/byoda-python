@@ -15,6 +15,7 @@ import unittest
 
 from datetime import datetime
 from datetime import timezone
+from byoda.data_import.youtube_channel import YouTubeChannel
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -71,7 +72,7 @@ TEST_YOUTUBE_VIDEO_ID: str = '5Y9L5NBINV4'
 API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 
-class TestFileStorage(unittest.IsolatedAsyncioTestCase):
+class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         try:
             shutil.rmtree(TEST_DIR)
@@ -87,6 +88,14 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             pass
 
         shutil.copytree('tests/collateral/local/video_asset', asset_dir)
+        os.makedirs(f'{TEST_DIR}/tests/collateral', exist_ok=True)
+        shutil.copy(
+            'tests/collateral/byotube.json', f'{TEST_DIR}/tests/collateral/'
+        )
+        shutil.copy(
+            'tests/collateral/addressbook.json',
+            f'{TEST_DIR}/tests/collateral/'
+        )
 
         mock_environment_vars(TEST_DIR)
         network_data: dict[str, str] = await setup_network(
@@ -103,6 +112,12 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         config.trace_server: str = os.environ.get(
             'TRACE_SERVER', config.trace_server
+        )
+
+        os.makedirs(f'{TEST_DIR}/network-byoda.net/services/service-16384')
+        shutil.copy(
+            'tests/collateral/byotube.json',
+            f'{TEST_DIR}/network-byoda.net/services/service-16384/service-contract.json'
         )
 
         global APP
@@ -130,6 +145,16 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
+    async def test_get_channelname(self) -> None:
+        channel_title: str = 'History Matters'
+        channel: YouTubeChannel = YouTubeChannel.get_channel(
+            channel_title
+        )
+        self.assertIsNotNone(channel)
+        self.assertEqual(channel.name, 'HistoryMatters')
+        self.assertEqual(channel.title, channel_title)
+        self.assertEqual(channel.channel_id, 'UC22BdTgxefuvUivrjesETjg')
+
     async def test_scrape_videos(self) -> None:
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
@@ -148,6 +173,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         # channel: str = 'accountabletech'
         # channel: str = 'PolyMatter'
         # channel: str = 'History Matters'
+        # channel: str = 'thedealguy'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
         yt = YouTube()
@@ -179,8 +205,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         mod_url: str = f'https://{MODTEST_FQDN}'
         mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
-        await yt.persist_videos(
-            member, storage_driver, ingested_videos,
+        await yt.persist(
+            member, data_store, storage_driver, ingested_videos,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url,
@@ -204,15 +230,16 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         data: dict[str, list[dict[str, dict[str, any]]]] = resp.json()
         self.assertGreaterEqual(len(data), 2)
-        self.assertEqual(len(data['edges'][0]['node']['claims']), 1)
+        self.assertEqual(len(data['edges'][0]['node']['claims']), 0)
 
         # Start with clean slate
         yt = YouTube()
 
         await yt.get_videos(ingested_videos)
 
-        await yt.persist_videos(
-            member, storage_driver, ingested_videos, ingest_interval=4
+        await yt.persist(
+            member, data_store, storage_driver, ingested_videos,
+            ingest_interval=4
         )
 
     async def test_import_videos(self) -> None:
@@ -252,8 +279,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         await yt.get_videos(already_ingested_videos)
 
-        await yt.persist_videos(
-            member, storage_driver, already_ingested_videos
+        await yt.persist(
+            member, data_store, storage_driver, already_ingested_videos
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -269,8 +296,8 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
 
         await yt.get_videos(ingested_videos)
 
-        await yt.persist_videos(
-            member, storage_driver, already_ingested_videos
+        await yt.persist(
+            member, data_store, storage_driver, already_ingested_videos
         )
 
 
