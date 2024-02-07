@@ -8,7 +8,7 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 
 from copy import copy
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -17,18 +17,21 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType, EntityId
 from byoda.datatypes import CsrSource
 
+from byoda.util.logger import Logger
+
 from .ca_secret import CaSecret
+
 from .secret import CSR
 
 _LOGGER: Logger = getLogger(__name__)
 
 
 class NetworkAccountsCaSecret(CaSecret):
-    __slots__ = ['network']
+    __slots__: list[str] = ['network']
 
     # When should the Network Accounts CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {
@@ -36,7 +39,7 @@ class NetworkAccountsCaSecret(CaSecret):
         IdType.ACCOUNT_DATA: 365
     }
 
-    def __init__(self, paths: Paths = None, network: str = None):
+    def __init__(self, paths: Paths = None, network: str = None) -> None:
         '''
         Class for the network account CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -55,7 +58,7 @@ class NetworkAccountsCaSecret(CaSecret):
 
         if paths:
             self.paths = copy(paths)
-            self.network = paths.network
+            self.network: str = paths.network
             super().__init__(
                 cert_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_CERT_FILE),
                 key_file=self.paths.get(Paths.NETWORK_ACCOUNTS_CA_KEY_FILE),
@@ -88,7 +91,7 @@ class NetworkAccountsCaSecret(CaSecret):
         '''
 
         # TODO: SECURITY: add constraints
-        commonname = (
+        commonname: str = (
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )
 
@@ -108,7 +111,7 @@ class NetworkAccountsCaSecret(CaSecret):
         '''
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(
+        entity_id: str = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
         )
 
@@ -125,7 +128,7 @@ class NetworkAccountsCaSecret(CaSecret):
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class        '''
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname, network, NetworkAccountsCaSecret.ACCEPTED_CSRS,
             uuid_identifier=True, check_service_id=False
         )
@@ -148,8 +151,8 @@ class NetworkAccountsCaSecret(CaSecret):
             _LOGGER.exception('CSR received while we are not a CA')
             raise ValueError('CSR received while we are not a CA')
 
-        commonname = super().review_csr(csr)
+        commonname: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(commonname)
+        entity_id: EntityId = self.review_commonname(commonname)
 
         return entity_id

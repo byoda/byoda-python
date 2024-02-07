@@ -18,6 +18,8 @@ from httpx import AsyncClient as AsyncHttpClient
 
 from byoda.datamodel.member import Member
 
+from byoda.datatypes import ContentTypesByType
+
 from byoda.storage.filestorage import FileStorage
 
 from byoda.datatypes import StorageType
@@ -41,12 +43,19 @@ class YouTubeThumbnailSize(Enum):
 
 
 class YouTubeThumbnail:
-    def __init__(self, size: str, data: dict):
+    def __init__(self, size: str, data: dict,
+                 display_hint: str | None = None) -> None:
         self.thumbnail_id: UUID = uuid4()
         self.url: str = data.get('url')
         self.width: int = data.get('width', 0)
         self.height: int = data.get('height', 0)
         self.id: str = data.get('id')
+        self.youtube_url: str | None = None
+
+        # What type of display the thumbnail was created for.
+        # Only used for channel banners
+        # For banners, YouTube uses: 'banner', 'tvBanner', 'mobileBanner'
+        self.display_hint: str | None = display_hint
 
         self.preference: str = data.get('preference')
         if self.preference:
@@ -54,12 +63,14 @@ class YouTubeThumbnail:
         else:
             self.preference = ''
 
+        self.size: str | YouTubeThumbnailSize
         if size:
             self.size = YouTubeThumbnailSize(size)
         else:
             self.size = f'{self.width}x{self.height}'
 
     def __str__(self) -> str:
+        size: int
         if isinstance(self.size, YouTubeThumbnailSize):
             size = self.size.value
         else:
@@ -67,19 +78,27 @@ class YouTubeThumbnail:
 
         return f'{size}_{self.width}_{self.height}_{self.url}'
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str | int | UUID]:
         '''
         Returns a dict representation of the thumbnail
         '''
 
-        return {
+        data: dict[str, str | int | UUID] = {
             'thumbnail_id': self.thumbnail_id,
             'url': self.url,
             'width': self.width,
             'height': self.height,
             'preference': self.preference,
-            'size': self.size
+            'size': self.size,
         }
+
+        if self.youtube_url:
+            data['youtube_url'] = self.youtube_url
+
+        if self.display_hint:
+            data['display_hint'] = self.display_hint
+
+        return data
 
     async def ingest(self, video_id: UUID, storage_driver: FileStorage, member: Member,
                      work_dir: str) -> str:
@@ -97,21 +116,32 @@ class YouTubeThumbnail:
 
         _LOGGER.debug(f'Downloading thumbnail {self.url}')
 
+        self.youtube_url = self.url
+
         try:
             parsed_url: ParseResult = urlparse(self.url)
             filename: str = os.path.basename(parsed_url.path)
             with open(f'{work_dir}/{filename}', 'wb') as file_desc:
                 async with AsyncHttpClient() as client:
                     async with client.stream('GET', self.url) as resp:
+                        content_type: str = resp.headers.get('content-type')
                         async for chunk in resp.aiter_bytes():
                             file_desc.write(chunk)
         except Exception as exc:
-            _LOGGER.debug('Failed to download thumbnail {self.url}: {exc}')
+            _LOGGER.debug(f'Failed to download thumbnail {self.url}: {exc}')
             raise ByodaRuntimeError('Thumbnail download failure') from exc
+
+        ext: str | None = None
+        _, ext = os.path.splitext(filename)
+        if not ext or ext not in ['.png', '.jpg', '.jpeg', 'webp']:
+            ext = ContentTypesByType.get(content_type)
 
         try:
             with open(f'{work_dir}/{filename}', 'rb') as file_desc:
                 filepath: str = f'{video_id}/{filename}'
+                if ext:
+                    filepath += ext
+
                 _LOGGER.debug(f'Copying thumbnail to storage: {filepath}')
                 await storage_driver.write(
                     filepath, file_descriptor=file_desc,
@@ -123,7 +153,7 @@ class YouTubeThumbnail:
 
         self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
             service_id=member.service_id, member_id=member.member_id,
-            asset_id=video_id, filename=filename
+            asset_id=video_id, filename=filename, ext=ext
         )
 
         _LOGGER.debug(f'New URL for thumbnail: {self.url}')

@@ -27,7 +27,14 @@ sudo docker run -d --restart unless-stopped \
     --name redis redis/redis-stack-server:latest
 ```
 
-To set up replicas of the master
+To also set up the Prometheus exporter for redis, you can use the following command:
+
+```bash
+export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+export REDIS_ADDR='redis://${PRIVATE_IP}:6379'
+export REDIS_EXPORTER_CHECK_SINGLE_KEYS=lists:all_assets
+docker run -d --restart unless-stopped --name redis_exporter --network host quay.io/oliver006/redis_exporter
+```
 
 
 ## 2: Pick a value for the service ID

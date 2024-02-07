@@ -14,7 +14,7 @@ import subprocess
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -45,6 +45,8 @@ from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger
 
 from .certchain import CertChain
 
@@ -92,8 +94,8 @@ class Secret:
     ]
 
     # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=90)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     # We don't sign any CSRs as we are not a CA
     ACCEPTED_CSRS = None
@@ -154,7 +156,8 @@ class Secret:
 
     async def create(self, common_name: str, issuing_ca: CaSecret = None,
                      expire: int = None, key_size: int = _RSA_KEYSIZE,
-                     private_key: rsa.RSAPrivateKey = None, ca: bool = False):
+                     private_key: rsa.RSAPrivateKey = None, ca: bool = False
+                     ) -> None:
         '''
         Creates an RSA private key and either a self-signed X.509 cert
         or a cert signed by the issuing_ca. The latter is a one-step
@@ -203,7 +206,7 @@ class Secret:
 
     def create_selfsigned_cert(self,
                                expire: int | datetime | timedelta = 10950,
-                               ca: bool = False):
+                               ca: bool = False) -> None:
         '''
         Create a self_signed certificate. Self-signed certs have
         a expiration of 30 years by default
@@ -406,8 +409,8 @@ class Secret:
         :raises: ValueError if the certchain is invalid
         '''
 
-        pem_signed_cert = self.cert_as_pem()
-        pem_cert_chain = [
+        pem_signed_cert: bytes = self.cert_as_pem()
+        pem_cert_chain: list[bytes] = [
             cert.public_bytes(serialization.Encoding.PEM)
             for cert in self.cert_chain
         ]
@@ -426,21 +429,21 @@ class Secret:
             return
 
         tmpdir = tempfile.TemporaryDirectory()
-        rootfile = tmpdir.name + '/rootca.pem'
+        rootfile: str = tmpdir.name + '/rootca.pem'
         with open(rootfile, 'w') as file_desc:
             file_desc.write(root_ca.cert_as_pem().decode('utf-8'))
 
-        certfile = tmpdir.name + '/cert.pem'
+        certfile: str = tmpdir.name + '/cert.pem'
         with open(certfile, 'w') as file_desc:
             file_desc.write(self.cert_as_pem().decode('utf-8'))
 
-        cmd = [
+        cmd: list[str] = [
             'openssl', 'verify',
             '-CAfile', rootfile,
         ]
 
         if self.cert_chain:
-            chainfile = tmpdir.name + '/chain.pem'
+            chainfile: str = tmpdir.name + '/chain.pem'
             with open(chainfile, 'w') as file_desc:
                 for cert in self.cert_chain:
                     file_desc.write(
@@ -451,7 +454,7 @@ class Secret:
             cmd.extend(['-untrusted', chainfile])
 
         cmd.append(certfile)
-        result = subprocess.run(cmd)
+        result: subprocess.CompletedProcess[bytes] = subprocess.run(cmd)
 
         if result.returncode != 0:
             raise ValueError(
@@ -487,7 +490,7 @@ class Secret:
 
     async def load(self, with_private_key: bool = True,
                    password: str = 'byoda',
-                   storage_driver: FileStorage = None):
+                   storage_driver: FileStorage = None) -> None:
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -535,9 +538,9 @@ class Secret:
 
         if with_private_key:
             # Only croak about expiration of cert if we own the private key
-            if self.cert.not_valid_after < self.RENEW_WANTED:
+            if self.cert.not_valid_after_utc < self.RENEW_WANTED:
                 # TODO: add logic to recreate the signed cert
-                if self.cert.not_valid_after < self.RENEW_NEEDED:
+                if self.cert.not_valid_after_utc < self.RENEW_NEEDED:
                     _LOGGER.warning(
                         f'Certificate {self.cert_file} expires in 30 days: '
                         f'{self.RENEW_NEEDED}'
@@ -751,8 +754,8 @@ class Secret:
             cert_info = (
                 f'# Issuer {cert.issuer}\n'
                 f'# Subject {cert.subject}\n'
-                f'# Valid from {cert.not_valid_before} to '
-                f'{cert.not_valid_after}\n'
+                f'# Valid from {cert.not_valid_before_utc} to '
+                f'{cert.not_valid_after_utc}\n'
             )
             data += str.encode(cert_info)
             data += cert.public_bytes(serialization.Encoding.PEM)

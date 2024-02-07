@@ -9,7 +9,7 @@ Cert manipulation
 import os
 from copy import deepcopy
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -21,6 +21,8 @@ from byoda.datatypes import IdType
 from byoda.datatypes import CsrSource
 
 from byoda.storage.filestorage import FileStorage
+
+from byoda.util.logger import Logger
 
 from .secret import Secret
 from .secret import CertChain
@@ -48,11 +50,11 @@ CSR = x509.CertificateSigningRequest
 
 
 class CaSecret(Secret):
-    __slots__ = []
+    __slots__: list[str] = []
 
     # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {}
@@ -71,7 +73,7 @@ class CaSecret(Secret):
     '''
 
     def __init__(self, cert_file: str = None, key_file: str = None,
-                 storage_driver: FileStorage = None):
+                 storage_driver: FileStorage = None) -> None:
         '''
         Constructor
 
@@ -112,23 +114,23 @@ class CaSecret(Secret):
         if not csr.is_signature_valid:
             raise ValueError('CSR with invalid signature')
 
-        sign_algo = csr.signature_algorithm_oid._name
+        sign_algo: str = csr.signature_algorithm_oid._name
         if sign_algo not in VALID_SIGNATURE_ALGORITHMS:
             raise ValueError(f'Invalid algorithm: {sign_algo}')
 
-        hash_algo = csr.signature_hash_algorithm.name
+        hash_algo: str = csr.signature_hash_algorithm.name
         if hash_algo not in VALID_SIGNATURE_HASHES:
             raise ValueError(f'Invalid algorithm: {hash_algo}')
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names
-        distinguished_name = ','.join(
+        distinguished_name: str = ','.join(
             [rdns.rfc4514_string() for rdns in csr.subject.rdns]
         )
 
-        common_name = self.review_distinguishedname(distinguished_name)
+        common_name: str = self.review_distinguishedname(distinguished_name)
 
-        subject_name = self.review_subjectalternative_name(csr)
+        subject_name: str = self.review_subjectalternative_name(csr)
 
         if common_name != subject_name:
             raise ValueError(
@@ -147,7 +149,7 @@ class CaSecret(Secret):
         extention = csr.extensions.get_extension_for_class(
             x509.SubjectAlternativeName
         )
-        dnsnames = extention.value.get_values_for_type(x509.DNSName)
+        dnsnames: list[str] = extention.value.get_values_for_type(x509.DNSName)
 
         if not dnsnames:
             raise ValueError('CSR can not have no DNS names')
@@ -172,15 +174,17 @@ class CaSecret(Secret):
         '''
 
         commonname = None
-        bits = name.split(',')
+        bits: list[str] = name.split(',')
         for dn in bits:
+            key: str
+            value: str
             key, value = dn.split('=')
             if not key or not value:
                 raise ValueError(f'Invalid commonname: {name}')
             if key in IGNORED_X509_NAMES:
                 continue
             if key == 'CN':
-                commonname = value
+                commonname: str = value
                 return commonname
             else:
                 raise ValueError(f'Unknown distinguished name: {key}')
@@ -212,7 +216,7 @@ class CaSecret(Secret):
                 f'in the commonname: {commonname}'
             )
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname,
             self.network,
             self.accepted_csrs,
@@ -236,13 +240,15 @@ class CaSecret(Secret):
         if service_id:
             service_id = int(service_id)
 
-        entity_id = Secret.review_commonname_by_parameters(
+        entity_id: EntityId = Secret.review_commonname_by_parameters(
             commonname, network, service_id=service_id,
             uuid_identifier=uuid_identifier, check_service_id=check_service_id
         )
 
         if entity_id.id_type not in accepted_csrs:
-            accepted_csr_values = [csr.value for csr in accepted_csrs]
+            accepted_csr_values: list[str] = [
+                csr.value for csr in accepted_csrs
+            ]
             raise PermissionError(
                 f'CA accepts CSRs for {", ".join(accepted_csr_values)} but '
                 f'does not sign CSRs for subdomain {entity_id.id_type.value}'
@@ -296,14 +302,14 @@ class CaSecret(Secret):
             extension = csr.extensions.get_extension_for_class(
                 x509.BasicConstraints
             )
-            is_ca = extension.value.ca
+            is_ca: bool = extension.value.ca
         except x509.ExtensionNotFound:
             is_ca = False
 
-        dnsname = self.review_subjectalternative_name(csr)
+        dnsname: str = self.review_subjectalternative_name(csr)
 
         _LOGGER.debug('Signing cert with cert %s', self.common_name)
-        cert = x509.CertificateBuilder().subject_name(
+        cert: x509.Certificate = x509.CertificateBuilder().subject_name(
             csr.subject
         ).issuer_name(
             self.cert.subject
@@ -328,7 +334,7 @@ class CaSecret(Secret):
 
         cert_chain = []
         if not self.is_root_cert:
-            cert_chain = [deepcopy(self.cert)]
+            cert_chain: list[x509.Certificate] = [deepcopy(self.cert)]
 
         if self.cert_chain:
             cert_chain.extend(deepcopy(self.cert_chain))

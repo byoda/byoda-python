@@ -7,8 +7,9 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 '''
 
 from copy import copy
+from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -17,23 +18,27 @@ from byoda.util.paths import Paths
 from byoda.datatypes import EntityId, IdType
 from byoda.datatypes import CsrSource
 
+from byoda.util.logger import Logger
+
 from .secret import CSR
 from .ca_secret import CaSecret
 
 _LOGGER: Logger = getLogger(__name__)
 
+Network = TypeVar('Network')
+
 
 class NetworkServicesCaSecret(CaSecret):
-    __slots__ = ['network']
+    __slots__: list[str] = ['network']
 
     # When should the Network Services CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 15 * 365}
 
-    def __init__(self, paths=None):
+    def __init__(self, paths=None) -> None:
         '''
         Class for the network services issuing CA secret
 
@@ -44,7 +49,7 @@ class NetworkServicesCaSecret(CaSecret):
         '''
 
         self.paths = copy(paths)
-        self.network = paths.network
+        self.network: Network = paths.network
 
         super().__init__(
             cert_file=self.paths.get(Paths.NETWORK_SERVICES_CA_CERT_FILE),
@@ -74,7 +79,7 @@ class NetworkServicesCaSecret(CaSecret):
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )
 
@@ -93,7 +98,7 @@ class NetworkServicesCaSecret(CaSecret):
         '''
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(
+        entity_id: str = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
         )
 
@@ -110,7 +115,7 @@ class NetworkServicesCaSecret(CaSecret):
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class        '''
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname, network, NetworkServicesCaSecret.ACCEPTED_CSRS,
             uuid_identifier=False, check_service_id=False
         )
@@ -131,8 +136,8 @@ class NetworkServicesCaSecret(CaSecret):
                                   CA
         '''
 
-        commonname = super().review_csr(csr)
+        commonname: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(commonname)
+        entity_id: EntityId = self.review_commonname(commonname)
 
         return entity_id

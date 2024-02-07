@@ -10,7 +10,7 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -20,6 +20,8 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
+
+from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -34,13 +36,15 @@ class AccountSecret(Secret):
     of the pod
     '''
 
-    __slots__ = ['account_id', 'account', 'network', 'paths_account_id']
+    __slots__: list[str] = [
+        'account_id', 'account', 'network', 'paths_account_id'
+    ]
     # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=30)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     def __init__(self, account: str = 'pod', account_id: UUID = None,
-                 network: Network = None):
+                 network: Network = None) -> None:
         '''
         Class for the network Account secret
 
@@ -89,14 +93,14 @@ class AccountSecret(Secret):
         if not self.network:
             raise ValueError('Network not defined')
 
-        common_name = AccountSecret.create_commonname(
+        common_name: str = AccountSecret.create_commonname(
             self.account_id, self.network.name
         )
 
         return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
-    def create_commonname(account_id: UUID, network: str):
+    def create_commonname(account_id: UUID, network: str) -> str:
         '''
         Returns the FQDN to use in the common name for the secret
         '''
@@ -109,7 +113,7 @@ class AccountSecret(Secret):
                 f'Network parameter must be a string, not a {type(network)}'
             )
 
-        fqdn = f'{account_id}.{IdType.ACCOUNT.value}.{network}'
+        fqdn: str = f'{account_id}.{IdType.ACCOUNT.value}.{network}'
 
         return fqdn
 

@@ -8,7 +8,7 @@ Cert manipulation for service secrets: Service CA
 
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -20,6 +20,8 @@ from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 from byoda.datatypes import CsrSource
 
+from byoda.util.logger import Logger
+
 from .ca_secret import CaSecret
 
 _LOGGER: Logger = getLogger(__name__)
@@ -28,11 +30,11 @@ Network = TypeVar('Network', bound='Network')
 
 
 class ServiceCaSecret(CaSecret):
-    __slots__ = ['service_id', 'network']
+    __slots__: list[str] = ['service_id', 'network']
 
     # When should the Network Services CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=90)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {
@@ -42,7 +44,7 @@ class ServiceCaSecret(CaSecret):
             IdType.SERVICE_DATA: 5 * 365,
     }
 
-    def __init__(self, service_id: int, network: Network):
+    def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the Service CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -81,7 +83,7 @@ class ServiceCaSecret(CaSecret):
             f'{self.service_id}'
         )
 
-        self.network = network.name
+        self.network: str = network.name
 
         self.id_type = IdType.SERVICE_CA
 
@@ -104,7 +106,7 @@ class ServiceCaSecret(CaSecret):
         '''
 
         # TODO: SECURITY: add constraints
-        commonname = (
+        commonname: str = (
             f'service-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
         )
@@ -125,7 +127,7 @@ class ServiceCaSecret(CaSecret):
         '''
 
         # Checks on the network postfix
-        entity_id = super().review_commonname(
+        entity_id: str = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
         )
 
@@ -151,8 +153,8 @@ class ServiceCaSecret(CaSecret):
                 'This CA does not accept CSRs received via an API call'
             )
 
-        commonname = super().review_csr(csr)
+        commonname: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(commonname)
+        entity_id: EntityId = self.review_commonname(commonname)
 
         return entity_id

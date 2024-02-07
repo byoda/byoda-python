@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI) -> Generator[None, any, None]:
 
     if app_type == AppType.CDN:
         routers.append(CdnRouter)
-    elif app_type == AppType.MODERATION:
+    elif app_type == AppType.MODERATE:
         routers.append(ModerateRouter)
     else:
         raise ValueError(f'Unknown app type {app_type}')

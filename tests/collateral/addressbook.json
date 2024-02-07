@@ -395,6 +395,10 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "last_health_api_success": {
+                        "description": "The last time the health API of the remote pod was successfully called",
+                        "type": "number"
                     }
                 },
                 "required": ["created_timestamp", "member_id", "relation"]
@@ -638,6 +642,11 @@
                         "type": "string",
                         "format":  "uuid"
                     },
+                    "asset_url": {
+                        "description": "Playback URL of the asset",
+                        "type": "string",
+                        "format": "uri"
+                    },
                     "asset_class": {
                         "#properties": ["index", "counter"],
                         "description": "The UUID of our asset",
@@ -649,8 +658,16 @@
                         "description": "What relation the other member has with our asset, for example liked",
                         "type": "string"
                     },
+                    "bookmark": {
+                        "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
+                        "type": "string"
+                    },
+                    "list_name": {
+                        "description": "The list that the member puts the asset in, for example, the list of assets about beekeeping",
+                        "type": "string"
+                    },
                     "claims": {
-                        "description": "list of claims for the asset",
+                        "description": "list of claims for the reaction",
                         "type": "array",
                         "items": {
                             "$ref": "/schemas/claim"
@@ -913,6 +930,15 @@
                     },
                     "preference": {
                         "description": "The preference of the thumbnail, ie. 'default', 'high', 'medium', 'low'",
+                        "type": "string"
+                    },
+                    "youtube_url": {
+                        "description": "The URL of the thumbnail on YouTube",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "display_hint": {
+                        "description": "the type of display this thumbnail was created for",
                         "type": "string"
                     }
                 }
@@ -1372,7 +1398,7 @@
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
-                        "description": "time the asset was created",
+                        "description": "time the channel was created",
                         "format": "date-time",
                         "type": "string"
                     },
@@ -1381,13 +1407,83 @@
                         "type": "string",
                         "format": "uuid"
                     },
-                    "name": {
-                        "description": "name of the channel",
-                        "type": "string"
+                    "creator": {
+                        "description": "creator of the asset",
+                        "type": "string",
+                        "#properties": ["index"]
                     },
                     "description": {
-                        "description": "description of the channel",
+                        "description": "information about the channel",
                         "type": "string"
+                    },
+                    "keywords": {
+                        "description": "keywords that apply to all the videos of the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_family_safe": {
+                        "description": "Whether the channel is family safe",
+                        "type": "boolean"
+                    },
+                    "available_country_codes": {
+                        "description": "list of country codes where the channel is available",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "channel_thumbnails": {
+                        "description": "URL for the channel's thumbnail",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/video_thumbnail"
+                        }
+                    },
+                    "banners": {
+                        "description": "Banners for the channel",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/video_thumbnail"
+                        }
+                    },
+                    "external_urls": {
+                        "description": "links to external sites",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/schemas/external_link"
+                        }
+                    },
+                    "claims": {
+                        "description": "list of claims for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
+                        }
+                    },
+                    "name": {
+                        "description": "DEPRECATED: use 'creator'",
+                        "type": "string",
+                        "#obsolete": true
+                    },
+                    "creator_thumbnail": {
+                        "description": "DEPRECATED: use 'creator_thumbnails'",
+                        "type": "string",
+                        "format": "iri",
+                        "#obsolete": true
+                    },
+                    "channel_thumbnail_url": {
+                        "description": "DEPRECATED: use 'channel_thumbnails'",
+                        "type": "string",
+                        "format": "uri",
+                        "#obsolete": true
+                    },
+                    "channel_banner_url": {
+                        "description": "DEPRECATED: use 'channel_banners'",
+                        "type": "string",
+                        "format": "uri",
+                        "#obsolete": true
                     }
                 }
             },
@@ -1490,6 +1586,27 @@
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "contents"]
+            },
+            "external_link": {
+                "$id": "/schemas/external_links",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "links to external sites",
+                "type": "object",
+                "properties": {
+                    "priority": {
+                        "description": "priority of the link, informs in what order links should be presented",
+                        "type": "integer"
+                    },
+                    "name": {
+                        "description": "name of the link",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL of the link",
+                        "type": "string",
+                        "format": "uri"
+                    }
+                }
             }
         }
     },

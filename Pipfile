@@ -68,6 +68,7 @@ anyio = "*"
 redis = {extras = ["hiredis"], version = "*"}
 pipenv = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
+innertube = "*"
 
 [dev-packages]
 flake8 = "*"

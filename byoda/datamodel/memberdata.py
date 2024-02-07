@@ -505,14 +505,6 @@ class MemberData(dict):
             signature_format_version=signature_format_version
         )
 
-        all_data: list[edge_class_ref] = []
-
-        if depth:
-            all_data = await MemberData._get_data_from_pods_recursively(
-                member, class_name, query, DataRequestType.QUERY,
-                sending_member_id
-            )
-
         required_fields: set[str]
         referenced_class: SchemaDataObject | None = data_class.referenced_class
         if (data_class.type == DataType.ARRAY and referenced_class
@@ -522,13 +514,32 @@ class MemberData(dict):
             required_fields = data_class.required_fields
         else:
             required_fields = None
-            _LOGGER.debug('Unrecognized data structure')
+            _LOGGER.debug(f'Unrecognized data structure {data_class.name}')
 
         if fields:
             # We intentionally do not update the query.fields before
             # proxying recursive queries as that would invalidate the
             # signature of the query
             fields |= set(required_fields)
+
+        all_data: list[edge_class_ref] = []
+
+        if depth:
+            remote_data: list[dict[str, object]] = \
+                await MemberData._get_data_from_pods_recursively(
+                    member, class_name, query, sending_member_id
+                )
+            data_item: dict[str, object]
+            for data_item in remote_data:
+                modeled_data: dict[str, object] = class_ref.model_validate(
+                    data_item['node']
+                )
+                edge_data = edge_class_ref(
+                    cursor=data_item['cursor'], origin=data_item['origin'],
+                    node=data_item['node']
+                )
+
+                all_data.append(edge_data)
 
         # We ask for 'query.first + 1) as we want to know if there are
         # more items available for pagination
@@ -577,18 +588,16 @@ class MemberData(dict):
     @TRACER.start_as_current_span('MemberData._get_data_from_pods')
     @staticmethod
     async def _get_data_from_pods_recursively(
-                        member: Member, class_name: str,
-                        query: QueryModel, data_request_type: DataRequestType,
-                        sending_member_id: UUID) -> list[dict[str, object]]:
+            member: Member, class_name: str, query: QueryModel,
+            sending_member_id: UUID) -> list[dict[str, object]]:
         '''
         Gets data from other pods, as requested by recursive query
 
         This method updates the provided query object
 
-        :param member:
+        :param member: our membership of the service
         :param class_name: the name of the class in the query
         :param query: the received query object
-        :param data_request_type: the type of data request
         :param sending_member_id: the member id of the member that sent the
         query
         '''

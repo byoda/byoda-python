@@ -9,7 +9,7 @@ Cert manipulation for service secrets: Apps CA
 from copy import copy
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -21,6 +21,8 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType, EntityId
 from byoda.datatypes import CsrSource
 
+from byoda.util.logger import Logger
+
 from .ca_secret import CaSecret
 
 _LOGGER: Logger = getLogger(__name__)
@@ -30,15 +32,15 @@ Network = TypeVar('Network')
 
 class AppsCaSecret(CaSecret):
     # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now() + timedelta(days=1080)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=1800)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=1080)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=1800)
 
     # CSRs that we are willing to sign
     ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
 
-    __slots__ = ['network', 'service_id']
+    __slots__: list[str] = ['network', 'service_id']
 
-    def __init__(self,  service_id: int, network: Network):
+    def __init__(self,  service_id: int, network: Network) -> None:
         '''
         Class for the Apps CA secret. Either paths or network parameters must
         be provided. If paths parameter is not provided, the cert_file and
@@ -114,7 +116,7 @@ class AppsCaSecret(CaSecret):
         '''
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(commonname)
+        entity_id: str = super().review_commonname(commonname)
 
         return entity_id
 
@@ -129,7 +131,7 @@ class AppsCaSecret(CaSecret):
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class        '''
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname, network, AppsCaSecret.ACCEPTED_CSRS,
             service_id=int(service_id),
             uuid_identifier=True, check_service_id=True
@@ -153,9 +155,9 @@ class AppsCaSecret(CaSecret):
             _LOGGER.exception('CSR received while we are not a CA')
             raise ValueError('CSR received while we are not a CA')
 
-        commonname = super().review_csr(csr)
+        commonname: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(commonname)
+        entity_id: EntityId = self.review_commonname(commonname)
 
         return entity_id
 
@@ -171,9 +173,9 @@ class AppsCaSecret(CaSecret):
         # alternative names (SAN)
         common_name = None
         for rdns in csr.subject.rdns:
-            dn = rdns.rfc4514_string()
+            dn: str = rdns.rfc4514_string()
             if dn.startswith('CN='):
-                common_name = dn[3:]
+                common_name: str = dn[3:]
                 break
 
         if not common_name:
@@ -183,7 +185,7 @@ class AppsCaSecret(CaSecret):
             x509.SubjectAlternativeName
         )
 
-        dnsnames = extention.value.get_values_for_type(x509.DNSName)
+        dnsnames: list[str] = extention.value.get_values_for_type(x509.DNSName)
 
         if common_name not in dnsnames:
             raise ValueError('Common name of CSR is not in list of SANs')

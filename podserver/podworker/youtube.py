@@ -94,7 +94,6 @@ async def run_youtube_startup_tasks(server: PodServer,
         )
 
 
-
 async def youtube_update_task(server: PodServer, service_id: int) -> None:
     account: Account = server.account
     member: Member = await account.get_membership(service_id)
@@ -173,9 +172,11 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         with open(LOCK_FILE, 'w') as lock_file:
             lock_file.write('1')
         _LOGGER.debug('Running YouTube metadata update')
-        await youtube.get_videos(ingested_videos, max_api_requests=210)
-        await youtube.persist_videos(
-            member, storage_driver, ingested_videos,
+        await youtube.get_videos(
+            ingested_videos, max_api_requests=210
+        )
+        await youtube.persist(
+            member, data_store, storage_driver, ingested_videos,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
             moderate_claim_url=moderation_claim_url

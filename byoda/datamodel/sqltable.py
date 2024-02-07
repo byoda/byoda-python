@@ -53,7 +53,7 @@ SqlConnection = TypeVar('SqlConnection')
 # use for pagination
 SQLITE_ROWID_COLUMN_NAME: str = 'rowid'
 
-RX_SQL_SAFE_VALUE = re.compile(r'^[a-zA-Z0-9_]+$')
+RX_SQL_SAFE_VALUE: re.Pattern[str] = re.compile(r'^[a-zA-Z0-9_]+$')
 
 
 class SqlTable(Table):
@@ -62,7 +62,7 @@ class SqlTable(Table):
     service
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'class_name', 'sql_store', 'member_id', 'table_name', 'type',
         'referenced_class', 'columns', 'cache_only', 'expires_after'
     ]
@@ -324,9 +324,10 @@ class SqlTable(Table):
                     meta[column_name] = value
                 continue
 
-            field_name = SqlTable.get_field_name(column_name)
-            field: SchemaDataItem = self.columns[field_name]
-            result[field_name] = field.normalize(value)
+            field_name: str = SqlTable.get_field_name(column_name)
+            field: SchemaDataItem = self.columns.get(field_name)
+            if field:
+                result[field_name] = field.normalize(value)
 
         return result, meta
 
@@ -651,7 +652,7 @@ class ObjectSqlTable(SqlTable):
 
 class ArraySqlTable(SqlTable):
     def __init__(self, data_class: SchemaDataItem, sql_store: Sql,
-                 member_id: UUID):
+                 member_id: UUID) -> None:
         '''
         Constructor for a SQL table for a top-level arrays in the schema
         '''
@@ -701,20 +702,20 @@ class ArraySqlTable(SqlTable):
         data
         '''
 
-        stmt = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
+        stmt: str = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
 
-        data = {}
+        data: dict = {}
         if counter_filter:
             stmt += ' WHERE'
             for field_name, value in counter_filter.items():
-                column_name = self.get_column_name(field_name)
+                column_name: str = self.get_column_name(field_name)
                 stmt += f' {column_name} = :{column_name}'
                 data[column_name] = value
 
-        rows = await self.sql_store.execute(
+        rows: list[dict[str, any]] = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=data, fetchall=True)
 
-        row_count = rows[0]['counter']
+        row_count: int = rows[0]['counter']
 
         return row_count
 
@@ -865,6 +866,8 @@ class ArraySqlTable(SqlTable):
         stmt: str = f'INSERT INTO {self.table_name} '
         values: dict[str, object] = {}
 
+        values_stmt: str
+        values_data: dict[str, object]
         values_stmt, values_data = self.sql_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,

@@ -14,6 +14,7 @@ from enum import Enum
 from uuid import UUID
 from uuid import uuid4
 from typing import Self
+from random import randrange
 from logging import getLogger
 from byoda.util.logger import Logger
 from datetime import datetime
@@ -23,6 +24,7 @@ from dateutil import parser as dateutil_parser
 
 import orjson
 
+from anyio import sleep
 from fastapi import FastAPI
 
 from yt_dlp import YoutubeDL
@@ -336,9 +338,9 @@ class YouTubeVideo:
         self.playlistId: str | None = None
 
     @staticmethod
-    def scrape(video_id: str, ingest_videos: bool,
-               creator_thumbnail: YouTubeThumbnail | None,
-               cache_file: str = None) -> Self:
+    async def scrape(video_id: str, ingest_videos: bool,
+                     creator_thumbnail: YouTubeThumbnail | None,
+                     cache_file: str = None) -> Self:
         '''
         Collects data about a video by scraping the webpage for the video
 
@@ -354,7 +356,10 @@ class YouTubeVideo:
         video.video_id = video_id
         video.url = YouTubeVideo.VIDEO_URL.format(video_id=video_id)
 
-        ydl_opts: dict[str, bool] = {'quiet': True}
+        ydl_opts: dict[str, bool] = {
+            'quiet': True,
+            'logger': _LOGGER
+        }
         with YoutubeDL(ydl_opts) as ydl:
             video_info: dict[str, any] = {}
             if cache_file:
@@ -368,6 +373,7 @@ class YouTubeVideo:
                 try:
                     _LOGGER.debug(f'Scraping YouTube video {video_id}')
                     video_info = ydl.extract_info(video.url, download=False)
+                    await sleep(randrange(1, 5))
                 except DownloadError:
                     return None
 
@@ -604,11 +610,16 @@ class YouTubeVideo:
                         f'for video {self.video_id}'
                     )
             except (ValueError, ByodaRuntimeError) as exc:
-                _LOGGER.exception(
-                    f'Ingesting asset for YouTube video {self.video_id} failed'
-                    f': {exc}'
-                )
-                raise
+                if config.test_case:
+                    _LOGGER.debug(
+                        'Test case, not bothering about moderation failure'
+                    )
+                else:
+                    _LOGGER.exception(
+                        f'Ingesting asset for YouTube video {self.video_id} '
+                        f'failed: {exc}'
+                    )
+                    raise
 
             # We now set state to PUBLISHED because we can need that value
             # to be written to the database
@@ -629,7 +640,7 @@ class YouTubeVideo:
                     asset[mapping] = value
 
         if claim_request:
-            if claim_request.signature:
+            if claim_request.signature and not config.test_case:
                 claim_data: dict[str, any] = await self.download_claim(
                     moderate_claim_url
                 )
@@ -642,9 +653,7 @@ class YouTubeVideo:
             else:
                 storage_driver.save(
                     f'claim_requests/pending/{self.asset_id}',
-                    orjson.dumps(
-                        claim_request, orjson.OPT_INDENT_2
-                    ).decode('utf-8')
+                    orjson.dumps(claim_request, orjson.OPT_INDENT_2)
                 )
 
         asset[YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS] = [
@@ -728,8 +737,9 @@ class YouTubeVideo:
 
         os.makedirs(work_dir, exist_ok=True)
 
-        ydl_opts = {
+        ydl_opts: dict[str, any] = {
             'quiet': True,
+            'logger': _LOGGER,
             'noprogress': True,
             'no_color': True,
             'format': ','.join(video_formats | audio_formats),
@@ -796,14 +806,20 @@ class YouTubeVideo:
         '''
 
         _LOGGER.debug(f'Ingesting AV for video {self.video_id}')
+
+        # We import thumbnails regardless of ingress setting so that
+        # the browser doesn't have to download these from YouTube, which
+        # may improve privacy
+        await self._ingest_thumbnails(storage_driver, member)
+
         update: bool = False
         if self.video_id in already_ingested_videos:
             ingested_video: dict = already_ingested_videos[self.video_id]
             try:
                 current_status: str | IngestStatus = \
-                    ingested_video['ingest_status']
+                    ingested_video.get('ingest_status')
 
-                if isinstance(current_status, str):
+                if not isinstance(current_status, IngestStatus):
                     current_status = IngestStatus(current_status)
             except ValueError:
                 _LOGGER.warning(
@@ -818,7 +834,7 @@ class YouTubeVideo:
             if current_status == IngestStatus.EXTERNAL:
                 update = True
 
-        tmp_dir = self._get_tempdir(storage_driver)
+        tmp_dir: str = self._get_tempdir(storage_driver)
 
         try:
             download_dir: str | None = self.download(
@@ -832,22 +848,6 @@ class YouTubeVideo:
             )
 
             await self.upload(pkg_dir, storage_driver)
-
-            for thumbnail in self.thumbnails.values():
-                _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
-                await thumbnail.ingest(
-                    self.asset_id, storage_driver, member, pkg_dir
-                )
-
-            if self.creator_thumbnail_asset:
-                _LOGGER.debug(
-                    'Starting ingest of creator thumbnail from '
-                    f'{self.creator_thumbnail_asset.url}'
-                )
-                self.creator_thumbnail = \
-                    await self.creator_thumbnail_asset.ingest(
-                        self.asset_id, storage_driver, member, pkg_dir
-                    )
 
             tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
             self.merkle_root_hash = tree.as_string()
@@ -874,6 +874,45 @@ class YouTubeVideo:
 
         return update
 
+    async def _ingest_thumbnails(self, storage_driver: FileStorage,
+                                 member: Member) -> int:
+        '''
+        Ingests the thumbnails of the video and its creator
+
+        :param storage_driver: the storage driver to upload the video with
+        :param member: the membership for the service
+        '''
+
+        _LOGGER.debug(
+            f'Starting ingest of thumbnails for asset {self.asset_id}'
+        )
+
+        thumbnails_counter = 0
+        tmp_dir: str = self._create_tempdir(storage_driver)
+        for thumbnail in self.thumbnails.values():
+            _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
+            await thumbnail.ingest(
+                self.asset_id, storage_driver, member, tmp_dir
+            )
+            thumbnails_counter += 1
+
+        if self.creator_thumbnail_asset:
+            _LOGGER.debug(
+                'Starting ingest of creator thumbnail from '
+                f'{self.creator_thumbnail_asset.url}'
+            )
+            self.creator_thumbnail = \
+                await self.creator_thumbnail_asset.ingest(
+                    self.asset_id, storage_driver, member, tmp_dir
+                )
+            thumbnails_counter += 1
+
+        self._delete_tempdir(storage_driver)
+
+        _LOGGER.debug(f'Ingested {thumbnails_counter} thumbnails')
+
+        return thumbnails_counter
+
     async def upload(self, pkg_dir: str, storage_driver: FileStorage) -> None:
         '''
         Uploads the packaged video to object storage
@@ -899,6 +938,12 @@ class YouTubeVideo:
 
     def _get_tempdir(self, storage_driver: FileStorage) -> str:
         tmp_dir: str = storage_driver.local_path + 'tmp/' + self.video_id
+
+        return tmp_dir
+
+    def _create_tempdir(self, storage_driver: FileStorage) -> str:
+        tmp_dir: str = self._get_tempdir(storage_driver)
+        os.makedirs(tmp_dir, exist_ok=True)
 
         return tmp_dir
 

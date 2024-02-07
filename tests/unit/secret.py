@@ -38,6 +38,8 @@ from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.secrets.secret import CertChain
+from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
 
@@ -74,14 +76,15 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
         config.test_case = True
 
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         pass
 
-    async def test_ca_certchaisn(self):
-        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+    async def test_ca_certchaisn(self) -> None:
+        network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = PodServer(network)
         config.server.network = network
+        config.server.paths = network.paths
 
         await config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
@@ -103,7 +106,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         service.tls_secret.validate(network.root_ca, with_openssl=True)
         service.data_secret.validate(network.root_ca, with_openssl=True)
 
-        account_id = get_test_uuid()
+        account_id: UUID = get_test_uuid()
         account = Account(account_id, network)
 
         await account.paths.create_account_directory()
@@ -122,7 +125,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
 
-    async def test_secrets(self):
+    async def test_secrets(self) -> None:
         '''
         Create a network CA hierarchy
         '''
@@ -130,7 +133,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         #
         # Test creation of the CA hierarchy
         #
-        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+        network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
         config.server = PodServer(network)
         config.server.network = network
         config.server.network.account = 'pod'
@@ -149,13 +152,15 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await service.examine_servicecontract(SCHEMA_FILE)
         await service.create_secrets(network.services_ca, local=True)
 
-        account_id = get_test_uuid()
+        account_id: UUID = get_test_uuid()
         account = Account(account_id, network)
         await account.paths.create_account_directory()
         await account.create_secrets(network.accounts_ca)
 
         config.server.account = account
         config.server.bootstrapping: bool = True
+
+        config.server.paths = network.paths
         await config.server.set_data_store(
             DataStoreType.SQLITE, account.data_secret
         )
@@ -168,9 +173,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # account.join(service) fails
         network.services = {SERVICE_ID: service}
 
-        target_dir = f'/network-{NETWORK}/account-pod/service-{SERVICE_ID}'
+        target_dir: str = f'/network-{NETWORK}/account-pod/service-{SERVICE_ID}'
         os.makedirs(TEST_DIR + target_dir)
-        target_schema = target_dir + '/service-contract.json'
+        target_schema: str = target_dir + '/service-contract.json'
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
 
         # TODO: re-enable this test
@@ -192,7 +197,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         #
         # Test data encryption
         #
-        target_account_id = get_test_uuid()
+        target_account_id: UUID = get_test_uuid()
         target_account = Account(target_account_id, network, account='test')
         await target_account.paths.create_account_directory()
         await target_account.create_secrets(network.accounts_ca)
@@ -208,11 +213,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         with open('/etc/passwd', 'rb') as file_desc:
-            data = file_desc.read()
+            data: bytes = file_desc.read()
 
-        ciphertext = account.data_secret.encrypt(data)
+        ciphertext: bytes = account.data_secret.encrypt(data)
 
-        passwords = target_account.data_secret.decrypt(ciphertext)
+        passwords: bytes = target_account.data_secret.decrypt(ciphertext)
 
         self.assertEqual(data, passwords)
 
@@ -227,11 +232,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         protected_file = source_file + '.protected'
         out_file = source_file + '.out'
 
-        data_secret = account.data_secret
+        data_secret: DataSecret = account.data_secret
         data_secret.create_shared_key()
         data_secret.encrypt_file(source_file, protected_file)
         data_secret.decrypt_file(protected_file, out_file)
-        compare_check = filecmp.cmp(source_file, out_file)
+        compare_check: bool = filecmp.cmp(source_file, out_file)
         self.assertTrue(compare_check)
 
         #
@@ -240,8 +245,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         app_id: UUID = get_test_uuid()
         fqdn = 'testapp.com'
         app_secret = AppDataSecret(app_id, SERVICE_ID, network)
-        csr = await app_secret.create_csr(fqdn)
-        cert_chain = service.apps_ca.sign_csr(csr)
+        csr: x509.CertificateSigningRequest = await app_secret.create_csr(fqdn)
+        cert_chain: CertChain = service.apps_ca.sign_csr(csr)
 
         await cert_chain.save(
             app_secret.cert_file, config.server.storage_driver
@@ -270,13 +275,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         asset_id: UUID = get_test_uuid()
         requester_id: UUID = get_test_uuid()
-        claim = Claim.build(
+        claim: Claim = Claim.build(
             ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
             object_fields, requester_id, IdType.MEMBER, 'https://signature',
             'https://renewal', 'https://confirmation'
         )
-        asset_data = {
+        asset_data: dict[str, any] = {
             'asset_id': asset_id,
             'asset_name': 'test asset',
             'asset_type': 'video',
@@ -286,9 +291,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'annotations': ['test1', 'test2'],
         }
 
-        signature = claim.create_signature(asset_data, app_data_secret)
+        signature: str = claim.create_signature(asset_data, app_data_secret)
 
-        verify_claim = Claim.build(
+        verify_claim: Claim = Claim.build(
             ['claim A', 'claim B'], app_id, IdType.APP,
             'public_assets', 'asset_id', asset_id,
             object_fields, requester_id, IdType.MEMBER, 'https://signature',
@@ -305,13 +310,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(verify_claim.verified)
 
         data = claim.as_dict()
-        new_claim = Claim.from_dict(data)
+        new_claim: Claim = Claim.from_dict(data)
         new_claim.verify_signature(asset_data, app_data_secret)
         self.assertTrue(new_claim.verified)
 
-    async def test_message_signature(self):
+    async def test_message_signature(self) -> None:
         # Test creation of the CA hierarchy
-        network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+        network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = PodServer(network)
         config.server.network = network
@@ -321,11 +326,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             public_bucket='byoda', root_dir=TEST_DIR
         )
 
-        key = rsa.generate_private_key(
+        key: rsa.RSAPrivateKey = rsa.generate_private_key(
            public_exponent=65537,
            key_size=4096,
         )
 
+        subject: x509.Name
+        issue: x509.Name
         subject = issuer = x509.Name(
             [
                 x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
@@ -338,7 +345,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        cert = x509.CertificateBuilder().subject_name(
+        cert: x509.Certificate = x509.CertificateBuilder().subject_name(
             subject
         ).issuer_name(
             issuer
@@ -356,7 +363,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         ).sign(key, hashes.SHA256())
 
         _RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
-        message = 'ik ben toch niet gek!'.encode('utf-8')
+        message: bytes = 'ik ben toch niet gek!'.encode('utf-8')
         chosen_hash = hashes.SHA256()
         hasher = hashes.Hash(chosen_hash)
         message = copy(message)
@@ -367,8 +374,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             else:
                 hasher.update(message)
                 message = None
-        digest = hasher.finalize()
-        signature = key.sign(
+        digest: bytes = hasher.finalize()
+        signature: bytes = key.sign(
             digest,
             padding.PSS(
                 mgf=padding.MGF1(chosen_hash),

@@ -134,21 +134,22 @@ class YouTube:
 
         return known_videos
 
-    async def persist_videos(self, member: Member,
-                             storage_driver: FileStorage = None,
-                             already_ingested_assets: dict[str, any] = {},
-                             bento4_directory: str | None = None,
-                             moderate_request_url: str | None = None,
-                             moderate_jwt_header: str | None = None,
-                             moderate_claim_url: str | None = None,
-                             ingest_interval: int = INGEST_INTERVAL_SECONDS):
+    async def persist(self, member: Member, data_store: DataStore,
+                      storage_driver: FileStorage = None,
+                      already_ingested_assets: dict[str, any] = {},
+                      bento4_directory: str | None = None,
+                      moderate_request_url: str | None = None,
+                      moderate_jwt_header: str | None = None,
+                      moderate_claim_url: str | None = None,
+                      ingest_interval: int = INGEST_INTERVAL_SECONDS) -> None:
         '''
         Persist the videos to storage. Videos are stored in the data store.
         If ingest of videos is enabled for this channel then the videos are
         downloaded, otherwise only the metadata is stored.
 
         :param member:
-        :param data_store:
+        :param data_store: where to store the channel info. Videos are stored
+        using MemberData to trigger notifications on pub/sub
         :param storage_driver: this parameter is required if we download the
         videos
         :param bento4_directory: this parameter is required if we download the
@@ -178,8 +179,8 @@ class YouTube:
                 )
 
             await channel.persist(
-                member, storage_driver, already_ingested_assets,
-                bento4_directory,
+                member, data_store, storage_driver,
+                already_ingested_assets, bento4_directory,
                 moderate_request_url=moderate_request_url,
                 moderate_jwt_header=moderate_jwt_header,
                 moderate_claim_url=moderate_claim_url,
@@ -213,7 +214,8 @@ class YouTube:
             )
 
     async def get_videos(self, already_ingested_videos: dict[str, dict] = {},
-                         max_api_requests: int = 1000, filename: str = None):
+                         max_api_requests: int = 1000, filename: str = None
+                         ) -> None:
         '''
         Get videos from YouTube, either using scraping or the YouTube data API.
 

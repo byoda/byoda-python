@@ -1,5 +1,4 @@
-ARG TAG=latest
-FROM byoda/byoda-python:$TAG
+FROM ubuntu:23.04
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
@@ -20,7 +19,7 @@ RUN mkdir -p \
     byoda-python \
     /opt/byoda/byoda-python
 
-COPY ./Pipfile ./Pipfile.lock /opt/byoda/byoda-python/
+COPY ./Pipfile ./Pipfile.lock /podserver/byoda-python/
 
 RUN apt-get update && apt-get install -y \
        ubuntu-keyring \
@@ -42,7 +41,7 @@ RUN apt-get update && apt-get install -y \
        unzip \
        curl \
        git \
-    && cd /opt/byoda/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
     && apt-get --yes remove build-essential \
     && apt-get --yes autoremove \
     && apt-get -y clean \
@@ -50,7 +49,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY . byoda-python/
 
-CMD cd /opt/byoda/byoda-python \
+CMD cd /podserver/byoda-python \
     && pipenv run python3 -m gunicorn \
        -k uvicorn.workers.UvicornWorker \
        --bind 0.0.0.0:8000  \

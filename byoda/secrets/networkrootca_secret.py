@@ -9,7 +9,7 @@ Cert manipulation of network secrets: root CA
 import os
 from copy import copy
 from logging import getLogger
-from byoda.util.logger import Logger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
@@ -24,6 +24,8 @@ from byoda.datatypes import IdType
 from byoda.storage.filestorage import FileStorage
 from byoda.storage.filestorage import FileMode
 
+from byoda.util.logger import Logger
+
 from .secret import CSR
 from .ca_secret import CaSecret
 
@@ -31,11 +33,11 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class NetworkRootCaSecret(CaSecret):
-    __slots__ = ['network']
+    __slots__: list[str] = ['network']
 
     # The Network Root CA secret should never renew
-    RENEW_WANTED = datetime.now() + timedelta(days=100 * 365)
-    RENEW_NEEDED: datetime = datetime.now() + timedelta(days=100 * 365)
+    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=100 * 365)
+    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=100 * 365)
 
     # CSRs that we are willing to sign and what we set for their expiration
     ACCEPTED_CSRS: dict[IdType, int] = {
@@ -44,7 +46,7 @@ class NetworkRootCaSecret(CaSecret):
         IdType.NETWORK_DATA: 2 * 365
     }
 
-    def __init__(self, paths: Paths = None, network: str = None):
+    def __init__(self, paths: Paths = None, network: str = None) -> None:
         '''
         Class for the network root CA secret. Either paths or network
         parameters must be provided. If paths parameter is not provided,
@@ -66,7 +68,7 @@ class NetworkRootCaSecret(CaSecret):
 
         if paths:
             self.paths = copy(paths)
-            self.network = paths.network
+            self.network: str = paths.network
             super().__init__(
                 cert_file=self.paths.get(Paths.NETWORK_ROOT_CA_CERT_FILE),
                 key_file=self.paths.get(Paths.NETWORK_ROOT_CA_KEY_FILE),
@@ -85,7 +87,7 @@ class NetworkRootCaSecret(CaSecret):
         self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
-    async def create(self, expire: int = 10950):
+    async def create(self, expire: int = 10950) -> None:
         '''
         Creates an RSA private key and X.509 cert
 
@@ -96,7 +98,7 @@ class NetworkRootCaSecret(CaSecret):
 
         '''
 
-        common_name = f'root-ca.{self.network}'
+        common_name: str = f'root-ca.{self.network}'
         await super().create(
             common_name, expire=expire, key_size=4096, ca=self.ca
         )
@@ -117,7 +119,7 @@ class NetworkRootCaSecret(CaSecret):
         # TODO: SECURITY: add constraints
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(
+        entity_id: str = super().review_commonname(
             commonname, uuid_identifier=False, check_service_id=False
         )
 
@@ -134,7 +136,7 @@ class NetworkRootCaSecret(CaSecret):
         :raises: ValueError if the commonname is not valid for certs signed
         by instances of this class        '''
 
-        entity_id = CaSecret.review_commonname_by_parameters(
+        entity_id: EntityId = CaSecret.review_commonname_by_parameters(
             commonname, network, NetworkRootCaSecret.ACCEPTED_CSRS,
             uuid_identifier=False, check_service_id=False
         )
@@ -164,14 +166,14 @@ class NetworkRootCaSecret(CaSecret):
                 'This CA does not accept CSRs received via API call'
             )
 
-        common_name = super().review_csr(csr)
+        common_name: str = super().review_csr(csr)
 
-        entity_id = self.review_commonname(common_name)
+        entity_id: str = self.review_commonname(common_name)
 
         return entity_id
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
-                   storage_driver: FileStorage = None):
+                   storage_driver: FileStorage = None) -> None:
         '''
         Save a cert and private key to their respective files
 
@@ -199,9 +201,9 @@ class NetworkRootCaSecret(CaSecret):
             )
 
         _LOGGER.debug('Saving cert to %s', self.cert_file)
-        data = self.cert_as_pem()
+        data: bytes = self.cert_as_pem()
 
-        directory = os.path.dirname(self.cert_file)
+        directory: str = os.path.dirname(self.cert_file)
         await storage_driver.create_directory(directory)
 
         await storage_driver.write(
@@ -210,7 +212,7 @@ class NetworkRootCaSecret(CaSecret):
 
         if self.private_key:
             _LOGGER.debug('Saving private key to %s', self.private_key_file)
-            private_key_pem = self.private_key.private_bytes(
+            private_key_pem: bytes = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.BestAvailableEncryption(

@@ -14,8 +14,8 @@ import base64
 from uuid import uuid4
 from uuid import UUID
 from typing import Self
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone
 from dataclasses import dataclass
 from logging import getLogger
 
@@ -297,13 +297,13 @@ class Claim:
             secret = self.secret
 
         self.issuer_id = UUID(secret.common_name.split('.')[0])
-        self.signature_timestamp = datetime.now(timezone.utc)
-        self.cert_expiration = secret.cert.not_valid_after
+        self.signature_timestamp = datetime.now(tz=UTC)
+        self.cert_expiration = secret.cert.not_valid_after_utc
         self.cert_fingerprint = secret.fingerprint().hex()
         self.signature_format_version = 1
 
-        sig_data = self._get_bytes(data, format_version=1)
-        signature = secret.sign_message(sig_data)
+        sig_data: bytes = self._get_bytes(data, format_version=1)
+        signature: bytes = secret.sign_message(sig_data)
         self.signature = base64.b64encode(signature).decode('utf-8')
         self.verified = True
 
