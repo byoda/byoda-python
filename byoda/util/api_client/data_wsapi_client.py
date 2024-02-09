@@ -208,7 +208,7 @@ class DataWsApiClient(DataApiClient):
 
         port: int = 443
         if secret:
-            _LOGGER.debug('Setting TCP port to 444 because We have a secret')
+            _LOGGER.debug('Setting TCP port to 444 because we have a secret')
             port = 444
 
         api_url: str

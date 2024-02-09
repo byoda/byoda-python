@@ -82,13 +82,13 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
         member_id: UUID = uuid4()
-        await cache.add_asset(member_id, data)
+        await cache.add_newest_asset(member_id, data)
         for _ in range(0, 10):
             # We need to change the member_id to make sure that the
             # cursor is unique.
             member_id = uuid4()
             data['asset_id'] = str(uuid4())
-            await cache.add_asset(member_id, data)
+            await cache.add_newest_asset(member_id, data)
 
         lists: set[str] = await cache.get_list_of_lists()
         self.assertIsNotNone(lists)
@@ -102,7 +102,7 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(expires > 3600)
 
         item: str | None = await cache.get_oldest_asset()
-        result: int = await cache.push_newest_asset(item)
+        result: int = await cache.add_oldest_asset(item)
         self.assertEqual(result, 11)
         await cache.close()
 

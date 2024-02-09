@@ -140,7 +140,7 @@ class AssetCache(SearchableCache):
 
         return await self.backend.pos(key, cursor)
 
-    async def add_asset(self, member_id, asset: dict) -> None:
+    async def add_newest_asset(self, member_id, asset: dict) -> None:
         '''
         Add an asset to the cache.
 
@@ -337,6 +337,25 @@ class AssetCache(SearchableCache):
 
         return await self.get_expiration(asset_key)
 
+    async def add_oldest_asset(self, node: str | Edge) -> None:
+        '''
+        Adds the oldest asset back to the front of the list
+
+        :param node: push the asset back to the start of the all_assets list
+        :returns: the length of the list after adding the item
+        '''
+
+        if isinstance(node, Edge):
+            cursor: str = self.get_cursor(node.origin, node.node.asset_id)
+        else:
+            cursor = node
+
+        asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
+
+        list_name: str = AssetCache.ALL_ASSETS_LIST
+
+        return await self.append_list(list_name, asset_key)
+
     async def get_list_assets(self,
                               asset_list: str = DEFAULT_ASSET_LIST,
                               first: int = 20, after: str | None = None,
@@ -386,20 +405,6 @@ class AssetCache(SearchableCache):
 
         edge: Edge = await self.get_asset_by_key(asset_key)
         return edge
-
-    async def push_newest_asset(self, edge: Edge) -> int:
-        '''
-        Pushes the newest asset to the top of the list
-
-        :returns: The length of the list after adding the item
-        '''
-
-        cursor: str = self.get_cursor(edge.origin, edge.node.asset_id)
-        asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
-
-        list_name: str = AssetCache.ALL_ASSETS_LIST
-
-        return await self.prepend_list(list_name, asset_key)
 
     async def update_list_of_lists(self, lists: set[str]) -> None:
         '''
@@ -470,9 +475,9 @@ class AssetCache(SearchableCache):
 
     async def refresh_asset(self, edge: Edge, asset_class_name: str,
                             tls_secret: MemberSecret | ServiceSecret
-                            ) -> Edge:
+                            ) -> Edge | None:
         '''
-        Renews an asset in the cache
+        Renews an asset in the cache and prepends it to the list of assets
 
         :param member_id: the member_id of the member that owns the asset
         :param asset_id: the asset_id of the asset to renew
@@ -495,22 +500,22 @@ class AssetCache(SearchableCache):
             _LOGGER.debug(
                 f'Error calling data API of member {member_id}: {exc}'
             )
-            raise
+            return None
 
         metric: str
         if resp.status_code != 200:
             metric = 'assetcache_refresh_asset_failures'
             if metrics and metric in metrics:
                 metrics['assetcache_refresh_asset_failures'].inc()
-            raise FileNotFoundError
+            return None
 
-        data = resp.json()
+        data: dict[str, any] = resp.json()
 
         if not data or data.get('total_count') == 0:
             metric = 'assetcache_refreshable_asset_not_found'
             if metrics and metric in metrics:
                 metrics[metric].inc()
-            raise FileNotFoundError
+            return None
 
         if data['total_count'] > 1:
             _LOGGER.debug(
@@ -527,6 +532,8 @@ class AssetCache(SearchableCache):
             cursor=data['edges'][0]['cursor'],
             node=self.asset_class(**node)
         )
+
+        await self.add_newest_asset(edge)
 
         return asset
 

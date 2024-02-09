@@ -157,11 +157,11 @@ class Table:
         if origin_id:
             hash_gen.update(str(origin_id).encode('utf-8'))
 
-        cursor = hash_gen.hexdigest()
+        cursor: str = hash_gen.hexdigest()
 
         return cursor[0:8]
 
-    def expire(self, timestamp: datetime | None = None):
+    def expire(self, timestamp: datetime | None = None) -> any:
         '''
         Expires content from a table
 

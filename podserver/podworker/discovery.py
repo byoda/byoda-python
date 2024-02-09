@@ -9,12 +9,14 @@ Various utility classes, variables and functions
 import os
 
 from uuid import UUID
+from datetime import UTC
 from datetime import datetime
 from logging import getLogger
 
 from anyio.abc import TaskGroup
 
 from byoda.datamodel.account import Account
+from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.schema import ListenRelation
@@ -22,23 +24,31 @@ from byoda.datamodel.pubsub_message import PubSubMessage
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.table import ResultData
 from byoda.datamodel.table import QueryResult
+from byoda.datamodel.table import QueryResults
 
 from byoda.models.data_api_models import NetworkLink
 from byoda.models.data_api_models import UpdatesResponseModel
 
+from byoda.datatypes import IdType
 from byoda.datatypes import MARKER_NETWORK_LINKS
 from byoda.datatypes import PubSubMessageAction
 
 from byoda.storage.pubsub_nng import PubSubNng
 
-
 from byoda.datastore.data_store import DataStore
 
-from byoda.util.updates_listener import UpdateListenerMember
+from byoda.servers.pod_server import PodServer
 
+from byoda.util.updates_listener import UpdateListenerMember
+from byoda.util.api_client.api_client import ApiClient
+from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.paths import Paths
 from byoda.util.logger import Logger
 
 from byoda import config
+
+from byoda.util.test_tooling import is_test_uuid
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -95,6 +105,97 @@ async def get_current_network_links(account: Account, data_store: DataStore
     return updates_listeners
 
 
+async def get_all_network_links(data_store: DataStore, member: Member
+                                ) -> QueryResults:
+    '''
+    Gets the network links for a member
+    '''
+
+    schema: Schema = member.schema
+    data_class: SchemaDataArray = schema.data_classes.get(MARKER_NETWORK_LINKS)
+    if not data_class:
+        # Service without network_links does not have links to follow
+        return []
+
+    data: list[QueryResult] = await data_store.query(
+        member_id=member.member_id, data_class=data_class, filters={}
+    )
+
+    return data
+
+
+async def check_network_links(server: PodServer) -> None:
+    '''
+    Checks for all services if the remote members that we have a network link
+    to are still up running
+    '''
+
+    account: Account = server.account
+    data_store: DataStore = server.data_store
+
+    _LOGGER.info('Checking health of network links')
+
+    member: Member
+    for member in account.memberships.values():
+        await check_network_links_for_service(data_store, member)
+
+
+async def check_network_links_for_service(data_store: DataStore,
+                                          member: Member) -> None:
+    '''
+    Checks for a service if the remote members that we have a network link
+    to are still up running
+    '''
+
+    schema: Schema = member.schema
+    data_class: SchemaDataArray = schema.data_classes.get(
+        MARKER_NETWORK_LINKS
+    )
+    if not data_class:
+        # Service does not have a 'network_links' data class so
+        # no need to check links
+        return
+
+    _LOGGER.debug(
+        f'Checking status of existing network links for '
+        f'member {member.member_id} of service {member.service_id}'
+    )
+
+    links: QueryResults = await get_all_network_links(data_store, member)
+
+    now: float = datetime.now(tz=UTC).timestamp()
+
+    paths: Paths = member.paths
+    links_healthy: dict[UUID, bool] = {}
+    for link, _ in links or []:
+        remote_member_id: dict = link['member_id']
+        if is_test_uuid(remote_member_id):
+            continue
+
+        if remote_member_id not in links_healthy:
+            result: HttpResponse = await ApiClient.call(
+                paths.PODHEALTH_API, method='GET', secret=member.tls_secret,
+                service_id=member.service_id, member_id=remote_member_id,
+                timeout=1
+            )
+
+            links_healthy[remote_member_id] = result.status_code == 200
+
+        if links_healthy[remote_member_id]:
+            # This data filter will cause each link we have with a remote
+            # member to be updated
+            data_filter: DataFilterSet = DataFilterSet(
+                {'member_id': {'eq': remote_member_id}}
+            )
+            link['last_health_api_success'] = now
+            cursor: str = data_class.get_cursor_hash(link, member.member_id)
+            await data_store.mutate(
+                member.member_id, data_class.name, link, cursor,
+                data_filter_set=data_filter, origin_id=member.member_id,
+                origin_id_type=IdType.MEMBER
+            )
+
+
 async def get_network_links_listeners(data_store: DataStore, member: Member,
                                       wanted_relations: list[str],
                                       listen_class: SchemaDataArray,
@@ -118,9 +219,7 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
 
     # TODO: Data filters do not yet support multiple specifications of the
     # same field so we have to filter ourselves
-    data: list[QueryResult] = await data_store.query(
-        member_id=member.member_id, data_class=data_class, filters={}
-    )
+    data: QueryResults = await get_all_network_links(data_store, member)
 
     network_links: list[ResultData] = [
         edge_data for edge_data, _ in data or []

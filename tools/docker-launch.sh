@@ -140,14 +140,22 @@ if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     export WWWROOT_VOLUME_MOUNT="-v ${LOCAL_WWWROOT_DIRECTORY}:/var/www/wwwroot"
 fi
 
-if [ -z "${LOGDIR}" ]; then
-    echo LOGDIR variable is not set
-    exit 1
-fi
+
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
+    if [ -z "${LOGDIR}" ]; then
+        echo LOGDIR variable is not set
+        exit 1
+    fi
     echo "Wiping logs: ${LOGDIR}/*.log"
-    sudo rm -f ${LOGDIR}/*.log
+    sudo rm -f --preserve-root ${LOGDIR}/*.log
+
+    if [ -z "${WEB_LOG_DIR}" ]; then
+        echo WEB_LOG_DIR variable is not set
+        exit 1
+    fi
+    echo "Wiping logs: ${WEB_LOG_DIR}/*.log"
+    sudo rm -f --preserve-root ${WEB_LOG_DIR}/*.log
 fi
 
 export ANGIECONF_VOLUME_MOUNT=""
@@ -201,9 +209,27 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
             echo "azure-cli not found, please install it with 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'"
             exit 1
         fi
+
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         echo "Wiping ${BYODA_ROOT_DIR}"
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
 
+        if [ -z "${LOGDIR}" ]; then
+            echo LOGDIR variable is not set
+            exit 1
+        fi
+        echo "Wiping logs: ${LOGDIR}/*.log"
+        sudo rm -f --preserve-root ${LOGDIR}/*.log
+
+        if [ -z "${WEB_LOG_DIR}" ]; then
+            echo WEB_LOG_DIR variable is not set
+            exit 1
+        fi
+        echo "Wiping logs: ${WEB_LOG_DIR}/*.log"
+        sudo rm -f --preserve-root ${WEB_LOG_DIR}/*.log
 
         STORAGE_ACCOUNT=$(echo ${PRIVATE_BUCKET} | cut -f 1 -d ':')
         echo "Wiping all data of the pod on storage account"
@@ -215,6 +241,10 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
         echo "Wiping ${BYODA_ROOT_DIR}"
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
 
         az storage blob delete-batch -s byoda --account-name ${PRIVATE_BUCKET} --auth-mode login \
@@ -233,6 +263,10 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
         echo "Wiping ${BYODA_ROOT_DIR}"
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
 
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
@@ -252,6 +286,10 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     echo "Running in cloud: ${CLOUD}"
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping ${BYODA_ROOT_DIR}"
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
 
         which gcloud > /dev/null 2>&1
@@ -300,6 +338,10 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
     fi
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping ${BYODA_ROOT_DIR}"
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
 
         which aws > /dev/null 2>&1
@@ -349,10 +391,18 @@ else
     echo "Not running in a public cloud"
     if [[ "${WIPE_ALL}" == "1" ]]; then
         echo "Wiping all data of the pod and creating a new account ID"
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}-account-pod-member-*.key
         rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/*
         rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
@@ -363,11 +413,15 @@ else
             exit 1
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
         # echo "Wiping data and service-contracts for all memberships of the pod"
         # TODO
-        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
-        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/service-contract.json
-        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/service-contract.json
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping storage failed"
@@ -378,7 +432,22 @@ fi
 
 if [[ "${WIPE_ALL}" == "1" ]]; then
     echo "Forcing creation of new account ID and deleting logs of the pod"
+    if [ -z "${LOGDIR}" ]; then
+        echo LOGDIR variable is not set
+        exit 1
+    fi
     sudo rm -f -I --preserve-root=all ${LOGDIR}/*
+
+    if [ -z "${WEB_LOG_DIR}" ]; then
+        echo WEB_LOG_DIR variable is not set
+        exit 1
+    fi
+    sudo rm -f -I --preserve-root=all ${WEB_LOG_DIR}/*
+
+    if [ -z "${BYODA_ROOT_DIR}" ]; then
+        echo BYODA_ROOT_DIR variable is not set
+        exit 1
+    fi
     sudo rm ${BYODA_ROOT_DIR}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
         echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
@@ -433,6 +502,7 @@ echo "SHARED_WEBSERVER: ${SHARED_WEBSERVER}"
 echo "TRACE_SERVER: ${TRACE_SERVER}"
 echo "BYODA root directory: ${BYODA_ROOT_DIR}"
 echo "LOGDIR: ${LOGDIR}"
+echo "WEB_LOG_DIR: ${WEB_LOG_DIR}"
 echo "PORT_MAPPINGS: ${PORT_MAPPINGS}"
 echo "AWS_CREDENTIALS: xxxxxxxxxx"
 echo "WWWROOT_VOLUME_MOUNT: ${WWWROOT_VOLUME_MOUNT}"
@@ -451,6 +521,7 @@ sudo docker run -d --memory=800m \
     ${PORT_MAPPINGS} \
     -e "WORKERS=1" \
     -e "LOGDIR=${LOGDIR}" \
+    -e "WEB_LOG_DIR=${WEB_LOG_DIR}" \
     -e "BACKUP_INTERVAL=${BACKUP_INTERVAL}" \
     -e "CLOUD=${CLOUD}" \
     -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
@@ -481,6 +552,7 @@ sudo docker run -d --memory=800m \
     -e "TRACE_SERVER=${TRACE_SERVER}" \
     -v ${BYODA_ROOT_DIR}:/byoda \
     -v ${LOGDIR}:${LOGDIR} \
+    -v ${WEB_LOG_DIR}:${WEB_LOG_DIR} \
     ${WWWROOT_VOLUME_MOUNT} \
     ${LETSENCRYPT_VOLUME_MOUNT} \
     ${ANGIECONF_VOLUME_MOUNT} \

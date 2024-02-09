@@ -54,8 +54,15 @@ TEMP_SSL_DIR: str = '/var/tmp/ssl'
 # This is the API path used by the CDN App server
 CDN_KEYS_API: str = '/api/v1/cdn/content_keys'
 
-MemberInfo: namedtuple = namedtuple('MemberInfo', ['member_id', 'service_id', 'status', 'timestamp'])
-NetworkLink: namedtuple = namedtuple('NetworkLink', ['member_id', 'relation', 'created_timestamp','annotations'])
+MemberInfo: namedtuple = namedtuple(
+    'MemberInfo', ['member_id', 'service_id', 'status', 'timestamp']
+)
+NetworkLink: namedtuple = namedtuple(
+    'NetworkLink', [
+        'member_id', 'relation', 'created_timestamp','annotations',
+        'last_health_api_success'
+    ]
+)
 
 AnyScalarType = \
     str | bytes | int | float | bool | UUID | datetime | date | time

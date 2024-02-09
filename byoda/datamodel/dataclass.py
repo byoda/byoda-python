@@ -17,6 +17,7 @@ import jinja2
 from enum import Enum
 from copy import copy
 from uuid import UUID
+from typing import Self
 from hashlib import sha1
 from typing import TypeVar
 
@@ -81,7 +82,7 @@ class SchemaDataItem:
     A data 'class' here can be eiter an object/dict, array/list or scalar
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'name', 'schema_data', 'description', 'item_id', 'schema_id',
         'service_id', 'schema_url', 'defined_class',
         'fields', 'properties', 'is_index', 'is_counter', 'type',
@@ -178,7 +179,7 @@ class SchemaDataItem:
         # fields with property primary_key are also required
         self.required: bool = self.is_primary_key
 
-        self.python_type = self.get_types(class_name, self.schema_data)
+        self.python_type: str = self.get_types(class_name, self.schema_data)
 
         # The class for storing data for the service sets the values
         # for storage_name and storage_type for child data items
@@ -209,7 +210,7 @@ class SchemaDataItem:
         :raises: ValueError, KeyError
         '''
 
-        js_type = schema_data.get('type')
+        js_type: str | None = schema_data.get('type')
         if not js_type:
             raise ValueError(f'Class {data_name} does not have a type defined')
 
@@ -223,7 +224,7 @@ class SchemaDataItem:
 
         if jsonschema_type not in (DataType.OBJECT, DataType.ARRAY):
             try:
-                format = schema_data.get('format')
+                format: str | None = schema_data.get('format')
                 if format and format.lower() in ('date-time', 'uuid'):
                     format_datatype = DataType(format)
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[format_datatype]
@@ -236,12 +237,15 @@ class SchemaDataItem:
 
             return python_type
         elif jsonschema_type == DataType.ARRAY:
-            items = schema_data.get('items')
+            items: dict | None = schema_data.get('items')
             if not items:
                 raise ValueError(
                     f'Array {data_name} does not have items defined'
                 )
-
+            if not isinstance(items, dict):
+                raise ValueError(
+                    f'Items property of array {data_name} must be an object'
+                )
             if 'type' in items:
                 python_type = f'list[{PYTHON_SCALAR_TYPE_MAP[DataType(items["type"])]}]'
                 return python_type
@@ -263,7 +267,8 @@ class SchemaDataItem:
 
     @staticmethod
     def create(class_name: str, schema_data: dict[str, any], schema: Schema,
-               classes: dict = {}, with_pubsub: bool = True):
+               classes: dict = {}, with_pubsub: bool = True
+               ) -> Self | None:
         '''
         Factory for instances of classes derived from SchemaDataItem
 
@@ -322,7 +327,7 @@ class SchemaDataItem:
         if uri.startswith('#/'):
             uri = uri[1:]
 
-        url = urlparse(uri)
+        url: ParseResult = urlparse(uri)
         if not url.path.startswith('/schemas/'):
             raise ValueError(
                 f'Data reference {uri} must start with "/schemas/"'
@@ -333,7 +338,7 @@ class SchemaDataItem:
                 'than 2 "/"s'
             )
 
-        referenced_class = uri.split('/')[-1]
+        referenced_class: str = uri.split('/')[-1]
 
         return referenced_class
 
@@ -344,7 +349,7 @@ class SchemaDataItem:
 
         _LOGGER.debug(f'Parsing access controls for {self.name}')
 
-        rights = self.schema_data.get(MARKER_ACCESS_CONTROL)
+        rights: dict | None = self.schema_data.get(MARKER_ACCESS_CONTROL)
         if not rights:
             _LOGGER.debug(f'No access rights defined for {self.name}')
             return
@@ -357,6 +362,8 @@ class SchemaDataItem:
         self.access_rights: dict[RightsEntityType, list[DataAccessRight]] = {}
 
         for entity_type_data, access_rights_data in rights.items():
+            entity_type: RightsEntityType
+            access_rights: list[DataAccessRight]
             entity_type, access_rights = DataAccessRight.get_access_rights(
                 entity_type_data, access_rights_data
             )
@@ -393,7 +400,7 @@ class SchemaDataItem:
 
         for access_rights in self.access_rights.values():
             for access_right in access_rights:
-                result = await access_right.authorize(
+                result: bool | None = await access_right.authorize(
                     auth, service_id, operation, depth
                 )
                 if result:
@@ -425,7 +432,7 @@ class SchemaDataItem:
 
 
 class SchemaDataScalar(SchemaDataItem):
-    __slots__ = [
+    __slots__: list[str] = [
         'format', 'equal_operator'
     ]
 
@@ -482,6 +489,7 @@ class SchemaDataScalar(SchemaDataItem):
         for the item in Python3
         '''
 
+        result: datetime
         try:
             if (self.type == DataType.UUID
                     and value and not isinstance(value, UUID)):
@@ -502,7 +510,7 @@ class SchemaDataScalar(SchemaDataItem):
         return result
 
 class SchemaDataObject(SchemaDataItem):
-    __slots__ = ['required_fields']
+    __slots__: list[str] = ['required_fields']
 
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem]) -> None:
@@ -544,7 +552,7 @@ class SchemaDataObject(SchemaDataItem):
                     'not yet supported'
                 )
             elif field_properties['type'] == 'array':
-                items = field_properties.get('items')
+                items: dict[str, any] = field_properties.get('items')
                 if not items:
                     raise ValueError(
                         f'Array for {class_name} does not specify items'
@@ -555,7 +563,7 @@ class SchemaDataObject(SchemaDataItem):
                         'object'
                     )
 
-            item = SchemaDataItem.create(
+            item: SchemaDataItem | None = SchemaDataItem.create(
                 field, field_properties, schema, classes, with_pubsub=False
             )
 
@@ -598,7 +606,7 @@ class SchemaDataObject(SchemaDataItem):
         :returns: the cursor
         '''
 
-        hash_gen = sha1()
+        hash_gen: bytes = sha1()
         for field_name in self.required_fields:
             value: bytes = str(data.get(field_name, '')).encode('utf-8')
             hash_gen.update(value)
@@ -606,7 +614,7 @@ class SchemaDataObject(SchemaDataItem):
         if origin_id:
             hash_gen.update(str(origin_id).encode('utf-8'))
 
-        cursor = hash_gen.hexdigest()
+        cursor: str = hash_gen.hexdigest()
 
         return cursor[0:8]
 
@@ -673,7 +681,7 @@ class SchemaDataObject(SchemaDataItem):
         return code
 
 class SchemaDataArray(SchemaDataItem):
-    __slots__ = ['items']
+    __slots__: list[str] = ['items']
 
     def __init__(self, class_name: str, schema_data: dict, schema: Schema,
                  classes: dict[str, SchemaDataItem], with_pubsub: bool =True
@@ -699,11 +707,16 @@ class SchemaDataArray(SchemaDataItem):
         if DataProperty.INDEX in self.properties:
             raise ValueError('Index is not supported for arraus')
 
-        items = schema_data.get('items')
+        items: dict | None = schema_data.get('items')
         if not items:
             raise ValueError(
                 'Schema properties for array {class_name} does not have items '
                 'defined'
+            )
+
+        if not isinstance(items, dict):
+            raise ValueError(
+                f'items property for array {class_name} must be an object'
             )
 
         if 'type' in items:
@@ -808,7 +821,7 @@ class SchemaDataArray(SchemaDataItem):
 
         child_access_allowed = None
         if self.referenced_class:
-            child_access_allowed = await self.referenced_class.authorize_access(
+            child_access_allowed: bool | None = await self.referenced_class.authorize_access(
                 operation, auth, service_id, depth
             )
             _LOGGER.debug(
@@ -831,7 +844,9 @@ class SchemaDataArray(SchemaDataItem):
         from the Pydantic v2 BaseModel
         '''
 
-        template = environment.get_template('pydantic-model-array.py.jinja')
+        template: jinja2.Template = environment.get_template(
+            'pydantic-model-array.py.jinja'
+        )
 
         code: str = template.render(data_class=self)
 
@@ -844,8 +859,8 @@ class SchemaDataArray(SchemaDataItem):
         delete
         '''
 
-        template_name = f'pydantic-model-rest-apis.py.jinja'
-        template = environment.get_template(template_name)
+        template_name: str = 'pydantic-model-rest-apis.py.jinja'
+        template: jinja2.Template = environment.get_template(template_name)
 
         code: str = template.render(data_class=self)
 

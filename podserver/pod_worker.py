@@ -48,6 +48,7 @@ from podserver.util import get_environment_vars
 
 from podworker.discovery import get_current_network_links
 from podworker.discovery import listen_local_network_links_tables
+from podworker.discovery import check_network_links
 
 from podworker.cdn_keys import upload_content_keys
 
@@ -137,6 +138,8 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
     updates_listeners: dict[UUID, UpdateListenerMember] = \
         await get_current_network_links(account, data_store)
 
+    await check_network_links(server)
+
     await upload_content_keys(server)
     await run_youtube_startup_tasks(server, youtube_import_service_id)
 
@@ -164,6 +167,9 @@ async def setup_recurring_tasks(server: PodServer,
 
     _LOGGER.debug('Scheduling cache refresh task')
     every(30).minutes.do(refresh_cached_data, account, server)
+
+    _LOGGER.debug('Scheduling network link health check task')
+    every(35).minutes.do(check_network_links, server)
 
     _LOGGER.debug('Scheduling cache expiration task')
     every(1).hour.do(expire_cached_data, server, cache_store)
