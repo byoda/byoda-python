@@ -18,6 +18,7 @@ import sys
 import unittest
 
 from uuid import UUID
+from datetime import UTC
 from datetime import datetime
 from datetime import timezone
 
@@ -31,6 +32,8 @@ from byoda.datatypes import DataRequestType
 from byoda.datatypes import MARKER_NETWORK_LINKS
 from byoda.datatypes import AnyScalarType
 from byoda.datatypes import DataFilterType
+
+from byoda.datastore.data_store import DataStore
 
 from byoda.servers.pod_server import PodServer
 
@@ -50,6 +53,8 @@ from podserver.routers import account as AccountRouter
 from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
+
+from podserver.podworker.discovery import check_network_links
 
 from tests.lib.util import get_test_uuid
 from tests.lib.setup import setup_network
@@ -230,6 +235,22 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             auth_header=member_auth_header, expect_success=True
         )
 
+        # First we test podworker network link health checks
+        await check_network_links(config.server)
+
+        result: dict | None = await call_data_api(
+            self, service_id, MARKER_NETWORK_LINKS,
+            action=DataRequestType.QUERY, first=50, depth=0,
+            auth_header=member_auth_header
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result['total_count'], 1)
+
+        link_health: dict[str, any] = result['edges'][0]['node']
+        now: float = datetime.now(tz=UTC).timestamp()
+        self.assertIsNotNone(link_health['last_health_api_success'])
+        self.assertLess(now - link_health['last_health_api_success'], 10)
+
         # Recursive query, with network_links but no relation
         # on Azure POD yet
         recursive_data = await call_data_api(
@@ -242,7 +263,8 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         await add_to_azure_pod_network_links(self, account, service_id)
 
-        azure_member_auth_header, azure_fqdn = await get_azure_pod_jwt(
+        azure_member_auth_header: str
+        azure_member_auth_header, _ = await get_azure_pod_jwt(
             account, TEST_DIR
         )
         # Confirm on Azure pod that we have a network_link entry

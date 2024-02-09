@@ -367,6 +367,27 @@
                         "description": "Bookmark for the asset where to resume consumption of the asset, for example, seconds in a video or page in a book",
                         "type": "string"
                     },
+                    "keywords": {
+                        "description": "comma-separated list of keywords",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "annotations": {
+                        "description": "annotations for the asset, things like 'genre:action' or 'city:San Francisco'",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "categories": {
+                        "description": "categories for the asset, things like 'Education' or 'Comedy",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "list_name": {
                         "description": "The list that the member puts the asset in, for example, the list of assets about beekeeping",
                         "type": "string"

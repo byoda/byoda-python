@@ -34,6 +34,8 @@ from byoda.datatypes import DataRequestType
 from byoda.datatypes import AnyScalarType
 from byoda.datatypes import DataFilterType
 
+from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
+
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.api_client.data_api_client import DataApiClient
@@ -50,7 +52,6 @@ from podserver.routers import account as AccountRouter
 from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
-
 
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
@@ -78,9 +79,9 @@ ALL_DATA: list[dict[str, AnyScalarType]] = []
 
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
         config.disable_pubsub = True
@@ -88,7 +89,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -112,16 +113,16 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_pod_rest_data_api_append_with_origin(self):
+    async def test_pod_rest_data_api_append_with_origin(self) -> None:
         server: PodServer = config.server
         account: Account = server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
 
@@ -159,6 +160,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
         with self.assertRaises(ByodaRuntimeError):
+            azure_auth_header: str
             azure_auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
             class_name: str = 'network_invites'
             data: dict[str, AnyScalarType] = {
@@ -178,10 +180,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 headers=azure_auth_header, app=APP, internal=True
             )
 
-    async def test_pod_rest_data_api_update_jwt(self):
+    async def test_pod_rest_data_api_update_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 5
@@ -192,7 +194,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         # update one item of the array
-        asset_id = get_test_uuid()
+        asset_id: UUID = get_test_uuid()
         update_data: dict[str, dict[str, AnyScalarType]] = {
             'data': {
                 'asset_id': asset_id,
@@ -279,10 +281,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(updated_count, 4)
 
 
-    async def test_pod_rest_data_api_delete_jwt(self):
+    async def test_pod_rest_data_api_delete_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 10
@@ -328,7 +330,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
         # No items deleted because we are specifying a bogus asset_id
-        deleted_count = await call_data_api(
+        deleted_count: dict[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.DELETE,
             data_filter={'asset_id': {'eq': get_test_uuid()}},
@@ -355,7 +357,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(deleted_count, 1)
 
         # delete all items except the second node
-        asset = all_data['edges'][2]['node']
+        asset: dict = all_data['edges'][2]['node']
         deleted_count = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.DELETE,
@@ -377,7 +379,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def test_pod_rest_data_api_filters_jwt(self):
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 50
@@ -387,7 +389,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             app=APP
         )
 
-        all_data = await call_data_api(
+        all_data: dict[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=total_records,
             auth_header=member_auth_header, app=APP
@@ -409,14 +411,14 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             auth_header=member_auth_header, app=APP
         )
 
-        self.assertEqual(len(filter_batch['edges']), total_records/2)
+        self.assertEqual(len(filter_batch['edges']), DEFAULT_PAGE_LENGTH)
 
         asset_id: str = all_data['edges'][0]['node']['asset_id']
         data_filter: DataFilterType = {
             'asset_id': {'eq': asset_id}
         }
 
-        filter_batch = await call_data_api(
+        filter_batch: dict[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=None, after=None,

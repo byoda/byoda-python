@@ -201,7 +201,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             new_asset_data['title'] = titles[n % 5]
             new_asset_data['creator'] = creators[n % 10]
             new_asset_data['ingest_status'] = ['external', 'published'][n % 2]
-            await asset_cache.add_asset(
+            await asset_cache.add_newest_asset(
                 member_id, new_asset_data
             )
             all_assets.append(new_asset_data)

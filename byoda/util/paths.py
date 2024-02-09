@@ -117,6 +117,7 @@ class Paths:
     SERVICEASSETSEARCH_API  = 'https://service.service-{service_id}.{network}/api/v1/service/search/asset'            # noqa
     PODACCOUNT_API          = 'https://{account_id}.accounts.{network}/api/v1/pod/account'                            # noqa
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
+    PODHEALTH_API           = 'https://{member_id}.members-{service_id}.{network}/api/v1/status'                      # noqa
 
     # Content download URLs
     RESTRICTED_ASSET_POD_URL = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa

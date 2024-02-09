@@ -92,6 +92,11 @@ class UpdatesListener:
         :returns: self
         '''
 
+        _LOGGER.debug(
+            f'Constructing UpdatesListener instance to '
+            f'member {remote_member_id}'
+        )
+
         self.class_name: str = class_name
         self.service_id: int = service_id
         self.remote_member_id: UUID = remote_member_id
@@ -129,7 +134,9 @@ class UpdatesListener:
                     f'{self.remote_member_id}: {exc}'
                 )
                 if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                    metrics['failed_get_all_data'].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             if resp.status_code != 200:
@@ -139,7 +146,9 @@ class UpdatesListener:
                     f'{resp.status_code}: {resp.text}'
                 )
                 if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                    metrics['failed_get_all_data'].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             data: list[dict[str, object]] = resp.json()
@@ -153,7 +162,9 @@ class UpdatesListener:
                 )
                 metric = 'updateslistener_received_corrupt_data'
                 if metrics and metric in metrics:
-                    metrics[metric].inc()
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             assets_retrieved += response.total_count
@@ -162,9 +173,11 @@ class UpdatesListener:
                 f'member {self.remote_member_id}, total is now '
                 f'{assets_retrieved}'
             )
-            metric = 'received_assets'
+            metric = 'updateslistener_received_assets'
             if metrics and metric in metrics:
-                metrics[metric].inc(response.total_count)
+                metrics[metric].labels(member_id=self.remote_member_id).inc(
+                    assets_retrieved
+                )
 
             edge: Edge
             for edge in response.edges or []:
@@ -181,7 +194,7 @@ class UpdatesListener:
         )
         metric = 'got_all_data_from_pod'
         if metrics and metric in metrics:
-            metrics[metric].inc()
+            metrics[metric].labels(member_id=self.remote_member_id).inc()
 
         return assets_retrieved
 
@@ -226,10 +239,16 @@ class UpdatesListener:
         )
 
         metrics: dict[str, Gauge, Counter] | None = config.metrics
+        metric: str = 'updateslistener_connection_retry_wait'
+        metrics[metric].labels(member_id=self.remote_member_id).set(0)
 
         reconnect_delay: int = 0.5
         last_alive: datetime = datetime.now(tz=timezone.utc)
         while True:
+            metric: str = 'updateslistener_connection_healthy'
+            if metrics and metric in metrics:
+                metrics[metric].labels(member_id=self.remote_member_id).set(0)
+
             try:
                 async for result in DataWsApiClient.call(
                         service_id, self.class_name, DataRequestType.UPDATES,
@@ -256,14 +275,21 @@ class UpdatesListener:
                         edge.node, edge.origin_id, edge.cursor
                     )
 
-                    metric: str = 'updateslistener_updates_received'
+                    metric = 'updateslistener_updates_received'
                     if metrics and metric in metrics:
-                        metrics[metric].inc()
+                        metrics[metric].labels(
+                            member_id=self.remote_member_id
+                        ).inc()
 
                     # We received data from the remote pod, so reset the
                     # reconnect delay
                     reconnect_delay = 0.2
                     last_alive = datetime.now(tz=timezone.utc)
+                    metric = 'updateslistener_connection_retry_wait'
+                    if metrics and metric in metrics:
+                        metrics[metric].labels(
+                            member_id=self.remote_member_id
+                        ).set(reconnect_delay)
 
                     # no need to sleep if we've been successful
                     continue
@@ -276,7 +302,9 @@ class UpdatesListener:
                 )
                 metric = 'updateslistener_websocket_client_transport_errors'
                 if metrics and metric in metrics:
-                    metrics[metric].inc()
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                        ).inc()
             except socket_gaierror as exc:
                 _LOGGER.debug(
                     f'Websocket connection to member {self.remote_member_id} '
@@ -284,7 +312,9 @@ class UpdatesListener:
                 )
                 metric = 'updateslistener_websocket_client_connection_errors'
                 if metrics and metric in metrics:
-                    metrics[metric].inc()
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
             except CancelledError as exc:
                 _LOGGER.debug(
                     f'Websocket connection to member {self.remote_member_id} '
@@ -292,7 +322,9 @@ class UpdatesListener:
                 )
                 metric = 'updateslistener_websocket_client_cancelled_errors'
                 if metrics and metric in metrics:
-                    metrics[metric].inc()
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
             except Exception as exc:
                 _LOGGER.debug(
                     f'Failed to establish connection '
@@ -300,9 +332,24 @@ class UpdatesListener:
                 )
                 metric = 'updateslistener_websocket_exception_errors'
                 if metrics and metric in metrics:
-                    metrics[metric].inc()
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
 
-            _LOGGER.debug(f'Reconnect delay is now {reconnect_delay}')
+            _LOGGER.debug(
+                f'Reconnect delay to member {self.remote_member_id} is '
+                f'now {reconnect_delay}'
+            )
+
+            metric: str = 'updateslistener_connection_healthy'
+            if metrics and metric in metrics:
+                metrics[metric].labels(member_id=self.remote_member_id).set(0)
+
+            metric = 'updateslistener_connection_retry_wait'
+            if metrics and metric in metrics:
+                metrics[metric].labels(
+                    member_id=self.remote_member_id
+                ).set(reconnect_delay)
             await sleep(reconnect_delay)
 
             reconnect_delay += 2 * random() * reconnect_delay
@@ -311,10 +358,15 @@ class UpdatesListener:
 
             not_seen_for: timedelta = \
                 last_alive - datetime.now(tz=timezone.utc)
-            if not_seen_for > timedelta(days=7):
+            if not_seen_for > timedelta(days=3):
+                metric: str = 'updateslistener_expired_members'
+                if metrics and metric in metrics:
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 raise RuntimeError(
                     f'Member {self.remote_member_id} has not been seen for '
-                    '7 days'
+                    '3 days'
                 )
 
 
@@ -342,53 +394,101 @@ class UpdateListenerService(UpdatesListener):
 
         metrics: dict[str, Counter | Gauge] = config.metrics
 
+        metric = 'updateslistener_members_seen'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of members already seen',
+            )
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of members not yet seen',
+            )
+        metric: str = 'updateslistener_connection_healthy'
+        if metric not in metrics:
+            metrics[metric] = Gauge(
+                metric, 'Health of a websocket connection to a member',
+                ['member_id']
+            )
+        metric: str = 'updateslistener_connection_retry_wait'
+        if metric not in metrics:
+            metrics[metric] = Gauge(
+                metric,
+                (
+                    'Time to wait before retrying to establish '
+                    'a websocket connection to a member'
+                ),
+                ['member_id']
+            )
+
+        metric: str = 'updateslistener_expired_members'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of pods that we stopped asking for updates',
+                ['member_id']
+            )
+
         metric: str = 'updateslistener_received_corrupt_data'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of pods that returned corrupt data'
+                metric, 'Number of pods that returned corrupt data',
+                ['member_id']
             )
         metric = 'updateslistener_updates_received'
         if metric not in metrics:
-            metrics[metric] = Counter(metric, 'Number of updates received')
+            metrics[metric] = Counter(
+                metric, 'Number of updates received', ['member_id']
+            )
 
         metric = 'updateslistener_websocket_client_transport_errors'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of websocket client transport errors'
+                metric, 'Number of websocket client transport errors',
+                ['member_id']
             )
 
         metric = 'updateslistener_websocket_client_connection_errors'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of websocket client connection errors'
+                metric, 'Number of websocket client connection errors',
+                ['member_id']
             )
 
         metric = 'updateslistener_websocket_client_cancelled_errors'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of websocket client cancelled errors'
+                metric, 'Number of websocket client cancelled errors',
+                ['member_id']
             )
 
         metric = 'updateslistener_websocket_exception_errors'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of unclassified websocket errors'
+                metric, 'Number of unclassified websocket errors',
+                ['member_id']
             )
-
+        metric = 'updateslistener_received_assets'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets fetched from a member',
+                ['member_id']
+            )
         metric = 'updateslistener_assets_stored_in_cache'
         if metric not in metrics:
-            metrics[metric] = Counter(metric, "Assets stored in cache")
+            metrics[metric] = Counter(
+                metric, 'Assets stored in cache', ['member_id'])
 
         metric = 'updateslistener_assets_seen'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of assets already seen by a listener'
+                metric, 'Number of assets already seen by a listener',
+                ['member_id']
             )
 
         metric = 'updateslistener_assets_unseen'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of assets not yet seen by a listener'
+                metric, 'Number of assets not yet seen by a listener',
+                ['member_id']
             )
 
         self.asset_cache: AssetCache = asset_cache
@@ -406,13 +506,10 @@ class UpdateListenerService(UpdatesListener):
         )
 
         metrics: dict[str, Counter | Gauge] = config.metrics
-        metric: str
-        if metrics:
-            metric = 'updateslistener_assets_seen'
-            if seen and metric in metrics:
-                metrics[metric].inc()
-            elif not seen and 'updateslistener_assets_unseen' in metrics:
-                metrics['updateslistener_assets_unseen'].inc()
+        if seen:
+            metrics['updateslistener_members_seen'].inc()
+        else:
+            metrics['updateslistener_members_unseen'].inc()
 
     async def setup(class_name: str, service_id: int, member_id: UUID,
                     network_name: str, tls_secret: Secret,
@@ -461,12 +558,12 @@ class UpdateListenerService(UpdatesListener):
                 )
                 return False
 
-        await self.asset_cache.add_asset(origin_id, data)
+        await self.asset_cache.add_newest_asset(origin_id, data)
 
         metrics: dict[str, Counter | Gauge] = config.metrics
-        metric: str = 'updateslistener_assets_stored_in_cache'
-        if metrics and metric in metrics:
-            metrics[metric].inc()
+        metrics['updateslistener_assets_stored_in_cache'].labels(
+            member_id=self.remote_member_id
+        ).inc()
 
         return True
 

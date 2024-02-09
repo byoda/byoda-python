@@ -348,6 +348,11 @@ class SearchableCache:
         asset_edge['cursor']: str = self.get_cursor(member_id, asset_id)
 
         key: str = self.annotate_key(asset_key_prefix, asset_edge['cursor'])
+        if await self.client.json().get(key):
+            _LOGGER.debug(f'Asset already in cache: {key}')
+            await self.expire(key, expiration)
+            return
+
         result: bool = await self.client.json().set(key, '.', asset_edge)
 
         if not result:
@@ -357,7 +362,7 @@ class SearchableCache:
 
         for asset_list in asset_lists:
             asset_list: str = self.get_list_key(asset_list)
-            await self.client.lpush(asset_list, key)
+            await self.prepend_list(asset_list, key)
             await self.client.expire(asset_list, time=timedelta(days=30))
 
     async def pop_last_list_item(self, list_name: str) -> str | None:
@@ -385,7 +390,7 @@ class SearchableCache:
 
         return await self.client.rpush(list_name, item)
 
-    async def prepend_list(self, list_name: str, item: str) -> int:
+    async def append_list(self, list_name: str, item: str) -> int:
         '''
         Adds an item to the beginning of a list
 
@@ -395,6 +400,18 @@ class SearchableCache:
         '''
 
         list_name = self.get_list_key(list_name)
+        return await self.client.rpush(list_name, item)
+
+    async def prepend_list(self, list_name: str, item: str) -> int:
+        '''
+        Adds an item to the beginning of a list
+
+        :param list: The name of the list
+        :param item: The item to add
+        :returns: The length of the list after adding the item
+        '''
+
+        await self.client.expire(list_name, time=timedelta(days=30))
         return await self.client.lpush(list_name, item)
 
     async def get_expiration(self, key: str) -> int:

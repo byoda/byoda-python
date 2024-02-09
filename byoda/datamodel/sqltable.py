@@ -920,9 +920,11 @@ class ArraySqlTable(SqlTable):
         :returns: the number of rows mutated to the table
         '''
 
-        stmt = f'UPDATE {self.table_name} SET '
+        stmt: str = f'UPDATE {self.table_name} SET '
         values: dict[str, object] = {}
 
+        values_clause: str
+        values_data: dict[str, object]
         values_clause, values_data = self.sql_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,
@@ -931,6 +933,8 @@ class ArraySqlTable(SqlTable):
         stmt += values_clause
         values |= values_data
 
+        where_clause: str
+        filter_data: str
         where_clause, filter_data = self.sql_where_clause(data_filters)
         stmt += where_clause
         values |= filter_data

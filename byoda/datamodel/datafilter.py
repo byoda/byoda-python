@@ -8,10 +8,14 @@ on the filter conditions defined in the query
 '''
 
 import re
-from logging import getLogger
 
 from uuid import UUID
-from datetime import datetime, date, time, timezone
+from typing import Self
+from datetime import UTC
+from datetime import date
+from datetime import time
+from datetime import datetime
+from logging import getLogger
 
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
@@ -655,7 +659,7 @@ class DateTimeDataFilter(DataFilter):
         if isinstance(value, str):
             value = iso8601_parser.parse(value)
         elif isinstance(value, (int, float)):
-            value = datetime.fromtimestamp(value, tz=timezone.utc)
+            value = datetime.fromtimestamp(value, tz=UTC)
         elif type(value) not in (datetime, date, time):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a datetime, '
@@ -751,7 +755,7 @@ class DateTimeDataFilter(DataFilter):
             else:
                 raise ValueError(f'Unexpected type of operator: {self.value}')
         elif type(data) in (int, float):
-            data = datetime.fromtimestamp(data, tz=timezone.utc)
+            data = datetime.fromtimestamp(data, tz=UTC)
 
         if type(data) not in (datetime, date, time):
             raise ValueError(
@@ -925,7 +929,7 @@ class DataFilterSet:
     @TRACER.start_as_current_span('FilterSet.constructor')
     def __init__(self, filters: object | dict,
                  data_class: SchemaDataObject | SchemaDataArray = None,
-                 is_meta_filter: bool = False):
+                 is_meta_filter: bool = False) -> None:
         '''
         :param filters: is an instance of one of the input filters in the
         Strawberry code, generated from the Jinja2 template for the service
@@ -978,7 +982,7 @@ class DataFilterSet:
 
     @staticmethod
     def from_data_class_data(data_class: SchemaDataObject,
-                             data: dict[str, object]):
+                             data: dict[str, object]) -> Self:
         '''
         Factory for a DataFilterSet based on the values in the data
         for the fields that are required by the data_class
