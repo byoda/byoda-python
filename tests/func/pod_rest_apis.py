@@ -19,6 +19,8 @@ from uuid import UUID
 from datetime import datetime
 from datetime import timezone
 
+import httpx
+
 from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
@@ -107,6 +109,16 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+
+    async def test_prometheus_metrics(self) -> None:
+
+        async with httpx.AsyncClient(app=APP) as client:
+            resp: httpx.Response = await client.get(
+                'http://localhost:8000/metrics'
+            )
+            data: str = resp.text
+            self.assertIsNotNone(data)
+            self.assertEqual(data[0], '#')
 
     async def test_pod_rest_api_tls_client_cert(self) -> None:
         account: Account = config.server.account

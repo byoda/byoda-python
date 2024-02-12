@@ -5,7 +5,8 @@ import sys
 import unittest
 
 from byoda.data_import.youtube import YouTube
-from byoda.data_import.youtube import YouTubeChannel
+from byoda.data_import.youtube_video import YouTubeVideo
+from byoda.data_import.youtube_channel import YouTubeChannel
 
 from byoda.util.logger import Logger
 
@@ -20,22 +21,21 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_API_KEY] = ''
 
     async def test_scrape_videos(self) -> None:
-        os.environ[YouTube.ENVIRON_CHANNEL] = 'Dathes'
 
-        yt = YouTube()
-        await yt.get_videos(
-            filename='tests/collateral/yt-import.html'
+        ytv = YouTubeVideo()
+        await ytv.scrape(
+            video_id='RQm5lGne5_0', ingest_videos=False,
+            creator_thumbnail=None,
         )
-        self.assertGreater(len(yt.channels['Dathes'].videos), 100)
+        self.assertequal(ytv.publisher, 'YouTube')
 
     async def test_scrape_creator(self) -> None:
         channel: str = 'History Matters'
-        os.environ[YouTube.ENVIRON_CHANNEL] = channel
-        yt = YouTube()
-        await yt.get_videos(
+        ytc = YouTubeChannel(name=channel)
+        await ytc.scrape(
             filename='tests/collateral/yt-channel.html'
         )
-        self.assertGreater(len(yt.channels[channel].videos), 33)
+        self.assertGreater(len(ytc.videos), 33)
 
     async def test_import_videos(self) -> None:
         return

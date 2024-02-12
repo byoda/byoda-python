@@ -30,6 +30,8 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from byoda.util.logger import Logger
 
 from byoda import config
@@ -89,18 +91,7 @@ def setup_api(title: str, description: str, version: str, routers: list,
     HTTPXClientInstrumentor().instrument()
 
     if config.debug:
-        from prometheus_client import make_asgi_app
-        from prometheus_client import CollectorRegistry
-        from prometheus_client import multiprocess
-
-        def make_metrics_app():
-            registry = CollectorRegistry()
-            os.environ['prometheus_multiproc_dir'] = '/tmp'
-            multiprocess.MultiProcessCollector(registry)
-            return make_asgi_app(registry=registry)
-
-        metrics_app: callable[..., any] = make_metrics_app()
-        app.mount("/metrics", metrics_app)
+        Instrumentator().instrument(app).expose(app)
 
     for router in routers:
         app.include_router(router.router)

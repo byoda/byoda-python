@@ -69,6 +69,7 @@ redis = {extras = ["hiredis"], version = "*"}
 pipenv = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
 innertube = "*"
+prometheus-fastapi-instrumentator = "*"
 
 [dev-packages]
 flake8 = "*"

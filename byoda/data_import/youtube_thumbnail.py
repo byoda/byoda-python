@@ -11,6 +11,7 @@ import os
 from enum import Enum
 from uuid import uuid4
 from uuid import UUID
+from typing import Self
 from logging import getLogger
 from urllib.parse import urlparse, ParseResult
 
@@ -76,7 +77,29 @@ class YouTubeThumbnail:
         else:
             size = self.size
 
-        return f'{size}_{self.width}_{self.height}_{self.url}'
+        return f'{size}_{self.width}_{self.height}_{self.url.rstrip("-mo")}'
+
+    def __hash__(self) -> int:
+        # YouTube has thumbnails with '-mo' appended to the end of the URL
+        # that is the same as the thumbnail without it
+        value: int = hash(
+            f'{self.width}:{self.height}:{self.url}'
+        )
+        return value
+
+    def __eq__(self, thumbnail: Self) -> bool:
+        if not isinstance(thumbnail, YouTubeThumbnail):
+            return False
+
+        same: bool = (
+            self.url == thumbnail.url
+            or (
+                self.width == thumbnail.width
+                and self.height == thumbnail.height
+            )
+        )
+
+        return same
 
     def as_dict(self) -> dict[str, str | int | UUID]:
         '''

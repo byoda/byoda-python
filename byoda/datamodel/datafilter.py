@@ -3,7 +3,7 @@ Classes for data filters for filtering results a Data API query based
 on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -39,11 +39,11 @@ class DataFilter:
     Implements the logic to support filters in Data queries
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'field', 'operator', 'value', 'compare_functions', 'sql_functions'
     ]
 
-    def __init__(self, field: str, operator: str):
+    def __init__(self, field: str, operator: str) -> None:
         '''
         Base class for data filters for strings, UUIDs, datetimes and numbers
         '''
@@ -59,7 +59,7 @@ class DataFilter:
         self.compare_functions: dict[str, callable] = {}
         self.sql_functions: dict[str, callable] = {}
 
-    def __str__(self):
+    def __str__(self) -> str:
         if type(self.value) in (str, UUID, datetime, date, time):
             return f"{self.operator} '{self.value}'"
         return f'{self.operator} {self.value}'
@@ -67,7 +67,7 @@ class DataFilter:
     @staticmethod
     def create(field: str, operator: str,
                value: str | int | float | UUID | datetime | date | time,
-               data_class: SchemaDataScalar = None):
+               data_class: SchemaDataScalar = None) -> Self:
         '''
         Factory for classes derived from DataFilter
         '''
@@ -76,7 +76,7 @@ class DataFilter:
                 or isinstance(value, UUID)):
             return UuidDataFilter(field, operator, value)
 
-        date_types = ('datetime', 'time', 'date')
+        date_types: tuple[str] = ('datetime', 'time', 'date')
         if ((data_class and data_class.python_type in date_types)
                 or type(value) in (datetime, date, time)):
             return DateTimeDataFilter(field, operator, value)
@@ -98,7 +98,8 @@ class DataFilter:
         Compares the data against the value for the filter
         '''
 
-        compare_function = self.compare_functions[self.operator]
+        compare_function: list[callable] = \
+            self.compare_functions[self.operator]
 
         return compare_function(data)
 
@@ -144,7 +145,7 @@ class DataFilter:
 
 
 class StringDataFilter(DataFilter):
-    def __init__(self, field: str, operator: str, value: str):
+    def __init__(self, field: str, operator: str, value: str) -> None:
         super().__init__(field, operator)
 
         if value is None:
@@ -355,7 +356,7 @@ class NumberDataFilter(DataFilter):
     '''
     Class for filters for numbers as ints or floats
     '''
-    def __init__(self, field: str, operator: str, value: int | float):
+    def __init__(self, field: str, operator: str, value: int | float) -> None:
         super().__init__(field, operator)
 
         if value is None:
@@ -455,7 +456,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -474,7 +475,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -493,7 +494,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -512,7 +513,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -531,7 +532,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -550,7 +551,7 @@ class NumberDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -561,7 +562,7 @@ class NumberDataFilter(DataFilter):
 
 
 class UuidDataFilter(DataFilter):
-    def __init__(self, field: str,  operator: str, value: UUID):
+    def __init__(self, field: str,  operator: str, value: UUID) -> None:
         super().__init__(field, operator)
 
         if not value:
@@ -637,7 +638,7 @@ class UuidDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -653,7 +654,8 @@ class DateTimeDataFilter(DataFilter):
     ]
 
     def __init__(self, field: str,
-                 operator: str, value: datetime | date | time | int | float):
+                 operator: str, value: datetime | date | time | int | float
+                 ) -> None:
         super().__init__(field, operator)
 
         if isinstance(value, str):
@@ -853,9 +855,9 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        timestamp = self._get_sql_date_type()
+        timestamp: int | float = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -874,9 +876,9 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        timestamp = self._get_sql_date_type()
+        timestamp: int | float = self._get_sql_date_type()
 
-        sql_field_placeholder = self.sql_field_placeholder(
+        sql_field_placeholder: str = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
         )
 
@@ -895,7 +897,7 @@ class DateTimeDataFilter(DataFilter):
                  and the normalized value for the placeholder
         '''
 
-        timestamp = self._get_sql_date_type()
+        timestamp: int | float = self._get_sql_date_type()
 
         sql_field_placeholder = self.sql_field_placeholder(
             sql_field, where, is_meta_filter
@@ -977,7 +979,7 @@ class DataFilterSet:
             for filter in self.filters[field]:
                 filter_texts.append(f'{field} {str(filter)}')
 
-        text = ' and '.join(filter_texts)
+        text: str = ' and '.join(filter_texts)
         return text
 
     @staticmethod
@@ -1027,6 +1029,9 @@ class DataFilterSet:
         filter_values: dict[str, str | int | float] = {}
         for field in self.filters.keys():
             for filter in self.filters[field]:
+                filter_text: str
+                sql_placeholder_field: str
+                value: str | int | float
                 filter_text, sql_placeholder_field, value = filter.sql_filter(
                     where=True, is_meta_filter=self.is_meta_filter
                 )
@@ -1106,13 +1111,15 @@ def _glob2regex(value: str) -> str:
     Only supports '?' and '*' pattern-matches
     '''
 
+    i: int
+    n: int
     i, n = 0, len(value)
     res = '^'
     while i < n:
-        c = value[i]
+        c: str = value[i]
         i = i+1
         if c == '*':
-            res = res + '.*'
+            res: str = res + '.*'
         elif c == '?':
             res = res + '.'
         else:

@@ -294,6 +294,8 @@ class YouTubeVideo:
         self.description: str | None = None
         self.channel_creator: str | None = None
         self.creator_thumbnail_asset: YouTubeThumbnail | None = None
+
+        # URL for the thumbnail of the creator of the video
         self.creator_thumbnail: str | None = None
         self.channel_id: str | None = None
         self.published_time: datetime | None = None
@@ -339,14 +341,13 @@ class YouTubeVideo:
 
     @staticmethod
     async def scrape(video_id: str, ingest_videos: bool,
-                     creator_thumbnail: YouTubeThumbnail | None,
-                     cache_file: str = None) -> Self:
+                     creator_thumbnail: YouTubeThumbnail | None) -> Self:
         '''
         Collects data about a video by scraping the webpage for the video
 
         :param video_id: YouTube video ID
         :param ingest_videos: whether the video will be ingested
-        :param creator_thumbnail: URL to thumbnail of the creator of the video
+        :param creator_thumbnail: Thumbnail for the creator of the video
         :param cache_file: read data from file instead of scraping the web
         page
         '''
@@ -361,29 +362,16 @@ class YouTubeVideo:
             'logger': _LOGGER
         }
         with YoutubeDL(ydl_opts) as ydl:
-            video_info: dict[str, any] = {}
-            if cache_file:
-                try:
-                    with open(cache_file, 'r') as file_desc:
-                        video_info = orjson.loads(file_desc.read())
-                except (OSError, orjson.JSONDecodeError):
-                    _LOGGER.debug(f'Reading cache file {cache_file} failed')
-
-            if not video_info:
-                try:
-                    _LOGGER.debug(f'Scraping YouTube video {video_id}')
-                    video_info = ydl.extract_info(video.url, download=False)
-                    await sleep(randrange(1, 5))
-                except DownloadError:
-                    return None
-
-            if cache_file and not os.path.exists(cache_file):
-                with open(cache_file, 'w') as file_desc:
-                    file_desc.write(
-                        orjson.dumps(
-                            video_info, option=orjson.OPT_INDENT_2
-                        ).decode('utf-8')
-                    )
+            try:
+                _LOGGER.debug(f'Scraping YouTube video {video_id}')
+                video_info: dict[str, any] = ydl.extract_info(
+                    video.url,
+                    download=False
+                )
+                sleepy_time: int = randrange(1, 5)
+                await sleep(sleepy_time)
+            except DownloadError:
+                return None
 
             if video_info.get('is_live'):
                 _LOGGER.debug(f'Skipping live video {video_id}')
@@ -412,9 +400,11 @@ class YouTubeVideo:
 
             # For full ingested assets, the _ingest_video method
             # updates the url of the thumbnail
-            video.creator_thumbnail = creator_thumbnail.url
+            video.creator_thumbnail = None
+            if creator_thumbnail:
+                video.creator_thumbnail = creator_thumbnail.url
 
-            video.published_time: datetime = dateutil_parser.parse(
+            video.published_time = dateutil_parser.parse(
                 video_info['upload_date']
             )
             video.channel_creator = video_info.get(
@@ -656,6 +646,11 @@ class YouTubeVideo:
                     orjson.dumps(claim_request, orjson.OPT_INDENT_2)
                 )
 
+        # We import thumbnails regardless of ingress setting so that
+        # the browser doesn't have to download these from YouTube, which
+        # may improve privacy
+        await self._ingest_thumbnails(storage_driver, member)
+
         asset[YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS] = [
             thumbnail.as_dict() for thumbnail in self.thumbnails.values()
         ]
@@ -806,11 +801,6 @@ class YouTubeVideo:
         '''
 
         _LOGGER.debug(f'Ingesting AV for video {self.video_id}')
-
-        # We import thumbnails regardless of ingress setting so that
-        # the browser doesn't have to download these from YouTube, which
-        # may improve privacy
-        await self._ingest_thumbnails(storage_driver, member)
 
         update: bool = False
         if self.video_id in already_ingested_videos:
