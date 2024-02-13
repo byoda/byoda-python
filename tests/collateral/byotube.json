@@ -466,6 +466,150 @@
                 },
                 "required": ["created_timestamp", "message_id", "sender_id", "contents"]
             },
+            "ad_requirement": {
+                "$id": "/schemas/ad_requirement",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a requirement for ads to be shown",
+                "type": "object",
+                "properties": {
+                    "ad_requirement_id": {
+                        "description": "identifier for the ad requirement",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index", "counter"]
+                    },
+                    "duration": {
+                        "description": "Minimum duration of the ad, in seconds",
+                        "type": "string"
+                    },
+                    "placement": {
+                        "description": "Where the ad can be placed, ie. 'pre-roll', 'mid-roll', 'post-roll', 'overlay'.",
+                        "type": "string"
+                    },
+                    "sequence": {
+                        "description": "The sequence number for ads that have the same placement",
+                        "type": "number"
+                    },
+
+                    "skippable": {
+                        "description": "After how many seconds can the ad be skipped, 0 means no skipping",
+                        "type": "boolean"
+                    },
+                    "accepted_ad_networks": {
+                        "description": "The accepted ad networks for this requirement",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "monetization": {
+                "$id": "/schemas/restricted_content_key",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "keys used to manage access to restricted content",
+                "type": "object",
+                "properties": {
+                    "monetization_id": {
+                        "description": "identifier for the monetization",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index", "counter"]
+                    },
+                    "monetization_type":  {
+                        "description": "The type of monetization, ie. 'free', 'shared', 'creator', 'ads', 'channel', 'ppv', 'sppv' , etc.",
+                        "type": "string"
+                    },
+                    "monetization_plans": {
+                        "description": "The plans available for this type of monetization, ie. 'bronze/silver/gold', 'basic/premium', etc.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/monetization_plan"
+                        }
+                    },
+                    "ad_requirements": {
+                        "description": "The requirement for what ads must be shown before the content can be accessed",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/ad_requirement"
+                        }
+                    }
+                }
+            },
+            "monetization_plan": {
+                "$id": "/schemas/monetization_plan",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a monetization plan, describing terms and cost of the service offered",
+                "type": "object",
+                "properties": {
+                    "monetization_plan_id": {
+                        "description": "identifier for the monetization plan",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["index", "counter"]
+                    },
+                    "plan_name": {
+                        "description": "The name of the plan, ie. 'bronze', 'silver', 'gold', 'basic', 'premium', etc.",
+                        "type": "string"
+                    },
+                    "trial_period": {
+                        "description": "The number of days access through this plan is free to try",
+                        "type": "integer"
+                    },
+                    "automatic_trial_conversion": {
+                        "description": "Whether the trial period is automatically converted to a paid plan",
+                        "type": "boolean"
+                    },
+                    "rate_period": {
+                        "description": "The number of units the access through this plan is valid for appended with specification of units, one of [d]ay, [w]eek, [m]month, [y]ear",
+                        "type": "string"
+                    },
+                    "automatic_subscription_renewal": {
+                        "description": "Whether the subscription is automatically renewed",
+                        "type": "boolean"
+                    },
+                    "supported_countries": {
+                        "description": "The countries (ISO3166-1 alpha-3) where the plan is available",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "payment_options": {
+                        "description": "The cost of the plan in various currencies",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/payment_option"
+                        }
+                    }
+                }
+            },
+            "payment_option": {
+                "$id": "/schemas/payment_option",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "a payment option, describing terms and cost of the service offered",
+                "type": "object",
+                "properties": {
+                    "currency": {
+                        "description": "The three letter currency code, ie. 'USD', 'EUR', 'UKP' etc.",
+                        "type": "string"
+                    },
+                    "amount": {
+                        "description": "The description of the option, ie. 'credit card', 'paypal', 'ACH', etc.",
+                        "type": "string"
+                    },
+                    "supported_payment_processors": {
+                        "description": "The accepted payment processors for this option",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "tax_included": {
+                        "description": "Whether the tax is included in the price",
+                        "type": "boolean"
+                    }
+                }
+            },
             "restricted_content_key": {
                 "$id": "/schemas/restricted_content_key",
                 "$schema": "https://json-schema.org/draft/2020-12/schema#",
@@ -890,6 +1034,13 @@
                             "type": "string"
                         }
                     },
+                    "monetizations": {
+                        "description": "list of monetizations for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/monetization"
+                        }
+                    },
                     "duration": {
                         "description": "the duration of the video",
                         "type": "number"
@@ -972,6 +1123,13 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/schemas/external_link"
+                        }
+                    },
+                    "monetizations": {
+                        "description": "list of monetizations for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/monetization"
                         }
                     },
                     "claims": {
