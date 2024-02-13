@@ -31,6 +31,7 @@ from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
+from byoda.data_import.youtube_channel import YouTubeChannel
 from byoda.data_import.youtube_video import YouTubeVideo
 
 from byoda.servers.pod_server import PodServer
@@ -99,8 +100,6 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     member: Member = await account.get_membership(service_id)
     schema: Schema = member.schema
     data_classes: dict[str, SchemaDataItem] = schema.data_classes
-    class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
-    data_class: SchemaDataItem = data_classes[class_name]
 
     if not member:
         _LOGGER.info(f'Not a member of service with ID: {service_id}')
@@ -139,6 +138,15 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     else:
         jwt_header: str | None = None
 
+    channel_data_class: SchemaDataItem = \
+        data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
+    ingested_channels: dict[str, dict[str, str]] = \
+        await YouTube.load_ingested_channels(
+            member.member_id, channel_data_class, data_store
+        )
+
+    data_class: SchemaDataItem = \
+        data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
     ingested_videos: dict[str, dict[str, str]] = \
         await YouTube.load_ingested_videos(
             member.member_id, data_class, data_store
@@ -172,11 +180,10 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         with open(LOCK_FILE, 'w') as lock_file:
             lock_file.write('1')
         _LOGGER.debug('Running YouTube metadata update')
-        await youtube.get_videos(
-            ingested_videos, max_api_requests=210
-        )
-        await youtube.persist(
+
+        await youtube.import_videos(
             member, data_store, storage_driver, ingested_videos,
+            ingested_channels,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
             moderate_claim_url=moderation_claim_url

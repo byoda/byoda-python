@@ -110,7 +110,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             local_service_contract=os.environ.get('LOCAL_SERVICE_CONTRACT')
         )
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
@@ -177,6 +177,16 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
         yt = YouTube()
+
+        channel_data_class: SchemaDataItem = \
+            data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
+
+        ingested_channels: dict[str, dict[str, str]] = \
+            await YouTube.load_ingested_channels(
+                member.member_id, channel_data_class, data_store
+            )
+        self.assertEqual(len(ingested_channels), 0)
+
         ingested_videos: dict[str, dict[str, str]] = \
             await YouTube.load_ingested_videos(
                 member.member_id, data_class, data_store
@@ -194,9 +204,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         channel_name: str = channel
         if ':' in channel_name:
             channel_name = channel_name.split(':')[0]
-        await yt.get_videos(ingested_videos)
-        self.assertGreaterEqual(len(yt.channels[channel_name].videos), 1)
-
         jwt: JWT = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
             ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_APP_ID,
@@ -205,8 +212,10 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         mod_url: str = f'https://{MODTEST_FQDN}'
         mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
-        await yt.persist(
+
+        await yt.import_videos(
             member, data_store, storage_driver, ingested_videos,
+            ingested_channels,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url,
@@ -216,8 +225,11 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         ingested_videos = await YouTube.load_ingested_videos(
             member.member_id, data_class, data_store
         )
-        self.assertGreaterEqual(len(ingested_videos), 2)
+        self.assertGreaterEqual(len(ingested_videos), 1)
 
+        ingested_channels = await YouTube.load_ingested_channels(
+            member.member_id, channel_data_class, data_store
+        )
         # See if we can QUERY the data API and get the right result back
         # to confirm the asset was ingested, including the moderation status
         member_auth: dict[str, str] = await get_member_auth_header(
@@ -235,11 +247,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         # Start with clean slate
         yt = YouTube()
 
-        await yt.get_videos(ingested_videos)
-
-        await yt.persist(
-            member, data_store, storage_driver, ingested_videos,
-            ingest_interval=4
+        await yt.import_videos(
+            member, data_store, storage_driver,
+            ingested_videos, ingested_channels, ingest_interval=4
         )
 
     async def test_import_videos(self) -> None:
@@ -277,7 +287,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             },
         }
 
-        await yt.get_videos(already_ingested_videos)
+        await yt.get_videos(already_ingested_videos, ingested_channels={})
 
         await yt.persist(
             member, data_store, storage_driver, already_ingested_videos
@@ -294,7 +304,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         # Start with clean slate
         yt = YouTube()
 
-        await yt.get_videos(ingested_videos)
+        await yt.get_videos(ingested_videos, ingested_channels={})
 
         await yt.persist(
             member, data_store, storage_driver, already_ingested_videos

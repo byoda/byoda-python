@@ -204,7 +204,7 @@ async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
 
         try:
             _LOGGER.debug(
-                f'We need to referesh asset {edge.node.asset_id} '
+                f'We need to refresh asset {edge.node.asset_id} '
                 f'from member {edge.origin}, expires in {expires_in} seconds'
             )
             metrics['svcworker_assets_needing_refresh'].inc()
@@ -382,7 +382,7 @@ def next_member_wait(last_seen: datetime) -> int:
     return wait
 
 
-async def setup_server() -> (Service, ServiceServer):
+async def setup_server() -> tuple[Service, ServiceServer]:
     server_config = ServerConfig('svcserver', is_worker=True)
 
     verbose: bool = \
