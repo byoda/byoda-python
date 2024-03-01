@@ -15,12 +15,14 @@ existing memberships.
 import os
 import sys
 
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
+from byoda.datamodel.app import CdnApp
 
 from byoda.datatypes import CloudType
 
@@ -53,7 +55,7 @@ DIR_API_BASE_URL = 'https://dir.{network}/api'
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -152,6 +154,13 @@ async def lifespan(app: FastAPI):
             overwrite=True
         )
 
+        if network_data.get('cdn_origin_site_id'):
+            cdn_app: CdnApp = CdnApp(
+                network_data['cdn_app_id'], member.service,
+                network_data.get('cdn_origin_site_id')
+            )
+            server.apps[cdn_app.app_id] = cdn_app
+
         # We may have joined services (either the enduser or the bootstrap
         # script with the 'auto-join' environment variable. But account.join()
         # can not persist the membership settings so we do that here. We check
@@ -176,7 +185,7 @@ async def lifespan(app: FastAPI):
     _LOGGER.info('Shutting down pod server')
 
 
-config.trace_server: str = os.environ.get('TRACE_SERVER', config.trace_server)
+config.trace_server = os.environ.get('TRACE_SERVER', config.trace_server)
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',

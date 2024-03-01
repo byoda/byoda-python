@@ -32,16 +32,18 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import UTC
 
-from byoda.datacache.searchable_cache import KEY_PREFIX
+# from byoda.datacache.searchable_cache import SearchableCache.ASSET_KEY_PREFIX
 from byoda.datacache.searchable_cache import SearchableCache
-from byoda.datacache.asset_cache import AssetNode
+# from byoda.datacache.asset_cache import AssetNode
 from byoda.util.logger import Logger
 
-LUA_SCRIPT_FILEPATH: str = 'tests/collateral/test_redis_lua.lua'
+LUA_SCRIPT_FILEPATH: str = 'svcserver/redis.lua'
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.11:6379')
 
 TESTLIST: str = 'testlualist'
+
+ORIGINS: list[UUID] = [uuid4() for _ in range(0, 100)]
 
 
 class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
@@ -56,7 +58,9 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         for key in keys:
             await cache.client.delete(key)
 
-        keys: list[str] = await cache.client.keys(f'{KEY_PREFIX}*')
+        keys: list[str] = await cache.client.keys(
+            f'{SearchableCache.ASSET_KEY_PREFIX}*'
+        )
         for key in keys:
             await cache.client.delete(key)
 
@@ -85,7 +89,7 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(data), 10)
 
         data = call_lua_script(self, 30)
-        self.assertEqual(len(data), 20)
+        self.assertEqual(len(data), 30)
 
         data = call_lua_script(self, 12, assets[15]['cursor'])
         self.assertEqual(len(data), 12)
@@ -103,12 +107,35 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
 
         member_id: UUID = uuid4()
 
+        await populate_cache(cache, TESTLIST, member_id)
+        results = await cache.client.ft(cache.index_name).search('Fight')
+
+        self.assertEqual(results.total, 1)
+        self.assertEqual(len(results.docs), 1)
+
+    async def test_avoid_multiple_assets_of_same_origin(self) -> None:
+        cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
+
+        member_id: UUID = uuid4()
+
         assets: list[dict[str, str | dict[str, any]]] = await populate_cache(
-            cache, TESTLIST, member_id
+            cache, TESTLIST, member_id, [10, 30]
         )
-        result = await cache.client.ft(cache.index_name).search('Fight')
-        self.assertEqual(result['total_results'.encode('utf-8')], 1)
-        self.assertEqual(len(result['results'.encode('utf-8')]), 1)
+
+        data: list
+        data = await cache.get_list_values(
+            TESTLIST, SearchableCache.ASSET_KEY_PREFIX, first=40
+        )
+        # We created assets with duplicate origin values in positions 10 and 30
+        # so the list should contain 40 - 2 = 38 items
+        self.assertEqual(len(data), 38)
+
+        data = await cache.get_list_values(
+            assets[10]['node']['creator'], SearchableCache.ASSET_KEY_PREFIX,
+        )
+        # We populated the cache with 40 assets, two of them have the
+        # same creator, so the list for the creator should contain 2 items
+        self.assertEqual(len(data), 2)
 
     async def test_pagination(self) -> None:
         cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
@@ -120,21 +147,26 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         )
 
         data: list
-        data = await cache.get_list_values(TESTLIST, KEY_PREFIX)
+        data = await cache.get_list_values(
+            TESTLIST, SearchableCache.ASSET_KEY_PREFIX
+        )
         self.assertEqual(len(data), 20)
 
         data = await cache.get_list_values(
-            TESTLIST, KEY_PREFIX, after=assets[5]['cursor'], first=5
+            TESTLIST, SearchableCache.ASSET_KEY_PREFIX,
+            after=assets[5]['cursor'], first=5
         )
         self.assertEqual(len(data), 5)
 
         data = await cache.get_list_values(
-            TESTLIST, KEY_PREFIX, after=assets[5]['cursor'], first=10
+            TESTLIST, SearchableCache.ASSET_KEY_PREFIX,
+            after=assets[5]['cursor'], first=10
         )
         self.assertEqual(len(data), 5)
 
         data = await cache.get_list_values(
-            TESTLIST, KEY_PREFIX, after=assets[15]['cursor']
+            TESTLIST, SearchableCache.ASSET_KEY_PREFIX,
+            after=assets[15]['cursor']
         )
         self.assertEqual(len(data), 15)
 
@@ -149,7 +181,7 @@ def call_lua_script(test, first: int | None = None, after: str | None = None
     cmd: list[str] = [
         'redis-cli', '-3', '-u', REDIS_URL,
         '--eval', LUA_SCRIPT_FILEPATH,
-        f'lists:{TESTLIST}', ',', 'assets'
+        f'lists:{TESTLIST}', ',', SearchableCache.ASSET_KEY_PREFIX
     ]
     if first or after:
         # The comma in the parameters to 'redis-cli' separate the 'KEYS'
@@ -172,23 +204,31 @@ def call_lua_script(test, first: int | None = None, after: str | None = None
 
 
 async def populate_cache(cache: SearchableCache, asset_list: str,
-                         member_id: UUID) -> list[dict]:
+                         member_id: UUID, dupe_origins: list[int] = []
+                         ) -> list[dict]:
     titles: list[str] = [
         'Fight Club', 'The Big Short', 'The Big Lebowski', 'Donnie Darko',
         'The Bucket List', 'Downfall', 'Good Morning Vietnam',
         'True Grit', 'Forest Gump', 'Good Will Hunting',
         'The Imitation Game', 'The Last Samurai', 'Lawrence of Arabia',
         'Lincoln', 'Little Shop of Horrors', 'Moneyball', 'RV', 'Serenity',
-        'Spotlight', 'Downfall'
+        'Spotlight', 'Downfall', 'The color of money', 'The dark knight',
+        'Se7en', 'The usual suspects', 'The departed', 'Life is beautiful',
+        'The pianist', 'The green mile', 'The shawshank redemption',
+        'The godfather', 'The godfather II', 'The godfather III',
+        'The silence of the lambs', 'Saving private Ryan', 'Schindler\'s list',
+        'Gladiator', 'The patriot', 'The last of the mohicans',
+        'Whiplast', 'The social network' 'Wall-E', 'Wolf of Wall Street',
     ]
     assets: list[dict[str, str | dict[str, any]]] = []
-    for counter in range(0, 20):
+    for counter in range(0, 40):
         created: datetime = datetime.now(tz=UTC) - timedelta(days=counter)
         asset_id: UUID = uuid4()
         cursor: str = cache.get_cursor(member_id, asset_id)
 
         asset: dict[str, str] = {
             'cursor': cursor,
+            'origin': str(ORIGINS[counter]),
             'node': {
                 'asset_id': str(asset_id),
                 'description': 'blah blah blah',
@@ -198,7 +238,17 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
                 'created_timestamp': created.timestamp()
             }
         }
-        await cache.json_set(asset_list, KEY_PREFIX, member_id, asset)
+        if counter in dupe_origins:
+            # We create assets with duplicate origins so we can test
+            # that 'SearchableCache.check_head_of_list avoids adding
+            # multiple assets with the same origin member_id
+            asset['origin'] = assets[0]['origin']
+            asset['node']['creator'] = 'someone'
+
+        await cache.json_set(
+            [asset_list, asset['node']['creator']],
+            SearchableCache.ASSET_KEY_PREFIX, asset
+        )
         assets.append(asset)
 
     return assets

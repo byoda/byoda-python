@@ -38,6 +38,8 @@ from byoda import config
 from tests.lib.util import get_test_uuid
 from tests.lib.defines import MODTEST_FQDN
 from tests.lib.defines import MODTEST_APP_ID
+from tests.lib.defines import CDN_APP_ID
+from tests.lib.defines import CDN_ORIGIN_SITE_ID
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_VERSION
@@ -61,6 +63,8 @@ def mock_environment_vars(test_dir: str) -> None:
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
     os.environ['MODERATION_FQDN'] = MODTEST_FQDN
     os.environ['MODERATION_APP_ID'] = str(MODTEST_APP_ID)
+    os.environ['CDN_APP_ID'] = str(CDN_APP_ID)
+    os.environ['CDN_ORIGIN_SITE_ID'] = CDN_ORIGIN_SITE_ID
 
 
 async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
@@ -105,7 +109,7 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
     config.server.paths = network.paths
 
-    config.trace_server: str = os.environ.get(
+    config.trace_server = os.environ.get(
         'TRACE_SERVER', config.trace_server
     )
 
@@ -135,10 +139,10 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
     account = Account(data['account_id'], server.network)
     await account.paths.create_account_directory()
 
-    server.account: Account = account
+    server.account = account
 
     password_hash_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    account.password: str = password_hash_context.hash(data['account_secret'])
+    account.password = password_hash_context.hash(data['account_secret'])
 
     await account.create_account_secret()
     if not account.tls_secret.cert:

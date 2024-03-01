@@ -10,7 +10,7 @@ import os
 import sys
 import yaml
 
-from typing import Generator
+from typing import AsyncGenerator
 
 from contextlib import asynccontextmanager
 
@@ -21,7 +21,6 @@ from byoda.datamodel.network import Network
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.datatypes import CloudType
-from byoda.datatypes import ClaimStatus
 from byoda.datatypes import AppType
 
 from byoda.servers.app_server import AppServer
@@ -39,7 +38,7 @@ _LOGGER = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> Generator[None, any, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator:
     config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
     with open(config_file) as file_desc:
         app_config: dict[str, any] = yaml.load(
@@ -73,6 +72,8 @@ async def lifespan(app: FastAPI) -> Generator[None, any, None]:
         app_type, app_config['appserver']['app_id'], network, app_config,
         routers
     )
+
+    await server.create_membership_table()
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,

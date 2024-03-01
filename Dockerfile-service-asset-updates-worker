@@ -1,0 +1,51 @@
+FROM ubuntu:23.04
+
+LABEL org.opencontainers.image.authors="steven@byoda.org"
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8
+
+ENV PYTHONPATH=/podserver/byoda-python
+WORKDIR /podserver
+
+###
+### Byoda
+###
+RUN mkdir -p \
+    /var/log/byoda \
+    /byoda/network-byoda.net/ \
+    byoda-python \
+    /opt/byoda/byoda-python
+
+COPY ./Pipfile ./Pipfile.lock /podserver/byoda-python/
+
+RUN apt-get update && apt-get install -y \
+       ubuntu-keyring \
+       curl \
+       ca-certificates \
+       build-essential \
+       python3 \
+       python3-pip \
+       python3-distutils \
+       python3-setuptools \
+       libssl-dev \
+       libffi-dev \
+       python3-dev \
+       pipenv \
+       libpq-dev \
+       libnng1 \
+       sqlite3 \
+       libaugeas0 \
+       unzip \
+       curl \
+       git \
+    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && apt-get --yes remove build-essential \
+    && apt-get --yes autoremove \
+    && apt-get -y clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . byoda-python/
+
+CMD cd byoda-python \
+    && pipenv run python3 svcserver/updates_worker.py

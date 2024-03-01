@@ -23,8 +23,6 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
 
-from byoda.datatypes import CDN_KEYS_API
-
 from byoda.secrets.member_secret import MemberSecret
 
 from byoda.servers.pod_server import PodServer
@@ -74,7 +72,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         data: list[dict[str, str | int]] = [
             {
                 'key_id': 1,
-                'content_token': 'cdnapi.py-test_cdn_content_keys_api-1',
+                'key': 'cdnapi.py-test_cdn_content_keys_api-1',
                 'not_before': datetime.now(tz=UTC).isoformat(),
                 'not_after':
                     (datetime.now(tz=UTC) + timedelta(days=1)).isoformat(),
@@ -90,8 +88,10 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         tls_cert_file: str = paths.root_directory + '/' + tls_secret.cert_file
         tls_key_file: str = \
             paths.root_directory + '/' + tls_secret.private_key_file
+
+        url: str = Paths.CDN_KEYS_API.format(fqdn=CDN_API_HOST)
         resp: httpx.Response = httpx.post(
-            f'https://{CDN_API_HOST}{CDN_KEYS_API}',
+            url,
             json=data,
             cert=(
                 tls_cert_file, tls_key_file, tls_secret.password

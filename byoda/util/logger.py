@@ -81,7 +81,9 @@ class Logger(logging.Logger):
 
         # For the logger, strip off any directory and any extension
         # from appname (for if appname=sys.argv[0])
-        appname: str = os.path.splitext(os.path.basename(appname))[0].rstrip('.py')
+        appname: str = os.path.splitext(
+            os.path.basename(appname)
+        )[0].rstrip('.py')
 
         # loglevel takes precedence over debug and verbose
         if not loglevel:
@@ -152,6 +154,21 @@ class Logger(logging.Logger):
             logging.INFO
         )
 
+        logging.getLogger('byoda.datamodel.account').setLevel(logging.INFO)
+        logging.getLogger('byoda.datamodel.dataclass').setLevel(logging.INFO)
+        logging.getLogger('byoda.datastore.memberdb').setLevel(logging.INFO)
+        logging.getLogger('byoda.storage.sqlite').setLevel(logging.INFO)
+        logging.getLogger('byoda.storage.sqlstorage').setLevel(logging.INFO)
+        logging.getLogger('byoda.data_import.youtube').setLevel(logging.INFO)
+        logging.getLogger('byoda.data_import.youtube_video').setLevel(
+            logging.INFO
+        )
+        logging.getLogger('byoda.data_import.youtube_thumbnail').setLevel(
+            logging.INFO
+        )
+        logging.getLogger('byoda.data_import.youtube_channel').setLevel(
+            logging.INFO
+        )
         # Now create a child logger for the caller, which inherits
         # from the root logger
         logger = logging.getLogger(appname)

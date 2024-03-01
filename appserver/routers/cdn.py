@@ -9,21 +9,25 @@ CDN App server /content_keys API API
 import os
 
 from logging import getLogger
+from byoda.datatypes import AuthSource
 from byoda.util.logger import Logger
 from datetime import datetime
 
 import orjson
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request
 
 from byoda.models.content_key import ContentKeyRequestModel
+from byoda.models.cdn_account_memberships import \
+    CdnAccountMembershipsRequestModel
 
 from byoda.servers.app_server import AppServer
 
 from byoda import config
 
-from ..dependencies.memberrequest_auth import AuthDep
+from ..dependencies.memberrequest_auth import AuthDep as MemberAuthDep
+from ..dependencies.accountrequest_auth import AuthDep as AccountAuthDep
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -33,7 +37,7 @@ router: APIRouter = APIRouter(prefix='/api/v1/cdn', dependencies=[])
 @router.post('/content_keys')
 async def post_content_keys(request: Request,
                             content_keys: list[ContentKeyRequestModel],
-                            auth: AuthDep) -> None:
+                            auth: MemberAuthDep) -> None:
     '''
     Submit content keys used to generate content tokens for
     content to which access is restricted
@@ -70,3 +74,41 @@ async def post_content_keys(request: Request,
             )
         )
     _LOGGER.debug(f'Wrote {len(content_keys)} keys to {filepath}')
+
+
+@router.post('/memberships')
+async def post_memberships(request: Request,
+                           membership_ids: CdnAccountMembershipsRequestModel,
+                           auth: AccountAuthDep) -> None:
+    '''
+    Submit list for memberships for an account. This API must be authenticated
+    using an account TLS secret
+
+    :param membership_ids: The memberships for an account
+    :returns: (none)
+    :raises:
+    '''
+
+    server: AppServer = config.server
+
+    _LOGGER.debug(
+        f'Post CDN account memberships API called from {request.client.host}'
+    )
+    await auth.authenticate()
+
+    _LOGGER.debug(
+        f'Post CDN account memberships API called  {auth.id} with '
+        f'{len(membership_ids.membership_ids)} keys'
+    )
+
+    if auth.auth_source != AuthSource.ACCOUNT:
+        raise HTTPException(
+            status_code=403,
+            detail='Must authenticate with a credential for an account'
+        )
+
+    if auth.id != membership_ids.account_id:
+        raise HTTPException(
+            status_code=403,
+            detail='Specified Account ID does not match authentication account'
+        )

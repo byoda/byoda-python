@@ -24,6 +24,7 @@ from httpx import AsyncClient as AsyncHttpClient
 from httpx import RequestError
 from httpx import TransportError
 from httpx import TimeoutException
+from httpx import Response as HttpResponse
 
 from ssl import SSLCertVerificationError
 
@@ -310,26 +311,29 @@ class Secret:
 
         _LOGGER.debug(f'Generating a CSR for {self.common_name}')
 
-        san_names = []
+        san_names: list[str] = []
         for san in self.sans:
             san_names.append(x509.DNSName(san))
 
-        csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
-            self._generate_cert_name()
-        ).add_extension(
-            x509.BasicConstraints(
-                ca=ca, path_length=self.max_path_length
-            ), critical=True,
-        ).add_extension(
-            x509.SubjectAlternativeName(san_names),
-            critical=True
-        )
+        csr_builder: x509.CertificateSigningRequestBuilder = \
+            x509.CertificateSigningRequestBuilder().subject_name(
+                self._generate_cert_name()
+            ).add_extension(
+                x509.BasicConstraints(
+                    ca=ca, path_length=self.max_path_length
+                ), critical=True,
+            ).add_extension(
+                x509.SubjectAlternativeName(san_names),
+                critical=True
+            )
 
-        csr = csr_builder.sign(self.private_key, hashes.SHA256())
+        csr: x509.CertificateSigningRequest = csr_builder.sign(
+            self.private_key, hashes.SHA256()
+        )
 
         return csr
 
-    def _generate_cert_name(self):
+    def _generate_cert_name(self) -> x509.Name:
         '''
         Generate an X509.Name instance for a cert
 
@@ -356,7 +360,7 @@ class Secret:
 
         for attrib in cert.subject:
             if attrib.oid == NameOID.COMMON_NAME:
-                commonname = attrib.value
+                commonname: str | bytes = attrib.value
 
         return commonname
 
@@ -369,7 +373,8 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
 
-    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365):
+    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365
+                                ) -> None:
         '''
         Gets the cert signed and adds the signed cert to the secret
 
@@ -385,7 +390,7 @@ class Secret:
         self.from_signed_cert(issuing_ca.sign_csr(csr, expire=expire))
         await self.save(password=self.password)
 
-    def from_signed_cert(self, cert_chain: CertChain):
+    def from_signed_cert(self, cert_chain: CertChain) -> None:
         '''
         Adds the CA-signed cert and the certchain with the issuing CA
         to the certificate
@@ -398,7 +403,7 @@ class Secret:
         self.cert = cert_chain.signed_cert
         self.cert_chain = cert_chain.cert_chain
 
-    def validate(self, root_ca: CaSecret, with_openssl: bool = False):
+    def validate(self, root_ca: CaSecret, with_openssl: bool = False) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
         This function does not check certificate recovation or OCSP
@@ -515,7 +520,7 @@ class Secret:
             )
 
         if await self.storage_driver.exists(self.cert_file):
-            cert_data = await self.storage_driver.read(self.cert_file)
+            cert_data: str = await self.storage_driver.read(self.cert_file)
             _LOGGER.debug(
                 f'Loading cert from {self.cert_file}, '
                 f'got {len(cert_data)} bytes'
@@ -529,9 +534,10 @@ class Secret:
         self.from_string(cert_data)
 
         try:
-            extension = self.cert.extensions.get_extension_for_class(
-                x509.BasicConstraints
-            )
+            extension: x509.Extension[x509.BasicConstraints] = \
+                self.cert.extensions.get_extension_for_class(
+                    x509.BasicConstraints
+                )
             self.ca = extension.value.ca
         except x509.ExtensionNotFound:
             self.ca = False
@@ -553,7 +559,7 @@ class Secret:
 
         self.common_name = None
         for rdns in self.cert.subject.rdns:
-            dn = rdns.rfc4514_string()
+            dn: str = rdns.rfc4514_string()
             if dn.startswith('CN='):
                 self.common_name = dn[3:]
                 break
@@ -564,7 +570,7 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                data = await self.storage_driver.read(
+                data: str = await self.storage_driver.read(
                     self.private_key_file, file_mode=FileMode.BINARY
                 )
 
@@ -577,7 +583,7 @@ class Secret:
                 )
                 raise
 
-    def from_string(self, cert: str, certchain: str = None):
+    def from_string(self, cert: str, certchain: str = None) -> None:
         '''
         Loads an X.509 cert and certchain from a string. If the cert has an
         certchain then the certchain can either be included at the end
@@ -598,7 +604,7 @@ class Secret:
             cert = cert + certchain
 
         # The re.split results in one extra
-        certs = re.findall(
+        certs: list[str] = re.findall(
             r'^-+BEGIN\s+CERTIFICATE-+[^-]*-+END\s+CERTIFICATE-+$',
             cert, re.MULTILINE
         )
@@ -637,7 +643,7 @@ class Secret:
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
                    storage_driver: FileStorage = None,
-                   with_fingerprint: bool = True):
+                   with_fingerprint: bool = True) -> None:
         '''
         Save a cert and private key (if we have it) to their respective files
 
@@ -654,8 +660,8 @@ class Secret:
         if not storage_driver:
             storage_driver = self.storage_driver
 
-        fingerprint = self.fingerprint().hex()
-        fingerprint_filename = f'{self.cert_file}-{fingerprint}'
+        fingerprint: str = self.fingerprint().hex()
+        fingerprint_filename: str = f'{self.cert_file}-{fingerprint}'
         if (not overwrite and (await storage_driver.exists(self.cert_file)
                 or (with_fingerprint and                       # noqa: E128
                     await storage_driver.exists(fingerprint_filename)))):
@@ -667,7 +673,7 @@ class Secret:
         _LOGGER.debug(
             f'Saving cert to {self.cert_file} with fingerprint {fingerprint}'
         )
-        data = self.certchain_as_pem()
+        data: str = self.certchain_as_pem()
 
         await storage_driver.create_directory(self.cert_file)
 
@@ -689,7 +695,7 @@ class Secret:
 
     async def save_private_key(self, password: str = 'byoda',
                                overwrite: bool = False,
-                               storage_driver: FileStorage = None):
+                               storage_driver: FileStorage = None) -> None:
         '''
         Save a private key (if we have it) to their respective files
 
@@ -712,7 +718,7 @@ class Secret:
 
         if self.private_key:
             _LOGGER.debug(f'Saving private key to {self.private_key_file}')
-            private_key_pem = self.private_key_as_bytes(password)
+            private_key_pem: bytes = self.private_key_as_bytes(password)
             await storage_driver.write(
                 self.private_key_file, private_key_pem,
                 file_mode=FileMode.BINARY
@@ -720,7 +726,7 @@ class Secret:
 
     def private_key_as_bytes(self, password: str = None) -> bytes:
         if password:
-            private_key_pem = self.private_key.private_bytes(
+            private_key_pem: bytes = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.BestAvailableEncryption(
@@ -741,7 +747,7 @@ class Secret:
         Returns the private key in PEM format
         '''
 
-        private_key_bytes = self.private_key_as_bytes(password)
+        private_key_bytes: bytes = self.private_key_as_bytes(password)
         return private_key_bytes.decode('utf-8')
 
     def certchain_as_pem(self) -> str:
@@ -751,7 +757,7 @@ class Secret:
 
         data = bytes()
         for cert in [self.cert] + self.cert_chain:
-            cert_info = (
+            cert_info: str = (
                 f'# Issuer {cert.issuer}\n'
                 f'# Subject {cert.subject}\n'
                 f'# Valid from {cert.not_valid_before_utc} to '
@@ -825,9 +831,9 @@ class Secret:
         :raises: ValueError if the commonname is not a string
         '''
 
-        service_id = getattr(self, 'service_id', None)
+        service_id: int | None = getattr(self, 'service_id', None)
 
-        entity_id = Secret.review_commonname_by_parameters(
+        entity_id: EntityId = Secret.review_commonname_by_parameters(
             commonname,
             self.network,
             service_id=service_id,
@@ -861,6 +867,9 @@ class Secret:
                 'Can not check service_id as no service_id was provided'
             )
 
+        hostname: str
+        subdomain: str
+        domain: str
         hostname, subdomain, domain = commonname.split('.', 2)
         if not (hostname and subdomain and domain):
             raise ValueError(f'Invalid common name: {commonname}')
@@ -870,9 +879,10 @@ class Secret:
                 f'Commonname {commonname} is not for network {network}'
             )
 
-        commonname_prefix = commonname[:-(len(network) + 1)]
+        commonname_prefix: str = commonname[:-(len(network) + 1)]
 
-        bits = commonname_prefix.split('.')
+        bits: list[str] = commonname_prefix.split('.')
+        identifier: str | UUID | None
         if len(bits) > 2:
             raise ValueError(f'Invalid number of domain levels: {commonname}')
         elif len(bits) == 2:
@@ -896,7 +906,7 @@ class Secret:
         cn_service_id = None
         bits = subdomain.split('-')
         if len(bits) > 1:
-            cn_service_id = bits[-1]
+            cn_service_id: str = bits[-1]
             try:
                 cn_service_id = int(cn_service_id)
                 subdomain = '-'.join(bits)[:-1]
@@ -918,7 +928,7 @@ class Secret:
         id_type = None
         for id_type_iter in IdType.by_value_lengths():
             if (subdomain.startswith(id_type_iter.value.rstrip('-'))):
-                id_type = id_type_iter
+                id_type: IdType = id_type_iter
                 break
 
         _LOGGER.debug(f'Found IdType {id_type}')
@@ -959,13 +969,13 @@ class Secret:
                 root_ca_filepath = None
 
             async with AsyncHttpClient(verify=root_ca_filepath) as client:
-                resp = await client.get(url)
+                resp: HttpResponse = await client.get(url)
                 if resp.status_code >= 400:
                     raise RuntimeError(
                         f'Failure to GET {url}: {resp.status_code}'
                     )
 
-                cert_data = resp.text
+                cert_data: str = resp.text
                 return cert_data
         except (RequestError, TransportError, TimeoutException,
                 SSLCertVerificationError) as exc:

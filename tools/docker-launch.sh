@@ -187,6 +187,10 @@ export NETWORK="byoda.net"
 # Set DAEMONIZE to FALSE to debug the pod_worker
 export DAEMONIZE=TRUE
 
+if [ -z "${POD_MEMORY_LIMIT}" ]; then
+    export POD_MEMORY_LIMIT=800
+fi
+
 DOCKER=$(which docker)
 
 if [ $? -ne 0 ]; then
@@ -494,12 +498,14 @@ echo "YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}"
 echo "YOUTUBE_IMPORT_SERVICE_ID: ${YOUTUBE_IMPORT_SERVICE_ID}"
 echo "YOUTUBE_IMPORT_INTERVAL: ${YOUTUBE_IMPORT_INTERVAL}"
 echo "CDN_APP_ID: ${CDN_APP_ID}"
+echo "CDN_ORIGIN_SITE_ID: ${CDN_ORIGIN_SITE_ID}"
 echo "MODERATION_FQDN: ${MODERATION_FQDN}"
 echo "MODERATION_APP_ID: ${MODERATION_APP_ID}"
 echo "CUSTOM_DOMAIN: ${CUSTOM_DOMAIN}"
 echo "MANAGE_CUSTOM_DOMAIN_CERT: ${MANAGE_CUSTOM_DOMAIN_CERT}"
 echo "SHARED_WEBSERVER: ${SHARED_WEBSERVER}"
 echo "TRACE_SERVER: ${TRACE_SERVER}"
+echo "POD_MEMORY_LIMIT: ${POD_MEMORY_LIMIT}"
 echo "BYODA root directory: ${BYODA_ROOT_DIR}"
 echo "LOGDIR: ${LOGDIR}"
 echo "WEB_LOG_DIR: ${WEB_LOG_DIR}"
@@ -510,7 +516,7 @@ echo "LETSENCRYPT_VOLUME_MOUNT: ${LETSENCRYPT_VOLUME_MOUNT}"
 echo "ANGIECONF_VOLUME_MOUNT: ${ANGIECONF_VOLUME_MOUNT}"
 
 echo "Launching container"
-sudo docker run -d --memory=800m \
+sudo docker run -d --memory=${POD_MEMORY_LIMIT} \
     --name byoda --restart=unless-stopped \
     --pull always \
     --mount type=tmpfs,tmpfs-size=100M,destination=/tmp \
@@ -540,6 +546,7 @@ sudo docker run -d --memory=800m \
     -e "YOUTUBE_IMPORT_SERVICE_ID=${YOUTUBE_IMPORT_SERVICE_ID}" \
     -e "YOUTUBE_IMPORT_INTERVAL=${YOUTUBE_IMPORT_INTERVAL}" \
     -e "CDN_APP_ID=${CDN_APP_ID}" \
+    -e "CDN_ORIGIN_SITE_ID=${CDN_ORIGIN_SITE_ID}" \
     -e "MODERATION_FQDN=${MODERATION_FQDN}" \
     -e "MODERATION_APP_ID=${MODERATION_APP_ID}" \
     -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \

@@ -8,9 +8,11 @@ API models for IP Addresses
 
 from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
+from typing import LiteralString
 
 from pydantic import BaseModel
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -29,10 +31,10 @@ class MemberResponseModel(BaseModel):
     certificate: str
     private_key: str
 
-    def __repr__(self):
+    def __repr__(self) -> LiteralString:
         return ('<MemberResponseModel={service_id: int, version: int}>')
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, UUID | str | int]:
         return {
             'account_id': self.account_id,
             'network': self.network,
@@ -53,12 +55,12 @@ class MemberRequestModel(BaseModel):
     service_id: int
     version: int
 
-    def __repr__(self):
+    def __repr__(self) -> LiteralString:
         return (
             '<MemberRequestModel={service_id: int, version: int}>'
         )
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, int]:
         return {
             'service_id': self.service_id,
             'version:': self.version

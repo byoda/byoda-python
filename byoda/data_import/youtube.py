@@ -24,6 +24,7 @@ https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-exampl
 import os
 
 from uuid import UUID
+from random import shuffle
 from logging import getLogger
 
 from googleapiclient.discovery import build
@@ -169,8 +170,8 @@ class YouTube:
                             moderate_request_url: str | None = None,
                             moderate_jwt_header: str | None = None,
                             moderate_claim_url: str | None = None,
-                            ingest_interval: int = INGEST_INTERVAL_SECONDS
-                            ) -> None:
+                            ingest_interval: int = INGEST_INTERVAL_SECONDS,
+                            custom_domain: str | None = None) -> None:
         '''
         Scrape channel(s) and videos from YouTube and persist them to storage.
         Videos are stored in the data store. If ingest of videos is enabled
@@ -191,12 +192,17 @@ class YouTube:
         :param moderate_claim_url:
         :param ingest_interval: interval in seconds between ingesting videos to
         avoid overloading YouTube API
+        :param custom_domain: the custom domain to use for the storage URL if
+        no CDN is used
         :param ValueError: if the storage driver is not specified and we ingest
         videos
         '''
 
         if not self.integration_enabled:
             raise ValueError('YouTube integration is not enabled')
+
+        all_channels: list[YouTubeChannel] = list(self.channels.values())
+        shuffle(all_channels)
 
         for channel in self.channels.values():
             # Do not try to import channels without names, which could happen
@@ -222,5 +228,9 @@ class YouTube:
                     moderate_request_url=moderate_request_url,
                     moderate_jwt_header=moderate_jwt_header,
                     moderate_claim_url=moderate_claim_url,
-                    ingest_interval=ingest_interval
+                    ingest_interval=ingest_interval,
+                    custom_domain=custom_domain
                 )
+
+                # Release memory used by the import run
+                channel.videos = []

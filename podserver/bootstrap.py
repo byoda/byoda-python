@@ -23,6 +23,8 @@ ACCOUNT_SECRET
 PRIVATE_KEY_SECRET: secret to protect the private key
 LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ROOT_DIR: where files need to be cached (if object storage is used) or stored
+CDN_APP_ID: the UUID of the CDN app
+CDN_ORIGIN_SITE_ID: the two- or three letter site_id for the CDN origin site
 
 (*) Because Azure Storage Accounts work different than AWS/GCP S3 buckets, for
 Azure we use a single storage account with three containers instead of 3
@@ -97,7 +99,7 @@ async def main(argv) -> None:
             cloud_type=CloudType(data['cloud']),
             bootstrapping=bool(data.get('bootstrap'))
         )
-        config.server: PodServer = server
+        config.server = server
 
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE,
@@ -121,12 +123,12 @@ async def main(argv) -> None:
             pass
 
         _LOGGER.debug('Setting up the network')
-        server.network: Network = network
-        server.paths: Paths = network.paths
+        server.network = network
+        server.paths = network.paths
 
         _LOGGER.debug('Setting up the account')
         account: Account = Account(data['account_id'], network)
-        server.account: Account = account
+        server.account = account
 
         await account.paths.create_account_directory()
 

@@ -22,6 +22,7 @@ from tests.lib.util import get_test_uuid
 ###
 ###
 
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -31,6 +32,7 @@ from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
+from byoda.datamodel.app import CdnApp
 
 from byoda.servers.pod_server import PodServer
 
@@ -82,7 +84,7 @@ TEST_DIR = '/tmp/byoda-tests/podserver'
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator:
     # HACK: Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     PubSubNng.cleanup()
@@ -95,7 +97,7 @@ async def lifespan(app: FastAPI):
     ###
     ###
 
-    data = get_environment_vars()
+    data: dict[str, any] = get_environment_vars()
 
     ###
     ### Test change     # noqa: E266
@@ -210,7 +212,7 @@ async def lifespan(app: FastAPI):
     service = [
         service
         for service in services
-        if service['name'] == 'addressbook'
+        if service['name'] == 'BYO.Tube'
     ][0]
 
     local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
@@ -261,6 +263,13 @@ async def lifespan(app: FastAPI):
             overwrite=True
         )
 
+        if data.get('cdn_origin_site_id'):
+            cdn_app: CdnApp = CdnApp(
+                data['cdn_app_id'], member.service,
+                data.get('cdn_origin_site_id')
+            )
+            server.apps[cdn_app.app_id] = cdn_app
+
         # We may have joined services (either the enduser or the bootstrap
         # script with the 'auto-join' environment variable. But account.join()
         # can not persist the membership settings so we do that here. We check
@@ -268,7 +277,7 @@ async def lifespan(app: FastAPI):
         try:
             await member.load_settings()
         except ValueError:
-            member.auto_upgrade: bool = member.service.service_id in auto_joins
+            member.auto_upgrade = member.service.service_id in auto_joins
             await member.data.initialize()
 
         cors_origins.add(f'https://{member.tls_secret.common_name}')
@@ -278,7 +287,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-config.trace_server: int = os.environ.get('TRACE_SERVER', config.trace_server)
+config.trace_server = os.environ.get('TRACE_SERVER', config.trace_server)
 
 app = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',

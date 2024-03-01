@@ -62,7 +62,7 @@ class ServiceServer(Server):
         self.local_storage = network.paths.storage_driver
 
         service_id: int
-        # HACK: svcworker has moved to ServerConfig
+        # HACK: updates-worker and refresh-worker has moved to ServerConfig
         if isinstance(app_config, ServerConfig):
             service_id = app_config.server_config['service_id']
         else:
@@ -88,7 +88,7 @@ class ServiceServer(Server):
         '''
 
         self = ServiceServer(network, app_config)
-        config.server: ServiceServer = self
+        config.server = self
         service: Service = self.service
 
         server_config: dict[str, any]
@@ -100,7 +100,7 @@ class ServiceServer(Server):
         connection_string: str = server_config['member_cache']
         _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
 
-        self.member_db: MemberDb = await MemberDb.setup(
+        self.member_db = await MemberDb.setup(
             connection_string, service.service_id, network.name
         )
 

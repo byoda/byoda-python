@@ -128,10 +128,10 @@ class MemberRequestAuthFast(RequestAuth):
         else:
             self.service_id = None
 
-    async def authenticate(self):
+    async def authenticate(self) -> None:
         server: Server = config.server
         try:
-            jwt = await super().authenticate(
+            jwt: JWT | None = await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
                 self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca,

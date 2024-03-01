@@ -26,9 +26,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 _LOGGER: Logger = getLogger('')
 
 
-
-
-async def main(argv: list[str]):
+async def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument(
@@ -44,7 +42,7 @@ async def main(argv: list[str]):
         '--list', '-l', type=str, default=AssetCache.DEFAULT_ASSET_LIST
     )
 
-    args = parser.parse_args(argv[1:])
+    args: argparse.Namespace = parser.parse_args(argv[1:])
 
     global _LOGGER
     if args.debug:

@@ -144,21 +144,24 @@ class YouTubeChannel:
                       moderate_request_url: str | None = None,
                       moderate_jwt_header: str | None = None,
                       moderate_claim_url: str | None = None,
-                      ingest_interval: int = 0) -> None:
+                      ingest_interval: int = 0,
+                      custom_domain: str | None = None) -> None:
         '''
         persist any video not yet in the public_assets collection to that
         collection, including downloading the video, packaging it, and
         saving it to the file store
         '''
 
-        await self.persist_channel(member, data_store, storage_driver)
+        await self.persist_channel(
+            member, data_store, storage_driver, custom_domain=custom_domain
+        )
 
         # The strategy here is simple: we try to store all videos. persist()
         # first checks whether the video is already in the data store and only
         # adds it if it is not. If the asset exists and has ingest status
         # 'external' and this channel is configured to download AV tracks
         # then the existing asset will be updated
-        video: YouTubeVideo
+        video: YouTubeVideo | None
         for video in self.videos.values():
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'
@@ -171,6 +174,7 @@ class YouTubeChannel:
                     moderate_request_url=moderate_request_url,
                     moderate_jwt_header=moderate_jwt_header,
                     moderate_claim_url=moderate_claim_url,
+                    custom_domain=custom_domain
                 )
 
                 if result is None:
@@ -185,10 +189,21 @@ class YouTubeChannel:
                     f'Could not persist video {video.video_id}: {exc}'
                 )
 
+            video = None
+
+        self.videos = []
+
     async def persist_channel(self, member: Member, data_store: DataStore,
-                              storage_driver: FileStorage) -> None:
+                              storage_driver: FileStorage,
+                              custom_domain: str | None = None) -> None:
         '''
         Persist the creator thumbnails and banners to storage
+
+        :param member:
+        :param data_store:
+        :param storage_driver:
+        :param custom_domain: what hostname should be used in content URLs if
+        no CDN is used
         '''
 
         table: ArraySqlTable = data_store.get_table(
@@ -212,7 +227,7 @@ class YouTubeChannel:
         for thumbnail in self.channel_thumbnails:
             await thumbnail.ingest(
                 video_id=self.channel_id, storage_driver=storage_driver,
-                member=member, work_dir=dirpath
+                member=member, work_dir=dirpath, custom_domain=custom_domain
             )
 
         for thumbnail in self.banners:
@@ -220,6 +235,7 @@ class YouTubeChannel:
                 video_id=self.channel_id, storage_driver=storage_driver,
                 member=member, work_dir=dirpath
             )
+
         rmtree(dirpath)
 
         channel_data: dict[str, any] = self.as_dict()
@@ -288,6 +304,7 @@ class YouTubeChannel:
             self.channel_thumbnails |
             YouTubeChannel.parse_thumbnails(parsed_data)
         )
+
         if self.channel_thumbnails:
             self.channel_thumbnail = sorted(
                 self.channel_thumbnails, key=lambda k: k.height
@@ -345,11 +362,11 @@ class YouTubeChannel:
             # Now we try to get the data from the InnerTube API
             if ('thumbnail' not in data
                     or not isinstance(data['thumbnail'], dict)):
-                return []
+                return set()
 
             if ('thumbnails' not in data['thumbnail']
                     or not isinstance(data['thumbnail']['thumbnails'], list)):
-                return []
+                return set()
             thumbnails_data = data['thumbnail']['thumbnails']
 
         channel_thumbnails: set[YouTubeThumbnail] = set()
@@ -451,11 +468,12 @@ class YouTubeChannel:
                 )
                 return
             else:
-                _LOGGER.info(f'Could not parse link name our of URL: {url}')
+                _LOGGER.debug(f'Could not parse link name our of URL: {url}')
+                name = url
 
         name = SocialNetworks.get(name.lower(), 'www')
 
-        _LOGGER.debug(f'Parsed external link name {name} ouf of {url}')
+        _LOGGER.debug(f'Parsed external link label {name} ouf of {url}')
         return {
             'priority': priority, 'name': name, 'url': f'https://{url}'
         }
@@ -507,6 +525,8 @@ class YouTubeChannel:
 
         if not script:
             _LOGGER.warning('Did not find text in HTML scrape')
+            soup = None
+            script = None
             return {}
 
         parsed_data: dict[str, any] = {}
@@ -523,6 +543,10 @@ class YouTubeChannel:
                 f'{exc}'
             )
             return {}
+
+        raw_data = None
+        soup = None
+        script = None
 
         return parsed_data
 
@@ -604,12 +628,18 @@ class YouTubeChannel:
                     f'Skipping video {video_id} as it is already '
                     'ingested and we are not importing AV streams'
                 )
+                # We don't need to keep all the info for the video in memory
+                # if we don't plan on ingesting it
+                already_ingested_videos[video_id] = {'ingest_status': status}
                 return
             elif status == IngestStatus.PUBLISHED:
                 _LOGGER.debug(
                     f'Skipping video {video_id} that we already ingested '
                     'earlier in this run'
                 )
+                # We don't need to keep all the info for the video in memory
+                # if we don't plan on ingesting it
+                already_ingested_videos[video_id] = {'ingest_status': status}
                 return
 
             _LOGGER.debug(
@@ -676,6 +706,10 @@ class YouTubeChannel:
             raise ValueError('No channel name or title to search for')
 
         data: dict = client.search(query=search)
+
+        # Reduce memory usage
+        client = None
+
         contents: object | None = YouTubeChannel.parse_nested_dicts(
             [
                 'contents', 'twoColumnSearchResultsRenderer',

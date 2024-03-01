@@ -19,8 +19,9 @@ from fastapi import FastAPI
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.memberdata import MemberData
-from byoda.datamodel.schema import Schema, SignatureType
+from byoda.datamodel.schema import Schema
 from byoda.datamodel.schema import SchemaDataItem
+from byoda.datamodel.schema import SignatureType
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -35,7 +36,6 @@ from byoda.datacache.querycache import QueryCache
 from byoda.datacache.counter_cache import CounterCache
 
 from byoda.storage import FileStorage
-
 
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
@@ -87,7 +87,7 @@ class Member:
         'query_cache', 'counter_cache', 'storage_driver',
         'private_key_password', 'tls_secret', 'data_secret',
         'service_data_secret', 'service_ca_secret', 'service_ca_certchain',
-        'joined', 'schema_versions', 'auto_upgrade'
+        'joined', 'schema_versions', 'auto_upgrade', 'cdn_apps'
 
     ]
 
@@ -129,9 +129,9 @@ class Member:
         self.data: MemberData | None = None
 
         self.paths: Paths = copy(account.paths)
-        self.paths.account_id: UUID = account.account_id
-        self.paths.account: str = account.account
-        self.paths.service_id: int = self.service_id
+        self.paths.account_id = account.account_id
+        self.paths.account = account.account
+        self.paths.service_id = self.service_id
 
         self.document_store: DocumentStore = self.account.document_store
         self.data_store: DataStore = config.server.data_store
@@ -163,7 +163,6 @@ class Member:
         to only be called by the appserver or workers on the pod, or test
         cases simulating them.
         Directory-, service- and other servers should not call this method.
-
         '''
 
         if local_service_contract:

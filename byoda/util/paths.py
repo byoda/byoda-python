@@ -118,11 +118,15 @@ class Paths:
     PODACCOUNT_API          = 'https://{account_id}.accounts.{network}/api/v1/pod/account'                            # noqa
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
     PODHEALTH_API           = 'https://{member_id}.members-{service_id}.{network}/api/v1/status'                      # noqa
+    CDN_KEYS_API            = 'https://{fqdn}/api/v1/cdn/content_keys'                                                # noqa
 
     # Content download URLs
-    RESTRICTED_ASSET_POD_URL = 'https://{member_id}.members-{service_id}.{network}/restricted/{asset_id}/{filename}'   # noqa
-    RESTRICTED_ASSET_CDN_URL = 'https://cdn.byo.host/restricted/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
-    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{service_id}/{member_id}/{asset_id}/{filename}{ext}'       # noqa
+    RESTRICTED_ASSET_POD_URL = 'https://{custom_domain}/restricted/{asset_id}/{filename}'                                               # noqa
+    PUBLIC_ASSET_POD_URL     = 'https://{custom_domain}/public/{asset_id}/{filename}'                                                   # noqa
+    PUBLIC_THUMBNAIL_POD_URL = 'https://{custom_domain}/public/{asset_id}/{filename}{ext}'                                              # noqa
+    RESTRICTED_ASSET_CDN_URL = 'https://cdn.byo.host/restricted/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'    # noqa
+    PUBLIC_ASSET_CDN_URL     = 'https://cdn.byo.host/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
+    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}{ext}'   # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

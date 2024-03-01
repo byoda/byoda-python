@@ -9,8 +9,6 @@ Helper functions for tests
 from uuid import UUID
 from uuid import uuid4
 
-import orjson
-
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
@@ -21,10 +19,6 @@ from byoda.datatypes import DataFilterType
 
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
-
-from podserver.codegen.pydantic_service_4294929430_1 import asset as Asset
-
-TEST_ASSET_ID: UUID = '32af2122-4bab-40bb-99cb-4f696da49e26'
 
 
 def get_test_uuid() -> UUID:
@@ -115,22 +109,3 @@ async def call_data_api(service_id: int, class_name: str,
         pass
 
     return result
-
-
-def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:
-    '''
-    Creates and returns an asset object with dummy data.
-    '''
-
-    with open('tests/collateral/dummy_asset.json') as file_desc:
-        data: str = file_desc.read()
-        asset_data: dict[str, any] = orjson.loads(data)
-        asset: Asset = Asset(**asset_data)
-
-    if not asset_id:
-        asset_id = get_test_uuid()
-    if not isinstance(asset_id, UUID):
-        asset_id = UUID(asset_id)
-
-    asset.asset_id = asset_id
-    return asset

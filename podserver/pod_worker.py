@@ -66,7 +66,7 @@ _LOGGER: Logger | None = None
 
 LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/worker.log'
 ADDRESSBOOK_ID: int = 4294929430
-YOUTUBE_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
+YOUTUBE_IMPORT_SERVICE_ID: int = 16384
 TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 
 
@@ -141,6 +141,7 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
     await check_network_links(server)
 
     await upload_content_keys(server)
+
     await run_youtube_startup_tasks(server, youtube_import_service_id)
 
     await run_twitter_startup_tasks(server, account, twitter_import_service_id)

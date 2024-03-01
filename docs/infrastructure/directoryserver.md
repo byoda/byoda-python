@@ -258,7 +258,8 @@ https://proxy.<network-domain>/<service_id>/<member_id> to connect to the pod.
 You will need to request an SSL certificate for 'proxy.<network-domain>'. Angie can be used as a reverse proxy with the following virtual server configuration:
 ```
 server {
-    listen       443 ssl http2 backlog=16384 fastopen=4096 deferred reuseport default_server;
+    listen       443 ssl backlog=16384 fastopen=4096 deferred reuseport default_server;
+    http2 on;
 
     server_name  proxy.<network>;
 

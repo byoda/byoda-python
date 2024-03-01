@@ -51,9 +51,6 @@ DEFAULT_QUERY_SIZE: int = 40
 # Where the pod stores the decrypted ssl key so that angie can access it
 TEMP_SSL_DIR: str = '/var/tmp/ssl'
 
-# This is the API path used by the CDN App server
-CDN_KEYS_API: str = '/api/v1/cdn/content_keys'
-
 MemberInfo: namedtuple = namedtuple(
     'MemberInfo', ['member_id', 'service_id', 'status', 'timestamp']
 )
