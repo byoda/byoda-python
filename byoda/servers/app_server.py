@@ -10,7 +10,8 @@ a server that hosts a BYODA Service
 import os
 from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
+
+from aiosqlite import connect as sqlite_connect
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network
@@ -30,6 +31,8 @@ from byoda.requestauth.jwt import JWT
 from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -68,8 +71,11 @@ class AppServer(Server):
                 os.makedirs(f'{self.claim_dir}/{status.value}', exist_ok=True)
         elif app_type == AppType.CDN:
             self.keys_dir: str = app_config['cdnserver']['keys_dir']
+            self.sqlite_db_file: str = app_config['appserver'].get('sqlite_db')
+            if not self.sqlite_db_file:
+                raise ValueError('No sqlite_db defined for CDN app')
 
-        network.paths: Paths = self.paths
+        network.paths = self.paths
 
         self.service = Service(
             network=self.network,
@@ -149,3 +155,25 @@ class AppServer(Server):
 
     def accepts_jwts(self):
         return True
+
+    async def create_membership_table(self) -> None:
+        '''
+        Create the Sqlite table to store mappings from member_id to
+        bucket/container name so the CDN can proxy requests to the
+        correct storage bucket
+        '''
+
+        async with sqlite_connect(self.sqlite_db) as conn:
+            await conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS memberships (
+                    member_id TEXT NOT NULL,
+                    service_id INTEGER NOT NULL,
+                    visibility TEXT NOT NULL,
+                    container TEXT NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    PRIMARY KEY(member_id, service_id, content_access)
+                )
+                '''
+            )
+            await conn.commit()

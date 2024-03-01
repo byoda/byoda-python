@@ -14,6 +14,8 @@ from byoda.util.logger import Logger
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
+from byoda.datatypes import AppType
+
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.storage.filestorage import FileStorage
@@ -26,7 +28,10 @@ class App:
                  storage_driver: FileStorage = None) -> None:
         self.app_id: UUID = app_id
         self.service: Service = service
+        self.service_id: int = service.service_id
         self.network: Network = service.network
+        self.app_type: AppType | None = None
+
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
         else:
@@ -58,3 +63,16 @@ class App:
         await self.data_secret.load(
             with_private_key=with_private_key, password=password
         )
+
+
+class CdnApp(App):
+    def __init__(self, app_id: UUID, service: Service, cdn_origin_site_id: str
+                 ) -> None:
+        super().__init__(app_id, service)
+
+        self.app_type = AppType.CDN
+
+        if not cdn_origin_site_id or not isinstance(cdn_origin_site_id, str):
+            raise ValueError('cdn_origin_site_id string is required')
+
+        self.cdn_origin_site_id: str = cdn_origin_site_id

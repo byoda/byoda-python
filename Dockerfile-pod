@@ -69,8 +69,8 @@ RUN apt-get update && apt-get install -y \
     && rm -f /etc/angie/conf.d/default.conf \
     && openssl rand 80 >/etc/angie/ssl/sslticket.key \
     && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
-    && apt-get --yes autoremove \
     && apt-get --yes remove build-essential \
+    && apt-get --yes auto-remove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 

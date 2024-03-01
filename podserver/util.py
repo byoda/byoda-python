@@ -8,10 +8,12 @@ Functions shared between the pod server and the pod worker
 
 import os
 
+from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -30,11 +32,20 @@ def get_environment_vars() -> dict:
       - account_secret: str
       - private_key_password: str
       - loglevel: None, 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRIT'
+      - worker_loglevel: None, 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRIT'
       - root_dir: str
       - roles: ['pod']
       - debug: bool
       - bootstrap: bool
       - daemonize: bool, only used for pod_worker
+      - custom_domain: str
+      - shared_webserver: bool
+      - manage_custom_domain_cert: bool
+      - cdn_app_id: str
+      - cdn_origin_site_id: str
+      - moderation_fqdn: str
+      - moderation_app_id: str
+      - join_service_ids: list[int]
     '''
 
     data: dict[str, str | bool | int] = {
@@ -57,12 +68,18 @@ def get_environment_vars() -> dict:
         'manage_custom_domain_cert':
             os.environ.get('MANAGE_CUSTOM_DOMAIN_CERT') is not None,
         'roles': ['pod'],
+        'cdn_app_id': os.environ.get('CDN_APP_ID'),
+        'cdn_origin_site_id': os.environ.get('CDN_ORIGIN_SITE_ID'),
         'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
         'moderation_app_id': os.environ.get('MODERATION_APP_ID'),
         'join_service_ids': [
-            int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',') if x
+            int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',')
+            if x
         ],
     }
+
+    if data['cdn_app_id']:
+        data['cdn_app_id'] = UUID(data['cdn_app_id'])
 
     if data['cloud'] == CloudType.LOCAL and not data['root_dir']:
         data['root_dir'] = os.environ['HOME'] + '/.byoda'

@@ -6,10 +6,12 @@
 :license    : GPLv3
 '''
 
+from uuid import UUID
 from logging import getLogger
 
 from fastapi import APIRouter
 from fastapi import Request
+from fastapi import HTTPException
 
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
@@ -80,3 +82,41 @@ async def get_data(request: Request,
         edges=edges,
         page_info=page
     )
+
+
+@router.get('/asset', status_code=200)
+async def get_asset(request: Request, cursor: str | None = None,
+                    asset_id: UUID | None = None,
+                    member_id: UUID | None = None) -> EdgeResponse:
+    '''
+    This API is called by pods
+
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy (TODO: security)
+    '''
+
+    _LOGGER.debug(f'GET Asset API called from {request.client.host}')
+
+    if cursor and (asset_id or member_id):
+        raise HTTPException(
+            status_code=400,
+            detail='Either cursor or asset_id and member_id must be provided'
+        )
+
+    if not (cursor or asset_id or member_id):
+        raise HTTPException(
+            status_code=400,
+            detail='Either cursor or asset_id and member_id must be provided'
+        )
+
+    server: ServiceServer = config.server
+    asset_cache: AssetCache = server.asset_cache
+
+    if not cursor:
+        cursor = asset_cache.get_cursor(member_id, asset_id)
+    try:
+        edge: EdgeResponse = await asset_cache.get_asset_by_key(cursor)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    return edge

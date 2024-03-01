@@ -8,7 +8,7 @@ config-addressbook.yml
 uwsgi.yml
 
 # test collateral containing secrets
-tests/collateral/local
+tests/collateral/local/*
 
 # We store code generated for parsing Data API queries here
 podserver/codegen/*

@@ -68,7 +68,7 @@ class SqlTable(Table):
     ]
 
     def __init__(self, data_class: SchemaDataItem, sql_store: Sql,
-                 member_id: UUID):
+                 member_id: UUID) -> None:
         '''
         Constructor for a SQL table for a top-level item in the schema
         '''
@@ -169,7 +169,9 @@ class SqlTable(Table):
             f'PRAGMA table_info("{self.table_name}");',
             self.member_id, fetchall=True
         )
-        sql_columns = {row['name']: row['type'] for row in rows}
+        sql_columns: dict[str, any] = {
+            row['name']: row['type'] for row in rows
+        }
 
         for column in self.columns.values():
             if type(column) in (SchemaDataScalar, SchemaDataArray):
@@ -220,8 +222,10 @@ class SqlTable(Table):
                 f'Created index on {self.table_name}:{column.storage_name}'
             )
 
-    async def reconcile_meta_columns(self, sql_columns: dict[str, str]):
+    async def reconcile_meta_columns(self, sql_columns: dict[str, str]
+                                     ) -> None:
         for column_name, column_type in META_COLUMNS.items():
+            stmt: str
             if column_name not in sql_columns:
                 stmt = (
                     f'ALTER TABLE {self.table_name} '
@@ -239,8 +243,10 @@ class SqlTable(Table):
                     f'Created index on {self.table_name}:{column_name}'
                 )
 
-    async def reconcile_cache_only_columns(self, sql_columns: dict[str, str]):
+    async def reconcile_cache_only_columns(self, sql_columns: dict[str, str]
+                                           ) -> None:
         for column_name, column_type in CACHE_COLUMNS.items():
+            stmt: str
             if column_name not in sql_columns:
                 stmt = (
                     f'ALTER TABLE {self.table_name} '
@@ -293,7 +299,7 @@ class SqlTable(Table):
         the JSONSchema type specified in the schema of the service
         '''
 
-        field_name = SqlTable.get_field_name(column)
+        field_name: str = SqlTable.get_field_name(column)
         if field_name not in self.data_class.fields:
             raise ValueError(
                 f'Field {field_name} not found in data class '
@@ -647,7 +653,7 @@ class ObjectSqlTable(SqlTable):
             autocommit=True
         )
 
-        return result.rowcount
+        return copy(result.rowcount)
 
 
 class ArraySqlTable(SqlTable):
@@ -795,10 +801,19 @@ class ArraySqlTable(SqlTable):
             return None
 
         # Reconcile results with the field names in the Schema
-        results = []
+        results: list = []
         for row in rows:
+            result: dict[str, object]
+            meta: dict[str, str | int | float]
             result, meta = self._normalize_row(dict(row))
+
             results.append(QueryResult(data=result, metadata=meta))
+
+            # Release memory
+            row = None
+
+        # Release memory
+        rows = None
 
         return results
 
@@ -883,7 +898,7 @@ class ArraySqlTable(SqlTable):
             autocommit=True
         )
 
-        return result.rowcount
+        return copy(result.rowcount)
 
     async def mutate(self, data: dict, cursor: str, origin_id: UUID,
                      origin_id_type: IdType, origin_class_name: str,
@@ -943,17 +958,19 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
-        return result.rowcount
+        return copy(result.rowcount)
 
     async def delete(self, data_filters: DataFilterSet) -> int:
         '''
         Deletes one or more records based on the provided filters
         '''
 
-        stmt = f'DELETE FROM {self.table_name} '
+        stmt: str = f'DELETE FROM {self.table_name} '
         values: dict[str, object] = {}
 
         if data_filters:
+            where_clause: str
+            filter_data: str
             where_clause, filter_data = self.sql_where_clause(data_filters)
             stmt += where_clause
             values |= filter_data
@@ -962,7 +979,7 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=values, autocommit=True
         )
 
-        return result.rowcount
+        return copy(result.rowcount)
 
     async def expire(self, timestamp: int | float | datetime | None = None
                      ) -> int:
@@ -1005,7 +1022,7 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=data, autocommit=True
         )
 
-        return result.rowcount
+        return copy(result.rowcount)
 
 
 def _is_sql_safe_value(field: str) -> bool:

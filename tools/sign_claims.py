@@ -42,7 +42,7 @@ DEFAULT_SERVICE_ID: str = "4294929430"
 DEFAULT_TEST_DIRECTORY: str = '/tmp/byoda'
 
 
-async def main(argv):
+async def main(argv) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--config-file', '-c', type=str, default='config.yml')
@@ -52,7 +52,7 @@ async def main(argv):
     )
     parser.add_argument('files', nargs=argparse.REMAINDER)
 
-    args = parser.parse_args(argv[1:])
+    args: argparse.Namespace = parser.parse_args(argv[1:])
 
     global _LOGGER
     if args.debug:

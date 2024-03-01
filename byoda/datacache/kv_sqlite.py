@@ -8,9 +8,10 @@ storing data about their members
 '''
 
 
+from copy import copy
 from uuid import UUID
 from logging import getLogger
-from byoda.util.logger import Logger
+from typing import LiteralString
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -23,13 +24,15 @@ from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
 
+from byoda.util.logger import Logger
+
 _LOGGER: Logger = getLogger(__name__)
 
 DEFAULT_CACHE_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 
 
-def dict_factory(cursor, row):
-    fields = [column[0] for column in cursor.description]
+def dict_factory(cursor, row) -> dict:
+    fields: list = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
 
 
@@ -47,14 +50,14 @@ class KVSqlite(KVCache):
         self.cache_file = cache_file
         self.cache_type: CacheType = cache_type
 
-    async def close(self):
+    async def close(self) -> None:
         '''
         Closes the database connection
         '''
 
         pass
 
-    def _get_table_name(self):
+    def _get_table_name(self) -> LiteralString:
         '''
         Gets the name of the SQL table for the cache
         '''
@@ -356,7 +359,7 @@ class KVSqlite(KVCache):
                     f'WHERE expires < :timestamp',
                     {'timestamp': int(now.timestamp())}
                 )
-                return result.rowcount
+                return copy(result.rowcount)
         except Exception as exc:
             _LOGGER.warning(f'Purging cache {cache_type} failed: {exc}')
             return False

@@ -227,6 +227,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 ),
                 'member_id': AZURE_POD_MEMBER_ID,
                 'relation': 'friend',
+                'annotations': ['test network link']
             }
         }
         await call_data_api(

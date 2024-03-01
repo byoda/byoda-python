@@ -34,6 +34,8 @@ from websockets.legacy.client import WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosedOK
 from websockets.exceptions import ConnectionClosedError
 
+from uvicorn.protocols.utils import ClientDisconnected
+
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
@@ -712,7 +714,8 @@ class MemberData(dict):
                     text: str = orjson.dumps(data).decode('utf-8')
                     try:
                         await websocket.send_text(text)
-                    except (ConnectionClosedOK, ConnectionClosedError) as exc:
+                    except (ConnectionClosedOK, ConnectionClosedError,
+                            ClientDisconnected) as exc:
                         _LOGGER.debug(f'WebSocket connection closed: {exc}')
                         return
 
@@ -763,13 +766,13 @@ class MemberData(dict):
         data_store: DataStore = server.data_store
         table: Table = data_store.get_table(member.member_id, class_name)
 
-        current_counter_value = await counter_cache.get(
+        current_counter_value: int = await counter_cache.get(
             class_name, counter_filter, table
         )
 
         # TODO: never nest!
         while True:
-            messages = await sub.recv()
+            messages: list[dict[str, any]] = await sub.recv()
             _LOGGER.debug(f'Received {len(messages or [])} messages')
 
             for message in messages or []:
@@ -785,7 +788,7 @@ class MemberData(dict):
 
                 _LOGGER.debug('Message matched filter')
 
-                counter_value = await counter_cache.get(
+                counter_value: int = await counter_cache.get(
                     class_name, counter_filter
                 )
 
@@ -801,7 +804,12 @@ class MemberData(dict):
                     )
 
                     text: str = orjson.dumps(data).decode('utf-8')
-                    await websocket.send_text(text)
+                    try:
+                        await websocket.send_text(text)
+                    except (ConnectionClosedOK, ConnectionClosedError,
+                            ClientDisconnected) as exc:
+                        _LOGGER.debug(f'WebSocket connection closed: {exc}')
+                        return
 
     @staticmethod
     @TRACER.start_as_current_span('MemberData.mutate')
@@ -825,7 +833,7 @@ class MemberData(dict):
 
         server: PodServer = config.server
         account: Account = server.account
-        member = await account.get_membership(service_id)
+        member: Member = await account.get_membership(service_id)
 
         if not origin_id:
             origin_id = auth.id

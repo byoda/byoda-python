@@ -107,7 +107,7 @@ class Sql:
             except aiosqlite.Error as exc:
                 await db_conn.rollback()
                 _LOGGER.error(
-                    f'Error executing SQL: {exc}'
+                    f'Error executing SQL {command}: {exc}'
                 )
 
                 raise RuntimeError(exc)

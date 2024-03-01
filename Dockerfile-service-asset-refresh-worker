@@ -48,4 +48,4 @@ RUN apt-get update && apt-get install -y \
 COPY . byoda-python/
 
 CMD cd byoda-python \
-    && pipenv run python3 svcserver/svcworker.py
+    && pipenv run python3 svcserver/refresh_worker.py

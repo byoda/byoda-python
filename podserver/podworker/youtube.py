@@ -114,6 +114,25 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         _LOGGER.debug('Skipping YouTube update as it is not enabled')
         return
 
+    if os.path.exists(LOCK_FILE):
+        ctime: int = os.path.getctime(LOCK_FILE)
+        now: int = timegm(gmtime())
+        if ctime < now - LOCK_TIMEOUT:
+            _LOGGER.debug(
+                f'Removing stale lock file, created {now - ctime} '
+                'seconds ago'
+            )
+            os.remove(LOCK_FILE)
+        else:
+            _LOGGER.info(
+                f'YouTube ingest lock file {LOCK_FILE} exists, '
+                'skipping this run'
+            )
+            return
+
+    with open(LOCK_FILE, 'w') as lock_file:
+        lock_file.write('1')
+
     moderation_fqdn: str = os.environ.get('MODERATION_FQDN')
     moderation_url: str = f'https://{moderation_fqdn}'
     moderation_request_url: str = \
@@ -161,24 +180,6 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     await sleep(random_delay)
 
     try:
-        if os.path.exists(LOCK_FILE):
-            ctime: int = os.path.getctime(LOCK_FILE)
-            now: int = timegm(gmtime())
-            if ctime < now - LOCK_TIMEOUT:
-                _LOGGER.debug(
-                    f'Removing state lock file, created {now - ctime} '
-                    'seconds ago'
-                )
-                os.remove(LOCK_FILE)
-            else:
-                _LOGGER.info(
-                    f'YouTube ingest lock file {LOCK_FILE} exists, '
-                    'skipping this run'
-                )
-                return
-
-        with open(LOCK_FILE, 'w') as lock_file:
-            lock_file.write('1')
         _LOGGER.debug('Running YouTube metadata update')
 
         await youtube.import_videos(
@@ -186,9 +187,13 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
             ingested_channels,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
-            moderate_claim_url=moderation_claim_url
+            moderate_claim_url=moderation_claim_url,
+            custom_domain=server.custom_domain
         )
         os.remove(LOCK_FILE)
 
     except Exception as exc:
         _LOGGER.exception(f'Exception during Youtube metadata update: {exc}')
+
+    # Release memory used by the import run
+    youtube.channels = []

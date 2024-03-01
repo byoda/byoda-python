@@ -10,7 +10,9 @@ from uuid import UUID
 from typing import Self
 from typing import TypeVar
 from logging import getLogger
+from datetime import UTC
 from datetime import datetime
+from datetime import timedelta
 
 from fastapi.encoders import jsonable_encoder
 
@@ -43,15 +45,15 @@ AssetType = TypeVar('AssetType')
 
 
 class AssetCache(SearchableCache):
-    ASSET_KEY_PREFIX: str = 'assets:'
     DEFAULT_ASSET_LIST: str = 'recent_uploads'
     DEFAULT_ASSET_EXPIRATION: int = 60 * 60 * 24 * 3  # 3 days
     # The worker stores here all the lists that have been generated
     # based on the assets it has collected.
-    LIST_OF_LISTS_KEY: str = 'list_of_lists'
     # This list used to refresh assets in the cache. The list is
+    LIST_OF_LISTS_KEY: str = 'list_of_lists'
     # ordered from newest to oldest asset in the cache
-    ALL_ASSETS_LIST: str = 'all_assets'
+    # Threshold for adding assets to the 'recent_uploads' list
+    RECENT_THRESHOLD: timedelta = timedelta(days=2)
 
     '''
     Stores assets in a cache and provides methods to search for them.
@@ -80,48 +82,66 @@ class AssetCache(SearchableCache):
 
         metrics: dict[str, Gauge | Counter] = config.metrics
         if metrics:
-            metrics.update(
-                {
-                    'assetcache_total_lists': Gauge(
-                        'assetcache_total_lists', 'total lists in assetcache',
-                    ),
-                    'assetcache_lists_per_asset': Gauge(
-                        'assetcache_lists_per_asset',
-                        'lists per asset in assetcache',
-                    ),
-                    'assetcache_short_assets_added': Counter(
-                        'assetcache_short_assets_added',
-                        'short assets (<60s) added to assetcache',
-                    ),
-                    'assetcache_long_assets_added': Counter(
-                        'assetcache_long_assets_added',
-                        'long assets (>60s) added to assetcache',
-                    ),
-                    'assetcache_asset_found': Counter(
-                        'assetcache_asset_found', 'assets found in assetcache',
-                    ),
-                    'assetcache_asset_not_found': Counter(
-                        'assetcache_asset_not_found',
-                        'assets not found in assetcache',
-                    ),
-                    'assetcache_refresh_asset_failures': Counter(
-                        'assetcache_refresh_asset_failures',
-                        'Failures to call REST API of pod to refresh an asset',
-                    ),
-                    'assetcache_refresh_asset_api_calls': Counter(
-                        'assetcache_refresh_asset_api_calls',
-                        'API calls to pods to refresh an asset',
-                    ),
-                    'assetcache_refreshable_asset_not_found': Counter(
-                        'assetcache_refreshable_asset_not_found',
-                        'Assets not found in pods when refreshing',
-                    ),
-                    'assetcache_refreshable_asset_dupes': Counter(
-                        'assetcache_refreshable_asset_dupes',
-                        'Multiple assets found in pod when refreshing',
-                    ),
-                }
-            )
+            metric: str = 'assetcache_total_lists'
+            if metric not in metrics:
+                metrics[metric] = Gauge(
+                    metric, 'total lists in assetcache',
+                )
+
+            metric = 'assetcache_lists_per_asset'
+            if metric not in metrics:
+                metrics[metric] = Gauge(
+                    metric, 'lists per asset in assetcache',
+                )
+            metric = 'assetcache_short_assets_added'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'short assets (<60s) added to assetcache'
+                )
+
+            metric = 'assetcache_long_assets_added'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'long assets (>60s) added to assetcache'
+                )
+
+            metric = 'assetcache_asset_found'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'assets found in assetcache'
+                )
+
+            metric = 'assetcache_asset_not_found'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'assets not found in assetcache'
+                )
+
+            metric = 'assetcache_refresh_asset_failures'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric,
+                    'Failures to call REST API of pod to refresh an asset'
+                )
+
+            metric = 'assetcache_refresh_asset_api_calls'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'API calls to pods to refresh an asset'
+                )
+
+            metric = 'assetcache_refreshable_asset_not_found'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'Assets not found in pods when refreshing'
+                )
+
+            metric = 'assetcache_refreshable_asset_dupes'
+            if metric not in metrics:
+                metrics[metric] = Counter(
+                    metric, 'Multiple assets found in pod when refreshing'
+                )
+
         self: AssetCache = AssetCache(connection_string)
         await self.create_search_index()
         await self.load_functions()
@@ -140,7 +160,7 @@ class AssetCache(SearchableCache):
 
         return await self.backend.pos(key, cursor)
 
-    async def add_newest_asset(self, member_id, asset: dict) -> None:
+    async def add_newest_asset(self, member_id, asset: dict) -> bool:
         '''
         Add an asset to the cache.
 
@@ -152,100 +172,34 @@ class AssetCache(SearchableCache):
 
         metrics: dict[str, Gauge | Counter] = config.metrics
 
-        pydantic_asset: Asset = Asset(**asset)
+        asset_model: Asset = Asset(**asset)
 
-        # We use short_append to make sure vertically oriented assets
-        # go to separate lists from horizontally oriented assets.
-        short_append: str = ''
-        metric: str
-        if pydantic_asset.duration <= 60:
-            pydantic_asset.screen_orientation_horizontal = False
-            short_append = '-short'
-            metric = 'assetcache_short_assets_added'
-            if metrics and metric in metrics:
-                metrics[metric].inc()
-        else:
-            metric = 'assetcache_long_assets_added'
-            if metrics and metric in metrics:
-                metrics[metric].inc()
-
-        lists_set: set[str] = set()
-
-        categories: list[str] | None = [
-            category.lower() for category in pydantic_asset.categories
-            if isinstance(category, str)
-        ]
-        if len(categories) > 2:
-            categories = categories[:2]
-
-        keywords: list[str] = [
-            keyword.lower() for keyword in pydantic_asset.keywords
-            if isinstance(keyword, str)
-        ]
-        if len(keywords) > 4:
-            keywords = keywords[:4]
-
-        annotations: list[str] = [
-            annotation.lower() for annotation in pydantic_asset.annotations
-            if isinstance(annotation, str)
-        ]
-        if len(annotations) > 4:
-            annotations = annotations[:4]
-
-        # Create the lists that we will add the asset to.
-        # Structure is: <category>-<keyword>-<annotation>-<short>
-        category: str
-        keyword: str
-        annotation: str
-        for category in pydantic_asset.categories:
-            category = category.lower()
-            list_name: str = category + short_append
-            lists_set.add(list_name)
-
-            for keyword in pydantic_asset.keywords:
-                keyword = keyword.lower()
-                list_name: str = category + '-' + keyword + short_append
-                lists_set.add(list_name)
-
-                for annotation in pydantic_asset.annotations:
-                    annotation = annotation.lower()
-                    list_name = (
-                        category + '-' + keyword + '-' + annotation +
-                        short_append
-                    )
-                    lists_set.add(list_name)
-
-        # We don't want too many lists
-        if len(lists_set) > 30:
-            lists_set = set((list(lists_set))[:30])
-
-        # the 'all_assets' list is a special list that contains all assets, so
-        # we can refresh assets in the cache before they expire
-        lists_set.add(AssetCache.ALL_ASSETS_LIST)
-        lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
-
-        lists_set.add(pydantic_asset.creator + short_append)
-
-        metric = 'assetcache_lists_per_asset'
-        if metrics and metric in metrics:
-            metrics[metric].set(len(lists_set))
+        # The various lists that this asset should be added to
+        lists_set: set[str] = AssetCache.get_list_permutations(asset_model)
 
         # We override the cursor that the member may have set as that cursor
         # is only unique(-ish) for the member. We need a cursor that is unique
         # globally.
         server_cursor: str = self.get_cursor(
-            member_id, pydantic_asset.asset_id
+            member_id, asset_model.asset_id
         )
 
         asset_edge: Edge[Asset] = Edge[Asset](
-            node=pydantic_asset,
+            node=asset_model,
             origin=member_id,
             cursor=server_cursor
         )
 
+        if not asset_model.creator:
+            _LOGGER.debug(
+                f'Not adding asset {asset_model.asset_id} '
+                f'from member {member_id} with no creater'
+            )
+            return False
+
         # We replace UUIDs with strings and datetimes with timestamps. The
-        # get_asset() method will case to Pydantic model and that will return
-        # the values to their proper type
+        # get_asset() method will cast to Pydantic model and that will return
+        # the values in their proper type
         asset_data: dict[str, any] = jsonable_encoder(asset_edge)
 
         # We want to store timestamp as a number so people can sort and
@@ -260,14 +214,19 @@ class AssetCache(SearchableCache):
             lists_set, AssetCache.ASSET_KEY_PREFIX, asset_data
         )
 
+        await self.update_creators_list(asset_model.creator)
+
         await self.update_list_of_lists(lists_set)
-        if metrics and 'assetcache_total_lists' in metrics:
-            metrics['assetcache_total_lists'].set(len(lists_set))
+        metric: str = 'assetcache_total_lists'
+        if metrics and metric in metrics:
+            metrics[metric].set(len(lists_set))
 
         _LOGGER.debug(
-            f'Added asset {pydantic_asset.asset_id} '
+            f'Added asset {asset_model.asset_id} '
             f'to cache for {len(lists_set)} lists'
         )
+
+        return True
 
     async def get_asset_by_key(self, asset_key: str) -> Edge:
         '''
@@ -279,6 +238,9 @@ class AssetCache(SearchableCache):
         '''
 
         metrics: dict[str, Gauge | Counter] = config.metrics
+
+        if not asset_key.startswith(AssetCache.ASSET_KEY_PREFIX):
+            asset_key = AssetCache.ASSET_KEY_PREFIX + asset_key
 
         asset_data: any = await self.json_get(asset_key)
         metric: str
@@ -398,13 +360,44 @@ class AssetCache(SearchableCache):
         :returns: the cache key for the oldest asset in the cache
         '''
 
-        list_name: str = AssetCache.ALL_ASSETS_LIST
-        asset_key: str | None = await self.pop_last_list_item(list_name)
+        asset_key: str | None = await self.pop_last_list_item(
+            AssetCache.ALL_ASSETS_LIST
+        )
         if not asset_key:
             return None
 
         edge: Edge = await self.get_asset_by_key(asset_key)
         return edge
+
+    async def update_creators_list(self, creator: str) -> None:
+        '''
+        Update the list of creators.
+
+        :param creator: The creator to add to the list of creators.
+        :return: None
+        :raises: None
+        '''
+
+        key: str = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
+        if creator:
+            await self.client.sadd(key, creator)
+            creator_list: str = self.get_list_key(creator)
+            await self.set_expiration(creator_list)
+        else:
+            _LOGGER.debug('No creator to add to the list of creators')
+
+    async def get_creators_list(self) -> set[str] | None:
+        '''
+        Get the list of creators.
+
+        :return: The list of creators.
+        :raises: None
+        '''
+
+        key: str = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
+        creators: set[bytes] = await self.client.smembers(key)
+
+        return creators
 
     async def update_list_of_lists(self, lists: set[str]) -> None:
         '''
@@ -415,7 +408,8 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        await self.client.sadd(AssetCache.LIST_OF_LISTS_KEY, *lists)
+        key: str = self.get_list_key(AssetCache.LIST_OF_LISTS_KEY)
+        await self.client.sadd(key, *lists)
 
     async def get_list_of_lists(self) -> set[str] | None:
         '''
@@ -425,9 +419,8 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        lists: set[bytes] = await self.client.smembers(
-            AssetCache.LIST_OF_LISTS_KEY
-        )
+        key: str = self.get_list_key(AssetCache.LIST_OF_LISTS_KEY)
+        lists: set[bytes] = await self.client.smembers(key)
         return lists
 
     async def exists_list(self, list_name: str) -> bool:
@@ -439,7 +432,8 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        return await self.client.exists(self.get_list_key(list_name))
+        key: str = self.get_list_key(list_name)
+        return await self.client.exists(key)
 
     async def delete_list(self, list_name: str) -> None:
         '''
@@ -450,7 +444,8 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        return bool(await self.client.delete(self.get_list_key(list_name)))
+        key: str = self.get_list_key(list_name)
+        return bool(await self.client.delete(key))
 
     async def delete_asset_from_cache(self,  member_id: UUID | str,
                                       asset_id: UUID | str) -> bool:
@@ -506,7 +501,7 @@ class AssetCache(SearchableCache):
         if resp.status_code != 200:
             metric = 'assetcache_refresh_asset_failures'
             if metrics and metric in metrics:
-                metrics['assetcache_refresh_asset_failures'].inc()
+                metrics[metric].inc()
             return None
 
         data: dict[str, any] = resp.json()
@@ -532,8 +527,6 @@ class AssetCache(SearchableCache):
             cursor=data['edges'][0]['cursor'],
             node=self.asset_class(**node)
         )
-
-        await self.add_newest_asset(edge)
 
         return asset
 
@@ -568,3 +561,112 @@ class AssetCache(SearchableCache):
             metrics[metric].inc()
 
         return resp
+
+    @staticmethod
+    def get_short_appendix(asset_model: Asset) -> str:
+        metrics: dict[str, Gauge | Counter] = config.metrics
+        metric: str
+        if asset_model.duration <= 60:
+            asset_model.screen_orientation_horizontal = False
+            metric = 'assetcache_short_assets_added'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
+            return '-short'
+
+        else:
+            metric = 'assetcache_long_assets_added'
+            if metrics and metric in metrics:
+                metrics[metric].inc()
+
+            return ''
+
+    @staticmethod
+    def get_list_permutations(asset_model: Asset, max_lists: int = 32
+                              ) -> set[str]:
+        '''
+        Generate the names of the lists that this asset should be added to
+
+        :param asset_model: the (pydantic) asset to generate the lists for
+        '''
+        # We use short_append to make sure vertically oriented assets
+        # go to separate lists from horizontally oriented assets.
+        short_append: str = AssetCache.get_short_appendix(asset_model)
+
+        lists_set: set[str] = set()
+
+        categories: list[str] | None = sorted(
+            [
+                category.lower() for category in asset_model.categories
+                if isinstance(category, str)
+            ]
+        )[:2]
+
+        keywords: list[str] = sorted(
+            [
+                keyword.lower() for keyword in asset_model.keywords
+                if isinstance(keyword, str)
+            ]
+        )[:4]
+
+        annotations: list[str] = sorted(
+            [
+                annotation.lower() for annotation in asset_model.annotations
+                if isinstance(annotation, str)
+            ]
+        )[:4]
+
+        # Create the lists that we will add the asset to.
+        # Structure is: <category>-<keyword>-<annotation>-<short>
+        category: str
+        keyword: str
+        annotation: str
+        for category in categories:
+            list_name: str = category + short_append
+            lists_set.add(list_name)
+
+            for keyword in keywords:
+                list_name: str = category + '-' + keyword + short_append
+                lists_set.add(list_name)
+
+                for annotation in annotations:
+                    list_name = (
+                        category + '-' + keyword + '-' + annotation +
+                        short_append
+                    )
+                    lists_set.add(list_name)
+
+        # We don't want too many lists
+        list_permutations: int = max_lists - 2
+        if len(lists_set) > list_permutations:
+            lists_set = set((list(lists_set))[:list_permutations])
+
+        # the 'all_assets' list is a special list that contains all assets, so
+        # we can refresh assets in the cache before they expire
+        lists_set.add(AssetCache.ALL_ASSETS_LIST)
+
+        # Add the asset to the list for the creator
+        if asset_model.creator:
+            lists_set.add(asset_model.creator + short_append)
+        else:
+            _LOGGER.debug(
+                f'No creator for asset {asset_model.asset_id} '
+                'from member {asset_model.origin}'
+            )
+
+        created_since: timedelta
+        if asset_model.published_timestamp:
+            created_since = \
+                datetime.now(tz=UTC) - asset_model.published_timestamp
+        else:
+            created_since = \
+                datetime.now(tz=UTC) - asset_model.created_timestamp
+
+        if created_since < AssetCache.RECENT_THRESHOLD:
+            lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
+
+        metrics: dict[str, Counter | Gauge] = config.metrics
+        metric = 'assetcache_lists_per_asset'
+        if metrics and metric in metrics:
+            metrics[metric].set(len(lists_set))
+
+        return lists_set

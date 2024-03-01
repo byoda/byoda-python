@@ -49,6 +49,11 @@ TESTLIST: str = 'testlualist'
 class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     async def asyncSetUp() -> None:
+        if '192.168.1' not in REDIS_URL:
+            raise ValueError(
+                'This test should only be run against '
+                f'a test redis server: {REDIS_URL}'
+            )
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
         await cache.client.function_flush('SYNC')
@@ -79,20 +84,30 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         with open('tests/collateral/dummy_asset.json', 'r') as file:
             data: dict[str, any] = orjson.loads(file.read())
 
+        # We need to update the timestamp to ensure the asset gets added
+        # to the 'recent_uploads' list.
+        data['published_timestamp'] = datetime.now(tz=UTC).timestamp() - 7200
+
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
         member_id: UUID = uuid4()
         await cache.add_newest_asset(member_id, data)
-        for _ in range(0, 10):
+        counter: int
+        for counter in range(0, 10):
             # We need to change the member_id to make sure that the
             # cursor is unique.
             member_id = uuid4()
+            data['creator'] = f'Asset creator {counter}'
             data['asset_id'] = str(uuid4())
             await cache.add_newest_asset(member_id, data)
 
         lists: set[str] = await cache.get_list_of_lists()
         self.assertIsNotNone(lists)
-        self.assertEqual(len(lists), 30)
+        self.assertEqual(len(lists), 31)
+
+        creators: set[str] = await cache.get_creators_list()
+        self.assertIsNotNone(creators)
+        self.assertEqual(len(creators), 11)
 
         results: list[Edge] = await cache.get_list_assets()
         self.assertEqual(len(results), 11)
@@ -164,6 +179,8 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.total, 1)
         self.assertEqual(len(result.docs), 1)
 
+        await cache.close()
+
     async def test_search_asset_cache(self) -> None:
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
@@ -175,6 +192,8 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         results: list[Edge] = await cache.search('Fight')
 
         self.assertEqual(len(results), 1)
+
+        await cache.close()
 
     async def test_pagination(self) -> None:
         cache: SearchableCache = await SearchableCache.setup(REDIS_URL)
@@ -213,6 +232,7 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
             filter_name='ingest_status', filter_value='external'
         )
         self.assertEqual(len(data), 8)
+
         await cache.close()
 
 
@@ -259,9 +279,10 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
     ]
     assets: list[dict[str, str | dict[str, any]]] = []
     for counter in range(0, 20):
-        created: datetime = datetime.now(tz=UTC) - timedelta(days=counter)
+        created: datetime = datetime.now(tz=UTC) - timedelta(hours=counter)
         asset_id: UUID = uuid4()
         cursor: str = cache.get_cursor(member_id, asset_id)
+        creator: str = ['me', 'you'][int(counter / 5) % 2] + '-' + str(counter)
 
         asset_edge: dict[str, str] = {
             'cursor': cursor,
@@ -272,12 +293,12 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
                 'asset_type': 'video',
                 'title': titles[counter],
                 'ingest_status': ['published', 'external'][counter % 2],
-                'creator': ['me', 'you'][int(counter / 5) % 2],
+                'creator': creator,
                 'created_timestamp': created.timestamp()
             }
         }
         await cache.json_set(
-            [asset_list], SearchableCache.KEY_PREFIX, asset_edge
+            [asset_list], SearchableCache.ASSET_KEY_PREFIX, asset_edge
         )
         assets.append(asset_edge)
 

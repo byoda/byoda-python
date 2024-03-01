@@ -87,7 +87,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         except FileNotFoundError:
             pass
 
-        shutil.copytree('tests/collateral/local/video_asset', asset_dir)
         os.makedirs(f'{TEST_DIR}/tests/collateral', exist_ok=True)
         shutil.copy(
             'tests/collateral/byotube.json', f'{TEST_DIR}/tests/collateral/'
@@ -170,6 +169,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         network: Network = server.network
 
         channel: str = 'Dathes:ALL'
+        # channel: str = 'nfl'
         # channel: str = 'accountabletech'
         # channel: str = 'PolyMatter'
         # channel: str = 'History Matters'
@@ -219,7 +219,8 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url,
-            ingest_interval=4
+            ingest_interval=4,
+            custom_domain='test_domain'
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -248,8 +249,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         yt = YouTube()
 
         await yt.import_videos(
-            member, data_store, storage_driver,
-            ingested_videos, ingested_channels, ingest_interval=4
+            member, data_store, storage_driver, ingested_videos,
+            ingested_channels, ingest_interval=4,
+            custom_domain=server.custom_domain
         )
 
     async def test_import_videos(self) -> None:

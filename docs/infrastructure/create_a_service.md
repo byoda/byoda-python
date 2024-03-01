@@ -334,4 +334,4 @@ docker run -d   --name byoda-serviceworker \
 
 ### Developing the service
 
-The reference svcserver and the svcworker implement a pattern where the svcserver writes a member UUID to a Redis key whenever a pod registers the membership with the svcserver. The Redis key has a list as its value. The svcworker periodically takes a member UUID from the head of the list and pushes it to the back of the list. The svcworker can then query data from the pod of that member and store any data listed as cachable in the service contract in Redis
+The reference svcserver, the updates-worker and the refresh-worker implement a pattern where the svcserver writes a member UUID to a Redis key whenever a pod registers the membership with the svcserver. The Redis key has a list as its value. The updates worker periodically takes a member UUID from the head of the list and pushes it to the back of the list. The updates-worker and refresh-worker can then query data from the pod of that member and store any data listed as cachable in the service contract in Redis

@@ -307,7 +307,7 @@ async def listen_local_network_links_tables(
             _LOGGER.info(
                 f'Starting to listen for changes to class {data_class.name} '
                 f'in service {service_id} for new relations '
-                f'matching {", ".join(relations or ["(any)"])} '
+                f'matching {", ".join(relations or ["(any)"])}'
             )
             task_group.start_soon(
                 get_network_link_updates, pubsub, class_name, dest_class_name,

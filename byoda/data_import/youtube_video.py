@@ -46,6 +46,7 @@ from byoda.datatypes import IdType
 from byoda.storage.filestorage import FileStorage
 
 from byoda.secrets.secret import Secret
+
 from byoda.requestauth.jwt import JWT
 
 from byoda.util.api_client.data_api_client import DataApiClient
@@ -78,7 +79,7 @@ class YouTubeFragment:
     Models a fragment of a YouTube video or audio track
     '''
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.url: str | None = None
         self.duration: float | None = None
         self.path: str | None = None
@@ -370,15 +371,18 @@ class YouTubeVideo:
                 )
                 sleepy_time: int = randrange(1, 5)
                 await sleep(sleepy_time)
-            except DownloadError:
+            except (DownloadError, Exception) as exc:
+                _LOGGER.debug(
+                    f'Failed to extract info for video {video_id}: {exc}'
+                )
                 return None
 
             if video_info.get('is_live'):
                 _LOGGER.debug(f'Skipping live video {video_id}')
                 return
 
-            embedable: bool = video_info.get('playable_in_embed', True)
-            if not (embedable or ingest_videos):
+            video.embedable = video_info.get('playable_in_embed', True)
+            if not (video.embedable or ingest_videos):
                 _LOGGER.debug(f'Skipping non-embedable video {video_id}')
                 return
 
@@ -390,15 +394,25 @@ class YouTubeVideo:
             video.is_live = video_info.get('is_live')
             video.was_live = video_info.get('was_live')
             video.availability = video_info.get('availability')
-            video.embedable = video_info.get('embedable')
-            video.age_limit = video_info.get('age_limit')
             video.view_count = video_info.get('view_count')
             video.duration = video_info.get('duration')
             video.annotations = video_info.get('tags')
             video.categories = video_info.get('categories')
             video.creator_thumbnail_asset = creator_thumbnail
 
-            # For full ingested assets, the _ingest_video method
+            video.age_limit = video_info.get('age_limit', 0)
+
+            try:
+                if int(video.age_limit) >= 18 and not ingest_videos:
+                    _LOGGER.debug(
+                        f'Video {video.video_id} is for 18+ videos and '
+                        'can not be embedded'
+                    )
+                    return
+            except ValueError:
+                pass
+
+            # For fully ingested assets, the _ingest_video method
             # updates the url of the thumbnail
             video.creator_thumbnail = None
             if creator_thumbnail:
@@ -546,7 +560,8 @@ class YouTubeVideo:
                       bento4_directory: str = None,
                       moderate_request_url: str | None = None,
                       moderate_jwt_header: str = None,
-                      moderate_claim_url: str | None = None
+                      moderate_claim_url: str | None = None,
+                      custom_domain: str | None = None,
                       ) -> bool | None:
         '''
         Adds or updates a video in the datastore.
@@ -569,6 +584,16 @@ class YouTubeVideo:
                 'storage_driver must be provided if ingest_asset is True'
             )
 
+        # We import thumbnails regardless of ingress setting so that
+        # the browser doesn't have to download these from YouTube, which
+        # may improve privacy
+        result: int | None = await self._ingest_thumbnails(
+            storage_driver, member, custom_domain=custom_domain
+        )
+        if result is None:
+            _LOGGER.debug(f'Ingesting thumbnails failed for {self.video_id}')
+            return None
+
         update: bool = False
         claim_request: ClaimRequest | None = None
         if ingest_asset:
@@ -578,7 +603,7 @@ class YouTubeVideo:
                 )
                 update = await self._ingest_assets(
                     member, storage_driver, already_ingested_videos,
-                    bento4_directory
+                    bento4_directory, custom_domain=custom_domain
                 )
                 if update is None:
                     return None
@@ -611,7 +636,7 @@ class YouTubeVideo:
                     )
                     raise
 
-            # We now set state to PUBLISHED because we can need that value
+            # We now set state to PUBLISHED because we need that value
             # to be written to the database
             self._transition_state(IngestStatus.PUBLISHED)
         else:
@@ -645,11 +670,6 @@ class YouTubeVideo:
                     f'claim_requests/pending/{self.asset_id}',
                     orjson.dumps(claim_request, orjson.OPT_INDENT_2)
                 )
-
-        # We import thumbnails regardless of ingress setting so that
-        # the browser doesn't have to download these from YouTube, which
-        # may improve privacy
-        await self._ingest_thumbnails(storage_driver, member)
 
         asset[YouTubeVideo.DATASTORE_CLASS_NAME_THUMBNAILS] = [
             thumbnail.as_dict() for thumbnail in self.thumbnails.values()
@@ -698,7 +718,7 @@ class YouTubeVideo:
             )
             return None
 
-        _LOGGER.debug(
+        _LOGGER.info(
             f'Added YouTube video ID {self.video_id} with '
             f'Data API query {query_id}'
         )
@@ -754,9 +774,9 @@ class YouTubeVideo:
                     f'Downloading YouTube video: {self.video_id} '
                     f'to {work_dir} completed'
                 )
-            except DownloadError:
+            except (DownloadError, Exception) as exc:
                 _LOGGER.info(
-                    f'Failed to download YouTube video {self.video_id}'
+                    f'Failed to download YouTube video {self.video_id}: {exc}'
                 )
                 return None
 
@@ -774,7 +794,7 @@ class YouTubeVideo:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                'Failed to get the approvied claim from moderation API '
+                'Failed to get the approved claim from moderation API '
                 f'{moderate_claim_url}: {resp.status_code}'
             )
 
@@ -782,9 +802,11 @@ class YouTubeVideo:
 
         return claim_data
 
-    async def _ingest_assets(self, member: Member, storage_driver: FileStorage,
-                             already_ingested_videos: dict[str, dict],
-                             bento4_directory: str) -> bool | None:
+    async def _ingest_assets(
+        self, member: Member, storage_driver: FileStorage,
+        already_ingested_videos: dict[str, dict], bento4_directory: str,
+        custom_domain: str | None = None
+    ) -> bool | None:
         '''
         Downloads to audio and video files of the asset and stores them
         on object storage
@@ -857,15 +879,35 @@ class YouTubeVideo:
         finally:
             self._delete_tempdir(storage_driver)
 
-        self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
-            member_id=member.member_id, service_id=member.service_id,
-            asset_id=self.asset_id, filename='video.mpd'
-        )
+        cdn_origin_site_id: str | None = os.environ.get('CDN_ORIGIN_SITE_ID')
+
+        if cdn_origin_site_id:
+            _LOGGER.debug(
+                'Using CDN Origin Site ID for thumbnail: '
+                f'{cdn_origin_site_id}'
+            )
+            self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
+                cdn_origin_site_id=cdn_origin_site_id,
+                member_id=member.member_id, service_id=member.service_id,
+                asset_id=self.asset_id, filename='video.mpd'
+            )
+        else:
+            _LOGGER.debug('Did not find a CDN app for the server')
+            if not custom_domain:
+                raise ValueError(
+                    'Custom domain must be provided if not using a CDN'
+                )
+            self.url: str = Paths.RESTRICTED_ASSET_POD_URL.format(
+                custom_domain=custom_domain, asset_id=self.asset_id,
+                filename='video.mpd'
+            )
 
         return update
 
-    async def _ingest_thumbnails(self, storage_driver: FileStorage,
-                                 member: Member) -> int:
+    async def _ingest_thumbnails(
+        self, storage_driver: FileStorage, member: Member,
+        custom_domain: str | None = None
+    ) -> int | None:
         '''
         Ingests the thumbnails of the video and its creator
 
@@ -881,21 +923,31 @@ class YouTubeVideo:
         tmp_dir: str = self._create_tempdir(storage_driver)
         for thumbnail in self.thumbnails.values():
             _LOGGER.debug(f'Starting ingest of thumbnail {thumbnail.url}')
-            await thumbnail.ingest(
-                self.asset_id, storage_driver, member, tmp_dir
-            )
-            thumbnails_counter += 1
+            try:
+                await thumbnail.ingest(
+                    self.asset_id, storage_driver, member, tmp_dir,
+                    custom_domain=custom_domain
+                )
+                thumbnails_counter += 1
+            except ByodaRuntimeError:
+                self._delete_tempdir(storage_driver)
+                return None
 
         if self.creator_thumbnail_asset:
             _LOGGER.debug(
                 'Starting ingest of creator thumbnail from '
                 f'{self.creator_thumbnail_asset.url}'
             )
-            self.creator_thumbnail = \
-                await self.creator_thumbnail_asset.ingest(
-                    self.asset_id, storage_driver, member, tmp_dir
-                )
-            thumbnails_counter += 1
+            try:
+                self.creator_thumbnail = \
+                    await self.creator_thumbnail_asset.ingest(
+                        self.asset_id, storage_driver, member, tmp_dir,
+                        custom_domain=custom_domain
+                    )
+                thumbnails_counter += 1
+            except ByodaRuntimeError:
+                self._delete_tempdir(storage_driver)
+                return None
 
         self._delete_tempdir(storage_driver)
 

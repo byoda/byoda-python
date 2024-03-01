@@ -7,6 +7,7 @@ a server that hosts a BYODA Service
 :license    : GPLv3
 '''
 
+from uuid import UUID
 from typing import TypeVar
 from hashlib import sha256
 from logging import getLogger
@@ -14,11 +15,13 @@ from logging import getLogger
 from byoda.datamodel.table import Table
 from byoda.datamodel.content_key import ContentKey
 from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
+from byoda.datamodel.app import App
 
 from byoda.datatypes import ServerType
 from byoda.datatypes import CloudType
 from byoda.datatypes import IdType
 from byoda.datatypes import CacheType
+from byoda.datatypes import AppType
 
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.member_secret import MemberSecret
@@ -60,7 +63,7 @@ class PodServer(Server):
 
     def __init__(self, network: Network = None,
                  cloud_type: CloudType = CloudType.LOCAL,
-                 bootstrapping: bool = False):
+                 bootstrapping: bool = False) -> None:
         '''
         Sets up data structures for a pod server
 
@@ -87,6 +90,8 @@ class PodServer(Server):
 
         self.account: Account | None = None
 
+        self.apps: dict[UUID, App] = {}
+
         # These are used by the pod_worker for importing data
         self.twitter_client: Twitter | None = None
         self.youtube_client: YouTube | None = None
@@ -105,7 +110,7 @@ class PodServer(Server):
             self.account.tls_secret.cert_file, filepath
         )
 
-    async def get_registered_services(self):
+    async def get_registered_services(self) -> None:
         '''
         Downloads a list of service summaries
         '''
@@ -115,7 +120,7 @@ class PodServer(Server):
         url: str = network.paths.get(Paths.NETWORKSERVICES_API)
         resp: HttpResponse = await RestApiClient.call(url)
 
-        network.service_summaries: dict[int, dict[str, str | int | None]] = {}
+        network.service_summaries = {}
         if resp.status_code == 200:
             summaries = resp.json()
             for summary in summaries.get('service_summaries', []):
@@ -299,6 +304,18 @@ class PodServer(Server):
                 )
 
         return secret
+
+    def get_app_by_type(self, app_type: AppType, service_id: int
+                        ) -> App | None:
+        '''
+        Returns the app of the given type
+        '''
+
+        for app in self.apps.values():
+            if app.app_type == app_type and app.service_id == service_id:
+                return app
+
+        return None
 
     async def shutdown(self) -> None:
         '''

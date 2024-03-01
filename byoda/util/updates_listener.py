@@ -469,7 +469,19 @@ class UpdateListenerService(UpdatesListener):
         metric = 'updateslistener_received_assets'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of assets fetched from a member',
+                metric, 'Number of assets received from a member',
+                ['member_id']
+            )
+        metric = 'updateslistener_received_assets_without_data'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets without data received from a member',
+                ['member_id']
+            )
+        metric = 'updateslistener_assets_failed_to_store_in_cache'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets that could not be stored',
                 ['member_id']
             )
         metric = 'updateslistener_assets_stored_in_cache'
@@ -550,6 +562,13 @@ class UpdateListenerService(UpdatesListener):
         :raises: (none)
         '''
 
+        metrics: dict[str, Counter | Gauge] = config.metrics
+        if not data:
+            _LOGGER.debug('Ignoring empty data')
+            metric: str = 'updateslistener_received_assets_without_data'
+            metrics[metric].labels(member_id=self.remote_member_id).inc()
+            return False
+
         if is_test_uuid(data['asset_id']):
             if not data.get('video_thumbnails') or not data.get['title']:
                 _LOGGER.debug(
@@ -558,12 +577,15 @@ class UpdateListenerService(UpdatesListener):
                 )
                 return False
 
-        await self.asset_cache.add_newest_asset(origin_id, data)
-
         metrics: dict[str, Counter | Gauge] = config.metrics
-        metrics['updateslistener_assets_stored_in_cache'].labels(
-            member_id=self.remote_member_id
-        ).inc()
+        if await self.asset_cache.add_newest_asset(origin_id, data):
+            metrics['updateslistener_assets_stored_in_cache'].labels(
+                member_id=self.remote_member_id
+            ).inc()
+        else:
+            metrics['updateslistener_assets_failed_to_store_in_cache'].labels(
+                member_id=self.remote_member_id
+            ).inc()
 
         return True
 

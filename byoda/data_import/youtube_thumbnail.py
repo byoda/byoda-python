@@ -13,23 +13,28 @@ from uuid import uuid4
 from uuid import UUID
 from typing import Self
 from logging import getLogger
-from urllib.parse import urlparse, ParseResult
+from urllib.parse import urlparse
+from urllib.parse import ParseResult
 
 from httpx import AsyncClient as AsyncHttpClient
 
 from byoda.datamodel.member import Member
 
+from byoda.datatypes import StorageType
 from byoda.datatypes import ContentTypesByType
+from byoda.datatypes import AppType
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.datatypes import StorageType
+from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
 
 from byoda.util.paths import Paths
 
 from byoda.exceptions import ByodaRuntimeError
+
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -123,8 +128,9 @@ class YouTubeThumbnail:
 
         return data
 
-    async def ingest(self, video_id: UUID, storage_driver: FileStorage, member: Member,
-                     work_dir: str) -> str:
+    async def ingest(self, video_id: UUID, storage_driver: FileStorage,
+                     member: Member, work_dir: str, custom_domain: str = None
+                     ) -> str:
         '''
         Downloads the thumbnail to the local file system and saves it to
         (cloud) storage. This function does not delete the temporary file
@@ -137,27 +143,69 @@ class YouTubeThumbnail:
         :returns: the URL of the thumbnail in storage
         '''
 
-        _LOGGER.debug(f'Downloading thumbnail {self.url}')
+        server: PodServer = config.server
 
-        self.youtube_url = self.url
+        if not self.youtube_url:
+            self.youtube_url = self.url
+
+        _LOGGER.debug(f'Downloading thumbnail {self.youtube_url}')
 
         try:
             parsed_url: ParseResult = urlparse(self.url)
             filename: str = os.path.basename(parsed_url.path)
             with open(f'{work_dir}/{filename}', 'wb') as file_desc:
                 async with AsyncHttpClient() as client:
-                    async with client.stream('GET', self.url) as resp:
+                    async with client.stream('GET', self.youtube_url) as resp:
                         content_type: str = resp.headers.get('content-type')
                         async for chunk in resp.aiter_bytes():
                             file_desc.write(chunk)
         except Exception as exc:
-            _LOGGER.debug(f'Failed to download thumbnail {self.url}: {exc}')
-            raise ByodaRuntimeError('Thumbnail download failure') from exc
+            _LOGGER.debug(
+                f'Failed to download thumbnail {self.youtube_url}: {exc}'
+            )
+            raise ByodaRuntimeError(
+                f'Thumbnail download failure: {self.youtube_url}'
+            ) from exc
 
         ext: str | None = None
+        _: str | None = None
         _, ext = os.path.splitext(filename)
-        if not ext or ext not in ['.png', '.jpg', '.jpeg', 'webp']:
+        if not ext or ext not in ['.png', '.jpg', '.jpeg', '.webp']:
             ext = ContentTypesByType.get(content_type)
+        else:
+            ext = ''
+
+        cdn_origin_site_id: str | None = os.environ.get('CDN_ORIGIN_SITE_ID')
+
+        if cdn_origin_site_id:
+            _LOGGER.debug(
+                'Using CDN Origin Site ID for thumbnail: '
+                f'{cdn_origin_site_id}'
+            )
+            self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
+                cdn_origin_site_id=cdn_origin_site_id,
+                service_id=member.service_id, member_id=member.member_id,
+                asset_id=video_id, filename=filename, ext=ext
+            )
+        else:
+            _LOGGER.debug('No CDN app configured for the server')
+
+            if not custom_domain:
+                raise ValueError(
+                    'Custom domain must be set when not using CDN'
+                )
+
+            _LOGGER.debug(
+                f'Using POD custom domain for thumbnail: {custom_domain}'
+            )
+            self.url = Paths.PUBLIC_THUMBNAIL_POD_URL.format(
+                custom_domain=custom_domain, asset_id=video_id,
+                filename=filename, ext=ext
+            )
+
+        _LOGGER.debug(
+            f'Updating URL for thumbnail from {self.youtube_url}: {self.url}'
+        )
 
         try:
             with open(f'{work_dir}/{filename}', 'rb') as file_desc:
@@ -174,10 +222,4 @@ class YouTubeThumbnail:
             _LOGGER.debug(f'Failed to save thumbnail to storage {exc}')
             raise ByodaRuntimeError('Save thumbnail failure') from exc
 
-        self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
-            service_id=member.service_id, member_id=member.member_id,
-            asset_id=video_id, filename=filename, ext=ext
-        )
-
-        _LOGGER.debug(f'New URL for thumbnail: {self.url}')
         return self.url

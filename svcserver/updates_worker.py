@@ -19,8 +19,6 @@ from datetime import timezone
 
 import orjson
 
-from datetime import UTC
-
 from anyio import run
 from anyio import sleep
 from anyio import create_task_group
@@ -40,8 +38,6 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.config import ServerConfig
 
-from byoda.models.data_api_models import EdgeResponse as Edge
-
 from byoda.datastore.memberdb import MemberDb
 
 from byoda.storage.filestorage import FileStorage
@@ -52,8 +48,6 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
-
-from byoda.secrets.service_secret import ServiceSecret
 
 from byoda.servers.service_server import ServiceServer
 
@@ -106,12 +100,10 @@ async def main() -> None:
             task_group
         )
         while True:
-            _LOGGER.debug(f'Members seen: {len(members_seen)}')
-            if wait_time:
-                await refresh_assets(
-                    wait_time, service.tls_secret, server.asset_cache
-                )
-
+            _LOGGER.debug(
+                f'Members seen: {len(members_seen)}, '
+                f'Time available to refresh assets: {wait_time}'
+            )
             wait_time = MAX_WAIT
 
             member_id: UUID | None = None
@@ -148,7 +140,7 @@ async def main() -> None:
                 _LOGGER.exception(f'Got exception: {exc}')
 
             if not wait_time:
-                wait_time = 0.1
+                wait_time = 1
             elif member_id:
                 # Add the member back to the list of members as it seems
                 # to be up and running, even if it may not have returned
@@ -156,74 +148,8 @@ async def main() -> None:
                 _LOGGER.debug(f'Adding {member_id} back to the list')
                 await member_db.add_member(member_id)
 
-
-async def refresh_assets(time_available: int, tls_secret: ServiceSecret,
-                         asset_cache: AssetCache) -> None:
-    '''
-    Takes the oldest asset from the list:all_assets list and refresh it
-    if it is about to expire.
-    - If the asset is not about to expire, it puts the oldest asset back
-    - If it is stale and gets refreshed, it pushes the asset back as
-    newest asset
-    - If it is stale and fails to get refreshed then the item does not
-    get back in the list of all_assets
-
-    :param time_available: the time we have to refresh assets before returning
-    :param tls_secret: the secret to use to refresh the asset against the pod
-    '''
-
-    now: float = datetime.now(tz=UTC).timestamp()
-
-    metrics: dict[str, Counter | Gauge] = config.metrics
-
-    _LOGGER.debug(f'Got {time_available} seconds to refresh stale assets')
-    end_time: float = now + time_available
-    edge: Edge | None = None
-    while now < end_time:
-        try:
-            edge = await asset_cache.get_oldest_asset()
-        except Exception as exc:
-            _LOGGER.debug(
-                f'Failed to get oldest asset from the all_assets list: {exc}'
-            )
-
-        if not edge:
-            _LOGGER.debug('No assets to refresh')
-            metrics['svcworker_no_assets_available_at_all'].inc()
-            break
-
-        expires_in: float = await asset_cache.get_asset_expiration(edge)
-        metrics['svcworker_oldest_asset_expires_in'].set(expires_in)
-        if expires_in > CACHE_STALE_THRESHOLD:
-            _LOGGER.debug(
-                'No assets need to be refreshed as the oldest asset '
-                f'{edge.node.asset_id} expires in {expires_in} seconds'
-            )
-            await asset_cache.add_oldest_asset(edge)
-            break
-
-        try:
-            _LOGGER.debug(
-                f'We need to refresh asset {edge.node.asset_id} '
-                f'from member {edge.origin}, expires in {expires_in} seconds'
-            )
-            metrics['svcworker_assets_needing_refresh'].inc()
-            await asset_cache.refresh_asset(edge, ASSET_CLASS, tls_secret)
-            metrics['svcworker_refresh_asset_runs'].inc()
-        except Exception as exc:
-            _LOGGER.debug(
-                f'Failed to refresh asset {edge.node.asset_id} '
-                f'from member {edge.origin}: {exc}'
-            )
-
-    sleep_period: float = end_time - datetime.now(tz=UTC).timestamp()
-    metrics['svcworker_idle_time'].set(sleep_period)
-    _LOGGER.debug('No time to sleep')
-    if sleep_period > 0:
-        _LOGGER.debug(
-            f'Sleeping {sleep_period} seconds until next refresh period'
-        )
-        await sleep(sleep_period)
+            _LOGGER.debug(f'Sleeping for {wait_time} seconds')
+            await sleep(wait_time)
 
 
 async def reconcile_member_listeners(
@@ -251,7 +177,7 @@ async def reconcile_member_listeners(
     )
 
     metrics: dict[str, Counter | Gauge] = config.metrics
-    metrics['svcworker_total_members'].set(len(member_ids))
+    metrics['svc_updates_total_members'].set(len(member_ids))
 
     unseen_members: list[UUID] = [
         m_id for m_id in member_ids
@@ -262,7 +188,7 @@ async def reconcile_member_listeners(
         f'Unseen members: {len(unseen_members)}'
     )
 
-    metrics['svcworker_unseen_members'].set(len(unseen_members))
+    metrics['svc_updates_unseen_members'].set(len(unseen_members))
 
     network: Network = service.network
     member_id: UUID
@@ -279,7 +205,7 @@ async def reconcile_member_listeners(
         await listener.setup_listen_assets(task_group)
 
         members_seen[member_id] = listener
-        metrics['svcworker_total_members'].inc()
+        metrics['svc_updates_total_members'].inc()
 
 
 async def update_member(service: Service, member_id: UUID, member_db: MemberDb
@@ -447,31 +373,12 @@ async def setup_server() -> tuple[Service, ServiceServer]:
 
 def setup_exporter_metrics() -> None:
     config.metrics = {
-        'svcworker_total_members': Gauge(
-            'svcworker_total_members', 'Number of members in MemberDB'
+        'svc_updates_total_members': Gauge(
+            'svc_updates_total_members', 'Number of members in MemberDB'
         ),
-        'svcworker_unseen_members': Gauge(
-            'svcworker_unseen_members', 'Number of unseen members'
-        ),
-        'svcworker_idle_time': Gauge(
-            'svcworker_idle_time', 'Time spent waiting for next refresh period'
-        ),
-        'svcworker_no_assets_available_at_all': Counter(
-            'svcworker_no_assets_available_at_all',
-            'number of times we did not have to run the refresh any assets'
-        ),
-        'svcworker_refresh_asset_runs': Counter(
-            'svcworker_refresh_asset_runs',
-            'number of times we had to run the refresh asset procedure'
-        ),
-        'svcworker_assets_needing_refresh': Counter(
-            'svcworker_assets_needing_refresh',
-            'Number of assets needing refresh'
-        ),
-        'svcworker_oldest_asset_expires_in': Gauge(
-            'svcworker_oldest_asset_expires_in',
-            'Seconds until the oldest asset expires'
-        ),
+        'svc_updates_unseen_members': Gauge(
+            'svc_updates_unseen_members', 'Number of unseen members'
+        )
     }
 
 
