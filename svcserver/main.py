@@ -120,7 +120,7 @@ async def lifespan(app: FastAPI) -> Generator[None, any, None]:
 
     _LOGGER.debug('Lifespan startup complete')
 
-    config.trace_server: str = app_config['application'].get(
+    config.trace_server = app_config['application'].get(
         'trace_server', config.trace_server
     )
 

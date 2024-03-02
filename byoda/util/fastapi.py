@@ -7,8 +7,6 @@ and pod servers and the functional test cases
 :license    : GPLv3
 '''
 
-import os
-
 from logging import getLogger
 
 from starlette.middleware import Middleware

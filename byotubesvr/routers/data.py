@@ -52,8 +52,7 @@ async def get_data(request: Request,
 
     _LOGGER.debug(f'GET Data API called from {request.client.host}')
 
-    server: ServiceServer = config.server
-    asset_cache: AssetCache = server.asset_cache
+    asset_cache: AssetCache = config.asset_cache
 
     first = min(first, MAX_PAGE_SIZE)
 
@@ -109,8 +108,7 @@ async def get_asset(request: Request, cursor: str | None = None,
             detail='Either cursor or asset_id and member_id must be provided'
         )
 
-    server: ServiceServer = config.server
-    asset_cache: AssetCache = server.asset_cache
+    asset_cache: AssetCache = config.asset_cache
 
     if not cursor:
         cursor = asset_cache.get_cursor(member_id, asset_id)

@@ -20,6 +20,8 @@ from fastapi import FastAPI
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
+from byoda.datacache.asset_cache import AssetCache
+
 from byoda.servers.server import Server
 
 
@@ -75,3 +77,9 @@ trace_server: str = '127.0.0.1'
 # as workers use prometheus-exporter module while app servers should
 # use OpenTelemetry prometheus exporter
 metrics: dict[str, Counter | Gauge] = {}
+
+
+#
+# Used by BYO.Tube server:
+#
+asset_cache: AssetCache | None = Non

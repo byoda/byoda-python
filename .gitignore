@@ -1,6 +1,7 @@
 .vscode/
 .idea/
 
+config-byotube.yml
 config.yml
 config.yml*
 config-dnsdb-test.yml
