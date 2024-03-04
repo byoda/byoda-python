@@ -82,4 +82,4 @@ metrics: dict[str, Counter | Gauge] = {}
 #
 # Used by BYO.Tube server:
 #
-asset_cache: AssetCache | None = Non
+asset_cache: AssetCache | None = None
