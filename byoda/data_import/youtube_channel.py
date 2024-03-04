@@ -163,6 +163,13 @@ class YouTubeChannel:
         # then the existing asset will be updated
         video: YouTubeVideo | None
         for video in self.videos.values():
+            if video.channel_creator != self.name:
+                _LOGGER.debug(
+                    f'Video {video.video_id} created '
+                    f'by {video.channel_creator} does not belong to channel '
+                    f'{self.name}'
+                )
+                continue
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
