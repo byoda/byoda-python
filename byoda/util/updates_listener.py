@@ -256,7 +256,8 @@ class UpdatesListener:
 
         metrics: dict[str, Gauge, Counter] | None = config.metrics
         metric: str = 'updateslistener_connection_retry_wait'
-        metrics[metric].labels(member_id=self.remote_member_id).set(0)
+        if metrics and metric in metrics:
+            metrics[metric].labels(member_id=self.remote_member_id).set(0)
 
         reconnect_delay: int = 0.5
         last_alive: datetime = datetime.now(tz=timezone.utc)

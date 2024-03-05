@@ -33,6 +33,7 @@ from httpx import RequestError
 from httpx import TransportError
 
 # Imported so that other modules can import these exceptions
+from httpx import HTTPError
 from httpx import ConnectError
 from httpx import ConnectTimeout
 from httpx import NetworkError
