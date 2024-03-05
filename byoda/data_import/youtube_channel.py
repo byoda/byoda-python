@@ -170,6 +170,7 @@ class YouTubeChannel:
                     f'{self.name}'
                 )
                 continue
+
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
@@ -526,9 +527,9 @@ class YouTubeChannel:
         '''
 
         soup = BeautifulSoup(page_data, 'html.parser')
-        script = soup.find(
+        script: str = soup.find(
             'script', string=YouTubeChannel.CHANNEL_SCRAPE_REGEX_SHORT
-        )
+        ).text
 
         if not script:
             _LOGGER.warning('Did not find text in HTML scrape')
@@ -539,7 +540,7 @@ class YouTubeChannel:
         parsed_data: dict[str, any] = {}
 
         raw_data: str = YouTubeChannel.CHANNEL_SCRAPE_REGEX.search(
-            script.text
+            script
         ).group(1)
 
         try:
@@ -551,8 +552,10 @@ class YouTubeChannel:
             )
             return {}
 
-        raw_data = None
+        # Make sure memory is released
+        soup.decompose()
         soup = None
+        raw_data = None
         script = None
 
         return parsed_data
