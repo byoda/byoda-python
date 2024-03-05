@@ -42,7 +42,6 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.updates_listener import UpdateListenerMember
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
-from byoda.util.api_client.api_client import RequestError
 
 from byoda.util.paths import Paths
 from byoda.util.logger import Logger
@@ -182,7 +181,7 @@ async def check_network_links_for_service(data_store: DataStore,
                 )
 
                 links_healthy[remote_member_id] = result.status_code == 200
-            except RequestError:
+            except Exception:
                 links_healthy[remote_member_id] = False
 
         if links_healthy[remote_member_id]:
