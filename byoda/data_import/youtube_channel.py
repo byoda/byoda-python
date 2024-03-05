@@ -242,7 +242,7 @@ class YouTubeChannel:
         for thumbnail in self.banners:
             await thumbnail.ingest(
                 video_id=self.channel_id, storage_driver=storage_driver,
-                member=member, work_dir=dirpath
+                member=member, work_dir=dirpath, custom_domain=custom_domain
             )
 
         rmtree(dirpath)
