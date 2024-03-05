@@ -408,8 +408,8 @@ class SqliteStorage(Sql):
                 f'Created member db data directory {member_data_dir}'
             )
 
-        self.member_db_files[member_id]: str = member_db_file
-        self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
+        self.member_db_files[member_id] = member_db_file
+        self.member_sql_tables[member_id] = {}
 
         # this will create the DB file if it doesn't exist already
         async with aiosqlite.connect(member_db_file) as db_conn:
