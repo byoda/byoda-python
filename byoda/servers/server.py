@@ -36,7 +36,7 @@ JWT = TypeVar('JWT')
 
 class Server:
     def __init__(self, network: Network,
-                 cloud_type: CloudType = CloudType.LOCAL):
+                 cloud_type: CloudType = CloudType.LOCAL) -> None:
 
         self.server_type: ServerType | None = None
         self.cloud: CloudType = cloud_type

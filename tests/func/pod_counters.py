@@ -108,17 +108,17 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_rest_counters(self):
+    async def test_rest_counters(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
         auth_header: dict[str, str] = await get_member_auth_header(
             service_id=service_id, app=APP
         )
 
-        account = config.server.account
+        account: Account = config.server.account
         member: Member = await account.get_membership(service_id)
 
         class_name: str = 'network_assets'

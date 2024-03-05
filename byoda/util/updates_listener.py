@@ -76,9 +76,10 @@ class UpdatesListener:
     '''
 
     def __init__(self, class_name: str, service_id: int,
-                 remote_member_id: UUID, network_name: str, tls_secret: Secret,
+                 remote_member_id: UUID, network_name: str,
+                 tls_secret: Secret, annotations: list[str],
                  cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
-                 ) -> Self:
+                 ) -> None:
         '''
         Listen for updates to a class from a remote pod and store the updates
         in a cache
@@ -87,6 +88,7 @@ class UpdatesListener:
         :param member_id: the member ID of the remote pod to listen to
         :param network_name: the name of the network that the pod is in
         :param tls_secret: our TLS secret of either our pod or service
+        :param annotations: the annotations to use for filtering the data
         :param cache_expiry: the time in seconds after which the data should
         be expired
         :returns: self
@@ -103,6 +105,7 @@ class UpdatesListener:
         self.cache_expiration: int = cache_expiration
         self.network_name: str = network_name
         self.tls_secret: Secret = tls_secret
+        self.annotations: list[str] = annotations
 
     async def get_all_data(self) -> int:
         '''
@@ -181,9 +184,22 @@ class UpdatesListener:
 
             edge: Edge
             for edge in response.edges or []:
-                await self.store_asset_in_cache(
-                    edge.node, edge.origin, edge.cursor
-                )
+                creator: str | None = edge.node.get('creator')
+                if not self.annotations or creator in self.annotations:
+                    await self.store_asset_in_cache(
+                        edge.node, edge.origin, edge.cursor
+                    )
+                    if metrics:
+                        metric = 'updateslistener_assets_stored_in_cache'
+                        metrics[metric].labels(
+                            member_id=self.remote_member_id
+                        ).inc()
+                else:
+                    if metrics:
+                        metric = 'updateslistener_assets_skipped'
+                        metrics[metric].labels(
+                            member_id=self.remote_member_id
+                        ).inc()
 
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
@@ -257,12 +273,6 @@ class UpdatesListener:
                 ):
                     updates_data: dict = orjson.loads(result)
                     edge = UpdatesResponseModel(**updates_data)
-                    _LOGGER.debug(
-                        f'Appending data from class {self.class_name} '
-                        f'originating from {edge.origin_id} '
-                        f'received from member {self.remote_member_id} '
-                        f'to asset cache: {edge.node}'
-                    )
 
                     if edge.origin_id_type != IdType.MEMBER:
                         _LOGGER.debug(
@@ -271,15 +281,30 @@ class UpdatesListener:
                         )
                         continue
 
-                    await self.store_asset_in_cache(
-                        edge.node, edge.origin_id, edge.cursor
-                    )
+                    creator: str | None = edge.node['creator']
+                    if not self.annotations or creator in self.annotations:
+                        _LOGGER.debug(
+                            f'Appending data from class {self.class_name} '
+                            f'originating from {edge.origin_id} '
+                            f'received from member {self.remote_member_id} '
+                            f'to asset cache: {edge.node}'
+                        )
 
-                    metric = 'updateslistener_updates_received'
-                    if metrics and metric in metrics:
-                        metrics[metric].labels(
-                            member_id=self.remote_member_id
-                        ).inc()
+                        await self.store_asset_in_cache(
+                            edge.node, edge.origin_id, edge.cursor
+                        )
+
+                        metric = 'updateslistener_updates_received'
+                        if metrics and metric in metrics:
+                            metrics[metric].labels(
+                                member_id=self.remote_member_id
+                            ).inc()
+                    else:
+                        metric = 'updateslistener_assets_skipped'
+                        if metrics and metric in metrics:
+                            metrics[metric].labels(
+                                member_id=self.remote_member_id
+                            ).inc()
 
                     # We received data from the remote pod, so reset the
                     # reconnect delay
@@ -472,6 +497,22 @@ class UpdateListenerService(UpdatesListener):
                 metric, 'Number of assets received from a member',
                 ['member_id']
             )
+        metric = 'updateslistener_assets_stored_in_cache'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets stored in cache',
+                ['member_id']
+            )
+        metric = 'updateslistener_assets_skipped'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric,
+                (
+                    'Number of assets not stored in cache because creator '
+                    'not in annotations'
+                ),
+                ['member_id']
+            )
         metric = 'updateslistener_received_assets_without_data'
         if metric not in metrics:
             metrics[metric] = Counter(
@@ -602,7 +643,7 @@ class UpdateListenerMember(UpdatesListener):
     '''
 
     def __init__(self, class_name: str, member: Member, remote_member_id: UUID,
-                 dest_class_name: str,
+                 dest_class_name: str, annotations: list[str],
                  cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
                  ) -> Self:
         '''
@@ -611,6 +652,7 @@ class UpdateListenerMember(UpdatesListener):
         :param data_class: class to retrieve data from
         :param member: the member to retrieve the data from
         :param dest_class_name: the class to store the data in
+        :param annotations: the annotations to use for filtering the data
         :param cache_expiration: the time in seconds after which the data
         must be expired
         :returns: self
@@ -623,7 +665,7 @@ class UpdateListenerMember(UpdatesListener):
 
         super().__init__(
             class_name, service_id, remote_member_id, network_name,
-            member.tls_secret, cache_expiration
+            member.tls_secret, annotations, cache_expiration
         )
 
         self.member: Member = member
@@ -651,8 +693,8 @@ class UpdateListenerMember(UpdatesListener):
         )
 
     async def setup(class_name: str, member: Member, remote_member_id: UUID,
-                    dest_class_name: str,
-                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                    dest_class_name: str, annotations: list[str],
+                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
                     ) -> Self:
         '''
         Factory
@@ -661,6 +703,7 @@ class UpdateListenerMember(UpdatesListener):
         :param member: our membership of the service
         :param remote_member_id: the member to retrieve the data from
         :param dest_class_name: the class to store the data in
+        :param annotations: the annotations to use for filtering the data
         :param cache_expiration: the time in seconds after which the data
         must be expired
         :returns: self
@@ -669,7 +712,7 @@ class UpdateListenerMember(UpdatesListener):
 
         self = UpdateListenerMember(
             class_name, member, remote_member_id, dest_class_name,
-            cache_expiration
+            annotations, cache_expiration,
         )
 
         return self

@@ -70,7 +70,7 @@ class MemberDb:
             cache_type=CacheType.MEMBERDB, cache_tech=CacheTech.REDIS
         )
 
-        self.kvcache: KVCache = kvcache
+        self.kvcache = kvcache
 
         return self
 
@@ -80,7 +80,7 @@ class MemberDb:
         return kvcache.identifier
 
     @service_id.setter
-    def service_id(self, service_id: int):
+    def service_id(self, service_id: int) -> None:
         kvcache: KVCache = self.kvcache
         kvcache.identifier = f'service-{str(service_id)}'
 
@@ -90,10 +90,10 @@ class MemberDb:
         does not check whether the member_id is in the list
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
 
         kvcache: KVCache = self.kvcache
-        exists = await kvcache.exists(mid)
+        exists: bool = await kvcache.exists(mid)
 
         return exists
 
@@ -132,7 +132,7 @@ class MemberDb:
             _LOGGER.debug(f'Adding member {member_id} to the list')
             await self.add_member(member_id)
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         _LOGGER.debug(
             f'Adding metadata for member {member_id} with key {mid} to '
             'the MemberDB'
@@ -158,7 +158,7 @@ class MemberDb:
         :raises: KeyError if the member is not in the database
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         kvcache: KVCache = self.kvcache
         data = await kvcache.get(mid)
 
@@ -170,7 +170,7 @@ class MemberDb:
         if not data:
             raise KeyError(f'Member {str(member_id)} not found')
 
-        value = {
+        value: dict[str, any] = {
             'member_id': UUID(data['member_id']),
             'remote_addr': ip_address(data['remote_addr']),
             'schema_version': int(data['schema_version']),
@@ -188,7 +188,7 @@ class MemberDb:
         :returns: whether the key existed or not
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=member_id)
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=member_id)
 
         kvcache: KVCache = self.kvcache
         ret = await kvcache.delete(mid)

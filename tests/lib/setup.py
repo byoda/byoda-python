@@ -10,10 +10,9 @@ import os
 import shutil
 
 from uuid import UUID
+from passlib.context import CryptContext
 
 import orjson
-
-from passlib.context import CryptContext
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -45,9 +44,16 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_VERSION
 
 
-def mock_environment_vars(test_dir: str) -> None:
+def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     '''
-    Sets environment variables needed by setup_network() and setup_account
+    Sets environment variables needed by setup_network() and setup_account.
+    It sets the hashed value for the ACCOUNT_SECRET if hash_password is True
+
+    :param test_dir:
+    :param hash_password: should the environment variable with the account
+    password have a hashed password? True is you are running a standalone
+    test, False in the test client if the client is calling a separate server
+    process
     '''
 
     os.environ['ROOT_DIR'] = test_dir
@@ -57,7 +63,14 @@ def mock_environment_vars(test_dir: str) -> None:
     os.environ['CLOUD'] = 'LOCAL'
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(get_test_uuid())
+
     os.environ['ACCOUNT_SECRET'] = 'test'
+    if hash_password:
+        password_hash_context = CryptContext(
+            schemes=["bcrypt"], deprecated="auto"
+        )
+        os.environ['ACCOUNT_SECRET'] = password_hash_context.hash('test')
+
     os.environ['LOGLEVEL'] = 'DEBUG'
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
@@ -141,8 +154,13 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
 
     server.account = account
 
-    password_hash_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    account.password = password_hash_context.hash(data['account_secret'])
+    if data['account_secret'].startswith('$2b$'):
+        account.password = data['account_secret']
+    else:
+        password_hash_context = CryptContext(
+            schemes=["bcrypt"], deprecated="auto"
+        )
+        account.password = password_hash_context.hash(data['account_secret'])
 
     await account.create_account_secret()
     if not account.tls_secret.cert:

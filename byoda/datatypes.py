@@ -56,7 +56,7 @@ MemberInfo: namedtuple = namedtuple(
 )
 NetworkLink: namedtuple = namedtuple(
     'NetworkLink', [
-        'member_id', 'relation', 'created_timestamp','annotations',
+        'member_id', 'relation', 'created_timestamp', 'annotations',
         'last_health_api_success'
     ]
 )

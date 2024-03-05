@@ -38,7 +38,7 @@ from byotubesvr.routers import status as StatusRouter
 
 from tests.lib.setup import get_test_uuid
 
-from podserver.codegen.pydantic_service_4294929430_1 import asset as Asset
+from byoda.models.data_api_models import Asset
 
 from byotubesvr.routers.data import DEFAULT_PAGING_SIZE
 

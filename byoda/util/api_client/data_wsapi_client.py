@@ -67,7 +67,7 @@ class DataWsApiClient(DataApiClient):
                    data_filter: DataFilterType | None = None,
                    internal: bool = False,
                    timeout: int = 20
-                   ) -> HttpResponse:
+                   ):
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -141,7 +141,7 @@ class DataWsApiClient(DataApiClient):
         async with websockets.connect(
                 data_url, ping_timeout=timeout, ping_interval=timeout,
                 extra_headers=headers, ssl=ssl_context) as webs:
-            body = orjson.dumps(model)
+            body: bytes = orjson.dumps(model)
             await webs.send(body)
             _LOGGER.debug(f'Send model to WS-API: {body.decode("utf-8")}')
             while True:

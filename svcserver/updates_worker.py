@@ -94,7 +94,7 @@ async def main() -> None:
 
     async with create_task_group() as task_group:
         # Set up the listeners for the members that are already in the cache
-        _LOGGER.debug('Start up member reconsilation')
+        _LOGGER.debug('Start up member reconsiliation')
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
             task_group

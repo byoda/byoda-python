@@ -135,7 +135,7 @@ class MemberData(dict):
         schema: Schema = member.schema
 
         member.joined = datetime.now(timezone.utc)
-        member.schema_versions: list[int] = [schema.version]
+        member.schema_versions = [schema.version]
 
         member_data: dict[str, str | int | bool] = {
             'member_id': str(member.member_id),
@@ -655,7 +655,7 @@ class MemberData(dict):
         remote_addr: str = websocket.client.host
 
         _LOGGER.debug(
-            f'Received REST Data Updates API request for {class_name} '
+            f'Received Data Updates API request for {class_name} '
             f'from host {remote_addr}'
         )
 

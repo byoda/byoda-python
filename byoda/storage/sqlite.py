@@ -548,7 +548,7 @@ class SqliteStorage(Sql):
             'SELECT member_id, service_id, status, timestamp '
             'FROM memberships '
         )
-        if status:
+        if status and status.value:
             query += f'WHERE status = "{status.value}" '
 
         if not os.path.exists(self.account_db_file):

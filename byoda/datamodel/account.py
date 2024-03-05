@@ -62,7 +62,7 @@ class Account:
     This class is expected to only be used in the podserver
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'account', 'password', 'account_id', 'document_store', 'network',
         'private_key_password', 'data_secret', 'tls_secret', 'paths',
         'memberships'
@@ -153,7 +153,7 @@ class Account:
 
     async def create_data_secret(self,
                                  accounts_ca: NetworkAccountsCaSecret = None,
-                                 renew: bool = False):
+                                 renew: bool = False) -> None:
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -218,8 +218,8 @@ class Account:
                 )
             else:
                 csr = await secret.create_csr(self.account_id)
-                payload = {'csr': secret.csr_as_pem(csr)}
-                url = self.paths.get(Paths.NETWORKACCOUNT_API)
+                payload: dict[str, str] = {'csr': secret.csr_as_pem(csr)}
+                url: str = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 _LOGGER.debug(f'Getting CSR signed from {url}')
                 resp: HttpResponse = await RestApiClient.call(
@@ -248,12 +248,12 @@ class Account:
         for changing symmetric keys is currently not supported.
         '''
 
-        filepath = self.paths.get(
+        filepath: str = self.paths.get(
             self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE
         )
 
         try:
-            protected = await self.document_store.backend.read(
+            protected: str = await self.document_store.backend.read(
                 filepath, file_mode=FileMode.BINARY
             )
             self.data_secret.load_shared_key(protected)
@@ -275,7 +275,7 @@ class Account:
             file_mode=FileMode.BINARY
         )
 
-    async def load_secrets(self):
+    async def load_secrets(self) -> None:
         '''
         Loads the secrets for the account
         '''
