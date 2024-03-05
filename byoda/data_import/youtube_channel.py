@@ -137,15 +137,16 @@ class YouTubeChannel:
 
         return data
 
-    async def persist(self, member: Member, data_store: DataStore,
-                      storage_driver: FileStorage,
-                      already_ingested_videos: dict[str, dict] = {},
-                      bento4_directory: str | None = None,
-                      moderate_request_url: str | None = None,
-                      moderate_jwt_header: str | None = None,
-                      moderate_claim_url: str | None = None,
-                      ingest_interval: int = 0,
-                      custom_domain: str | None = None) -> None:
+    async def persist(
+        self, member: Member, data_store: DataStore,
+        storage_driver: FileStorage,
+        already_ingested_videos: dict[str, dict[str, str | datetime]] = {},
+        bento4_directory: str | None = None,
+        moderate_request_url: str | None = None,
+        moderate_jwt_header: str | None = None,
+        moderate_claim_url: str | None = None, ingest_interval: int = 0,
+        custom_domain: str | None = None
+    ) -> None:
         '''
         persist any video not yet in the public_assets collection to that
         collection, including downloading the video, packaging it, and
@@ -256,15 +257,17 @@ class YouTubeChannel:
 
         return None
 
-    async def scrape(self, already_ingested_videos: dict[str, dict] = {},
-                     filename: str = None) -> None:
+    async def scrape(
+        self, already_ingested_videos: dict[str, dict[str, str | datetime]] = {},
+        filename: str = None
+    ) -> None:
         '''
         Scrapes videos from the YouTube website and optionally stores them in
         the data store
 
         :param already_ingested_videos: dictionary of ingested assets with
-        YouTube video IDs as keys and as values the data from the member data
-        store
+        YouTube video IDs as keys and as values a dict with ingest_status
+        and published_timestamp
         :param filename: file with scrape data. If not specified, the data is
         retrieved from the youtube.com website.
         :returns: number of pages scraped
@@ -577,10 +580,11 @@ class YouTubeChannel:
 
         return data
 
-    async def find_videos(self, data: dict | list | int | str | float,
-                          already_ingested_videos: dict[str, dict],
-                          ingest_videos: bool,
-                          creator_thumbnail: YouTubeThumbnail | None) -> None:
+    async def find_videos(
+        self, data: dict | list | int | str | float,
+        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        ingest_videos: bool, creator_thumbnail: YouTubeThumbnail | None
+    ) -> None:
         '''
         Find the videos in the by walking through the deserialized
         output of a scrape of a YouTube channel
@@ -638,18 +642,12 @@ class YouTubeChannel:
                     f'Skipping video {video_id} as it is already '
                     'ingested and we are not importing AV streams'
                 )
-                # We don't need to keep all the info for the video in memory
-                # if we don't plan on ingesting it
-                already_ingested_videos[video_id] = {'ingest_status': status}
                 return
             elif status == IngestStatus.PUBLISHED:
                 _LOGGER.debug(
                     f'Skipping video {video_id} that we already ingested '
                     'earlier in this run'
                 )
-                # We don't need to keep all the info for the video in memory
-                # if we don't plan on ingesting it
-                already_ingested_videos[video_id] = {'ingest_status': status}
                 return
 
             _LOGGER.debug(
@@ -660,7 +658,7 @@ class YouTubeChannel:
             if ingest_videos:
                 status = IngestStatus.NONE
 
-        video = await YouTubeVideo.scrape(
+        video: YouTubeVideo = await YouTubeVideo.scrape(
             video_id, ingest_videos, creator_thumbnail
         )
 
@@ -868,6 +866,7 @@ class YouTubeChannel:
                     for asset in already_ingested_videos.values()
                 ]
             ) - timedelta(seconds=1)
+
             page_token: str | None = None
             while api_requests < max_api_requests:
                 request = self.api_client.search().list(

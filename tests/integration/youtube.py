@@ -96,7 +96,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             f'{TEST_DIR}/tests/collateral/'
         )
 
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(
             delete_tmp_dir=False
         )
@@ -116,7 +116,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         os.makedirs(f'{TEST_DIR}/network-byoda.net/services/service-16384')
         shutil.copy(
             'tests/collateral/byotube.json',
-            f'{TEST_DIR}/network-byoda.net/services/service-16384/service-contract.json'
+            f'{TEST_DIR}/network-byoda.net/services/service-16384/service-contract.json'        # noqa: E501
         )
 
         global APP
@@ -181,10 +181,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         channel_data_class: SchemaDataItem = \
             data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
 
-        ingested_channels: dict[str, dict[str, str]] = \
-            await YouTube.load_ingested_channels(
-                member.member_id, channel_data_class, data_store
-            )
+        ingested_channels: set[str] = await YouTube.load_ingested_channels(
+            member.member_id, channel_data_class, data_store
+        )
         self.assertEqual(len(ingested_channels), 0)
 
         ingested_videos: dict[str, dict[str, str]] = \

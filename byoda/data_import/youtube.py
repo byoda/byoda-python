@@ -26,6 +26,7 @@ import os
 from uuid import UUID
 from random import shuffle
 from logging import getLogger
+from datetime import datetime
 
 from googleapiclient.discovery import build
 from googleapiclient.discovery import Resource as YouTubeResource
@@ -104,7 +105,7 @@ class YouTube:
     @staticmethod
     async def load_ingested_channels(
         member_id: UUID, data_class: SchemaDataItem, data_store: DataStore
-    ) -> dict[str, dict[str, str]]:
+    ) -> set[str]:
         '''
         Load the ingested assets from the data store
 
@@ -119,10 +120,9 @@ class YouTube:
             member_id, data_class, filters={}
         )
 
-        known_channels: dict[str, dict[str, str]] = {
-            channel_data['creator']: channel_data
-            for channel_data, _ in data or []
-        }
+        known_channels: dict[str, dict[str, str]] = set(
+            [channel_data['creator'] for channel_data, _ in data or []]
+        )
 
         _LOGGER.debug(f'Found {len(known_channels)} ingested channels')
 
@@ -154,7 +154,10 @@ class YouTube:
         )
 
         known_videos: dict[str, dict[str, str]] = {
-            video_data['publisher_asset_id']: video_data
+            video_data['publisher_asset_id']: {
+                'published_timestamp': video_data['published_timestamp'],
+                'ingest_status': video_data['ingest_status']
+            }
             for video_data, _ in data or []
         }
 
@@ -162,16 +165,18 @@ class YouTube:
 
         return known_videos
 
-    async def import_videos(self, member: Member, data_store: DataStore,
-                            storage_driver: FileStorage = None,
-                            already_ingested_assets: dict[str, any] = {},
-                            already_ingested_channels: dict[str, any] = {},
-                            bento4_directory: str | None = None,
-                            moderate_request_url: str | None = None,
-                            moderate_jwt_header: str | None = None,
-                            moderate_claim_url: str | None = None,
-                            ingest_interval: int = INGEST_INTERVAL_SECONDS,
-                            custom_domain: str | None = None) -> None:
+    async def import_videos(
+        self, member: Member, data_store: DataStore,
+        storage_driver: FileStorage = None,
+        already_ingested_assets: dict[str, dict[str, str | datetime]] = {},
+        already_ingested_channels: set[str] = set(),
+        bento4_directory: str | None = None,
+        moderate_request_url: str | None = None,
+        moderate_jwt_header: str | None = None,
+        moderate_claim_url: str | None = None,
+        ingest_interval: int = INGEST_INTERVAL_SECONDS,
+        custom_domain: str | None = None
+    ) -> None:
         '''
         Scrape channel(s) and videos from YouTube and persist them to storage.
         Videos are stored in the data store. If ingest of videos is enabled

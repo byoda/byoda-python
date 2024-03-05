@@ -554,15 +554,13 @@ class YouTubeVideo:
 
         return claim_request
 
-    async def persist(self, member: Member, storage_driver: FileStorage,
-                      ingest_asset: bool,
-                      already_ingested_videos: dict[str, dict],
-                      bento4_directory: str = None,
-                      moderate_request_url: str | None = None,
-                      moderate_jwt_header: str = None,
-                      moderate_claim_url: str | None = None,
-                      custom_domain: str | None = None,
-                      ) -> bool | None:
+    async def persist(
+        self, member: Member, storage_driver: FileStorage, ingest_asset: bool,
+        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        bento4_directory: str = None, moderate_request_url: str | None = None,
+        moderate_jwt_header: str = None, moderate_claim_url: str | None = None,
+        custom_domain: str | None = None,
+    ) -> bool | None:
         '''
         Adds or updates a video in the datastore.
 
@@ -571,7 +569,7 @@ class YouTubeVideo:
         :param storage_driver: The storage driver to store the video with
         :param ingest_asset: should the A/V tracks of the asset be downloaded
         :param already_ingested_videos: dict with key the YouTube Video ID
-        and as value the data retrieved for the asset from the data store.
+        and as value a dict with 'ingest_status' and 'created_timestamp'
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :param claim: a claim for the video signed by a moderate API
@@ -804,8 +802,8 @@ class YouTubeVideo:
 
     async def _ingest_assets(
         self, member: Member, storage_driver: FileStorage,
-        already_ingested_videos: dict[str, dict], bento4_directory: str,
-        custom_domain: str | None = None
+        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        bento4_directory: str, custom_domain: str | None = None
     ) -> bool | None:
         '''
         Downloads to audio and video files of the asset and stores them
@@ -814,7 +812,7 @@ class YouTubeVideo:
         :param storage_driver: The storage driver to store the video with
         :param ingest_asset: should the A/V tracks of the asset be downloaded
         :param already_ingested_videos: dict with key the YouTube Video ID
-        and as value the data retrieved for the asset from the data store.
+        and as value the ingest status of the video
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :returns: True if the video was updated, False if it was created,
@@ -836,7 +834,7 @@ class YouTubeVideo:
             except ValueError:
                 _LOGGER.warning(
                     f'Video {self.video_id} has an invalid ingest status '
-                    f'{ingested_video["ingest_status"]}, skipping ingest'
+                    f'{current_status}, skipping ingest'
                 )
                 raise
 
