@@ -32,6 +32,12 @@ from httpx import Response as HttpResponse
 from httpx import RequestError
 from httpx import TransportError
 
+# Imported so that other modules can import these exceptions
+from httpx import ConnectError
+from httpx import ConnectTimeout
+from httpx import NetworkError
+from httpx import TimeoutException
+
 from opentelemetry.propagate import inject
 
 from byoda.storage.filestorage import FileStorage
