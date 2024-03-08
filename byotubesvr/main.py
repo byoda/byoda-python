@@ -22,6 +22,8 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
+from .database.sql import SqlStorage
+
 # from .routers import auth as AuthRouter
 from .routers import status as StatusRouter
 
@@ -31,6 +33,7 @@ _LOGGER = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     config_file: str = os.environ.get('CONFIG_FILE', 'config-byotube.yml')
+    _LOGGER.debug(f'Read configuration file: {config_file}')
     with open(config_file) as file_desc:
         app_config: dict[str, str | int | bool | None] = yaml_safe_loader(
             file_desc
@@ -45,8 +48,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['appserver'].get('logfile')
     )
-    _LOGGER.debug(f'Read configuration file: {config_file}')
 
+    config.trace_server = os.environ.get(
+        'TRACE_SERVER', config.trace_server
+    )
+
+    sql_db: SqlStorage = await SqlStorage.setup(
+        app_config['application']['litedb']
+    )
     _LOGGER.info('Starting server')
 
     yield

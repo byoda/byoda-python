@@ -10,6 +10,7 @@ Class for BYO.Tube Lite accounts
 from uuid import UUID
 from uuid import uuid4
 from typing import Self
+from hashlib import sha256
 
 from passlib.context import CryptContext
 
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 from pydantic import EmailStr
 from pydantic import SecretStr
 from pydantic import Field
+from pydantic import HttpUrl
 
 from byoda import config
 
@@ -27,15 +29,39 @@ from byotubesvr.database.sql import SqlStorage
 PASSWORD_HASH_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class LiteModel(BaseModel):
-    lite_id: UUID
+class LiteAccountApiModel(BaseModel):
     email: EmailStr
     password: SecretStr = Field(min_length=8, max_length=128)
     handle: str
-    nickname: str | None = None
 
 
-class LiteAccount:
+class LiteAccountApiResponseModel(BaseModel):
+    lite_id: UUID
+    email: EmailStr
+    verification_url: HttpUrl
+
+    @staticmethod
+    def from_sql_model(sql_model, verification_url: str) -> Self:
+        '''
+        Create an API response model from a SQL model
+        '''
+
+        verification_code: str = sql_model.generate_verification_code()
+        return LiteAccountApiResponseModel(
+            lite_id=sql_model.lite_id,
+            email=sql_model.email,
+            verification_url=(
+                f'{verification_url}?lite_id={sql_model.lite_id}'
+                f'&code={verification_code}'
+            )
+        )
+
+
+class LiteAccountVerifyModel(BaseModel):
+    pass
+
+
+class LiteAccountSqlModel:
     STMTS: dict[str, str] = {
         'create': '''
      CREATE TABLE IF NOT EXISTS accounts(
@@ -119,7 +145,7 @@ class LiteAccount:
         Create a new instance from a dictionary
         '''
 
-        lite = LiteAccount(
+        lite = LiteAccountSqlModel(
             sql_db=sql_db, lite_id=data['lite_id'], email=data['email'],
             hashed_password=data['hashed_password'], handle=data['handle'],
             is_enabled=data['is_enabled'], is_funded=data['is_funded'],
@@ -129,23 +155,32 @@ class LiteAccount:
         return lite
 
     @staticmethod
-    def from_api_model(data: LiteModel, sql_db: SqlStorage | None = None
+    def from_api_model(data: LiteAccountApiModel, sql_db: SqlStorage | None = None
                        ) -> Self:
         '''
         Create a new instance from an API model
+
+        This function only associates the account with SQL storage but can not
+        and does not persist it because the API model does not contain the
+        lite_id field.
+
+        :param data: The API model
+        :param sql_db: The SQL database to associate the LiteAccountSqlModel
+        with
+        :returns: The new instance
         '''
 
-        lite = LiteAccount(
+        lite = LiteAccountSqlModel(
             sql_db=sql_db,
-            lite_id=data.lite_id,
+            lite_id=uuid4(),
             email=data.email.lower(),
-            hashed_password=LiteAccount.hash_password(
+            hashed_password=LiteAccountSqlModel.hash_password(
                 data.password.get_secret_value()
             ),
             handle=data.handle,
             is_enabled=None,
             is_funded=None,
-            nickname=data.nickname
+            nickname=None
         )
 
         return lite
@@ -158,7 +193,7 @@ class LiteAccount:
         :param sql_db: The SQL database to use
         '''
 
-        await sql_db.query(LiteAccount.STMTS['create'], {})
+        await sql_db.query(LiteAccountSqlModel.STMTS['create'], {})
 
     @staticmethod
     async def drop_table(sql_db: SqlStorage) -> None:
@@ -192,9 +227,9 @@ class LiteAccount:
 
         lite_id: UUID = uuid4()
 
-        hashed_password: str = LiteAccount.hash_password(password)
+        hashed_password: str = LiteAccountSqlModel.hash_password(password)
 
-        lite = LiteAccount(
+        lite = LiteAccountSqlModel(
             sql_db=sql_db, lite_id=lite_id, email=email,
             hashed_password=hashed_password, handle=handle,
             is_enabled=False, is_funded=False, nickname=None
@@ -215,19 +250,19 @@ class LiteAccount:
 
         if lite_id:
             data: dict = await sql_db.query(
-                LiteAccount.STMTS['query'], {'lite_id': lite_id},
+                LiteAccountSqlModel.STMTS['query'], {'lite_id': lite_id},
                 fetch_some=False
             )
-            lite: LiteAccount = LiteAccount.from_dict(data, sql_db)
+            lite: LiteAccountSqlModel = LiteAccountSqlModel.from_dict(data, sql_db)
             return lite
         else:
             data: list[dict] = await sql_db.query(
-                LiteAccount.STMTS['query_all'], {},
+                LiteAccountSqlModel.STMTS['query_all'], {},
                 fetch_some=True
             )
-            results: list[LiteAccount] = []
+            results: list[LiteAccountSqlModel] = []
             for item in data:
-                lite = LiteAccount.from_dict(item, sql_db)
+                lite = LiteAccountSqlModel.from_dict(item, sql_db)
                 results.append(lite)
 
             return results
@@ -294,6 +329,17 @@ class LiteAccount:
         await self.sql_db.query(
             self.STMTS['delete'], {'lite_id': self.lite_id}
         )
+
+    def generate_verification_code(self) -> str:
+        '''
+        Generate a verification URL for the account
+        '''
+
+        code: str = sha256(
+            f'{self.lite_id}_{self.email}'.encode('utf-8')
+        ).hexdigest()
+
+        return code
 
     @staticmethod
     def hash_password(password: str) -> str:

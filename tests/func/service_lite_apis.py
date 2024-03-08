@@ -26,10 +26,11 @@ from byoda.util.logger import Logger
 from byoda import config
 
 from byotubesvr.database.sql import SqlStorage
-from byotubesvr.models.lite_account import LiteAccount
-from byotubesvr.models.lite_account import LiteModel
+from byotubesvr.models.lite_account import LiteAccountApiModel
+from byotubesvr.models.lite_account import LiteAccountSqlModel
 
 from byotubesvr.routers import status as StatusRouter
+from byotubesvr.routers import account as AccountRouter
 
 from tests.lib.setup import get_test_uuid
 
@@ -73,15 +74,16 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             app_config['application']['litedb']
         )
         config.sql_db = sql_db
-        for cls in [LiteAccount]:
+        for cls in [LiteAccountSqlModel]:
             await cls.drop_table(sql_db)
             await cls.create_table(sql_db)
 
         config.app = setup_api(
-            'Byoda test BYO.Tube-Lit server',
+            'Byoda test BYO.Tube-Lite server',
             'server for testing BYO.Tube-Lite APIs', 'v0.0.1',
             [
                 StatusRouter,
+                AccountRouter,
             ],
             lifespan=None, trace_server=config.trace_server,
         )
@@ -97,18 +99,18 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         # Email address with uppercase
         with self.assertRaises(ValueError):
-            await LiteAccount.create(
+            await LiteAccountSqlModel.create(
                 'STEVEN@test.com', 'test123!', 'test', sql_db=sql_db
             )
 
-        account_one: LiteAccount
-        account_two: LiteAccount
+        account_one: LiteAccountSqlModel
+        account_two: LiteAccountSqlModel
         # Two accounts with same handle
         with self.assertRaises(ValueError):
-            account_one = await LiteAccount.create(
+            account_one = await LiteAccountSqlModel.create(
                 'steven@test.com', 'test123!', 'test', sql_db=sql_db
             )
-            account_two = await LiteAccount.create(
+            account_two = await LiteAccountSqlModel.create(
                 'steven@test.com', 'test123!', 'test', sql_db=sql_db
             )
 
@@ -117,7 +119,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await account_one.persist()
 
         with self.assertRaises(ValueError):
-            account_two = await LiteAccount.create(
+            account_two = await LiteAccountSqlModel.create(
                 'steven@test.com', 'test123!', 'test'
             )
             account_two.nickname = 'test'
@@ -126,10 +128,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_account_create(self) -> None:
         sql_db: SqlStorage = config.sql_db
 
-        accounts: list[LiteAccount] = []
+        accounts: list[LiteAccountSqlModel] = []
         count: int
         for count in range(0, 10):
-            account: LiteAccount = await LiteAccount.create(
+            account: LiteAccountSqlModel = await LiteAccountSqlModel.create(
                 email=f'test-{count}@test.com', password='test123!',
                 handle=f'test-{count}',
                 sql_db=sql_db
@@ -138,17 +140,17 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(account.email, f'test-{count}@test.com')
 
         for count in range(0, 10):
-            account: LiteAccount = accounts[count]
+            account: LiteAccountSqlModel = accounts[count]
             account.email = f'modified-test-{count}@test.com'
             await account.persist()
 
         for count in range(0, 10):
-            account = await LiteAccount.from_db(
+            account = await LiteAccountSqlModel.from_db(
                 sql_db, accounts[count].lite_id
             )
             self.assertEqual(account.email, accounts[count].email)
 
-        accounts = await LiteAccount.from_db(sql_db)
+        accounts = await LiteAccountSqlModel.from_db(sql_db)
         self.assertEqual(len(accounts), 10)
 
         # Here we set values for fields NOT included in LiteModel
@@ -156,26 +158,33 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         accounts[0].is_enabled = True
         await accounts[0].persist(all_fields=True)
 
-        # Create an API model, convert it LiteAccount and then upsert
+        # Create an API model, convert it LiteAccountSqlModel and then upsert
         # an existing record in the DB to see if the previously
         # set values remain unchanged
-        model = LiteModel(
-            lite_id=accounts[0].lite_id, email=accounts[0].email,
-            password='test123!', handle='testmodel', nickname='test'
+        model = LiteAccountApiModel(
+            email=accounts[0].email, password='test123!', handle='testmodel',
+            nickname='test'
         )
-        model_account: LiteAccount = LiteAccount.from_api_model(model, sql_db)
+        model_account = LiteAccountSqlModel.from_api_model(model, sql_db)
+        model_account.lite_id = accounts[0].lite_id
         await model_account.persist(all_fields=False)
 
-        account = await LiteAccount.from_db(sql_db, accounts[0].lite_id)
+        account = await LiteAccountSqlModel.from_db(
+            sql_db, accounts[0].lite_id
+        )
         self.assertEqual(account.is_funded, False)
         self.assertEqual(account.is_enabled, True)
-        self.assertEqual(account.nickname, 'test')
+        self.assertEqual(account.nickname, None)
+
+        response = LiteAccountSqlModel.from_api_model(model)
+        self.assertEqual(response.email, model.email)
+        self.assertEqual(response.email, accounts[0].email)
 
         for count in range(0, 10):
             account = accounts[count]
             await account.delete()
 
-        accounts = await LiteAccount.from_db(sql_db)
+        accounts = await LiteAccountSqlModel.from_db(sql_db)
         self.assertEqual(len(accounts), 0)
 
     async def test_service_auth_api(self) -> None:
@@ -187,6 +196,18 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'http://localhost:8000/api/v1/status'
             )
             self.assertEqual(resp.status_code, 200)
+
+            resp: HttpResponse = await client.post(
+                f'{BASE_URL}/api/v1/lite/account/signup',
+                json={
+                    'email': 'test@test.com', 'password': 'test123!',
+                    'handle': 'testhandle'
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('lite_id' in data)
+            self.assertEqual(data['email'], 'test@test.com')
 
 
 if __name__ == '__main__':
