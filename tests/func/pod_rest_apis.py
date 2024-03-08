@@ -70,7 +70,7 @@ APP: FastAPI | None = None
 
 class TestPodApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'

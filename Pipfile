@@ -70,6 +70,10 @@ innertube = "*"
 prometheus-fastapi-instrumentator = "*"
 memray = "*"
 orjson = "*"
+jose = "*"
+psycopg = {extras = ["binary"], version = "*"}
+psycopg-pool = "*"
+email-validator = "*"
 
 [dev-packages]
 flake8 = "*"

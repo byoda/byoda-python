@@ -411,7 +411,7 @@ class ApiClient:
         for pool in pools:
             del config.client_pools[pool]
 
-        config.client_pools: dict[str, AsyncHttpClient] = {}
+        config.client_pools = {}
 
     @staticmethod
     def _get_sync_client(api: str, secret: Secret, service_id: int,

@@ -366,8 +366,7 @@ class YouTubeVideo:
             try:
                 _LOGGER.debug(f'Scraping YouTube video {video_id}')
                 video_info: dict[str, any] = ydl.extract_info(
-                    video.url,
-                    download=False
+                    video.url, download=False
                 )
                 sleepy_time: int = randrange(1, 5)
                 await sleep(sleepy_time)

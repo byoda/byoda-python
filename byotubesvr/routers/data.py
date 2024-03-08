@@ -19,8 +19,6 @@ from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
 
-from byoda.servers.service_server import ServiceServer
-
 from byoda.util.logger import Logger
 
 from byoda import config

@@ -24,6 +24,7 @@ from cryptography import x509
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import AuthSource
+from byoda.datatypes import EntityId
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -82,10 +83,10 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
-    common_name = Secret.extract_commonname(csr_x509)
+    common_name: str = Secret.extract_commonname(csr_x509)
 
     try:
-        csr_entity_id = MembersCaSecret.review_commonname_by_parameters(
+        csr_entity_id: EntityId = MembersCaSecret.review_commonname_by_parameters(
             common_name, network.name, service.service_id
         )
     except PermissionError:

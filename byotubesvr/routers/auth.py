@@ -23,13 +23,11 @@ from byoda.models.db_models import dbServiceInstance
 
 from byoda.datastore.sql_storage import SqlStorage
 
-from byoda.jwt_auth import authenticate_account
-from byoda.jwt_auth import create_access_token
-from byoda.jwt_auth import get_current_active_account
+from byoda.requestauth.oauth import authenticate_account
+from byoda.requestauth.oauth import create_access_token
+from byoda.requestauth.oauth import get_current_active_account
 
-from byoda.jwt_auth import OAuth2PasswordRequestForm
-
-from byoda.clouds.deploy import DeployConfig
+from byoda.requestauth.oauth import OAuth2PasswordRequestForm
 
 from byoda import config
 
@@ -40,21 +38,10 @@ router = APIRouter(prefix='/api/v1/auth', dependencies=[])
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+        form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     '''
     User authentication API
     '''
-
-    account: dbAccount = await authenticate_account(
-        form_data.username, form_data.password
-    )
-
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
 
     if not account.is_enabled:
         raise HTTPException(
