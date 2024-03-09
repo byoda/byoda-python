@@ -11,6 +11,8 @@ from uuid import UUID
 from uuid import uuid4
 from typing import Self
 from hashlib import sha256
+from datetime import UTC
+from datetime import datetime
 
 from passlib.context import CryptContext
 
@@ -46,13 +48,13 @@ class LiteAccountApiResponseModel(BaseModel):
         Create an API response model from a SQL model
         '''
 
-        verification_code: str = sql_model.generate_verification_code()
+        verification_token: str = sql_model.generate_verification_token()
         return LiteAccountApiResponseModel(
             lite_id=sql_model.lite_id,
             email=sql_model.email,
             verification_url=(
                 f'{verification_url}?lite_id={sql_model.lite_id}'
-                f'&code={verification_code}'
+                f'&token={verification_token}'
             )
         )
 
@@ -71,6 +73,7 @@ class LiteAccountSqlModel:
         hashed_password TEXT NOT NULL,
         is_enabled BOOL DEFAULT FALSE,
         is_funded BOOL DEFAULT FALSE,
+        created_timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         nickname TEXT,
         UNIQUE(email),
         UNIQUE(nickname),
@@ -101,7 +104,8 @@ class LiteAccountSqlModel:
 
     def __init__(self, sql_db: SqlStorage, lite_id: UUID, email: str,
                  hashed_password: str, handle: str, is_enabled: bool | None,
-                 is_funded: bool | None, nickname: str | None) -> None:
+                 is_funded: bool | None, nickname: str | None,
+                 created_timestamp: datetime | None = None) -> None:
         '''
         Constructor
 
@@ -124,17 +128,19 @@ class LiteAccountSqlModel:
         self.is_enabled: bool = is_enabled
         self.is_funded: bool = is_funded
         self.nickname: str | None = nickname
+        self.created_timestamp: datetime = \
+            created_timestamp or datetime.now(tz=UTC)
 
-    def as_dict(self, values_only: bool = True
+    def as_dict(self, with_values_only: bool = True
                 ) -> dict[str, UUID | str | int | bool | None]:
         data: dict[str, any] = {}
         fields: list[str] = [
             'lite_id', 'email', 'handle', 'hashed_password', 'is_enabled',
-            'is_funded', 'nickname'
+            'is_funded', 'nickname', 'created_timestamp'
         ]
         for key in fields:
             value: any | None = getattr(self, key, None)
-            if not values_only or value:
+            if not with_values_only or value:
                 data[key] = value
 
         return data
@@ -149,14 +155,15 @@ class LiteAccountSqlModel:
             sql_db=sql_db, lite_id=data['lite_id'], email=data['email'],
             hashed_password=data['hashed_password'], handle=data['handle'],
             is_enabled=data['is_enabled'], is_funded=data['is_funded'],
-            nickname=data['nickname']
+            nickname=data['nickname'],
+            created_timestamp=data['created_timestamp']
         )
 
         return lite
 
     @staticmethod
-    def from_api_model(data: LiteAccountApiModel, sql_db: SqlStorage | None = None
-                       ) -> Self:
+    def from_api_model(data: LiteAccountApiModel,
+                       sql_db: SqlStorage | None = None) -> Self:
         '''
         Create a new instance from an API model
 
@@ -180,7 +187,8 @@ class LiteAccountSqlModel:
             handle=data.handle,
             is_enabled=None,
             is_funded=None,
-            nickname=None
+            nickname=None,
+            created_timestamp=datetime.now(tz=UTC)
         )
 
         return lite
@@ -232,7 +240,8 @@ class LiteAccountSqlModel:
         lite = LiteAccountSqlModel(
             sql_db=sql_db, lite_id=lite_id, email=email,
             hashed_password=hashed_password, handle=handle,
-            is_enabled=False, is_funded=False, nickname=None
+            is_enabled=False, is_funded=False, nickname=None,
+            created_timestamp=datetime.now(tz=UTC)
         )
         if sql_db:
             await lite.persist(sql_db, all_fields=True)
@@ -240,7 +249,7 @@ class LiteAccountSqlModel:
         return lite
 
     @staticmethod
-    async def from_db(sql_db: SqlStorage, lite_id: UUID | None = None
+    async def from_db(sql_db: SqlStorage, lite_id: UUID | str | None = None
                       ) -> Self | list[Self] | None:
         '''
         Load one account or all accounts from the database
@@ -248,12 +257,15 @@ class LiteAccountSqlModel:
         :param lite_id: The lite_id of the account
         '''
 
+        if lite_id and not isinstance(lite_id, UUID):
+            lite_id = UUID(lite_id)
+
         if lite_id:
             data: dict = await sql_db.query(
                 LiteAccountSqlModel.STMTS['query'], {'lite_id': lite_id},
                 fetch_some=False
             )
-            lite: LiteAccountSqlModel = LiteAccountSqlModel.from_dict(data, sql_db)
+            lite = LiteAccountSqlModel.from_dict(data, sql_db)
             return lite
         else:
             data: list[dict] = await sql_db.query(
@@ -292,11 +304,11 @@ class LiteAccountSqlModel:
 
         if all_fields:
             await sql_db.query(
-                self.STMTS['upsert'], self.as_dict(values_only=False)
+                self.STMTS['upsert'], self.as_dict(with_values_only=False)
             )
             return
 
-        data: dict[str, any] = self.as_dict(values_only=True)
+        data: dict[str, any] = self.as_dict(with_values_only=True)
 
         if not data:
             raise ValueError('No data to persist')
@@ -330,7 +342,7 @@ class LiteAccountSqlModel:
             self.STMTS['delete'], {'lite_id': self.lite_id}
         )
 
-    def generate_verification_code(self) -> str:
+    def generate_verification_token(self) -> str:
         '''
         Generate a verification URL for the account
         '''
