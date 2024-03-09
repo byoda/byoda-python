@@ -53,7 +53,7 @@ from byoda import config
 _LOGGER: Logger = getLogger(__name__)
 
 LUA_FUNCTION_NAME_GET_LIST_ASSETS: str = 'get_list_assets'
-LUA_FUNCTIONS_FILE: str = 'svcserver/redis.lua'
+LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
 
 
 class SearchableCache:

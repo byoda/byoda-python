@@ -37,7 +37,7 @@ from byoda.datacache.searchable_cache import SearchableCache
 # from byoda.datacache.asset_cache import AssetNode
 from byoda.util.logger import Logger
 
-LUA_SCRIPT_FILEPATH: str = 'svcserver/redis.lua'
+LUA_SCRIPT_FILEPATH: str = 'byotubesvr/redis.lua'
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.11:6379')
 

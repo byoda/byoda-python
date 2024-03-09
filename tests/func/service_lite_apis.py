@@ -37,11 +37,9 @@ from tests.lib.setup import get_test_uuid
 
 CONFIG_FILE: str = 'config-byotube.yml'
 
-TEST_DIR: str = '/tmp/byoda-tests/assetdb'
+BASE_URL: str = 'http://localhost:8000'
 
-TESTLIST: str = 'testlualist'
-
-TEST_ASSET_ID: UUID = '32af2122-4bab-40bb-99cb-4f696da49e26'
+TEST_DIR: str = '/tmp/byoda-tests/service_lite_apis'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
@@ -52,7 +50,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.debug = True
 
-        app_config['appserver']['root_dir'] = TEST_DIR
+        app_config['svcserver']['root_dir'] = TEST_DIR
 
         try:
             shutil.rmtree(TEST_DIR)
@@ -61,9 +59,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        if '192.168.' not in app_config['appserver']['asset_cache']:
+        if '192.168.' not in app_config['svcserver']['litedb']:
             raise ValueError(
-                'We must be a local Redis server for testing'
+                'We must use a local Postgres server for testing'
+            )
+        if '192.168.' not in app_config['svcserver']['asset_cache']:
+            raise ValueError(
+                'We must use a local Redis server for testing'
             )
 
         config.trace_server = os.environ.get(
@@ -71,7 +73,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         sql_db: SqlStorage = await SqlStorage.setup(
-            app_config['application']['litedb']
+            app_config['svcserver']['litedb']
         )
         config.sql_db = sql_db
         for cls in [LiteAccountSqlModel]:
@@ -175,6 +177,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(account.is_funded, False)
         self.assertEqual(account.is_enabled, True)
         self.assertEqual(account.nickname, None)
+        self.assertIsNotNone(account.created_timestamp)
 
         response = LiteAccountSqlModel.from_api_model(model)
         self.assertEqual(response.email, model.email)
@@ -188,8 +191,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(accounts), 0)
 
     async def test_service_auth_api(self) -> None:
-        BASE_URL: str = 'http://localhost:8000'
-        AUTH_URL: str = f'{BASE_URL}/auth'
+        sql_db: SqlStorage = config.sql_db
 
         async with AsyncClient(app=config.app) as client:
             resp: HttpResponse = await client.get(
@@ -208,6 +210,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             data = resp.json()
             self.assertTrue('lite_id' in data)
             self.assertEqual(data['email'], 'test@test.com')
+            verification_url = data.get('verification_url')
+            self.assertIsNotNone(verification_url)
+
+            account = await LiteAccountSqlModel.from_db(
+                sql_db, UUID(data['lite_id'])
+            )
+            self.assertIsNone(account.nickname)
+            self.assertIsNone(account.is_enabled)
+            self.assertIsNone(account.is_funded)
+            self.assertIsNotNone(account.created_timestamp)
+
+            resp = await client.get(verification_url)
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['status'], 'enabled')
 
 
 if __name__ == '__main__':

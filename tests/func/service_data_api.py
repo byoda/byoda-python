@@ -58,7 +58,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         config.debug = True
 
         cache: AssetCache = await AssetCache.setup(
-            app_config['appserver']['asset_cache']
+            app_config['svcserver']['asset_cache']
         )
         await cache.client.function_flush('SYNC')
         await cache.client.ft(cache.index_name).dropindex()
@@ -78,7 +78,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await cache.client.aclose()
 
         cache: AssetCache = await AssetCache.setup(
-            app_config['appserver']['asset_cache']
+            app_config['svcserver']['asset_cache']
         )
         config.asset_cache = cache
 
@@ -87,11 +87,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         config.app = setup_api(
-            'BYO.Tube test appserver', 'server for testing service APIs',
+            'BYO.Tube test svcserver', 'server for testing service APIs',
             'v0.0.1',
             [
-                SearchRouter,
                 StatusRouter,
+                SearchRouter,
                 DataRouter
             ],
             lifespan=None, trace_server=config.trace_server,

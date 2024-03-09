@@ -16,6 +16,8 @@ from yaml import safe_load as yaml_safe_loader
 
 from fastapi import FastAPI
 
+from byoda.datacache.asset_cache import AssetCache
+
 from byoda.util.fastapi import setup_api
 
 from byoda.util.logger import Logger
@@ -26,6 +28,9 @@ from .database.sql import SqlStorage
 
 # from .routers import auth as AuthRouter
 from .routers import status as StatusRouter
+from byotubesvr.routers import search as SearchRouter
+from byotubesvr.routers import data as DataRouter
+from byotubesvr.routers import account as AccountRouter
 
 _LOGGER = None
 
@@ -46,15 +51,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
-        logfile=app_config['appserver'].get('logfile')
+        logfile=app_config['svcserver'].get('logfile')
     )
 
     config.trace_server = os.environ.get(
         'TRACE_SERVER', config.trace_server
     )
 
-    sql_db: SqlStorage = await SqlStorage.setup(
-        app_config['application']['litedb']
+    config.sql_db = await SqlStorage.setup(
+        app_config['svcserver']['litedb']
+    )
+
+    config.asset_cache = await AssetCache.setup(
+        app_config['svcserver']['asset_cache']
     )
     _LOGGER.info('Starting server')
 
@@ -75,9 +84,12 @@ app: FastAPI = setup_api(
     'network', 'v0.0.1',
     [
         StatusRouter,
+        AccountRouter,
+        DataRouter,
+        SearchRouter,
     ],
     lifespan=lifespan, trace_server=config.trace_server,
-    cors=app_config['appserver']['cors_origins']
+    cors=app_config['svcserver']['cors_origins']
 )
 
 config.app = app
