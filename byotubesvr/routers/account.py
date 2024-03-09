@@ -15,7 +15,10 @@ from logging import getLogger
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
+from fastapi import Depends
 from fastapi.responses import ORJSONResponse
+
+from fastapi_limiter.depends import RateLimiter
 
 from byoda import config
 
@@ -30,7 +33,11 @@ _LOGGER: Logger = getLogger(__name__)
 router = APIRouter(prefix='/api/v1/lite/account', dependencies=[])
 
 
-@router.post('/signup', response_class=ORJSONResponse)
+@router.post('/signup', response_class=ORJSONResponse, dependencies=[
+        Depends(RateLimiter(times=1, seconds=10)),
+        Depends(RateLimiter(times=3, seconds=86400)),
+    ]
+)
 async def create_account(request: Request, account: LiteAccountApiModel
                          ) -> LiteAccountApiResponseModel:
     '''

@@ -16,6 +16,10 @@ from uuid import UUID
 
 from httpx import AsyncClient
 
+from fastapi_limiter import FastAPILimiter
+
+import redis.asyncio as redis
+
 from byoda.util.fastapi import setup_api
 
 from byoda.util.api_client.api_client import ApiClient
@@ -31,8 +35,6 @@ from byotubesvr.models.lite_account import LiteAccountSqlModel
 
 from byotubesvr.routers import status as StatusRouter
 from byotubesvr.routers import account as AccountRouter
-
-from tests.lib.setup import get_test_uuid
 
 
 CONFIG_FILE: str = 'config-byotube.yml'
@@ -75,6 +77,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         sql_db: SqlStorage = await SqlStorage.setup(
             app_config['svcserver']['litedb']
         )
+
         config.sql_db = sql_db
         for cls in [LiteAccountSqlModel]:
             await cls.drop_table(sql_db)
@@ -90,10 +93,17 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             lifespan=None, trace_server=config.trace_server,
         )
 
+        redis_connection = redis.from_url(
+            app_config['svcserver']['asset_cache'], encoding='utf-8'
+        )
+        await FastAPILimiter.init(
+            redis=redis_connection, prefix='ratelimits'
+        )
         return
 
     @classmethod
     async def asyncTearDown(self) -> None:
+        await FastAPILimiter.close()
         await ApiClient.close_all()
 
     async def test_account_failures(self) -> None:
@@ -190,7 +200,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         accounts = await LiteAccountSqlModel.from_db(sql_db)
         self.assertEqual(len(accounts), 0)
 
-    async def test_service_auth_api(self) -> None:
+    async def test_account_signup_api(self) -> None:
         sql_db: SqlStorage = config.sql_db
 
         async with AsyncClient(app=config.app) as client:
@@ -225,6 +235,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertEqual(data['status'], 'enabled')
+
+            # Now test rate limiter
+            responses: list[int] = []
+            for counter in range(0, 5):
+                resp: HttpResponse = await client.post(
+                    f'{BASE_URL}/api/v1/lite/account/signup',
+                    json={
+                        'email': f'test-ratelimit-{counter}@test.com',
+                        'password': 'test123!',
+                        'handle': f'testhandle-rate-limit-{counter}'
+                    }
+                )
+                responses.append(resp.status_code)
+
+            self.assertTrue(429 in responses)
 
 
 if __name__ == '__main__':

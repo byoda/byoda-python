@@ -74,6 +74,7 @@ jose = "*"
 psycopg = {extras = ["binary"], version = "*"}
 psycopg-pool = "*"
 email-validator = "*"
+fastapi-limiter = "*"
 
 [dev-packages]
 flake8 = "*"
