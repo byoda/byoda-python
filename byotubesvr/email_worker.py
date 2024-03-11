@@ -1,7 +1,8 @@
 '''
 Sends email verification and password reset emails.
 
-Info about setting up Azure Email CS and connect it to an Azure Communication Service:
+Info about setting up Azure Email CS and connect it to an Azure Communication
+Service:
 https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/connect-email-communication-resource?pivots=azure-portal
 
 :maintainer : Steven Hessing <steven@byoda.org>

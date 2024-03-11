@@ -83,7 +83,7 @@ class EmailMessage:
             _LOGGER.error(f'Unsupported mail type: {mail_type} from {sender}')
             raise RuntimeError(f'Unsupported mail type: {message.version}')
 
-    def to_dict(self) -> dict[str, str | list[Recipient]]:
+    def to_dict(self) -> dict[str, str | list[dict[str, str]]]:
         if self.body is None or self.html_body is None:
             _LOGGER.error(
                 f'EmailMessage body and html_body are not set '

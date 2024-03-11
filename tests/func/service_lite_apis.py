@@ -104,7 +104,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         return
 
-    @classmethod
     async def asyncTearDown(self) -> None:
         await FastAPILimiter.close()
         await ApiClient.close_all()
