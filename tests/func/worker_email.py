@@ -10,13 +10,16 @@ This test needs a running email_worker.py
 
 import os
 import sys
-import socket
 import unittest
 
 from datetime import UTC
 from datetime import datetime
 from yaml import safe_load
 from unittest import IsolatedAsyncioTestCase
+
+import httpx
+
+from anyio import sleep
 
 import redis.asyncio as redis
 
@@ -34,7 +37,7 @@ QUEUE: Queue | None = None
 
 
 class Test(IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         config_file: str = os.environ.get('CONFIG_FILE', CONFIG_FILE)
         with open(config_file) as file_desc:
             svc_config: dict[str, dict[str, any]] = safe_load(file_desc)
@@ -55,10 +58,11 @@ class Test(IsolatedAsyncioTestCase):
         global QUEUE
         QUEUE = queue
 
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await QUEUE.queue.aclose()
 
     async def test_create_verification_email(self) -> None:
+        mails_sent: int = get_mails_sent()
         queue: Queue = QUEUE
         now: datetime = datetime.now(tz=UTC)
         email: EmailVerificationMessage = EmailVerificationMessage(
@@ -71,15 +75,29 @@ class Test(IsolatedAsyncioTestCase):
         )
         await email.to_queue(queue)
 
+        await sleep(5)
+        mails_sent_now: int = get_mails_sent()
+        self.assertEqual(mails_sent_now, mails_sent + 1)
+
+
+def get_mails_sent() -> int:
+    resp: httpx.Response = httpx.get('http://localhost:5020/metrics')
+    if resp.status_code != 200:
+        raise ValueError('Email worker not running')
+    mails_sent: int | None = None
+    for line in resp.text.splitlines():
+        print(line)
+        if line.startswith('mail_worker_sent_emails'):
+            print(line)
+            mails_sent = int(float(line.split(' ')[-1]))
+            return mails_sent
+
+    # At startup, the email_worker does not have a value yet for the
+    # counter so it does not get included in the output of the exporter
+    return 0
+
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result: int = sock.connect_ex(('127.0.0.1', 5020))
-    if result != 0:
-        raise RuntimeError(
-            'These websocket tests need a running pod server on port 8000'
-        )
 
     unittest.main()

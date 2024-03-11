@@ -20,6 +20,8 @@ from fastapi_limiter import FastAPILimiter
 
 import redis.asyncio as redis
 
+from byoda.storage.message_queue import Queue
+
 from byoda.util.fastapi import setup_api
 
 from byoda.util.api_client.api_client import ApiClient
@@ -93,19 +95,24 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             lifespan=None, trace_server=config.trace_server,
         )
 
-        redis_connection = redis.from_url(
-            svc_config['svcserver']['asset_cache_readwrite'], encoding='utf-8'
-        )
+        redis_rw_url: str = svc_config['svcserver']['asset_cache_readwrite']
+        redis_connection = redis.from_url(redis_rw_url, encoding='utf-8')
+
         await redis_connection.delete(
-            'ratelimits:127.0.0.1:/api/v1/lite/account/signup:6:0'
+            'ratelimits:127.0.0.1:/api/v1/lite/account/signup:6:0',
+            'ratelimits:127.0.0.1:/api/v1/lite/account/signup:6:1',
+            'queues:email'
         )
         await FastAPILimiter.init(
             redis=redis_connection, prefix='ratelimits'
         )
+
+        config.email_queue = await Queue.setup(redis_rw_url)
         return
 
     async def asyncTearDown(self) -> None:
         await FastAPILimiter.close()
+        await config.email_queue.close()
         await ApiClient.close_all()
 
     async def test_account_failures(self) -> None:
@@ -214,14 +221,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             resp: HttpResponse = await client.post(
                 f'{BASE_URL}/api/v1/lite/account/signup',
                 json={
-                    'email': 'test@test.com', 'password': 'test123!',
+                    'email': 'test@byoda.org', 'password': 'test123!',
                     'handle': 'testhandle'
                 }
             )
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue('lite_id' in data)
-            self.assertEqual(data['email'], 'test@test.com')
+            self.assertEqual(data['email'], 'test@byoda.org')
             verification_url = data.get('verification_url')
             self.assertIsNotNone(verification_url)
 

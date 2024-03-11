@@ -45,6 +45,9 @@ class Queue:
         )
         return queue
 
+    async def close(self) -> None:
+        await self.queue.aclose()
+
     def get_key(self, queue_name: str) -> str:
         return f'{self.KEY_PREFIX}{queue_name}'
 

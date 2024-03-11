@@ -20,6 +20,8 @@ from fastapi import FastAPI
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
+from byoda.storage.message_queue import Queue
+
 from byoda.datacache.asset_cache import AssetCache
 
 from byoda.servers.server import Server
@@ -87,3 +89,7 @@ asset_cache_readwrite: AssetCache | None = None
 
 # The Lite server generates verification urls with this variable
 verification_url: str = 'https://api.byo.tube/api/v1/lite/account/verify'
+
+# Queue for communication between appserver and byotubesvr/email_worker.py
+# to send emails for email verification, password reset etc.
+email_queue: Queue | None = None

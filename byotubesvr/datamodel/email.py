@@ -55,7 +55,8 @@ class EmailMessage:
         self.body: str | None = None
         self.html_body: str | None = None
 
-        self._setup_metrics()
+        if 'email_message_verification_emails_sent' not in config.metrics:
+            self._setup_metrics()
 
     @staticmethod
     def from_dict(sender: str, mail_type: MailType,

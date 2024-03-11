@@ -11,6 +11,8 @@ from uuid import UUID
 from uuid import uuid4
 from logging import Logger
 from logging import getLogger
+from datetime import UTC
+from datetime import datetime
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -21,6 +23,8 @@ from fastapi.responses import ORJSONResponse
 from fastapi_limiter.depends import RateLimiter
 
 from byoda import config
+
+from byotubesvr.datamodel.email import EmailVerificationMessage
 
 from ..models.lite_account import LiteAccountSqlModel
 from ..models.lite_account import LiteAccountApiModel
@@ -66,6 +70,17 @@ async def create_account(request: Request, account: LiteAccountApiModel
         f'Setting verification URL: {resp.verification_url} '
         f'for email {account.email} and lite_id {account.lite_id}'
     )
+
+    verification_url: str = resp.verification_url
+    verification_email = EmailVerificationMessage(
+        sender='byotubesvr/api/v1/lite/account/signup',
+        subject='Email verification for BYO.Tube',
+        recipient_name='',
+        recipient_email=f'{account.email}',
+        sender_address='DoNotReply@byo.tube',
+        verification_url=verification_url,
+    )
+    await verification_email.to_queue(config.email_queue)
 
     return resp
 
