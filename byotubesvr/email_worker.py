@@ -47,7 +47,7 @@ async def main(args: list[str]) -> None:
     debug: bool = svc_config['application'].get('debug', False)
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=True, debug=debug, verbose=not debug,
+        args[0], json_out=True, debug=debug, verbose=not debug,
         logfile=svc_config['svcserver']['mailworker_logfile']
     )
     _LOGGER.debug(f'Read configuration file: {config_file}')

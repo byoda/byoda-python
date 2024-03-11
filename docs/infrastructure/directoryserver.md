@@ -51,7 +51,7 @@ sudo docker run -d --restart unless-stopped \
     -v /var/lib/postgresql/data:/var/lib/postgresql/data \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
-     postgres:15
+     postgres:16
 
     --publish=8081:8081 \
 
