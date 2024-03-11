@@ -48,11 +48,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         config_file: str = os.environ.get('CONFIG_FILE', CONFIG_FILE)
         with open(config_file) as file_desc:
-            app_config: dict[str, dict[str, any]] = yaml.safe_load(file_desc)
+            svc_config: dict[str, dict[str, any]] = yaml.safe_load(file_desc)
 
         config.debug = True
 
-        app_config['svcserver']['root_dir'] = TEST_DIR
+        svc_config['svcserver']['root_dir'] = TEST_DIR
 
         try:
             shutil.rmtree(TEST_DIR)
@@ -61,11 +61,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         os.makedirs(TEST_DIR)
 
-        if '192.168.' not in app_config['svcserver']['litedb']:
+        if '192.168.' not in svc_config['svcserver']['litedb']:
             raise ValueError(
                 'We must use a local Postgres server for testing'
             )
-        if '192.168.' not in app_config['svcserver']['asset_cache']:
+        if '192.168.' not in svc_config['svcserver']['asset_cache_readwrite']:
             raise ValueError(
                 'We must use a local Redis server for testing'
             )
@@ -75,7 +75,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         sql_db: SqlStorage = await SqlStorage.setup(
-            app_config['svcserver']['litedb']
+            svc_config['svcserver']['litedb']
         )
 
         config.sql_db = sql_db
@@ -94,7 +94,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         redis_connection = redis.from_url(
-            app_config['svcserver']['asset_cache'], encoding='utf-8'
+            svc_config['svcserver']['asset_cache_readwrite'], encoding='utf-8'
+        )
+        await redis_connection.delete(
+            'ratelimits:127.0.0.1:/api/v1/lite/account/signup:6:0'
         )
         await FastAPILimiter.init(
             redis=redis_connection, prefix='ratelimits'

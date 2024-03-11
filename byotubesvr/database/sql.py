@@ -177,5 +177,3 @@ class SqlStorage:
             return await result.fetchone()
 
         return await result.fetchall()
-
-

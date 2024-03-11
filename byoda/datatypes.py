@@ -143,6 +143,16 @@ class VisibilityType(Enum):
     RESTRICTED           = 'restricted'
 
 
+class MailType(Enum):
+    '''
+    The type of email message that we want to send to user
+    '''
+
+    EMAIL_VERIFICATION   = 'email_verification'
+    PASSWORD_RESET       = 'password_reset'
+    TWO_FACTOR_AUTH      = 'two_factor_auth'
+
+
 class CloudType(Enum):
     '''
     At this time only AWS is supported for data persistence

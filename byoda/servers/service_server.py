@@ -142,7 +142,8 @@ class ServiceServer(Server):
 
         self.member_db.schema = service.schema
 
-    async def setup_asset_cache(self, connection_string: str) -> None:
+    async def setup_asset_cache(self, connection_string: str,
+                                connection_string_readwrite: str) -> None:
         '''
         Sets up the asset cache for the service. The asset cache can only
         be created after the schema has been loaded
@@ -154,6 +155,10 @@ class ServiceServer(Server):
 
         self.asset_cache: AssetCache = await AssetCache.setup(
             connection_string
+        )
+
+        self.asset_cache_readwrite: AssetCache = await AssetCache.setup(
+            connection_string_readwrite
         )
 
     async def review_jwt(self, jwt: JWT) -> None:

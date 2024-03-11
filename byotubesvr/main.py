@@ -40,18 +40,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config_file: str = os.environ.get('CONFIG_FILE', 'config-byotube.yml')
     _LOGGER.debug(f'Read configuration file: {config_file}')
     with open(config_file) as file_desc:
-        app_config: dict[str, str | int | bool | None] = yaml_safe_loader(
+        svc_config: dict[str, str | int | bool | None] = yaml_safe_loader(
             file_desc
         )
 
-    debug: bool = app_config['application'].get('debug', False)
+    debug: bool = svc_config['application'].get('debug', False)
     verbose: bool = not debug
     config.debug = debug
 
     global _LOGGER
     _LOGGER = Logger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
-        logfile=app_config['svcserver'].get('logfile')
+        logfile=svc_config['svcserver'].get('logfile')
     )
 
     config.trace_server = os.environ.get(
@@ -59,12 +59,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     )
 
     config.sql_db = await SqlStorage.setup(
-        app_config['svcserver']['litedb']
+        svc_config['svcserver']['litedb']
     )
 
     config.asset_cache = await AssetCache.setup(
-        app_config['svcserver']['asset_cache']
+        svc_config['svcserver']['asset_cache']
     )
+    config.asset_cache_readwrite = await AssetCache.setup(
+        svc_config['svcserver']['asset_cache_readwrite']
+    )
+
     _LOGGER.info('Starting server')
 
     yield
@@ -74,7 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 config_file: str = os.environ.get('CONFIG_FILE', 'config-byotube.yml')
 with open(config_file) as file_desc:
-    app_config: dict[str, str | int | bool | None] = yaml_safe_loader(
+    svc_config: dict[str, str | int | bool | None] = yaml_safe_loader(
         file_desc
     )
 
@@ -89,7 +93,7 @@ app: FastAPI = setup_api(
         SearchRouter,
     ],
     lifespan=lifespan, trace_server=config.trace_server,
-    cors=app_config['svcserver']['cors_origins']
+    cors=svc_config['svcserver']['cors_origins']
 )
 
 config.app = app

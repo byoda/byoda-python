@@ -75,6 +75,8 @@ psycopg = {extras = ["binary"], version = "*"}
 psycopg-pool = "*"
 email-validator = "*"
 fastapi-limiter = "*"
+azure-communication-email = "*"
+azure-mgmt-communication = "*"
 
 [dev-packages]
 flake8 = "*"

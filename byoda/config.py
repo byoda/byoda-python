@@ -83,6 +83,7 @@ metrics: dict[str, Counter | Gauge] = {}
 # Used by BYO.Tube Lite server:
 #
 asset_cache: AssetCache | None = None
+asset_cache_readwrite: AssetCache | None = None
 
 # The Lite server generates verification urls with this variable
 verification_url: str = 'https://api.byo.tube/api/v1/lite/account/verify'

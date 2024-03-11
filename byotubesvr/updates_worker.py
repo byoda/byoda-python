@@ -366,7 +366,10 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     schema.get_data_classes(with_pubsub=False)
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(server_config.server_config['asset_cache'])
+    await server.setup_asset_cache(
+        server_config.server_config['asset_cache'],
+        server_config.server_config['asset_cache_readwrite']
+    )
 
     return service, server
 
