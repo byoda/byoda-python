@@ -8,7 +8,7 @@ Google Cloud Platform.
 '''
 
 from logging import getLogger
-from byoda.util.logger import Logger
+
 from tempfile import TemporaryFile
 
 from google.cloud import storage
@@ -18,6 +18,8 @@ from google.cloud.storage.bucket import Bucket
 from google.cloud.storage.blob import Blob
 
 from byoda.datatypes import StorageType, CloudType
+
+from byoda.util.logger import Logger
 
 from .filestorage import FileStorage
 from .filestorage import FileMode

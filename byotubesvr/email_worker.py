@@ -16,8 +16,10 @@ import sys
 from yaml import safe_load as yaml_safe_loader
 
 from anyio import run
+from anyio import sleep
 
 from azure.communication.email import EmailClient
+from azure.core.polling._poller import LROPoller
 
 from prometheus_client import start_http_server
 from prometheus_client import Counter
@@ -63,35 +65,41 @@ async def main(args: list[str]) -> None:
     metric: str = 'mail_worker_sent_emails'
     config.metrics[metric] = Counter(
         metric, 'Number of emails sent by the mail worker',
-        ['mail_version', 'sender', 'sender_address', 'mail_type']
+        ['sender', 'sender_address', 'mail_type']
     )
     metric: str = 'mail_worker_failed_emails'
     config.metrics[metric] = Counter(
         metric, 'Number of email failures by the mail worker',
-        ['mail_version', 'sender', 'sender_address', 'mail_type']
+        ['sender', 'sender_address', 'mail_type']
     )
 
     queue = await Queue.setup(svc_config['svcserver']['message_queue'])
 
     while True:
+        message: EmailMessage
         try:
             message = await EmailMessage.from_queue(queue)
-            email = message.to_dict()
-            poller = email_client.begin_send(email.to_dict())
-            result = poller.result()
+        except Exception as exc:
+            _LOGGER.error(f'Failed to get message from queue: {exc}')
+            await sleep(1)
+            continue
+
+        try:
+            email: dict = message.to_dict()
+            poller: LROPoller = email_client.begin_send(email)
+            result: dict = poller.result()
             _LOGGER.debug(
-                f'Sucessfully sent email to {email.recipient_email}: {result}'
+                f'Sucessfully sent email with Azure ECS ID {result["id"]} '
+                f'to {message.recipient_email}: {result["status"]}'
             )
             config.metrics['mail_worker_sent_emails'].labels(
-                mail_version=message.version, sender=message.sender,
-                sender_address=message.sender_address,
-                mail_type=message.mail_type
+                sender=message.sender, sender_address=message.sender_address,
+                mail_type=message.mail_type.value
             ).inc()
         except Exception as exc:
             config.metrics['mail_worker_failed_emails'].labels(
-                mail_version=message.version, sender=message.sender,
-                sender_address=message.sender_address,
-                mail_type=message.mail_type
+                sender=message.sender, sender_address=message.sender_address,
+                mail_type=message.mail_type.value
             ).inc()
             _LOGGER.exception(f'Error processing message: {exc}')
 

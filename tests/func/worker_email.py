@@ -16,6 +16,7 @@ import unittest
 from datetime import UTC
 from datetime import datetime
 from yaml import safe_load
+from unittest import IsolatedAsyncioTestCase
 
 import redis.asyncio as redis
 
@@ -32,8 +33,8 @@ CONFIG_FILE: str = 'config-byotube.yml'
 QUEUE: Queue | None = None
 
 
-class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+class Test(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         config_file: str = os.environ.get('CONFIG_FILE', CONFIG_FILE)
         with open(config_file) as file_desc:
             svc_config: dict[str, dict[str, any]] = safe_load(file_desc)
@@ -54,21 +55,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         global QUEUE
         QUEUE = queue
 
-    async def asyncTearDown(self) -> None:
+    async def asyncTearDown(self):
         await QUEUE.queue.aclose()
 
-    async def create_verification_email(self) -> None:
+    async def test_create_verification_email(self) -> None:
         queue: Queue = QUEUE
         now: datetime = datetime.now(tz=UTC)
         email: EmailVerificationMessage = EmailVerificationMessage(
             sender='tests/func/worker_email.py',
             subject=f'Test verification email at {now}',
-            recipeient_name='Test User',
+            recipient_name='Test User',
             recipient_email='test@byoda.org',
-            sender_address='test@byo.tube',
+            sender_address='DoNotReply@byo.tube',
             verification_url='https://api.byo.tube/api/v1/lite/verify?',
         )
-        email.to_queue(queue)
+        await email.to_queue(queue)
 
 
 if __name__ == '__main__':
