@@ -310,6 +310,7 @@ def next_member_wait(last_seen: datetime) -> int:
 
 async def setup_server() -> tuple[Service, ServiceServer]:
     server_config = ServerConfig('svcserver', is_worker=True)
+    server_config.logfile = '/var/log/byoda/worker-16384-assets-updates.log'
 
     verbose: bool = \
         not server_config.debug and server_config.loglevel == 'INFO'
