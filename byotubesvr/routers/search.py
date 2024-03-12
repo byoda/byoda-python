@@ -9,7 +9,9 @@ API search APIs for both addressbook and byo.tube
 from logging import getLogger
 from byoda.util.logger import Logger
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
+from fastapi import Request
+from fastapi.responses import ORJSONResponse
 
 from byoda.datacache.asset_cache import AssetCache
 
@@ -22,7 +24,7 @@ _LOGGER: Logger = getLogger(__name__)
 router = APIRouter(prefix='/api/v1/service', dependencies=[])
 
 
-@router.get('/search/asset')
+@router.get('/search/asset', response_class=ORJSONResponse)
 async def get_asset(request: Request, text: str, offset: int = 0,
                     num: int = 10) -> list[Edge]:
     '''

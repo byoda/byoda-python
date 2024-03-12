@@ -12,6 +12,7 @@ from logging import getLogger
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
+from fastapi.responses import ORJSONResponse
 
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
@@ -35,7 +36,7 @@ DEFAULT_PAGING_SIZE: int = 25
 MAX_PAGE_SIZE: int = 100
 
 
-@router.get('/data', status_code=200)
+@router.get('/data', status_code=200, response_class=ORJSONResponse)
 async def get_data(request: Request,
                    list_name: str | None = AssetCache.DEFAULT_ASSET_LIST,
                    first: int = DEFAULT_PAGING_SIZE, after: str | None = None,
@@ -81,7 +82,7 @@ async def get_data(request: Request,
     )
 
 
-@router.get('/asset', status_code=200)
+@router.get('/asset', status_code=200, response_class=ORJSONResponse)
 async def get_asset(request: Request, cursor: str | None = None,
                     asset_id: UUID | None = None,
                     member_id: UUID | None = None) -> EdgeResponse:
