@@ -93,3 +93,6 @@ verification_url: str = 'https://api.byo.tube/api/v1/lite/account/verify'
 # Queue for communication between appserver and byotubesvr/email_worker.py
 # to send emails for email verification, password reset etc.
 email_queue: Queue | None = None
+
+# (Symmetric) secrets for BYOtube.lite JWTs
+jwt_secrets: list[str] = []

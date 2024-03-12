@@ -14,8 +14,6 @@ from hashlib import sha256
 from datetime import UTC
 from datetime import datetime
 
-from passlib.context import CryptContext
-
 from pydantic import BaseModel
 from pydantic import EmailStr
 from pydantic import SecretStr
@@ -24,11 +22,17 @@ from pydantic import HttpUrl
 
 from byoda import config
 
+from byotubesvr.auth.password import hash_password
 from byotubesvr.database.sql import SqlStorage
 
 
-# Used to hash passwords
-PASSWORD_HASH_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
+class LiteAuthApiModel(BaseModel):
+    email: EmailStr
+    password: SecretStr = Field(min_length=8, max_length=128)
+
+
+class LiteAuthApiResponseModel(BaseModel):
+    auth_token: str
 
 
 class LiteAccountApiModel(BaseModel):
@@ -88,6 +92,9 @@ class LiteAccountSqlModel:
 ''',
         'query': '''
     SELECT * FROM accounts WHERE lite_id = %(lite_id)s;
+''',
+        'query_by_email': '''
+    SELECT * FROM accounts WHERE email = %(email)s;
 ''',
         'query_all': '''
     SELECT * FROM accounts;
@@ -181,9 +188,7 @@ class LiteAccountSqlModel:
             sql_db=sql_db,
             lite_id=uuid4(),
             email=data.email.lower(),
-            hashed_password=LiteAccountSqlModel.hash_password(
-                data.password.get_secret_value()
-            ),
+            hashed_password=hash_password(data.password.get_secret_value()),
             handle=data.handle,
             is_enabled=None,
             is_funded=None,
@@ -235,7 +240,7 @@ class LiteAccountSqlModel:
 
         lite_id: UUID = uuid4()
 
-        hashed_password: str = LiteAccountSqlModel.hash_password(password)
+        hashed_password: str = hash_password(password)
 
         lite = LiteAccountSqlModel(
             sql_db=sql_db, lite_id=lite_id, email=email,
@@ -278,6 +283,24 @@ class LiteAccountSqlModel:
                 results.append(lite)
 
             return results
+
+    @staticmethod
+    async def from_db_by_email(sql_db: SqlStorage, email: str) -> Self | None:
+        '''
+        Load one account or all accounts from the database
+
+        :param lite_id: The lite_id of the account
+        '''
+
+        data: dict = await sql_db.query(
+            LiteAccountSqlModel.STMTS['query_by_email'], {'email': email},
+            fetch_some=False
+        )
+        if not data:
+            return None
+
+        lite: LiteAccountSqlModel = LiteAccountSqlModel.from_dict(data, sql_db)
+        return lite
 
     async def persist(self, sql_db: SqlStorage | None = None,
                       all_fields: bool = False) -> None:
@@ -352,11 +375,3 @@ class LiteAccountSqlModel:
         ).hexdigest()
 
         return code
-
-    @staticmethod
-    def hash_password(password: str) -> str:
-        '''
-        Hash a password
-        '''
-
-        return PASSWORD_HASH_CONTEXT.hash(password)

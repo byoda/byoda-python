@@ -14,6 +14,7 @@ from logging import getLogger
 from datetime import UTC
 from datetime import datetime
 
+
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
@@ -26,20 +27,32 @@ from byoda import config
 
 from byotubesvr.datamodel.email import EmailVerificationMessage
 
+from byotubesvr.auth.lite_jwt import LiteJWT
+from byotubesvr.auth.password import verify_password
+
 from ..models.lite_account import LiteAccountSqlModel
 from ..models.lite_account import LiteAccountApiModel
 from ..models.lite_account import LiteAccountApiResponseModel
+from ..models.lite_account import LiteAuthApiModel
+from ..models.lite_account import LiteAuthApiResponseModel
 
 from ..database.sql import SqlStorage
 
 _LOGGER: Logger = getLogger(__name__)
+
+# Used to hash passwords
+
+
+ALGORITHM: str = "HS256"
+
+ACCESS_TOKEN_EXPIRE_MINUTES: int = 18008        # 7 days
 
 router = APIRouter(prefix='/api/v1/lite/account', dependencies=[])
 
 
 @router.post('/signup', response_class=ORJSONResponse, dependencies=[
         Depends(RateLimiter(times=1, seconds=10)),
-        Depends(RateLimiter(times=3, seconds=86400)),
+        Depends(RateLimiter(times=100, seconds=86400)),
     ]
 )
 async def create_account(request: Request, account: LiteAccountApiModel
@@ -129,3 +142,50 @@ async def verify_email(request: Request, lite_id: UUID, token: str) -> dict:
     await account.persist(all_fields=False)
 
     return {'status': 'enabled'}
+
+
+@router.post("/auth", response_class=ORJSONResponse)
+async def auth_token(request: Request, auth_request: LiteAuthApiModel,
+                     dependencies=[Depends(RateLimiter(times=2, seconds=5))]
+                     ) -> LiteAuthApiResponseModel:
+    '''
+    User authentication API
+    '''
+
+    sql_db: SqlStorage = config.sql_db
+    _LOGGER.debug(
+        f'Request from {request.client.host} '
+        f'to authenticate account {auth_request.email}'
+    )
+
+    account: LiteAccountSqlModel | None = \
+        await LiteAccountSqlModel.from_db_by_email(sql_db, auth_request.email)
+
+    if not account:
+        raise HTTPException(
+            status_code=403, detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    verified: bool = verify_password(
+        auth_request.password.get_secret_value(), account.hashed_password
+    )
+    if not verified:
+        raise HTTPException(
+            status_code=403, detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not account.is_enabled:
+        raise HTTPException(
+            status_code=403, detail="User is disabled",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    jwt = LiteJWT()
+    auth_token: str = jwt.create_auth_token(account.lite_id)
+
+    return {
+        "auth_token": auth_token,
+        "token_type": "bearer",
+    }

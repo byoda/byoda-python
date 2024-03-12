@@ -76,6 +76,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'TRACE_SERVER', config.trace_server
         )
 
+        config.jwt_secrets = svc_config['svcserver']['jwt_secrets']
+
         sql_db: SqlStorage = await SqlStorage.setup(
             svc_config['svcserver']['litedb']
         )
@@ -218,17 +220,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(resp.status_code, 200)
 
+            #
+            # Test signup
+            #
+            email: str = 'test@byoda.org'
+            password: str = 'test123!'
             resp: HttpResponse = await client.post(
                 f'{BASE_URL}/api/v1/lite/account/signup',
                 json={
-                    'email': 'test@byoda.org', 'password': 'test123!',
+                    'email': email, 'password': password,
                     'handle': 'testhandle'
                 }
             )
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue('lite_id' in data)
-            self.assertEqual(data['email'], 'test@byoda.org')
+            self.assertEqual(data['email'], email)
             verification_url = data.get('verification_url')
             self.assertIsNotNone(verification_url)
 
@@ -240,12 +247,27 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(account.is_funded)
             self.assertIsNotNone(account.created_timestamp)
 
+            #
+            # Test verification of the email address
+            #
             resp = await client.get(verification_url)
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertEqual(data['status'], 'enabled')
 
-            # Now test rate limiter
+            #
+            # Get a JWT
+            #
+            resp = await client.post(
+                f'{BASE_URL}/api/v1/lite/account/auth',
+                json={'email': email, 'password': password}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('auth_token' in data)
+            #
+            # Test rate limiter
+            #
             responses: list[int] = []
             for counter in range(0, 5):
                 resp: HttpResponse = await client.post(
