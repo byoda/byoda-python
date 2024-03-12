@@ -44,7 +44,6 @@ from .routers import member as MemberRouter
 from .routers import search as SearchRouter
 from .routers import status as StatusRouter
 from .routers import app as AppRouter
-from .routers import data as DataRouter
 
 _LOGGER = None
 
