@@ -43,6 +43,11 @@ class LiteJWT:
         self.audience: list[str] = ['urn:BYOTube']
 
         self.secrets: list[str] = secrets
+        if isinstance(self.secrets, str):
+            self.secrets = [self.secrets]
+        if isinstance(self.secrets, tuple):
+            self.secrets = list(self.secrets)
+
         if not config.jwt_secrets:
             raise ValueError('No JWT secrets have been defined')
 
@@ -50,7 +55,8 @@ class LiteJWT:
 
         LiteJWT.setup_metrics()
 
-    def create_auth_token(self, lite_id: UUID) -> str:
+    @staticmethod
+    def create_auth_token(lite_id: UUID, secrets: list[str] = []) -> str:
         '''
         Create an access token
 
@@ -62,15 +68,16 @@ class LiteJWT:
         expiration: datetime = \
             datetime.now(tz=UTC) + timedelta(days=JWT_EXPIRATION_DAYS)
 
+        jwt = LiteJWT(secrets=secrets)
         access_token: str = py_jwt.encode(
             {
                 'lite_id': str(lite_id),
                 'exp': expiration,
-                'iss': self.issuer,
-                'aud': self.audience,
+                'iss': jwt.issuer,
+                'aud': jwt.audience,
                 'iat': datetime.now(tz=UTC),
             },
-            self.secrets[0],
+            jwt.secrets[0],
             algorithm=JWT_ALGO_PREFFERED,
         )
 
@@ -80,9 +87,11 @@ class LiteJWT:
         )
 
         metrics['jwt_token_created'].inc()
+
         return access_token
 
-    def verify_access_token(self, token: str) -> UUID | None:
+    @staticmethod
+    def verify_auth_token(token: str, secrets: list[str] = []) -> UUID | None:
         '''
         Decode an access token
 
@@ -94,11 +103,13 @@ class LiteJWT:
 
         _LOGGER.debug(f'Decode access token: {token}')
 
-        for secret in self.secrets:
+        jwt = LiteJWT(secrets=secrets)
+
+        for secret in jwt.secrets:
             try:
                 decoded_token = py_jwt.decode(
                     token, secret, algorithms=JWT_ALGO_ACCEPTED,
-                    audience=self.audience, issuer=self.issuer,
+                    audience=jwt.audience, issuer=jwt.issuer,
                     options={'require': ['exp', 'iss', 'aud', 'iat', 'lite_id']}
                 )
                 return UUID(decoded_token['lite_id'])

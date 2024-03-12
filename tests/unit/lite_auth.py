@@ -16,6 +16,8 @@ from uuid import uuid4
 
 from byoda.util.logger import Logger
 
+from byoda import config
+
 from byotubesvr.auth.password import hash_password, verify_password
 from byotubesvr.auth.lite_jwt import LiteJWT
 
@@ -29,19 +31,21 @@ class TestAccountManager(unittest.TestCase):
 
         LiteJWT.setup_metrics()
 
-        jwt = LiteJWT(['test1', 'test2', 'test3'])
-        encoded: str = jwt.create_auth_token(uuid4())
+        config.jwt_secrets = ['boink']
 
-        self.assertIsNotNone(jwt.verify_access_token(encoded))
+        secrets: tuple[str, str, str] = ('test1', 'test2', 'test3')
+        encoded: str = LiteJWT.create_auth_token(uuid4(), secrets=secrets)
+
+        self.assertIsNotNone(LiteJWT.verify_auth_token(encoded, secrets))
 
         # Test with a different secrets
-        jwt_alt = LiteJWT(['notest1', 'notest2'])
-        result: UUID | None = jwt_alt.verify_access_token(encoded)
+        secrets = ('notest1', 'notest2')
+        result: UUID | None = LiteJWT.verify_auth_token(encoded, secrets)
         self.assertIsNone(result)
 
         # Secrets in different order
-        another_jwt = LiteJWT(['test3', 'test2', 'test1'])
-        self.assertIsNotNone(another_jwt.verify_access_token(encoded))
+        secrets = ('test3', 'test2', 'test1')
+        self.assertIsNotNone(LiteJWT.verify_auth_token(encoded, secrets))
 
     def test_password(self) -> None:
         password = 'test-password'

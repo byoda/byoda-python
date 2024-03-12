@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     config.jwt_secrets = svc_config['svcserver']['jwt_secrets']
 
-    config.sql_db = await SqlStorage.setup(
+    config.lite_db = await SqlStorage.setup(
         svc_config['svcserver']['litedb']
     )
 

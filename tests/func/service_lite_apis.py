@@ -78,14 +78,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.jwt_secrets = svc_config['svcserver']['jwt_secrets']
 
-        sql_db: SqlStorage = await SqlStorage.setup(
+        lite_db: SqlStorage = await SqlStorage.setup(
             svc_config['svcserver']['litedb']
         )
 
-        config.sql_db = sql_db
+        config.lite_db = lite_db
         for cls in [LiteAccountSqlModel]:
-            await cls.drop_table(sql_db)
-            await cls.create_table(sql_db)
+            await cls.drop_table(lite_db)
+            await cls.create_table(lite_db)
 
         config.app = setup_api(
             'Byoda test BYO.Tube-Lite server',
@@ -118,12 +118,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await ApiClient.close_all()
 
     async def test_account_failures(self) -> None:
-        sql_db: SqlStorage = config.sql_db
+        lite_db: SqlStorage = config.lite_db
 
         # Email address with uppercase
         with self.assertRaises(ValueError):
             await LiteAccountSqlModel.create(
-                'STEVEN@test.com', 'test123!', 'test', sql_db=sql_db
+                'STEVEN@test.com', 'test123!', 'test', lite_db=lite_db
             )
 
         account_one: LiteAccountSqlModel
@@ -131,10 +131,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # Two accounts with same handle
         with self.assertRaises(ValueError):
             account_one = await LiteAccountSqlModel.create(
-                'steven@test.com', 'test123!', 'test', sql_db=sql_db
+                'steven@test.com', 'test123!', 'test', lite_db=lite_db
             )
             account_two = await LiteAccountSqlModel.create(
-                'steven@test.com', 'test123!', 'test', sql_db=sql_db
+                'steven@test.com', 'test123!', 'test', lite_db=lite_db
             )
 
         # Two accounts with same nickname
@@ -146,10 +146,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 'steven@test.com', 'test123!', 'test'
             )
             account_two.nickname = 'test'
-            await account_two.persist(sql_db=sql_db)
+            await account_two.persist(lite_db=lite_db)
 
     async def test_account_create(self) -> None:
-        sql_db: SqlStorage = config.sql_db
+        lite_db: SqlStorage = config.lite_db
 
         accounts: list[LiteAccountSqlModel] = []
         count: int
@@ -157,7 +157,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             account: LiteAccountSqlModel = await LiteAccountSqlModel.create(
                 email=f'test-{count}@test.com', password='test123!',
                 handle=f'test-{count}',
-                sql_db=sql_db
+                lite_db=lite_db
             )
             accounts.append(account)
             self.assertEqual(account.email, f'test-{count}@test.com')
@@ -169,11 +169,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         for count in range(0, 10):
             account = await LiteAccountSqlModel.from_db(
-                sql_db, accounts[count].lite_id
+                lite_db, accounts[count].lite_id
             )
             self.assertEqual(account.email, accounts[count].email)
 
-        accounts = await LiteAccountSqlModel.from_db(sql_db)
+        accounts = await LiteAccountSqlModel.from_db(lite_db)
         self.assertEqual(len(accounts), 10)
 
         # Here we set values for fields NOT included in LiteModel
@@ -188,12 +188,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             email=accounts[0].email, password='test123!', handle='testmodel',
             nickname='test'
         )
-        model_account = LiteAccountSqlModel.from_api_model(model, sql_db)
+        model_account = LiteAccountSqlModel.from_api_model(model, lite_db)
         model_account.lite_id = accounts[0].lite_id
         await model_account.persist(all_fields=False)
 
         account = await LiteAccountSqlModel.from_db(
-            sql_db, accounts[0].lite_id
+            lite_db, accounts[0].lite_id
         )
         self.assertEqual(account.is_funded, False)
         self.assertEqual(account.is_enabled, True)
@@ -208,11 +208,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             account = accounts[count]
             await account.delete()
 
-        accounts = await LiteAccountSqlModel.from_db(sql_db)
+        accounts = await LiteAccountSqlModel.from_db(lite_db)
         self.assertEqual(len(accounts), 0)
 
     async def test_account_signup_api(self) -> None:
-        sql_db: SqlStorage = config.sql_db
+        lite_db: SqlStorage = config.lite_db
 
         async with AsyncClient(app=config.app) as client:
             resp: HttpResponse = await client.get(
@@ -240,7 +240,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(verification_url)
 
             account = await LiteAccountSqlModel.from_db(
-                sql_db, UUID(data['lite_id'])
+                lite_db, UUID(data['lite_id'])
             )
             self.assertIsNone(account.nickname)
             self.assertIsNone(account.is_enabled)
@@ -265,6 +265,21 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue('auth_token' in data)
+
+            auth_header: dict[str, str] = {
+                'Authorization': f'Bearer {data["auth_token"]}'
+            }
+            #
+            # Get account status
+            #
+            resp = await client.get(
+                f'{BASE_URL}/api/v1/lite/account/status', headers=auth_header
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('status' in data)
+
+
             #
             # Test rate limiter
             #

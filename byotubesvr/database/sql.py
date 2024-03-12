@@ -18,11 +18,58 @@ from psycopg import AsyncCursor                     # noqa: E402
 from psycopg.errors import CheckViolation           # noqa: E402
 from psycopg.errors import UniqueViolation          # noqa: E402
 
-ACCOUNT_STMTS: dict[str, str] = {
-    'create': '''
 
-'''
-}
+
+class SqlStorage:
+    def __init__(self, connection_string: str) -> None:
+        self.connection_string: str = connection_string
+        self.pool: AsyncConnectionPool | None = None
+
+    async def setup(connection_string: str) -> Self:
+        sql = SqlStorage(connection_string)
+        sql.pool = AsyncConnectionPool(
+            conninfo=sql.connection_string, open=False,
+            kwargs={'row_factory': dict_row}
+        )
+        await sql.pool.open()
+
+        return sql
+
+    async def close(self) -> None:
+        if self.pool:
+            await self.pool.close()
+            self.pool = None
+
+    async def query(self, stmt: str, params: dict,
+                    fetch_some: bool | None = None) -> int | dict | list[dict]:
+        '''
+        Executes a query on the database. We use for row_factory the dict_row, so
+        we may return one dict or a list of dicts, depending on the fetch_some
+        parameter
+
+        :param stmt:
+        :param params:
+        :param fetch_some: should results be returned: None for no,
+        False for 1, True for all
+        :returns: If fetch_some is None, returns the number of rows affected,
+        if fetch_some is False, returns the first row, if fetch_some is True,
+        :returns: number of rows affected, the first row, or all rows
+        '''
+
+        try:
+            async with self.pool.connection() as conn:
+                result: AsyncCursor[dict] = await conn.execute(stmt, params)
+        except (CheckViolation, UniqueViolation) as exc:
+            raise ValueError(exc)
+
+        if fetch_some is None:
+            return result.rowcount
+        if fetch_some is False:
+            return await result.fetchone()
+
+        return await result.fetchall()
+
+
 ACCOUNT_STATUSES_STMTS: dict[str, str] = {
     'create': '''
     CREATE TABLE IF NOT EXISTS account_statuses(
@@ -127,53 +174,3 @@ PAYMENT_STATUSES_STMTS: dict[str, str] = {
 #     CREATE TABLE IF NOT EXISTS
 #     '''
 # }
-
-
-class SqlStorage:
-    def __init__(self, connection_string: str) -> None:
-        self.connection_string: str = connection_string
-        self.pool: AsyncConnectionPool | None = None
-
-    async def setup(connection_string: str) -> Self:
-        sql = SqlStorage(connection_string)
-        sql.pool = AsyncConnectionPool(
-            conninfo=sql.connection_string, open=False,
-            kwargs={'row_factory': dict_row}
-        )
-        await sql.pool.open()
-
-        return sql
-
-    async def close(self) -> None:
-        if self.pool:
-            await self.pool.close()
-            self.pool = None
-
-    async def query(self, stmt: str, params: dict,
-                    fetch_some: bool | None = None) -> int | dict | list[dict]:
-        '''
-        Executes a query on the database. We use for row_factory the dict_row, so
-        we may return one dict or a list of dicts, depending on the fetch_some
-        parameter
-
-        :param stmt:
-        :param params:
-        :param fetch_some: should results be returned: None for no,
-        False for 1, True for all
-        :returns: If fetch_some is None, returns the number of rows affected,
-        if fetch_some is False, returns the first row, if fetch_some is True,
-        :returns: number of rows affected, the first row, or all rows
-        '''
-
-        try:
-            async with self.pool.connection() as conn:
-                result: AsyncCursor[dict] = await conn.execute(stmt, params)
-        except (CheckViolation, UniqueViolation) as exc:
-            raise ValueError(exc)
-
-        if fetch_some is None:
-            return result.rowcount
-        if fetch_some is False:
-            return await result.fetchone()
-
-        return await result.fetchall()

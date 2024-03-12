@@ -54,9 +54,9 @@ COPY . byoda-python/
 CMD cd byoda-python \
     && pipenv run python3 -m gunicorn \
        -k uvicorn.workers.UvicornWorker \
-       --bind 0.0.0.0:8010  \
+       --bind 0.0.0.0:8000  \
        --proxy-allow-from '*' \
        --forwarded-allow-ips '*' \
        -p /var/run/svcserver.pid \
        -c gunicorn.conf.py \
-       byotubesvr.main:app
+       svcserver.main:app

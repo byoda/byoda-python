@@ -109,14 +109,14 @@ class LiteAccountSqlModel:
 ''',
     }
 
-    def __init__(self, sql_db: SqlStorage, lite_id: UUID, email: str,
+    def __init__(self, lite_db: SqlStorage, lite_id: UUID, email: str,
                  hashed_password: str, handle: str, is_enabled: bool | None,
                  is_funded: bool | None, nickname: str | None,
                  created_timestamp: datetime | None = None) -> None:
         '''
         Constructor
 
-        :param sql_db: The SQL database to use
+        :param lite_db: The SQL database to use
         :param lite_id:
         :param email:
         :param hashed_password:
@@ -126,7 +126,7 @@ class LiteAccountSqlModel:
         :param nickname:
         '''
 
-        self.sql_db: SqlStorage = sql_db
+        self.lite_db: SqlStorage = lite_db
 
         self.lite_id: UUID = lite_id
         self.email: str = email
@@ -153,13 +153,13 @@ class LiteAccountSqlModel:
         return data
 
     @staticmethod
-    def from_dict(data, sql_db: SqlStorage | None = None) -> Self:
+    def from_dict(data, lite_db: SqlStorage | None = None) -> Self:
         '''
         Create a new instance from a dictionary
         '''
 
         lite = LiteAccountSqlModel(
-            sql_db=sql_db, lite_id=data['lite_id'], email=data['email'],
+            lite_db=lite_db, lite_id=data['lite_id'], email=data['email'],
             hashed_password=data['hashed_password'], handle=data['handle'],
             is_enabled=data['is_enabled'], is_funded=data['is_funded'],
             nickname=data['nickname'],
@@ -170,7 +170,7 @@ class LiteAccountSqlModel:
 
     @staticmethod
     def from_api_model(data: LiteAccountApiModel,
-                       sql_db: SqlStorage | None = None) -> Self:
+                       lite_db: SqlStorage | None = None) -> Self:
         '''
         Create a new instance from an API model
 
@@ -179,13 +179,13 @@ class LiteAccountSqlModel:
         lite_id field.
 
         :param data: The API model
-        :param sql_db: The SQL database to associate the LiteAccountSqlModel
+        :param lite_db: The SQL database to associate the LiteAccountSqlModel
         with
         :returns: The new instance
         '''
 
         lite = LiteAccountSqlModel(
-            sql_db=sql_db,
+            lite_db=lite_db,
             lite_id=uuid4(),
             email=data.email.lower(),
             hashed_password=hash_password(data.password.get_secret_value()),
@@ -199,21 +199,21 @@ class LiteAccountSqlModel:
         return lite
 
     @staticmethod
-    async def create_table(sql_db: SqlStorage) -> None:
+    async def create_table(lite_db: SqlStorage) -> None:
         '''
         Create the accounts table
 
-        :param sql_db: The SQL database to use
+        :param lite_db: The SQL database to use
         '''
 
-        await sql_db.query(LiteAccountSqlModel.STMTS['create'], {})
+        await lite_db.query(LiteAccountSqlModel.STMTS['create'], {})
 
     @staticmethod
-    async def drop_table(sql_db: SqlStorage) -> None:
+    async def drop_table(lite_db: SqlStorage) -> None:
         '''
         Drop the accounts table
 
-        :param sql_db: The SQL database to use
+        :param lite_db: The SQL database to use
         :returns:
         :raises: ValueError if config.debug is not set
         '''
@@ -221,18 +221,18 @@ class LiteAccountSqlModel:
         if not config.debug:
             raise ValueError('Not dropping the accounts table!')
 
-        await sql_db.query('DROP TABLE IF EXISTS accounts;', {})
+        await lite_db.query('DROP TABLE IF EXISTS accounts;', {})
 
     @staticmethod
     async def create(email: str, password: str, handle: str,
-                     sql_db: SqlStorage | None = None) -> Self:
+                     lite_db: SqlStorage | None = None) -> Self:
         '''
         Create a new account
 
         :param email: The email address
         :param password: The password
         :param handle: The handle
-        :param sql_db: The SQL database to use, if specified
+        :param lite_db: The SQL database to use, if specified
         '''
 
         if len(password) < 8:
@@ -243,18 +243,18 @@ class LiteAccountSqlModel:
         hashed_password: str = hash_password(password)
 
         lite = LiteAccountSqlModel(
-            sql_db=sql_db, lite_id=lite_id, email=email,
+            lite_db=lite_db, lite_id=lite_id, email=email,
             hashed_password=hashed_password, handle=handle,
             is_enabled=False, is_funded=False, nickname=None,
             created_timestamp=datetime.now(tz=UTC)
         )
-        if sql_db:
-            await lite.persist(sql_db, all_fields=True)
+        if lite_db:
+            await lite.persist(lite_db, all_fields=True)
 
         return lite
 
     @staticmethod
-    async def from_db(sql_db: SqlStorage, lite_id: UUID | str | None = None
+    async def from_db(lite_db: SqlStorage, lite_id: UUID | str | None = None
                       ) -> Self | list[Self] | None:
         '''
         Load one account or all accounts from the database
@@ -266,43 +266,43 @@ class LiteAccountSqlModel:
             lite_id = UUID(lite_id)
 
         if lite_id:
-            data: dict = await sql_db.query(
+            data: dict = await lite_db.query(
                 LiteAccountSqlModel.STMTS['query'], {'lite_id': lite_id},
                 fetch_some=False
             )
-            lite = LiteAccountSqlModel.from_dict(data, sql_db)
+            lite = LiteAccountSqlModel.from_dict(data, lite_db)
             return lite
         else:
-            data: list[dict] = await sql_db.query(
+            data: list[dict] = await lite_db.query(
                 LiteAccountSqlModel.STMTS['query_all'], {},
                 fetch_some=True
             )
             results: list[LiteAccountSqlModel] = []
             for item in data:
-                lite = LiteAccountSqlModel.from_dict(item, sql_db)
+                lite = LiteAccountSqlModel.from_dict(item, lite_db)
                 results.append(lite)
 
             return results
 
     @staticmethod
-    async def from_db_by_email(sql_db: SqlStorage, email: str) -> Self | None:
+    async def from_db_by_email(lite_db: SqlStorage, email: str) -> Self | None:
         '''
         Load one account or all accounts from the database
 
         :param lite_id: The lite_id of the account
         '''
 
-        data: dict = await sql_db.query(
+        data: dict = await lite_db.query(
             LiteAccountSqlModel.STMTS['query_by_email'], {'email': email},
             fetch_some=False
         )
         if not data:
             return None
 
-        lite: LiteAccountSqlModel = LiteAccountSqlModel.from_dict(data, sql_db)
+        lite: LiteAccountSqlModel = LiteAccountSqlModel.from_dict(data, lite_db)
         return lite
 
-    async def persist(self, sql_db: SqlStorage | None = None,
+    async def persist(self, lite_db: SqlStorage | None = None,
                       all_fields: bool = False) -> None:
         '''
         Persist the account to the database. This function
@@ -315,18 +315,18 @@ class LiteAccountSqlModel:
         allows you to set fields to None to indicate that they should
         not be updated.
 
-        :param sql_db: The SQL database to use
+        :param lite_db: The SQL database to use
         :param all_fields: Should all fields be persisted or only the fields
         that have a value that is not None
         '''
 
-        if not sql_db:
-            if not self.sql_db:
+        if not lite_db:
+            if not self.lite_db:
                 raise ValueError('No SQL database specified')
-            sql_db = self.sql_db
+            lite_db = self.lite_db
 
         if all_fields:
-            await sql_db.query(
+            await lite_db.query(
                 self.STMTS['upsert'], self.as_dict(with_values_only=False)
             )
             return
@@ -354,14 +354,14 @@ class LiteAccountSqlModel:
 
         query = query[:-2]
 
-        await sql_db.query(query, data)
+        await lite_db.query(query, data)
 
     async def delete(self) -> None:
         '''
         Delete the account from the database
         '''
 
-        await self.sql_db.query(
+        await self.lite_db.query(
             self.STMTS['delete'], {'lite_id': self.lite_id}
         )
 

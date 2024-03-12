@@ -11,14 +11,13 @@ from uuid import UUID
 from uuid import uuid4
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-
+from typing import Annotated
 
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
 from fastapi import Depends
+
 from fastapi.responses import ORJSONResponse
 
 from fastapi_limiter.depends import RateLimiter
@@ -29,6 +28,7 @@ from byotubesvr.datamodel.email import EmailVerificationMessage
 
 from byotubesvr.auth.lite_jwt import LiteJWT
 from byotubesvr.auth.password import verify_password
+from byotubesvr.auth.request_auth import LiteRequestAuth
 
 from ..models.lite_account import LiteAccountSqlModel
 from ..models.lite_account import LiteAccountApiModel
@@ -39,8 +39,6 @@ from ..models.lite_account import LiteAuthApiResponseModel
 from ..database.sql import SqlStorage
 
 _LOGGER: Logger = getLogger(__name__)
-
-# Used to hash passwords
 
 
 ALGORITHM: str = "HS256"
@@ -61,12 +59,13 @@ async def create_account(request: Request, account: LiteAccountApiModel
     Create a new BYO.Tube-lite account
     '''
 
-    sql_db: SqlStorage = config.sql_db
+    lite_db: SqlStorage = config.lite_db
+
     _LOGGER.debug(
         f'Request from {request.client.host} '
         f'to create account: {account.email}'
     )
-    account = LiteAccountSqlModel.from_api_model(account, sql_db=sql_db)
+    account = LiteAccountSqlModel.from_api_model(account, lite_db=lite_db)
     account.lite_id = uuid4()
 
     try:
@@ -104,14 +103,14 @@ async def verify_email(request: Request, lite_id: UUID, token: str) -> dict:
     Verify a BYO.Tube-lite account
     '''
 
-    sql_db: SqlStorage = config.sql_db
+    lite_db: SqlStorage = config.lite_db
     _LOGGER.debug(
         f'Request from {request.client.host} '
         f'to verify Lite account: {lite_id}'
     )
 
     account: LiteAccountSqlModel | list[LiteAccountSqlModel] | None = \
-        await LiteAccountSqlModel.from_db(sql_db, lite_id)
+        await LiteAccountSqlModel.from_db(lite_db, lite_id)
 
     if not account:
         raise HTTPException(
@@ -152,14 +151,14 @@ async def auth_token(request: Request, auth_request: LiteAuthApiModel,
     User authentication API
     '''
 
-    sql_db: SqlStorage = config.sql_db
+    lite_db: SqlStorage = config.lite_db
     _LOGGER.debug(
         f'Request from {request.client.host} '
         f'to authenticate account {auth_request.email}'
     )
 
     account: LiteAccountSqlModel | None = \
-        await LiteAccountSqlModel.from_db_by_email(sql_db, auth_request.email)
+        await LiteAccountSqlModel.from_db_by_email(lite_db, auth_request.email)
 
     if not account:
         raise HTTPException(
@@ -189,3 +188,36 @@ async def auth_token(request: Request, auth_request: LiteAuthApiModel,
         "auth_token": auth_token,
         "token_type": "bearer",
     }
+
+AuthDep = Annotated[LiteRequestAuth, Depends(LiteRequestAuth)]
+
+
+@router.get('/status', response_class=ORJSONResponse)
+async def status(request: Request, auth: AuthDep) -> dict:
+    '''
+    Status API
+    '''
+
+    _LOGGER.debug(
+        f'Request from {request.client.host} with '
+        f'LiteID {auth.lite_id} for status'
+    )
+
+    lite_db: SqlStorage = config.lite_db
+    account: LiteAccountSqlModel | None = await LiteAccountSqlModel.from_db(
+        lite_db, auth.lite_id
+    )
+
+    if not account:
+        raise HTTPException(status_code=404, detail='Account not found')
+
+    if account.is_enabled is None:
+        raise HTTPException(status_code=403, detail='Account is not verified')
+
+    if account.is_enabled is False:
+        raise HTTPException(status_code=403, detail='Account is disabled')
+
+    if account.is_funded is True:
+        return {'status': 'funded'}
+
+    return {'status': 'ok'}

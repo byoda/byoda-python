@@ -26,6 +26,7 @@ from byoda.datacache.asset_cache import AssetCache
 
 from byoda.servers.server import Server
 
+from byotubesvr.database.sql import SqlStorage
 
 DEFAULT_NETWORK = 'byoda.net'
 
@@ -86,6 +87,9 @@ metrics: dict[str, Counter | Gauge] = {}
 #
 asset_cache: AssetCache | None = None
 asset_cache_readwrite: AssetCache | None = None
+
+# The PostgreSql database for BYO.Tube Lite accounts
+lite_db: SqlStorage | None = None
 
 # The Lite server generates verification urls with this variable
 verification_url: str = 'https://api.byo.tube/api/v1/lite/account/verify'
