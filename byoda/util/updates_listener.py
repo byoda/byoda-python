@@ -185,7 +185,8 @@ class UpdatesListener:
             edge: Edge
             for edge in response.edges or []:
                 creator: str | None = edge.node.get('creator')
-                if not self.annotations or creator in self.annotations:
+                if (not self.annotations or (isinstance(self.annotations, list)
+                                             and creator in self.annotations)):
                     await self.store_asset_in_cache(
                         edge.node, edge.origin, edge.cursor
                     )
