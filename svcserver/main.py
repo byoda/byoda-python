@@ -112,8 +112,8 @@ async def lifespan(app: FastAPI):
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
     await server.setup_asset_cache(
-        server_config.server_config['asset_cache'],
-        server_config.server_config['asset_cache_readwrite']
+        server_config['svcserver']['asset_cache'],
+        server_config['svcserver']['asset_cache_readwrite']
     )
     _LOGGER.debug('Registering service')
     await server.service.register_service()
