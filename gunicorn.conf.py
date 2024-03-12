@@ -76,8 +76,8 @@ keep_alive: int = 3600
 
 # max_requests - the number of requests processed by a worker
 # after which the worker will restart to avoid memory leaks
-max_requests: int = 4096
-max_requests_jitter: int = 60
+max_requests: int = 1024
+max_requests_jitter: int = 64
 
 # ===============================================
 #           Security

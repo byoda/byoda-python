@@ -339,10 +339,8 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     setup_exporter_metrics()
 
     listen_port: int = os.environ.get(
-        'WORKER_METRICS_PORT',
-        server_config.listen_port or PROMETHEUS_EXPORTER_PORT
+        'WORKER_METRICS_PORT', PROMETHEUS_EXPORTER_PORT
     )
-
     start_http_server(listen_port)
 
     _LOGGER.debug(

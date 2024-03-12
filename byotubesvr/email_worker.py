@@ -48,7 +48,7 @@ async def main(args: list[str]) -> None:
     global _LOGGER
     _LOGGER = Logger.getLogger(
         args[0], json_out=True, debug=debug, verbose=not debug,
-        logfile=svc_config['svcserver']['mailworker_logfile']
+        logfile=svc_config['svcserver']['email_worker_logfile']
     )
     _LOGGER.debug(f'Read configuration file: {config_file}')
 
@@ -60,8 +60,11 @@ async def main(args: list[str]) -> None:
         connection_string
     )
 
-    listen_port: int = PROMETHEUS_EXPORTER_PORT
+    listen_port: int = os.environ.get(
+        'WORKER_METRICS_PORT', PROMETHEUS_EXPORTER_PORT
+    )
     start_http_server(listen_port)
+
     metric: str = 'mail_worker_sent_emails'
     config.metrics[metric] = Counter(
         metric, 'Number of emails sent by the mail worker',
