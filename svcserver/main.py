@@ -144,7 +144,6 @@ app: FastAPI = setup_api(
         SearchRouter,
         StatusRouter,
         AppRouter,
-        DataRouter
     ],
     lifespan=lifespan, trace_server=config.trace_server,
     cors=server_config['svcserver']['cors_origins']
