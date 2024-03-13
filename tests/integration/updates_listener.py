@@ -25,7 +25,6 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.service import Service
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
-from byoda.datamodel.dataclass import SchemaDataArray
 
 from byoda.datatypes import DataRequestType
 
@@ -145,7 +144,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['asset_cache_readwrite']
         )
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
@@ -161,7 +160,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             server.asset_cache, [test_list]
         )
 
-        item_count = await listener.get_all_data()
+        item_count: int = await listener.get_all_data()
         self.assertGreater(item_count, 1)
 
         #
@@ -213,10 +212,15 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
             await sleep(3)
 
-            result: bool = await listener.asset_cache.asset_exists_in_cache(
-                test_list, AZURE_POD_MEMBER_ID, asset_id
+            result: bool = await listener.asset_cache.in_cache(
+                AZURE_POD_MEMBER_ID, asset_id
             )
             self.assertTrue(result)
+
+            #result: bool = await listener.asset_cache.asset_exists_in_cache(
+            #    test_list, AZURE_POD_MEMBER_ID, asset_id
+            #)
+            #self.assertTrue(result)
 
             #
             # Clean up
@@ -224,7 +228,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             task_group.cancel_scope.cancel()
 
             await listener.asset_cache.delete_asset_from_cache(
-                test_list, member_id, asset_id
+                member_id, asset_id
             )
             await listener.asset_cache.delete_list(test_list)
 

@@ -11,9 +11,9 @@ from uuid import uuid4
 from typing import Self
 from random import random
 from logging import getLogger
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
 from asyncio import CancelledError
 from socket import gaierror as socket_gaierror
 
@@ -261,7 +261,7 @@ class UpdatesListener:
             metrics[metric].labels(member_id=self.remote_member_id).set(0)
 
         reconnect_delay: int = 0.5
-        last_alive: datetime = datetime.now(tz=timezone.utc)
+        last_alive: datetime = datetime.now(tz=UTC)
         while True:
             metric: str = 'updateslistener_connection_healthy'
             if metrics and metric in metrics:
@@ -313,7 +313,7 @@ class UpdatesListener:
                     # We received data from the remote pod, so reset the
                     # reconnect delay
                     reconnect_delay = 0.2
-                    last_alive = datetime.now(tz=timezone.utc)
+                    last_alive = datetime.now(tz=UTC)
                     metric = 'updateslistener_connection_retry_wait'
                     if metrics and metric in metrics:
                         metrics[metric].labels(
@@ -355,7 +355,7 @@ class UpdatesListener:
                         member_id=self.remote_member_id
                     ).inc()
             except Exception as exc:
-                _LOGGER.debug(
+                _LOGGER.exception(
                     f'Failed to establish connection '
                     f'to {self.remote_member_id}: {exc}'
                 )
@@ -386,7 +386,7 @@ class UpdatesListener:
                 reconnect_delay = UpdatesListener.MAX_RECONNECT_DELAY
 
             not_seen_for: timedelta = \
-                last_alive - datetime.now(tz=timezone.utc)
+                last_alive - datetime.now(tz=UTC)
             if not_seen_for > timedelta(days=3):
                 metric: str = 'updateslistener_expired_members'
                 if metrics and metric in metrics:

@@ -228,6 +228,21 @@ class AssetCache(SearchableCache):
 
         return True
 
+    async def in_cache(self, member_id: UUID, asset_id: UUID) -> bool:
+        '''
+        Check if an asset is in the cache.
+
+        :param member_id: The member that originated the asset.
+        :param asset_id: The asset to check.
+        :return: True if the asset is in the cache, False otherwise.
+        :raises: None
+        '''
+
+        server_cursor: str = self.get_cursor(member_id, asset_id)
+        asset_key: str = AssetCache.ASSET_KEY_PREFIX + server_cursor
+
+        return await self.client.exists(asset_key)
+
     async def get_asset_by_key(self, asset_key: str) -> Edge:
         '''
         Get an asset by its key.
@@ -459,14 +474,15 @@ class AssetCache(SearchableCache):
         :raises: (none)
         '''
 
-        key: str = AssetCache.get_asset_key(member_id, asset_id)
+        server_cursor: str = self.get_cursor(member_id, asset_id)
+        asset_key: str = AssetCache.ASSET_KEY_PREFIX + server_cursor
 
         metrics: dict[str, Gauge | Counter] = config.metrics
         metric: str = 'assetcache_deleted_assets'
         if metrics and metric in metrics:
             metrics[metric].inc()
 
-        return await self.backend.delete(key)
+        return await self.client.delete(asset_key)
 
     async def refresh_asset(self, edge: Edge, asset_class_name: str,
                             tls_secret: MemberSecret | ServiceSecret
