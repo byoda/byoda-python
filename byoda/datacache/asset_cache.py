@@ -359,9 +359,9 @@ class AssetCache(SearchableCache):
             asset: Asset = Asset(**item['node'])
             if type(asset.created_timestamp) in (int, float):
                 asset.created_timestamp = \
-                    datetime.fromtimestamp(asset.created_timestamp)
+                    datetime.utcfromtimestamp(asset.created_timestamp)
                 asset.published_timestamp = \
-                    datetime.fromtimestamp(asset.published_timestamp)
+                    datetime.utcfromtimestamp(asset.published_timestamp)
             item['node'] = asset
             results.append(Edge(**item))
 
