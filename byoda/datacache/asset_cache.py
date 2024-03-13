@@ -671,11 +671,16 @@ class AssetCache(SearchableCache):
 
         created_since: timedelta
         if asset_model.published_timestamp:
-            created_since = \
-                datetime.now(tz=UTC) - asset_model.published_timestamp
+            timestamp: datetime = asset_model.published_timestamp
         else:
-            created_since = \
-                datetime.now(tz=UTC) - asset_model.created_timestamp
+            timestamp: datetime = asset_model.created_timestamp
+
+        # Make sure timestamp is timezone-aware
+        if (timestamp.tzinfo is None
+                or timestamp.tzinfo.utcoffset(timestamp) is None):
+            timestamp = timestamp.replace(tzinfo=UTC)
+
+        created_since = datetime.now(tz=UTC) - timestamp
 
         if created_since < AssetCache.RECENT_THRESHOLD:
             lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
