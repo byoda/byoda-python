@@ -359,9 +359,9 @@ class AssetCache(SearchableCache):
             asset: Asset = Asset(**item['node'])
             if type(asset.created_timestamp) in (int, float):
                 asset.created_timestamp = \
-                    datetime.utcfromtimestamp(asset.created_timestamp)
+                    datetime.fromtimestamp(asset.created_timestamp)
                 asset.published_timestamp = \
-                    datetime.utcfromtimestamp(asset.published_timestamp)
+                    datetime.fromtimestamp(asset.published_timestamp)
             item['node'] = asset
             results.append(Edge(**item))
 
@@ -672,10 +672,10 @@ class AssetCache(SearchableCache):
         created_since: timedelta
         if asset_model.published_timestamp:
             created_since = \
-                datetime.now(tz=UTC) - asset_model.published_timestamp
+                datetime.utcnow() - asset_model.published_timestamp
         else:
             created_since = \
-                datetime.now(tz=UTC) - asset_model.created_timestamp
+                datetime.utcnow() - asset_model.created_timestamp
 
         if created_since < AssetCache.RECENT_THRESHOLD:
             lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
