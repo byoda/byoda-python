@@ -94,15 +94,14 @@ async def main() -> None:
 
     async with create_task_group() as task_group:
         # Set up the listeners for the members that are already in the cache
-        _LOGGER.debug('Start up member reconsiliation')
+        _LOGGER.debug('Start up member reconciliation')
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
             task_group
         )
         while True:
             _LOGGER.debug(
-                f'Members seen: {len(members_seen)}, '
-                f'Time available to refresh assets: {wait_time}'
+                f'Members seen: {len(members_seen)}'
             )
             wait_time = MAX_WAIT
 
@@ -111,6 +110,7 @@ async def main() -> None:
                 member_id = await member_db.get_next(timeout=MAX_WAIT)
                 if not member_id:
                     _LOGGER.debug('No member available in list of members')
+                    await sleep(1)
                     continue
 
                 if is_test_uuid(member_id):

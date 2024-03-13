@@ -171,16 +171,14 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     server: ServiceServer = await ServiceServer.setup(network, server_config)
     config.server = server
 
-    setup_exporter_metrics()
-
     listen_port: int = os.environ.get(
         'WORKER_METRICS_PORT', PROMETHEUS_EXPORTER_PORT
     )
-
+    setup_exporter_metrics()
     start_http_server(listen_port)
 
     _LOGGER.debug(
-        'Setup service server completed, now loading network secrets'
+        'Setup refresh worker completed, now loading network secrets'
     )
 
     storage = FileStorage(server_config.server_config['root_dir'])

@@ -284,7 +284,9 @@ class UpdatesListener:
                         continue
 
                     creator: str | None = edge.node['creator']
-                    if not self.annotations or creator in self.annotations:
+                    if (not self.annotations
+                            or (isinstance(self.annotations, list)
+                                and creator in self.annotations)):
                         _LOGGER.debug(
                             f'Appending data from class {self.class_name} '
                             f'originating from {edge.origin_id} '
@@ -418,6 +420,8 @@ class UpdateListenerService(UpdatesListener):
             class_name, service_id, member_id, network_name, tls_secret,
             cache_expiration
         )
+
+        self.annotations: list[str] = []
 
         metrics: dict[str, Counter | Gauge] = config.metrics
 

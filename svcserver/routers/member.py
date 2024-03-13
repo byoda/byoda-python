@@ -86,9 +86,10 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     common_name: str = Secret.extract_commonname(csr_x509)
 
     try:
-        csr_entity_id: EntityId = MembersCaSecret.review_commonname_by_parameters(
-            common_name, network.name, service.service_id
-        )
+        csr_entity_id: EntityId = \
+            MembersCaSecret.review_commonname_by_parameters(
+                common_name, network.name, service.service_id
+            )
     except PermissionError:
         raise HTTPException(
             status_code=401, detail=f'Invalid common name {common_name} in CSR'
