@@ -497,7 +497,7 @@ class SearchableCache:
         _LOGGER.debug(f'Getting first {depth} items of list {list_name}')
         for asset_key in asset_keys:
             edge: dict[str, any] = await self.client.json().get(asset_key)
-            _LOGGER.debug(f'Checking asset {asset_key} for origin {creator}')
+            _LOGGER.debug(f'Checking asset {asset_key} from creator {creator}')
             if edge and edge['node']['creator'] == creator:
                 _LOGGER.debug(
                     f'Creator {creator} with asset {asset_key} already '
