@@ -218,10 +218,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             # BUG: result should be True but is not
             self.assertTrue(True or result)
 
-            #result: bool = await listener.asset_cache.asset_exists_in_cache(
+            # result: bool = await listener.asset_cache.asset_exists_in_cache(
             #    test_list, AZURE_POD_MEMBER_ID, asset_id
-            #)
-            #self.assertTrue(result)
+            # )
+            # self.assertTrue(result)
 
             #
             # Clean up
@@ -240,6 +240,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 data_filter={'asset_id': {'eq': asset_id}}
             )
             self.assertEqual(resp.status_code, 200)
+
+        await server.close()
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:

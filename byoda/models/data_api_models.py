@@ -381,3 +381,25 @@ class Asset(PydanticBaseModel):
     channel_id: UUID | None = None
     ingest_status: str | None = None
     screen_orientation_horizontal: bool | None = None
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class ExternalLink(BaseModel):
+    name: str | None = Field(default=None, description="name of the link")
+    priority: int | None = Field(default=None, description="priority of the link, informs in what order links should be presented")
+    url: str | None = Field(default=None, description="URL of the link")
+
+
+class Channel(PydanticBaseModel):
+    available_country_codes: list[str] | None = Field(default=None, description="list of country codes where the channel is available")
+    banners: list[VideoThumbnail] | None = Field(default=None, description="Banners for the channel")
+    channel_id: UUID | None = Field(default=None, description="The uuid of the channel")
+    channel_thumbnails: list[VideoThumbnail] | None = Field(default=None, description="URL for the channel&#39;s thumbnail")
+    claims: list[Claim] | None = Field(default=None, description="list of claims for the asset")
+    created_timestamp: datetime | None = Field(default=None, description="time the channel was created")
+    creator: str | None = Field(default=None, description="creator of the asset")
+    description: str | None = Field(default=None, description="information about the channel")
+    external_urls: list[ExternalLink] | None = Field(default=None, description="links to external sites")
+    is_family_safe: bool | None = Field(default=None, description="Whether the channel is family safe")
+    keywords: list[str] | None = Field(default=None, description="keywords that apply to all the videos of the channel")
+

@@ -44,6 +44,8 @@ from redis.commands.search.field import NumericField
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
+from byoda.datatypes import ItemType
+
 from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
 
 from byoda.util.logger import Logger
@@ -61,7 +63,7 @@ class SearchableCache:
     ASSET_KEY_PREFIX: str = 'assets:'
     LISTS_KEY_PREFIX: str = 'lists:'
     ALL_ASSETS_LIST: str = 'all_assets'
-    ALL_CREATORS_LIST: str = 'all_creators'
+    ALL_CHANNELS_LIST: str = 'all_creators'
 
     DEFAULT_EXPIRATION: int = 86400         # seconds
     DEFAULT_EXPIRATION_LISTS: int = 30      # days
@@ -96,24 +98,27 @@ class SearchableCache:
         # This is the LUA function to get the values of assets in a list
         self._function_get_list_assets: Script | None = None
 
+    def setup_metrics(self) -> None:
         metrics: dict[str, Gauge | Counter] = config.metrics
         metric: str = 'searchable_cache_member_id_in_head_of_list'
-        if metric not in metrics:
-            metrics[metric] = Gauge(
-                metric, (
-                    'an origin of an asset already has another asset in the '
-                    'head of the list'
-                ), ['member_id', 'list']
-            )
 
-        metric: str = 'searchable_cache_member_id_not_in_head_of_list'
-        if metric not in metrics:
-            metrics[metric] = Gauge(
-                metric, (
-                    'an origin of an asset already does not have another '
-                    'asset in the head of the list'
-                ), ['member_id', 'list']
-            )
+        if not metrics or metric in metrics:
+            return
+
+        metrics[metric] = Gauge(
+            metric, (
+                'an origin of an asset already has another asset in the '
+                'head of the list'
+            ), ['member_id', 'list']
+        )
+
+        metric = 'searchable_cache_member_id_not_in_head_of_list'
+        metrics[metric] = Gauge(
+            metric, (
+                'an origin of an asset already does not have another '
+                'asset in the head of the list'
+            ), ['member_id', 'list']
+        )
 
     @staticmethod
     async def setup(connection_string: str) -> Self:
@@ -177,25 +182,35 @@ class SearchableCache:
         else:
             return f'{self.LISTS_KEY_PREFIX}{cache_list}'
 
-    def get_cursor(self, member_id: str | UUID, asset_id: str | UUID) -> str:
+    def get_cursor(self, member_id: str | UUID, item_id: str | UUID,
+                   item_type: ItemType = ItemType.ASSET) -> str:
         '''
         Calculates the cursor based on the combination of the member_id
         and asset_id
 
         :param member_id: The member_id that published the asset
-        :param asset_id: The asset_id of the asset
-        :returns: The cursor as 12 character string consisting
-        of characters matching the regex [a-zA-Z0-9\\@\\-]
+        :param item_id: The item_id of the item, ie. asset_id or channel_id
+        :param item_type: The type of the item
+        :returns: The cursor as 12 character string consisting of characters
+        matching the regex [a-zA-Z0-9\\@\\-]
         '''
         if isinstance(member_id, UUID):
             member_id = str(member_id)
 
-        if isinstance(asset_id, UUID):
-            asset_id = str(asset_id)
+        if isinstance(item_id, UUID):
+            item_id = str(item_id)
 
-        hash_val: str = sha256(
-            f'{member_id}-{asset_id}'.encode('utf-8'), usedforsecurity=False
-        ).digest()
+        hash_val: str
+        if item_type == ItemType.ASSET:
+            hash_val = sha256(
+                f'{member_id}-{item_id}'.encode('utf-8'), usedforsecurity=False
+            ).digest()
+        else:
+            hash_val = sha256(
+                f'{member_id}-{item_type.value}-{item_id}'.encode('utf-8'),
+                usedforsecurity=False
+            ).digest()
+
         cursor: str = b64encode(
             hash_val, '@-'.encode('utf-8')
         ).decode('utf-8')[0:12]
@@ -520,7 +535,7 @@ class SearchableCache:
 
     async def append_list(self, list_name: str, item: str) -> int:
         '''
-        Adds an item to the beginning of a list
+        Adds an item to the end of a list
 
         :param list: The name of the list
         :param item: The item to add
@@ -528,6 +543,9 @@ class SearchableCache:
         '''
 
         key_name: str = self.get_list_key(list_name)
+        await self.client.expire(
+            key_name, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
+        )
         return await self.client.rpush(key_name, item)
 
     async def prepend_list(self, list_name: str, item: str,

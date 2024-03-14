@@ -2,7 +2,7 @@
 Asset Cache maintains lists of assets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2024
 :license    : GPLv3
 '''
 
@@ -19,7 +19,10 @@ from fastapi.encoders import jsonable_encoder
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
+from byoda.datamodel.metrics import Metrics
+
 from byoda.datatypes import DataRequestType
+from byoda.datatypes import ItemType
 
 from byoda.models.data_api_models import EdgeResponse as Edge
 from byoda.models.data_api_models import Asset
@@ -44,7 +47,7 @@ Member = TypeVar('Member')
 AssetType = TypeVar('AssetType')
 
 
-class AssetCache(SearchableCache):
+class AssetCache(SearchableCache, Metrics):
     DEFAULT_ASSET_LIST: str = 'recent_uploads'
     DEFAULT_ASSET_EXPIRATION: int = 60 * 60 * 24 * 3  # 3 days
     # The worker stores here all the lists that have been generated
@@ -80,71 +83,11 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        metrics: dict[str, Gauge | Counter] = config.metrics
-        if metrics:
-            metric: str = 'assetcache_total_lists'
-            if metric not in metrics:
-                metrics[metric] = Gauge(
-                    metric, 'total lists in assetcache',
-                )
-
-            metric = 'assetcache_lists_per_asset'
-            if metric not in metrics:
-                metrics[metric] = Gauge(
-                    metric, 'lists per asset in assetcache',
-                )
-            metric = 'assetcache_short_assets_added'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'short assets (<60s) added to assetcache'
-                )
-
-            metric = 'assetcache_long_assets_added'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'long assets (>60s) added to assetcache'
-                )
-
-            metric = 'assetcache_asset_found'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'assets found in assetcache'
-                )
-
-            metric = 'assetcache_asset_not_found'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'assets not found in assetcache'
-                )
-
-            metric = 'assetcache_refresh_asset_failures'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric,
-                    'Failures to call REST API of pod to refresh an asset'
-                )
-
-            metric = 'assetcache_refresh_asset_api_calls'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'API calls to pods to refresh an asset'
-                )
-
-            metric = 'assetcache_refreshable_asset_not_found'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'Assets not found in pods when refreshing'
-                )
-
-            metric = 'assetcache_refreshable_asset_dupes'
-            if metric not in metrics:
-                metrics[metric] = Counter(
-                    metric, 'Multiple assets found in pod when refreshing'
-                )
-
         self: AssetCache = AssetCache(connection_string)
         await self.create_search_index()
         await self.load_functions()
+
+        self.metrics_setup()
 
         return self
 
@@ -228,7 +171,8 @@ class AssetCache(SearchableCache):
 
         return True
 
-    async def in_cache(self, member_id: UUID, asset_id: UUID) -> bool:
+    async def in_cache(self, member_id: UUID, item_id: UUID,
+                       item_type: ItemType = ItemType.ASSET) -> bool:
         '''
         Check if an asset is in the cache.
 
@@ -238,10 +182,17 @@ class AssetCache(SearchableCache):
         :raises: None
         '''
 
-        server_cursor: str = self.get_cursor(member_id, asset_id)
-        asset_key: str = AssetCache.ASSET_KEY_PREFIX + server_cursor
+        server_cursor: str = self.get_cursor(member_id, item_id)
 
-        return await self.client.exists(asset_key)
+        item_key: str
+        if item_type == ItemType.ASSET:
+            item_key = AssetCache.ASSET_KEY_PREFIX + server_cursor
+        elif item_type == ItemType.CHANNEL:
+            item_key = AssetCache.CHANNEL_KEY_PREFIX + server_cursor
+        else:
+            raise ValueError(f'Unsupported item type: {item_type}')
+
+        return await self.client.exists(item_key)
 
     async def get_asset_by_key(self, asset_key: str) -> Edge:
         '''
@@ -316,7 +267,7 @@ class AssetCache(SearchableCache):
 
     async def add_oldest_asset(self, node: str | Edge) -> None:
         '''
-        Adds the oldest asset back to the front of the list
+        Adds the cursor for the oldest asset back to the front of the list
 
         :param node: push the asset back to the start of the all_assets list
         :returns: the length of the list after adding the item
@@ -691,3 +642,59 @@ class AssetCache(SearchableCache):
             metrics[metric].set(len(lists_set))
 
         return lists_set
+
+    def metrics_setup(self) -> None:
+        metrics: dict[str, Gauge | Counter] = config.metrics
+        metric: str = 'assetcache_total_lists'
+        if metrics and metric in metrics:
+            return
+
+        metrics[metric] = Gauge(
+            metric, 'total lists in assetcache',
+        )
+
+        metric = 'assetcache_lists_per_asset'
+        metrics[metric] = Gauge(
+            metric, 'lists per asset in assetcache',
+        )
+
+        metric = 'assetcache_short_assets_added'
+        metrics[metric] = Counter(
+            metric, 'short assets (<60s) added to assetcache'
+        )
+
+        metric = 'assetcache_long_assets_added'
+        metrics[metric] = Counter(
+            metric, 'long assets (>60s) added to assetcache'
+        )
+
+        metric = 'assetcache_asset_found'
+        metrics[metric] = Counter(
+            metric, 'assets found in assetcache'
+        )
+
+        metric = 'assetcache_asset_not_found'
+        metrics[metric] = Counter(
+            metric, 'assets not found in assetcache'
+        )
+
+        metric = 'assetcache_refresh_asset_failures'
+        metrics[metric] = Counter(
+            metric,
+            'Failures to call REST API of pod to refresh an asset'
+        )
+
+        metric = 'assetcache_refresh_asset_api_calls'
+        metrics[metric] = Counter(
+            metric, 'API calls to pods to refresh an asset'
+        )
+
+        metric = 'assetcache_refreshable_asset_not_found'
+        metrics[metric] = Counter(
+            metric, 'Assets not found in pods when refreshing'
+        )
+
+        metric = 'assetcache_refreshable_asset_dupes'
+        metrics[metric] = Counter(
+            metric, 'Multiple assets found in pod when refreshing'
+        )

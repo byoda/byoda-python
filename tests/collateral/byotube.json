@@ -942,6 +942,13 @@
                             "type": "string"
                         }
                     },
+                    "annotations": {
+                        "description": "annotations for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "is_family_safe": {
                         "description": "Whether the channel is family safe",
                         "type": "boolean"

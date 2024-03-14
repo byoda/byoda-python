@@ -72,6 +72,7 @@ class ServiceServer(Server):
         )
 
         self.asset_cache: AssetCache | None = None
+        self.asset_cache_readwrite: AssetCache | None = None
 
         self.dns_resolver = DnsResolver(network.name)
 
@@ -105,6 +106,19 @@ class ServiceServer(Server):
         )
 
         return self
+
+    async def close(self) -> None:
+        '''
+        Closes the datastores of the service server'''
+
+        if self.member_db:
+            await self.member_db.close()
+
+        if self.asset_cache:
+            await self.asset_cache.close()
+
+        if self.asset_cache_readwrite:
+            await self.asset_cache_readwrite.close()
 
     async def load_network_secrets(self, storage_driver: FileStorage = None
                                    ) -> None:

@@ -179,6 +179,11 @@ class CacheType(Enum):
     MEMBERDB     = 'MemberDb'
     SEARCHDB     = 'SearchDb'
 
+# Type of item to store in the searchable_cache
+class ItemType(Enum):
+    ASSET       =  'assets'
+    CHANNEL     =  'channels'
+
 CounterFilter = dict[str, str | UUID]
 
 class PubSubTech(Enum):

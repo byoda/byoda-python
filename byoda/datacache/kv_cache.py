@@ -90,6 +90,13 @@ class KVCache(ABC):
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 
+    async def close(self) -> None:
+        '''
+        Close the connection to the cache
+        '''
+
+        raise NotImplementedError
+
     def get_annotated_key(self, key: str) -> str:
         '''
         Annotate the key so that it is unique to the server. The resulting

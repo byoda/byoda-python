@@ -53,6 +53,7 @@ class MemberDb:
 
         self._service_id: int = service_id
         self.network_name: str = network_name
+        self.kvcache: KVCache | None = None
 
     async def setup(connection_string: str, service_id: int, network_name: str
                     ) -> Self:
@@ -64,7 +65,7 @@ class MemberDb:
         '''
 
         self = MemberDb(service_id, network_name)
-        kvcache = await KVCache.create(
+        kvcache: KVCache = await KVCache.create(
             connection_string, service_id=service_id,
             network_name=network_name, server_type='ServiceServer',
             cache_type=CacheType.MEMBERDB, cache_tech=CacheTech.REDIS
@@ -73,6 +74,13 @@ class MemberDb:
         self.kvcache = kvcache
 
         return self
+
+    async def close(self) -> None:
+        '''
+        Close the DB
+        '''
+
+        await self.kvcache.close()
 
     @property
     def service_id(self):
