@@ -54,12 +54,13 @@ class YouTube:
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
     INGEST_INTERVAL_SECONDS: int = 60
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, lock_file: str = None, api_key: str | None = None) -> None:
         '''
         Constructor. If the 'YOUTUBE_API_KEY environment variable is
         set then it will use that key to call the YouTube Data API. Otherwise
         it will scrape the YouTube website.
         '''
+
         self.integration_enabled: bool = YouTube.youtube_integration_enabled()
         self.api_enabled: bool = YouTube.youtube_api_integration_enabled()
 
@@ -72,6 +73,8 @@ class YouTube:
         if self.api_key:
             self.api_client = build('youtube', 'v3', developerKey=self.api_key)
 
+        self.lock_file: str = lock_file
+
         self.channels: dict[str, YouTubeChannel] = {}
         name: str
         for name in os.environ.get(YouTube.ENVIRON_CHANNEL, '').split(','):
@@ -81,7 +84,8 @@ class YouTube:
                 ingest = bool(ingest)
 
             channel = YouTubeChannel(
-                name, ingest=ingest, api_client=self.api_client
+                name, ingest=ingest, api_client=self.api_client,
+                lock_file=self.lock_file
             )
             self.channels[name] = channel
 

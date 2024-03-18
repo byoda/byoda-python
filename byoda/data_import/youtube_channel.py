@@ -71,7 +71,8 @@ class YouTubeChannel:
 
     def __init__(self, name: str = None, channel_id: str = None,
                  title: str | None = None, ingest: bool = False,
-                 api_client: YouTubeResource = None) -> None:
+                 api_client: YouTubeResource = None, lock_file: str = None
+                 ) -> None:
         '''
         Models a YouTube channel
 
@@ -83,6 +84,8 @@ class YouTubeChannel:
         :param ingest: whether to ingest the A/V streams of the scraped assets
         :param api_client: the optional YouTube data API client
         '''
+
+        self.lock_file: str = lock_file
 
         self.name: str | None = name
         if self.name:
@@ -172,6 +175,9 @@ class YouTubeChannel:
                 )
                 continue
 
+            if self.lock_file:
+                self.update_lock_file()
+
             _LOGGER.debug(
                 f'Persisting video {video.video_id} for channel {self.name}'
             )
@@ -201,6 +207,15 @@ class YouTubeChannel:
             video = None
 
         self.videos = []
+
+    def update_lock_file(self) -> None:
+        '''
+        We update the lock file every time we do something so
+        we can be more aggressive with removing stale lock files
+        '''
+
+        with open(self.lock_file, 'w') as lock_file:
+            lock_file.write('1')
 
     async def persist_channel(self, member: Member, data_store: DataStore,
                               storage_driver: FileStorage,
@@ -344,6 +359,10 @@ class YouTubeChannel:
             self.keywords = keywords.split(',')
 
         self.is_family_safe = channel_info.get('isFamilySafe', False)
+
+        if self.lock_file:
+            self.update_lock_file()
+
         await self.find_videos(
             parsed_data, already_ingested_videos, self.ingest_videos,
             self.channel_thumbnail

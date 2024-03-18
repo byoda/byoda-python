@@ -43,7 +43,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 _LOGGER: Logger = getLogger(__name__)
 
 LOCK_FILE: str = '/var/lock/youtube_ingest.lock'
-LOCK_TIMEOUT: int = 3 * 24 * 60 * 60
+LOCK_TIMEOUT: int = 27 * 60
 
 
 # Default setting, can be overriden with
@@ -108,7 +108,7 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     youtube: YouTube = server.youtube_client
     if YouTube.youtube_integration_enabled() and not server.youtube_client:
         _LOGGER.debug('Enabling YouTube integration')
-        youtube: YouTube = YouTube()
+        youtube: YouTube = YouTube(lock_file=LOCK_FILE)
 
     if not youtube:
         _LOGGER.debug('Skipping YouTube update as it is not enabled')
@@ -175,6 +175,7 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     interval: int = int(
         os.environ.get('YOUTUBE_IMPORT_INTERVAL', YOUTUBE_IMPORT_INTERVAL)
     )
+
     random_delay: int = int(random() * interval / 4)
     _LOGGER.debug(f'Sleeping for {random_delay} seconds to randomize runs')
     await sleep(random_delay)
