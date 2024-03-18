@@ -16,6 +16,10 @@ from yaml import safe_load as yaml_safe_loader
 
 from fastapi import FastAPI
 
+from fastapi_limiter import FastAPILimiter
+
+import redis.asyncio as redis
+
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
@@ -74,6 +78,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     redis_rw_url: str = svc_config['svcserver']['asset_cache_readwrite']
     config.asset_cache_readwrite = await AssetCache.setup(redis_rw_url)
     config.email_queue = await Queue.setup(redis_rw_url)
+
+    redis_connection = redis.from_url(redis_rw_url, encoding='utf-8')
+    await FastAPILimiter.init(
+        redis=redis_connection, prefix='ratelimits'
+    )
 
     _LOGGER.info('Starting server')
 
