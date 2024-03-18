@@ -59,4 +59,4 @@ CMD cd byoda-python \
        --forwarded-allow-ips '*' \
        -p /var/run/svcserver.pid \
        -c gunicorn.conf.py \
-       svcserver.main:app
+       byotubesvr.main:app
