@@ -33,7 +33,9 @@ from byoda import config
 from .database.sql import SqlStorage
 
 # from .routers import auth as AuthRouter
-from .routers import status as StatusRouter
+from byotubesvr.models.lite_account import LiteAccountSqlModel
+
+from byotubesvr.routers import status as StatusRouter
 from byotubesvr.routers import search as SearchRouter
 from byotubesvr.routers import data as DataRouter
 from byotubesvr.routers import account as AccountRouter
@@ -67,9 +69,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     config.jwt_secrets = svc_config['svcserver']['jwt_secrets']
 
-    config.lite_db = await SqlStorage.setup(
+    lite_db = await SqlStorage.setup(
         svc_config['svcserver']['litedb']
     )
+    config.lite_db = lite_db
+    for cls in [LiteAccountSqlModel]:
+        await cls.create_table(lite_db)
 
     config.asset_cache = await AssetCache.setup(
         svc_config['svcserver']['asset_cache']
