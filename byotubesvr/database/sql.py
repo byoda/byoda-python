@@ -81,8 +81,8 @@ ACCOUNT_STATUSES_STMTS: dict[str, str] = {
         comment TEXT
         CONSTRAINT account_exists FOREIGN_KEY(lite_id) REFERENCES accounts(lite_id) ON DELETE CASCADE,
     );
-    CREATE INDEX status_lite_id_index ON account_statuses(lite_id);
-    CREATE INDEX status_reason_index ON account_statuses(comment);
+    CREATE INDEX IF NOT EXISTS status_lite_id_index ON account_statuses(lite_id);
+    CREATE INDEX IF NOT EXISTS status_reason_index ON account_statuses(comment);
 '''
 }
 
@@ -117,7 +117,7 @@ PAYMENT_ACCOUNTS_STMTS: dict[str, str] = {
         status: TEXT,
         CONSTRAINT account_exists FOREIGN_KEY(lite_id) REFERENCES accounts(lite_id) ON DELETE CASCADE,
     );
-    CREATE INDEX payment_lite_id_index ON payment_accounts(lite_id);
+    CREATE INDEX IF NOT EXISTS payment_lite_id_index ON payment_accounts(lite_id);
 '''
 }
 
@@ -148,7 +148,7 @@ PAYMENT_STATUSES_STMTS: dict[str, str] = {
         comment TEXT,
         CONSTRAINT payment_exists FOREIGN_KEY(payment_id) REFERENCES account_payments(payment_id) ON DELETE CASCADE,
     );
-    CREATE INDEX payment_status_status_index ON payment_statuses(status);
+    CREATE INDEX IF NOT EXISTS payment_status_status_index ON payment_statuses(status);
 '''
 }
 
@@ -163,9 +163,9 @@ PAYMENT_STATUSES_STMTS: dict[str, str] = {
 #         creator TEXT NOT NULL,
 #         CONSTRAINT account_exists FOREIGN_KEY(lite_id) REFERENCES accounts(lite_id) ON DELETE CASCADE,
 #     );
-#     CREATE INDEX network_lunk_lite_id_index ON network_links(lite_id);
-#     CREATE INDEX network_link_member_id_index ON network_links(network_id);
-#     CREATE INDEX network_link_creator_index ON network_links(network_id);
+#     CREATE INDEX IF NOT EXISTS network_lunk_lite_id_index ON network_links(lite_id);
+#     CREATE INDEX IF NOT EXISTS network_link_member_id_index ON network_links(network_id);
+#     CREATE INDEX IF NOT EXISTS network_link_creator_index ON network_links(network_id);
 # '''
 # }
 

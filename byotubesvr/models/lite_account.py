@@ -84,8 +84,8 @@ class LiteAccountSqlModel:
         UNIQUE(handle),
         CONSTRAINT c_lowercase_email CHECK (((email)::TEXT = LOWER((email)::TEXT)))
     );
-    CREATE INDEX account_email_index ON accounts(email);
-    CREATE INDEX account_handle_index ON accounts(handle);
+    CREATE INDEX IF NOT EXISTS account_email_index ON accounts(email);
+    CREATE INDEX IF NOT EXISTS account_handle_index ON accounts(handle);
 ''',
         'drop': '''
         DROP TABLE IF EXISTS accounts CASCADE;
