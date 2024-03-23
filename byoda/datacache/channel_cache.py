@@ -110,17 +110,16 @@ class ChannelCache(SearchableCache, Metrics):
             member_id, channel.channel_id, ItemType.CHANNEL
         )
 
-        edge_data = {
+        edge_data: dict[str, any] = {
             'cursor': cursor,
             'origin': str(member_id),
             'node': channel_data
         }
 
         result: bool = await self.client.json().set(
-            key, '.', channel_data
+            key, '.', edge_data
         )
         self.set_expiration(key)
-
 
     def setup_metrics(self) -> None:
         '''

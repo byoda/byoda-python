@@ -48,6 +48,8 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
+from byoda.exceptions import ByodaRuntimeError
+
 Schema = TypeVar('Schema')
 PodServer = TypeVar('PodServer')
 Member = TypeVar('Member')
@@ -329,22 +331,31 @@ class CacheStore:
                     else:
                         filter_items[field] = {'eq': stale_data[field]}
 
-                resp: HttpResponse = await DataApiClient.call(
-                    service_id, origin_class_name, DataRequestType.QUERY,
-                    secret=tls_secret, network=network.name,
-                    member_id=origin_id, depth=0, data_filter=filter_items
-                )
+                try:
+                    resp: HttpResponse = await DataApiClient.call(
+                        service_id, origin_class_name, DataRequestType.QUERY,
+                        secret=tls_secret, network=network.name,
+                        member_id=origin_id, depth=0, data_filter=filter_items
+                    )
 
-                if resp.status_code != 200:
+                    if not resp or resp.status_code != 200:
+                        _LOGGER.debug(
+                            f'Refresh query to {origin_id_type.value}{origin_id} '
+                            f'for class {origin_class_name} with filters '
+                            f'{filter_items} failed, status: {resp.status_code}'
+                        )
+                        await sleep(1)
+                        continue
+                except ByodaRuntimeError as exc:
                     _LOGGER.debug(
                         f'Refresh query to {origin_id_type.value}{origin_id} '
                         f'for class {origin_class_name} with filters '
-                        f'{filter_items} failed, status: {resp.status_code}'
+                        f'{filter_items} failed: {exc}'
                     )
                     await sleep(1)
                     continue
 
-                request_data = resp.json()
+                request_data: dict[str, any] = resp.json()
 
                 if request_data['total_count'] == 0:
                     _LOGGER.debug(

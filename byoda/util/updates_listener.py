@@ -356,7 +356,7 @@ class UpdatesListener:
                     ).inc()
             except Exception as exc:
                 _LOGGER.exception(
-                    f'Failed to establish connection '
+                    f'Failed to establish websocket connection '
                     f'to {self.remote_member_id}: {exc}'
                 )
                 metric = 'updateslistener_websocket_exception_errors'
@@ -366,8 +366,8 @@ class UpdatesListener:
                     ).inc()
 
             _LOGGER.debug(
-                f'Reconnect delay to member {self.remote_member_id} is '
-                f'now {reconnect_delay}'
+                f'Websocket reconnect delay to member {self.remote_member_id} '
+                f'is now {reconnect_delay}'
             )
 
             metric: str = 'updateslistener_connection_healthy'
