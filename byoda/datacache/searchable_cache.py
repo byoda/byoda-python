@@ -55,10 +55,10 @@ from byoda import config
 _LOGGER: Logger = getLogger(__name__)
 
 LUA_FUNCTION_NAME_GET_LIST_ASSETS: str = 'get_list_assets'
-LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
 
 
 class SearchableCache:
+    LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
     # Search index will index JSON values under this key prefix
     ASSET_KEY_PREFIX: str = 'assets:'
     LISTS_KEY_PREFIX: str = 'lists:'
@@ -98,6 +98,8 @@ class SearchableCache:
         # This is the LUA function to get the values of assets in a list
         self._function_get_list_assets: Script | None = None
 
+        self.setup_metrics()
+
     def setup_metrics(self) -> None:
         metrics: dict[str, Gauge | Counter] = config.metrics
         metric: str = 'searchable_cache_member_id_in_head_of_list'
@@ -121,7 +123,8 @@ class SearchableCache:
         )
 
     @staticmethod
-    async def setup(connection_string: str) -> Self:
+    async def setup(connection_string: str,
+                    lua_functions_file: str = LUA_FUNCTIONS_FILE) -> Self:
         '''
         Factory for SearchableCache, sets up the index and installs the LUA
         functions in the Redis server
@@ -130,7 +133,7 @@ class SearchableCache:
         self = SearchableCache(connection_string)
 
         await self.create_search_index()
-        await self.load_functions()
+        await self.load_functions(lua_functions_file)
 
         return self
 
@@ -145,9 +148,9 @@ class SearchableCache:
             await self.create_index(SearchableCache.ASSET_KEY_PREFIX)
             _LOGGER.debug('Created search index')
 
-    async def load_functions(self) -> None:
+    async def load_functions(self, lua_functions_file: str) -> None:
         try:
-            with open(LUA_FUNCTIONS_FILE) as file_desc:
+            with open(lua_functions_file) as file_desc:
                 lua_code: str = file_desc.read()
 
             self._function_get_list_assets: Script = \

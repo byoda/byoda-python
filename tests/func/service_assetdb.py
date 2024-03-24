@@ -36,7 +36,6 @@ from redis.commands.search.result import Result
 from byoda.datamodel.memberdata import EdgeResponse as Edge
 
 from byoda.datacache.searchable_cache import SearchableCache
-from byoda.datacache.searchable_cache import LUA_FUNCTIONS_FILE
 from byoda.datacache.asset_cache import AssetCache
 
 from byoda.util.logger import Logger
@@ -103,11 +102,11 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         lists: set[str] = await cache.get_list_of_lists()
         self.assertIsNotNone(lists)
-        self.assertEqual(len(lists), 31)
+        self.assertEqual(len(lists), 172)
 
         creators: set[str] = await cache.get_creators_list()
         self.assertIsNotNone(creators)
-        self.assertEqual(len(creators), 11)
+        self.assertEqual(len(creators), 122)
 
         results: list[Edge] = await cache.get_list_assets()
         self.assertEqual(len(results), 11)
@@ -247,7 +246,7 @@ def call_lua_script(test, first: int = 25, after: str | None = None,
     # https://redis.io/docs/interact/programmability/lua-debugging/
     cmd: list[str] = [
         'redis-cli', '-3', '-u', REDIS_URL,
-        '--eval', LUA_FUNCTIONS_FILE,
+        '--eval', AssetCache.LUA_FUNCTIONS_FILE,
         f'lists:{TESTLIST}', ',', AssetCache.ASSET_KEY_PREFIX,
         f'{first}', f'{after}'
     ]

@@ -165,6 +165,7 @@ class YouTubeChannel:
         # adds it if it is not. If the asset exists and has ingest status
         # 'external' and this channel is configured to download AV tracks
         # then the existing asset will be updated
+        videos_imported: int = 0
         video: YouTubeVideo | None
         for video in self.videos.values():
             if video.channel_creator != self.name:
@@ -192,8 +193,12 @@ class YouTubeChannel:
                     custom_domain=custom_domain
                 )
 
+                videos_imported += 1
                 if result is None:
-                    _LOGGER.debug(f'Failed to persist video {video.video_id}')
+                    _LOGGER.debug(
+                        f'Failed to persist video {video.video_id} '
+                        f'for channel {self.name}'
+                    )
 
                 if ingest_interval:
                     random_delay: float = \
@@ -207,6 +212,8 @@ class YouTubeChannel:
             video = None
 
         self.videos = []
+
+        _LOGGER.debug(f'Channel {self.name} imported {videos_imported} videos')
 
     def update_lock_file(self) -> None:
         '''

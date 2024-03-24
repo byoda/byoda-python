@@ -48,6 +48,7 @@ AssetType = TypeVar('AssetType')
 
 
 class AssetCache(SearchableCache, Metrics):
+    LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
     DEFAULT_ASSET_LIST: str = 'recent_uploads'
     DEFAULT_ASSET_EXPIRATION: int = 60 * 60 * 24 * 3  # 3 days
     # The worker stores here all the lists that have been generated
@@ -74,7 +75,8 @@ class AssetCache(SearchableCache, Metrics):
         super().__init__(connection_string)
 
     @staticmethod
-    async def setup(connection_string: str) -> Self:
+    async def setup(connection_string: str,
+                    lua_functions_file: str = LUA_FUNCTIONS_FILE) -> Self:
         '''
         Setup the cache and return an instance.
 
@@ -85,7 +87,7 @@ class AssetCache(SearchableCache, Metrics):
 
         self: AssetCache = AssetCache(connection_string)
         await self.create_search_index()
-        await self.load_functions()
+        await self.load_functions(lua_functions_file)
 
         self.metrics_setup()
 
@@ -344,7 +346,7 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
+        key: str = self.get_list_key(AssetCache.ALL_CHANNELS_LIST)
         if creator:
             await self.client.sadd(key, creator)
             creator_list: str = self.get_list_key(creator)
@@ -360,7 +362,7 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
+        key: str = self.get_list_key(AssetCache.ALL_CHANNELS_LIST)
         creators: set[bytes] = await self.client.smembers(key)
 
         return creators
