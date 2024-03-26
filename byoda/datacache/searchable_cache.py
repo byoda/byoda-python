@@ -62,8 +62,7 @@ class SearchableCache:
     LISTS_KEY_PREFIX: str = 'lists:'
     SETS_KEY_PREFIX: str = 'sets:'
     ALL_ASSETS_LIST: str = 'all_assets'
-    ALL_CREATORS_SET: str = 'all_creators'
-    ALL_CREATORS_LIST: str = 'all_creators_list'
+    ALL_CREATORS: str = 'all_creators'
 
     DEFAULT_EXPIRATION: int = 86400         # seconds
     DEFAULT_EXPIRATION_LISTS: int = 30      # days

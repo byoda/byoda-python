@@ -62,7 +62,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member_id: UUID = get_test_uuid()
         await channel_cache.add_newest_channel(member_id, channel)
 
-        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS_SET)
+        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
         channel_key: str = ChannelCache.get_channel_key(
             member_id, channel.creator
         )
@@ -77,7 +77,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(edge is not None)
 
         result = await channel_cache.client.sismember(
-            channel_cache.ALL_CREATORS_SET, channel_key
+            channel_cache.ALL_CREATORS, channel_key
         )
         self.assertFalse(result)
 

@@ -120,7 +120,7 @@ class ChannelCache(SearchableCache, Metrics):
             member_id, channel.creator
         )
 
-        set_key: str = self.get_set_key(self.ALL_CREATORS_SET)
+        set_key: str = self.get_set_key(self.ALL_CREATORS)
         if await self.client.sismember(set_key, channel_key):
             return result
 
@@ -141,12 +141,12 @@ class ChannelCache(SearchableCache, Metrics):
             member_id, channel.creator
         )
 
-        list_key: str = self.get_list_key(self.ALL_CREATORS_LIST)
+        list_key: str = self.get_list_key(self.ALL_CREATORS)
         await self.client.rpush(list_key, channel_key)
         await self.client.expire(
             list_key, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
         )
-        set_key: str = self.get_set_key(self.ALL_CREATORS_SET)
+        set_key: str = self.get_set_key(self.ALL_CREATORS)
         await self.client.sadd(set_key, channel_key)
         await self.client.expire(
             set_key, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
@@ -159,14 +159,14 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the oldest channel in the cache
         '''
 
-        list_key: str = self.get_list_key(self.ALL_CREATORS_LIST)
+        list_key: str = self.get_list_key(self.ALL_CREATORS)
         channel_key: str = await self.client.lpop(list_key)
         if not channel_key:
             return None
 
         # As we removed the item from the list, we should also remove it
         # from the set
-        set_key: str = self.get_set_key(self.ALL_CREATORS_SET)
+        set_key: str = self.get_set_key(self.ALL_CREATORS)
         await self.client.srem(set_key, channel_key)
 
         _LOGGER.debug(f'Getting channel data for key: {channel_key}')

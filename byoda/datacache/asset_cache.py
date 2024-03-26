@@ -347,10 +347,15 @@ class AssetCache(SearchableCache, Metrics):
 
         cursor: str = ChannelCache.get_cursor(member_id, creator)
 
-        set_key: str = self.get_set_key(ChannelCache.ALL_CREATORS_SET)
-        if self.client.sismember(set_key, cursor):
+        set_key: str = self.get_set_key(ChannelCache.ALL_CREATORS)
+        _LOGGER.debug(
+            f'Reviewing list of creators with key {set_key} '
+            f'for cursor {cursor}'
+        )
+        if await self.client.sismember(set_key, cursor):
             _LOGGER.debug(
-                f'Creator {creator} already in the set of all creators'
+                f'Creator {creator} with cursor {cursor} already in the set '
+                f'of all creators with key {set_key}'
             )
             await self.set_expiration(
                 set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
@@ -366,12 +371,12 @@ class AssetCache(SearchableCache, Metrics):
             set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
         )
 
+        list_key: str = self.get_list_key(ChannelCache.ALL_CREATORS)
         _LOGGER.debug(
-            f'Adding creator {creator} to the list of all creators '
+            f'Adding creator {creator} to the list {list_key} '
             f'with cursor {cursor}'
         )
-        list_key: str = self.get_list_key(ChannelCache.ALL_CREATORS_LIST)
-        self.client.lpush(list_key, cursor)
+        await self.client.lpush(list_key, cursor)
 
         await self.set_expiration(
             list_key, ChannelCache.DEFAULT_EXPIRATION_LISTS
@@ -385,9 +390,10 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_set_key(AssetCache.ALL_CREATORS_SET)
+        key: str = self.get_set_key(AssetCache.ALL_CREATORS)
         creators: set[bytes] = await self.client.smembers(key)
 
+        _LOGGER.debug(f'Found {len(creators)} for set with key {key}')
         return creators
 
     async def update_list_of_lists(self, lists: set[str]) -> None:
