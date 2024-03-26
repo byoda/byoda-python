@@ -347,7 +347,7 @@ class AssetCache(SearchableCache, Metrics):
 
         cursor: str = ChannelCache.get_cursor(member_id, creator)
 
-        set_key: str = ChannelCache.get_set_key(ChannelCache.ALL_CREATORS_SET)
+        set_key: str = self.get_set_key(ChannelCache.ALL_CREATORS_SET)
         if self.client.sismember(set_key, cursor):
             await self.set_expiration(
                 set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
