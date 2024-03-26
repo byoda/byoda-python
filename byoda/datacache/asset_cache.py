@@ -22,7 +22,6 @@ from prometheus_client import Gauge
 from byoda.datamodel.metrics import Metrics
 
 from byoda.datatypes import DataRequestType
-from byoda.datatypes import ItemType
 
 from byoda.models.data_api_models import EdgeResponse as Edge
 from byoda.models.data_api_models import Asset
@@ -125,9 +124,7 @@ class AssetCache(SearchableCache, Metrics):
         # We override the cursor that the member may have set as that cursor
         # is only unique(-ish) for the member. We need a cursor that is unique
         # globally.
-        server_cursor: str = self.get_cursor(
-            member_id, asset_model.asset_id
-        )
+        server_cursor: str = self.get_cursor(member_id, asset_model.asset_id)
 
         asset_edge: Edge[Asset] = Edge[Asset](
             node=asset_model,
@@ -159,7 +156,7 @@ class AssetCache(SearchableCache, Metrics):
             lists_set, AssetCache.ASSET_KEY_PREFIX, asset_data
         )
 
-        await self.update_creators_list(asset_model.creator)
+        await self.update_creators_list(member_id, asset_model.creator)
 
         await self.update_list_of_lists(lists_set)
         metric: str = 'assetcache_total_lists'
@@ -173,8 +170,7 @@ class AssetCache(SearchableCache, Metrics):
 
         return True
 
-    async def in_cache(self, member_id: UUID, item_id: UUID,
-                       item_type: ItemType = ItemType.ASSET) -> bool:
+    async def in_cache(self, member_id: UUID, asset_id: UUID) -> bool:
         '''
         Check if an asset is in the cache.
 
@@ -184,15 +180,9 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        server_cursor: str = self.get_cursor(member_id, item_id)
+        server_cursor: str = self.get_cursor(member_id, asset_id)
 
-        item_key: str
-        if item_type == ItemType.ASSET:
-            item_key = AssetCache.ASSET_KEY_PREFIX + server_cursor
-        elif item_type == ItemType.CHANNEL:
-            item_key = AssetCache.CHANNEL_KEY_PREFIX + server_cursor
-        else:
-            raise ValueError(f'Unsupported item type: {item_type}')
+        item_key: str = AssetCache.ASSET_KEY_PREFIX + server_cursor
 
         return await self.client.exists(item_key)
 
@@ -337,7 +327,8 @@ class AssetCache(SearchableCache, Metrics):
         edge: Edge = await self.get_asset_by_key(asset_key)
         return edge
 
-    async def update_creators_list(self, creator: str) -> None:
+    async def update_creators_list(self, member_id: UUID, creator: str
+                                   ) -> None:
         '''
         Update the list of creators.
 
@@ -346,13 +337,20 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.ALL_CHANNELS_LIST)
-        if creator:
-            await self.client.sadd(key, creator)
-            creator_list: str = self.get_list_key(creator)
-            await self.set_expiration(creator_list)
-        else:
+        if not creator:
             _LOGGER.debug('No creator to add to the list of creators')
+
+        key: str = self.get_set_key(AssetCache.ALL_CREATORS_SET)
+        await self.client.sadd(key, creator)
+        await self.set_expiration(key, AssetCache.DEFAULT_EXPIRATION_LISTS)
+
+        key = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
+        # Append_list also sets the expiration time
+        await self.append_list(key, f'{str(member_id)}:{creator}')
+        await self.set_expiration(key, AssetCache.DEFAULT_EXPIRATION_LISTS)
+
+        creator_list: str = self.get_list_key(creator)
+        await self.set_expiration(creator_list)
 
     async def get_creators_list(self) -> set[str] | None:
         '''
@@ -362,7 +360,7 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.ALL_CHANNELS_LIST)
+        key: str = self.get_set_key(AssetCache.ALL_CREATORS_SET)
         creators: set[bytes] = await self.client.smembers(key)
 
         return creators

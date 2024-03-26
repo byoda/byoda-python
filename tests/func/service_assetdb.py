@@ -55,8 +55,13 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
             )
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
+        await cache.client.flushdb()
         await cache.client.function_flush('SYNC')
-        await cache.client.ft(cache.index_name).dropindex()
+        try:
+            await cache.client.ft(cache.index_name).dropindex()
+        except Exception:
+            pass
+
         await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
         await cache.delete_list(AssetCache.ALL_ASSETS_LIST)
@@ -102,11 +107,11 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         lists: set[str] = await cache.get_list_of_lists()
         self.assertIsNotNone(lists)
-        self.assertEqual(len(lists), 172)
+        self.assertEqual(len(lists), 31)
 
         creators: set[str] = await cache.get_creators_list()
         self.assertIsNotNone(creators)
-        self.assertEqual(len(creators), 122)
+        self.assertEqual(len(creators), 11)
 
         results: list[Edge] = await cache.get_list_assets()
         self.assertEqual(len(results), 11)

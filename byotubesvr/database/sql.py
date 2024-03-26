@@ -19,7 +19,6 @@ from psycopg.errors import CheckViolation           # noqa: E402
 from psycopg.errors import UniqueViolation          # noqa: E402
 
 
-
 class SqlStorage:
     def __init__(self, connection_string: str) -> None:
         self.connection_string: str = connection_string

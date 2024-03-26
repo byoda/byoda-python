@@ -279,7 +279,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             data = resp.json()
             self.assertTrue('status' in data)
 
-
             #
             # Test rate limiter
             #

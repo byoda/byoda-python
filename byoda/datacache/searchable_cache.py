@@ -44,8 +44,6 @@ from redis.commands.search.field import NumericField
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
-from byoda.datatypes import ItemType
-
 from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
 
 from byoda.util.logger import Logger
@@ -62,8 +60,10 @@ class SearchableCache:
     # Search index will index JSON values under this key prefix
     ASSET_KEY_PREFIX: str = 'assets:'
     LISTS_KEY_PREFIX: str = 'lists:'
+    SETS_KEY_PREFIX: str = 'sets:'
     ALL_ASSETS_LIST: str = 'all_assets'
-    ALL_CHANNELS_LIST: str = 'all_creators'
+    ALL_CREATORS_SET: str = 'all_creators'
+    ALL_CREATORS_LIST: str = 'all_creators'
 
     DEFAULT_EXPIRATION: int = 86400         # seconds
     DEFAULT_EXPIRATION_LISTS: int = 30      # days
@@ -185,8 +185,17 @@ class SearchableCache:
         else:
             return f'{self.LISTS_KEY_PREFIX}{cache_list}'
 
-    def get_cursor(self, member_id: str | UUID, item_id: str | UUID,
-                   item_type: ItemType = ItemType.ASSET) -> str:
+    def get_set_key(self, cache_set: str) -> str:
+        '''
+        Get the Redis key for the list
+
+        :param cache_list: The name of the list of assets
+        :returns: The Redis key for the list of assets
+        '''
+
+        return f'_{self.SETS_KEY_PREFIX}{cache_set}'
+
+    def get_cursor(self, member_id: str | UUID, asset_id: str | UUID) -> str:
         '''
         Calculates the cursor based on the combination of the member_id
         and asset_id
@@ -200,19 +209,12 @@ class SearchableCache:
         if isinstance(member_id, UUID):
             member_id = str(member_id)
 
-        if isinstance(item_id, UUID):
-            item_id = str(item_id)
+        if isinstance(asset_id, UUID):
+            asset_id = str(asset_id)
 
-        hash_val: str
-        if item_type == ItemType.ASSET:
-            hash_val = sha256(
-                f'{member_id}-{item_id}'.encode('utf-8'), usedforsecurity=False
-            ).digest()
-        else:
-            hash_val = sha256(
-                f'{member_id}-{item_type.value}-{item_id}'.encode('utf-8'),
-                usedforsecurity=False
-            ).digest()
+        hash_val: str = sha256(
+            f'{member_id}-{asset_id}'.encode('utf-8'), usedforsecurity=False
+        ).digest()
 
         cursor: str = b64encode(
             hash_val, '@-'.encode('utf-8')
@@ -442,7 +444,7 @@ class SearchableCache:
                 ]:
                     asset_list_key: str = self.get_list_key(asset_list)
                     await self.set_expiration(
-                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS
+                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS * 86400
                     )
 
             return
