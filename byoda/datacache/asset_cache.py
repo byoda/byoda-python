@@ -359,9 +359,7 @@ class AssetCache(SearchableCache, Metrics):
             set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
         )
 
-        list_key: str = ChannelCache.get_list_key(
-            ChannelCache.ALL_CREATORS_LIST
-        )
+        list_key: str = self.get_list_key(ChannelCache.ALL_CREATORS_LIST)
         self.client.lpush(list_key, cursor)
 
         await self.set_expiration(
