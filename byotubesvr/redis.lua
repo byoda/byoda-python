@@ -25,9 +25,9 @@ if not (after == nil or after == '') then
     pos = redis.call('LPOS', listkey, cursor)
     if pos == nil or not pos or pos == '' then
         pos = 0
-        -- redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. listkey)
+        redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. listkey)
     else
-        -- redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. listkey .. ' at position ' .. pos)
+        redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. listkey .. ' at position ' .. pos)
         -- we do not want to start the list at the cursor but after
         pos = pos + 1
     end

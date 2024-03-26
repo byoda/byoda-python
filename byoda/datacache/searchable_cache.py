@@ -102,25 +102,24 @@ class SearchableCache:
 
     def setup_metrics(self) -> None:
         metrics: dict[str, Gauge | Counter] = config.metrics
+
         metric: str = 'searchable_cache_member_id_in_head_of_list'
-
-        if not metrics or metric in metrics:
-            return
-
-        metrics[metric] = Gauge(
-            metric, (
-                'an origin of an asset already has another asset in the '
-                'head of the list'
-            ), ['member_id', 'list']
-        )
+        if metric not in metrics:
+            metrics[metric] = Gauge(
+                metric, (
+                    'an origin of an asset already has another asset in the '
+                    'head of the list'
+                ), ['member_id', 'list']
+            )
 
         metric = 'searchable_cache_member_id_not_in_head_of_list'
-        metrics[metric] = Gauge(
-            metric, (
-                'an origin of an asset already does not have another '
-                'asset in the head of the list'
-            ), ['member_id', 'list']
-        )
+        if metric not in metrics:
+            metrics[metric] = Gauge(
+                metric, (
+                    'an origin of an asset already does not have another '
+                    'asset in the head of the list'
+                ), ['member_id', 'list']
+            )
 
     @staticmethod
     async def setup(connection_string: str,
@@ -457,10 +456,6 @@ class SearchableCache:
         await self.set_expiration(key, expiration)
 
         for asset_list in asset_lists:
-            # Does the target list already have an asset of the same creator
-            # in the first <n> assets of the list
-            head_dupe: bool = False
-
             if (asset_list != SearchableCache.ALL_ASSETS_LIST
                     and not asset_list.startswith(creator)):
                 origin_already_in_head_of_list: bool = \
@@ -474,16 +469,16 @@ class SearchableCache:
                     metrics[metric].labels(
                         member_id=member_id, list=asset_list
                     ).inc()
-                    head_dupe = True
-                else:
-                    metric: str = \
-                        'searchable_cache_member_id_not_in_head_of_list'
-                    metrics[metric].labels(
-                        member_id=member_id, list=asset_list
-                    ).inc()
+                    continue
+
+            metric: str = \
+                'searchable_cache_member_id_not_in_head_of_list'
+            metrics[metric].labels(
+                member_id=member_id, list=asset_list
+            ).inc()
 
             _LOGGER.debug(f'Prepending key {key} to list {asset_list}')
-            await self.prepend_list(asset_list, key, is_internal=head_dupe)
+            await self.prepend_list(asset_list, key)
 
     async def check_head_of_list(self, list_name: str, creator: str,
                                  depth: int = 20) -> bool:
@@ -502,7 +497,13 @@ class SearchableCache:
         _LOGGER.debug(f'Getting first {depth} items of list {list_name}')
         for asset_key in asset_keys:
             edge: dict[str, any] = await self.client.json().get(asset_key)
-            _LOGGER.debug(f'Checking asset {asset_key} from creator {creator}')
+            if not edge:
+                continue
+            edge_creator: str = edge['node']['creator']
+            _LOGGER.debug(
+                f'Checking asset {asset_key} to see if it is '
+                f'from creator {creator}: {edge_creator}'
+            )
             if edge and edge['node']['creator'] == creator:
                 _LOGGER.debug(
                     f'Creator {creator} with asset {asset_key} already '

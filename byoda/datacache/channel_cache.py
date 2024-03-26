@@ -63,7 +63,8 @@ class ChannelCache(SearchableCache, Metrics):
 
         return self
 
-    def get_channel_key(self, member_id: UUID, creator: str,
+    @staticmethod
+    def get_channel_key(member_id: UUID, creator: str,
                         is_internal_list: bool = False) -> str:
         '''
         Get the key for the channel
@@ -73,21 +74,17 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the key for the channel
         '''
 
-        cursor: str = self.get_cursor(member_id, creator)
+        cursor: str = ChannelCache.get_cursor(member_id, creator)
 
-        key: str = self.get_channel_key_for_cursor(cursor, is_internal_list)
+        key: str = ChannelCache.get_channel_key_for_cursor(
+            cursor, is_internal_list
+        )
 
         return key
 
-    def get_channel_descriptor(self, member_id: UUID, creator: str) -> None:
-        '''
-        Returns a unique representation for the channel that provides
-        sufficient data for a worker to get the info about the channel from
-        a pod and store it in the cache
-
-        '''
-    def get_channel_key_for_cursor(self, cursor: str,
-                                   is_internal_list: bool = False) -> str:
+    @staticmethod
+    def get_channel_key_for_cursor(cursor: str, is_internal_list: bool = False
+                                   ) -> str:
         '''
         Get the key for the channel
 
@@ -95,7 +92,7 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the key for the channel
         '''
 
-        key: str = f'{self.CHANNEL_KEY_PREFIX}:{cursor}'
+        key: str = f'{ChannelCache.CHANNEL_KEY_PREFIX}:{cursor}'
 
         if is_internal_list:
             key = f'_{key}'
@@ -112,16 +109,19 @@ class ChannelCache(SearchableCache, Metrics):
         '''
 
         if await self.in_cache(member_id, channel.creator):
-            key: str = self.get_channel_key(member_id, channel.creator)
+            key: str = ChannelCache.get_channel_key(member_id, channel.creator)
             await self.set_expiration(key)
             return 0
 
         result: bool = await self.add_to_cache(member_id, channel)
 
         # Check if channel is already in list of channels/creators
-        channel_key: str = self.get_channel_key(member_id, channel.creator)
+        channel_key: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
+        )
 
-        if await self.client.sismember(self.ALL_CREATORS_SET, channel_key):
+        set_key: str = self.get_set_key(self.ALL_CREATORS_SET)
+        if await self.client.sismember(set_key, channel_key):
             return result
 
         await self.append_channel(member_id, channel)
@@ -137,7 +137,9 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: number of lists the channel was added to
         '''
 
-        channel_key: str = self.get_channel_key(member_id, channel.creator)
+        channel_key: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
+        )
 
         list_key: str = self.get_list_key(self.ALL_CREATORS_LIST)
         await self.client.rpush(list_key, channel_key)
@@ -162,6 +164,11 @@ class ChannelCache(SearchableCache, Metrics):
         if not channel_key:
             return None
 
+        # As we removed the item from the list, we should also remove it
+        # from the set
+        set_key: str = self.get_set_key(self.ALL_CREATORS_SET)
+        await self.client.srem(set_key, channel_key)
+
         _LOGGER.debug(f'Getting channel data for key: {channel_key}')
         node_data = await self.client.json().get(channel_key)
         channel: Channel = Channel(**node_data['node'])
@@ -181,18 +188,17 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the number of channels in the cache
         '''
 
-        key: str = self.get_channel_key(member_id, channel.creator)
+        key: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
+        )
 
         # Update expiration of the channel data
         await self.set_expiration(key)
 
         await self.append_channel(member_id, channel)
-        cursor: str = self.get_cursor(member_id, channel.creator)
 
-        list_key: str = self.get_list_key(self.ALL_CREATORS_LIST)
-        await self.client.lpush(list_key, cursor)
-
-    def get_cursor(self, member_id: UUID, creator: str) -> str:
+    @staticmethod
+    def get_cursor(member_id: UUID, creator: str) -> str:
         '''
         Get the cursor for the channel
 
@@ -201,18 +207,7 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the cursor for the channel
         '''
 
-        if isinstance(member_id, UUID):
-            member_id = str(member_id)
-
-        hash_val: str = sha256(
-            f'{member_id}-{creator}'.encode('utf-8'), usedforsecurity=False
-        ).digest()
-
-        cursor: str = b64encode(
-            hash_val, '@-'.encode('utf-8')
-        ).decode('utf-8')[0:12]
-
-        return cursor
+        return f'{str(member_id)}_{creator}'
 
     async def add_to_cache(self, member_id: UUID, channel: Channel | dict
                            ) -> bool:
@@ -228,10 +223,12 @@ class ChannelCache(SearchableCache, Metrics):
         if isinstance(channel, dict):
             channel = Channel(**channel)
 
-        key: str = self.get_channel_key(member_id, channel.creator)
+        key: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
+        )
 
         channel_data: dict[str, any] = jsonable_encoder(channel)
-        cursor: str = self.get_cursor(member_id, channel.creator)
+        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
 
         edge_data: dict[str, any] = {
             'cursor': cursor,
@@ -279,7 +276,7 @@ class ChannelCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        server_cursor: str = self.get_cursor(member_id, creator)
+        server_cursor: str = ChannelCache.get_cursor(member_id, creator)
 
         item_key: str = ChannelCache.CHANNEL_KEY_PREFIX + server_cursor
 

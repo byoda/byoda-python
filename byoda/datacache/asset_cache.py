@@ -26,6 +26,8 @@ from byoda.datatypes import DataRequestType
 from byoda.models.data_api_models import EdgeResponse as Edge
 from byoda.models.data_api_models import Asset
 
+from byoda.datacache.channel_cache import ChannelCache
+
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.service_secret import ServiceSecret
 
@@ -340,17 +342,24 @@ class AssetCache(SearchableCache, Metrics):
         if not creator:
             _LOGGER.debug('No creator to add to the list of creators')
 
-        key: str = self.get_set_key(AssetCache.ALL_CREATORS_SET)
-        await self.client.sadd(key, creator)
-        await self.set_expiration(key, AssetCache.DEFAULT_EXPIRATION_LISTS)
-
-        key = self.get_list_key(AssetCache.ALL_CREATORS_LIST)
-        # Append_list also sets the expiration time
-        await self.append_list(key, f'{str(member_id)}:{creator}')
-        await self.set_expiration(key, AssetCache.DEFAULT_EXPIRATION_LISTS)
-
         creator_list: str = self.get_list_key(creator)
         await self.set_expiration(creator_list)
+
+        set_key: str = ChannelCache.get_set_key(ChannelCache.ALL_CREATORS_SET)
+        if self.client.sinter(set_key, ChannelCache.get_channel_key(creator)):
+            await self.set_expiration(
+                set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
+            )
+            return
+
+        list_key: str = ChannelCache.get_list_key(
+            ChannelCache.ALL_CREATORS_LIST
+        )
+        cursor: str = ChannelCache.get_cursor(member_id, creator)
+        await self.client.sadd(list_key, cursor)
+        await self.set_expiration(
+            list_key, ChannelCache.DEFAULT_EXPIRATION_LISTS
+        )
 
     async def get_creators_list(self) -> set[str] | None:
         '''
