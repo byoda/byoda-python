@@ -64,8 +64,8 @@ class SearchableCache:
     ALL_ASSETS_LIST: str = 'all_assets'
     ALL_CREATORS: str = 'all_creators'
 
-    DEFAULT_EXPIRATION: int = 86400         # seconds
-    DEFAULT_EXPIRATION_LISTS: int = 30      # days
+    DEFAULT_EXPIRATION: int = 86400             # seconds
+    DEFAULT_EXPIRATION_LISTS: int = 30 * 86400  # days
 
     '''
     Data is arranged in Redis:
@@ -442,7 +442,7 @@ class SearchableCache:
                 ]:
                     asset_list_key: str = self.get_list_key(asset_list)
                     await self.set_expiration(
-                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS * 86400
+                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS
                     )
 
             return
@@ -549,7 +549,7 @@ class SearchableCache:
 
         key_name: str = self.get_list_key(list_name)
         await self.client.expire(
-            key_name, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
+            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
         return await self.client.rpush(key_name, item)
 
@@ -565,7 +565,7 @@ class SearchableCache:
 
         key_name: str = self.get_list_key(list_name, is_internal=is_internal)
         await self.client.expire(
-            key_name, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
+            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
         return await self.client.lpush(key_name, item)
 

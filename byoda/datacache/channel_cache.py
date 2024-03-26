@@ -141,15 +141,16 @@ class ChannelCache(SearchableCache, Metrics):
             member_id, channel.creator
         )
 
-        list_key: str = self.get_list_key(self.ALL_CREATORS)
-        await self.client.rpush(list_key, channel_key)
-        await self.client.expire(
-            list_key, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
-        )
         set_key: str = self.get_set_key(self.ALL_CREATORS)
         await self.client.sadd(set_key, channel_key)
         await self.client.expire(
-            set_key, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
+            set_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
+        )
+
+        list_key: str = self.get_list_key(self.ALL_CREATORS)
+        await self.client.rpush(list_key, channel_key)
+        await self.client.expire(
+            list_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
 
     async def get_oldest_channel(self) -> Edge[Channel] | None:
