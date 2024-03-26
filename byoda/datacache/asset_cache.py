@@ -345,18 +345,25 @@ class AssetCache(SearchableCache, Metrics):
         creator_list: str = self.get_list_key(creator)
         await self.set_expiration(creator_list)
 
+        cursor: str = ChannelCache.get_cursor(member_id, creator)
+
         set_key: str = ChannelCache.get_set_key(ChannelCache.ALL_CREATORS_SET)
-        if self.client.sinter(set_key, ChannelCache.get_channel_key(creator)):
+        if self.client.sismember(set_key, cursor):
             await self.set_expiration(
                 set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
             )
             return
 
+        await self.client.sadd(set_key, cursor)
+        await self.set_expiration(
+            set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
+        )
+
         list_key: str = ChannelCache.get_list_key(
             ChannelCache.ALL_CREATORS_LIST
         )
-        cursor: str = ChannelCache.get_cursor(member_id, creator)
-        await self.client.sadd(list_key, cursor)
+        self.client.lpush(list_key, cursor)
+
         await self.set_expiration(
             list_key, ChannelCache.DEFAULT_EXPIRATION_LISTS
         )
