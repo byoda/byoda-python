@@ -332,7 +332,7 @@ class AssetCache(SearchableCache, Metrics):
     async def update_creators_list(self, member_id: UUID, creator: str
                                    ) -> None:
         '''
-        Update the list of creators.
+        Update the list for the creator and the list of all creators.
 
         :param creator: The creator to add to the list of creators.
         :return: None
@@ -349,16 +349,27 @@ class AssetCache(SearchableCache, Metrics):
 
         set_key: str = self.get_set_key(ChannelCache.ALL_CREATORS_SET)
         if self.client.sismember(set_key, cursor):
+            _LOGGER.debug(
+                f'Creator {creator} already in the set of all creators'
+            )
             await self.set_expiration(
                 set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
             )
             return
 
+        _LOGGER.debug(
+            f'Adding creator {creator} to the set of all creators '
+            f'with cursor {cursor}'
+        )
         await self.client.sadd(set_key, cursor)
         await self.set_expiration(
             set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
         )
 
+        _LOGGER.debug(
+            f'Adding creator {creator} to the list of all creators '
+            f'with cursor {cursor}'
+        )
         list_key: str = self.get_list_key(ChannelCache.ALL_CREATORS_LIST)
         self.client.lpush(list_key, cursor)
 
