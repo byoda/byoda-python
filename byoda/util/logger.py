@@ -161,13 +161,13 @@ class Logger(logging.Logger):
         logging.getLogger('byoda.storage.sqlstorage').setLevel(logging.INFO)
         logging.getLogger('byoda.data_import.youtube').setLevel(logging.INFO)
         logging.getLogger('byoda.data_import.youtube_video').setLevel(
-            logging.INFO
+            logging.DEBUG
         )
         logging.getLogger('byoda.data_import.youtube_thumbnail').setLevel(
-            logging.INFO
+            logging.DEBUG
         )
         logging.getLogger('byoda.data_import.youtube_channel').setLevel(
-            logging.INFO
+            logging.DEBUG
         )
         # Now create a child logger for the caller, which inherits
         # from the root logger

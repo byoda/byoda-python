@@ -237,6 +237,8 @@ class YouTubeChannel:
         no CDN is used
         '''
 
+        _LOGGER.debug(f'Persisting channel {self.name}')
+    
         table: ArraySqlTable = data_store.get_table(
             member.member_id, YouTubeChannel.CHANNEL_DATACLASS
         )

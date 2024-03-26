@@ -43,7 +43,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 _LOGGER: Logger = getLogger(__name__)
 
 LOCK_FILE: str = '/var/lock/youtube_ingest.lock'
-LOCK_TIMEOUT: int = 327 * 60
+LOCK_TIMEOUT: int = 127 * 60
 
 
 # Default setting, can be overriden with

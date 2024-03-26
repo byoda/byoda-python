@@ -192,6 +192,8 @@ class YouTube:
         using MemberData to trigger notifications on pub/sub
         :param storage_driver: this parameter is required if we download the
         videos
+        :param already_ingested_assets:
+        :param already_ingested_channels:
         :param bento4_directory: this parameter is required if we download the
         assets and repackage them
         :param moderate_request_url: URL where to submit the request to review
@@ -212,13 +214,17 @@ class YouTube:
 
         all_channels: list[YouTubeChannel] = list(self.channels.values())
         shuffle(all_channels)
+        _LOGGER.debug(f'Found {len(all_channels)} channels to import')
 
-        for channel in self.channels.values():
+        for channel in all_channels:
             # Do not try to import channels without names, which could happen
             # if the YOUTUBE_CHANNEL has two ','s in a row or a
             # trailing ','
             if not channel:
+                _LOGGER.debug('Got empty channel')
                 continue
+
+            _LOGGER.debug(f'Importing channel {channel.name}')
 
             if channel.ingest_videos and not storage_driver:
                 raise ValueError(
@@ -226,20 +232,23 @@ class YouTube:
                     f'for {channel.name}'
                 )
 
-            if channel.name not in already_ingested_channels:
-                await channel.scrape(
-                    already_ingested_videos=already_ingested_assets,
-                )
+            if channel.name in already_ingested_channels:
+                _LOGGER.debug(f'We already scraped {channel.name}')
+                continue
 
-                await channel.persist(
-                    member, data_store, storage_driver,
-                    already_ingested_assets, bento4_directory,
-                    moderate_request_url=moderate_request_url,
-                    moderate_jwt_header=moderate_jwt_header,
-                    moderate_claim_url=moderate_claim_url,
-                    ingest_interval=ingest_interval,
-                    custom_domain=custom_domain
-                )
+            await channel.scrape(
+                already_ingested_videos=already_ingested_assets,
+            )
 
-                # Release memory used by the import run
-                channel.videos = []
+            await channel.persist(
+                member, data_store, storage_driver,
+                already_ingested_assets, bento4_directory,
+                moderate_request_url=moderate_request_url,
+                moderate_jwt_header=moderate_jwt_header,
+                moderate_claim_url=moderate_claim_url,
+                ingest_interval=ingest_interval,
+                custom_domain=custom_domain
+            )
+
+            # Release memory used by the import run
+            channel.videos = []
