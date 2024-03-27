@@ -19,6 +19,7 @@ from byoda.datamodel.config import ServerConfig
 from byoda.datastore.memberdb import MemberDb
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.secrets.member_data_secret import MemberDataSecret
 
@@ -74,6 +75,9 @@ class ServiceServer(Server):
         self.asset_cache: AssetCache | None = None
         self.asset_cache_readwrite: AssetCache | None = None
 
+        self.channel_cache: ChannelCache | None = None
+        self.channel_cache_readwrite: ChannelCache | None = None
+
         self.dns_resolver = DnsResolver(network.name)
 
         _LOGGER.debug('Initialized service server')
@@ -119,6 +123,12 @@ class ServiceServer(Server):
 
         if self.asset_cache_readwrite:
             await self.asset_cache_readwrite.close()
+
+        if self.channel_cache:
+            await self.channel_cache.close()
+
+        if self.channel_cache_readwrite:
+            await self.channel_cache_readwrite.close()
 
     async def load_network_secrets(self, storage_driver: FileStorage = None
                                    ) -> None:
@@ -172,6 +182,25 @@ class ServiceServer(Server):
         )
 
         self.asset_cache_readwrite: AssetCache = await AssetCache.setup(
+            connection_string_readwrite
+        )
+
+    async def setup_channel_cache(self, connection_string: str,
+                                  connection_string_readwrite: str) -> None:
+        '''
+        Sets up the channel cache for the service. The channel cache can only
+        be created after the schema has been loaded
+
+        :param connection_string: the connection string for the channel cache
+        :returns: (none)
+        :raises: ValueError
+        '''
+
+        self.channel_cache: AssetCache = await AssetCache.setup(
+            connection_string
+        )
+
+        self.channel_cache_readwrite: AssetCache = await AssetCache.setup(
             connection_string_readwrite
         )
 

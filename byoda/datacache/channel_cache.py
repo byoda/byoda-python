@@ -137,6 +137,8 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: number of lists the channel was added to
         '''
 
+        metrics: dict[str, Counter | Gauge] = config.metrics
+
         channel_key: str = ChannelCache.get_channel_key(
             member_id, channel.creator
         )
@@ -153,6 +155,9 @@ class ChannelCache(SearchableCache, Metrics):
             list_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
 
+        metric: str = 'channelcache_total_channels'
+        metrics[metric].inc()
+
     async def get_oldest_channel(self) -> Edge[Channel] | None:
         '''
         Removes and returns the oldest channel in the cache
@@ -160,22 +165,38 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the oldest channel in the cache
         '''
 
+        metrics: dict[str, Counter | Gauge] = config.metrics
+
         list_key: str = self.get_list_key(self.ALL_CREATORS)
+
         channel_key: str = await self.client.lpop(list_key)
         if not channel_key:
             return None
+
+        metric: str = 'channelcache_total_channels'
+        metrics[metric].dec()
 
         # As we removed the item from the list, we should also remove it
         # from the set
         set_key: str = self.get_set_key(self.ALL_CREATORS)
         await self.client.srem(set_key, channel_key)
 
+        expires_in: int = await self.get_expiration(channel_key)
+
         _LOGGER.debug(f'Getting channel data for key: {channel_key}')
-        node_data = await self.client.json().get(channel_key)
+        node_data: dict[str, any] | None = await self.client.json().get(
+            channel_key
+        )
+        if not node_data:
+            return None
+
         channel: Channel = Channel(**node_data['node'])
         member_id: UUID = UUID(node_data['origin'])
         cursor: str = node_data['cursor']
-        edge = Edge(cursor=cursor, node=channel, origin=member_id)
+        edge = Edge(
+            cursor=cursor, node=channel, origin=member_id,
+            expires_in=expires_in
+        )
 
         return edge
 
@@ -220,6 +241,8 @@ class ChannelCache(SearchableCache, Metrics):
         :param channel:
         :returns: True if the channel was added to the cache, False otherwise
         '''
+
+        metrics: dict[str, Counter | Gauge] = config.metrics
 
         if isinstance(channel, dict):
             channel = Channel(**channel)

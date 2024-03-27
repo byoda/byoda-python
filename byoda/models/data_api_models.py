@@ -178,6 +178,7 @@ class EdgeResponse(BaseModel, Generic[TypeX]):
     cursor: str
     origin: UUID
     node: TypeX
+    expires_in: int | None = None
 
 
 class PageInfoResponse(BaseModel):
