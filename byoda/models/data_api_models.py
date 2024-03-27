@@ -43,7 +43,8 @@ DEFAULT_PAGE_LENGTH: int = 20
 
 class BaseModel(PydanticBaseModel):
     class Config:
-        #extra: str = 'forbid'
+        # Disabled because of potential to cause outage
+        # extra: str = 'forbid'
         pass
 
 
@@ -179,7 +180,7 @@ class EdgeResponse(BaseModel, Generic[TypeX]):
     cursor: str
     origin: UUID
     node: TypeX
-    expires_in: int | None = None
+    expires_at: int | None = None
 
 
 class PageInfoResponse(BaseModel):

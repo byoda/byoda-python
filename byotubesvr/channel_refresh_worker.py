@@ -12,7 +12,8 @@ the service
 import os
 import sys
 
-import orjson
+from datetime import UTC
+from datetime import datetime
 
 from anyio import run
 from anyio import sleep
@@ -95,8 +96,11 @@ async def main() -> None:
                 metrics['svc_channels_no_channels_available'].inc()
                 continue
 
-            if edge.expires_in > CACHE_STALE_THRESHOLD:
-                wait_time = int(edge.expires_in - CACHE_STALE_THRESHOLD)
+            now = int(datetime.now(tz=UTC).timestamp())
+            stale_at: int = edge.expires_at - CACHE_STALE_THRESHOLD
+            stale_in: int = stale_at - now
+            if stale_in > 0:
+                wait_time = stale_in
                 _LOGGER.debug(
                     f'Next channel to become stale in {wait_time} seconds'
                 )

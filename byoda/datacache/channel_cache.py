@@ -9,8 +9,9 @@ Asset Cache maintains lists of channels
 from uuid import UUID
 from typing import Self
 from logging import getLogger
+from datetime import UTC
+from datetime import datetime
 from datetime import timedelta
-
 from fastapi.encoders import jsonable_encoder
 
 from prometheus_client import Counter
@@ -201,9 +202,11 @@ class ChannelCache(SearchableCache, Metrics):
         if not node_data:
             return edge
 
+        expires_at: int = int(datetime.now(tz=UTC).timestamp()) + expires_in
+
         channel = Channel(**node_data['node'])
         edge.node = channel
-        edge.expires_in = max(0, expires_in)
+        edge.expires_at = max(0, expires_at)
 
         _LOGGER.debug(
             f'Got oldest channel: {channel.creator} from {member_id}'
