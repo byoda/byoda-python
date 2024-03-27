@@ -229,7 +229,6 @@ class ChannelCache(SearchableCache, Metrics):
         cursor: str
 
         if ':' not in key:
-            _LOGGER.debug(f'No prefix in key: {key}')
             prefix = key
 
         prefix, cursor = key.split(':', 1)
@@ -241,10 +240,12 @@ class ChannelCache(SearchableCache, Metrics):
         member_id_string: str
         creator: str
         member_id_string, creator = cursor.split('_', 1)
+
         _LOGGER.debug(
             f'Split cursor in to member_id {member_id_string} '
             f'and creator {creator}'
         )
+
         try:
             member_id: UUID = UUID(member_id_string)
             return member_id, creator
