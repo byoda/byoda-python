@@ -135,6 +135,7 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
         f'Getting channel {channel.creator} from pod of member {edge.origin}'
     )
 
+    edge_data = ''
     try:
         resp: HttpResponse = await DataApiClient.call(
             service.service_id, ASSET_CLASS, DataRequestType.QUERY,
@@ -149,19 +150,27 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
             )
             return None
 
-        metric: str = 'svc_channels_fetched'
-        metrics[metric].inc()
+        metrics['svc_channels_channels_fetched'].inc()
 
         edge_data: dict[str, any] = resp.json()
-        if not edge_data:
+        if (not edge_data or not edge_data.get('edges')
+                or not edge_data['edges'][0]['node']):
             _LOGGER.info(
                 f'No data returned for channel {channel.creator} '
                 f'from member {edge.origin}'
             )
             return None
 
+        new_creator: str = edge_data['edges'][0]['node'].get('creator')
+        if not new_creator:
+            _LOGGER.info(
+                f'No creator returned for channel {channel.creator} '
+                f'from member {edge.origin}'
+            )
+            return None
+
         new_edge: Edge[Channel] = Edge(
-            origin=edge.origin, node=edge_data['creator'], cursor=edge.cursor
+            origin=edge.origin, node=new_creator, cursor=edge.cursor
         )
         return new_edge
     except (ConnectError, HTTPError) as exc:
@@ -261,10 +270,16 @@ def setup_exporter_metrics() -> None:
             metric, 'Number of channel refresh runs'
         )
 
-    metric = 'svc_channels_fetched'
+    metric = 'svc_channels_channels_fetched'
     if metric not in metrics:
         metrics[metric] = Counter(
             metric, 'Number of channels fetched from pods'
+        )
+
+    metric = 'svc_channels_channels_refreshed'
+    if metric not in metrics:
+        metrics[metric] = Gauge(
+            metric, 'Channels no longer available'
         )
 
     metric = 'svc_channels_channel_no_longer_available'
