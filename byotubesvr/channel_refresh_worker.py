@@ -273,9 +273,8 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     await server.load_network_secrets(storage_driver=storage)
 
     await server.setup_channel_cache(
-        'redis://20.14.154.254:6379', 'redis://20.14.154.254:6379'
-    #    server_config.server_config['asset_cache'],
-    #    server_config.server_config['asset_cache_readwrite']
+        server_config.server_config['asset_cache'],
+        server_config.server_config['asset_cache_readwrite']
     )
 
     return server
