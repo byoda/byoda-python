@@ -187,7 +187,7 @@ class ChannelCache(SearchableCache, Metrics):
         channel: Channel = Channel(creator=creator)
         cursor: str = ChannelCache.get_cursor(member_id, creator)
         edge = Edge(
-            cursor=cursor, node=channel, origin=member_id, expires_in=0
+            cursor=cursor, node=channel, origin=member_id, expires_at=0
         )
 
         if expires_in == -2:

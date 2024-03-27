@@ -66,10 +66,11 @@ PROMETHEUS_EXPORTER_PORT: int = 5000
 
 
 async def main() -> None:
-    service: Service
     server: ServiceServer
     metrics: dict[str, Counter | Gauge] = config.metrics
-    service, server = await setup_server()
+
+    server = await setup_server()
+    service: Service = server.service
 
     _LOGGER.debug(
         f'Starting channel refresh worker for service ID: {service.service_id}'
@@ -95,25 +96,37 @@ async def main() -> None:
                 )
                 metrics['svc_channels_no_channels_available'].inc()
                 continue
+        except Exception as exc:
+            # We need to catch any exception to make sure we can try
+            # adding the member_id back to the list of member_ids in the
+            # MemberDb
+            _LOGGER.exception(f'Got exception: {exc}')
+            wait_time = min(wait_time * 2, MAX_WAIT)
+            continue
 
-            now = int(datetime.now(tz=UTC).timestamp())
+        now = int(datetime.now(tz=UTC).timestamp())
+
+        stale_in: int = 0
+        if edge.expires_at:
             stale_at: int = edge.expires_at - CACHE_STALE_THRESHOLD
             stale_in: int = stale_at - now
-            if stale_in > 0:
-                wait_time = stale_in
-                _LOGGER.debug(
-                    f'Next channel to become stale in {wait_time} seconds'
-                )
-                metrics['svc_channels_wait_for_stale_channel'].set(wait_time)
-                await channel_cache.add_oldest_channel_back(edge)
-                continue
 
-            channel: Channel = edge.node
-            metrics['svc_channels_channel_refresh_attempts'].inc()
+        if stale_in > 0:
+            wait_time = stale_in
             _LOGGER.debug(
-                f'Processing channel {channel.creator} of member {edge.origin}'
+                f'Next channel to become stale in {wait_time} seconds'
             )
-            wait_time = 0
+            metrics['svc_channels_wait_for_stale_channel'].set(wait_time)
+            await channel_cache.add_oldest_channel_back(edge)
+            continue
+
+        channel: Channel = edge.node
+        metrics['svc_channels_channel_refresh_attempts'].inc()
+        _LOGGER.debug(
+            f'Processing channel {channel.creator} of member {edge.origin}'
+        )
+        wait_time = 0
+        try:
             new_edge: Edge[Channel] = await get_channel_from_pod(edge)
             if new_edge:
                 metrics['svc_channels_channels_refreshed'].inc()
@@ -127,6 +140,7 @@ async def main() -> None:
                 metrics['svc_channels_channel_no_longer_available'].inc()
                 _LOGGER.debug('Did not receive a new edge for the channel')
 
+            continue
         except Exception as exc:
             # We need to catch any exception to make sure we can try
             # adding the member_id back to the list of member_ids in the
@@ -134,9 +148,15 @@ async def main() -> None:
             _LOGGER.exception(f'Got exception: {exc}')
             wait_time = min(wait_time * 2, MAX_WAIT)
 
+        try:
+            await channel_cache.add_oldest_channel_back(edge)
+        except Exception as exc:
+            _LOGGER.exception(f'Could not add oldest channel back: {exc}')
+
 
 async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
     service: Service = config.server.service
+    network: Network = service.network
     metrics: dict[str, Counter | Gauge] = config.metrics
 
     channel: Channel = edge.node
@@ -148,7 +168,7 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
     try:
         resp: HttpResponse = await DataApiClient.call(
             service.service_id, ASSET_CLASS, DataRequestType.QUERY,
-            member_id=edge.origin, network=service.network.name,
+            member_id=edge.origin, network=network.name,
             data_filter={'creator': {'eq': channel.creator}},
         )
 
@@ -252,28 +272,13 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     storage = FileStorage(server_config.server_config['root_dir'])
     await server.load_network_secrets(storage_driver=storage)
 
-    _LOGGER.debug('Now loading service secrets')
-    await server.load_secrets(
-        password=server_config.server_config['private_key_password']
-    )
-
-    service: Service = server.service
-
-    if not await service.paths.service_file_exists(service.service_id):
-        await service.download_schema(save=True)
-
-    await server.load_schema(verify_contract_signatures=False)
-    schema: Schema = service.schema
-    schema.get_data_classes(with_pubsub=False)
-    schema.generate_data_models('svcserver/codegen', datamodels_only=True)
-
     await server.setup_channel_cache(
         'redis://20.14.154.254:6379', 'redis://20.14.154.254:6379'
     #    server_config.server_config['asset_cache'],
     #    server_config.server_config['asset_cache_readwrite']
     )
 
-    return service, server
+    return server
 
 
 def setup_exporter_metrics() -> None:
