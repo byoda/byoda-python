@@ -78,18 +78,25 @@ class DataApiClient:
         :param action: the type of action to request
         :param secret: secret to use for client M-TLS, must be None if JWT
         is provided
-        :param jwt: JWT to use for authentication
-        :param use_proxy: call API via proxy
-        :param custom_domain: custom domain to use for the API call
         :param jwt: JWT to use for authentication, must be None if the
         secret is provided
+        :param use_proxy: call API via proxy
+        :param custom_domain: custom domain to use for the API call
+        :param network:
+        :param headers: a list of HTTP headers to add to the request
         :param params: HTTP query parameters
         :param data: data to send in the body of the request
         :param member_id: the member_id of the pod you want to call, required
         if use_proxy is set to True
         :param remote_member_id: the member ID of the pod that you want the
         pod that handles our request to proxy our request to
-        :param headers: a list of HTTP headers to add to the request
+        :param query_id:
+        :param first: number of items to retrieve
+        :param after: cursor for pagination
+        :param fields: fields to include in response
+        :param depth: number of hops to proxy the request
+        :param relations: list of relations to proxy the request to
+        :param data_filter: filter to apply to the data
         :param timeout: timeout in seconds
         :param internal: whether to use the internal API or not, also used
         :param app: FastAPI app to use for the request, used for test cases
@@ -105,7 +112,7 @@ class DataApiClient:
         port: int
         data_url, port = DataApiClient.get_url(
             service_id, class_name, action, headers, use_proxy, custom_domain,
-            network, jwt, member_id, internal, app
+            network, jwt, member_id, internal, secret=secret, app=app
         )
 
         _LOGGER.debug(f'Using data URL {data_url}')
@@ -149,7 +156,8 @@ class DataApiClient:
                 headers: dict[str, str],
                 use_proxy: bool, custom_domain: str,
                 network: str, jwt: JWT, member_id: UUID,
-                internal: bool, app: FastAPI | None = None) -> (str, int):
+                internal: bool, secret: Secret | None = None,
+                app: FastAPI | None = None) -> tuple[str, int]:
         '''
         Figures out the URL to use for the call
         Use cases:
@@ -241,7 +249,7 @@ class DataApiClient:
             )
 
             port = 444
-            if headers and 'Authorization' in headers:
+            if (not secret) or jwt or (headers and 'Authorization' in headers):
                 # This must be a test case calling a pod with a JWT
                 port = 443
 

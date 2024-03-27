@@ -87,9 +87,12 @@ async def main() -> None:
                 await channel_cache.get_oldest_channel()
 
             if not edge:
-                _LOGGER.warning('No channel available in list of channels')
-                metrics['svc_channels_no_channels_available'].inc()
                 wait_time = 5
+                _LOGGER.warning(
+                    'No channel available in list of channels, '
+                    f'waiting {wait_time} seconds'
+                )
+                metrics['svc_channels_no_channels_available'].inc()
                 continue
 
             if edge.expires_in > CACHE_STALE_THRESHOLD:
@@ -135,8 +138,8 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
     try:
         resp: HttpResponse = await DataApiClient.call(
             service.service_id, ASSET_CLASS, DataRequestType.QUERY,
-            member_id=edge.origin, filter={'creator': {'eq': channel.creator}},
-            network=service.network.name
+            member_id=edge.origin, network=service.network.name,
+            data_filter={'creator': {'eq': channel.creator}},
         )
 
         if resp.status_code != 200:
@@ -149,10 +152,16 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
         metric: str = 'svc_channels_fetched'
         metrics[metric].inc()
 
-        edge_data: dict[str, any] = orjson.loads(resp.json())
+        edge_data: dict[str, any] = resp.json()
+        if not edge_data:
+            _LOGGER.info(
+                f'No data returned for channel {channel.creator} '
+                f'from member {edge.origin}'
+            )
+            return None
 
         new_edge: Edge[Channel] = Edge(
-            origin=edge.origin, node=edge_data['channel'], cursor=edge.cursor
+            origin=edge.origin, node=edge_data['creator'], cursor=edge.cursor
         )
         return new_edge
     except (ConnectError, HTTPError) as exc:
@@ -250,6 +259,12 @@ def setup_exporter_metrics() -> None:
     if metric not in metrics:
         metrics[metric] = Gauge(
             metric, 'Number of channel refresh runs'
+        )
+
+    metric = 'svc_channels_fetched'
+    if metric not in metrics:
+        metrics[metric] = Counter(
+            metric, 'Number of channels fetched from pods'
         )
 
     metric = 'svc_channels_channel_no_longer_available'

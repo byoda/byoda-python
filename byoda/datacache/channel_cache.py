@@ -162,15 +162,17 @@ class ChannelCache(SearchableCache, Metrics):
         '''
         Removes and returns the oldest channel in the cache
 
-        :returns: the oldest channel in the cache
+        :returns: None if no channels are in the list, Edge[Channel] if a channel
+        is in the list
+        the oldest channel in the cache
         '''
 
         metrics: dict[str, Counter | Gauge] = config.metrics
 
         list_key: str = self.get_list_key(self.ALL_CREATORS)
 
-        channel_key: str = await self.client.lpop(list_key)
-        if not channel_key:
+        cursor: str = await self.client.lpop(list_key)
+        if not cursor:
             return None
 
         metric: str = 'channelcache_total_channels'
@@ -179,23 +181,39 @@ class ChannelCache(SearchableCache, Metrics):
         # As we removed the item from the list, we should also remove it
         # from the set
         set_key: str = self.get_set_key(self.ALL_CREATORS)
-        await self.client.srem(set_key, channel_key)
+        await self.client.srem(set_key, cursor)
 
-        expires_in: int = await self.get_expiration(channel_key)
+        expires_in: int = await self.get_expiration(cursor)
 
-        _LOGGER.debug(f'Getting channel data for key: {channel_key}')
-        node_data: dict[str, any] | None = await self.client.json().get(
-            channel_key
-        )
-        if not node_data:
-            return None
+        member_id: str | UUID
+        creator: str
+        member_id, creator = cursor.split('_', 1)
+        member_id = UUID(member_id)
 
-        channel: Channel = Channel(**node_data['node'])
-        member_id: UUID = UUID(node_data['origin'])
-        cursor: str = node_data['cursor']
+        # Create a channel edge with placeholder data
+        channel: Channel = Channel(creator=creator)
         edge = Edge(
-            cursor=cursor, node=channel, origin=member_id,
-            expires_in=expires_in
+            cursor=cursor, node=channel, origin=member_id, expires_in=0
+        )
+
+        if expires_in == -2:
+            # Redis TTL returns -2 when the key does not exist
+            return edge
+
+        _LOGGER.debug(f'Getting channel data for cursor: {cursor}')
+        node_data: dict[str, any] | None = await self.client.json().get(
+            cursor
+        )
+
+        if not node_data:
+            return edge
+
+        channel = Channel(**node_data['node'])
+        edge.node = channel
+        edge.expires_in = max(0, expires_in)
+
+        _LOGGER.debug(
+            f'Got oldest channel: {channel.creator} from {member_id}'
         )
 
         return edge
@@ -241,8 +259,6 @@ class ChannelCache(SearchableCache, Metrics):
         :param channel:
         :returns: True if the channel was added to the cache, False otherwise
         '''
-
-        metrics: dict[str, Counter | Gauge] = config.metrics
 
         if isinstance(channel, dict):
             channel = Channel(**channel)

@@ -68,6 +68,7 @@ class ServiceServer(Server):
             service_id = app_config.server_config['service_id']
         else:
             service_id = app_config['svcserver']['service_id']
+
         self.service = Service(
             network=self.network, service_id=service_id
         )
