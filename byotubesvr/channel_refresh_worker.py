@@ -74,7 +74,7 @@ async def main() -> None:
         f'Starting channel refresh worker for service ID: {service.service_id}'
     )
 
-    channel_cache: ChannelCache = server.channel_cache
+    channel_cache: ChannelCache = server.channel_cache_readwrite
 
     wait_time: int = 0
     while True:
@@ -113,6 +113,9 @@ async def main() -> None:
             new_edge: Edge[Channel] = await get_channel_from_pod(edge)
             if new_edge:
                 metrics['svc_channels_channels_refreshed'].inc()
+                _LOGGER.debug(
+                    f'Adding channel {channel.creator} back as newest channel'
+                )
                 await channel_cache.add_newest_channel(
                     new_edge.origin, new_edge.node
                 )
@@ -261,8 +264,9 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
     await server.setup_channel_cache(
-        server_config.server_config['asset_cache'],
-        server_config.server_config['asset_cache_readwrite']
+        'redis://20.14.154.254:6379', 'redis://20.14.154.254:6379'
+    #    server_config.server_config['asset_cache'],
+    #    server_config.server_config['asset_cache_readwrite']
     )
 
     return service, server

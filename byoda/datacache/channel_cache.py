@@ -104,11 +104,6 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: number of lists the channel was added to
         '''
 
-        if await self.in_cache(member_id, channel.creator):
-            key: str = ChannelCache.get_channel_key(member_id, channel.creator)
-            await self.set_expiration(key)
-            return 0
-
         result: bool = await self.add_to_cache(member_id, channel)
 
         # Check if channel is already in list of channels/creators
@@ -118,6 +113,7 @@ class ChannelCache(SearchableCache, Metrics):
 
         set_key: str = self.get_set_key(self.ALL_CREATORS)
         if await self.client.sismember(set_key, channel_key):
+            _LOGGER.debug('Channel already in set of channels')
             return result
 
         await self.append_channel(member_id, channel)
@@ -228,14 +224,10 @@ class ChannelCache(SearchableCache, Metrics):
         prefix: str
         cursor: str
 
-        if ':' not in key:
-            prefix = key
-
-        prefix, cursor = key.split(':', 1)
-
-        _LOGGER.debug(
-            f'Split key name in to prefix {prefix} and cursor {cursor}'
-        )
+        if ':' in key:
+            prefix, cursor = key.split(':', 1)
+        else:
+            cursor = key
 
         member_id_string: str
         creator: str

@@ -43,7 +43,8 @@ DEFAULT_PAGE_LENGTH: int = 20
 
 class BaseModel(PydanticBaseModel):
     class Config:
-        extra: str = 'forbid'
+        #extra: str = 'forbid'
+        pass
 
 
 # This is a generic model for NetworkLink. Service schemas must include
