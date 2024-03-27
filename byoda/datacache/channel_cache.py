@@ -135,18 +135,15 @@ class ChannelCache(SearchableCache, Metrics):
 
         metrics: dict[str, Counter | Gauge] = config.metrics
 
-        channel_key: str = ChannelCache.get_channel_key(
-            member_id, channel.creator
-        )
-
+        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
         set_key: str = self.get_set_key(self.ALL_CREATORS)
-        await self.client.sadd(set_key, channel_key)
+        await self.client.sadd(set_key, cursor)
         await self.client.expire(
             set_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
 
         list_key: str = self.get_list_key(self.ALL_CREATORS)
-        await self.client.rpush(list_key, channel_key)
+        await self.client.rpush(list_key, cursor)
         await self.client.expire(
             list_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
@@ -227,12 +224,13 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the member_id and creator
         :raises: ValueError
         '''
+
         prefix: str
         cursor: str
 
         if ':' not in key:
             _LOGGER.debug(f'No prefix in key: {key}')
-            raise ValueError(f'No prefix in key: {key}')
+            prefix = key
 
         prefix, cursor = key.split(':', 1)
 
