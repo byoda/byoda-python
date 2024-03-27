@@ -119,8 +119,6 @@ async def main() -> None:
             # adding the member_id back to the list of member_ids in the
             # MemberDb
             _LOGGER.exception(f'Got exception: {exc}')
-            if edge:
-                await channel_cache.add_oldest_channel_back(edge)
             wait_time = min(wait_time * 2, MAX_WAIT)
 
 

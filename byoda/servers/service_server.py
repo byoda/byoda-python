@@ -196,11 +196,11 @@ class ServiceServer(Server):
         :raises: ValueError
         '''
 
-        self.channel_cache: AssetCache = await AssetCache.setup(
+        self.channel_cache: ChannelCache = await ChannelCache.setup(
             connection_string
         )
 
-        self.channel_cache_readwrite: AssetCache = await AssetCache.setup(
+        self.channel_cache_readwrite: ChannelCache = await ChannelCache.setup(
             connection_string_readwrite
         )
 
