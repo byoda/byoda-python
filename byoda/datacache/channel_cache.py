@@ -8,8 +8,6 @@ Asset Cache maintains lists of channels
 
 from uuid import UUID
 from typing import Self
-from hashlib import sha256
-from base64 import b64encode
 from logging import getLogger
 from datetime import timedelta
 
@@ -21,8 +19,6 @@ from prometheus_client import Gauge
 from byoda.datamodel.metrics import Metrics
 
 from byoda.models.data_api_models import Channel
-from byoda.models.data_api_models import VideoThumbnail
-from byoda.models.data_api_models import ExternalLink
 from byoda.util.logger import Logger
 
 from byoda.models.data_api_models import EdgeResponse as Edge
@@ -162,8 +158,8 @@ class ChannelCache(SearchableCache, Metrics):
         '''
         Removes and returns the oldest channel in the cache
 
-        :returns: None if no channels are in the list, Edge[Channel] if a channel
-        is in the list
+        :returns: None if no channels are in the list, Edge[Channel] if a
+        channel is in the list
         the oldest channel in the cache
         '''
 
@@ -171,8 +167,8 @@ class ChannelCache(SearchableCache, Metrics):
 
         list_key: str = self.get_list_key(self.ALL_CREATORS)
 
-        cursor: str = await self.client.lpop(list_key)
-        if not cursor:
+        key_name: str = await self.client.lpop(list_key)
+        if not key_name:
             return None
 
         metric: str = 'channelcache_total_channels'
@@ -181,17 +177,21 @@ class ChannelCache(SearchableCache, Metrics):
         # As we removed the item from the list, we should also remove it
         # from the set
         set_key: str = self.get_set_key(self.ALL_CREATORS)
-        await self.client.srem(set_key, cursor)
+        await self.client.srem(set_key, key_name)
 
-        expires_in: int = await self.get_expiration(cursor)
+        expires_in: int = await self.get_expiration(key_name)
 
-        member_id: str | UUID
-        creator: str
-        member_id, creator = cursor.split('_', 1)
-        member_id = UUID(member_id)
+        try:
+            member_id: UUID
+            creator: str
+            member_id, creator = ChannelCache.parse_channel_key(key_name)
+        except ValueError:
+            _LOGGER.warning(f'Invalid channel key: {key_name}')
+            return None
 
         # Create a channel edge with placeholder data
         channel: Channel = Channel(creator=creator)
+        cursor: str = ChannelCache.get_cursor(member_id, creator)
         edge = Edge(
             cursor=cursor, node=channel, origin=member_id, expires_in=0
         )
@@ -217,6 +217,42 @@ class ChannelCache(SearchableCache, Metrics):
         )
 
         return edge
+
+    @staticmethod
+    def parse_channel_key(key: str) -> tuple[UUID, str]:
+        '''
+        Parses the key for a JSON value with the channel data
+
+        :param key: the key to parse, as is used in the creator lists
+        :returns: the member_id and creator
+        :raises: ValueError
+        '''
+        prefix: str
+        cursor: str
+
+        if ':' not in key:
+            _LOGGER.debug(f'No prefix in key: {key}')
+            raise ValueError(f'No prefix in key: {key}')
+
+        prefix, cursor = key.split(':', 1)
+
+        _LOGGER.debug(
+            f'Split key name in to prefix {prefix} and cursor {cursor}'
+        )
+
+        member_id_string: str
+        creator: str
+        member_id_string, creator = cursor.split('_', 1)
+        _LOGGER.debug(
+            f'Split cursor in to member_id {member_id_string} '
+            f'and creator {creator}'
+        )
+        try:
+            member_id: UUID = UUID(member_id_string)
+            return member_id, creator
+        except ValueError:
+            _LOGGER.warning(f'Invalid member_id in cursor: {member_id_string}')
+            raise
 
     async def add_oldest_channel_back(self, member_id: UUID, channel: Channel
                                       ) -> None:
@@ -321,4 +357,3 @@ class ChannelCache(SearchableCache, Metrics):
         item_key: str = ChannelCache.CHANNEL_KEY_PREFIX + server_cursor
 
         return await self.client.exists(item_key)
-

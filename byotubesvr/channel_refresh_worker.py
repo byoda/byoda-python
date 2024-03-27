@@ -71,7 +71,7 @@ async def main() -> None:
     service, server = await setup_server()
 
     _LOGGER.debug(
-        f'Starting service worker for service ID: {service.service_id}'
+        f'Starting channel refresh worker for service ID: {service.service_id}'
     )
 
     channel_cache: ChannelCache = server.channel_cache
@@ -113,9 +113,12 @@ async def main() -> None:
             new_edge: Edge[Channel] = await get_channel_from_pod(edge)
             if new_edge:
                 metrics['svc_channels_channels_refreshed'].inc()
-                await channel_cache.add_newest_channel(new_edge)
+                await channel_cache.add_newest_channel(
+                    new_edge.origin, new_edge.node
+                )
             else:
                 metrics['svc_channels_channel_no_longer_available'].inc()
+                _LOGGER.debug('Did not receive a new edge for the channel')
 
         except Exception as exc:
             # We need to catch any exception to make sure we can try
@@ -135,7 +138,6 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
         f'Getting channel {channel.creator} from pod of member {edge.origin}'
     )
 
-    edge_data = ''
     try:
         resp: HttpResponse = await DataApiClient.call(
             service.service_id, ASSET_CLASS, DataRequestType.QUERY,
@@ -152,16 +154,31 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
 
         metrics['svc_channels_channels_fetched'].inc()
 
-        edge_data: dict[str, any] = resp.json()
-        if (not edge_data or not edge_data.get('edges')
-                or not edge_data['edges'][0]['node']):
+        data: dict[str, any] = resp.json()
+        if not data or not isinstance(data, dict) or not data.get('edges'):
             _LOGGER.info(
                 f'No data returned for channel {channel.creator} '
                 f'from member {edge.origin}'
             )
             return None
 
-        new_creator: str = edge_data['edges'][0]['node'].get('creator')
+        edges: list[dict[str, any]] = data.get('edges')
+        if not isinstance(edges, list) or not len(edges):
+            _LOGGER.info(
+                'No edges included in data returned for channel '
+                f'{channel.creator} from member {edge.origin}'
+            )
+            return None
+
+        node: dict[str, any] = edges[0].get('node')
+        if not node or not isinstance(node, dict) or 'creator' not in node:
+            _LOGGER.info(
+                f'No node data returned for channel {channel.creator} '
+                f'from member {edge.origin}'
+            )
+            return None
+
+        new_creator: str = node['creator']
         if not new_creator:
             _LOGGER.info(
                 f'No creator returned for channel {channel.creator} '
@@ -169,8 +186,10 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
             )
             return None
 
+        _LOGGER.debug('Preparing data structure for updated channel')
+        new_channel: Channel = Channel(**node)
         new_edge: Edge[Channel] = Edge(
-            origin=edge.origin, node=new_creator, cursor=edge.cursor
+            origin=edge.origin, node=new_channel, cursor=edge.cursor
         )
         return new_edge
     except (ConnectError, HTTPError) as exc:
