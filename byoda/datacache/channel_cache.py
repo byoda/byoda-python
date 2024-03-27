@@ -71,6 +71,12 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the key for the channel
         '''
 
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        if not isinstance(creator, str):
+            raise ValueError(f'Creator must be a string: {creator}')
+
         cursor: str = ChannelCache.get_cursor(member_id, creator)
 
         key: str = ChannelCache.get_channel_key_for_cursor(
@@ -89,6 +95,9 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the key for the channel
         '''
 
+        if not isinstance(cursor, str):
+            raise ValueError(f'Cursor must be a string: {cursor}')
+
         key: str = f'{ChannelCache.CHANNEL_KEY_PREFIX}:{cursor}'
 
         if is_internal_list:
@@ -104,6 +113,12 @@ class ChannelCache(SearchableCache, Metrics):
         :param channel: the channel to add
         :returns: number of lists the channel was added to
         '''
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        if not isinstance(channel, Channel):
+            channel = Channel(**channel)
 
         result: bool = await self.add_to_cache(member_id, channel)
 
@@ -131,6 +146,12 @@ class ChannelCache(SearchableCache, Metrics):
         '''
 
         metrics: dict[str, Counter | Gauge] = config.metrics
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        if not isinstance(channel, Channel):
+            channel = Channel(**channel)
 
         cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
         set_key: str = self.get_set_key(self.ALL_CREATORS)
@@ -214,6 +235,53 @@ class ChannelCache(SearchableCache, Metrics):
 
         return edge
 
+    async def get_channel(self, member_id: UUID, creator: str
+                          ) -> Edge[Channel] | None:
+        '''
+        Get a channel from the cache
+
+        :param creator:
+        :param member_id:
+        :returns: Edge[Channel] if the channel is in the cache, None otherwise
+        '''
+
+        if not isinstance(creator, str):
+            raise ValueError(f'Creator must be a string: {creator}')
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        cursor: str = ChannelCache.get_cursor(member_id, creator)
+        return await self.get_channel_by_cursor(cursor)
+
+    async def get_channel_by_cursor(self, cursor: str) -> Edge[Channel] | None:
+        '''
+        Get a channel from the cache based on its cursor
+
+        :param cursor:
+        :returns: Edge[Channel] if the channel is in the cache, None otherwise
+        '''
+
+        if not isinstance(cursor, str):
+            raise ValueError(f'Cursor must be a string: {cursor}')
+
+        key_name: str = ChannelCache.get_channel_key_for_cursor(cursor)
+        _LOGGER.debug(
+            f'Getting channel data for cursor: {cursor} with {key_name}'
+        )
+
+        node_data: dict[str, any] | None = await self.client.json().get(
+            key_name
+        )
+
+        if not node_data:
+            return None
+
+        edge: Edge = Edge(**node_data)
+        edge.node = Channel(**node_data['node'])
+
+        return edge
+
     @staticmethod
     def parse_channel_key(key: str) -> tuple[UUID, str]:
         '''
@@ -223,6 +291,9 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the member_id and creator
         :raises: ValueError
         '''
+
+        if not isinstance(key, str):
+            raise ValueError(f'Key must be a string: {key}')
 
         prefix: str
         cursor: str
@@ -258,12 +329,13 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: the number of channels in the cache
         '''
 
-        key: str = ChannelCache.get_channel_key(
-            member_id, channel.creator
-        )
+        if not isinstance(channel, Channel):
+            channel = Channel(**channel)
 
-        # Update expiration of the channel data
-        await self.set_expiration(key)
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        await self.add_to_cache(member_id, channel)
 
         await self.append_channel(member_id, channel)
 
@@ -276,6 +348,12 @@ class ChannelCache(SearchableCache, Metrics):
         :param creator: the channel to get the cursor for
         :returns: the cursor for the channel
         '''
+
+        if not isinstance(creator, str):
+            raise ValueError(f'Creator must be a string: {creator}')
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
 
         return f'{str(member_id)}_{creator}'
 
@@ -290,8 +368,11 @@ class ChannelCache(SearchableCache, Metrics):
         :returns: True if the channel was added to the cache, False otherwise
         '''
 
-        if isinstance(channel, dict):
+        if not isinstance(channel, Channel):
             channel = Channel(**channel)
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
 
         key: str = ChannelCache.get_channel_key(
             member_id, channel.creator

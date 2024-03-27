@@ -20,8 +20,11 @@ import orjson
 
 from httpx import AsyncClient
 
+from byoda.models.data_api_models import EdgeResponse as Edge
+from byoda.models.data_api_models import Channel
+
 from byoda.datacache.asset_cache import AssetCache
-from byoda.datacache.searchable_cache import SearchableCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.util.fastapi import setup_api
 
@@ -51,36 +54,37 @@ DUMMY_SCHEMA: str = 'tests/collateral/addressbook.json'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        config_file: str = os.environ.get('CONFIG_FILE', 'config-byotube.yml')
+        config_file: str = os.environ.get('CONFIG_FILE', 'config.yml-byotube')
         with open(config_file) as file_desc:
             app_config: dict[str, dict[str, any]] = yaml.safe_load(file_desc)
 
         config.debug = True
 
-        cache: AssetCache = await AssetCache.setup(
+        asset_cache: AssetCache = await AssetCache.setup(
+            app_config['svcserver']['asset_cache_readwrite']
+        )
+        await asset_cache.client.function_flush('SYNC')
+        await asset_cache.client.ft(asset_cache.index_name).dropindex()
+        await asset_cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
+
+        list_key: str = asset_cache.get_list_key(TESTLIST)
+        keys: list[str] = await asset_cache.client.keys(f'{list_key}*')
+        for key in keys:
+            await asset_cache.client.delete(key)
+
+        await asset_cache.client.aclose()
+
+        channel_cache: ChannelCache = await ChannelCache.setup(
+            app_config['svcserver']['channel_cache_readwrite']
+        )
+        config.channel_cache = channel_cache
+        redis_rw_url: str = app_config['svcserver']['channel_cache_readwrite']
+        config.channel_cache_readwrite = await ChannelCache.setup(redis_rw_url)
+
+        asset_cache: AssetCache = await AssetCache.setup(
             app_config['svcserver']['asset_cache']
         )
-        await cache.client.function_flush('SYNC')
-        await cache.client.ft(cache.index_name).dropindex()
-        await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
-
-        list_key: str = cache.get_list_key(TESTLIST)
-        keys: list[str] = await cache.client.keys(f'{list_key}*')
-        for key in keys:
-            await cache.client.delete(key)
-
-        keys: list[str] = await cache.client.keys(
-            f'{SearchableCache.ASSET_KEY_PREFIX}*'
-        )
-        for key in keys:
-            await cache.client.delete(key)
-
-        await cache.client.aclose()
-
-        cache: AssetCache = await AssetCache.setup(
-            app_config['svcserver']['asset_cache']
-        )
-        config.asset_cache = cache
+        config.asset_cache = asset_cache
 
         config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
@@ -102,6 +106,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+        await config.channel_cache.close()
+        await config.channel_cache_readwrite.close()
+        await config.asset_cache.close()
 
     async def test_service_data_api(self) -> None:
         member_id: UUID = get_test_uuid()
@@ -291,6 +298,60 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue(len(data), 11)
+
+    async def test_channel_cache(self) -> None:
+        channel_cache: ChannelCache = config.channel_cache
+
+        channel_id: UUID = get_test_uuid()
+        created: datetime = datetime.now(tz=UTC)
+        channel = Channel(
+            channel_id=channel_id,
+            creator='test_creator',
+            created_timestamp=created,
+            description='test channel',
+            is_family_safe=True,
+            keywords=['test', 'channel'],
+        )
+        member_id: UUID = get_test_uuid()
+        await channel_cache.add_newest_channel(member_id, channel)
+
+        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
+        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
+        result = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertTrue(result)
+
+        cursor = None
+        member_id = None
+        edge: Edge | None = await channel_cache.get_oldest_channel()
+        self.assertIsNotNone(edge)
+
+        channel: Channel = edge.node
+        cursor = ChannelCache.get_cursor(edge.origin, channel.creator)
+        result: int = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertFalse(result)
+
+        await channel_cache.add_oldest_channel_back(edge.origin, channel)
+        result = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertTrue(result)
+
+        channel: Channel = edge.node
+
+        api_url: str = 'http://localhost:8000/api/v1/service/channel'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                api_url,
+                params={'member_id': edge.origin, 'creator': channel.creator},
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('node' in data)
+            self.assertGreaterEqual(data['node']['creator'], channel.creator)
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:

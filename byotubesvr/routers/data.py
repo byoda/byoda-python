@@ -14,11 +14,13 @@ from fastapi import Request
 from fastapi import HTTPException
 from fastapi.responses import ORJSONResponse
 
+from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.util.logger import Logger
 
@@ -111,9 +113,40 @@ async def get_asset(request: Request, cursor: str | None = None,
 
     if not cursor:
         cursor = asset_cache.get_cursor(member_id, asset_id)
+
     try:
         edge: EdgeResponse = await asset_cache.get_asset_by_key(cursor)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    return edge
+
+
+@router.get('/channel', status_code=200, response_class=ORJSONResponse)
+async def get_channel(request: Request, creator: str, member_id: UUID
+                      ) -> EdgeResponse:
+    '''
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy (TODO: security)
+    '''
+
+    channel_cache: ChannelCache = config.channel_cache
+
+    _LOGGER.debug(f'GET Channel API called from {request.client.host}')
+
+    try:
+        edge: EdgeResponse[Channel] | None = await channel_cache.get_channel(
+            member_id, creator
+        )
+        if not edge:
+            raise HTTPException(
+                status_code=404,
+                detail=f'Channel {creator} of pod {member_id} not found'
+            )
+    except Exception as exc:
+        _LOGGER.exception(f'Failed to get channel: {exc}')
+        raise HTTPException(
+            status_code=502, detail='Failed to get channel'
+        )
 
     return edge

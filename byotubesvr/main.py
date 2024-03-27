@@ -23,6 +23,7 @@ import redis.asyncio as redis
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.util.fastapi import setup_api
 
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     config.jwt_secrets = svc_config['svcserver']['jwt_secrets']
 
-    lite_db = await SqlStorage.setup(
+    lite_db: SqlStorage = await SqlStorage.setup(
         svc_config['svcserver']['litedb']
     )
     config.lite_db = lite_db
@@ -79,9 +80,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config.asset_cache = await AssetCache.setup(
         svc_config['svcserver']['asset_cache']
     )
-
     redis_rw_url: str = svc_config['svcserver']['asset_cache_readwrite']
     config.asset_cache_readwrite = await AssetCache.setup(redis_rw_url)
+
+    config.channel_cache = await ChannelCache.setup(
+        svc_config['svcserver']['channel_cache']
+    )
+    redis_rw_url: str = svc_config['svcserver']['channel_cache_readwrite']
+    config.channel_cache_readwrite = await ChannelCache.setup(redis_rw_url)
+
     config.email_queue = await Queue.setup(redis_rw_url)
 
     redis_connection = redis.from_url(redis_rw_url, encoding='utf-8')

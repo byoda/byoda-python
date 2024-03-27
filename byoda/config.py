@@ -23,6 +23,7 @@ from prometheus_client import Gauge
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.servers.server import Server
 
@@ -87,6 +88,9 @@ metrics: dict[str, Counter | Gauge] = {}
 #
 asset_cache: AssetCache | None = None
 asset_cache_readwrite: AssetCache | None = None
+
+channel_cache: ChannelCache | None = None
+channel_cache_readwrite: ChannelCache | None = None
 
 # The PostgreSql database for BYO.Tube Lite accounts
 lite_db: SqlStorage | None = None
