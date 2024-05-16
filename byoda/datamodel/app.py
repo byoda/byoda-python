@@ -2,7 +2,7 @@
 Class for modeling app on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -14,7 +14,10 @@ from byoda.util.logger import Logger
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
+from byoda.datatypes import IdType
 from byoda.datatypes import AppType
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
@@ -76,3 +79,16 @@ class CdnApp(App):
             raise ValueError('cdn_origin_site_id string is required')
 
         self.cdn_origin_site_id: str = cdn_origin_site_id
+
+
+class PayApp(App):
+    def __init__(self, app_id: UUID, service: Service, pay_url: str
+                 ) -> None:
+        super().__init__(app_id, service)
+
+        self.app_type = AppType.PAYMENT
+
+        if not pay_url or not isinstance(pay_url, str):
+            raise ValueError('pay_rl string is required')
+
+        self.pay_url: str = pay_url

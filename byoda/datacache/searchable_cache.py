@@ -12,7 +12,7 @@ search. In this module we use the prefix '<list_name>:' so all assets
 are stored in keys starting with that prefix.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -44,6 +44,7 @@ from redis.commands.search.field import NumericField
 from prometheus_client import Counter
 from prometheus_client import Gauge
 
+from byoda.datatypes import IngestStatus
 from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
 
 from byoda.util.logger import Logger
@@ -53,18 +54,19 @@ from byoda import config
 _LOGGER: Logger = getLogger(__name__)
 
 LUA_FUNCTION_NAME_GET_LIST_ASSETS: str = 'get_list_assets'
-LUA_FUNCTIONS_FILE: str = 'svcserver/redis.lua'
 
 
 class SearchableCache:
+    LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
     # Search index will index JSON values under this key prefix
     ASSET_KEY_PREFIX: str = 'assets:'
     LISTS_KEY_PREFIX: str = 'lists:'
+    SETS_KEY_PREFIX: str = 'sets:'
     ALL_ASSETS_LIST: str = 'all_assets'
-    ALL_CREATORS_LIST: str = 'all_creators'
+    ALL_CREATORS: str = 'all_creators'
 
-    DEFAULT_EXPIRATION: int = 86400         # seconds
-    DEFAULT_EXPIRATION_LISTS: int = 30      # days
+    DEFAULT_EXPIRATION: int = 86400             # seconds
+    DEFAULT_EXPIRATION_LISTS: int = 30 * 86400  # days
 
     '''
     Data is arranged in Redis:
@@ -86,7 +88,7 @@ class SearchableCache:
         '''
 
         self.client: Redis[any] = redis.from_url(
-            connection_string, decode_responses=True,  # protocol=3
+            connection_string, decode_responses=True
         )
 
         # The FT.SEARCH index
@@ -96,27 +98,32 @@ class SearchableCache:
         # This is the LUA function to get the values of assets in a list
         self._function_get_list_assets: Script | None = None
 
+        self.setup_metrics()
+
+    def setup_metrics(self) -> None:
         metrics: dict[str, Gauge | Counter] = config.metrics
+
         metric: str = 'searchable_cache_member_id_in_head_of_list'
         if metric not in metrics:
             metrics[metric] = Gauge(
                 metric, (
                     'an origin of an asset already has another asset in the '
                     'head of the list'
-                ), ['member_id', 'list']
+                )
             )
 
-        metric: str = 'searchable_cache_member_id_not_in_head_of_list'
+        metric = 'searchable_cache_member_id_not_in_head_of_list'
         if metric not in metrics:
             metrics[metric] = Gauge(
                 metric, (
                     'an origin of an asset already does not have another '
                     'asset in the head of the list'
-                ), ['member_id', 'list']
+                )
             )
 
     @staticmethod
-    async def setup(connection_string: str) -> Self:
+    async def setup(connection_string: str,
+                    lua_functions_file: str = LUA_FUNCTIONS_FILE) -> Self:
         '''
         Factory for SearchableCache, sets up the index and installs the LUA
         functions in the Redis server
@@ -125,7 +132,7 @@ class SearchableCache:
         self = SearchableCache(connection_string)
 
         await self.create_search_index()
-        await self.load_functions()
+        await self.load_functions(lua_functions_file)
 
         return self
 
@@ -140,9 +147,9 @@ class SearchableCache:
             await self.create_index(SearchableCache.ASSET_KEY_PREFIX)
             _LOGGER.debug('Created search index')
 
-    async def load_functions(self) -> None:
+    async def load_functions(self, lua_functions_file: str) -> None:
         try:
-            with open(LUA_FUNCTIONS_FILE) as file_desc:
+            with open(lua_functions_file) as file_desc:
                 lua_code: str = file_desc.read()
 
             self._function_get_list_assets: Script = \
@@ -164,7 +171,8 @@ class SearchableCache:
 
         await self.client.aclose()
 
-    def get_list_key(self, cache_list: str, is_internal: bool = False) -> str:
+    def get_list_key(self, cache_list: str, is_internal: bool = False,
+                     member_id: UUID | None = None) -> str:
         '''
         Get the Redis key for the list of assets
 
@@ -172,10 +180,27 @@ class SearchableCache:
         :returns: The Redis key for the list of assets
         '''
 
+        # BUG: the member_id option should not be optional
+        # but the /api/v1/service/data API currently does not
+        # require a member_id
+
+        mid: str = ''
+        if member_id:
+            mid = f'{member_id}_'
         if is_internal:
-            return f'_{self.LISTS_KEY_PREFIX}{cache_list}'
+            return f'_{self.LISTS_KEY_PREFIX}{mid}{cache_list}'
         else:
-            return f'{self.LISTS_KEY_PREFIX}{cache_list}'
+            return f'{self.LISTS_KEY_PREFIX}{mid}{cache_list}'
+
+    def get_set_key(self, cache_set: str) -> str:
+        '''
+        Get the Redis key for the list
+
+        :param cache_list: The name of the list of assets
+        :returns: The Redis key for the list of assets
+        '''
+
+        return f'_{self.SETS_KEY_PREFIX}{cache_set}'
 
     def get_cursor(self, member_id: str | UUID, asset_id: str | UUID) -> str:
         '''
@@ -183,9 +208,10 @@ class SearchableCache:
         and asset_id
 
         :param member_id: The member_id that published the asset
-        :param asset_id: The asset_id of the asset
-        :returns: The cursor as 12 character string consisting
-        of characters matching the regex [a-zA-Z0-9\\@\\-]
+        :param item_id: The item_id of the item, ie. asset_id or channel_id
+        :param item_type: The type of the item
+        :returns: The cursor as 12 character string consisting of characters
+        matching the regex [a-zA-Z0-9\\@\\-]
         '''
         if isinstance(member_id, UUID):
             member_id = str(member_id)
@@ -196,6 +222,7 @@ class SearchableCache:
         hash_val: str = sha256(
             f'{member_id}-{asset_id}'.encode('utf-8'), usedforsecurity=False
         ).digest()
+
         cursor: str = b64encode(
             hash_val, '@-'.encode('utf-8')
         ).decode('utf-8')[0:12]
@@ -280,10 +307,38 @@ class SearchableCache:
         query = Query(query).paging(offset, num).timeout(5 * 1000)
         results: Result = await self.client.ft(self.index_name).search(query)
 
+        # The data structure returned depends on the version of the response
+        # protocol of the Redis APIs: v2 vs v3, which is configured in
+        # config.yml
+        result_data: dict[str, any]
+        if isinstance(results, dict):
+            # Redis response protocol v3
+            result_data = results.get('results')
+        elif hasattr(results, 'docs'):
+            # Redis response protocol v2
+            result_data = results.docs
+        else:
+            raise RuntimeError(
+                'Could not locate search results in data structure'
+            )
+
         data: list[dict[str, any]] = []
-        for doc in results.docs:
-            doc_data = orjson.loads(doc.json)
-            data.append(doc_data)
+        doc_data: dict[str, dict[str, any]]
+        for doc in result_data:
+            if isinstance(doc, dict):
+                # Redis response protocol v3
+                if ('extra_attributes' not in doc
+                        or '$' not in doc['extra_attributes']):
+                    continue
+                doc_data = orjson.loads(doc['extra_attributes']['$'])
+            else:
+                # Redis response protocol v2
+                doc_data = orjson.loads(doc.json)
+
+            if (doc_data['node']['ingest_status'] in (
+                    IngestStatus.PUBLISHED.value,
+                    IngestStatus.EXTERNAL.value)):
+                data.append(doc_data)
 
         _LOGGER.debug(f'Found {len(data)} assets for query: {query}')
 
@@ -420,9 +475,17 @@ class SearchableCache:
 
             if creator:
                 for asset_list in [
-                    a_l for a_l in asset_lists if a_l.startswith(creator)
+                    a_l for a_l in asset_lists if a_l.endswith(creator)
                 ]:
+                    # BUG: we currently maintain two lists: <prefix>:<creator>
+                    # and <prefix>:<member_id>_{creator}
                     asset_list_key: str = self.get_list_key(asset_list)
+                    await self.set_expiration(
+                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS
+                    )
+                    asset_list_key: str = self.get_list_key(
+                        asset_list, member_id=member_id
+                    )
                     await self.set_expiration(
                         asset_list_key, self.DEFAULT_EXPIRATION_LISTS
                     )
@@ -437,12 +500,8 @@ class SearchableCache:
         await self.set_expiration(key, expiration)
 
         for asset_list in asset_lists:
-            # Does the target list already have an asset of the same creator
-            # in the first <n> assets of the list
-            head_dupe: bool = False
-
             if (asset_list != SearchableCache.ALL_ASSETS_LIST
-                    and not asset_list.startswith(creator)):
+                    and not asset_list.endswith(creator)):
                 origin_already_in_head_of_list: bool = \
                     await self.check_head_of_list(
                         asset_list, creator, depth=20
@@ -451,19 +510,15 @@ class SearchableCache:
                 if origin_already_in_head_of_list:
                     metric: str = \
                         'searchable_cache_member_id_in_head_of_list'
-                    metrics[metric].labels(
-                        member_id=member_id, list=asset_list
-                    ).inc()
-                    head_dupe = True
-                else:
-                    metric: str = \
-                        'searchable_cache_member_id_not_in_head_of_list'
-                    metrics[metric].labels(
-                        member_id=member_id, list=asset_list
-                    ).inc()
+                    metrics[metric].inc()
+                    continue
+
+            metric: str = \
+                'searchable_cache_member_id_not_in_head_of_list'
+            metrics[metric].inc()
 
             _LOGGER.debug(f'Prepending key {key} to list {asset_list}')
-            await self.prepend_list(asset_list, key, is_internal=head_dupe)
+            await self.prepend_list(asset_list, key)
 
     async def check_head_of_list(self, list_name: str, creator: str,
                                  depth: int = 20) -> bool:
@@ -482,7 +537,13 @@ class SearchableCache:
         _LOGGER.debug(f'Getting first {depth} items of list {list_name}')
         for asset_key in asset_keys:
             edge: dict[str, any] = await self.client.json().get(asset_key)
-            _LOGGER.debug(f'Checking asset {asset_key} for origin {creator}')
+            if not edge:
+                continue
+            edge_creator: str = edge['node']['creator']
+            _LOGGER.debug(
+                f'Checking asset {asset_key} to see if it is '
+                f'from creator {creator}: {edge_creator}'
+            )
             if edge and edge['node']['creator'] == creator:
                 _LOGGER.debug(
                     f'Creator {creator} with asset {asset_key} already '
@@ -520,7 +581,7 @@ class SearchableCache:
 
     async def append_list(self, list_name: str, item: str) -> int:
         '''
-        Adds an item to the beginning of a list
+        Adds an item to the end of a list
 
         :param list: The name of the list
         :param item: The item to add
@@ -528,6 +589,9 @@ class SearchableCache:
         '''
 
         key_name: str = self.get_list_key(list_name)
+        await self.client.expire(
+            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
+        )
         return await self.client.rpush(key_name, item)
 
     async def prepend_list(self, list_name: str, item: str,
@@ -542,7 +606,7 @@ class SearchableCache:
 
         key_name: str = self.get_list_key(list_name, is_internal=is_internal)
         await self.client.expire(
-            key_name, time=timedelta(days=self.DEFAULT_EXPIRATION_LISTS)
+            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
         )
         return await self.client.lpush(key_name, item)
 

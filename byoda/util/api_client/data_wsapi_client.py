@@ -2,12 +2,13 @@
 DataApiClient, derived from ApiClient for calling REST Data APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
 import os
 
+from copy import copy
 from uuid import UUID
 from uuid import uuid4
 from ssl import SSLContext
@@ -28,7 +29,7 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.requestauth.jwt import JWT
 
-from byoda.util.api_client.api_client import HttpResponse
+from byoda.util.api_client.api_client import HttpResponse   # noqa: F401
 
 from byoda.datatypes import DataFilterType
 from byoda.datatypes import DataRequestType
@@ -67,7 +68,7 @@ class DataWsApiClient(DataApiClient):
                    data_filter: DataFilterType | None = None,
                    internal: bool = False,
                    timeout: int = 20
-                   ) -> HttpResponse:
+                   ):
 
         '''
         Calls an API using the right credentials and accepted CAs
@@ -127,8 +128,6 @@ class DataWsApiClient(DataApiClient):
             network, member_id, internal
         )
 
-        _LOGGER.debug(f'Using data URL {data_url}')
-
         model: dict[str, UUID | int] = {
             'query_id': query_id or uuid4(),
             'depth': depth or 0,
@@ -136,14 +135,16 @@ class DataWsApiClient(DataApiClient):
             'filter': data_filter,
             # 'relations': relations,
         }
+        extra: dict[str, any] = copy(model)
+        extra['data_url'] = data_url
 
-        _LOGGER.debug(f'Creating websocket to {data_url}')
+        _LOGGER.debug('Creating websocket', extra=extra)
         async with websockets.connect(
                 data_url, ping_timeout=timeout, ping_interval=timeout,
                 extra_headers=headers, ssl=ssl_context) as webs:
-            body = orjson.dumps(model)
+            body: bytes = orjson.dumps(model)
             await webs.send(body)
-            _LOGGER.debug(f'Send model to WS-API: {body.decode("utf-8")}')
+            _LOGGER.debug('Sent model to WS-API', extra=extra)
             while True:
                 resp = await webs.recv()
                 yield resp
@@ -206,15 +207,21 @@ class DataWsApiClient(DataApiClient):
                 'Websckets only supports UPDATES and COUNTER APIs'
             )
 
+        extra: dict[str, any] = {
+            'action': action.value,
+            'use_proxy': use_proxy,
+            'internal': internal,
+        }
         port: int = 443
         if secret:
             _LOGGER.debug('Setting TCP port to 444 because we have a secret')
             port = 444
 
+        extra['port'] = port
         api_url: str
         ssl_context: SSLContext | None = None
         if internal:
-            _LOGGER.debug('Calling Data API from test case')
+            _LOGGER.debug('Calling Data API from test case', extra=extra)
             api_url = DATA_WS_API_INTERNAL_URL.format(
                 port=PodServer.HTTP_PORT, service_id=service_id,
                 class_name=class_name, action=action.value
@@ -244,7 +251,7 @@ class DataWsApiClient(DataApiClient):
         return api_url, ssl_context
 
     @staticmethod
-    async def close_all():
+    async def close_all() -> None:
         await ApiClient.close_all()
 
 
@@ -263,22 +270,28 @@ async def _get_ssl_context(network: str, secret: Secret) -> SSLContext:
         f'{storage.local_path}/network-{network}'
         f'/network-{network}-root-ca-cert.pem'
     )
-    _LOGGER.debug(f'Setting SSL context to use CA file {ca_file}')
+    extra: dict[str, any] = {
+        'network': network,
+        'ca_file': ca_file,
+    }
+    _LOGGER.debug('Setting SSL context to use CA file', extra=extra)
     if not os.path.exists(ca_file):
-        _LOGGER.debug(f'CA file {ca_file} does not exist')
+        _LOGGER.debug('CA file does not exist', extra=extra)
         raise FileNotFoundError(f'CA file {ca_file} does not exist')
 
     ssl_context = SSLContext(PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations(ca_file)
     if secret:
         cert_file: str = f'{storage.local_path}/{secret.cert_file}'
+        extra['cert_file'] = cert_file
         if not os.path.exists(cert_file):
-            _LOGGER.debug(f'Cert file {cert_file} does not exist')
+            _LOGGER.debug('Cert file does not exist', extra=extra)
             raise FileNotFoundError(f'CA file {ca_file} does not exist')
 
         key_file: str = secret.get_tmp_private_key_filepath()
+        extra['key_file'] = key_file
         if not os.path.exists(key_file):
-            _LOGGER.debug(f'private key file {key_file} does not exist')
+            _LOGGER.debug('private key file does not exist', extra=extra)
             raise FileNotFoundError(
                 f'Private key file {ca_file} does not exist'
             )

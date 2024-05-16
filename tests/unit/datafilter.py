@@ -4,7 +4,7 @@
 Test cases for DataFilter and DataFilterSet classes
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 

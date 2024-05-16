@@ -2,7 +2,7 @@
 DataApiClient, derived from ApiClient for calling REST Data APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -47,7 +47,7 @@ class DataApiClient:
 
     '''
     '''
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod
@@ -78,18 +78,25 @@ class DataApiClient:
         :param action: the type of action to request
         :param secret: secret to use for client M-TLS, must be None if JWT
         is provided
-        :param jwt: JWT to use for authentication
-        :param use_proxy: call API via proxy
-        :param custom_domain: custom domain to use for the API call
         :param jwt: JWT to use for authentication, must be None if the
         secret is provided
+        :param use_proxy: call API via proxy
+        :param custom_domain: custom domain to use for the API call
+        :param network:
+        :param headers: a list of HTTP headers to add to the request
         :param params: HTTP query parameters
         :param data: data to send in the body of the request
         :param member_id: the member_id of the pod you want to call, required
         if use_proxy is set to True
         :param remote_member_id: the member ID of the pod that you want the
         pod that handles our request to proxy our request to
-        :param headers: a list of HTTP headers to add to the request
+        :param query_id:
+        :param first: number of items to retrieve
+        :param after: cursor for pagination
+        :param fields: fields to include in response
+        :param depth: number of hops to proxy the request
+        :param relations: list of relations to proxy the request to
+        :param data_filter: filter to apply to the data
         :param timeout: timeout in seconds
         :param internal: whether to use the internal API or not, also used
         :param app: FastAPI app to use for the request, used for test cases
@@ -105,7 +112,7 @@ class DataApiClient:
         port: int
         data_url, port = DataApiClient.get_url(
             service_id, class_name, action, headers, use_proxy, custom_domain,
-            network, jwt, member_id, internal, app
+            network, jwt, member_id, internal, secret=secret, app=app
         )
 
         _LOGGER.debug(f'Using data URL {data_url}')
@@ -149,7 +156,8 @@ class DataApiClient:
                 headers: dict[str, str],
                 use_proxy: bool, custom_domain: str,
                 network: str, jwt: JWT, member_id: UUID,
-                internal: bool, app: FastAPI | None = None) -> (str, int):
+                internal: bool, secret: Secret | None = None,
+                app: FastAPI | None = None) -> tuple[str, int]:
         '''
         Figures out the URL to use for the call
         Use cases:
@@ -204,29 +212,46 @@ class DataApiClient:
         protocol: str = 'https'
         port: int = 443
 
+        extra: dict[str, any] = {
+            'action': action.value,
+            'service_id': service_id,
+            'member_id': member_id,
+            'custom_domain': custom_domain,
+            'use_proxy': use_proxy,
+            'protocol': protocol,
+            'port': port,
+            'network': network,
+        }
         if internal or app:
             if not app:
-                _LOGGER.debug('Calling Data API via internal port')
+                _LOGGER.debug(
+                    'Calling Data API via internal port', extra=extra
+                )
             else:
-                _LOGGER.debug('Calling Data API via test case')
+                _LOGGER.debug(
+                    'Calling Data API via test case', extra=extra
+                )
 
             port = DataApiClient.INTERNAL_HTTP_PORT
             protocol = 'http'
 
+            extra['port'] = port
+            extra['protocol'] = protocol
             data_url = api_template.format(
                 protocol=protocol, fqdn='127.0.0.1', port=port,
                 service_id=service_id, class_name=class_name,
                 action=action.value
             )
         elif custom_domain:
-            _LOGGER.debug(f'Using custom_domain {custom_domain}')
+            extra['custom_domain'] = custom_domain
+            _LOGGER.debug('Using custom_domain', extra=extra)
             data_url = api_template.format(
                 protocol=protocol, fqdn=custom_domain, port=port,
                 service_id=service_id, class_name=class_name,
                 action=action.value
             )
         elif use_proxy:
-            _LOGGER.debug(f'Using proxy for member: {member_id}')
+            _LOGGER.debug('Using proxy for member', extra=extra)
             if not member_id:
                 raise ValueError('Member ID must be provided when using proxy')
 
@@ -241,12 +266,13 @@ class DataApiClient:
             )
 
             port = 444
-            if headers and 'Authorization' in headers:
+            if (not secret) or jwt or (headers and 'Authorization' in headers):
                 # This must be a test case calling a pod with a JWT
                 port = 443
 
-            _LOGGER.debug(
-                f'Calling Data API of pod {host} with port {port}')
+            extra['host'] = host
+            extra['port'] = port
+            _LOGGER.debug('Calling Data API of pod', extra=extra)
 
             data_url: str = api_template.format(
                 protocol=protocol, fqdn=host, port=port,
@@ -286,6 +312,7 @@ class DataApiClient:
                     'BYODA POST APIs do not accept query parameters for '
                     'member_id and account_id'
                 )
+
             try:
                 _LOGGER.debug(
                     'Removing identifier from end of request for POST call'

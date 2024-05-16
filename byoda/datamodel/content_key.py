@@ -5,7 +5,7 @@ Content keys do not affect the content but are used to
 restrict streaming & download access to the content.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -16,19 +16,18 @@ from enum import Enum
 from typing import Self
 from base64 import b64encode
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
-
-import orjson
 
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
 
-from byoda import config
+from byoda.datatypes import IdType
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -37,7 +36,11 @@ DEFAULT_KEY_EXPIRATION_DELAY: int = DEFAULT_KEY_START_DELAY + 86400
 
 RESTRICTED_CONTENT_KEYS_TABLE: str = 'restricted_content_keys'
 
+
 class ContentKeyStatus(Enum):
+    '''
+    The different possible statuses for a content key
+    '''
     # flake8: noqa=E221
     INACTIVE = 'inactive'
     ACTIVE   = 'active'
@@ -125,6 +128,10 @@ class ContentKey:
             raise NotImplementedError(f'Unknown status: {self.status}')
 
     def as_dict(self) -> dict[str, str | int | datetime | float]:
+        '''
+        Returns the ContentKey instance as a dict
+        '''
+
         return {
             'key': self.key,
             'key_id': self.key_id,
@@ -289,7 +296,9 @@ class ContentKey:
         return active_keys[0]
 
     def generate_token(self, service_id: int, member_id: UUID | str,
-                       asset_id: UUID | str) -> str:
+                       asset_id: UUID | str,
+                       remote_member_id: UUID | None = None,
+                       remote_member_idtype: IdType | None = None) -> str:
         '''
         Generates a token for the given service_id and asset_id.
 
@@ -300,19 +309,40 @@ class ContentKey:
         digest.update(str(service_id).encode('utf-8'))
         digest.update(str(member_id).encode('utf-8'))
         digest.update(str(asset_id).encode('utf-8'))
+
+        # OBSOLETE: once GET /token is removed, remove this if condition
+        # and make the remote_member_id and remote_member_idtype parameters
+        # required
+        if remote_member_id and remote_member_idtype:
+            digest.update(str(remote_member_id).encode('utf-8'))
+            digest.update(remote_member_idtype.value.encode('utf-8'))
+
         digest.update(self.key.encode('utf-8'))
         token: bytes = digest.finalize()
 
         encoded_token: str = b64encode(token).decode('utf-8').replace(' ', '+')
         _LOGGER.debug(
             f'Generated token with service_id {service_id}, member_id: {member_id} '
-            f'and asset_id: {asset_id} for key_id {self.key_id}: {encoded_token}'
+            f'and asset_id: {asset_id} for remote member '
+            f'key_id {self.key_id}: {encoded_token}'
         )
+        # TODO: add this line back once GET /token is removed
+        #    f'{remote_member_idtype.value} {remote_member_id} for '
 
         return encoded_token
 
     def generate_url_query_parameters(self, service_id: int, member_id: UUID | str,
                                       asset_id: UUID | str) -> str:
+        '''
+        Generates the query parameters for the URL to be used with the CDN
+
+        :param service_id: the service_id
+        :param member_id: the member_id
+        :param asset_id: the asset_id
+        :returns: a string with the query parameters
+        :raises: (none)
+        '''
+
         data: str = '&'.join(
             [
                 f'service_id={service_id}',
@@ -322,14 +352,3 @@ class ContentKey:
         )
 
         return data
-
-
-
-
-
-
-
-
-
-
-

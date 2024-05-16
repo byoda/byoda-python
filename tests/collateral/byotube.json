@@ -85,6 +85,9 @@
                     },
                     "any_member": {
                         "permissions": ["read", "append", "subscribe"]
+                    },
+                    "service": {
+                        "permissions": ["read", "append", "subscribe"]
                     }
                 },
                 "type": "array",
@@ -147,8 +150,10 @@
                     },
                     "any_member": {
                         "permissions": ["read", "append", "subscribe"]
+                    },
+                    "service": {
+                        "permissions": ["read", "append", "subscribe"]
                     }
-
                 },
                 "type": "array",
                 "items": {
@@ -162,8 +167,10 @@
                     },
                     "any_member": {
                         "permissions": ["read", "append"]
+                    },
+                    "service": {
+                        "permissions": ["read", "append", "subscribe"]
                     }
-
                 },
                 "type": "array",
                 "items": {
@@ -217,6 +224,28 @@
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
+                }
+            },
+            "financial_transaction_receipts": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/financial_transaction_receipt"
+                }
+            },
+            "burst_point_attestations_received": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/burst_point_attestation"
                 }
             }
         },
@@ -354,7 +383,7 @@
                     },
                     "asset_class": {
                         "#properties": ["index", "counter"],
-                        "description": "The UUID of our asset",
+                        "description": "The type of asset",
                         "type": "string",
                         "format":  "uuid"
                     },
@@ -808,6 +837,13 @@
                             "$ref": "/schemas/video_chapter"
                         }
                     },
+                    "encoding_profiles": {
+                        "description": "list of encoding profiles for the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "locale": {
                         "description": "locale for the metadata, ie. en_US",
                         "type": "string"
@@ -856,6 +892,14 @@
                         "description": "Identifier of the asset set by the publisher",
                         "type": "string",
                         "#properties": ["index"]
+                    },
+                    "publisher_views": {
+                        "description": "The number of views the asset has had on the publisher platform",
+                        "type": "number"
+                    },
+                    "publisher_likes": {
+                        "description": "The number of likes the asset has had on the publisher platform",
+                        "type": "number"
                     },
                     "title": {
                         "description": "title of the asset",
@@ -906,9 +950,248 @@
                     "screen_orientation_horizontal": {
                         "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
                         "type": "boolean"
+                    },
+                    "monetizations": {
+                        "description": "list of monetizations required for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/monetization"
+                        }
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
+            },
+            "burst_point_attestation": {
+                "$id": "/schemas/burst_point_attestation",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "An attestation for the possession of a number of burst points at a point in time",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the attestation was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "attest_id": {
+                        "description": "The UUID of the attestation",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "member_id": {
+                        "description": "The UUID of the member for which the attestation is claimed",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "member_type": {
+                        "description": "The type of the member: member or BT.Lite",
+                        "type": "string"
+                    },
+                    "burst_points": {
+                        "description": "The number of burst points claimed",
+                        "type": "number"
+                    },
+                    "claims": {
+                        "description": "list of claims for the attestation",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
+                        }
+
+                    }
+                }
+            },
+            "monetization": {
+                "$id": "/schemas/monetization",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "A monetization requirement for consuming an asset. If multiple requirements are listed, all of the requirements must be met",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the monetization was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "monetization_id": {
+                        "description": "The UUID of the monetization",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "monetization_type": {
+                        "description": "The type of the monetization, ie. burst-points, pay-per-view, subscription, etc.",
+                        "type": "string"
+                    },
+                    "require_burst_points": {
+                        "description": "Does consumption of the asset require burst points to be transferred",
+                        "type": "boolean"
+                    },
+                    "network_relations": {
+                        "description": "The asset owner must have one of the listed relations with the requesting member to provide a token to access the asset",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "payment_options": {
+                        "description": "The payment options available to the member to access the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/payment_option"
+                        }
+                    }
+                }
+            },
+            "payment_option": {
+                "$id": "/schemas/payment_option",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "An option to make a purchase",
+                "type": "object",
+                "properties": {
+                    "payment_option_id": {
+                        "description": "The UUID of the payment option",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "amount_in_smallest_currency_unit": {
+                        "description": "The amount for the payment option",
+                        "type": "number"
+                    },
+                    "currency": {
+                        "description": "The currency of the payment option",
+                        "type": "string"
+                    },
+                    "accepted_payment_provider_ids": {
+                        "description": "The UUIDs of the payment providers that are accepted for this payment option",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "financial_transaction_receipt": {
+                "$id": "/schemas/payment_receipt",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "A receipt for a financial transaction",
+                "type": "object",
+                "properties": {
+                    "created_timestamp": {
+                        "description": "time the payment was created",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "transaction_id": {
+                        "description": "The UUID of the transaction",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "payer_id": {
+                        "description": "The UUID of the payer",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "payer_id_type": {
+                        "description": "The type of the payer, member / bt.lite account, service or app",
+                        "type": "string"
+                    },
+                    "payee_id": {
+                        "description": "The UUID of the payee",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "payee_id_type": {
+                        "description": "The type of the payee, member, service or app",
+                        "type": "string"
+                    },
+                    "amount_in_smallest_currency_unit": {
+                        "description": "The amount of the transaction",
+                        "type": "number"
+                    },
+                    "currency": {
+                        "description": "The currency of the transaction",
+                        "type": "string"
+                    },
+                    "transaction_type": {
+                        "description": "The type of the transaction",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "The status of the transaction",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "The description of the transaction on the payer's statement",
+                        "type": "string"
+                    },
+                    "is_disputable": {
+                        "description": "Whether the transaction can be disputed with the payment provider",
+                        "type": "boolean"
+                    },
+                    "immediate_confirmation": {
+                        "description": "Whether the transaction has delayed confirmation of success",
+                        "type": "boolean"
+                    },
+                    "payment_provider": {
+                        "description": "The UUIDname of the payment provider",
+                        "type": "string"
+                    },
+                    "payment_provider_id": {
+                        "description": "The UUID of the payment provider",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "payment_provider_type": {
+                        "description": "The type of identy of the paymet provider, normally APP-",
+                        "type": "string"
+                    },
+                    "payment_provider_support_email": {
+                        "description": "The email address of the payment provider for support",
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "payment_provider_url": {
+                        "description": "The URL of the home page of the payment provider",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "payment_provider_dispute_url": {
+                        "description": "The URL of the dispute resolution page of the payment provider for this transaction",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "payment_transaction_url": {
+                        "description": "The URL to the website of the provider for the transaction",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "product_sku": {
+                        "description": "The SKU of the product procured with this transaction",
+                        "type": "string"
+                    },
+                    "product_annotations": {
+                        "description": "The annotation of the product procured with this transaction",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "transaction_asset_id": {
+                        "description": "The UUID of the asset procured with this transaction",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "transaction_asset_class": {
+                        "description": "The class of the asset procured with this transaction, ie. public_assets, network_assets",
+                        "type": "string"
+                    },
+                    "claims": {
+                        "description": "list of claims for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/claim"
+                        }
+                    }
+                }
             },
             "channel": {
                 "$id": "/schemas/channel",
@@ -937,6 +1220,13 @@
                     },
                     "keywords": {
                         "description": "keywords that apply to all the videos of the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "annotations": {
+                        "description": "annotations for the channel",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -973,6 +1263,18 @@
                         "items": {
                             "$ref": "#/schemas/external_link"
                         }
+                    },
+                    "thirdparty_platform_followers": {
+                        "description": "The number of followers the channel has on other platforms",
+                        "type": "integer"
+                    },
+                    "thirdparty_platform_videos": {
+                        "description": "The number of videos the channel has on other platforms",
+                        "type": "integer"
+                    },
+                    "thirdparty_platform_views": {
+                        "description": "The number of views the channel has on other platforms",
+                        "type": "integer"
                     },
                     "claims": {
                         "description": "list of claims for the asset",

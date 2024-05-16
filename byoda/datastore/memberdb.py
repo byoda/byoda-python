@@ -3,7 +3,7 @@ Class MemberDb stores information for the Service and Directory servers
 about registered clients
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -42,7 +42,7 @@ class MemberDb:
     string as key
     '''
 
-    def __init__(self, service_id: int, network_name: str):
+    def __init__(self, service_id: int, network_name: str) -> None:
         '''
         Do not call this constructor directly. Use MemberDb.setup() instead
 
@@ -53,6 +53,7 @@ class MemberDb:
 
         self._service_id: int = service_id
         self.network_name: str = network_name
+        self.kvcache: KVCache | None = None
 
     async def setup(connection_string: str, service_id: int, network_name: str
                     ) -> Self:
@@ -64,15 +65,22 @@ class MemberDb:
         '''
 
         self = MemberDb(service_id, network_name)
-        kvcache = await KVCache.create(
+        kvcache: KVCache = await KVCache.create(
             connection_string, service_id=service_id,
             network_name=network_name, server_type='ServiceServer',
             cache_type=CacheType.MEMBERDB, cache_tech=CacheTech.REDIS
         )
 
-        self.kvcache: KVCache = kvcache
+        self.kvcache = kvcache
 
         return self
+
+    async def close(self) -> None:
+        '''
+        Close the DB
+        '''
+
+        await self.kvcache.close()
 
     @property
     def service_id(self):
@@ -80,7 +88,7 @@ class MemberDb:
         return kvcache.identifier
 
     @service_id.setter
-    def service_id(self, service_id: int):
+    def service_id(self, service_id: int) -> None:
         kvcache: KVCache = self.kvcache
         kvcache.identifier = f'service-{str(service_id)}'
 
@@ -90,10 +98,10 @@ class MemberDb:
         does not check whether the member_id is in the list
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
 
         kvcache: KVCache = self.kvcache
-        exists = await kvcache.exists(mid)
+        exists: bool = await kvcache.exists(mid)
 
         return exists
 
@@ -132,7 +140,7 @@ class MemberDb:
             _LOGGER.debug(f'Adding member {member_id} to the list')
             await self.add_member(member_id)
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         _LOGGER.debug(
             f'Adding metadata for member {member_id} with key {mid} to '
             'the MemberDB'
@@ -158,7 +166,7 @@ class MemberDb:
         :raises: KeyError if the member is not in the database
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
         kvcache: KVCache = self.kvcache
         data = await kvcache.get(mid)
 
@@ -170,7 +178,7 @@ class MemberDb:
         if not data:
             raise KeyError(f'Member {str(member_id)} not found')
 
-        value = {
+        value: dict[str, any] = {
             'member_id': UUID(data['member_id']),
             'remote_addr': ip_address(data['remote_addr']),
             'schema_version': int(data['schema_version']),
@@ -188,7 +196,7 @@ class MemberDb:
         :returns: whether the key existed or not
         '''
 
-        mid = MEMBER_ID_META_FORMAT.format(member_id=member_id)
+        mid: str = MEMBER_ID_META_FORMAT.format(member_id=member_id)
 
         kvcache: KVCache = self.kvcache
         ret = await kvcache.delete(mid)
@@ -217,9 +225,9 @@ class MemberDb:
         '''
 
         kvcache: KVCache = self.kvcache
-        members = await kvcache.get_list(MEMBERS_LIST)
+        members: list[str] = await kvcache.get_list(MEMBERS_LIST)
 
-        return [UUID(member.decode('utf-8')) for member in members if member]
+        return [UUID(member) for member in members if member]
 
     async def delete_members_list(self):
         '''

@@ -4,7 +4,7 @@ request_auth
 provides helper functions to authenticate the client making the request
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -70,6 +70,9 @@ class PodApiRequestAuth(RequestAuth):
         if not isinstance(request, WebSocket):
             method = request.method
 
+        if not request.client:
+            raise HTTPException(400, 'No client information in request')
+
         super().__init__(request.client.host, method)
 
         self.tls_status: TlsStatus = TlsStatus(x_client_ssl_verify or 'NONE')
@@ -78,7 +81,8 @@ class PodApiRequestAuth(RequestAuth):
         self.client_cert: str | None = x_client_ssl_cert
         self.authorization: str = authorization
 
-    async def authenticate(self, account: Account, service_id: int = None):
+    async def authenticate(self, account: Account, service_id: int = None
+                           ) -> None:
         '''
         Checks whether the API is called with our account_id, or,
         if a service_id is specified, whether the API is called
@@ -90,7 +94,7 @@ class PodApiRequestAuth(RequestAuth):
         '''
 
         try:
-            jwt = await super().authenticate(
+            jwt: JWT | None = await super().authenticate(
                 self.tls_status, self.client_dn, self.issuing_ca_dn,
                 self.client_cert, self.authorization
             )
@@ -133,6 +137,15 @@ class PodApiRequestAuth(RequestAuth):
                 _LOGGER.warning(
                     f'Authentication failure for service {service_id}'
                     'that we are not a member of'
+                )
+                raise HTTPException(
+                    status_code=401, detail='Authentication failure'
+                )
+
+            if self.id != member.member_id:
+                _LOGGER.warning(
+                    f'Authentication failure with member_id {self.id} '
+                    f'does not match our member_id: {member.member_id}'
                 )
                 raise HTTPException(
                     status_code=401, detail='Authentication failure'

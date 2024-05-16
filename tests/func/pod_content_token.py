@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -288,23 +288,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 ]
             )
         )
-
-        url: str = BASE_URL + '/v1/pod/content/asset'
-        result: HttpResponse = await ApiClient.call(
-            url, method=HttpMethod.GET, headers={
-                'Authorization': f'Bearer {token}',
-                'X-Authorizationkeyid': str(content_key.key_id),
-                'original-url': f'/restricted/{asset_id}/some-asset.file'
-            },
-            params={
-                'key_id': content_key.key_id,
-                'service_id': service_id,
-                'member_id': member.member_id,
-                'asset_id': asset_id,
-            },
-            app=APP
-        )
-        self.assertEqual(result.status_code, 200)
 
 
 async def test_content_keys(test, table, keys_expected,

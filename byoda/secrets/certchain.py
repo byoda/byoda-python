@@ -2,10 +2,11 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
+from datetime import datetime
 from logging import getLogger
 from byoda.util.logger import Logger
 
@@ -19,12 +20,12 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class CertChain:
-    __slots__ = [
+    __slots__: list[str] = [
         'signed_cert', 'cert_chain'
     ]
 
     def __init__(self, signed_cert: Certificate,
-                 cert_chain: list[Certificate]):
+                 cert_chain: list[Certificate]) -> None:
         '''
         Represents a signed cert and the list of certs of issuing CAs
         that signed the cert. Does not include the root cert. This class
@@ -46,7 +47,7 @@ class CertChain:
         :returns: the certchain as a string
         '''
 
-        data = self.cert_as_string() + self.cert_chain_as_string()
+        data: str = self.cert_as_string() + self.cert_chain_as_string()
         return data
 
     def as_dict(self) -> dict:
@@ -60,7 +61,7 @@ class CertChain:
         }
 
     def cert_chain_as_string(self) -> str:
-        data = ''
+        data: str = ''
         for cert in self.cert_chain:
             data += self.cert_as_string(cert)
 
@@ -70,19 +71,21 @@ class CertChain:
         if not cert:
             cert = self.signed_cert
 
-        cert_info = (
+        not_valid_before: datetime = cert.not_valid_before_utc
+        not_valid_after: datetime = cert.not_valid_after_utc
+        cert_info: str = (
             f'# Issuer {cert.issuer}\n'
             f'# Subject {cert.subject}\n'
-            f'# Valid from {cert.not_valid_before} to {cert.not_valid_after}\n'
+            f'# Valid from {not_valid_before} to {not_valid_after}\n'
         )
-        data = cert_info
+        data: str = cert_info
         data += cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
         data += '\n'
 
         return data
 
     async def save(self, filepath, storage_driver: FileStorage,
-                   with_fingerprint: bool = True):
+                   with_fingerprint: bool = True) -> None:
         '''
         Saves the cert chain to a file
         '''
@@ -90,5 +93,5 @@ class CertChain:
         await storage_driver.write(filepath, str(self))
 
         if with_fingerprint:
-            fingerprint = self.signed_cert.fingerprint(hashes.SHA256()).hex()
+            fingerprint: str = self.signed_cert.fingerprint(hashes.SHA256()).hex()
             await storage_driver.write(f'{filepath}-{fingerprint}', str(self))

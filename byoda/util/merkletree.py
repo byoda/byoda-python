@@ -7,15 +7,16 @@ hash of that file. The sh256 has of the manifest file is available to store
 in the membership db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
 import os
 import base64
 
+from typing import Self
+from typing import Literal
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import orjson
 
@@ -23,6 +24,8 @@ from pymerkle import BaseMerkleTree
 from pymerkle.utils import decompose
 
 from pymerkle.hasher import MerkleHasher
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -97,7 +100,7 @@ class Node:
 
         return self == parent.right
 
-    def get_ancestor(self, degree: int):
+    def get_ancestor(self, degree: int) -> Self:
         '''
         .. note:: Ancestor of degree 0 is the node itself, ancestor of degree
             1 is the node's parent, etc.
@@ -105,7 +108,7 @@ class Node:
         :rtype: Node
         '''
 
-        curr = self
+        curr: Self = self
         while degree > 0:
             curr = curr.parent
             degree -= 1
@@ -125,6 +128,7 @@ class Node:
 
         ignored = ignored or []
 
+        out: str
         if level == 0:
             out = 2 * '\n' + ' └─' if not self.parent else ''
         else:
@@ -143,14 +147,15 @@ class Node:
             out += ' └──'
             ignored += [level]
 
-        checksum = self.digest.hex()
+        checksum: str = self.digest.hex()
         out += (checksum[:trim] + '...') if trim else checksum
         out += '\n'
 
         if self.is_leaf():
             return out
 
-        recursion = (indent, trim, level + 1, ignored[:])
+        recursion: tuple[int, int | None, int, list[str]] = \
+            (indent, trim, level + 1, ignored[:])
 
         out += self.left.expand(*recursion)
         out += self.right.expand(*recursion)
@@ -169,7 +174,7 @@ class ByoMerkleTree(BaseMerkleTree):
             f'{self.directory}/{MERKLE_FILENAME}'
 
         self.root = None
-        self.leaves = []
+        self.leaves: list = []
 
         super().__init__(algorithm, **opts)
 
@@ -266,16 +271,16 @@ class ByoMerkleTree(BaseMerkleTree):
 
     @classmethod
     def init_from_entries(cls, entries: list[bytes], algorithm: str = 'sha256',
-                          **opts):
+                          **opts) -> Self:
         '''
         Create tree from initial data
 
         :param entries: initial data to append
         :param algorithm: [optional] hash function. Defaults to *sha256*
         '''
-        tree = cls(algorithm, **opts)
+        tree: Self = cls(algorithm, **opts)
 
-        append_entry = tree.append_entry
+        append_entry: callable = tree.append_entry
         for data in entries:
             append_entry(data)
 
@@ -313,7 +318,7 @@ class ByoMerkleTree(BaseMerkleTree):
         return result
 
     def _inclusion_path_fallback(self, offset: int
-                                 ) -> (list[int], list[bytes]):
+                                 ) -> tuple[list[int], list[bytes]]:
         '''
         Non-recursive utility using concrete traversals to compute the
         inclusion path against the current number of leaves.
@@ -322,10 +327,10 @@ class ByoMerkleTree(BaseMerkleTree):
         '''
 
         base = self.leaves[offset]
-        bit = 1 if base.is_right_child() else 0
+        bit: Literal[1] | Literal[0] = 1 if base.is_right_child() else 0
 
-        path = [base.digest]
-        rule = [bit]
+        path: list = [base.digest]
+        rule: list[Literal[0] | Literal[1]] = [bit]
 
         curr = base
         while curr.parent:
@@ -349,7 +354,7 @@ class ByoMerkleTree(BaseMerkleTree):
         return rule, path
 
     def _inclusion_path(self, start: int, offset: int, limit: int, bit: int
-                        ) -> (list[int], list[bytes]):
+                        ) -> tuple[list[int], list[bytes]]:
         '''
         Computes the inclusion path for the leaf located at the provided offset
         against the specified leaf range
@@ -436,7 +441,7 @@ class ByoMerkleTree(BaseMerkleTree):
         if size < 0 or size > self._get_size():
             return []
 
-        subroots = []
+        subroots: list = []
         offset = 0
         for height in reversed(decompose(size)):
             node = self._get_subroot_node(offset + 1, height)
@@ -449,14 +454,14 @@ class ByoMerkleTree(BaseMerkleTree):
 
         return list(reversed(subroots))
 
-    def append_entry_by_digest(self, digest: bytes):
+    def append_entry_by_digest(self, digest: bytes) -> int:
         '''
         Append a leaf node to the merkle tree by digest
 
         :param digest: digest of the data to append
         '''
 
-        index = self._store_leaf(None, digest)
+        index: int = self._store_leaf(None, digest)
 
         return index
 
@@ -466,7 +471,7 @@ class ByoMerkleTree(BaseMerkleTree):
         tree.
         '''
 
-        data = {
+        data: dict[str, list[str]] = {
             JSON_LEAF_DIGESTS_KEY: [
                 base64.b64encode(leaf.digest).decode('utf-8')
                 for leaf in self.leaves
@@ -476,7 +481,7 @@ class ByoMerkleTree(BaseMerkleTree):
 
     @staticmethod
     def load_from_file(directory: str, filename: str = MERKLE_FILENAME
-                       ) -> None:
+                       ) -> Self:
         '''
         Factory for ByoMerkleTree, populating the tree with the digests
         read from a file
@@ -489,22 +494,22 @@ class ByoMerkleTree(BaseMerkleTree):
 
         _LOGGER.debug(f'Reading merkle leaf digests from {filepath}')
         with open(filepath, 'r') as file_desc:
-            text = file_desc.read()
+            text: str = file_desc.read()
 
         data: list[str] = orjson.loads(text)
 
         if JSON_LEAF_DIGESTS_KEY not in data:
             raise ValueError(f'No leaf digests found in {filepath}')
 
-        leafs = [
+        leafs: list[bytes] = [
             base64.b64decode(digest) for digest in data[JSON_LEAF_DIGESTS_KEY]
         ]
-        tree = ByoMerkleTree.from_digests(leafs)
+        tree: ByoMerkleTree = ByoMerkleTree.from_digests(leafs)
 
         return tree
 
     @staticmethod
-    def from_digests(digests: list[bytes], algorithm: str = 'sha256'):
+    def from_digests(digests: list[bytes], algorithm: str = 'sha256') -> Self:
         '''
         Factory for a Merkle tree generated from a list of digests instead
         of from files
@@ -528,7 +533,7 @@ class ByoMerkleTree(BaseMerkleTree):
         :raises: IOError
         '''
 
-        text = self.digests_as_json()
+        text: str = self.digests_as_json()
         filepath: str = f'{directory}/{filename}'
 
         _LOGGER.debug(f'Writing merkle leaf digests to {filepath}')
@@ -539,7 +544,7 @@ class ByoMerkleTree(BaseMerkleTree):
 
     @staticmethod
     def calculate(directory: str, blocksize: int = BLOCKSIZE,
-                  algorithm: str = 'sha256'):
+                  algorithm: str = 'sha256') -> Self:
         tree = ByoMerkleTree(directory, algorithm=algorithm)
         _LOGGER.debug(
             f'Creating merkle tree from files in direcory {directory}'
@@ -548,17 +553,18 @@ class ByoMerkleTree(BaseMerkleTree):
             if file == MERKLE_FILENAME:
                 continue
 
-            filepath = f'{tree.directory}/{file}'
-            file_desc = os.open(filepath, os.O_RDONLY)
+            filepath: str = f'{tree.directory}/{file}'
+            file_desc: int = os.open(filepath, os.O_RDONLY)
             blocks: int = 0
             while True:
-                data = os.read(file_desc, blocksize)
+                data: bytes = os.read(file_desc, blocksize)
                 if not data:
                     break
 
                 tree.append_entry(data)
                 blocks += 1
 
+            os.close(file_desc)
             _LOGGER.debug(
                 f'Added file {file} with {blocks} blocks to merkle tree'
             )
@@ -577,7 +583,7 @@ class ByoMerkleTree(BaseMerkleTree):
             raise TypeError('data must be of type bytes')
 
         hasher: MerkleHasher = MerkleHasher('sha256')
-        digest = hasher.hash_buff(data)
+        digest: bytes = hasher.hash_buff(data)
 
         for node in self.leaves:
             if node.digest == digest:

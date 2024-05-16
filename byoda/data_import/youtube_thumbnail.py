@@ -2,7 +2,7 @@
 Model a thumbnail of a Youtube video
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -49,8 +49,8 @@ class YouTubeThumbnailSize(Enum):
 
 
 class YouTubeThumbnail:
-    def __init__(self, size: str, data: dict,
-                 display_hint: str | None = None) -> None:
+    def __init__(self, size: str, data: dict, display_hint: str | None = None
+                 ) -> None:
         self.thumbnail_id: UUID = uuid4()
         self.url: str = data.get('url')
         self.width: int = data.get('width', 0)
@@ -76,6 +76,8 @@ class YouTubeThumbnail:
             self.size = f'{self.width}x{self.height}'
 
     def __str__(self) -> str:
+        # YouTube has thumbnails with '-mo' appended to the end of the URL
+        # that is the same as the thumbnail without it
         size: int
         if isinstance(self.size, YouTubeThumbnailSize):
             size = self.size.value
@@ -85,8 +87,6 @@ class YouTubeThumbnail:
         return f'{size}_{self.width}_{self.height}_{self.url.rstrip("-mo")}'
 
     def __hash__(self) -> int:
-        # YouTube has thumbnails with '-mo' appended to the end of the URL
-        # that is the same as the thumbnail without it
         value: int = hash(
             f'{self.width}:{self.height}:{self.url}'
         )

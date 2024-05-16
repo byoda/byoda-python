@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -160,7 +160,7 @@ class Member:
                     new_membership: bool = True) -> None:
         '''
         Sets up a membership for use by the pod. This method is expected
-        to only be called by the appserver or workers on the pod, or test
+        to only be called by the podserver or workers on the pod, or test
         cases simulating them.
         Directory-, service- and other servers should not call this method.
         '''
@@ -609,7 +609,7 @@ class Member:
         )
 
     def create_jwt(self, target_id: UUID = None, target_type: IdType = None,
-                   expiration_days: int = 365) -> JWT:
+                   expiration_seconds: int = 365 * 24 * 60 * 60) -> JWT:
         '''
         Creates a JWT for a member of a service. Depending on the id_type,
         this JWT can be used to authenticate against:
@@ -623,14 +623,14 @@ class Member:
         :param target_type: The type of server that will use this JWT to
         authenticate a request. If not provided, it will default to
         IdType.MEMBER
-        :param expiration_days:
+        :param expiration_seconds:
         :raises: ValueError
         '''
 
-        if not isinstance(expiration_days, int):
+        if not isinstance(expiration_seconds, int):
             raise ValueError(
-                'expiration_days must be an integer, not '
-                f'{type(expiration_days)}'
+                'expiration_seconds must be an integer, not '
+                f'{type(expiration_seconds)}'
             )
 
         if bool(target_id) != bool(target_type):
@@ -643,10 +643,11 @@ class Member:
             target_id: UUID = self.member_id
             target_type: IdType = IdType.MEMBER
 
-        jwt = JWT.create(
-            self.member_id, IdType.MEMBER, self.data_secret, self.network.name,
-            service_id=self.service_id, scope_type=target_type,
-            scope_id=target_id, expiration_days=expiration_days,
+        jwt: JWT = JWT.create(
+            self.member_id, IdType.MEMBER, self.data_secret,
+            self.network.name, service_id=self.service_id,
+            scope_type=target_type, scope_id=target_id,
+            expiration_seconds=expiration_seconds
         )
 
         return jwt

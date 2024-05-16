@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -34,10 +34,6 @@ from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-
-from certvalidator import CertificateValidator
-from certvalidator import ValidationContext
-from certvalidator import ValidationError, PathBuildingError
 
 from byoda.storage.filestorage import FileStorage, FileMode
 
@@ -225,20 +221,20 @@ class Secret:
 
         if expire:
             if isinstance(expire, int):
-                expiration: datetime = datetime.utcnow() + timedelta(
+                expiration: datetime = datetime.now(tz=UTC) + timedelta(
                     days=expire
                 )
             elif isinstance(expire, datetime):
                 expiration = expire
             elif isinstance(expire, timedelta):
-                expiration: datetime = datetime.utcnow() + expire
+                expiration: datetime = datetime.now(tz=UTC) + expire
             else:
                 raise ValueError(
                     'expire must be an int, datetime or timedelta, not: '
                     f'{type(expire)}'
                 )
         else:
-            expiration: datetime = datetime.utcnow() + timedelta(days=3650)
+            expiration: datetime = datetime.now(tz=UTC) + timedelta(days=3650)
 
         self.is_root_cert = True
         self.cert = x509.CertificateBuilder().subject_name(
@@ -250,7 +246,7 @@ class Secret:
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.utcnow()
+            datetime.now(tz=UTC)
         ).not_valid_after(
             expiration
         ).add_extension(
@@ -419,19 +415,6 @@ class Secret:
             cert.public_bytes(serialization.Encoding.PEM)
             for cert in self.cert_chain
         ]
-        context = ValidationContext(
-            trust_roots=[root_ca.cert_as_pem()]
-        )
-        validator = CertificateValidator(
-            pem_signed_cert, pem_cert_chain, validation_context=context
-        )
-        try:
-            validator.validate_usage(set())
-        except (ValidationError, PathBuildingError) as exc:
-            raise ValueError(f'Certchain failed validation: {exc}') from exc
-
-        if not with_openssl:
-            return
 
         tmpdir = tempfile.TemporaryDirectory()
         rootfile: str = tmpdir.name + '/rootca.pem'
@@ -947,7 +930,8 @@ class Secret:
 
     @staticmethod
     async def download(url: str, root_ca_filepath: str | None = None,
-                       network_name: str | None = None) -> str | None:
+                       network_name: str | None = None,
+                       fingerprint: str | None = None) -> str | None:
         '''
         Downloads the secret from the given URL
 
@@ -971,6 +955,18 @@ class Secret:
             async with AsyncHttpClient(verify=root_ca_filepath) as client:
                 resp: HttpResponse = await client.get(url)
                 if resp.status_code >= 400:
+                    if fingerprint:
+                        _LOGGER.debug(
+                            f'Cert not found at {url}, '
+                            f'trying {url}-{fingerprint}'
+                        )
+                        resp: HttpResponse = await client.get(
+                            f'{url}-{fingerprint}'
+                        )
+                        if resp.status_code >= 400:
+                            raise RuntimeError(
+                                f'Failure to GET {url}: {resp.status_code}'
+                            )
                     raise RuntimeError(
                         f'Failure to GET {url}: {resp.status_code}'
                     )

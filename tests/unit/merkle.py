@@ -27,23 +27,23 @@ class TestAccountManager(unittest.TestCase):
 
         self.assertEqual(
             original_tree.root.digest.hex(),
-            'df782829b56590a3b4a3ac0f6cb8e626b6bbd0f307b7bb08474482abe3932fdd'
+            'b48c173c27429bdf1502accffc844808a9b3122a9889478f47a59785e1856e32'
         )
-        self.assertEqual(original_tree.get_size(), 641)
+        self.assertEqual(original_tree.get_size(), 65)
         original_tree.save(TEST_DIR)
 
         with self.assertRaises(KeyError):
             original_tree.find(b'fake')
 
-        file_desc = os.open(
-            'tests/collateral/local/video_asset/asset5Y9L5NBINV4.139.m4a',
+        file_desc: int = os.open(
+            'tests/collateral/local/video_asset/assetU7eAB3gbjic.139.m4a',
             os.O_RDONLY
         )
-        data = os.read(file_desc, BLOCKSIZE)
+        data: bytes = os.read(file_desc, BLOCKSIZE)
         node = original_tree.find(data)
         self.assertEqual(
             node.digest.hex(),
-            '07f60df4acf2900089dd30ef20feb4320de359bf645d376a42dbfad27ae9019f'
+            '8d5e3b3ccb8abfecdce3ec71ccc740ad0152874c8bafb6658154333a726c154a'
         )
 
         new_tree = ByoMerkleTree.load_from_file(TEST_DIR)

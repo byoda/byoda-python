@@ -7,7 +7,7 @@ Each membership of a service gets its own SqlLite DB file under the
 root-directory, ie.: /byoda/sqlite/<member_id>.db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -17,6 +17,7 @@ import shutil
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from typing import override
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -57,6 +58,7 @@ PROTECTED_FILE_EXTENSION: str = '.protected'
 
 
 class SqliteStorage(Sql):
+    @override
     def __init__(self, paths: Paths) -> None:
         super().__init__()
 
@@ -227,7 +229,7 @@ class SqliteStorage(Sql):
         cloud_file_store: FileStorage = server.document_store.backend
 
         memberships: dict[str, MemberInfo] = await self.get_memberships()
-        _LOGGER.debug(f'Backing up {len (memberships)} membership DB files')
+        _LOGGER.debug(f'Backing up {len(memberships)} membership DB files')
 
         for membership in memberships.values():
             cloud_member_data_file: str = self.get_member_data_filepath(
@@ -251,7 +253,7 @@ class SqliteStorage(Sql):
 
     async def backup_db_file(self, local_file: str, cloud_file: str,
                              cloud_file_store: FileStorage,
-                             data_secret: DataSecret):
+                             data_secret: DataSecret) -> None:
         '''
         Backs up the database file to the cloud, if the local file
         is newer than any existing local backup of the file
@@ -408,8 +410,8 @@ class SqliteStorage(Sql):
                 f'Created member db data directory {member_data_dir}'
             )
 
-        self.member_db_files[member_id]: str = member_db_file
-        self.member_sql_tables[member_id]: dict[str, SqlTable] = {}
+        self.member_db_files[member_id] = member_db_file
+        self.member_sql_tables[member_id] = {}
 
         # this will create the DB file if it doesn't exist already
         async with aiosqlite.connect(member_db_file) as db_conn:
@@ -548,7 +550,7 @@ class SqliteStorage(Sql):
             'SELECT member_id, service_id, status, timestamp '
             'FROM memberships '
         )
-        if status:
+        if status and status.value:
             query += f'WHERE status = "{status.value}" '
 
         if not os.path.exists(self.account_db_file):
@@ -590,7 +592,7 @@ class SqliteStorage(Sql):
 
         return memberships_for_status
 
-    async def maintain(self, server: PodServer):
+    async def maintain(self, server: PodServer) -> None:
         '''
         Performs maintenance on the membership Sqlite DB files.
         '''

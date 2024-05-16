@@ -3,7 +3,7 @@ Class AssetDb stores information for the Service and Directory servers
 about registered clients
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -39,7 +39,7 @@ class AssetDb:
     '''
 
     def __init__(self, connection_string: str, service_id: int,
-                 network_name: str, server_type: str):
+                 network_name: str, server_type: str) -> None:
         '''
         Initializes the DB. The DB consists of both a list of asset_ids,
         a hash of the metadata for each member_id and a hash of the actual
@@ -50,14 +50,14 @@ class AssetDb:
             connection_string, service_id=service_id,
             network_name=network_name, server_type=server_type)
 
-        self._service_id = service_id
+        self._service_id: int = service_id
 
     @property
-    def service_id(self):
+    def service_id(self) -> int:
         return self.kvcache.service_id
 
     @service_id.setter
-    def service_id(self, service_id: int):
+    def service_id(self, service_id: int) -> None:
         self.kvcache.identifier = f'service-{str(service_id)}'
 
     def exists(self, member_id: UUID) -> bool:
@@ -66,13 +66,13 @@ class AssetDb:
         does not check whether the member_id is in the list
         '''
 
-        mid = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
 
-        exists = self.kvcache.exists(mid)
+        exists: bool = self.kvcache.exists(mid)
 
         return exists
 
-    def pos(self, member_id: UUID):
+    def pos(self, member_id: UUID) -> int | None:
         '''
         Finds the first occurrence of value in the list for the key
         '''
@@ -81,7 +81,7 @@ class AssetDb:
 
     def get_next(self, timeout: int = 0) -> UUID:
         '''
-        Remove the first item in the MEMBER_LIST and return it
+        Remove the first item in the ASSETS_LIST and return it
         '''
 
         value = self.kvcache.get_next(ASSETS_LIST, timeout=timeout)
@@ -102,7 +102,7 @@ class AssetDb:
         if self.pos(member_id) is None:
             self.add_member(member_id)
 
-        mid = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
         self.kvcache.set(mid, {
                 'member_id': str(member_id),
                 'remote_addr': str(remote_addr),
@@ -120,13 +120,13 @@ class AssetDb:
         :raises: KeyError if the member is not in the database
         '''
 
-        mid = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
-        data = self.kvcache.get(mid)
+        mid: str = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
+        data: dict = self.kvcache.get(mid)
 
         if not data:
             raise KeyError(f'Member {str(member_id)} not found')
 
-        value = {
+        value: dict[str, any] = {
             'member_id': UUID(data['member_id']),
             'remote_addr': ip_address(data['remote_addr']),
             'schema_version': int(data['schema_version']),
@@ -144,11 +144,11 @@ class AssetDb:
         :returns: whether the key existed or not
         '''
 
-        mid = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
+        mid: str = ASSET_ID_META_FORMAT.format(member_id=str(member_id))
 
         ret = self.kvcache.delete(mid)
 
-        exists = ret != 0
+        exists: bool = ret != 0
 
         if exists:
             _LOGGER.debug(f'Deleted the metadata for member {str(member_id)}')

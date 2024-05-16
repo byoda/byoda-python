@@ -3,7 +3,7 @@ Class for modeling the different server types, ie.:
 POD server, directory server, service server
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -36,7 +36,7 @@ JWT = TypeVar('JWT')
 
 class Server:
     def __init__(self, network: Network,
-                 cloud_type: CloudType = CloudType.LOCAL):
+                 cloud_type: CloudType = CloudType.LOCAL) -> None:
 
         self.server_type: ServerType | None = None
         self.cloud: CloudType = cloud_type

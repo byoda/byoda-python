@@ -2,7 +2,7 @@
 Python module for managing signatures of documents
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -26,13 +26,13 @@ class SignatureType(Enum):
 
 
 class MessageSignature:
-    __slots__ = [
+    __slots__: list[str] = [
         'message', 'signature', 'base64_signature', 'timestamp',
         'hash_algorithm', 'data_secret', 'certificate_cn', 'verified'
     ]
 
     def __init__(self, data_secret: DataSecret,
-                 hash_algorithm: str = 'SHA256'):
+                 hash_algorithm: str = 'SHA256') -> None:
         '''
         Constructor
 

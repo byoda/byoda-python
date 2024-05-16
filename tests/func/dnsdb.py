@@ -7,7 +7,7 @@ TODO: test case stopped passing since migration of postgres server to the
 cloud, likely because the 'byodafunctest.net' domain was not created.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 

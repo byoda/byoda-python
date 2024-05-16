@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -78,7 +78,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self) -> None:
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = "TEST_CLIENT"
@@ -87,7 +87,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -111,10 +111,10 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await DataApiClient.close_all()
 
-    async def test_datacache_api_jwt(self):
+    async def test_datacache_api_jwt(self) -> None:
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
@@ -133,7 +133,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(resp.status_code, 200)
         result: dict[str, str] = resp.json()
-        auth_header = {
+        auth_header: dict[str, str] = {
             'Authorization': f'bearer {result["auth_token"]}'
         }
 
@@ -294,7 +294,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.rowcount, 1)
 
         data_class: SchemaDataItem = member.get_data_class(class_name)
-        row_count = await cache_store.refresh_table(
+        row_count: int = await cache_store.refresh_table(
             server, member, data_class, refresh_timestamp
         )
         self.assertEqual(row_count, 1)
@@ -308,6 +308,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         data: list[QueryResult] = await sql_table.query(
             data_filters=data_filter_set
         )
+        self.assertTrue(bool(data))
         self.assertEqual(len(data), 1)
         _, asset_meta = data[0]
         self.assertGreater(asset_meta['expires'], refresh_timestamp)
@@ -316,7 +317,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         # Purge the cache and confirm the object has been deleted
         #
         expire_timestamp: float = now + 7 * 24 * 60 * 60
-        rows = await cache_store.expire_table(
+        rows: int = await cache_store.expire_table(
             server, member, data_class, expire_timestamp
         )
         self.assertEqual(rows, 1)

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 '''
-Test the Directory APIs
+Test the Service APIs
 
 As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -52,7 +52,6 @@ from svcserver.routers import service as ServiceRouter
 from svcserver.routers import member as MemberRouter
 from svcserver.routers import search as SearchRouter
 from svcserver.routers import status as StatusRouter
-from svcserver.routers import data as DataRouter
 
 from tests.lib.util import get_test_uuid
 
@@ -125,7 +124,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         server: ServiceServer = await ServiceServer.setup(network, app_config)
-        config.server: ServiceServer = server
+        config.server = server
 
         storage = FileStorage(app_config['svcserver']['root_dir'])
         await config.server.load_network_secrets(storage_driver=storage)
@@ -136,7 +135,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         await server.load_schema(verify_contract_signatures=False)
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 

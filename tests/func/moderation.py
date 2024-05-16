@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license
 '''
 
@@ -124,7 +124,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         server = AppServer(
             AppType.MODERATE, app_config['appserver']['app_id'], network,
-            app_config
+            app_config, [StatusRouter, ModerateRouter]
         )
 
         await server.set_document_store(
@@ -147,7 +147,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         if not os.environ.get('SERVER_NAME') and config.server.network.name:
             os.environ['SERVER_NAME'] = config.server.network.name
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server)
 
         global APP
@@ -236,6 +236,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         #
         resp: HttpResponse = await RestApiClient.call(
             API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+            timeout=600
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -261,6 +262,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
         resp = await RestApiClient.call(
             API, HttpMethod.POST, headers=jwt_headers, data=claim_data,
+            timeout=600
         )
         self.assertEqual(resp.status_code, 200)
         data: dict[str, any] = resp.json()
@@ -279,6 +281,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
         resp = await RestApiClient.call(
             API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+            timeout=600
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -307,6 +310,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
         resp = await RestApiClient.call(
             API, method=HttpMethod.POST, headers=ssl_headers, data=claim_data,
+            timeout=600
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -331,6 +335,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         claim_data['claim_data']['asset_id'] = str(get_test_uuid())
         resp = await RestApiClient.call(
             API, method=HttpMethod.POST, headers=jwt_headers, data=claim_data,
+            timeout=600
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

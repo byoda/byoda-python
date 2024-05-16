@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -70,7 +70,7 @@ APP: FastAPI | None = None
 
 class TestPodApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
@@ -87,7 +87,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
@@ -112,10 +112,11 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
 
     async def test_prometheus_metrics(self) -> None:
 
-        async with httpx.AsyncClient(app=APP) as client:
+        async with httpx.AsyncClient() as client:
             resp: httpx.Response = await client.get(
-                'http://localhost:8000/metrics'
+                'http://localhost:5000/metrics'
             )
+            self.assertEqual(resp.status_code, 200)
             data: str = resp.text
             self.assertIsNotNone(data)
             self.assertEqual(data[0], '#')
@@ -138,7 +139,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
             app=APP
         )
         self.assertEqual(resp.status_code, 200)
-        data: [str, str] = resp.json()
+        data: tuple[str, str] = resp.json()
         self.assertEqual(data['account_id'], str(account_id))
         self.assertEqual(data['network'], NETWORK)
         self.assertTrue(data['started'].startswith('202'))
@@ -389,7 +390,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
             f'/asset_id/{asset_id}/visibility/public'
         )
 
-        files: list[str, tuple(str, os.BufferedReader)] = [
+        files: list[str, tuple[str, os.BufferedReader]] = [
             (
                 'files', ('ls.bin', open('/bin/ls', 'rb'))
             ),
@@ -476,6 +477,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         member_jwt = data.get('auth_token')
+        member_auth: dict[str, str] = {'Authorization': f'bearer {member_jwt}'}
         self.assertTrue(isinstance(data.get("auth_token"), str))
 
         with self.assertRaises(ByodaRuntimeError):
@@ -584,6 +586,22 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
                 app=APP
             )
             self.assertEqual(resp.status_code, 403)
+
+        # Get an app JWT using member auth token
+        resp = await ApiClient.call(
+            f'{BASE_URL}/v1/pod/authtoken/remote',
+            method=HttpMethod.POST, headers=member_auth,
+            data={
+                'service_id': ADDRESSBOOK_SERVICE_ID,
+                'target_type': IdType.APP.value,
+                'target_id': str(get_test_uuid())
+            },
+            app=APP
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        app_jwt: str | None = data.get('auth_token')
+        self.assertTrue(isinstance(app_jwt, str))
 
         # Test failure cases
         with self.assertRaises(ByodaRuntimeError):

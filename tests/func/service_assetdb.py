@@ -3,7 +3,7 @@ Test the LUA script for getting the data of a list of assets
 
 This test requires:
 - installation of the redis-tools package with the 'redis-cli' command
-- a running Redis server at '192.168.1.11:6379' without a
+- a running Redis server at '192.168.1.13:6379' without a
   password. Alternatively, a Redis server can be specified with the
   REDIS_URL environment variable.
 
@@ -36,12 +36,11 @@ from redis.commands.search.result import Result
 from byoda.datamodel.memberdata import EdgeResponse as Edge
 
 from byoda.datacache.searchable_cache import SearchableCache
-from byoda.datacache.searchable_cache import LUA_FUNCTIONS_FILE
 from byoda.datacache.asset_cache import AssetCache
 
 from byoda.util.logger import Logger
 
-REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.11:6379')
+REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.13:6379')
 
 TESTLIST: str = 'testlualist'
 
@@ -56,8 +55,13 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
             )
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
+        await cache.client.flushdb()
         await cache.client.function_flush('SYNC')
-        await cache.client.ft(cache.index_name).dropindex()
+        try:
+            await cache.client.ft(cache.index_name).dropindex()
+        except Exception:
+            pass
+
         await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
         await cache.delete_list(AssetCache.ALL_ASSETS_LIST)
@@ -247,7 +251,7 @@ def call_lua_script(test, first: int = 25, after: str | None = None,
     # https://redis.io/docs/interact/programmability/lua-debugging/
     cmd: list[str] = [
         'redis-cli', '-3', '-u', REDIS_URL,
-        '--eval', LUA_FUNCTIONS_FILE,
+        '--eval', AssetCache.LUA_FUNCTIONS_FILE,
         f'lists:{TESTLIST}', ',', AssetCache.ASSET_KEY_PREFIX,
         f'{first}', f'{after}'
     ]

@@ -126,7 +126,7 @@ server {
     location /api/ {
         status_zone api_browser_2_pod_{{ subdomain }};
         proxy_pass http://127.0.0.1:{{ port }};
-        set $cloud_path 'http://127.0.0.1:8000';
+        set $cloud_path 'http://127.0.0.1:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header Early-Data $ssl_early_data;

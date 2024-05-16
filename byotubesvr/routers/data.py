@@ -2,7 +2,7 @@
 /service/data API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -12,14 +12,15 @@ from logging import getLogger
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import HTTPException
+from fastapi.responses import ORJSONResponse
 
+from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
-
-from byoda.servers.service_server import ServiceServer
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.util.logger import Logger
 
@@ -27,17 +28,14 @@ from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
-router: APIRouter = APIRouter(
-    prefix='/api/v1/service',
-    dependencies=[]
-)
+router: APIRouter = APIRouter(prefix='/api/v1/service', dependencies=[])
 
 DEFAULT_PAGING_SIZE: int = 25
 
 MAX_PAGE_SIZE: int = 100
 
 
-@router.get('/data', status_code=200)
+@router.get('/data', status_code=200, response_class=ORJSONResponse)
 async def get_data(request: Request,
                    list_name: str | None = AssetCache.DEFAULT_ASSET_LIST,
                    first: int = DEFAULT_PAGING_SIZE, after: str | None = None,
@@ -52,8 +50,7 @@ async def get_data(request: Request,
 
     _LOGGER.debug(f'GET Data API called from {request.client.host}')
 
-    server: ServiceServer = config.server
-    asset_cache: AssetCache = server.asset_cache
+    asset_cache: AssetCache = config.asset_cache
 
     first = min(first, MAX_PAGE_SIZE)
 
@@ -84,7 +81,7 @@ async def get_data(request: Request,
     )
 
 
-@router.get('/asset', status_code=200)
+@router.get('/asset', status_code=200, response_class=ORJSONResponse)
 async def get_asset(request: Request, cursor: str | None = None,
                     asset_id: UUID | None = None,
                     member_id: UUID | None = None) -> EdgeResponse:
@@ -109,14 +106,44 @@ async def get_asset(request: Request, cursor: str | None = None,
             detail='Either cursor or asset_id and member_id must be provided'
         )
 
-    server: ServiceServer = config.server
-    asset_cache: AssetCache = server.asset_cache
+    asset_cache: AssetCache = config.asset_cache
 
     if not cursor:
         cursor = asset_cache.get_cursor(member_id, asset_id)
+
     try:
         edge: EdgeResponse = await asset_cache.get_asset_by_key(cursor)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    return edge
+
+
+@router.get('/channel', status_code=200, response_class=ORJSONResponse)
+async def get_channel(request: Request, creator: str, member_id: UUID
+                      ) -> EdgeResponse[Channel]:
+    '''
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy (TODO: security)
+    '''
+
+    channel_cache: ChannelCache = config.channel_cache
+
+    _LOGGER.debug(f'GET Channel API called from {request.client.host}')
+
+    try:
+        edge: EdgeResponse[Channel] | None = await channel_cache.get_channel(
+            member_id, creator
+        )
+    except Exception as exc:
+        _LOGGER.exception(f'Failed to get channel: {exc}')
+        raise HTTPException(
+            status_code=502, detail='Failed to get channel'
+        )
+
+    if not edge:
+        raise HTTPException(
+            status_code=404, detail=f'Channel {creator} not found'
+        )
 
     return edge

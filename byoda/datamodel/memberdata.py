@@ -14,7 +14,7 @@ validation and gathers all the data needed to process the request
 work
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -135,7 +135,7 @@ class MemberData(dict):
         schema: Schema = member.schema
 
         member.joined = datetime.now(timezone.utc)
-        member.schema_versions: list[int] = [schema.version]
+        member.schema_versions = [schema.version]
 
         member_data: dict[str, str | int | bool] = {
             'member_id': str(member.member_id),
@@ -332,6 +332,9 @@ class MemberData(dict):
         :param signature_format_version: the version of the signature format
         :returns: (none)
         '''
+
+        if not config.log_requests:
+            return
 
         server: PodServer = config.server
         data_store: DataStore = server.data_store
@@ -655,7 +658,7 @@ class MemberData(dict):
         remote_addr: str = websocket.client.host
 
         _LOGGER.debug(
-            f'Received REST Data Updates API request for {class_name} '
+            f'Received Data Updates API request for {class_name} '
             f'from host {remote_addr}'
         )
 
@@ -1269,13 +1272,14 @@ class MemberData(dict):
         )
 
         result: int = await MemberData.delete_data(
-            server, member, data_class.name, data_filter_set
+            server, member, data_class, data_filter_set
         )
         return result
 
     @staticmethod
     async def delete_data(server: PodServer, member: Member,
-                          class_name: str, data_filter: DataFilterSet) -> int:
+                          data_class: SchemaDataItem,
+                          data_filter: DataFilterSet) -> int:
         '''
         Deletes the data and updates counters.
 
@@ -1288,13 +1292,9 @@ class MemberData(dict):
         :returns: number of objects deleted
         '''
 
-        _LOGGER.debug(f'Deleting data for data_class {class_name}')
+        _LOGGER.debug(f'Deleting data for data_class {data_class.name}')
 
         member_id: UUID = member.member_id
-        schema: Schema = member.schema
-        data_class: SchemaDataArray = schema.data_classes.get(class_name)
-        if not data_class:
-            raise ValueError(f'No data class named {class_name}')
 
         if data_class.cache_only:
             _LOGGER.debug(
@@ -1304,13 +1304,13 @@ class MemberData(dict):
             object_count: int = await cache_store.delete(
                 member.member_id, data_class.name, data_filter
             )
-            table: Table = cache_store.get_table(member_id, class_name)
+            table: Table = cache_store.get_table(member_id, data_class.name)
         else:
             data_store: DataStore = server.data_store
             object_count = await data_store.delete(
                 member_id, data_class.name, data_filter
             )
-            table: Table = data_store.get_table(member_id, class_name)
+            table: Table = data_store.get_table(member_id, data_class.name)
 
         if config.debug and config.disable_pubsub:
             _LOGGER.debug('Not performing pubsub updates for test-cases')
@@ -1333,13 +1333,15 @@ class MemberData(dict):
         # a filter was not specified for a counter field. Because of this
         # reason, the pod_worker will have to periodically check value for
         # the field-specific counters
-        filter_data = {}
+        filter_data: dict = {}
         for field in referenced_class.fields.values():
             if not field.is_counter:
                 continue
 
-            counter_data_filter = getattr(filter, field.name, None)
-            filter_value = getattr(counter_data_filter, 'eq', None)
+            counter_data_filter: str | None = getattr(filter, field.name, None)
+            filter_value: str | None = getattr(
+                counter_data_filter, 'eq', None
+            )
             if counter_data_filter and filter_value:
                 _LOGGER.debug(
                     f'Filtering on counter field {field.name} with '
@@ -1356,7 +1358,9 @@ class MemberData(dict):
                 counter_cache, table
         )
 
-        message = PubSubDataDeleteMessage.create(data_class, data_filter)
+        message: PubSubDataDeleteMessage = PubSubDataDeleteMessage.create(
+            data_class, data_filter
+        )
         pubsub_class: PubSub = data_class.pubsub_class
         # pubsub_class is None if this function was called by something other
         # than the byoda app server

@@ -8,7 +8,7 @@ the angie configuration files for the account and for
 existing memberships.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -93,6 +93,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         f'Setting up logging: debug {config.debug}, '
         f'loglevel {network_data["loglevel"]}, logfile {logfile}'
     )
+
+    config.log_requests = network_data.get('log_requests', True)
+    if not config.log_requests:
+        _LOGGER.info('Logging of data requests is disabled')
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,

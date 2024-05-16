@@ -5,7 +5,7 @@ Content keys do not affect the content but are used to
 restrict streaming & download access to the content.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -14,6 +14,7 @@ import base64
 from uuid import uuid4
 from uuid import UUID
 from typing import Self
+from typing import override
 from datetime import UTC
 from datetime import datetime
 from dataclasses import dataclass
@@ -26,6 +27,8 @@ from dateutil import parser as dateutil_parser
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import QueryResult
 
+from byoda.models.content_key import Claim as ClaimModel
+
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import IdType
 
@@ -33,6 +36,7 @@ from byoda.datastore.data_store import DataStore
 
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.data_secret import InvalidSignature
+from byoda.secrets.app_data_secret import AppDataSecret
 
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
@@ -96,7 +100,7 @@ class Claim:
         'secret', 'verified'
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.claim_id: UUID | None = None
         self.claims: list[str] | None = None
         self.issuer_id: UUID | None = None
@@ -130,19 +134,90 @@ class Claim:
         # Did we verify the signature?
         self.verified: bool | None = None
 
-    def as_dict(self):
-        claim_data = {}
+    def as_dict(self) -> dict:
+        claim_data: dict = {}
         for fieldname in CLAIM_FIELDS:
             claim_data[fieldname] = getattr(self, fieldname)
 
         return claim_data
 
     @staticmethod
-    def from_dict(claim_data: dict[str, str]) -> None:
+    def from_model(model: ClaimModel) -> Self:
+        '''
+        Create Claim from the pydantic model ClaimModel
+
+        :param model: the pydantic model
+        :returns: the Claim instance
+        :raises: ValueError if the model is missing required fields
+        '''
+
+        claim = Claim()
+        claim._process_model(model)
+
+        return claim
+
+    def _process_model(self, model: ClaimModel) -> None:
+        '''
+        Take the data from the model to populate
+        the properties of this class instance
+        '''
+
+        self.claim_id = model.claim_id
+        if isinstance(self.claim_id, str):
+            self.claim_id = UUID(self.claim_id)
+
+        self.claims = model.claims
+        self.issuer_id = model.issuer_id
+
+        self.issuer_type = model.issuer_type
+        if isinstance(self.issuer_type, str):
+            self.issuer_type = IdType(self.issuer_type)
+
+        self.object_type = model.object_type
+        self.keyfield = model.keyfield
+        self.keyfield_id = model.keyfield_id
+        if isinstance(self.keyfield_id, str):
+            self.keyfield_id = UUID(self.keyfield_id)
+
+        self.object_fields = model.object_fields
+
+        self.requester_id = model.requester_id
+        if isinstance(self.requester_id, str):
+            self.requester_id = UUID(self.requester_id)
+
+        self.requester_type = model.requester_type
+        if isinstance(self.requester_type, str):
+            self.requester_type = IdType(self.requester_type)
+
+        self.signature = model.signature
+
+        self.signature_timestamp = model.signature_timestamp
+        if isinstance(self.signature_timestamp, str):
+            self.signature_timestamp = dateutil_parser.parse(
+                model.signature_timestamp
+            )
+
+        self.signature_format_version = model.signature_format_version
+
+        self.signature_url = model.signature_url
+        self.renewal_url = model.renewal_url
+        self.confirmation_url = model.confirmation_url
+
+        self.cert_fingerprint = model.cert_fingerprint
+
+        self.cert_expiration = model.cert_expiration
+        if isinstance(self.cert_expiration, str):
+            self.cert_expiration = dateutil_parser.parse(
+                self.cert_expiration
+            )
+
+    @staticmethod
+    def from_dict(claim_data: dict[str, str]) -> Self:
         '''
         Factory for creating an instance of the class from claim data
         retrieved from the data store
         '''
+
         claim = Claim()
 
         claim.claim_id = claim_data.get('claim_id')
@@ -176,7 +251,7 @@ class Claim:
 
         claim.signature_timestamp = claim_data.get('signature_timestamp')
         if isinstance(claim.signature_timestamp, str):
-            claim.signature_timestamp: datetime = dateutil_parser.parse(
+            claim.signature_timestamp = dateutil_parser.parse(
                 claim_data['signature_timestamp']
             )
 
@@ -192,7 +267,7 @@ class Claim:
 
         claim.cert_expiration = claim_data.get('cert_expiration')
         if isinstance(claim.cert_expiration, str):
-            claim.cert_expiration: datetime = dateutil_parser.parse(
+            claim.cert_expiration = dateutil_parser.parse(
                 claim.cert_expiration
             )
 
@@ -215,8 +290,8 @@ class Claim:
         else:
             claim.claim_id = uuid4()
 
-        claim.claims: list[str] = claims
-        claim.issuer_id: UUID = issuer_id
+        claim.claims = claims
+        claim.issuer_id = issuer_id
         claim.issuer_type = issuer_type
 
         claim.object_type = object_type
@@ -256,9 +331,9 @@ class Claim:
             member_id, self.object_type, filter_set
         )
 
-        claims = []
+        claims: list[Claim] = []
         for item, _ in data or []:
-            claim = Claim.from_claim_data(item)
+            claim: Claim = Claim.from_claim_data(item)
             claims.append(claim)
 
         return claims
@@ -271,7 +346,7 @@ class Claim:
 
         for field in CLAIM_FIELDS:
             if not getattr(self, field):
-                raise ValueError(f'Claim field has no data: {field}')
+                raise ValueError(f'Claim field has no data for: {field}')
 
         await data_store.append(member_id, table_name, self.as_dict())
 
@@ -315,22 +390,29 @@ class Claim:
         Verifies the signature
         '''
 
+        if not self.signature:
+            raise ValueError('Claim has no signature')
+
+        if self.cert_expiration < datetime.now(tz=UTC):
+            _LOGGER.debug(f'Cert {self.cert_fingerprint} expired')
+            return False
+
         if (not self.claim_id or not self.claims
                 or not self.issuer_id or not self.issuer_type
                 or not self.object_type or not self.keyfield
                 or not self.keyfield_id or not self.object_fields):
             raise ValueError('Claim is missing required fields')
 
-        if not (secret or self.secret):
-            raise ValueError('No secret available to create signature')
-
         if not secret:
             secret = self.secret
 
-        sig_data = self._get_bytes(data)
+        if not secret:
+            raise ValueError('No secret available to create signature')
+
+        sig_data: bytes = self._get_bytes(data)
 
         try:
-            signature = base64.b64decode(self.signature)
+            signature: bytes = base64.b64decode(self.signature)
             secret.verify_message_signature(sig_data, signature)
             self.verified = True
         except InvalidSignature as exc:
@@ -356,9 +438,9 @@ class Claim:
         sig_data = b''
 
         for field in CLAIM_FORMAT_VERSION[1]['additional_claim_fields']:
-            value = getattr(self, field)
+            value: any = getattr(self, field)
             if isinstance(field, list):
-                value = ','.join(value)
+                value: str = ','.join(value)
             elif isinstance(field, dict):
                 raise ValueError(
                     'Dicts are not supported for additional claim fields'
@@ -377,6 +459,42 @@ class Claim:
                 sig_data += orjson.dumps(value, orjson.OPT_SORT_KEYS)
 
         return sig_data
+
+
+class AppClaim(Claim):
+    '''
+    Class for managing claims and their signatures
+    '''
+
+    @override
+    @staticmethod
+    def from_model(model: ClaimModel) -> Self:
+        '''
+        Create Claim from the pydantic model ClaimModel
+
+        :param model: the pydantic model
+        :returns: the Claim instance
+        :raises: ValueError if the model is missing required fields
+        '''
+
+        claim: AppClaim = AppClaim()
+        claim._process_model(model)
+
+        return claim
+
+    async def get_secret(self, issuer_id: UUID, service_id: int,
+                         fingerprint: str) -> DataSecret:
+        '''
+        Returns the secret for the claim
+        '''
+
+        secret: AppDataSecret = AppDataSecret(
+            issuer_id, service_id
+        )
+
+        await secret.download_cert(fingerprint)
+
+        self.secret = secret
 
 
 @dataclass(slots=True)
@@ -409,7 +527,7 @@ class ClaimRequest:
         :claim_data: data for the claim
         '''
 
-        resp = await RestApiClient.call(
+        resp: HttpResponse = await RestApiClient.call(
             url, HttpMethod.POST,
             data={
                 'claims': claims,

@@ -3,11 +3,9 @@ Helper function to set up the Fastapi API, shared by directory, services
 and pod servers and the functional test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
-
-import os
 
 from logging import getLogger
 
@@ -22,7 +20,9 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import SERVICE_NAME
+
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter \
     import OTLPSpanExporter
 
@@ -30,7 +30,15 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
-from prometheus_fastapi_instrumentator import Instrumentator
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.metrics import get_meter_provider
+from opentelemetry.metrics import set_meter_provider
+from opentelemetry.metrics import Meter
+
+# Prometheus exporter docs are in <pipenv-dir>/lib/python-3.12/site-packages/opentelemetry/exporter/prometheus/__init__.py  # noqa: E501
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
+
+from prometheus_client import start_http_server
 
 from byoda.util.logger import Logger
 
@@ -90,8 +98,16 @@ def setup_api(title: str, description: str, version: str, routers: list,
     SQLite3Instrumentor().instrument()
     HTTPXClientInstrumentor().instrument()
 
-    if config.debug:
-        Instrumentator().instrument(app).expose(app)
+    try:
+        start_http_server(port=5000, addr="localhost")
+    except OSError:
+        pass
+
+    reader = PrometheusMetricReader('byopay')
+    set_meter_provider(MeterProvider(metric_readers=[reader]))
+
+    meter: Meter = get_meter_provider().get_meter('byopay', '0.0.1')
+    config.meter = meter
 
     for router in routers:
         app.include_router(router.router)

@@ -1,4 +1,4 @@
-FROM ubuntu:23.04
+FROM ubuntu:24.04
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
@@ -26,7 +26,6 @@ RUN apt-get update && apt-get install -y \
        build-essential \
        python3 \
        python3-pip \
-       python3-distutils \
        python3-setuptools \
        libssl-dev \
        libffi-dev \
@@ -48,4 +47,4 @@ RUN apt-get update && apt-get install -y \
 COPY . byoda-python/
 
 CMD cd byoda-python \
-    && pipenv run python3 svcserver/refresh_worker.py
+    && nice -20 ionice -c idle pipenv run python3 byotubesvr/refresh_worker.py

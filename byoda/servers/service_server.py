@@ -3,7 +3,7 @@ Class ServiceServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -19,6 +19,7 @@ from byoda.datamodel.config import ServerConfig
 from byoda.datastore.memberdb import MemberDb
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.secrets.member_data_secret import MemberDataSecret
 
@@ -67,11 +68,16 @@ class ServiceServer(Server):
             service_id = app_config.server_config['service_id']
         else:
             service_id = app_config['svcserver']['service_id']
+
         self.service = Service(
             network=self.network, service_id=service_id
         )
 
         self.asset_cache: AssetCache | None = None
+        self.asset_cache_readwrite: AssetCache | None = None
+
+        self.channel_cache: ChannelCache | None = None
+        self.channel_cache_readwrite: ChannelCache | None = None
 
         self.dns_resolver = DnsResolver(network.name)
 
@@ -105,6 +111,25 @@ class ServiceServer(Server):
         )
 
         return self
+
+    async def close(self) -> None:
+        '''
+        Closes the datastores of the service server'''
+
+        if self.member_db:
+            await self.member_db.close()
+
+        if self.asset_cache:
+            await self.asset_cache.close()
+
+        if self.asset_cache_readwrite:
+            await self.asset_cache_readwrite.close()
+
+        if self.channel_cache:
+            await self.channel_cache.close()
+
+        if self.channel_cache_readwrite:
+            await self.channel_cache_readwrite.close()
 
     async def load_network_secrets(self, storage_driver: FileStorage = None
                                    ) -> None:
@@ -142,7 +167,8 @@ class ServiceServer(Server):
 
         self.member_db.schema = service.schema
 
-    async def setup_asset_cache(self, connection_string: str) -> None:
+    async def setup_asset_cache(self, connection_string: str,
+                                connection_string_readwrite: str) -> None:
         '''
         Sets up the asset cache for the service. The asset cache can only
         be created after the schema has been loaded
@@ -154,6 +180,29 @@ class ServiceServer(Server):
 
         self.asset_cache: AssetCache = await AssetCache.setup(
             connection_string
+        )
+
+        self.asset_cache_readwrite: AssetCache = await AssetCache.setup(
+            connection_string_readwrite
+        )
+
+    async def setup_channel_cache(self, connection_string: str,
+                                  connection_string_readwrite: str) -> None:
+        '''
+        Sets up the channel cache for the service. The channel cache can only
+        be created after the schema has been loaded
+
+        :param connection_string: the connection string for the channel cache
+        :returns: (none)
+        :raises: ValueError
+        '''
+
+        self.channel_cache: ChannelCache = await ChannelCache.setup(
+            connection_string
+        )
+
+        self.channel_cache_readwrite: ChannelCache = await ChannelCache.setup(
+            connection_string_readwrite
         )
 
     async def review_jwt(self, jwt: JWT) -> None:

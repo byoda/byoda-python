@@ -17,18 +17,16 @@ Instructions to set up YouTube Data API key:
 https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
 import os
 
 from uuid import UUID
-from random import shuffle
+from random import sample
 from logging import getLogger
-
-from googleapiclient.discovery import build
-from googleapiclient.discovery import Resource as YouTubeResource
+from datetime import datetime
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.datafilter import DataFilterSet
@@ -45,6 +43,9 @@ from .youtube_channel import YouTubeChannel
 
 _LOGGER: Logger = getLogger(__name__)
 
+# Minimum number of videos to scrape per channel per run
+MIN_SCRAPE_VIDEOS_PER_CHANNEL: int = 20
+
 
 class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
@@ -53,23 +54,17 @@ class YouTube:
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
     INGEST_INTERVAL_SECONDS: int = 60
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, lock_file: str = None, api_key: str | None = None
+                 ) -> None:
         '''
         Constructor. If the 'YOUTUBE_API_KEY environment variable is
         set then it will use that key to call the YouTube Data API. Otherwise
         it will scrape the YouTube website.
         '''
+
         self.integration_enabled: bool = YouTube.youtube_integration_enabled()
-        self.api_enabled: bool = YouTube.youtube_api_integration_enabled()
 
-        self.api_client: YouTubeResource | None = None
-
-        self.api_key: str | None = api_key
-        if not self.api_key:
-            self.api_key = os.environ.get(YouTube.ENVIRON_API_KEY)
-
-        if self.api_key:
-            self.api_client = build('youtube', 'v3', developerKey=self.api_key)
+        self.lock_file: str = lock_file
 
         self.channels: dict[str, YouTubeChannel] = {}
         name: str
@@ -80,7 +75,7 @@ class YouTube:
                 ingest = bool(ingest)
 
             channel = YouTubeChannel(
-                name, ingest=ingest, api_client=self.api_client
+                name, ingest=ingest, lock_file=self.lock_file
             )
             self.channels[name] = channel
 
@@ -93,18 +88,9 @@ class YouTube:
         return result
 
     @staticmethod
-    def youtube_api_integration_enabled() -> bool:
-        integration_enabled: bool = YouTube.youtube_integration_enabled()
-        api_enabled: str | None = os.environ.get(YouTube.ENVIRON_API_KEY)
-
-        result = bool(integration_enabled and api_enabled)
-        _LOGGER.debug(f'YouTube API integration enabled: {result}')
-        return result
-
-    @staticmethod
     async def load_ingested_channels(
         member_id: UUID, data_class: SchemaDataItem, data_store: DataStore
-    ) -> dict[str, dict[str, str]]:
+    ) -> set[str]:
         '''
         Load the ingested assets from the data store
 
@@ -119,10 +105,9 @@ class YouTube:
             member_id, data_class, filters={}
         )
 
-        known_channels: dict[str, dict[str, str]] = {
-            channel_data['creator']: channel_data
-            for channel_data, _ in data or []
-        }
+        known_channels: dict[str, dict[str, str]] = set(
+            [channel_data['creator'] for channel_data, _ in data or []]
+        )
 
         _LOGGER.debug(f'Found {len(known_channels)} ingested channels')
 
@@ -154,7 +139,10 @@ class YouTube:
         )
 
         known_videos: dict[str, dict[str, str]] = {
-            video_data['publisher_asset_id']: video_data
+            video_data['publisher_asset_id']: {
+                'published_timestamp': video_data['published_timestamp'],
+                'ingest_status': video_data['ingest_status']
+            }
             for video_data, _ in data or []
         }
 
@@ -162,16 +150,18 @@ class YouTube:
 
         return known_videos
 
-    async def import_videos(self, member: Member, data_store: DataStore,
-                            storage_driver: FileStorage = None,
-                            already_ingested_assets: dict[str, any] = {},
-                            already_ingested_channels: dict[str, any] = {},
-                            bento4_directory: str | None = None,
-                            moderate_request_url: str | None = None,
-                            moderate_jwt_header: str | None = None,
-                            moderate_claim_url: str | None = None,
-                            ingest_interval: int = INGEST_INTERVAL_SECONDS,
-                            custom_domain: str | None = None) -> None:
+    async def import_videos(
+        self, member: Member, data_store: DataStore,
+        storage_driver: FileStorage = None,
+        already_ingested_assets: dict[str, dict[str, str | datetime]] = {},
+        already_ingested_channels: set[str] = set(),
+        bento4_directory: str | None = None,
+        moderate_request_url: str | None = None,
+        moderate_jwt_header: str | None = None,
+        moderate_claim_url: str | None = None,
+        ingest_interval: int = INGEST_INTERVAL_SECONDS,
+        custom_domain: str | None = None
+    ) -> None:
         '''
         Scrape channel(s) and videos from YouTube and persist them to storage.
         Videos are stored in the data store. If ingest of videos is enabled
@@ -183,6 +173,8 @@ class YouTube:
         using MemberData to trigger notifications on pub/sub
         :param storage_driver: this parameter is required if we download the
         videos
+        :param already_ingested_assets:
+        :param already_ingested_channels:
         :param bento4_directory: this parameter is required if we download the
         assets and repackage them
         :param moderate_request_url: URL where to submit the request to review
@@ -201,15 +193,29 @@ class YouTube:
         if not self.integration_enabled:
             raise ValueError('YouTube integration is not enabled')
 
-        all_channels: list[YouTubeChannel] = list(self.channels.values())
-        shuffle(all_channels)
+        channels: list[YouTubeChannel] = list(self.channels.values())
+        all_channels: list[YouTubeChannel] = sample(channels, k=len(channels))
+        _LOGGER.debug(f'Found {len(all_channels)} channels to import')
 
-        for channel in self.channels.values():
+        max_videos_per_channel: int = 0
+        if len(all_channels) > 1:
+            max_videos_per_channel: int = max(
+                200/len(all_channels), MIN_SCRAPE_VIDEOS_PER_CHANNEL
+            )
+        _LOGGER.info(
+            f'Will import up to {max_videos_per_channel} videos for '
+            f'each of the {len(all_channels)} channels'
+        )
+
+        for channel in all_channels:
             # Do not try to import channels without names, which could happen
             # if the YOUTUBE_CHANNEL has two ','s in a row or a
             # trailing ','
             if not channel:
+                _LOGGER.debug('Got empty channel')
                 continue
+
+            _LOGGER.debug(f'Importing channel {channel.name}')
 
             if channel.ingest_videos and not storage_driver:
                 raise ValueError(
@@ -217,20 +223,17 @@ class YouTube:
                     f'for {channel.name}'
                 )
 
-            if channel.name not in already_ingested_channels:
-                await channel.scrape(
-                    already_ingested_videos=already_ingested_assets,
-                )
+            await channel.scrape(
+                member, data_store, storage_driver,
+                bento4_directory,
+                moderate_request_url=moderate_request_url,
+                moderate_jwt_header=moderate_jwt_header,
+                moderate_claim_url=moderate_claim_url,
+                ingest_interval=ingest_interval,
+                custom_domain=custom_domain,
+                max_videos_per_channel=max_videos_per_channel,
+                already_ingested_videos=already_ingested_assets,
+            )
 
-                await channel.persist(
-                    member, data_store, storage_driver,
-                    already_ingested_assets, bento4_directory,
-                    moderate_request_url=moderate_request_url,
-                    moderate_jwt_header=moderate_jwt_header,
-                    moderate_claim_url=moderate_claim_url,
-                    ingest_interval=ingest_interval,
-                    custom_domain=custom_domain
-                )
-
-                # Release memory used by the import run
-                channel.videos = []
+            # Release memory used by the import run
+            channel.videos = []

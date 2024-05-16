@@ -5,7 +5,7 @@ templates
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -18,7 +18,7 @@ from enum import Enum
 from copy import copy
 from uuid import UUID
 from typing import Self
-from hashlib import sha1
+from hashlib import sha256
 from typing import TypeVar
 
 from datetime import datetime
@@ -606,7 +606,7 @@ class SchemaDataObject(SchemaDataItem):
         :returns: the cursor
         '''
 
-        hash_gen: bytes = sha1()
+        hash_gen: bytes = sha256()
         for field_name in self.required_fields:
             value: bytes = str(data.get(field_name, '')).encode('utf-8')
             hash_gen.update(value)

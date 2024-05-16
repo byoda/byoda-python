@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -80,7 +80,7 @@ ALL_DATA: list[dict[str, AnyScalarType]] = []
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'

@@ -7,7 +7,7 @@ currently only supports local file systems and object storage of Azure, AWS,
 and GCP.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 

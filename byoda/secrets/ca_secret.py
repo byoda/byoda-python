@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -275,33 +275,32 @@ class CaSecret(Secret):
 
         if expire:
             if isinstance(expire, int):
-                expiration: datetime = datetime.utcnow() + timedelta(
+                expiration: datetime = datetime.now(tz=UTC) + timedelta(
                     days=expire
                 )
             elif isinstance(expire, datetime):
                 expiration = expire
             elif isinstance(expire, timedelta):
-                expiration: datetime = datetime.utcnow() + expire
+                expiration: datetime = datetime.now(tz=UTC) + expire
             else:
                 raise ValueError(
                     'expire must be an int, datetime or timedelta, not: '
                     f'{type(expire)}'
                 )
         else:
-            entity_id = self.review_csr(csr, source=CsrSource.LOCAL)
+            entity_id: str = self.review_csr(csr, source=CsrSource.LOCAL)
             if entity_id.id_type not in self.accepted_csrs:
                 raise ValueError(
                     f'We do not sign CSRs for entity type: {entity_id.id_type}'
                 )
-            expiration_days = self.accepted_csrs[entity_id.id_type]
+            expiration_days: int = self.accepted_csrs[entity_id.id_type]
 
             expiration: datetime = \
-                datetime.utcnow() + timedelta(days=expiration_days)
+                datetime.now(tz=UTC) + timedelta(days=expiration_days)
 
         try:
-            extension = csr.extensions.get_extension_for_class(
-                x509.BasicConstraints
-            )
+            extension: x509.Extension[x509.BasicConstraints] = \
+                csr.extensions.get_extension_for_class(x509.BasicConstraints)
             is_ca: bool = extension.value.ca
         except x509.ExtensionNotFound:
             is_ca = False

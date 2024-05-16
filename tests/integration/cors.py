@@ -8,7 +8,7 @@ TODO: fix test case so it doesn't use the proxy when connecting to a pod
 with a custom domain
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 

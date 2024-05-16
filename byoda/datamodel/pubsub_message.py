@@ -3,7 +3,7 @@ The generic PubSub classes from which tech-specific classes should
 derive
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -38,7 +38,7 @@ class PubSubMessage():
         'origin_id', 'origin_id_type', 'origin_class_name', 'cursor'
     ]
 
-    def __init__(self, message_type: PubSubMessageType):
+    def __init__(self, message_type: PubSubMessageType) -> None:
         self.type: PubSubMessageType = message_type
 
         # Used by PubSubDataMessage
@@ -210,9 +210,9 @@ class PubSubDataMessage(PubSubMessage):
             action, origin_id=origin_id, origin_id_type=origin_id_type,
             origin_class_name=origin_class_name, cursor=cursor
         )
-        msg.data_class: SchemaDataItem = data_class
-        msg.class_name: str = data_class.name
-        msg.node: dict[str, object] = data
+        msg.data_class = data_class
+        msg.class_name = data_class.name
+        msg.node = data
 
         return msg
 
@@ -320,12 +320,11 @@ class PubSubDataAppendMessage(PubSubDataMessage):
 
         msg = PubSubDataAppendMessage(data_dict)
 
-        msg.data_class: SchemaDataItem = \
-            schema.data_classes[data_dict['class_name']]
-        msg.class_name: str = msg.data_class.name
+        msg.data_class = schema.data_classes[data_dict['class_name']]
+        msg.class_name = msg.data_class.name
 
         referenced_class: SchemaDataItem = msg.data_class.referenced_class
-        msg.node: dict[str, object] = referenced_class.normalize(
+        msg.node = referenced_class.normalize(
             data_dict.get('node')
         )
 
@@ -413,10 +412,9 @@ class PubSubDataMutateMessage(PubSubDataMessage):
         msg = PubSubDataMutateMessage(data_dict)
 
         class_name: str = data_dict['class_name']
-        msg.data_class: SchemaDataItem = \
-            schema.data_classes[class_name].referenced_class
+        msg.data_class = schema.data_classes[class_name].referenced_class
 
-        msg.class_name: str = msg.data_class.name
+        msg.class_name = msg.data_class.name
 
         return msg
 
@@ -486,9 +484,8 @@ class PubSubDataDeleteMessage(PubSubDataMessage):
 
         msg = PubSubDataDeleteMessage(data_dict)
 
-        msg.data_class: SchemaDataItem = \
-            schema.data_classes[data_dict['class_name']]
-        msg.class_name: str = msg.data_class.name
+        msg.data_class = schema.data_classes[data_dict['class_name']]
+        msg.class_name = msg.data_class.name
 
         # Data is the number of items of the class specified by data_class
         # were deleted

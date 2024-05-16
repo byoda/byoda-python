@@ -6,7 +6,7 @@ The CacheStore can be extended to support different backend storage. It
 currently only supports Sqlite3.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -47,6 +47,8 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
+
+from byoda.exceptions import ByodaRuntimeError
 
 Schema = TypeVar('Schema')
 PodServer = TypeVar('PodServer')
@@ -329,22 +331,32 @@ class CacheStore:
                     else:
                         filter_items[field] = {'eq': stale_data[field]}
 
-                resp: HttpResponse = await DataApiClient.call(
-                    service_id, origin_class_name, DataRequestType.QUERY,
-                    secret=tls_secret, network=network.name,
-                    member_id=origin_id, depth=0, data_filter=filter_items
-                )
+                try:
+                    resp: HttpResponse = await DataApiClient.call(
+                        service_id, origin_class_name, DataRequestType.QUERY,
+                        secret=tls_secret, network=network.name,
+                        member_id=origin_id, depth=0, data_filter=filter_items
+                    )
 
-                if resp.status_code != 200:
+                    if not resp or resp.status_code != 200:
+                        _LOGGER.debug(
+                            f'Refresh query to {origin_id_type.value}'
+                            f'{origin_id} for class {origin_class_name} with '
+                            f'filters {filter_items} failed, status: '
+                            f'{resp.status_code}'
+                        )
+                        await sleep(1)
+                        continue
+                except ByodaRuntimeError as exc:
                     _LOGGER.debug(
                         f'Refresh query to {origin_id_type.value}{origin_id} '
                         f'for class {origin_class_name} with filters '
-                        f'{filter_items} failed, status: {resp.status_code}'
+                        f'{filter_items} failed: {exc}'
                     )
                     await sleep(1)
                     continue
 
-                request_data = resp.json()
+                request_data: dict[str, any] = resp.json()
 
                 if request_data['total_count'] == 0:
                     _LOGGER.debug(
@@ -510,7 +522,7 @@ class CacheStore:
             is_meta_filter=True
         )
         items_deleted: int = await MemberData.delete_data(
-            server, member, data_class.name, data_filter
+            server, member, data_class, data_filter
         )
 
         return items_deleted

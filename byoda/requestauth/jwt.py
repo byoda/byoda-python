@@ -1,9 +1,9 @@
 '''
-Wrapper class for the PyJWT module
+Class for creation and verification of JWTs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
-:license
+:copyright  : Copyright 2021, 2022, 2023, 2024
+:license    : GPLv3
 '''
 
 from uuid import UUID
@@ -11,8 +11,8 @@ from typing import Self
 from typing import TypeVar
 
 from logging import getLogger
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone
 from datetime import timedelta
 
 import jwt as py_jwt
@@ -23,6 +23,7 @@ from opentelemetry.sdk.trace import Tracer
 from byoda.secrets.secret import Secret
 
 from byoda.datatypes import IdType
+from byoda.datatypes import ServerType
 
 from byoda.util.logger import Logger
 
@@ -33,6 +34,8 @@ TRACER: Tracer = get_tracer(__name__)
 
 ServiceServer = TypeVar('ServiceServer')
 PodServer = TypeVar('PodServer')
+AppServer = TypeVar('AppServer')
+Service = TypeVar('Service')
 
 JWT_EXPIRATION_DAYS = 365
 JWT_ALGO_PREFFERED = 'RS256'
@@ -53,7 +56,7 @@ class JWT:
         # The scope is a data field that we add that the receiving
         # entity must match with its own ID(s) to see if the JWT
         # is intended for use with itself
-        self.scope: str | None = None
+        self.scope: list[str] | None = None
 
         # Who should accept this JWT for authentication?
         self.scope_type: IdType | None = None
@@ -73,7 +76,8 @@ class JWT:
     def create(identifier: UUID, id_type: IdType, secret: Secret,
                network_name: str, service_id: int,
                scope_type: IdType, scope_id: UUID | int,
-               expiration_days: int = JWT_EXPIRATION_DAYS) -> Self:
+               expiration_seconds: int = JWT_EXPIRATION_DAYS * 24 * 60 * 60
+               ) -> Self:
         '''
         Factory for authorization tokens
 
@@ -86,8 +90,11 @@ class JWT:
         :param network_name: the name of the network that the JWT is valid in
         :param service_id: the service_id of the service that the JWT is valid
         for
-        :param scope_id: the id of the target that the JWT is valid for
-        :param scope_type: the IdType that the JWT is valid for
+        :param scope_id: the id of the target that the JWT is valid for. BUG:
+        we really mean audience ID here, ie. service_id or app_id
+        :param scope_type: the IdType that the JWT is valid for: BUG:
+        we really mean audience type here, ie. service or app
+        :param expiration_seconds:
         for
         :returns: the JWT
         :raises: ValueError
@@ -96,7 +103,7 @@ class JWT:
         _LOGGER.debug('Creating a JWT')
         jwt = JWT(network_name)
 
-        jwt.scope: list[str] = JWT.generate_scope(
+        jwt.scope = JWT.generate_scope(
             scope_id, scope_type, service_id, network_name
         )
 
@@ -106,6 +113,16 @@ class JWT:
             jwt.issuer_id = f'member_id-{identifier}'
         else:
             raise ValueError(f'Invalid id_type: {id_type}')
+
+        if scope_type == IdType.SERVICE:
+            jwt.audience = [JWT.get_audience(network_name, service_id)]
+        elif scope_type == IdType.APP:
+            jwt.audience = [
+                JWT.get_audience(network_name, service_id, scope_id)
+            ]
+        else:
+            # We use value for audience as set by constructor
+            pass
 
         jwt.issuer_type = id_type
 
@@ -117,10 +134,11 @@ class JWT:
         jwt.secret = secret
 
         jwt.expiration = (
-            datetime.now(tz=timezone.utc) + timedelta(days=expiration_days)
+            datetime.now(tz=UTC) + timedelta(seconds=expiration_seconds)
         )
         jwt.encode()
 
+        _LOGGER.debug('Generated JWT with audience: jwt.audience')
         return jwt
 
     @staticmethod
@@ -223,6 +241,27 @@ class JWT:
         return self.encoded
 
     @staticmethod
+    def get_audience(network_name: str, service_id: int | None = None,
+                     app_id: UUID | None = None) -> str:
+        '''
+        Get the audience for a JWT
+
+        :param network_name: the name of the network that the JWT is valid in
+        :param service_id: the service_id of the service that the JWT is valid
+        for
+        :param app_id: the app_id of the app that the JWT is valid for
+        :returns: the audience
+        '''
+
+        if service_id is not None:
+            aud: str = f'urn:network-{network_name}:service-{service_id}'
+            if app_id:
+                aud += f':app-{app_id}'
+            return aud
+        else:
+            return f'urn: network-{network_name}'
+
+    @staticmethod
     @TRACER.start_as_current_span(name='JWT.decode')
     async def decode(authorization: str, secret: Secret, network_name: str,
                      download_remote_cert: bool = True) -> Self:
@@ -243,12 +282,21 @@ class JWT:
         :returns: JWT
         '''
 
+        server: PodServer | ServiceServer | AppServer = config.server
+
         if authorization.lower().startswith('bearer'):
             authorization = authorization[len('bearer'):]
 
         authorization = authorization.strip()
 
-        audience: str = f'urn: network-{network_name}'
+        audience: str
+        if server.server_type in (ServerType.SERVICE, ServerType.APP):
+            service: Service = server.service
+            audience = JWT.get_audience(
+                network_name, service.service_id, server.app_id
+            )
+        else:
+            audience = JWT.get_audience(network_name)
 
         if secret:
             data: dict[str, any] = py_jwt.decode(
@@ -289,12 +337,23 @@ class JWT:
             raise ValueError(f'Invalid issuer in JWT: {jwt.issuer}')
 
         jwt.audience = data['aud']
+        _LOGGER.debug(
+            f'Audience should include: {audience} '
+            f'Incoming audience: {jwt.audience}'
+        )
+
+        if not isinstance(jwt.audience, list):
+            jwt.audience = [jwt.audience]
+
         if len(jwt.audience) != 1:
             raise ValueError(
                 f'Invalid audience targets in JWT {len(jwt.audience)}'
             )
-        if not jwt.audience[0].endswith(network_name):
-            raise ValueError(f'Invalid audience in JWT: {jwt.audience}')
+
+        if audience not in jwt.audience:
+            raise ValueError(
+                f'Invalid audience in JWT: {audience} not in {jwt.audience}'
+            )
 
         jwt.service_id = data.get('service_id')
         if jwt.service_id is not None:

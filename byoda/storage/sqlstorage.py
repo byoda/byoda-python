@@ -4,7 +4,7 @@ a service to a SQL table. Classes for different SQL flavors and
 implementations should derive from this class
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -88,29 +88,38 @@ class Sql:
         async with aiosqlite.connect(datafile) as db_conn:
             db_conn.row_factory = aiosqlite.Row
             await db_conn.execute('PRAGMA synchronous = normal')
+            await db_conn.execute('PRAGMA busy_timeout = 5000')
+            await db_conn.execute('PRAGMA read_uncommitted = true')
 
-            try:
-                if not fetchall:
-                    result: aiosqlite.cursor.Cursor = \
-                        await db_conn.execute(command, data)
-                else:
-                    result: list[aiosqlite.Row] = \
-                        await db_conn.execute_fetchall(command, data)
+            tries: int = 0
+            while tries < 3:
+                try:
+                    if not fetchall:
+                        result: aiosqlite.cursor.Cursor = \
+                            await db_conn.execute(command, data)
+                    else:
+                        result: list[aiosqlite.Row] = \
+                            await db_conn.execute_fetchall(command, data)
 
-                if autocommit:
-                    _LOGGER.debug(
-                        f'Committing transaction for SQL command: {command}'
+                    if autocommit:
+                        _LOGGER.debug(
+                            f'Committing transaction SQL command: {command}'
+                        )
+                        await db_conn.commit()
+
+                    return result
+                except aiosqlite.Error as exc:
+                    tries += 1
+                    _LOGGER.error(
+                        f'Error executing SQL {command}, '
+                        f'attempt #{tries}: {exc}'
                     )
-                    await db_conn.commit()
 
-                return result
-            except aiosqlite.Error as exc:
-                await db_conn.rollback()
-                _LOGGER.error(
-                    f'Error executing SQL {command}: {exc}'
-                )
+            await db_conn.rollback()
 
-                raise RuntimeError(exc)
+            raise RuntimeError(
+                f'Failed {tries} attempts to execute SQL {command}'
+            )
 
     def get_table(self, member_id: UUID, class_name: str) -> Table:
         '''

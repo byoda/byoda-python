@@ -6,7 +6,7 @@ for cache keys, such as there is for the document store. The KV-cache does not
 provide encryption/decryption capabilities
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -89,6 +89,13 @@ class KVCache(ABC):
             return kvr
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
+
+    async def close(self) -> None:
+        '''
+        Close the connection to the cache
+        '''
+
+        raise NotImplementedError
 
     def get_annotated_key(self, key: str) -> str:
         '''

@@ -17,22 +17,27 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 Azure Storage has limitation of 250 storage accounts per subscription per region: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits   # noqa: E501
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
+from typing import Self
 from typing import BinaryIO
+from io import BufferedRandom
 from logging import getLogger
 from tempfile import TemporaryFile
 from collections import namedtuple
 
+from azure.core.async_paging import AsyncItemPaged
 from azure.identity.aio import DefaultAzureCredential
 
 # Import the client object from the SDK library
 from azure.storage.blob.aio import ContainerClient, BlobClient
 from azure.storage.blob import ContentSettings
+from azure.storage.blob._models import BlobProperties
 
 from azure.core.exceptions import ResourceNotFoundError
+from azure.storage.blob.aio._download_async import StorageStreamDownloader
 
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
@@ -51,7 +56,7 @@ AzureBucket = namedtuple('AzureBucket', ['storage_account', 'container'])
 
 
 class AzureFileStorage(FileStorage):
-    __slots__ = ['credential', '_blob_clients', 'buckets', 'clients']
+    __slots__: list[str] = ['credential', '_blob_clients', 'buckets', 'clients']
 
     '''
     Provides access to Azure object (aka 'blob') storage
@@ -71,16 +76,18 @@ class AzureFileStorage(FileStorage):
         '''
 
         self.credential: DefaultAzureCredential = DefaultAzureCredential()
-        self._blob_clients = {}
+        self._blob_clients: dict = {}
 
         super().__init__(root_dir, cloud_type=CloudType.AZURE)
 
         domain = 'blob.core.windows.net'
         self.buckets: dict[str, AzureBucket] = {}
 
+        storage_account: str
+        container: str
         if ':' in private_bucket:
             storage_account, container = private_bucket.split(':')
-            self.buckets[StorageType.PRIVATE.value]: AzureBucket = \
+            self.buckets[StorageType.PRIVATE.value] = \
                 AzureBucket(f'{storage_account}.{domain}', container)
         else:
             raise ValueError(
@@ -90,7 +97,7 @@ class AzureFileStorage(FileStorage):
 
         if ':' in restricted_bucket:
             storage_account, container = restricted_bucket.split(':')
-            self.buckets[StorageType.RESTRICTED.value]: AzureBucket = \
+            self.buckets[StorageType.RESTRICTED.value] = \
                 AzureBucket(f'{storage_account}.{domain}', container)
         else:
             raise ValueError(
@@ -100,7 +107,7 @@ class AzureFileStorage(FileStorage):
 
         if ':' in public_bucket:
             storage_account, container = public_bucket.split(':')
-            self.buckets[StorageType.PUBLIC.value]: AzureBucket = \
+            self.buckets[StorageType.PUBLIC.value] = \
                 AzureBucket(f'{storage_account}.{domain}', container)
         else:
             raise ValueError(
@@ -129,7 +136,7 @@ class AzureFileStorage(FileStorage):
 
     @staticmethod
     async def setup(private_bucket: str, restricted_bucket: str,
-                    public_bucket: str, root_dir: str = None):
+                    public_bucket: str, root_dir: str = None) -> Self:
         '''
         Factory for AzureFileStorage
 
@@ -161,7 +168,7 @@ class AzureFileStorage(FileStorage):
 
         return storage
 
-    async def close_clients(self):
+    async def close_clients(self) -> None:
         '''
         Closes the azure container clients. An instance of this class can
         not be used anymore after this method is called.
@@ -179,7 +186,7 @@ class AzureFileStorage(FileStorage):
 
     def _get_container_client(self, filepath: str,
                               storage_type: StorageType = StorageType.PRIVATE
-                              ) -> ContainerClient:
+                              ) -> tuple[ContainerClient, str]:
         '''
         Gets the container client for the container "byoda" on the
         Azure storage account for private or public storage
@@ -195,7 +202,7 @@ class AzureFileStorage(FileStorage):
         if not self.clients:
             raise ValueError('No container clients available')
 
-        container_client = self.clients[storage_type.value]
+        container_client: ContainerClient = self.clients[storage_type.value]
 
         return container_client, filepath
 
@@ -206,15 +213,18 @@ class AzureFileStorage(FileStorage):
         Gets the blob client for a blob under container "byoda" on the
         Azure storage account for private or public storage
         '''
+
+        container_client: ContainerClient
+        blob: str
         container_client, blob = self._get_container_client(
             filepath, storage_type
         )
 
-        blob_id = f'{storage_type.value}-{blob}'
+        blob_id: str = f'{storage_type.value}-{blob}'
         if blob_id in self._blob_clients:
             return self._blob_clients[blob_id]
 
-        client = container_client.get_blob_client(blob)
+        client: BlobClient = container_client.get_blob_client(blob)
 
         self._blob_clients[blob_id] = client
 
@@ -231,11 +241,12 @@ class AzureFileStorage(FileStorage):
         :returns: array as str or bytes with the data read from the file
         '''
 
-        blob_client = self._get_blob_client(filepath)
+        blob_client: BlobClient = self._get_blob_client(filepath)
 
         try:
-            download_stream = await blob_client.download_blob()
-            data = await download_stream.readall()
+            download_stream: StorageStreamDownloader[bytes] = \
+                await blob_client.download_blob()
+            data: bytes = await download_stream.readall()
         except ResourceNotFoundError as exc:
             raise FileNotFoundError(
                 f'Azure blob {filepath} not found in container "byoda" for '
@@ -278,11 +289,11 @@ class AzureFileStorage(FileStorage):
         if data is not None:
             if isinstance(data, str):
                 data = data.encode('utf-8')
-            file_descriptor = TemporaryFile(mode='w+b')
+            file_descriptor: BufferedRandom = TemporaryFile(mode='w+b')
             file_descriptor.write(data)
             file_descriptor.seek(0)
 
-        blob_client = self._get_blob_client(
+        blob_client: BlobClient = self._get_blob_client(
             filepath, storage_type=storage_type
         )
 
@@ -311,7 +322,7 @@ class AzureFileStorage(FileStorage):
         :returns: bool on whether the key exists
         '''
 
-        blob_client = self._get_blob_client(filepath)
+        blob_client: BlobClient = self._get_blob_client(filepath)
         _LOGGER.debug(
             f'Checking if blob "byoda/{filepath}" exists in the Azure '
             f'storage account {self.buckets[storage_type.value]}'
@@ -332,7 +343,7 @@ class AzureFileStorage(FileStorage):
     async def delete(self, filepath: str,
                      storage_type: StorageType = StorageType.PRIVATE) -> bool:
 
-        blob_client = self._get_blob_client(
+        blob_client: BlobClient = self._get_blob_client(
             filepath, storage_type=storage_type
         )
 
@@ -358,7 +369,7 @@ class AzureFileStorage(FileStorage):
 
         bucket: AzureBucket = self.buckets[storage_type.value]
 
-        result = (
+        result: str = (
             f'https://{bucket.storage_account}/{bucket.container}/{filepath}'
         )
 
@@ -381,7 +392,7 @@ class AzureFileStorage(FileStorage):
                                storage_type: StorageType = StorageType.PRIVATE
                                ) -> bool:
         '''
-        Directories do not exist on Azure storage
+        Directories do not exist on Azure storage so this is a no-op
 
         :param directory: location of the file on the file system
         :returns: whether the file exists or not
@@ -405,7 +416,9 @@ class AzureFileStorage(FileStorage):
         blob_client: BlobClient = self._get_blob_client(
             dest, storage_type=storage_type
         )
-        file_desc: BinaryIO = super().open(source, OpenMode.READ, file_mode.BINARY)
+        file_desc: BinaryIO = super().open(
+            source, OpenMode.READ, file_mode.BINARY
+        )
         await blob_client.upload_blob(file_desc, overwrite=exist_ok)
         file_desc.close()
 
@@ -430,6 +443,8 @@ class AzureFileStorage(FileStorage):
         with a prefix
         '''
 
+        container_client: ContainerClient
+        blob: str
         container_client, blob = self._get_container_client(
             folder_path, storage_type=storage_type
         )
@@ -437,16 +452,16 @@ class AzureFileStorage(FileStorage):
             prefix = f'{blob.rstrip("/")}/{prefix}'
 
         folders = set()
-        iterator = container_client.walk_blobs(
+        iterator: AsyncItemPaged[BlobProperties] = container_client.walk_blobs(
             name_starts_with=folder_path
         )
         async for folder in iterator:
             if (folder.name.endswith('/')
                     and (not prefix or folder.name.startswith(prefix))):
-                full_path = folder.name
-                path_components = full_path.rstrip('/').split('/')
+                full_path: str = folder.name
+                path_components: list[str] = full_path.rstrip('/').split('/')
                 if path_components:
-                    folder_name = path_components[-1]
+                    folder_name: str = path_components[-1]
                 else:
                     folder_name = folder.name
 

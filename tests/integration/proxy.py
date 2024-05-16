@@ -10,7 +10,7 @@ TODO: fix test case by connecting to the pod directly instead of via the
 proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
