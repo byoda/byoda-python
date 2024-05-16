@@ -2,7 +2,7 @@
 Definitions for the tracks containing audio and video of a Youtube video
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 

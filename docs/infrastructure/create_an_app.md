@@ -37,11 +37,12 @@ export PYTHONPATH=${PYTHONPATH}:.
 pipenv install
 pipenv run tools/create_csr.py \
     --network ${NETWORK} \
-    --service_id ${SERVICE_ID} \
+    --service-id ${SERVICE_ID} \
     --type app \
     --app-id ${APP_ID} \
+    --password ${BYODA_PASSWORD} \
     --fqdn ${FQDN} \
-    --out_dir .
+    --out-dir .
 ```
 
 Now you'll need to reach out to the owner of the service, tell them that you have
@@ -52,27 +53,32 @@ sign the CSRs and send you back the signed certificates.
 FYI, the service owner will use the following command to sign the CSR:
 
 ```bash
-cd $BYODA_GIT_DIR
-export BYODA_PASSWORD=<password>        # some super secure password
+cd $BYODA_GIT_DIR                       # ie. ~/src/byoda-python
+export FQDN=<dns_name_of_app>           # ie. modtest.byoda.io
+export NETWORK=<network_name>           # ie. byoda.net
+export SERVICE_ID=<service_id>          # ie. 4294929430
+export SERVICE_DIR=/opt/byoda/service-${SERVICE_ID}
+export BYODA_PASSWORD=<password>        # the super secure password for your service CA key
 export PRIVATE_APPS_DIR="${SERVICE_DIR}/private/network-${NETWORK}/service-${SERVICE_ID}/apps"
 # First the CSR for the cert for M-TLS
 pipenv run tools/sign_csr.py \
     --root-dir ${SERVICE_DIR} \
-    --csr-file ${PRIVATE_APPS_DIR}/app-${APP_ID}-csr.pem \
+    --service-id ${SERVICE_ID} \
+    --csr-file ${PRIVATE_APPS_DIR}/app-${FQDN}.csr \
     --type app \
-    --out_dir .
+    --out-dir .
 # Now the CSR for the data cert
 pipenv run tools/sign_csr.py \
     --root-dir ${SERVICE_DIR} \
-    --csr-file ${PRIVATE_APPS_DIR}/app-data-${APP_ID}-csr.pem \
+    --service-id ${SERVICE_ID} \
+    --csr-file ${PRIVATE_APPS_DIR}/app-data-${FQDN}.csr \
     --type app \
-    --out_dir .
+    --out-dir .
 ```
 
 ## Run the application server
 
-The application server expects the cert and key to available in a specific
-directory structure so let's create that and copy the certs (as received from the service) and private keys (that were created by 'create_csr.py').
+For apps like moderation and encoding & CDN, you can run the BYODA application server. The application server is a Python application that uses the BYODA Python library to interact with the BYODA network. The application server expects the cert and key to available in a specific directory structure so let's create that and copy the certs (as received from the service) and private keys (that were created by 'create_csr.py').
 
 ```bash
 Copy the cert/keys to the correct directory

@@ -2,7 +2,7 @@
 /pod/account API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -10,18 +10,24 @@
 import os
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter
 from fastapi import Request
 
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
+from byoda.datamodel.network import Network
+
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
 
 from byoda.models import AccountResponseModel
 
+from byoda.datastore.document_store import DocumentStore
+
 from byoda.servers.pod_server import PodServer
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -51,20 +57,24 @@ async def get_account(request: Request, auth: AuthDep):
 
     server = config.server
     account = server.account
-    network = account.network
-    doc_store = account.document_store
+    network: Network = account.network
+    doc_store: DocumentStore = account.document_store
     if doc_store.backend.cloud_type == CloudType.LOCAL:
         private_bucket = 'LOCAL'
         restricted_bucket = '/byoda/restricted'
         public_bucket = '/byoda/public'
     else:
-        private_bucket = doc_store.backend.get_url(StorageType.PRIVATE.value)
-        restricted_bucket = doc_store.backend.get_url(
+        private_bucket: str = doc_store.backend.get_url(
+            StorageType.PRIVATE.value
+        )
+        restricted_bucket: str = doc_store.backend.get_url(
             StorageType.RESTRICTED.value
         )
-        public_bucket = doc_store.backend.get_url(StorageType.PUBLIC.value)
+        public_bucket: str = doc_store.backend.get_url(
+            StorageType.PUBLIC.value
+        )
 
-    bootstrap = os.environ.get('BOOTSTRAP')
+    bootstrap: bool | str | None = os.environ.get('BOOTSTRAP')
     if not bootstrap:
         bootstrap = False
     elif bootstrap.upper() in ('TRUE', 'BOOTSTRAP'):
@@ -72,15 +82,16 @@ async def get_account(request: Request, auth: AuthDep):
     else:
         bootstrap = False
 
-    root_directory = account.paths.root_directory
+    root_directory: str = account.paths.root_directory
 
     await account.load_memberships()
 
-    services = []
+    join_version: int | None
+    services: list = []
     for service in network.service_summaries.values():
-        service_id = service['service_id']
+        service_id: int = service['service_id']
         if service_id in account.memberships:
-            member = account.memberships[service_id]
+            member: Member = account.memberships[service_id]
             joined = True
             join_version = member.schema.version
         else:
@@ -97,7 +108,7 @@ async def get_account(request: Request, auth: AuthDep):
             }
         )
 
-    data = {
+    data: dict[str, any] = {
         "account_id": server.account.account_id,
         "network": server.network.name,
         "started": server.started,

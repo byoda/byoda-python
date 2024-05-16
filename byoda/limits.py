@@ -2,7 +2,7 @@
 Non-specific data types
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -19,3 +19,6 @@ MAX_RELATIONS_QUERY_COUNT: int = 1024
 
 # Maxmimum lenght of the relations in a query
 MAX_RELATIONS_QUERY_LEN: int = 1024
+
+# Maximum lifetime in seconds of a 3rd-party access token
+MAX_APP_TOKEN_EXPIRATION: int = 15

@@ -1,35 +1,32 @@
 '''
-Test cases for AssetDb cache
+Test cases for service data API cache
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024, 2024
 :license    : GPLv3
 '''
 
 import os
 import sys
 import yaml
-import shutil
 import unittest
 
 from copy import copy
 from uuid import UUID
+from datetime import UTC
 from datetime import datetime
 
 import orjson
 
 from httpx import AsyncClient
 
-from byoda.datamodel.network import Network
-from byoda.datamodel.service import Service
-from byoda.datamodel.schema import Schema
+from byoda.models.data_api_models import EdgeResponse as Edge
+from byoda.models.data_api_models import Channel
+
+from byoda.datatypes import MonetizationType
 
 from byoda.datacache.asset_cache import AssetCache
-from byoda.datacache.searchable_cache import SearchableCache
-
-from byoda.storage.filestorage import FileStorage
-
-from byoda.servers.service_server import ServiceServer
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.util.fastapi import setup_api
 
@@ -38,24 +35,17 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.logger import Logger
 
-from byoda.util.paths import Paths
-
 from byoda import config
 
-from svcserver.routers import service as ServiceRouter
-from svcserver.routers import member as MemberRouter
-from svcserver.routers import search as SearchRouter
-from svcserver.routers import data as DataRouter
-from svcserver.routers import status as StatusRouter
+from byotubesvr.routers import search as SearchRouter
+from byotubesvr.routers import data as DataRouter
+from byotubesvr.routers import status as StatusRouter
 
 from tests.lib.setup import get_test_uuid
-from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
-from podserver.codegen.pydantic_service_4294929430_1 import asset as Asset
+from byoda.models.data_api_models import Asset
 
-from svcserver.routers.data import DEFAULT_PAGING_SIZE
-
-TEST_DIR: str = '/tmp/byoda-tests/assetdb'
+from byotubesvr.routers.data import DEFAULT_PAGING_SIZE
 
 TESTLIST: str = 'testlualist'
 
@@ -66,104 +56,48 @@ DUMMY_SCHEMA: str = 'tests/collateral/addressbook.json'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        config_file: str = os.environ.get('CONFIG_FILE', 'config.yml')
+        config_file: str = os.environ.get('CONFIG_FILE', 'config.yml-byotube')
         with open(config_file) as file_desc:
             app_config: dict[str, dict[str, any]] = yaml.safe_load(file_desc)
 
         config.debug = True
 
-        app_config['svcserver']['root_dir'] = TEST_DIR
-
-        try:
-            shutil.rmtree(TEST_DIR)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(TEST_DIR)
-
-        network = Network(
-            app_config['svcserver'], app_config['application']
+        asset_cache: AssetCache = await AssetCache.setup(
+            app_config['svcserver']['asset_cache_readwrite']
         )
+        await asset_cache.client.function_flush('SYNC')
+        await asset_cache.client.ft(asset_cache.index_name).dropindex()
+        await asset_cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
-        network.paths = Paths(
-            network=network.name,
-            root_directory=app_config['svcserver']['root_dir']
+        list_key: str = asset_cache.get_list_key(TESTLIST)
+        keys: list[str] = await asset_cache.client.keys(f'{list_key}*')
+        for key in keys:
+            await asset_cache.client.delete(key)
+
+        await asset_cache.client.aclose()
+
+        channel_cache: ChannelCache = await ChannelCache.setup(
+            app_config['svcserver']['channel_cache_readwrite']
         )
+        config.channel_cache = channel_cache
+        redis_rw_url: str = app_config['svcserver']['channel_cache_readwrite']
+        config.channel_cache_readwrite = await ChannelCache.setup(redis_rw_url)
 
-        service_file: str = network.paths.get(
-            Paths.SERVICE_FILE, service_id=ADDRESSBOOK_SERVICE_ID
-        )
-
-        server: ServiceServer = await ServiceServer.setup(network, app_config)
-        storage = FileStorage(app_config['svcserver']['root_dir'])
-        await server.load_network_secrets(storage_driver=storage)
-
-        shutil.copytree(
-            'tests/collateral/local/addressbook-service/service-4294929430',
-            f'{TEST_DIR}/network-byoda.net/services/service-4294929430'
-        )
-        shutil.copytree(
-            'tests/collateral/local/addressbook-service/private/',
-            f'{TEST_DIR}/private'
-        )
-
-        service_dir: str = TEST_DIR + '/' + service_file
-        shutil.copy(DUMMY_SCHEMA, service_dir)
-
-        await server.load_secrets(
-            password=app_config['svcserver']['private_key_password']
-        )
-        config.server = server
-
-        await server.service.examine_servicecontract(service_file)
-        server.service.name = 'addressbook'
-
-        service: Service = server.service
-        service.tls_secret.save_tmp_private_key()
-
-        if not await service.paths.service_file_exists(service.service_id):
-            await service.download_schema(save=True)
-
-        await server.load_schema(verify_contract_signatures=False)
-        schema: Schema = service.schema
-        schema.get_data_classes(with_pubsub=False)
-        schema.generate_data_models('svcserver/codegen', datamodels_only=True)
-
-        cache: SearchableCache = await SearchableCache.setup(
+        asset_cache: AssetCache = await AssetCache.setup(
             app_config['svcserver']['asset_cache']
         )
-
-        await cache.client.function_flush('SYNC')
-        await cache.client.ft(cache.index_name).dropindex()
-        await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
-
-        list_key: str = cache.get_list_key(TESTLIST)
-        keys: list[str] = await cache.client.keys(f'{list_key}*')
-        for key in keys:
-            await cache.client.delete(key)
-
-        keys: list[str] = await cache.client.keys(
-            f'{SearchableCache.ASSET_KEY_PREFIX}*'
-        )
-        for key in keys:
-            await cache.client.delete(key)
-
-        await cache.client.aclose()
-
-        await server.setup_asset_cache(app_config['svcserver']['asset_cache'])
+        config.asset_cache = asset_cache
 
         config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
         config.app = setup_api(
-            'Byoda test svcserver', 'server for testing service APIs',
+            'BYO.Tube test svcserver', 'server for testing service APIs',
             'v0.0.1',
             [
-                ServiceRouter,
-                MemberRouter,
-                SearchRouter,
                 StatusRouter,
+                SearchRouter,
                 DataRouter
             ],
             lifespan=None, trace_server=config.trace_server,
@@ -174,17 +108,18 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+        await config.channel_cache.close()
+        await config.channel_cache_readwrite.close()
+        await config.asset_cache.close()
 
     async def test_service_data_api(self) -> None:
-        server: ServiceServer = config.server
-
         member_id: UUID = get_test_uuid()
 
         asset: Asset = get_asset()
         asset_data: dict[str, object] = asset.model_dump()
 
         list_name: str = AssetCache.DEFAULT_ASSET_LIST
-        asset_cache: AssetCache = server.asset_cache
+        asset_cache: AssetCache = config.asset_cache
 
         if await asset_cache.exists_list(list_name):
             result: bool = await asset_cache.delete_list(list_name)
@@ -207,8 +142,19 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             new_asset_data['asset_id'] = str(get_test_uuid())
             new_asset_data['title'] = titles[n % 5]
             new_asset_data['categories'] = [category]
-            new_asset_data['creator'] = creators[n % 10]
+            new_asset_data['creator'] = f'{creators[n % 10]}-{n}'
             new_asset_data['ingest_status'] = ['external', 'published'][n % 2]
+            new_asset_data['published_timestamp'] = datetime.now(tz=UTC)
+            new_asset_data['monetizations'] = [
+                {
+                    "created_timestamp": datetime.now(tz=UTC),
+                    "monetization_id": get_test_uuid(),
+                    "monetization_type": MonetizationType.BURSTPOINTS,
+                    "require_burst_points": True,
+                    "network_relations": [],
+                    "payment_options": []
+                }
+            ]
             await asset_cache.add_newest_asset(
                 member_id, new_asset_data
             )
@@ -216,125 +162,134 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         api_url: str = 'http://localhost:8000/api/v1/service/data'
 
-        resp: HttpResponse = await ApiClient.call(api_url, app=config.app)
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertGreaterEqual(data['total_count'], DEFAULT_PAGING_SIZE)
-        asset_id: str = data['edges'][0]['node']['asset_id']
-        self.assertEqual(
-            asset_id, str(all_assets[all_asset_count - 1]['asset_id'])
-        )
-        self.assertNotEqual(data['edges'][1]['node']['asset_id'], asset_id)
-
-        resp: HttpResponse = await ApiClient.call(
-            api_url, params={'ingest_status': 'published'}, app=config.app)
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertGreaterEqual(data['total_count'], 25)
-        for edge in data['edges']:
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(api_url)
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertGreaterEqual(data['total_count'], DEFAULT_PAGING_SIZE)
+            asset_id: str = data['edges'][0]['node']['asset_id']
             self.assertEqual(
-                edge['node']['ingest_status'], 'published'
+                asset_id, str(all_assets[all_asset_count - 1]['asset_id'])
             )
+            self.assertNotEqual(data['edges'][1]['node']['asset_id'], asset_id)
 
-        asset_url: str = 'http://localhost:8000/api/v1/service/asset'
-        #
-        # Get an asset by its member_id & asset_id
-        #
-        query_param: dict[str, UUID] = {
-            'member_id': test_uuids[0],
-            'asset_id': all_assets[0]['asset_id']
-        }
-        resp: HttpResponse = await ApiClient.call(
-            asset_url, params=query_param, app=config.app
-        )
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data['origin'], str(test_uuids[0]))
-        self.assertEqual(data['node']['asset_id'], all_assets[0]['asset_id'])
-
-        # Cause an 404
-        query_param = {
-            'member_id': test_uuids[0],
-            'asset_id': get_test_uuid()
-        }
-        resp: HttpResponse = await ApiClient.call(
-            asset_url, params=query_param, raise_for_error=False,
-            app=config.app
-        )
-        self.assertEqual(resp.status_code, 404)
-
-        #
-        # Get an asset by its server-generated cursor
-        # (server-generated cursor is different than cursors generated by pods)
-        #
-        cursor: str = asset_cache.get_cursor(
-            test_uuids[0], all_assets[0]['asset_id']
-        )
-
-        query_param: dict[str, UUID] = {
-            'cursor': cursor,
-        }
-        resp: HttpResponse = await ApiClient.call(
-            asset_url, params=query_param, app=config.app
-        )
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data['cursor'], cursor)
-        self.assertEqual(data['origin'], str(test_uuids[0]))
-        self.assertEqual(data['node']['asset_id'], all_assets[0]['asset_id'])
-
-        # So we've created a list of 110 items by adding items one by end to
-        # the front. In the list in the cache, the first item of the list is
-        # the last item added. The API returns the first item in the list,
-        # so the first first asset returned is the last asset added
-        step: int = 25
-        after: str | None = None
-        for loop in range(0, 5):
-            url: str = f'{api_url}?first={step}'
-            if after:
-                url += f'&after={after}'
-            resp: HttpResponse = await ApiClient.call(
-                url, app=config.app
+            resp: HttpResponse = await client.get(
+                api_url, params={'ingest_status': 'published'}
             )
             self.assertEqual(resp.status_code, 200)
-            data: dict[str, any] = resp.json()
+            data = resp.json()
+            self.assertGreaterEqual(data['total_count'], 25)
+            for edge in data['edges']:
+                self.assertEqual(
+                    edge['node']['ingest_status'], 'published'
+                )
 
-            if loop >= 4:
-                self.assertEqual(data['total_count'], 10)
-                self.assertEqual(len(data['edges']), 10)
-            else:
-                self.assertEqual(data['total_count'], step)
-                self.assertEqual(len(data['edges']), step)
-
-            api_asset_id: str
-            all_asset_id: str
-            all_data_index: int
-            api_asset_count: int = len(data['edges'])
-            for count in range(0, api_asset_count):
-                api_asset_id = data['edges'][count]['node']['asset_id']
-
-                all_data_index = (all_asset_count - 1) - (loop * step) - count
-                all_asset_id = str(all_assets[all_data_index]['asset_id'])
-                self.assertEqual(api_asset_id, all_asset_id)
-
-            after: str = data['page_info']['end_cursor']
-
-        # Now we test with filter
-        api_url: str = 'http://localhost:8000/api/v1/service/data'
-
-        resp: HttpResponse = await ApiClient.call(
-            api_url, params={'ingest_status': 'external'}, app=config.app)
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertGreaterEqual(data['total_count'], 25)
-        for edge in data['edges']:
+            asset_url: str = 'http://localhost:8000/api/v1/service/asset'
+            #
+            # Get an asset by its member_id & asset_id
+            #
+            query_param: dict[str, UUID] = {
+                'member_id': test_uuids[0],
+                'asset_id': all_assets[0]['asset_id']
+            }
+            resp: HttpResponse = await client.get(
+                asset_url, params=query_param
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['origin'], str(test_uuids[0]))
             self.assertEqual(
-                edge['node']['ingest_status'], 'external'
+                data['node']['asset_id'], all_assets[0]['asset_id']
+            )
+            self.assertEqual(
+                data['node']['monetizations'][0]['monetization_type'],
+                all_assets[0]['monetizations'][0]['monetization_type'].value
             )
 
-        # Here we'll test search
-        api_url: str = 'http://localhost:8000/api/v1/service/search/asset'
-        async with AsyncClient(app=config.app) as client:
+            # Cause an 404
+            query_param = {
+                'member_id': test_uuids[0],
+                'asset_id': get_test_uuid()
+            }
+            resp: HttpResponse = await client.get(
+                asset_url, params=query_param
+            )
+            self.assertEqual(resp.status_code, 404)
+
+            #
+            # Get an asset by its server-generated cursor
+            # (server-generated cursor is different than cursors
+            # generated by pods)
+            #
+            cursor: str = asset_cache.get_cursor(
+                test_uuids[0], all_assets[0]['asset_id']
+            )
+
+            query_param: dict[str, UUID] = {
+                'cursor': cursor,
+            }
+            resp: HttpResponse = await client.get(
+                asset_url, params=query_param
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['cursor'], cursor)
+            self.assertEqual(data['origin'], str(test_uuids[0]))
+            self.assertEqual(
+                data['node']['asset_id'], all_assets[0]['asset_id']
+            )
+
+            # So we've created a list of 110 items by adding items one by end
+            # to the front. In the list in the cache, the first item of the
+            # list is the last item added. The API returns the first item in
+            # the list, so the first first asset returned is the last asset
+            # added
+            step: int = 25
+            after: str | None = None
+            for loop in range(0, 5):
+                url: str = f'{api_url}?first={step}'
+                if after:
+                    url += f'&after={after}'
+                resp: HttpResponse = await client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                data: dict[str, any] = resp.json()
+
+                if loop >= 4:
+                    self.assertEqual(data['total_count'], 10)
+                    self.assertEqual(len(data['edges']), 10)
+                else:
+                    self.assertEqual(data['total_count'], step)
+                    self.assertEqual(len(data['edges']), step)
+
+                api_asset_id: str
+                all_asset_id: str
+                all_data_index: int
+                api_asset_count: int = len(data['edges'])
+                for count in range(0, api_asset_count):
+                    api_asset_id = data['edges'][count]['node']['asset_id']
+
+                    all_data_index = \
+                        (all_asset_count - 1) - (loop * step) - count
+                    all_asset_id = str(all_assets[all_data_index]['asset_id'])
+                    self.assertEqual(api_asset_id, all_asset_id)
+
+                after: str = data['page_info']['end_cursor']
+
+            # Now we test with filter
+            api_url: str = 'http://localhost:8000/api/v1/service/data'
+
+            resp: HttpResponse = await client.get(
+                api_url, params={'ingest_status': 'external'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertGreaterEqual(data['total_count'], 25)
+            for edge in data['edges']:
+                self.assertEqual(
+                    edge['node']['ingest_status'], 'external'
+                )
+
+            # Here we'll test search
+            api_url: str = 'http://localhost:8000/api/v1/service/search/asset'
             resp: HttpResponse = await client.get(
                 f'{api_url}?text={titles[0]}&num=30'
             )
@@ -359,6 +314,60 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue(len(data), 11)
+
+    async def test_channel_cache(self) -> None:
+        channel_cache: ChannelCache = config.channel_cache
+
+        channel_id: UUID = get_test_uuid()
+        created: datetime = datetime.now(tz=UTC)
+        channel = Channel(
+            channel_id=channel_id,
+            creator='test_creator',
+            created_timestamp=created,
+            description='test channel',
+            is_family_safe=True,
+            keywords=['test', 'channel'],
+        )
+        member_id: UUID = get_test_uuid()
+        await channel_cache.add_newest_channel(member_id, channel)
+
+        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
+        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
+        result = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertTrue(result)
+
+        cursor = None
+        member_id = None
+        edge: Edge | None = await channel_cache.get_oldest_channel()
+        self.assertIsNotNone(edge)
+
+        channel: Channel = edge.node
+        cursor = ChannelCache.get_cursor(edge.origin, channel.creator)
+        result: int = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertFalse(result)
+
+        await channel_cache.add_oldest_channel_back(edge.origin, channel)
+        result = await channel_cache.client.sismember(
+            set_key, cursor
+        )
+        self.assertTrue(result)
+
+        channel: Channel = edge.node
+
+        api_url: str = 'http://localhost:8000/api/v1/service/channel'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                api_url,
+                params={'member_id': edge.origin, 'creator': channel.creator},
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('node' in data)
+            self.assertGreaterEqual(data['node']['creator'], channel.creator)
 
 
 def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:

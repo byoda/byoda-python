@@ -3,7 +3,7 @@ Classes for data filters for filtering results a Data API query based
 on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2024
 :license    : GPLv3
 '''
 
@@ -1035,11 +1035,11 @@ class DataFilterSet:
                 filter_text, sql_placeholder_field, value = filter.sql_filter(
                     where=True, is_meta_filter=self.is_meta_filter
                 )
+                if value is not None:
+                    filter_texts.append(filter_text)
+                    filter_values[sql_placeholder_field] = value
 
-                filter_texts.append(filter_text)
-                filter_values[sql_placeholder_field] = value
-
-        text = 'WHERE ' + ' AND '.join(filter_texts)
+        text: str = 'WHERE ' + ' AND '.join(filter_texts)
         return text, filter_values
 
     @staticmethod

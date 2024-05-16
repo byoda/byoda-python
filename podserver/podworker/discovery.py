@@ -2,7 +2,7 @@
 Various utility classes, variables and functions
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -173,13 +173,16 @@ async def check_network_links_for_service(data_store: DataStore,
             continue
 
         if remote_member_id not in links_healthy:
-            result: HttpResponse = await ApiClient.call(
-                paths.PODHEALTH_API, method='GET', secret=member.tls_secret,
-                service_id=member.service_id, member_id=remote_member_id,
-                timeout=1
-            )
+            try:
+                result: HttpResponse = await ApiClient.call(
+                    paths.PODHEALTH_API, method='GET',
+                    secret=member.tls_secret, service_id=member.service_id,
+                    member_id=remote_member_id, timeout=1
+                )
 
-            links_healthy[remote_member_id] = result.status_code == 200
+                links_healthy[remote_member_id] = result.status_code == 200
+            except Exception:
+                links_healthy[remote_member_id] = False
 
         if links_healthy[remote_member_id]:
             # This data filter will cause each link we have with a remote
@@ -243,8 +246,10 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
             continue
 
         if remote_member_id not in listeners:
+            annotations: list[str] = link.get('annotations') or []
             listener: UpdateListenerMember = await UpdateListenerMember.setup(
                 listen_class.name, member, remote_member_id, dest_class_name,
+                annotations
             )
             if config.debug:
                 # In debug mode we get all assets from the pods we follow
@@ -365,9 +370,10 @@ async def get_network_link_updates(
                     )
                     return None
 
+                # New listener for a new remote pod
                 listener = await UpdateListenerMember.setup(
                     listen_class_name, member, remote_member_id,
-                    dest_class_name
+                    dest_class_name, resp.node.annotations
                 )
                 task_group.start_soon(listener.get_updates)
                 existing_listeners[remote_member_id] = listener

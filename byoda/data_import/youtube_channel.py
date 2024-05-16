@@ -3,7 +3,7 @@ Model a Youtube channel
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -18,7 +18,6 @@ from tempfile import mkdtemp
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
-from datetime import timedelta
 
 import orjson
 
@@ -26,8 +25,6 @@ from anyio import sleep
 from bs4 import BeautifulSoup
 from innertube import InnerTube
 from httpx import AsyncClient as AsyncHttpClient
-
-from googleapiclient.discovery import Resource as YouTubeResource
 
 from byoda.datamodel.claim import Claim
 from byoda.datamodel.member import Member
@@ -46,32 +43,40 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.exceptions import ByodaRuntimeError
 
-from byoda.util.logger import Logger
 from byoda.util.test_tooling import convert_number_string
+
+from byoda.util.logger import Logger
 
 from .youtube_video import YouTubeVideo
 from .youtube_thumbnail import YouTubeThumbnail
 
 _LOGGER: Logger = getLogger(__name__)
 
+# Limits the amount of videos imported for a channel
+# per run
+MAX_CHANNEL_VIDEOS_PER_RUN: int = 40
+
 
 class YouTubeChannel:
     DATASTORE_CLASS_NAME: str = 'channels'
     SCRAPE_URL: str = 'https://www.youtube.com'
-    CHANNEL_URL_WITH_AT: str = SCRAPE_URL + '/@{channel_name}'
+    CHANNEL_URL_WITH_AT: str = SCRAPE_URL + '/@{channel_name}/videos'
     CHANNEL_URL: str = SCRAPE_URL + '/{channel_name}'
-    CHANNEL_VIDEOS_URL: str = SCRAPE_URL + '/channel/{channel_id}/videos'
+    CHANNEL_ID_REGEX: re.Pattern[str] = re.compile(r'"externalId":"(.*?)"')
     CHANNEL_SCRAPE_REGEX_SHORT: re.Pattern[str] = re.compile(
         r'var ytInitialData = (.*?);'
     )
     CHANNEL_SCRAPE_REGEX: re.Pattern[str] = re.compile(
         r'var ytInitialData = (.*?);$'
     )
+    RX_SCRAPE_CHANNEL_ID: re.Pattern[str] = re.compile(
+        r'"externalId":"(.*?)"'
+    )
     CHANNEL_DATACLASS: str = 'channels'
 
     def __init__(self, name: str = None, channel_id: str = None,
                  title: str | None = None, ingest: bool = False,
-                 api_client: YouTubeResource = None) -> None:
+                 lock_file: str = None) -> None:
         '''
         Models a YouTube channel
 
@@ -84,14 +89,17 @@ class YouTubeChannel:
         :param api_client: the optional YouTube data API client
         '''
 
+        self.lock_file: str = lock_file
+
+        self.channel_id: UUID | None = None
+
         self.name: str | None = name
         if self.name:
             self.name = name.lstrip('@')
 
-        self.channel_id: str | None = channel_id
-
-        # e.g. 'History Matters'
         self.title: str | None = title
+
+        self.youtube_channel_id: str | None = channel_id
 
         self.description: str | None = None
         self.keywords: list[str] = []
@@ -110,12 +118,12 @@ class YouTubeChannel:
         self.rss_url: str | None = None
 
         # The number of subscribers and views are not always available
-        self.subs_count: int | None = None
-        self.views_count: int | None = None
+        self.youtube_subscribers_count: int | None = None
+        self.youtube_videos_count: int | None = None
+        self.youtube_views_count: int | None = None
 
         self.asset_ingest_enabled: bool = False
         self.ingest_videos: bool = ingest
-        self.api_client: YouTubeResource | None = api_client
 
         self.videos: dict[YouTubeVideo] = {}
 
@@ -132,70 +140,27 @@ class YouTubeChannel:
             ],
             'banners': [t.as_dict() for t in self.banners],
             'external_urls': self.external_urls,
+            'thirdparty_platform_followers':
+                self.youtube_subscribers_count or 0,
+            'thirdparty_platform_videos': self.youtube_videos_count or 0,
+            'thirdparty_platform_views': self.youtube_views_count or 0,
             'claims': []
         }
 
         return data
 
-    async def persist(self, member: Member, data_store: DataStore,
-                      storage_driver: FileStorage,
-                      already_ingested_videos: dict[str, dict] = {},
-                      bento4_directory: str | None = None,
-                      moderate_request_url: str | None = None,
-                      moderate_jwt_header: str | None = None,
-                      moderate_claim_url: str | None = None,
-                      ingest_interval: int = 0,
-                      custom_domain: str | None = None) -> None:
+    def update_lock_file(self) -> None:
         '''
-        persist any video not yet in the public_assets collection to that
-        collection, including downloading the video, packaging it, and
-        saving it to the file store
+        We update the lock file every time we do something so
+        we can be more aggressive with removing stale lock files
         '''
 
-        await self.persist_channel(
-            member, data_store, storage_driver, custom_domain=custom_domain
-        )
+        with open(self.lock_file, 'w') as lock_file:
+            lock_file.write('1')
 
-        # The strategy here is simple: we try to store all videos. persist()
-        # first checks whether the video is already in the data store and only
-        # adds it if it is not. If the asset exists and has ingest status
-        # 'external' and this channel is configured to download AV tracks
-        # then the existing asset will be updated
-        video: YouTubeVideo | None
-        for video in self.videos.values():
-            _LOGGER.debug(
-                f'Persisting video {video.video_id} for channel {self.name}'
-            )
-            try:
-                result: bool | None = await video.persist(
-                    member, storage_driver,
-                    self.ingest_videos, already_ingested_videos,
-                    bento4_directory,
-                    moderate_request_url=moderate_request_url,
-                    moderate_jwt_header=moderate_jwt_header,
-                    moderate_claim_url=moderate_claim_url,
-                    custom_domain=custom_domain
-                )
-
-                if result is None:
-                    _LOGGER.debug(f'Failed to persist video {video.video_id}')
-
-                if ingest_interval:
-                    random_delay: float = \
-                        random() * ingest_interval + ingest_interval / 2
-                    await sleep(random_delay)
-            except (ValueError, ByodaRuntimeError) as exc:
-                _LOGGER.exception(
-                    f'Could not persist video {video.video_id}: {exc}'
-                )
-
-            video = None
-
-        self.videos = []
-
-    async def persist_channel(self, member: Member, data_store: DataStore,
-                              storage_driver: FileStorage,
-                              custom_domain: str | None = None) -> None:
+    async def persist_channel_info(self, member: Member, data_store: DataStore,
+                                   storage_driver: FileStorage,
+                                   custom_domain: str | None = None) -> None:
         '''
         Persist the creator thumbnails and banners to storage
 
@@ -205,6 +170,10 @@ class YouTubeChannel:
         :param custom_domain: what hostname should be used in content URLs if
         no CDN is used
         '''
+
+        log_data: dict[str, str] = {'channel': self.name}
+
+        _LOGGER.debug('Persisting channel', extra=log_data)
 
         table: ArraySqlTable = data_store.get_table(
             member.member_id, YouTubeChannel.CHANNEL_DATACLASS
@@ -217,23 +186,23 @@ class YouTubeChannel:
         )
 
         if rows:
-            _LOGGER.debug(f'Creator {self.name} already in the data store')
+            _LOGGER.debug('Creator already in the data store', extra=log_data)
             return None
 
-        self.channel_id: UUID = uuid4()
+        channel_id: UUID = uuid4()
 
         dirpath: str = mkdtemp(dir='/tmp')
         thumbnail: YouTubeThumbnail
         for thumbnail in self.channel_thumbnails:
             await thumbnail.ingest(
-                video_id=self.channel_id, storage_driver=storage_driver,
+                video_id=channel_id, storage_driver=storage_driver,
                 member=member, work_dir=dirpath, custom_domain=custom_domain
             )
 
         for thumbnail in self.banners:
             await thumbnail.ingest(
-                video_id=self.channel_id, storage_driver=storage_driver,
-                member=member, work_dir=dirpath
+                video_id=channel_id, storage_driver=storage_driver,
+                member=member, work_dir=dirpath, custom_domain=custom_domain
             )
 
         rmtree(dirpath)
@@ -244,61 +213,189 @@ class YouTubeChannel:
             channel_data, cursor, origin_id=None,
             origin_id_type=None, origin_class_name=None
         )
-        _LOGGER.debug(f'Created channel for {self.name} in the data store')
+        _LOGGER.debug('Created channel in the data store', extra=log_data)
 
         return None
 
-    async def scrape(self, already_ingested_videos: dict[str, dict] = {},
-                     filename: str = None) -> None:
+    async def scrape(
+        self, member: Member, data_store: DataStore,
+        storage_driver: FileStorage, bento4_directory: str | None = None,
+        moderate_request_url: str | None = None,
+        moderate_jwt_header: str | None = None,
+        moderate_claim_url: str | None = None, ingest_interval: int = 0,
+        custom_domain: str | None = None,
+        max_videos_per_channel: int = 0,
+        already_ingested_videos: dict[str, dict[str, str | datetime]] = {},
+    ) -> None:
         '''
         Scrapes videos from the YouTube website and optionally stores them in
         the data store
 
+        :param member: the member to use for the data store
+        :param data_store: the data store to use for storing the video metadata
+        :param storage_driver: the storage driver to use for repackaging
+        :param beno4_directory: the directory where the Bento4 binaries are
+        :param moderate_request_url: the URL to use for moderation requests
+        :param moderate_jwt_header: the JWT header to use for moderation
+        requests
+        :param moderate_claim_url: the URL to use for moderation claims
+        :param ingest_interval: the interval in seconds between ingests
+        :param custom_domain: the custom domain to use for the video URLs
+        :param max_videos_per_channel: the maximum number of videos to ingest
         :param already_ingested_videos: dictionary of ingested assets with
-        YouTube video IDs as keys and as values the data from the member data
-        store
-        :param filename: file with scrape data. If not specified, the data is
-        retrieved from the youtube.com website.
+        YouTube video IDs as keys and as values a dict with ingest_status
+        and published_timestamp
         :returns: number of pages scraped
         '''
 
-        self.get_channel_data()
+        log_data: dict[str, str] = {'channel': self.name}
 
-        if filename:
-            with open(filename, 'r') as file_desc:
-                data: str = file_desc.read()
-        else:
-            headers: dict[str, str] = {
-                'User-Agent': (
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                    'AppleWebKit/537.36 (KHTML, like Gecko) '
-                    'Chrome/112.0.0.0 Safari/537.36'
+        page_data: str = await self.get_videos_page()
+
+        if not page_data:
+            _LOGGER.warning('No page data found for channel', extra=log_data)
+            return None
+
+        self.parse_channel_info(page_data)
+
+        await self.persist_channel_info(
+            member, data_store, storage_driver, custom_domain=custom_domain
+        )
+
+        self.video_ids: list[str] = await self.get_video_ids()
+
+        videos_imported: int = 0
+        for video_id in self.video_ids:
+            video: YouTubeVideo = await self.scrape_video(
+                video_id, already_ingested_videos, self.ingest_videos,
+                self.channel_thumbnail
+            )
+
+            if not video:
+                continue
+
+            log_data['video_id'] = video.video_id
+            log_data['ingest_status'] = video.ingest_status.value
+
+            if self.lock_file:
+                self.update_lock_file()
+
+            if video.channel_creator != self.name:
+                _LOGGER.debug(
+                    f'Video created by {video.channel_creator} does not '
+                    f'belong to channel {self.name}', extra=log_data
                 )
-            }
-            async with AsyncHttpClient(headers=headers, follow_redirects=True
-                                       ) as client:
-                url: str = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
-                    channel_name=self.name.lstrip('@')
-                ).replace(' ', '')
+                # By importing the asset with status unavailable, we prevent
+                # attempts to ingest this asset again in future runs
+                video._transition_state(IngestStatus.UNAVAILABLE)
 
-                _LOGGER.debug(f'Scraping YouTube channel at {url}')
-                resp: HttpResponse = await client.get(url)
-                if resp.status_code != 200:
-                    _LOGGER.warning(
-                        f'HTTP scrape for {url} failed: {resp.status_code}'
+            _LOGGER.debug('Persisting video', extra=log_data)
+            try:
+                result: bool | None = await video.persist(
+                    member, storage_driver,
+                    self.ingest_videos, already_ingested_videos,
+                    bento4_directory,
+                    moderate_request_url=moderate_request_url,
+                    moderate_jwt_header=moderate_jwt_header,
+                    moderate_claim_url=moderate_claim_url,
+                    custom_domain=custom_domain
+                )
+
+                if result is None:
+                    log_data['ingest_status'] = video.ingest_status.value
+                    _LOGGER.debug(
+                        'Failed to persist video', extra=log_data
                     )
-                    return
 
-                data = resp.text
+                videos_imported += 1
+                if (max_videos_per_channel
+                        and videos_imported >= max_videos_per_channel):
+                    break
+
+                if ingest_interval:
+                    random_delay: float = \
+                        random() * ingest_interval + ingest_interval / 2
+                    await sleep(random_delay)
+            except (ValueError, ByodaRuntimeError) as exc:
+                _LOGGER.exception(
+                    f'Could not persist video: {exc}', extra=log_data
+                )
+
+            video = None
+
+        _LOGGER.debug(
+            f'Scraped {len(self.videos)} videos from YouTube channel',
+            extra=log_data
+        )
+
+        log_data.pop('ingest_status', None)
+        log_data.pop('video_id', None)
+
+        return None
+
+    async def get_videos_page(self) -> str:
+        '''
+        Get the videos page for the channel
+
+        :returns: the text of the page
+        '''
+
+        log_data: dict[str, str] = {'channel': self.name}
+
+        headers: dict[str, str] = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/112.0.0.0 Safari/537.36'
+            )
+        }
+        async with AsyncHttpClient(headers=headers, follow_redirects=True
+                                   ) as client:
+            channel_name: str = self.name.lstrip('@').replace(' ', '')
+            url: str = YouTubeChannel.CHANNEL_URL_WITH_AT.format(
+                channel_name=channel_name
+            )
+            resp: HttpResponse = await client.get(url)
+
+            if resp.status_code != 200:
+                _LOGGER.warning(
+                    f'HTTP scrape for {url} failed: {resp.status_code}',
+                    extra=log_data
+                )
+                return
+
+            await YouTubeChannel._delay()
+
+        page_data: str = resp.text
+
+        return page_data
+
+    def parse_channel_info(self, page_data: str) -> None:
+        '''
+        Parses the info for the channel from the channel 'videos' page
+
+        :param page_data: the text of the 'videos' page for the channel
+        :returns: (none)
+        '''
+
+        log_data: dict[str, str] = {'channel': self.name}
+
+        if not page_data:
+            _LOGGER.warning('No page data to parse channel info from')
+            return None
+
+        self.youtube_channel_id: str = YouTubeChannel.extract_channel_id(
+            page_data
+        )
 
         parsed_data: dict[str, any] = YouTubeChannel.parse_scrape_data(
-            self.channel_id, data
+            self.youtube_channel_id, page_data
         )
 
         self.external_urls: list[dict[str, int | str]] = \
             YouTubeChannel.parse_external_urls(
                 parsed_data
-                )
+            )
 
         self.channel_thumbnails = (
             self.channel_thumbnails |
@@ -314,11 +411,22 @@ class YouTubeChannel:
             parsed_data
         )
 
+        self.youtube_subscribers_count = \
+            YouTubeChannel.parse_subscriber_count(parsed_data)
+
+        self.youtube_videos_count = \
+            YouTubeChannel.parse_video_count(parsed_data)
+
+        self.youtube_views_count = \
+            YouTubeChannel.parse_views_count(parsed_data)
+
         channel_info: dict[str, any] = YouTubeChannel.parse_nested_dicts(
             ['metadata', 'channelMetadataRenderer'], parsed_data, dict
         )
         if not channel_info:
-            _LOGGER.info(f'No channel metadata found for channel {self.name}')
+            _LOGGER.info(
+                'No channel metadata found for channel', extra=log_data
+            )
             return None
 
         self.name: str = channel_info.get('title', self.name)
@@ -326,6 +434,7 @@ class YouTubeChannel:
         if self.name:
             self.name = self.name.lstrip('@')
 
+        self.title = self.name
         self.description = channel_info.get('description', self.description)
 
         keywords: list[str] = channel_info.get('keywords')
@@ -333,17 +442,135 @@ class YouTubeChannel:
             self.keywords = keywords.split(',')
 
         self.is_family_safe = channel_info.get('isFamilySafe', False)
-        await self.find_videos(
-            parsed_data, already_ingested_videos, self.ingest_videos,
-            self.channel_thumbnail
-        )
 
-        _LOGGER.debug(
-            f'Scraped {len(self.videos)} videos from '
-            f'YouTube channel {self.name}'
-        )
+    @staticmethod
+    def extract_channel_id(page_data: str) -> str:
+        if not page_data:
+            _LOGGER.warning('No page data to extract channel ID from')
+
+        match: re.Match[str] | None = \
+            YouTubeChannel.RX_SCRAPE_CHANNEL_ID.search(page_data)
+
+        if match is None:
+            raise ValueError('Channel ID not found')
+
+        channel_id: str = match.group(1)
+
+        return channel_id
+
+    @staticmethod
+    def find_nested_dicts(target: str, data: any, path: str = '<root>') -> any:
+        '''
+        Helper function to locate a wanted key in the nested dictionaries
+        in the scraped data
+
+        :param target: the key to search for
+        :param data: the data to search in
+        :param path: the path through the dict in the current data
+        :returns: the value of the key
+        '''
+
+        if isinstance(data, dict):
+            _LOGGER.debug(
+                f'Target:{target} Path:{path} Keys:{','.join(data.keys())}'
+            )
+            if target in data:
+                return data[target]
+
+            for key, value in data.items():
+                result: any = YouTubeChannel.find_nested_dicts(
+                    target, value, f'{path}:{key}'
+                )
+                if result:
+                    return result
+
+        if isinstance(data, list):
+            _LOGGER.debug(f'In list with {len(data)} items')
+            for item in data:
+                result: any = YouTubeChannel.find_nested_dicts(
+                    target, item, f'{path}[]'
+                )
+                if result:
+                    return result
 
         return None
+
+    def parse_video_count(data: dict) -> int | None:
+        '''
+        Parse the video count from the scraped data
+
+        :param data: the scraped data
+        :returns: the subscriber count
+        '''
+
+        try:
+            videos_data: dict | any = YouTubeChannel.parse_nested_dicts(
+                [
+                    'header', 'c4TabbedHeaderRenderer', 'videosCountText',
+                    'runs'
+                ], data, list
+            )
+            if not videos_data:
+                return None
+
+            youtube_video_count: int = convert_number_string(
+                videos_data[0]['text']
+            )
+
+            return youtube_video_count
+        except Exception as exc:
+            _LOGGER.debug(f'Failed to parse video count: {exc}')
+            return None
+
+    def parse_subscriber_count(data: dict) -> int | None:
+        '''
+        Parse the subscriber count from the scraped data
+
+        :param data: the scraped data
+        :returns: the subscriber count
+        '''
+
+        try:
+            subs_text: str | any = YouTubeChannel.parse_nested_dicts(
+                [
+                    'header', 'c4TabbedHeaderRenderer',
+                    'subscriberCountText', 'simpleText'
+                ], data, str
+            )
+            if not subs_text:
+                return None
+
+            youtube_subs_count: int | None = convert_number_string(subs_text)
+
+            return youtube_subs_count
+        except Exception as exc:
+            _LOGGER.debug(f'Failed to parse subscriber count: {exc}')
+            return None
+
+    def parse_views_count(data: dict) -> int | None:
+        '''
+        Parse the video count from the scraped data
+
+        :param data: the scraped data
+        :returns: the subscriber count
+        '''
+
+        try:
+            views_data: dict | any = YouTubeChannel.parse_nested_dicts(
+                [
+                    'header', 'c4TabbedHeaderRenderer', 'viewCountText',
+                    'simpleText'
+                ], data, list
+            )
+            if not views_data:
+                return None
+
+            youtube_views_count: int | None = convert_number_string(views_data)
+
+            return youtube_views_count
+        except Exception as exc:
+            _LOGGER.debug(f'Failed to parse views count: {exc}')
+            return None
 
     @staticmethod
     def parse_thumbnails(data: dict[str, any]) -> set[YouTubeThumbnail]:
@@ -445,9 +672,9 @@ class YouTubeChannel:
 
         # Strip of the protocol from the url
         if url.startswith('http://'):
-            url = url[len("http://"):]
+            url = url[len('http://'):]
         elif url.startswith('https://'):
-            url = url[len("https://"):]
+            url = url[len('https://'):]
 
         # Let's try to figure out with social network the url is pointing to
         name: str = url.split('/')[0]
@@ -519,9 +746,9 @@ class YouTubeChannel:
         '''
 
         soup = BeautifulSoup(page_data, 'html.parser')
-        script = soup.find(
+        script: str = soup.find(
             'script', string=YouTubeChannel.CHANNEL_SCRAPE_REGEX_SHORT
-        )
+        ).text
 
         if not script:
             _LOGGER.warning('Did not find text in HTML scrape')
@@ -532,7 +759,7 @@ class YouTubeChannel:
         parsed_data: dict[str, any] = {}
 
         raw_data: str = YouTubeChannel.CHANNEL_SCRAPE_REGEX.search(
-            script.text
+            script
         ).group(1)
 
         try:
@@ -544,8 +771,10 @@ class YouTubeChannel:
             )
             return {}
 
-        raw_data = None
+        # Make sure memory is released
+        soup.decompose()
         soup = None
+        raw_data = None
         script = None
 
         return parsed_data
@@ -567,10 +796,106 @@ class YouTubeChannel:
 
         return data
 
-    async def find_videos(self, data: dict | list | int | str | float,
-                          already_ingested_videos: dict[str, dict],
-                          ingest_videos: bool,
-                          creator_thumbnail: YouTubeThumbnail | None) -> None:
+    async def get_video_ids(self) -> list[str]:
+        # Client for YouTube (Web)
+        client = InnerTube('WEB', '2.20230728.00.00')
+
+        video_ids: list[str] = []
+
+        first_run: bool = True
+        continuation_token: str = ''
+        while first_run or continuation_token:
+            # If this is the first video listing, browse the 'Videos' page
+            if not continuation_token:
+                # Fetch the browse data for the channel
+                channel_data: dict = client.browse(self.youtube_channel_id)
+
+                # Extract the tab renderer for the 'Videos' tab of the channel
+                tabs: list = YouTubeChannel.parse_nested_dicts(
+                    ['contents', 'twoColumnBrowseResultsRenderer', 'tabs'],
+                    channel_data, list
+                )
+                if not tabs or len(tabs) < 2 or 'tabRenderer' not in tabs[1]:
+                    _LOGGER.warning('Scraped video does not have 2 tabs')
+                    return []
+
+                videos_tab_renderer = tabs[1]['tabRenderer']
+
+                # Make sure this tab is the 'Videos' tab
+                if videos_tab_renderer['title'] != 'Videos':
+                    _LOGGER.warning(
+                        'Scraped channel does not have a "Videos" tab'
+                    )
+                    return []
+
+                # Extract the browse params for the 'Videos' tab of the channel
+                videos_params: str = \
+                    videos_tab_renderer['endpoint']['browseEndpoint']['params']
+
+                # Wait a bit so that Google doesn't suspect us of being a bot
+                await YouTubeChannel._delay()
+
+                # Fetch the browse data for the channel's videos
+                videos_data: dict = client.browse(
+                    self.youtube_channel_id, params=videos_params
+                )
+
+                # Extract the contents list
+                tabs = YouTubeChannel.parse_nested_dicts(
+                    ['contents', 'twoColumnBrowseResultsRenderer', 'tabs'],
+                    videos_data, list
+                )
+                contents: list = YouTubeChannel.parse_nested_dicts(
+                    ['tabRenderer', 'content', 'richGridRenderer', 'contents'],
+                    tabs[1], list
+                )
+            else:
+                # Fetch more videos by using the continuation token
+                continued_videos_data: dict = client.browse(
+                    continuation=continuation_token
+                )
+                # Wait a bit so that Google doesn't suspect us of being a bot
+                await YouTubeChannel._delay()
+
+                contents: list = YouTubeChannel.parse_nested_dicts(
+                    ['appendContinuationItemsAction', 'continuationItems'],
+                    continued_videos_data['onResponseReceivedActions'][0],
+                    list
+                )
+
+            # Extract the rich video items and the continuation item
+            *rich_items, continuation_item = contents
+
+            # Loop through each video and log out its details
+            for rich_item in rich_items:
+                video_renderer: dict = YouTubeChannel.parse_nested_dicts(
+                    ['richItemRenderer', 'content', 'videoRenderer'],
+                    rich_item, dict
+                )
+                video_id = video_renderer['videoId']
+                video_ids.append(video_id)
+
+            cont_renderer = continuation_item.get('continuationItemRenderer')
+            if not cont_renderer:
+                return video_ids
+
+            # Extract the continuation token
+            item_data: dict = YouTubeChannel.parse_nested_dicts(
+                [
+                    'continuationItemRenderer',
+                    'continuationEndpoint',
+                    'continuationCommand'
+                ], continuation_item, dict
+            )
+            continuation_token = item_data['token']
+
+        return video_ids
+
+    async def scrape_video(
+        self, video_id: str,
+        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        ingest_videos: bool, creator_thumbnail: YouTubeThumbnail | None
+    ) -> YouTubeVideo | None:
         '''
         Find the videos in the by walking through the deserialized
         output of a scrape of a YouTube channel
@@ -581,30 +906,11 @@ class YouTubeChannel:
         scraped assets to storage
         '''
 
-        if isinstance(data, list):
-            for item in data:
-                if type(item) in (dict, list):
-                    await self.find_videos(
-                        item, already_ingested_videos, ingest_videos,
-                        creator_thumbnail
-                    )
-
-        if not isinstance(data, dict):
-            return
-
-        video_id: str | None = data.get('videoId')
-
-        if not video_id:
-            for value in data.values():
-                if type(value) in (dict, list):
-                    await self.find_videos(
-                        value, already_ingested_videos, self.ingest_videos,
-                        creator_thumbnail
-                    )
-
-            return
-
-        _LOGGER.debug(f'Processing video {video_id}')
+        log_data: dict[str, str] = {
+            'channel': self.name,
+            'video_id': video_id
+        }
+        _LOGGER.debug('Processing video', extra=log_data)
 
         # We scrape if either:
         # 1: We haven't processed the video before
@@ -625,339 +931,57 @@ class YouTubeChannel:
 
             if not ingest_videos and status == IngestStatus.EXTERNAL:
                 _LOGGER.debug(
-                    f'Skipping video {video_id} as it is already '
-                    'ingested and we are not importing AV streams'
+                    'Skipping video as it is already ingested and we are '
+                    'not importing AV streams', extra=log_data
                 )
-                # We don't need to keep all the info for the video in memory
-                # if we don't plan on ingesting it
-                already_ingested_videos[video_id] = {'ingest_status': status}
-                return
+                return None
             elif status == IngestStatus.PUBLISHED:
                 _LOGGER.debug(
-                    f'Skipping video {video_id} that we already ingested '
-                    'earlier in this run'
+                    'Skipping video that we already ingested earlier in this '
+                    'run', extra=log_data
                 )
-                # We don't need to keep all the info for the video in memory
-                # if we don't plan on ingesting it
-                already_ingested_videos[video_id] = {'ingest_status': status}
-                return
+                return None
 
             _LOGGER.debug(
-                f'Ingesting AV streams video {video_id} '
-                f'with ingest status {status}'
+                f'Ingesting AV streams video with ingest status {status}',
+                extra=log_data
             )
         else:
             if ingest_videos:
                 status = IngestStatus.NONE
 
-        video = await YouTubeVideo.scrape(
-            video_id, ingest_videos, creator_thumbnail
+        video: YouTubeVideo = await YouTubeVideo.scrape(
+            video_id, ingest_videos, self.name, creator_thumbnail
         )
 
         if not video:
             # This can happen if we decide not to import the video
-            return
+            return None
 
-        # Video IDs may appear multiple times in scraped data
-        # so we set the ingest status for the class instance
-        # AND for the dict of already ingested videos
-        video._transition_state(IngestStatus.QUEUED_START)
+        if video.ingest_status != IngestStatus.UNAVAILABLE:
+            # Video IDs may appear multiple times in scraped data
+            # so we set the ingest status for the class instance
+            # AND for the dict of already ingested videos
+            video._transition_state(IngestStatus.QUEUED_START)
 
         if video_id not in already_ingested_videos:
             already_ingested_videos[video_id] = {}
+
         already_ingested_videos[video_id]['ingest_status'] = \
-            video.ingest_status
+            video.ingest_status.value
 
-        self.videos[video_id] = video
-
-    def get_channel_id(self) -> None:
-        '''
-        Gets the channel ID using the YouTube Data API
-        '''
-
-        if not self.api_client:
-            raise RuntimeError(
-                'instance not set up for calling YouTube data API'
-            )
-        if not self.api_client:
-            raise RuntimeError(
-                'instance not set up for calling YouTube data API'
-            )
-        request = self.api_client.search().list(
-            q=self.name,
-            part='id, snippet',
-            maxResults=5,
-            type='channel'
-        )
-        response = request.execute()
-        if 'items' not in response:
-            raise ValueError(f'Channel {self.name} not found')
-
-        self.channel_id = response['items'][0]['id']['channelId']
-
-    def get_channel_data(self) -> None:
-        '''
-        Gets the channel data using the YouTube innertube API
-        '''
-
-        client = InnerTube('WEB')
-        search: str = self.name or self.title
-        if not search:
-            raise ValueError('No channel name or title to search for')
-
-        data: dict = client.search(query=search)
-
-        # Reduce memory usage
-        client = None
-
-        contents: object | None = YouTubeChannel.parse_nested_dicts(
-            [
-                'contents', 'twoColumnSearchResultsRenderer',
-                'primaryContents', 'sectionListRenderer',
-                'contents',
-            ], data, list
-        )
-
-        for item in contents:
-            results: object | None = YouTubeChannel.parse_nested_dicts(
-                [
-                    'itemSectionRenderer', 'contents',
-                ], item, list
-            )
-            for result in results or []:
-                channel_data: dict[str, any] = result.get('channelRenderer')
-                if not channel_data:
-                    continue
-
-                self.parse_channel_data(channel_data)
-
-                # No need to parse more than 1 search result
-                return
-
-    def parse_channel_data(self, channel_data: dict[str, any]) -> None:
-        '''
-        Parses the 'channelRenderer' data from the YouTube innertube API
-
-        :param channel_data: the 'channelRenderer' data returned by the
-        YouTube innertube search API
-        '''
-
-        self.channel_id = channel_data.get('channelId')
-        self.title = channel_data['title'].get('simpleText')
-        description_data: list | None = YouTubeChannel.parse_nested_dicts(
-            ['descriptionSnippet', 'runs'], channel_data, list
-        )
-        if description_data and len(description_data):
-            self.description = description_data[0].get('text')
-            if len(description_data) > 1:
-                self.description += description_data[1].get('text')
-
-        url: str = YouTubeChannel.parse_nested_dicts(
-            [
-                'navigationEndpoint', 'commandMetadata',
-                'webCommandMetadata', 'url',
-            ], channel_data, str
-        )
-        url = url.lstrip('/')
-        if not self.name:
-            self.name = url.lstrip('@')
-
-        self.channel_thumbnails = (
-            self.channel_thumbnails |
-            YouTubeChannel.parse_thumbnails(channel_data)
-        )
-
-        subs_count_text: str | None = \
-            YouTubeChannel.parse_nested_dicts(
-                ['videoCountText', 'simpleText'], channel_data, str
-            )
-        if subs_count_text:
-            self.subs_count = convert_number_string(
-                subs_count_text.rstrip(' subscribers')
-            )
+        return video
 
     @staticmethod
-    def get_channel(title: str) -> Self:
+    async def get_channel(title: str) -> Self:
         '''
         Gets the channel ID using the YouTube innertube API
         '''
 
         channel = YouTubeChannel(title=title)
-        channel.get_channel_data()
+
         return channel
 
-    async def import_videos(self, already_ingested_videos: dict[str, str],
-                            max_api_requests: int = 1000) -> None:
-        '''
-        Imports the videos from the YouTube data API. It processes the newest
-        videos first and skips any videos that are already imported
-
-        :param already_ingested_videos: a dictionary with the video ID as key
-        and the encoding status as value
-        :param max_api_requests: the maximum number of API requests to make
-        '''
-
-        api_requests: int = 0
-
-        if not self.channel_id:
-            self.get_channel_id()
-            api_requests += 1
-
-        # The YouTube Data API can only sort by newest videos first
-        # So our strategy is:
-        # 1: get the videos newer than the newest video we've already ingested
-        # 2: get the videos older than the oldest video we've already ingested
-
-        # 1: get videos newer than what have already ingested or, if we
-        # haven't ingested any videos yet all videos, # newer than 1970
-        published_timestamp: datetime = datetime(
-            1970, 1, 1, tzinfo=UTC
-        )
-
-        if already_ingested_videos:
-            published_timestamp = max(
-                [
-                    asset['published_timestamp']
-                    for asset in already_ingested_videos.values()
-                ]
-            )
-            published_timestamp += timedelta(seconds=1)
-
-        page_token: str | None = None
-        while api_requests + 100 < max_api_requests:
-            request = self.api_client.search().list(
-                order='date', maxResults=50, pageToken=page_token,
-                publishedAfter=published_timestamp.isoformat(),
-                channelId=self.channel_id, type='video',
-                part="id, snippet",
-
-            )
-            response: dict
-            retries: int
-            response, retries = await self._call_api(request)
-            # Search API of YouTube Data API consumes 100 credits per call
-            api_requests += 100 + retries
-
-            if not response:
-                return
-
-            await self._import_video_data(
-                response.get('items', []), already_ingested_videos
-            )
-
-            page_token: str = response.get('nextPageToken')
-            if not page_token:
-                _LOGGER.debug('Reached end of channel video pagination')
-                break
-
-        # 2: get videos older than what we already have
-        if already_ingested_videos:
-            published_timestamp = min(
-                [
-                    asset['published_timestamp']
-                    for asset in already_ingested_videos.values()
-                ]
-            ) - timedelta(seconds=1)
-            page_token: str | None = None
-            while api_requests < max_api_requests:
-                request = self.api_client.search().list(
-                    order='date', maxResults=50, pageToken=page_token,
-                    publishedBefore=published_timestamp.isoformat(),
-                    channelId=self.channel_id, type='video',
-                    part="id, snippet",
-
-                )
-                response, retries = await self._call_api(request)
-                # Search API of YouTube Data API consumes 100 credits per call
-                api_requests += 100 + retries
-
-                if not response:
-                    return
-
-                await self._import_video_data(
-                    response.get('items', []), already_ingested_videos
-                )
-
-                page_token: str = response.get('nextPageToken')
-                if not page_token:
-                    _LOGGER.debug('Reached end of channel video pagination')
-                    break
-
-        self.api_client.close()
-
-        _LOGGER.debug(
-            f'Performed {api_requests} API requests against '
-            f'a max of {max_api_requests} for channel {self.name}'
-        )
-
-    async def _import_video_data(self, data: dict,
-                                 already_ingested_videos: dict[str, str],
-                                 ) -> None:
-        '''
-        Parse the data returned by the YouTube Data Search API
-
-        :param data: the 'items' data as returned by the YouTube Data Search
-        API
-        :param already_ingested_videos: a dictionary with the video ID as key
-        and the encoding status as value
-        :returns: number of imported videos
-        '''
-
-        for video_data in data:
-            video_id: str = YouTubeVideo.get_video_id_from_api(video_data)
-            published_at: datetime = \
-                YouTubeVideo.get_publish_datetime_from_api(video_data)
-
-            if video_id in already_ingested_videos:
-                ingest_status = already_ingested_videos[video_id].get(
-                    'ingest_status'
-                )
-                if isinstance(ingest_status, str):
-                    ingest_status = IngestStatus(ingest_status)
-            else:
-                ingest_status = IngestStatus.NONE
-
-            if (video_id in already_ingested_videos and (
-                    not self.ingest_videos or ingest_status != 'external')):
-                continue
-
-            video: YouTubeVideo = YouTubeVideo.scrape(
-                video_id, already_ingested_videos, None
-            )
-            video.published_time = published_at
-
-            self.videos[video.video_id] = video
-
-    async def _call_api(self, request: dict) -> tuple[dict, int]:
-        '''
-        Calls the YouTube data API with the given request
-
-        :param request: the request to call the API with
-        :returns: the response from the API
-        '''
-
-        if not self.api_client:
-            raise RuntimeError(
-                'instance not set up for calling YouTube data API'
-            )
-
-        retries: int = 0
-        max_retries: int = 3
-        retry_delay: list[int] = [0, 10, 180, 1800]
-        while retries < max_retries:
-            delay = retry_delay[retries]
-            if delay:
-                _LOGGER.debug(f'Retry {retries}, delaying {delay} seconds')
-                await sleep(retry_delay[retries])
-
-            try:
-                response = request.execute()
-                return response, retries
-            except Exception as exc:
-                retries += 1
-                _LOGGER.debug(
-                    f'YouTube Data API call failed, try {retries}: {exc}'
-                )
-
-        _LOGGER.debug(f'Max retries exceeded: {retries} of {max_retries}')
-        return None, retries
+    @staticmethod
+    async def _delay(min: int = 2, max: int = 5) -> None:
+        await sleep(random() * (max - min) + min)

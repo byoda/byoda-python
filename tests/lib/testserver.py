@@ -5,7 +5,7 @@ This file should remain in sync with podserver/main.py
 except where noted in comments in the code
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 

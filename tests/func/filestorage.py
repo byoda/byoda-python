@@ -22,7 +22,7 @@ For AWS, create a ~/.aws/credentias file with as contents:
   aws_secret_access_key = <your-secret-access-key>
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 

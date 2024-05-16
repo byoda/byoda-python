@@ -2,7 +2,7 @@
 Class for modeling the (JSON) schema to validating data
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -204,7 +204,10 @@ class Schema:
                     SignatureType.SERVICE.value
                 ),
                 data_secret=self.service_data_secret
-
+            )
+            _LOGGER.info(
+                f'Service signature for service {self.service_id} '
+                f'was created on {self._service_signature.timestamp}'
             )
         except ValueError:
             _LOGGER.exception(

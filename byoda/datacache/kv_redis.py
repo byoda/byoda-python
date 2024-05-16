@@ -3,7 +3,7 @@ The KV Redis data cache provides ephemeral data storage, such as services
 storing data about their members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -270,14 +270,14 @@ class KVRedis(KVCache):
 
         return value
 
-    async def get_list(self, key: str) -> object:
+    async def get_list(self, key: str) -> list[str]:
         '''
         Gets the list of values of a key
         '''
 
         key = self.get_annotated_key(key)
 
-        ret = await self.driver.lrange(key, 0, -1)
+        ret: list[str] = await self.driver.lrange(key, 0, -1)
 
         _LOGGER.debug(f'Got list for key {key} with length {len(ret)}')
 

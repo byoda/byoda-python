@@ -4,7 +4,7 @@
 Test cases for authentication of REST / Data API calls
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -13,6 +13,13 @@ import sys
 import shutil
 import unittest
 
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
 import jwt as py_jwt
 
 from cryptography.hazmat.primitives import serialization
@@ -29,6 +36,8 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TlsStatus
+
+from byoda.requestauth.jwt import JWT
 
 from byoda.util.logger import Logger
 from byoda.util.api_client.api_client import ApiClient
@@ -49,37 +58,39 @@ TEST_DIR = '/tmp/byoda-tests/auth'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
 
-        network_data = await setup_network()
+        network_data: dict[str, str] = await setup_network()
 
-        account = await setup_account(network_data)
+        await setup_account(network_data)
 
     @classmethod
-    async def asyncTearDown(cls):
+    async def asyncTearDown(cls) -> None:
         await ApiClient.close_all()
 
-    async def test_jwt(self):
+    async def test_jwt(self) -> None:
         #
         # Test the python JWT module instead of our code so that we can confirm
         # that any regressions come from our code
         #
-        with open('/tmp/byoda-tests/auth/network-byoda.net/account-pod/pod-cert.pem', 'rb') as fd:
-            cert_pem = fd.read()
-        with open('/tmp/byoda-tests/auth/private/network-byoda.net-account-pod.key', 'rb') as fd:
-            encrypted_key = fd.read()
+        directory: str = '/tmp/byoda-tests/auth/network-byoda.net/account-pod'
+        with open(f'{directory}/pod-cert.pem', 'rb') as fd:
+            cert_pem: bytes = fd.read()
+        directory = '/tmp/byoda-tests/auth/private'
+        with open(f'{directory}/network-byoda.net-account-pod.key', 'rb') as fd:
+            encrypted_key: bytes = fd.read()
         passphrase = b'byoda'
-        cert = x509.load_pem_x509_certificate(cert_pem, backend=default_backend)
-        public_key = cert.public_key()
-        private_key = serialization.load_pem_private_key(
+        cert: x509.Certificate = x509.load_pem_x509_certificate(cert_pem, backend=default_backend)
+        public_key: any = cert.public_key()
+        private_key: any = serialization.load_pem_private_key(
            encrypted_key, password=passphrase, backend=default_backend()
         )
-        data = {'data': 'test'}
-        encoded = py_jwt.encode(data, private_key, algorithm='RS256')
-        unverified = py_jwt.decode(encoded, options={'verify_signature': False})
+        data: dict[str, str] = {'data': 'test'}
+        encoded: str = py_jwt.encode(data, private_key, algorithm='RS256')
+        unverified: any = py_jwt.decode(encoded, options={'verify_signature': False})
         self.assertEqual(data, unverified)
-        decoded = py_jwt.decode(encoded, public_key, algorithms=['RS256'])
+        decoded: any = py_jwt.decode(encoded, public_key, algorithms=['RS256'])
         self.assertEqual(data, decoded)
 
         #
@@ -95,7 +106,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
         account: Account = server.account
         member: Member = account.memberships[ADDRESSBOOK_SERVICE_ID]
-        jwt = member.create_jwt()
+        jwt: JWT = member.create_jwt()
         request_auth: RequestAuth = RequestAuth(
             '127.0.0.1', HttpMethod.GET
         )

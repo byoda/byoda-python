@@ -5,7 +5,7 @@ Worker that performs queries against registered members of
 the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2024
 :license    : GPLv3
 '''
 
@@ -145,6 +145,7 @@ async def main() -> None:
 
 async def setup_server() -> tuple[Service, ServiceServer]:
     server_config = ServerConfig('svcserver', is_worker=True)
+    # HACK: hardcoded location of logfile
     server_config.logfile = '/var/log/byoda/worker-16384-refresh-assets.log'
     verbose: bool = \
         not server_config.debug and server_config.loglevel == 'INFO'
@@ -170,18 +171,14 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     server: ServiceServer = await ServiceServer.setup(network, server_config)
     config.server = server
 
-    setup_exporter_metrics()
-
     listen_port: int = os.environ.get(
         'WORKER_METRICS_PORT', PROMETHEUS_EXPORTER_PORT
     )
-#        server_config.listen_port or PROMETHEUS_EXPORTER_PORT
-#    )
-
+    setup_exporter_metrics()
     start_http_server(listen_port)
 
     _LOGGER.debug(
-        'Setup service server completed, now loading network secrets'
+        'Setup refresh worker completed, now loading network secrets'
     )
 
     storage = FileStorage(server_config.server_config['root_dir'])
@@ -202,7 +199,10 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     schema.get_data_classes(with_pubsub=False)
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(server_config.server_config['asset_cache'])
+    await server.setup_asset_cache(
+        server_config.server_config['asset_cache'],
+        server_config.server_config['asset_cache_readwrite']
+    )
 
     return service, server
 

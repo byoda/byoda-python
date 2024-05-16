@@ -2,7 +2,7 @@
 /authtoken API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -24,10 +24,13 @@ from byoda.datatypes import IdType
 
 from byoda.requestauth.jwt import JWT
 
-from byoda.models import AuthRequestModel
-from byoda.models import AuthTokenResponseModel
+from byoda.models.authtoken import AuthRequestModel
+from byoda.models.authtoken import AuthTokenResponseModel
+from byoda.models.authtoken import AuthTokenRemoteRequestModel
 
 from byoda.servers.pod_server import PodServer
+
+from byoda.limits import MAX_APP_TOKEN_EXPIRATION
 
 from byoda import config
 
@@ -126,13 +129,14 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
     return {'auth_token': jwt.encoded}
 
 
+# BUG: this should be a GET?
 @router.post('/authtoken/service_id/{service_id}',
              response_model=AuthTokenResponseModel,
              status_code=200)
 async def post_member_auth_token(request: Request, service_id: int,
                                  auth: AuthDep):
     '''
-    Get the JWT for a pod member, using username/password
+    Get the JWT for a pod member, using account JWT
     '''
 
     server: PodServer = config.server
@@ -152,5 +156,46 @@ async def post_member_auth_token(request: Request, service_id: int,
     member: Member = await account.get_membership(service_id)
 
     jwt: JWT = member.create_jwt()
+
+    return {'auth_token': jwt.encoded}
+
+
+@router.post('/authtoken/remote')
+async def post_member_remote_auth_token(
+        request: Request, remote: AuthTokenRemoteRequestModel, auth: AuthDep
+        ) -> AuthTokenResponseModel:
+
+    server: PodServer = config.server
+    account: Account = server.account
+
+    _LOGGER.debug(
+        f'POST Authtoken member API called from {request.client.host} '
+        f'for service_id {auth.service_id} and '
+        f'with JWT: {auth.authorization is not None}'
+    )
+
+    await auth.authenticate(account, service_id=remote.service_id)
+
+    if not auth.is_authenticated:
+        raise HTTPException(
+            status_code=401, detail='Invalid authentication'
+        )
+
+    if auth.service_id is None:
+        raise HTTPException(
+            status_code=400, detail='Service ID not provided'
+        )
+
+    if auth.id_type != IdType.MEMBER:
+        raise HTTPException(
+            status_code=401, detail='Not authorized to access this service'
+        )
+
+    member: Member = await account.get_membership(auth.service_id)
+
+    jwt: JWT = member.create_jwt(
+        target_id=remote.target_id, target_type=remote.target_type,
+        expiration_seconds=MAX_APP_TOKEN_EXPIRATION
+    )
 
     return {'auth_token': jwt.encoded}

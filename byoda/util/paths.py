@@ -72,7 +72,7 @@ class Paths:
 
     APP_DIR                      = 'network-{network}/service-{service_id}/apps'                                          # noqa
     APP_CERT_FILE                = 'network-{network}/service-{service_id}/apps/app-{app_id}-cert.pem'                    # noqa
-    APP_KEY_FILE                 = 'private/network-{network}/service-{service_id}//apps/app-{app_id}.key'                # noqa
+    APP_KEY_FILE                 = 'private/network-{network}/service-{service_id}/apps/app-{app_id}.key'                 # noqa
     APP_CERTCHAIN_FILE           = 'network-{network}/service-{service_id}/apps/app-{app_id}/app-{app_id}-certchain.pem'  # noqa
     APP_CSR_FILE                 = 'private/network-{network}/service-{service_id}/apps/app-{app_id}-csr.pem'             # noqa
     APP_DATA_CERT_FILE           = 'network-{network}/service-{service_id}/apps/app-data-{app_id}-cert.pem'               # noqa
@@ -104,6 +104,8 @@ class Paths:
     SERVICE_CONTRACT_DOWNLOAD           = 'https://service.service-{service_id}.{network}/service-contract.json'                                    # noqa
     MEMBER_CERT_DOWNLOAD                = 'https://{member_id}.members-{service_id}.{network}/member-cert.pem'                                      # noqa
     MEMBER_DATACERT_DOWNLOAD            = 'https://{member_id}.members-{service_id}.{network}/member-data-cert.pem'                                 # noqa
+    APP_CERT_DOWNLOAD                   = 'https://service.service-{service_id}.{network}/app-certs/apps-{app_id}-cert.pem'                # noqa
+    APP_DATACERT_DOWNLOAD               = 'https://service.service-{service_id}.{network}/app-certs/app-data-{app_id}-cert.pem'            # noqa
 
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa

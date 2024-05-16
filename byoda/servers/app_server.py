@@ -3,12 +3,13 @@ Class ServiceServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
 import os
 from uuid import UUID
+from typing import Literal
 from logging import getLogger
 
 from aiosqlite import connect as sqlite_connect
@@ -71,7 +72,7 @@ class AppServer(Server):
                 os.makedirs(f'{self.claim_dir}/{status.value}', exist_ok=True)
         elif app_type == AppType.CDN:
             self.keys_dir: str = app_config['cdnserver']['keys_dir']
-            self.sqlite_db_file: str = app_config['appserver'].get('sqlite_db')
+            self.sqlite_db_file: str = app_config['cdnserver'].get('sqlite_db')
             if not self.sqlite_db_file:
                 raise ValueError('No sqlite_db defined for CDN app')
 
@@ -103,14 +104,17 @@ class AppServer(Server):
 
         return filepath
 
-    async def load_network_secrets(self, storage_driver: FileStorage = None):
+    async def load_network_secrets(self, storage_driver: FileStorage = None
+                                   ) -> None:
         await self.network.load_network_secrets(storage_driver=storage_driver)
 
-    async def load_secrets(self, password: str):
+    async def load_secrets(self, password: str) -> None:
         await self.app.load_secrets(with_private_key=True, password=password)
 
-    async def load_schema(self, verify_contract_signatures: bool = True):
-        schema_file = self.service.paths.get(Paths.SERVICE_FILE)
+    async def load_schema(self, verify_contract_signatures: bool = True
+                          ) -> None:
+        paths: Paths = self.service.paths
+        schema_file: str = paths.get(Paths.SERVICE_FILE)
         await self.service.load_schema(
             filepath=schema_file,
             verify_contract_signatures=verify_contract_signatures
@@ -118,7 +122,7 @@ class AppServer(Server):
 
         self.member_db.schema = self.service.schema
 
-    async def review_jwt(self, jwt: JWT):
+    async def review_jwt(self, jwt: JWT) -> None:
         '''
         Reviews the JWT for processing on a service server
 
@@ -135,7 +139,7 @@ class AppServer(Server):
                 'Service API can only be called with a JWT for a member'
             )
 
-    async def get_jwt_secret(self, jwt: JWT):
+    async def get_jwt_secret(self, jwt: JWT) -> MemberDataSecret:
         '''
         Load the secret used to sign the jwt.
         '''
@@ -153,7 +157,7 @@ class AppServer(Server):
 
         return secret
 
-    def accepts_jwts(self):
+    def accepts_jwts(self) -> Literal[True]:
         return True
 
     async def create_membership_table(self) -> None:
@@ -163,7 +167,7 @@ class AppServer(Server):
         correct storage bucket
         '''
 
-        async with sqlite_connect(self.sqlite_db) as conn:
+        async with sqlite_connect(self.sqlite_db_file) as conn:
             await conn.execute(
                 '''
                 CREATE TABLE IF NOT EXISTS memberships (
@@ -172,7 +176,7 @@ class AppServer(Server):
                     visibility TEXT NOT NULL,
                     container TEXT NOT NULL,
                     timestamp INTEGER NOT NULL,
-                    PRIMARY KEY(member_id, service_id, content_access)
+                    PRIMARY KEY(member_id, service_id, visibility)
                 )
                 '''
             )

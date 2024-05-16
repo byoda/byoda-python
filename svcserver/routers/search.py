@@ -1,8 +1,8 @@
 '''
-API search APIs for both addressbook and byo.tube
+API search APIs for assets and channels on BYO.Tube
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2024
 :license    : GPLv3
 '''
 
@@ -94,26 +94,3 @@ async def search_email(request: Request, email: str,
     data['member_id'] = member_id
 
     return data
-
-
-@router.get('/search/asset',
-            response_model=list[Edge])
-async def get_asset(request: Request, text: str, offset: int = 0,
-                    num: int = 10):
-    '''
-    Submit an asset for adding to the search index
-    This API does not require authentication, it needs to be rate
-    limited by the reverse proxy (TODO: security)
-    '''
-
-    _LOGGER.debug(
-        f'GET Search API called for from {request.client.host} with search '
-        f'parameter {text}'
-    )
-
-    server: ServiceServer = config.server
-    asset_cache: AssetCache = server.asset_cache
-
-    assets: list[Edge] = await asset_cache.search(text, offset, num)
-
-    return assets

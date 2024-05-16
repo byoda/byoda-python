@@ -10,7 +10,7 @@ These tests need a local webserver running on port 8000 as the
 pynng does not allow you to spawn a server from the test code.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -156,9 +156,11 @@ async def call_api(test, member: Member, class_name: str,
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
+    async def asyncSetUp(self) -> None:
+        mock_environment_vars(TEST_DIR, hash_password=False)
+        network_data: dict[str, str] = await setup_network(
+            delete_tmp_dir=False
+        )
 
         # This test case requires pub/sub to be enabled to/from
         # locally running podserver using port 8000 so we do not
@@ -175,7 +177,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             local_service_contract=local_service_contract, clean_pubsub=False
         )
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
@@ -198,13 +200,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_graphql_websocket_append(self) -> None:
+    async def test_websocket_append(self) -> None:
         account: Account = config.server.account
         network: Network = account.network
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
 
-        auth_header = await get_member_auth_header(service_id, test=self)
+        auth_header: str = await get_member_auth_header(service_id, test=self)
 
         class_name: str = 'network_assets'
         test: int

@@ -2,14 +2,13 @@
 Helper functions for API request processing
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
 from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
-from byoda.util.logger import Logger
 from ipaddress import ip_address as IpAddress
 
 from fastapi import HTTPException
@@ -24,7 +23,9 @@ from byoda.datamodel.network import Network
 from byoda.datatypes import IdType
 from byoda.datatypes import AuthSource
 from byoda.datatypes import TlsStatus
+from byoda.datatypes import EntityId
 
+from byoda.secrets.secret import Secret
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.appsca_secret import AppsCaSecret
@@ -38,6 +39,8 @@ from byoda.servers.server import Server
 from byoda.util.api_client.api_client import HttpMethod
 
 from byoda.exceptions import ByodaMissingAuthInfo
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -115,7 +118,7 @@ class RequestAuth:
     to the web application as client IP
     '''
 
-    def __init__(self, remote_addr: IpAddress, method: HttpMethod):
+    def __init__(self, remote_addr: IpAddress, method: HttpMethod) -> None:
         '''
         constructor
 
@@ -225,7 +228,7 @@ class RequestAuth:
 
         if self.authorization:
             _LOGGER.debug('Authenticating using JWT')
-            jwt = await self.authenticate_authorization_header(
+            jwt: JWT = await self.authenticate_authorization_header(
                 self.authorization
             )
             self.auth_source = AuthSource.TOKEN
@@ -233,7 +236,8 @@ class RequestAuth:
 
         raise HTTPException(status_code=error, detail=detail)
 
-    def authenticate_client_cert(self, client_dn: str, issuing_ca_dn: str):
+    def authenticate_client_cert(self, client_dn: str, issuing_ca_dn: str
+                                 ) -> None:
         '''
         Authenticate the client based on the TLS client cert
 
@@ -259,6 +263,7 @@ class RequestAuth:
                 )
             )
 
+        subdomain: str
         self.id, subdomain = self.client_cn.split('.')[0:2]
         self.domain = self.client_cn.split('.', 3)[-2]
         if '-' in subdomain:
@@ -299,7 +304,7 @@ class RequestAuth:
         # client
         try:
             # Account certs get signed by the Network Accounts CA
-            entity_id = \
+            entity_id: EntityId = \
                 NetworkAccountsCaSecret.review_commonname_by_parameters(
                     self.client_cn, network.name
                 )
@@ -322,7 +327,7 @@ class RequestAuth:
 
         # Check that the account cert is for our account. On the directory
         # server the Account instance will be None
-        account = config.server.account
+        account: Account = config.server.account
 
         if account and account.account_id != self.account_id:
             raise HTTPException(
@@ -353,7 +358,9 @@ class RequestAuth:
             members_ca_secret = MembersCaSecret(
                 service_id, network=network
             )
-            entity_id = members_ca_secret.review_commonname(self.client_cn)
+            entity_id: EntityId = members_ca_secret.review_commonname(
+                self.client_cn
+            )
             self.member_id = entity_id.id
             self.id = self.member_id
             self.service_id = entity_id.service_id
@@ -396,7 +403,9 @@ class RequestAuth:
             service_ca_secret = ServiceCaSecret(
                 entity_id.service_id, network=network
             )
-            entity_id = service_ca_secret.review_commonname(self.client_cn)
+            entity_id: EntityId = service_ca_secret.review_commonname(
+                self.client_cn
+            )
             self.service_id = entity_id.service_id
             self.id = self.service_id
 
@@ -433,7 +442,9 @@ class RequestAuth:
             apps_ca_secret = AppsCaSecret(
                 service_id, network=network
             )
-            entity_id = apps_ca_secret.review_commonname(self.client_cn)
+            entity_id: EntityId = apps_ca_secret.review_commonname(
+                self.client_cn
+            )
             self.member_id = entity_id.id
             self.id = self.member_id
             self.service_id = entity_id.service_id
@@ -462,10 +473,10 @@ class RequestAuth:
         :raises: ValueError if the commonname could not be extracted
         '''
 
-        bits = dname.split(',')
+        bits: list[str] = dname.split(',')
         for keyvalue in bits:
             if keyvalue.startswith('CN='):
-                commonname = keyvalue[(len('CN=')):]
+                commonname: str = keyvalue[(len('CN=')):]
                 return commonname
 
         raise HTTPException(
@@ -484,14 +495,14 @@ class RequestAuth:
         :raises: ValueError if the commonname could not be extracted
         '''
 
-        commonname_bits = commonname.split('.')
+        commonname_bits: list[str] = commonname.split('.')
         if len(commonname_bits) < 4:
             raise HTTPException(
                 status_code=400,
                 detail=f'Invalid common name {commonname}'
             )
 
-        subdomain = commonname_bits[1]
+        subdomain: str = commonname_bits[1]
         if '-' in subdomain:
             # For members, subdomain has format 'members-<service-id>'
             idtype = IdType(subdomain[:subdomain.find('-')+1])
@@ -531,11 +542,11 @@ class RequestAuth:
         # First we use the unverified JWT to find out
         # in which context we need to authenticate the client
         try:
-            unverified_jwt = await JWT.decode(
+            unverified_jwt: JWT = await JWT.decode(
                 authorization, None, network.name, download_remote_cert=False
             )
 
-            secret = await unverified_jwt._get_issuer_secret()
+            secret: Secret = await unverified_jwt._get_issuer_secret()
             # TODO: next 2 lines can be removed?
             if not secret.cert:
                 await secret.load(with_private_key=False)

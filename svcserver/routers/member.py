@@ -2,7 +2,7 @@
 /network/member API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 
 It takes 3 steps for a pod to become a member of service:
@@ -24,6 +24,7 @@ from cryptography import x509
 from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import AuthSource
+from byoda.datatypes import EntityId
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -82,12 +83,13 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
-    common_name = Secret.extract_commonname(csr_x509)
+    common_name: str = Secret.extract_commonname(csr_x509)
 
     try:
-        csr_entity_id = MembersCaSecret.review_commonname_by_parameters(
-            common_name, network.name, service.service_id
-        )
+        csr_entity_id: EntityId = \
+            MembersCaSecret.review_commonname_by_parameters(
+                common_name, network.name, service.service_id
+            )
     except PermissionError:
         raise HTTPException(
             status_code=401, detail=f'Invalid common name {common_name} in CSR'

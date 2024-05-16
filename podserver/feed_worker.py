@@ -4,12 +4,16 @@
 Listen for updates of pods in the network and store them in the local pod
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license
 '''
 
 import os
 import sys
+
+from uuid import UUID
+from datetime import UTC
+from datetime import datetime
 
 from anyio import run
 from anyio import create_task_group
@@ -27,10 +31,12 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.datamodel.pubsub_message import PubSubMessage
 
-from byoda.datatypes import PubSubMessageAction
 from byoda.datatypes import CloudType
+from byoda.datatypes import NetworkLink
+from byoda.datatypes import PubSubMessageAction
 
 from byoda.storage.pubsub_nng import PubSubNng
+
 from byoda.datastore.data_store import DataStore
 from byoda.datastore.data_store import DataStoreType
 from byoda.datastore.cache_store import CacheStore
@@ -59,7 +65,7 @@ async def main(argv) -> None:
 
     data: dict[str, str] = get_environment_vars()
 
-    debug = data.get('debug', False)
+    debug: str | bool = data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
@@ -80,7 +86,7 @@ async def main(argv) -> None:
     _LOGGER.debug('Sleeping for 30 seconds')
     await sleep(30)
 
-    account = await setup_account(sys.argv)
+    account: Account = await setup_account(sys.argv)
     server: PodServer = config.server
     cache_store: CacheStore = server.cache_store
     data_store: DataStore = server.data_store
@@ -212,13 +218,23 @@ async def get_feed_updates(server: PodServer, pubsub: PubSubNng,
     be created under
     '''
 
+    last_updated = 0
+    following: dict[UUID, set[str]] = {}
     while True:
         try:
             messages: list[PubSubMessage] = await pubsub.recv()
+            if datetime.now(tz=UTC).timestamp() - last_updated > 60:
+                network_links: list[NetworkLink] = \
+                    await member.data.load_network_links()
+
+                for link in network_links:
+                    following[link.member_id] = link.annotations
+
             message: PubSubMessage
             for message in messages:
                 await process_message(
-                    message, server, member, pubsub.data_class, feed_class.name
+                    message, server, member, pubsub.data_class,
+                    feed_class.name, following
                 )
         except Exception as exc:
             _LOGGER.exception(
@@ -228,7 +244,8 @@ async def get_feed_updates(server: PodServer, pubsub: PubSubNng,
 
 async def process_message(message: PubSubMessage, server: PodServer,
                           member: Member, incoming_class: SchemaDataArray,
-                          feed_class_name: str) -> bool:
+                          feed_class_name: str, following: dict[str, set[str]]
+                          ) -> bool:
     '''
     Processes the message received from PubSub socket
 
@@ -237,6 +254,7 @@ async def process_message(message: PubSubMessage, server: PodServer,
     :param member: our membership
     :param feed_class: the class to store the data in
     :param pubsub: the pubsub object to use for sending data
+    :returns: whether the message was processed or not
     '''
 
     if message.action != PubSubMessageAction.APPEND:
@@ -247,9 +265,28 @@ async def process_message(message: PubSubMessage, server: PodServer,
         return False
 
     _LOGGER.debug(
-        f'Received data from class {message.class_name} for '
+        f'Received data from class {message.class_name} of '
+        f'service_id {member.service_id} for '
         f'asset ID {message.node.get("asset_id")}'
     )
+
+    if message.origin_id not in following:
+        _LOGGER.debug(
+            f'Not following origin_id {message.origin_id} '
+            f'for class {message.class_name} of '
+            f'service_id {member.service_id}'
+        )
+        return False
+
+    following_annotations: set[str] | None = following.get(
+        message.origin_id
+    )
+
+    creator: str | None = message.node.get('creator')
+    if (following_annotations
+            and (creator not in following_annotations)):
+        _LOGGER.debug(f'Not following creator: {creator}')
+        return False
 
     # TODO: use HTTP call here so that counters for the feed class
     # get updated
@@ -268,7 +305,7 @@ async def process_message(message: PubSubMessage, server: PodServer,
     )
 
     await MemberData.delete_data(
-        server, member, incoming_class.name, delete_filter_set
+        server, member, incoming_class, delete_filter_set
     )
 
     return True

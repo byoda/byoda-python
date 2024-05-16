@@ -2,7 +2,7 @@
 helper functions for authentication test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import FastAPI
 
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
 
 from byoda.datatypes import IdType
 
@@ -38,18 +39,18 @@ from tests.lib.defines import AZURE_POD_MEMBER_ID
 def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
                    secret: str = None,
                    service_id: int = ADDRESSBOOK_SERVICE_ID,
-                   app: FastAPI | None = None):
+                   app: FastAPI | None = None) -> dict[str, str]:
 
     if not id:
-        account = config.server.account
+        account: Account = config.server.account
         id = account.account_id
 
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
 
-    url = base_url + '/v1/pod/authtoken'
+    url: str = base_url + '/v1/pod/authtoken'
 
-    data = {
+    data: dict[str, str] = {
         'username': str(id)[:8],
         'password': secret,
     }
@@ -63,9 +64,9 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     resp: HttpResponse = ApiClient.call_sync(
         url, method=HttpMethod.POST, data=data, app=app
     )
-    result = resp.json()
+    result: dict[str, any] = resp.json()
 
-    auth_header = {
+    auth_header: dict[str, str] = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
 
@@ -77,19 +78,21 @@ async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID,
                                  ) -> str:
     server: PodServer = config.server
     account: Account = server.account
-    member = await account.get_membership(service_id)
+    member: Member = await account.get_membership(service_id)
 
-    password = os.environ['ACCOUNT_SECRET']
+    password: str = os.environ['ACCOUNT_SECRET']
 
-    data = {
+    data: dict[str, str | int] = {
         'username': str(member.member_id)[:8],
         'password': password,
         'target_type': IdType.MEMBER.value,
         'service_id': service_id
     }
-    url = f'{BASE_URL}/v1/pod/authtoken'.format(PORT=config.server.HTTP_PORT)
+    url: str = f'{BASE_URL}/v1/pod/authtoken'.format(
+        PORT=config.server.HTTP_PORT
+    )
     response: HttpResponse = await ApiClient.call(
-        url, method=HttpMethod.POST, data=data, app=app
+        url, method=HttpMethod.POST, data=data, app=app, timeout=600
     )
 
     if test:
@@ -100,7 +103,7 @@ async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID,
     if test:
         test.assertIsNotNone(result.get('auth_token'))
 
-    auth_header = {
+    auth_header: dict[str, str] = {
         'Authorization': f'bearer {result["auth_token"]}'
     }
     return auth_header
@@ -137,7 +140,7 @@ async def get_azure_pod_jwt(account: Account, test_dir: str,
         service_id=service_id, scope_type=IdType.MEMBER,
         scope_id=AZURE_POD_MEMBER_ID
     )
-    azure_member_auth_header = {
+    azure_member_auth_header: dict[str, str] = {
         'Authorization': f'bearer {jwt.encoded}'
     }
 

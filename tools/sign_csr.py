@@ -20,7 +20,7 @@ On the Service Apps CA server, you can run the sign_csr.py tool for both the TLS
 Run sign_csr both for the TLS and the Data CSRs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 

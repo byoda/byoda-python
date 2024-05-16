@@ -5,7 +5,7 @@ Worker that performs queries against registered members of
 the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2024
 :license    : GPLv3
 '''
 
@@ -94,15 +94,14 @@ async def main() -> None:
 
     async with create_task_group() as task_group:
         # Set up the listeners for the members that are already in the cache
-        _LOGGER.debug('Start up member reconsilation')
+        _LOGGER.debug('Start up member reconciliation')
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
             task_group
         )
         while True:
             _LOGGER.debug(
-                f'Members seen: {len(members_seen)}, '
-                f'Time available to refresh assets: {wait_time}'
+                f'Members seen: {len(members_seen)}'
             )
             wait_time = MAX_WAIT
 
@@ -111,6 +110,7 @@ async def main() -> None:
                 member_id = await member_db.get_next(timeout=MAX_WAIT)
                 if not member_id:
                     _LOGGER.debug('No member available in list of members')
+                    await sleep(1)
                     continue
 
                 if is_test_uuid(member_id):
@@ -310,6 +310,7 @@ def next_member_wait(last_seen: datetime) -> int:
 
 async def setup_server() -> tuple[Service, ServiceServer]:
     server_config = ServerConfig('svcserver', is_worker=True)
+    server_config.logfile = '/var/log/byoda/worker-16384-assets-updates.log'
 
     verbose: bool = \
         not server_config.debug and server_config.loglevel == 'INFO'
@@ -338,10 +339,8 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     setup_exporter_metrics()
 
     listen_port: int = os.environ.get(
-        'WORKER_METRICS_PORT',
-        server_config.listen_port or PROMETHEUS_EXPORTER_PORT
+        'WORKER_METRICS_PORT', PROMETHEUS_EXPORTER_PORT
     )
-
     start_http_server(listen_port)
 
     _LOGGER.debug(
@@ -366,7 +365,10 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     schema.get_data_classes(with_pubsub=False)
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(server_config.server_config['asset_cache'])
+    await server.setup_asset_cache(
+        server_config.server_config['asset_cache'],
+        server_config.server_config['asset_cache_readwrite']
+    )
 
     return service, server
 

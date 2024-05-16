@@ -1,0 +1,32 @@
+[
+    {
+        "app_id": "f7d6d367-3d1a-4424-8ba5-139e8f3a51c3",
+        "type": "payment_processor",
+        "status": "active",
+        "name": "BYO.Pay",
+        "description": "BYO.Pay is a payment processor that enable you to make and accept payments.",
+        "url": "https://www.byopay.me",
+        "icon_url": "https://byopay.me/icon.png",
+        "contact_email": "support@byopay.me"
+    },
+    {
+        "app_id": "bafc564d-0ba1-4821-ab1f-821f830cf8e6",
+        "type": "content_moderator",
+        "status": "active",
+        "name": "BYO.Mod",
+        "description": "BYO.Mod is a content moderator for videos",
+        "url": "https://www.byomod.org",
+        "icon_url": "https://byomod.org/icon.png",
+        "contact_email": "support@byomod.org"
+    },
+    {
+        "app_id": "aaaaaaaa-0ba1-4821-ab1f-821f830cf8e6",
+        "type": "video_processor",
+        "status": "active",
+        "name": "BYO.Stream",
+        "description": "BYO.Stream encodes, hosts and streams your videos",
+        "url": "https://www.byostream.me",
+        "icon_url": "https://byostream.me/icon.png",
+        "contact_email": "support@byostream.me"
+    }
+]

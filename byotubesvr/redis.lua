@@ -25,9 +25,9 @@ if not (after == nil or after == '') then
     pos = redis.call('LPOS', listkey, cursor)
     if pos == nil or not pos or pos == '' then
         pos = 0
-        -- redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. listkey)
+        redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. listkey)
     else
-        -- redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. listkey .. ' at position ' .. pos)
+        redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. listkey .. ' at position ' .. pos)
         -- we do not want to start the list at the cursor but after
         pos = pos + 1
     end
@@ -65,14 +65,17 @@ while total_assets < first do
         asset_data_len = asset_data_len + 1
         asset_data = redis.call('JSON.GET', asset_key)
         if not (asset_data == nil or not asset_data or asset_data == '') then
-            if not filter_name or filter_name == nil or filter_name == ''  then
-                table.insert(assets, asset_data)
-                total_assets = total_assets + 1
-            else
-                local decoded_data = cjson.decode(asset_data)
-                if decoded_data['node'][filter_name] == filter_value then
+            local decoded_data = cjson.decode(asset_data)
+            local ingest_status = decoded_data['node']['ingest_status']
+            if ingest_status == 'published' or ingest_status == 'external' then
+                if not filter_name or filter_name == nil or filter_name == '' then
                     table.insert(assets, asset_data)
                     total_assets = total_assets + 1
+                else
+                    if decoded_data['node'][filter_name] == filter_value then
+                        table.insert(assets, asset_data)
+                        total_assets = total_assets + 1
+                    end
                 end
             end
         end

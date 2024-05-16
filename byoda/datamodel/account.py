@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -62,7 +62,7 @@ class Account:
     This class is expected to only be used in the podserver
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'account', 'password', 'account_id', 'document_store', 'network',
         'private_key_password', 'data_secret', 'tls_secret', 'paths',
         'memberships'
@@ -153,7 +153,7 @@ class Account:
 
     async def create_data_secret(self,
                                  accounts_ca: NetworkAccountsCaSecret = None,
-                                 renew: bool = False):
+                                 renew: bool = False) -> None:
         '''
         Creates the PKI secret used to protect all data in the document store
         '''
@@ -218,8 +218,8 @@ class Account:
                 )
             else:
                 csr = await secret.create_csr(self.account_id)
-                payload = {'csr': secret.csr_as_pem(csr)}
-                url = self.paths.get(Paths.NETWORKACCOUNT_API)
+                payload: dict[str, str] = {'csr': secret.csr_as_pem(csr)}
+                url: str = self.paths.get(Paths.NETWORKACCOUNT_API)
 
                 _LOGGER.debug(f'Getting CSR signed from {url}')
                 resp: HttpResponse = await RestApiClient.call(
@@ -248,12 +248,12 @@ class Account:
         for changing symmetric keys is currently not supported.
         '''
 
-        filepath = self.paths.get(
+        filepath: str = self.paths.get(
             self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE
         )
 
         try:
-            protected = await self.document_store.backend.read(
+            protected: str = await self.document_store.backend.read(
                 filepath, file_mode=FileMode.BINARY
             )
             self.data_secret.load_shared_key(protected)
@@ -275,7 +275,7 @@ class Account:
             file_mode=FileMode.BINARY
         )
 
-    async def load_secrets(self):
+    async def load_secrets(self) -> None:
         '''
         Loads the secrets for the account
         '''
@@ -293,17 +293,20 @@ class Account:
         # account shared key is required to encrypt the backups
         await self.load_protected_shared_key()
 
-    def create_jwt(self, expiration_days: int = 365) -> JWT:
+    def create_jwt(self, expiration_seconds: int = 365 * 24 * 60 * 60) -> JWT:
         '''
         Creates a JWT for the account owning the POD. This JWT can be
         used to authenticate only against the pod.
+
+        :param expiration_seconds: the number of seconds the JWT is valid
+        :returns: JWT
         '''
 
-        jwt = JWT.create(
+        jwt: JWT = JWT.create(
             self.account_id, IdType.ACCOUNT, self.tls_secret,
             self.network.name, service_id=None,
             scope_type=IdType.ACCOUNT, scope_id=self.account_id,
-            expiration_days=expiration_days,
+            expiration_seconds=expiration_seconds,
         )
         return jwt
 

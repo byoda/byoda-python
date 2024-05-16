@@ -2,7 +2,7 @@
 Proof of Concept moderation server for Bring Your Own Data and Algorithms
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -73,7 +73,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         routers
     )
 
-    await server.create_membership_table()
+    if app_type == AppType.CDN:
+        await server.create_membership_table()
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE,

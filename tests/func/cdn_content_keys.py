@@ -27,7 +27,6 @@ from datetime import UTC
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
-from byoda.datamodel.account import Account
 
 from byoda.datastore.document_store import DocumentStoreType
 
@@ -51,8 +50,6 @@ from tests.lib.defines import COLLATERAL_DIR
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.util import get_test_uuid
 
-from tests.lib.setup import setup_network
-from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
 from appserver.routers import cdn as CdnRouter
@@ -143,7 +140,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         if not os.environ.get('SERVER_NAME') and config.server.network.name:
             os.environ['SERVER_NAME'] = config.server.network.name
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server)
 
         global APP
@@ -177,7 +174,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         data: list[dict[str, str | int]] = [
             {
                 'key_id': 1,
-                'content_token': 'cdnapi.py-test_cdn_content_keys_api-1',
+                'key': 'cdnapi.py-test_cdn_content_keys_api-1',
                 'not_before': datetime.now(tz=UTC).isoformat(),
                 'not_after':
                     (datetime.now(tz=UTC) + timedelta(days=1)).isoformat(),

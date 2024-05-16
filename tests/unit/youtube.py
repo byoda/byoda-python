@@ -15,37 +15,37 @@ _LOGGER = None
 API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 
-class TestFileStorage(unittest.IsolatedAsyncioTestCase):
+class TestYouTubeScrape(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         os.environ[YouTube.ENVIRON_CHANNEL] = ''
         os.environ[YouTube.ENVIRON_API_KEY] = ''
 
     async def test_scrape_videos(self) -> None:
-
         ytv = YouTubeVideo()
         await ytv.scrape(
             video_id='RQm5lGne5_0', ingest_videos=False,
-            creator_thumbnail=None,
+            channel_name='test', creator_thumbnail=None,
         )
-        self.assertequal(ytv.publisher, 'YouTube')
+        self.assertEqual(ytv.publisher, 'YouTube')
 
-    async def test_scrape_creator(self) -> None:
+    async def test_channel_data(self) -> None:
+        '''
+        Tests that all data needed is scraped from the channel page
+        '''
+
         channel: str = 'History Matters'
         ytc = YouTubeChannel(name=channel)
-        await ytc.scrape(
-            filename='tests/collateral/yt-channel.html'
+        page_data: str = await ytc.get_videos_page()
+        ytc.parse_channel_info(page_data)
+        self.assertEqual(ytc.channel_id, 'UC22BdTgxefuvUivrjesETjg')
+        self.assertEqual(len(ytc.channel_thumbnails), 3)
+        self.assertTrue(
+            ytc.description.startswith('History Matters is a history-focused')
         )
-        self.assertGreater(len(ytc.videos), 33)
-
-    async def test_import_videos(self) -> None:
-        return
-        with open(API_KEY_FILE, 'r') as file_desc:
-            api_key: str = file_desc.read().strip()
-
-        os.environ[YouTube.ENVIRON_API_KEY] = api_key
-        os.environ[YouTube.ENVIRON_CHANNEL] = 'Dathes'
-        yt = YouTube()
-        await yt.get_videos(max_api_requests=250)
+        self.assertEqual(ytc.name, 'History Matters')
+        self.assertEqual(ytc.title, 'History Matters')
+        self.assertEqual(len(ytc.videos), 0)
+        self.assertEqual(len(ytc.external_urls), 2)
 
     async def test_external_url_parsing(self) -> None:
         urls: dict[str, str] = {

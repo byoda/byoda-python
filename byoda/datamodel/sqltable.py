@@ -3,7 +3,7 @@ Class for SQL tables generated based on data classes
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -744,7 +744,7 @@ class ArraySqlTable(SqlTable):
 
         query_fields: str = ''
         for field in fields or []:
-            data_class = self.columns.get(field)
+            data_class: SchemaDataItem | None = self.columns.get(field)
             if not data_class or not _is_sql_safe_value(field):
                 raise ValueError('Invalid field name: {field}')
 
@@ -792,7 +792,7 @@ class ArraySqlTable(SqlTable):
             stmt += ' LIMIT :first '
             placeholders['first'] = first
 
-        rows = await self.sql_store.execute(
+        rows: list[dict[str, any]] = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=placeholders,
             autocommit=False, fetchall=True
         )

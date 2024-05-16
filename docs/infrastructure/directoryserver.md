@@ -42,18 +42,19 @@ fi
 
 export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
 
-sudo mkdir -p /var/lib/postgresql/data
-sudo chown -R 999:999 /var/lib/postgresql/
 
 # https://github.com/docker-library/postgres
+POSTGRES_DIR=/var/lib/postgresql
+sudo mkdir -p $POSTGRES_DIR/data
+sudo chown -R 999:999 $POSTGRES_DIR/data
 sudo docker run -d --restart unless-stopped \
     --publish=5432:5432 \
-    -v /var/lib/postgresql/data:/var/lib/postgresql/data \
+    --publish=8081:8081 \
+    -v $POSTGRES_DIR/data:/var/lib/postgresql/data \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
-     postgres:15
+     postgres:16
 
-    --publish=8081:8081 \
 
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client
@@ -271,7 +272,7 @@ server {
     proxy_ssl_verify_depth 4;
     proxy_ssl_server_name on;
     proxy_ssl_verify on;
-    proxy_ssl_protocols TLSv1.3;
+    proxy_ssl_protocols TLSv1.3 TLSv1.2;
     proxy_ssl_trusted_certificate /opt/byoda/dirserver/network-<network>/network-<network>-root-ca-cert.pem;
 
     location / {

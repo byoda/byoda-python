@@ -2,7 +2,7 @@
 Functions shared between the pod server and the pod worker
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -33,6 +33,7 @@ def get_environment_vars() -> dict:
       - private_key_password: str
       - loglevel: None, 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRIT'
       - worker_loglevel: None, 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRIT'
+      - log_queries: bool
       - root_dir: str
       - roles: ['pod']
       - debug: bool
@@ -93,6 +94,10 @@ def get_environment_vars() -> dict:
     data['bootstrap'] = False
     if os.environ.get('BOOTSTRAP', '').upper() == 'BOOTSTRAP':
         data['bootstrap'] = True
+
+    data['log_requests'] = True
+    if os.environ.get('LOG_REQUESTS', 'TRUE').upper() == 'FALSE':
+        data['log_requests'] = False
 
     if data.get('daemonize', '').upper() == 'FALSE':
         data['daemonize'] = False

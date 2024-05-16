@@ -2,7 +2,7 @@
 Pydantic model used for REST Data API queries
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024, 2024
 :license    : GPLv3
 '''
 
@@ -26,7 +26,9 @@ from pydantic.functional_validators import AfterValidator
 from pydantic import BaseModel as PydanticBaseModel
 
 from byoda.datatypes import IdType
+from byoda.datatypes import Currency
 from byoda.datatypes import DataFilterType
+from byoda.datatypes import MonetizationType
 
 from byoda.util.logger import Logger
 
@@ -43,18 +45,20 @@ DEFAULT_PAGE_LENGTH: int = 20
 
 class BaseModel(PydanticBaseModel):
     class Config:
-        extra: str = 'forbid'
+        # Disabled because of potential to cause outage
+        # extra: str = 'forbid'
+        pass
 
 
 # This is a generic model for NetworkLink. Service schemas must include
 # these three fields and match their definitions but may add additional fields.
 class NetworkLink(BaseModel):
     created_timestamp: datetime = Field(
-        description="time the network link was created"
+        description='time the network link was created'
     )
-    member_id: UUID = Field(description="The UUID of the other member")
+    member_id: UUID = Field(description='The UUID of the other member')
     relation: str = Field(
-        description="What relation you have with the other member"
+        description='What relation you have with the other member'
     )
 
 
@@ -178,6 +182,7 @@ class EdgeResponse(BaseModel, Generic[TypeX]):
     cursor: str
     origin: UUID
     node: TypeX
+    expires_at: int | None = None
 
 
 class PageInfoResponse(BaseModel):
@@ -187,7 +192,7 @@ class PageInfoResponse(BaseModel):
 
 class QueryResponseModel(BaseModel):
     total_count: int
-    edges: list[EdgeResponse]
+    edges: list[EdgeResponse[TypeX]]
     page_info: PageInfoResponse
 
 
@@ -354,6 +359,23 @@ class VideoChapter(PydanticBaseModel):
     title: str | None = None
 
 
+class PaymentOption(PydanticBaseModel):
+    payment_option_id: UUID
+    amount_in_smallest_currency_unit: int
+    currency: Currency
+    accepted_payment_provider_ids: list[UUID] = []
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class Monetization(PydanticBaseModel):
+    created_timestamp: datetime
+    monetization_id: UUID
+    monetization_type: MonetizationType
+    requires_burst_points: bool = False
+    network_relations: list[str] = []
+    payment_options: list[PaymentOption] = []
+
+
 # Fixed-configuration class for servers that don't create dataclasses
 class Asset(PydanticBaseModel):
     created_timestamp: datetime
@@ -363,6 +385,7 @@ class Asset(PydanticBaseModel):
     asset_merkle_root_hash: str | None = None
     video_thumbnails: list[VideoThumbnail] | None = None
     video_chapters: list[VideoChapter] | None = None
+    encoding_profiles: list[str] | None = None
     locale: str | None = None
     creator: str | None = None
     creator_thumbnail: str | None = None
@@ -372,7 +395,10 @@ class Asset(PydanticBaseModel):
     copyright_years: list[int] | None = None
     publisher: str | None = None
     publisher_asset_id: str | None = None
+    publisher_views: int | None = None
+    publisher_likes: int | None = None
     title: str | None = None
+    subject: str | None = None
     contents: str | None = None
     keywords: list[str] | None = None
     annotations: list[str] | None = None
@@ -381,3 +407,55 @@ class Asset(PydanticBaseModel):
     channel_id: UUID | None = None
     ingest_status: str | None = None
     screen_orientation_horizontal: bool | None = None
+    monetizations: list[Monetization] = []
+
+
+# Fixed-configuration class for servers that don't create dataclasses
+class ExternalLink(BaseModel):
+    name: str | None = Field(default=None, description='name of the link')
+    priority: int | None = Field(
+        default=None, description=(
+            'priority of the link, informs in what order '
+            'links should be presented'
+        )
+    )
+    url: str | None = Field(default=None, description='URL of the link')
+
+
+class Channel(PydanticBaseModel):
+    available_country_codes: list[str] | None = Field(
+        default=None,
+        description='list of country codes where the channel is available'
+    )
+    banners: list[VideoThumbnail] | None = Field(
+        default=None, description='Banners for the channel'
+    )
+    channel_id: UUID | None = Field(
+        default=None, description='The uuid of the channel'
+    )
+    channel_thumbnails: list[VideoThumbnail] | None = Field(
+        default=None, description='URL for the channel&#39;s thumbnail'
+    )
+    claims: list[Claim] | None = Field(
+        default=None, description='list of claims for the asset'
+    )
+    created_timestamp: datetime | None = Field(
+        default=None, description='time the channel was created'
+    )
+    creator: str | None = Field(
+        default=None, description='creator of the asset'
+    )
+    description: str | None = Field(
+        default=None, description='information about the channel'
+    )
+    external_urls: list[ExternalLink] | None = Field(
+        default=None, description='links to external sites'
+    )
+    is_family_safe: bool | None = Field(
+        default=None, description='Whether the channel is family safe'
+    )
+    keywords: list[str] | None = Field(
+        default=None, description=(
+            'keywords that apply to all the videos of the channel'
+        )
+    )

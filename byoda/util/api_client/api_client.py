@@ -1,7 +1,7 @@
 '''
 ApiClient, base class for RestApiClient, and GqlApiClient
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -31,6 +31,13 @@ from httpx import AsyncClient as AsyncHttpClient
 from httpx import Response as HttpResponse
 from httpx import RequestError
 from httpx import TransportError
+
+# Imported so that other modules can import these exceptions
+from httpx import HTTPError
+from httpx import ConnectError
+from httpx import ConnectTimeout
+from httpx import NetworkError
+from httpx import TimeoutException
 
 from opentelemetry.propagate import inject
 
@@ -88,7 +95,7 @@ class ApiClient:
     def __init__(self, api: str, secret: Secret = None, jwt: JWT = None,
                  service_id: int = None, timeout: int = 10,
                  port: int = None, network_name: str = None,
-                 app: FastAPI | None = None):
+                 app: FastAPI | None = None) -> None:
         '''
         Maintains a pool of connections for different destinations
 
@@ -115,10 +122,19 @@ class ApiClient:
         self.headers: dict[str, str] = {}
         self.app: FastAPI | None = app
 
+        # Used for annotating log messages
+        self.extra: dict[str, any] = {
+            'api': api,
+            'service_id': service_id,
+            'network_name': network_name,
+            'timeout': timeout
+        }
+
         if secret and jwt:
             raise ValueError(
                 'Specify either secret or JWT to use for authentication'
             )
+
         # HACK: fix this hack
         server: Server = config.server
         if hasattr(server, 'local_storage'):
@@ -158,6 +174,11 @@ class ApiClient:
             )
 
         self.host = parsed_url.hostname
+
+        self.extra['host'] = self.host
+        self.extra['pool'] = self.pool
+        self.extra['port'] = self.port
+
         if (parsed_url.hostname.startswith('dir.')
                 or parsed_url.hostname.startswith('proxy.')
                 or network_name not in parsed_url.hostname):
@@ -167,13 +188,16 @@ class ApiClient:
             # these use certs signed by a public CA
             _LOGGER.debug(
                 'Not using byoda certchain for server cert '
-                f'verification of {api}'
+                f'verification', extra=self.extra
             )
         else:
             self.ca_filepath = (
                 storage.local_path + server.network.root_ca.cert_file
             )
-            _LOGGER.debug(f'Set server cert validation to {self.ca_filepath}')
+            _LOGGER.debug(
+                f'Set server cert validation to {self.ca_filepath}',
+                extra=self.extra
+            )
 
         if config.debug and parsed_url.hostname.endswith(network_name):
             # For tracing propagate the Span ID to remote hosts
@@ -188,9 +212,9 @@ class ApiClient:
             key_filepath: str = secret.get_tmp_private_key_filepath()
             self.cert = (cert_filepath, key_filepath)
 
-            _LOGGER.debug(
-                f'Setting client cert/key to {cert_filepath}, {key_filepath}'
-            )
+            self.extra['cert_filepath'] = cert_filepath
+            self.extra['key_filepath'] = key_filepath
+            _LOGGER.debug(f'Setting client cert/key', extra=self.extra)
         elif jwt:
             if not jwt.encoded:
                 raise ValueError('JWT does not contain an encoded token')
@@ -221,17 +245,16 @@ class ApiClient:
         if self.pool in config.client_pools:
             config.client_pools.pop(self.pool, None)
             _LOGGER.debug(
-                f'Removed HTTPX Session of pool {self.pool} '
-                f'for connection to {self.host}:{self.port}'
+                f'Removed HTTPX Session from pool', extra=self.extra
             )
 
         _LOGGER.debug(
-            f'Creating HTTPX Session in pool {self.pool} to {self.host}:{self.port}'
+            f'Creating HTTPX Session', extra=self.extra
         )
 
         self.session: AsyncHttpClient = AsyncHttpClient(
             timeout=self.timeout, verify=self.ca_filepath, cert=self.cert,
-            http2=True
+            http2=False
         )
 
         config.client_pools[self.pool] = HttpSession(
@@ -321,6 +344,9 @@ class ApiClient:
             timeout=timeout, port=port, app=app
         )
 
+        client.extra['method'] = method
+        client.extra['params'] = params
+
         # Start with the headers that may have opentelemetry span id header
         updated_headers: dict[str, str] = deepcopy(client.headers)
         if headers:
@@ -332,6 +358,8 @@ class ApiClient:
 
         retries: int = 0
         delay: float = 0.0
+        client.extra['retries'] = retries
+        client.extra[delay] = delay
         while retries < ApiClient.MAX_RETRIES:
             skip_sleep: bool = False
             try:
@@ -344,12 +372,15 @@ class ApiClient:
                     ) as exc:
                 raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
             except RuntimeError as exc:
-                _LOGGER.debug(f'RuntimeError in call to API {api}: {exc}')
+                _LOGGER.debug(f'RuntimeError: {exc}', extra=client.extra)
                 if is_data_api_query and 'Event loop is closed' in str(exc):
                     # HACK: this deals with issue in test cases where HTTPX
                     # fails on 'event loop is closed', especially when
                     # code uses the redis-py module
-                    _LOGGER.debug('Updating query_id after request failure')
+                    _LOGGER.debug(
+                        'Updating query_id after request failure',
+                        extra=client.extra
+                    )
                     data_dict: dict[str, object] = orjson.loads(processed_data)
                     data_dict['query_id'] = uuid4()
                     processed_data = orjson.dumps(data_dict)
@@ -364,9 +395,10 @@ class ApiClient:
             if retries < len(ApiClient.RETRY_DELAYS) - 1:
                 retries += 1
 
+            client.extra['retries'] = retries
+            client.extra['delay'] = delay
             _LOGGER.debug(
-                f'Failed try #{retries} to call API, '
-                f'waiting for {round(delay, 3)} seconds before retrying'
+                f'Failed to call API, will retry', extra=client.extra
             )
 
             if not skip_sleep:
@@ -404,7 +436,7 @@ class ApiClient:
         for pool in pools:
             del config.client_pools[pool]
 
-        config.client_pools: dict[str, AsyncHttpClient] = {}
+        config.client_pools = {}
 
     @staticmethod
     def _get_sync_client(api: str, secret: Secret, service_id: int,
@@ -430,6 +462,7 @@ class ApiClient:
         if hasattr(server, 'local_storage'):
             storage = server.local_storage
 
+        pool: str
         if not secret:
             if api.startswith('http://'):
                 pool = 'noauth-http'
@@ -533,7 +566,7 @@ class ApiClient:
         )
 
         if not network_name:
-            network = server.network
+            network: Network = server.network
             network_name = network.name
 
         if type(data) not in [str, bytes]:

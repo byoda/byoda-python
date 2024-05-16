@@ -4,7 +4,7 @@
 Test cases for DataFilter and DataFilterSet classes
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023
+:copyright  : Copyright 2023, 2024
 :license    : GPLv3
 '''
 
@@ -13,8 +13,6 @@ import sys
 import shutil
 import unittest
 
-from time import sleep
-from uuid import uuid4
 from datetime import datetime
 from datetime import timezone
 
@@ -46,7 +44,6 @@ from tests.lib.setup import setup_account
 
 from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
-from tests.lib.defines import BASE_URL
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 NETWORK: str = config.DEFAULT_NETWORK
@@ -75,7 +72,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         global BASE_URL
         BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 

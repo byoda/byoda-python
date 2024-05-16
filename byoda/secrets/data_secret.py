@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ import struct
 from copy import copy
 from typing import Self
 from typing import TypeVar
+from typing import override
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -67,6 +68,7 @@ class DataSecret(Secret):
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
+    @override
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None) -> None:
 
@@ -322,8 +324,10 @@ class DataSecret(Secret):
 
         return digest
 
+    @override
     async def download(self, url: str, ca_filepath: str = None,
-                       network_name: str | None = None) -> str | None:
+                       network_name: str | None = None,
+                       fingerprint: str | None = None) -> str | None:
         '''
         Downloads the data secret of a remote member
 
@@ -341,7 +345,8 @@ class DataSecret(Secret):
 
         _LOGGER.debug(f'Downloading data secret from {url}')
         cert_data: str | None = await Secret.download(
-            url, root_ca_filepath=ca_filepath, network_name=network_name
+            url, root_ca_filepath=ca_filepath, network_name=network_name,
+            fingerprint=fingerprint
         )
 
         return cert_data

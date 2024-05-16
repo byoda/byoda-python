@@ -8,7 +8,7 @@ TODO: fix test case so it doesn't use the proxy when connecting to a pod
 with a custom domain
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license
 '''
 
@@ -125,9 +125,15 @@ MEMBER_IDS: dict[str, str] = {
 
 
 class TestWebServer(unittest.TestCase):
-    def test_html_file(self):
+    def test_html_file(self) -> None:
+        response: httpx.Response
         for cloud in URLS:
             if cloud == 'local':
+                continue
+
+            if cloud in ('aws', 'gcp'):
+                # These pods have been shutdown for now to avoid
+                # cloud costs
                 continue
 
             for target in URLS[cloud]:
@@ -154,6 +160,8 @@ class TestWebServer(unittest.TestCase):
                         self.assertEqual(response.status_code, 403)
 
                         asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+                        key_id: int
+                        token: str
                         key_id, token = get_token(url, asset_id, cloud)
                         self.assertEqual(key_id, 1)
                         self.assertIsNotNone(token)
@@ -194,19 +202,19 @@ def get_token(url: str, asset_id: UUID, cloud: str) -> tuple[int, str]:
         f'https://{MEMBER_IDS[cloud]}.'
         f'members-{ADDRESSBOOK_SERVICE_ID}.byoda.net/api/v1/pod/content/token'
     )
-    query_params = {
+    query_params: dict[str, any] = {
         'asset_id': str(asset_id),
         'service_id': ADDRESSBOOK_SERVICE_ID,
         'signedby': str(uuid4()),
         'token': 'placeholder'
     }
 
-    result = httpx.get(
+    result: httpx.Response = httpx.get(
         url, params=query_params,
         verify='tests/collateral/network-byoda.net-root-ca-cert.pem'
     )
 
-    data = result.json()
+    data: dict[str, any] = result.json()
     key_id: int = data.get('key_id')
     token: str = data.get('content_token')
 

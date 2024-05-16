@@ -13,8 +13,6 @@ import sys
 import shutil
 import unittest
 
-from datetime import datetime
-from datetime import timezone
 from byoda.data_import.youtube_channel import YouTubeChannel
 
 from byoda.datamodel.network import Network
@@ -73,6 +71,10 @@ API_KEY_FILE: str = 'tests/collateral/local/youtube-data-api.key'
 
 
 class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
+    '''
+    Tests for downloading videos and metadata from YouTube
+    '''
+
     async def asyncSetUp(self) -> None:
         try:
             shutil.rmtree(TEST_DIR)
@@ -96,7 +98,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             f'{TEST_DIR}/tests/collateral/'
         )
 
-        mock_environment_vars(TEST_DIR)
+        mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(
             delete_tmp_dir=False
         )
@@ -116,7 +118,10 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         os.makedirs(f'{TEST_DIR}/network-byoda.net/services/service-16384')
         shutil.copy(
             'tests/collateral/byotube.json',
-            f'{TEST_DIR}/network-byoda.net/services/service-16384/service-contract.json'
+            (
+                f'{TEST_DIR}/network-byoda.net/services/service-16384'
+                '/service-contract.json'
+            )
         )
 
         global APP
@@ -141,20 +146,55 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         os.environ[YouTube.ENVIRON_API_KEY] = ''
 
     @classmethod
-    async def asyncTearDown(self) -> None:
+    async def asyncTearDown(cls) -> None:
+        '''
+        Shut down the API client
+        '''
+
         await ApiClient.close_all()
 
-    async def test_get_channelname(self) -> None:
-        channel_title: str = 'History Matters'
-        channel: YouTubeChannel = YouTubeChannel.get_channel(
-            channel_title
+    async def test_scrape_unavailable_video(self) -> None:
+        '''
+        Test scraping a video that is unavailable
+        '''
+
+        video_id: str = 'JZ9Qj7bGizA'
+        video: YouTubeVideo = await YouTubeVideo.scrape(
+            video_id, None, None, None
         )
-        self.assertIsNotNone(channel)
-        self.assertEqual(channel.name, 'HistoryMatters')
-        self.assertEqual(channel.title, channel_title)
-        self.assertEqual(channel.channel_id, 'UC22BdTgxefuvUivrjesETjg')
+        self.assertIsNotNone(video)
+        self.assertIsNotNone(video.asset_id)
+        self.assertEqual(video.ingest_status, IngestStatus.UNAVAILABLE)
+        self.assertEqual(video.video_id, video_id)
+
+    async def test_get_channelname(self) -> None:
+        '''
+        Test getting the channel name from a video
+        '''
+        channel_name: str = 'History Matters'
+        ytc = YouTubeChannel(name=channel_name)
+        page_data: str = await ytc.get_videos_page()
+        ytc.parse_channel_info(page_data)
+        self.assertIsNotNone(ytc)
+        self.assertEqual(ytc.title, channel_name)
+        self.assertEqual(ytc.youtube_channel_id, 'UC22BdTgxefuvUivrjesETjg')
+        self.assertEqual(len(ytc.banners), 16)
+        self.assertEqual(ytc.channel_thumbnail.size, '176x176')
+        self.assertEqual(len(ytc.channel_thumbnails), 3)
+        self.assertTrue(
+            ytc.description.startswith(
+                'History Matters is a history-focused'
+            )
+        )
+        self.assertEqual(len(ytc.external_urls), 2)
+        self.assertEqual(len(ytc.keywords), 1)
+        self.assertTrue('Education' in ytc.keywords)
 
     async def test_scrape_videos(self) -> None:
+        '''
+        Test scraping a video that is available
+        '''
+
         account: Account = config.server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         member: Member = await account.get_membership(service_id)
@@ -168,11 +208,11 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         storage_driver: FileStorage = server.storage_driver
         network: Network = server.network
 
-        channel: str = 'Dathes:ALL'
-        # channel: str = 'nfl'
+        channel: str = 'Dathes'
+        # channel: str = 'nfl:ALL'
         # channel: str = 'accountabletech'
-        # channel: str = 'PolyMatter'
-        # channel: str = 'History Matters'
+        channel: str = 'PolyMatter:ALL'
+        # channel: str = 'HistoryMatters'
         # channel: str = 'thedealguy'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
@@ -181,10 +221,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         channel_data_class: SchemaDataItem = \
             data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
 
-        ingested_channels: dict[str, dict[str, str]] = \
-            await YouTube.load_ingested_channels(
-                member.member_id, channel_data_class, data_store
-            )
+        ingested_channels: set[str] = await YouTube.load_ingested_channels(
+            member.member_id, channel_data_class, data_store
+        )
         self.assertEqual(len(ingested_channels), 0)
 
         ingested_videos: dict[str, dict[str, str]] = \
@@ -203,11 +242,11 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         }
         channel_name: str = channel
         if ':' in channel_name:
-            channel_name = channel_name.split(':')[0]
+            channel_name = channel_name.split(':', maxsplit=1)[0]
         jwt: JWT = JWT.create(
             member.member_id, IdType.MEMBER, member.data_secret, network.name,
             ADDRESSBOOK_SERVICE_ID, IdType.APP, MODTEST_APP_ID,
-            expiration_days=3
+            expiration_seconds=3 * 24 * 60 * 60
         )
         mod_url: str = f'https://{MODTEST_FQDN}'
         mod_api_url: str = mod_url + YouTube.MODERATION_REQUEST_API
@@ -252,64 +291,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             member, data_store, storage_driver, ingested_videos,
             ingested_channels, ingest_interval=4,
             custom_domain=server.custom_domain
-        )
-
-    async def test_import_videos(self) -> None:
-        _LOGGER.info('Disabled API import tests')
-        return
-
-        account: Account = config.server.account
-        service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
-
-        server: PodServer = config.server
-        data_store: DataStore = server.data_store
-        storage_driver: FileStorage = server.storage_driver
-
-        with open(API_KEY_FILE, 'r') as file_desc:
-            api_key = file_desc.read().strip()
-
-        os.environ[YouTube.ENVIRON_API_KEY] = api_key
-        os.environ[YouTube.ENVIRON_CHANNEL] = 'Dathes'
-        yt = YouTube()
-
-        already_ingested_videos = await YouTube.load_ingested_videos(
-            member.member_id, data_store
-        )
-        self.assertEqual(len(already_ingested_videos), 0)
-
-        already_ingested_videos = {
-            '2BqKA3DOilk': {
-                'ingest_status': IngestStatus.PUBLISHED,
-                'published_timestamp': datetime.now(timezone.utc)
-            },
-            'OD08BC26QaM': {
-                'ingest_status': IngestStatus.EXTERNAL,
-                'published_timestamp': datetime.now(timezone.utc)
-            },
-        }
-
-        await yt.get_videos(already_ingested_videos, ingested_channels={})
-
-        await yt.persist(
-            member, data_store, storage_driver, already_ingested_videos
-        )
-
-        ingested_videos = await YouTube.load_ingested_videos(
-            member.member_id, data_store
-        )
-
-        # We are not ingesting A/V tracks in this test so only
-        # expect 1 ingested video
-        self.assertEqual(len(ingested_videos), 1)
-
-        # Start with clean slate
-        yt = YouTube()
-
-        await yt.get_videos(ingested_videos, ingested_channels={})
-
-        await yt.persist(
-            member, data_store, storage_driver, already_ingested_videos
         )
 
 

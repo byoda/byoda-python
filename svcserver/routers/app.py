@@ -2,7 +2,7 @@
 API for submitting App certificates for signature by the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -50,7 +50,7 @@ router: APIRouter = APIRouter(
 @router.post('/app', status_code=201)
 async def post_app(request: Request, csr: CertSigningRequestModel,
                    auth: AppRequestAuthOptionalFast =
-                   Depends(AppRequestAuthOptionalFast)):
+                   Depends(AppRequestAuthOptionalFast)) -> None:
     '''
     Submit a Certificate Signing Request for the Member certificate
     and get the cert signed by the Service Members CA

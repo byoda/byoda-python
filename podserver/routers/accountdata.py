@@ -2,7 +2,7 @@
 memberdata API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -119,7 +119,7 @@ async def backup_accountdata(request: Request, auth: AuthDep):
         )
 
     # BUG: calling backup_datastore works from podworker but fails on
-    # appserver on byoda/storage/sqlite.py:290 
+    # appserver on byoda/storage/sqlite.py:290
     # TypeError: backup() argument 'target' must be sqlite3.Connection,
     # not TracedConnectionProxy"
 

@@ -2,7 +2,7 @@
 Non-specific data types
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023
+:copyright  : Copyright 2021, 2022, 2023, 2024
 :license    : GPLv3
 '''
 
@@ -10,6 +10,7 @@ Non-specific data types
 
 from enum import Enum
 from uuid import UUID
+from typing import Self
 from datetime import datetime
 from datetime import time
 from datetime import date
@@ -56,7 +57,7 @@ MemberInfo: namedtuple = namedtuple(
 )
 NetworkLink: namedtuple = namedtuple(
     'NetworkLink', [
-        'member_id', 'relation', 'created_timestamp','annotations',
+        'member_id', 'relation', 'created_timestamp', 'annotations',
         'last_health_api_success'
     ]
 )
@@ -118,9 +119,10 @@ class IdType(Enum):
     APP                  = 'apps-'
     APP_DATA             = 'app-data-'
     ANONYMOUS            = 'anonymous'
+    BTLITE               = 'btlite'
 
     @staticmethod
-    def by_value_lengths():
+    def by_value_lengths() -> list[Self]:
         return sorted(list(IdType), key=lambda k: len(k.value), reverse=True)
 
 # The UUID is the value for the specified IdType, ie with IdType.MEMBER
@@ -141,6 +143,48 @@ class VisibilityType(Enum):
     KNOWN                = 'known'
     PUBLIC               = 'public'
     RESTRICTED           = 'restricted'
+
+
+class MailType(Enum):
+    '''
+    The type of email message that we want to send to user
+    '''
+
+    EMAIL_VERIFICATION   = 'email_verification'
+    PASSWORD_RESET       = 'password_reset'
+    TWO_FACTOR_AUTH      = 'two_factor_auth'
+
+
+# From BYO.Tube service contract
+class MonetizationType(Enum):
+    # flake8: noqa: E221
+    FREE            = 'free'
+    BURSTPOINTS     = 'burstpoints'
+    SUBSCRIPTION    = 'subscription'
+    PPV             = 'ppv'
+    SPPV            = 'sppv'
+    PREROLL_AD      = 'preroll_ad'
+
+
+# From byopay.payserver.util.datatypes
+class Currency(Enum):
+    USD = 'USD'
+    EUR = 'EUR'
+    UKP = 'UKP'
+    CAD = 'CAD'
+    AUD = 'AUD'
+    NZD = 'NZD'
+    CNY = 'CNY'
+    HKD = 'HKD'
+    SGD = 'SD'
+    MYR = 'RM'
+    CHF = 'CHF'
+    DKK = 'DKK'
+    NOK = 'NOK'
+    SEK = 'SEK'
+    JPY = 'JPY'
+    PLN = 'PLN'
+    CZK = 'CZK'
 
 
 class CloudType(Enum):
@@ -168,6 +212,11 @@ class CacheType(Enum):
     ASSETDB      = 'AssetDb'
     MEMBERDB     = 'MemberDb'
     SEARCHDB     = 'SearchDb'
+
+# Type of item to store in the searchable_cache
+class ItemType(Enum):
+    ASSET       =  'assets'
+    CHANNEL     =  'channels'
 
 CounterFilter = dict[str, str | UUID]
 
@@ -457,6 +506,7 @@ class IngestStatus(Enum):
     UPLOADING       = 'uploading'
     INGESTED        = 'ingested'
     QUEUED_START    = 'queued_start'
+    UNAVAILABLE     = 'unavailable'
 
 # MemberStatus is used for the MemberDB.status attribute
 class MemberStatus(Enum):
