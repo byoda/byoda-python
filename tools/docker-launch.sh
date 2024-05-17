@@ -18,11 +18,6 @@ if [ -f  ${HOME_DIR}/byoda-generic-settings.sh ]; then
     source ${HOME_DIR}/byoda-generic-settings.sh
 fi
 
-if [ -f ${HOME_DIR}/byoda-settings.sh ]; then
-    echo "Loading settings from ${HOME_DIR}/byoda-settings.sh"
-    source ${HOME_DIR}/byoda-settings.sh
-fi
-
 if [ -f  ${HOME_DIR}/byoda-user-settings.sh ]; then
     echo "Loading settings from ${HOME_DIR}/byoda-user-settings.sh"
     source ${HOME_DIR}/byoda-user-settings.sh
@@ -140,6 +135,21 @@ if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
 fi
 
 
+export POSTFIX=${ACCOUNT_ID:24:8}
+if [[ ${HOSTNAME:0:4} == "byo-" ]]; then
+    export POSTFIX=$HOSTNAME
+fi
+if [[ ${HOSTNAME} == 'dathes' || ${HOSTNAME} == 'notest' || ${HOSTNAME} == 'demotest' || ${HOSTNAME} == 'dmz' ]]; then
+    export POSTFIX=$HOSTNAME
+fi
+
+for NAME in azure gcp aws; do
+    if [[ ${HOSTNAME} == ${NAME}-pod ]]; then
+        export POSTFIX=${NAME}
+    fi
+done
+echo "Using directory postfix: ${POSTFIX}"
+
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     if [ -z "${LOGDIR}" ]; then
@@ -175,21 +185,6 @@ else
         export PORT_MAPPINGS="-p 443:443 -p 444:444 -p 80:80"
     fi
 fi
-
-export POSTFIX=${ACCOUNT_ID:0:8}
-if [[ ${HOSTNAME:0:4} == "byo-" ]]; then
-    export POSTFIX=$HOSTNAME
-fi
-if [[ ${HOSTNAME} == 'dathes' || ${HOSTNAME} == 'notest' || ${HOSTNAME} == 'demotest' || ${HOSTNAME} == 'dmz' ]]; then
-    export POSTFIX=$HOSTNAME
-fi
-
-for NAME in azure gcp aws; do
-    if [[ ${HOSTNAME} == ${NAME}-pod ]]; then
-        export POSTFIX=${NAME}
-    fi
-done
-echo "Using directory postfix: ${POSTFIX}"
 
 export AWS_CREDENTIALS=
 if [ ! -z "${AWS_ACCESS_KEY_ID}" ]; then
@@ -497,13 +492,13 @@ sudo docker rm byoda  2>/dev/null
 
 ENV_FILE=${HOME_DIR}/byoda.env
 GENERATE=FALSE
-if [ ! -x ${ENV_FILE} ]; then
+if [ ! -f ${ENV_FILE} ]; then
     echo No byoda.env found
     GENERATE=TRUE
-elif [ ${HOME_DIR}/byoda-generic-settings.sh -ot {ENV_FILE} ]; then
+elif [ ${HOME_DIR}/byoda-generic-settings.sh -nt ${ENV_FILE} ]; then
     echo byoda-generic-settings.sh is newer than byoda.env
     GENERATE=TRUE
-elif [ ${HOME_DIR}/byoda-user-settings.sh -ot ${ENV_FILE} ]; then
+elif [ ${HOME_DIR}/byoda-user-settings.sh -nt ${ENV_FILE} ]; then
     echo byoda-user-settings.sh is newer than byoda.env
     GENERATE=TRUE
 fi
@@ -523,7 +518,7 @@ PUBLIC_BUCKET=${PUBLIC_BUCKET}
 NETWORK=${NETWORK}
 ACCOUNT_ID=${ACCOUNT_ID}
 ACCOUNT_USERNAME=${ACCOUNT_USERNAME}
-ACCOUNT_SECRET=${ACCOUNT_SECRET}
+ACCOUNT_SECRET='${ACCOUNT_SECRET}'
 PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}
 BOOTSTRAP=${BOOTSTRAP}
 JOIN_SERVICE_IDS=${JOIN_SERVICE_IDS}
@@ -543,6 +538,6 @@ LOGDIR=${LOGDIR}
 WEB_LOG_DIR=${WEB_LOG_DIR}
 EOF
 fi
-echo "Launching containers"
+echo "Launching containers using postfix ${POSTFIX} and tag ${TAG}"
 
 docker compose -f ${HOME_DIR}/docker-compose.yaml up -d

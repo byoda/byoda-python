@@ -35,9 +35,8 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
 mkdir -p ~/.secrets
 chmod 700 ~/.secrets
 
-sudo pip3 install passgen
 if [ ! -f ~/.secrets/postgres.password ]; then
-  passgen -n 1 >~/.secrets/postgres.password
+  openssl rand -base64 32 | tr -dc _A-Z-a-z-0-9 | head -c ${1:-12} >~/.secrets/postgres.password
 fi
 
 export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
@@ -62,7 +61,7 @@ sudo apt-get -y install postgresql-client
 export DIRSERVER=$(curl -s http://ifconfig.me)
 
 if [ ! -f ~/.secrets/sql_powerdns.password ]; then
-  passgen -n 1 >~/.secrets/sql_powerdns.password
+  openssl rand -base64 32 | tr -dc _A-Z-a-z-0-9 | head -c ${1:-12} >~/.secrets/sql_powerdns.password
 fi
 
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
