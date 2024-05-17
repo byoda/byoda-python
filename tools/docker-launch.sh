@@ -536,7 +536,7 @@ TRACE_SERVER=${TRACE_SERVER}
 LOGDIR=${LOGDIR}
 WEB_LOG_DIR=${WEB_LOG_DIR}
 EOF
-
+fi
 echo "ACCOUNT_SECRET='$ACCOUNT_SECRET'" >> ${ENV_FILE}
 
 echo "Launching containers using postfix ${POSTFIX} and tag ${TAG}"
