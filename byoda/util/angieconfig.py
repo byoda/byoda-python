@@ -171,34 +171,3 @@ class AngieConfig(TargetConfig):
         )
         with open(self.config_filepath, 'w') as file_desc:
             file_desc.write(output)
-
-    def reload(self) -> None:
-        '''
-        Reload the angie process, if it is running
-        '''
-
-        server: PodServer = config.server
-
-        try:
-            with open(ANGIE_PID_FILE) as file_desc:
-                try:
-                    pid = int(file_desc.readline().strip())
-                    os.kill(pid, signal.SIGHUP)
-                    _LOGGER.debug(
-                        'Sent SIGHUP to angie process with pid %s', pid
-                    )
-                except ValueError:
-                    # No valid value in pid file means that angie is not
-                    # running, which can happen on a dev workstation
-                    _LOGGER.warning('Could not find pid of angie process')
-
-        except FileNotFoundError:
-            if not server.shared_webserver:
-                _LOGGER.debug(
-                    'Unable to read ANGIE pid file: %s', ANGIE_PID_FILE
-                )
-            else:
-                _LOGGER.debug(
-                    'Not reloading angie because we are behind a shared '
-                    'webserver'
-                )

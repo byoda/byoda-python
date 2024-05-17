@@ -455,7 +455,6 @@ class Member:
         )
 
         angie_config.create()
-        angie_config.reload()
 
     def update_schema(self, version: int) -> None:
         '''

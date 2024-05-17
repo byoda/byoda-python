@@ -19,20 +19,8 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
-    /etc/angie/ssl \
-    /var/cache/angie/proxy_temp \
-    /var/cache/angie/objectstorage \
-    /var/log/angie \
-    /var/log/nginx \
     byoda-python
 
-
-COPY podserver/files/dhparam.pem /etc/angie/ssl/
-
-RUN apt-get update && apt-get install -y curl
-RUN curl -o /etc/apt/trusted.gpg.d/angie-signing.gpg https://angie.software/keys/angie-signing.gpg
-
-COPY podserver/files/angie.list /etc/apt/sources.list.d/
 
 COPY ./Pipfile ./Pipfile.lock byoda-python/
 
@@ -57,29 +45,17 @@ RUN apt-get update && apt-get install -y \
        unzip \
        curl \
        git \
-       angie \
-       angie-console-light \
     && curl -s https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-640.x86_64-unknown-linux.zip -o bento4.zip \
     && unzip bento4.zip \
     && mkdir bento4 \
     && mv Bento4-*-linux/* bento4 \
     && rm -rf Bento4-SDK-1-6-0-640.x86_64-unknown-linux \
     && rm bento4.zip \
-    && rm -f /etc/angie/conf.d/default.conf \
-    && openssl rand 80 >/etc/angie/ssl/sslticket.key \
     && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
     && apt-get --yes remove build-essential \
     && apt-get --yes auto-remove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
-
-###
-### angie bits
-###
-COPY podserver/files/robots.txt /var/www/wwwroot/
-COPY podserver/files/angie.conf /etc/angie/
-COPY podserver/files/virtualserver.conf.jinja2 /etc/angie/conf.d/
-
 
 
 COPY podserver/files/config.yml byoda-python/

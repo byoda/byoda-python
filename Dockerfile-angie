@@ -1,0 +1,49 @@
+FROM ubuntu:24.04
+
+LABEL org.opencontainers.image.authors="BYODA <steven@byoda.org>"
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD  (angie -t 2>/dev/null && curl -I -s -o /dev/null --fail  http://localhost/robots.txt) || 1
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+
+
+RUN mkdir -p \
+    /etc/angie/ssl \
+    /var/cache/angie/proxy_temp \
+    /var/cache/angie/objectstorage \
+    /var/log/angie \
+    /var/log/byoda \
+    /etc/angie/conf.d
+
+RUN set -x \
+    && apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests -y \
+        ca-certificates lsb-release curl inotify-tools \
+    && curl -o /etc/apt/trusted.gpg.d/angie-signing.gpg \
+        https://angie.software/keys/angie-signing.gpg \
+    && echo "deb https://download.angie.software/angie/ubuntu/ `lsb_release \
+         -cs` main" > /etc/apt/sources.list.d/angie.list \
+    && apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests -y \
+        angie angie-module-geoip2 angie-module-njs angie-console-light  \
+    && apt-get remove --auto-remove --purge -y lsb-release \
+    && rm -Rf /var/lib/apt/lists \
+        /etc/apt/sources.list.d/angie.list \
+        /etc/apt/trusted.gpg.d/angie-signing.gpg \
+    && rm -f /etc/angie/conf.d/default.conf \
+    && openssl rand 80 >/etc/angie/ssl/sslticket.key
+
+COPY podserver/files/angie/angie-reloader.sh /usr/local/bin/angie-reloader.sh
+COPY podserver/files/angie/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY podserver/files/angie/angie.conf /etc/angie
+COPY podserver/files/angie/dhparam.pem /etc/angie/ssl
+COPY podserver/files/angie/robots.txt /var/www/wwwroot/
+
+RUN chmod +x /usr/local/bin/angie-reloader.sh /usr/local/bin/docker-entrypoint.sh \
+    && rm -f /etc/angie/conf.d/default.conf
+
+EXPOSE 443 444
+
+ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
+CMD ["angie", "-g", "daemon off;"]

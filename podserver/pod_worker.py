@@ -34,7 +34,6 @@ from byoda.datastore.cache_store import CacheStoreType
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.data_import.youtube import YouTube
-from byoda.data_import.twitter import Twitter
 
 from byoda.util.updates_listener import UpdateListenerMember
 
@@ -57,8 +56,6 @@ from podworker.datastore_maintenance import database_maintenance
 from podworker.datastore_maintenance import refresh_cached_data
 from podworker.datastore_maintenance import expire_cached_data
 
-from podworker.twitter import run_twitter_startup_tasks
-from podworker.twitter import twitter_update_task
 from podworker.youtube import run_youtube_startup_tasks
 from podworker.youtube import youtube_update_task
 
@@ -67,7 +64,6 @@ _LOGGER: Logger | None = None
 LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/worker.log'
 ADDRESSBOOK_ID: int = 4294929430
 YOUTUBE_IMPORT_SERVICE_ID: int = 16384
-TWITTER_IMPORT_SERVICE_ID: int = ADDRESSBOOK_ID
 
 
 async def main(argv) -> None:
@@ -88,12 +84,10 @@ async def main(argv) -> None:
     except ValueError:
         youtube_import_service_id: int = YOUTUBE_IMPORT_SERVICE_ID
 
-    twitter_import_service_id: int = TWITTER_IMPORT_SERVICE_ID
-
     await setup_recurring_tasks(server, youtube_import_service_id)
 
     listeners: dict[UUID, UpdateListenerMember] = await run_startup_tasks(
-        server, youtube_import_service_id, twitter_import_service_id
+        server, youtube_import_service_id
     )
 
     task_group: TaskGroup
@@ -117,7 +111,6 @@ async def main(argv) -> None:
 
 
 async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
-                            twitter_import_service_id: int
                             ) -> list[UpdateListenerMember]:
     '''
     Sets up data structures for the pod_worker
@@ -125,15 +118,12 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
     :param server:
     :param data_store:
     :param youtube_import_service_id: The service to run the Youtube import on
-    :param twitter_import_service-id: The service to run the Twitter import on
     '''
 
     _LOGGER.debug('Running pod_worker startup tasks')
 
     account: Account = server.account
     data_store: DataStore = server.data_store
-
-    server.twitter_client = None
 
     updates_listeners: dict[UUID, UpdateListenerMember] = \
         await get_current_network_links(account, data_store)
@@ -143,8 +133,6 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
     await upload_content_keys(server)
 
     await run_youtube_startup_tasks(server, youtube_import_service_id)
-
-    await run_twitter_startup_tasks(server, account, twitter_import_service_id)
 
     return updates_listeners
 
@@ -179,10 +167,6 @@ async def setup_recurring_tasks(server: PodServer,
         _LOGGER.debug('Scheduling backups of the datastore')
         interval: int = int(os.environ.get("BACKUP_INTERVAL", 240) or 240)
         every(interval).minutes.do(backup_datastore, server)
-
-    if Twitter.twitter_integration_enabled():
-        _LOGGER.debug('Scheduling twitter update task')
-        every(180).seconds.do(twitter_update_task, server)
 
     if YouTube.youtube_integration_enabled():
         interval: int = int(

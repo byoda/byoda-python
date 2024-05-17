@@ -205,7 +205,6 @@ async def main(argv) -> None:
         )
 
         angie_config.create()
-        angie_config.reload()
 
         await account.load_memberships()
 

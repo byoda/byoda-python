@@ -1,0 +1,77 @@
+services:
+  angie:
+    image: byoda/angie:latest
+    container_name: angie
+    restart: unless-stopped
+    pull_policy: always
+    deploy:
+      resources:
+        limits:
+          memory: 50M
+    ulimits:
+      nofile:
+        soft: 524288
+        hard: 524288
+    volumes:
+      - type: bind
+        source: /var/log/angie/${POSTFIX}
+        target: /var/log/angie
+      - type: bind
+        source: /var/log/byoda/${POSTFIX}
+        target: /var/log/byoda
+      - type: bind
+        source: /byoda/${POSTFIX}
+        target: /byoda
+      - type: bind
+        source: /etc/letsencrypt/${POSTFIX}
+        target: /etc/letsencrypt
+      - type: bind
+        source: /etc/angie/conf.d/${POSTFIX}
+        target: /etc/angie/conf.d
+      - vartmpssl:/var/tmp/ssl
+    ports:
+      - 80:80
+      - 443:443
+      - 444:444
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      - POSTGRES_PASSWORD=byoda
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+    volumes:
+      - type: bind
+        source: /var/lib/postgres/${POSTFIX}
+        target: /var/lib/postgres
+  byoda-appserver:
+    image: byoda/byoda-pod:${TAG}
+    container_name: byoda
+    restart: unless-stopped
+    pull_policy: always
+    env_file: /home/ubuntu/byoda.env
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+    volumes:
+      - type: bind
+        source: /var/log/byoda/${POSTFIX}
+        target: /var/log/byoda
+      - type: bind
+        source: /etc/angie/conf.d/${POSTFIX}
+        target: /etc/angie/conf.d
+      - type: bind
+        source: /byoda/${POSTFIX}
+        target: /byoda
+      - type: bind
+        source: /var/lib/postgres/${POSTFIX}
+        target: /var/lib/postgres
+      - vartmpssl:/var/tmp/ssl
+
+volumes:
+  vartmpssl:
