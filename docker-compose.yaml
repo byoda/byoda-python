@@ -57,7 +57,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 800M
+          memory: 850M
     volumes:
       - type: bind
         source: /var/log/byoda/${POSTFIX}
