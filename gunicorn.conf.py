@@ -27,11 +27,7 @@ from tempfile import mkdtemp
 
 # BIND parameter is set in systemd file for the dirserver and svcserver
 # but we set it here for the podserver.
-bind: str
-if os.environ.get('SHARED_WEBSERVER'):
-    bind = '0.0.0.0:8000'
-else:
-    bind = '127.0.0.1:8000'
+bind: str = '0.0.0.0:8000'
 
 # backlog - The maximum number of pending connections
 # Generally in range 64-2048

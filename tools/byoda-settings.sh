@@ -61,14 +61,6 @@ export MODERATION_APP_ID="'bafc564d-0ba1-4821-ab1f-821f830cf8e6'"
 # export MODERATION_FQDN="api.byomod.org"
 # export MODERATION_APP_ID="3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22"
 
-# To import your Twitter public tweets, sign up for Twitter Developer
-# program at https://developer.twitter.com/ and set the following three
-# environment variables (more instructions in
-# https://github.com/byoda/byoda-python/README.md)
-export TWITTER_API_KEY=
-export TWITTER_KEY_SECRET=
-export TWITTER_USERNAME=
-
 # To use a custom domain, follow the instructions in the section
 # 'Certificates and browsers' in the README.md file.
 export CUSTOM_DOMAIN=

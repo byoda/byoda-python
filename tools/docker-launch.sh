@@ -3,15 +3,14 @@
 ###
 ### Pick up local settings for this byoda pod
 ###
-echo "Loading settings from byoda-settings.sh"
 
 # Do not use $HOME or ~ as this script is run by cloud-init
 # under the root account
-if [ ! -d /home/azureuser ]; then
-    export HOME_DIR="/home/ubuntu"
-else
+if [ -d /home/azureuser ]; then
     # We are running on azure.byoda.me
     export HOME_DIR="/home/azureuser"
+else
+    export HOME_DIR="/home/ubuntu"
 fi
 
 if [ -f  ${HOME_DIR}/byoda-generic-settings.sh ]; then
@@ -99,7 +98,7 @@ while [ $# -ge 1 ]; do
 done
 
 
-if [[ "${TAG}" != "latest" && "${TAG}" != "dev" ]]; then
+if [[ "${TAG}" != "latest" && "${TAG}" != "dev" && "${TAG}" != "lab" ]]; then
     echo "Invalid tag: ${TAG}"
     exit 1
 fi
@@ -147,15 +146,15 @@ if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
         echo LOGDIR variable is not set
         exit 1
     fi
-    echo "Wiping logs: ${LOGDIR}/*.log"
-    sudo rm -f --preserve-root ${LOGDIR}/*.log
+    echo "Wiping logs: ${LOGDIR}/${POSTFIX}/*.log"
+    sudo rm -f --preserve-root ${LOGDIR}/${POSTFIX}/*.log
 
     if [ -z "${WEB_LOG_DIR}" ]; then
         echo WEB_LOG_DIR variable is not set
         exit 1
     fi
-    echo "Wiping logs: ${WEB_LOG_DIR}/*.log"
-    sudo rm -f --preserve-root ${WEB_LOG_DIR}/*.log
+    echo "Wiping logs: ${WEB_LOG_DIR}/${POSTFIX}/*.log"
+    sudo rm -f --preserve-root ${WEB_LOG_DIR}/${POSTFIX}/*.log
 fi
 
 export ANGIECONF_VOLUME_MOUNT=""
@@ -176,6 +175,21 @@ else
         export PORT_MAPPINGS="-p 443:443 -p 444:444 -p 80:80"
     fi
 fi
+
+export POSTFIX=${ACCOUNT_ID:0:8}
+if [[ ${HOSTNAME:0:4} == "byo-" ]]; then
+    export POSTFIX=$HOSTNAME
+fi
+if [[ ${HOSTNAME} == 'dathes' || ${HOSTNAME} == 'notest' || ${HOSTNAME} == 'demotest' || ${HOSTNAME} == 'dmz' ]]; then
+    export POSTFIX=$HOSTNAME
+fi
+
+for NAME in azure gcp aws; do
+    if [[ ${HOSTNAME} == ${NAME}-pod ]]; then
+        export POSTFIX=${NAME}
+    fi
+done
+echo "Using directory postfix: ${POSTFIX}"
 
 export AWS_CREDENTIALS=
 if [ ! -z "${AWS_ACCESS_KEY_ID}" ]; then
@@ -218,22 +232,22 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        echo "Wiping ${BYODA_ROOT_DIR}"
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         if [ -z "${LOGDIR}" ]; then
             echo LOGDIR variable is not set
             exit 1
         fi
-        echo "Wiping logs: ${LOGDIR}/*.log"
-        sudo rm -f --preserve-root ${LOGDIR}/*.log
+        echo "Wiping logs: ${LOGDIR}/${POSTFIX}/*.log"
+        sudo rm -f --preserve-root ${LOGDIR}/${POSTFIX}/*.log
 
         if [ -z "${WEB_LOG_DIR}" ]; then
             echo WEB_LOG_DIR variable is not set
             exit 1
         fi
-        echo "Wiping logs: ${WEB_LOG_DIR}/*.log"
-        sudo rm -f --preserve-root ${WEB_LOG_DIR}/*.log
+        echo "Wiping logs: ${WEB_LOG_DIR}/${POSTFIX}/*.log"
+        sudo rm -f --preserve-root ${WEB_LOG_DIR}/${POSTFIX}/*.log
 
         STORAGE_ACCOUNT=$(echo ${PRIVATE_BUCKET} | cut -f 1 -d ':')
         echo "Wiping all data of the pod on storage account"
@@ -244,12 +258,12 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         echo "Wiping data and secrets for all memberships of the pod"
-        echo "Wiping ${BYODA_ROOT_DIR}"
         if [ -z "${BYODA_ROOT_DIR}" ]; then
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         az storage blob delete-batch -s byoda --account-name ${PRIVATE_BUCKET} --auth-mode login \
            --pattern private/network-${NETWORK}-account-pod-member-*.key
@@ -266,12 +280,12 @@ if [[ "${SYSTEM_MFCT}" == *"Microsoft Corporation"* ]]; then
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
         echo "Wiping data and service contracts for all memberships of the pod"
-        echo "Wiping ${BYODA_ROOT_DIR}"
         if [ -z "${BYODA_ROOT_DIR}" ]; then
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         az storage blob delete-batch --auth-mode login -s byoda --account-name ${PRIVATE_BUCKET} \
             --pattern private/network-${NETWORK}/account-pod/data/*
@@ -289,12 +303,12 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
     export CLOUD=GCP
     echo "Running in cloud: ${CLOUD}"
     if [[ "${WIPE_ALL}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
         if [ -z "${BYODA_ROOT_DIR}" ]; then
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         which gcloud > /dev/null 2>&1
         if [ $? -ne 0 ]; then
@@ -306,8 +320,8 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
         gcloud alpha storage rm --recursive gs://${RESTRICTED_BUCKET}/*
         gcloud alpha storage rm --recursive gs://${PUBLIC_BUCKET}/*
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         echo "Wiping data and secrets for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}-account-pod-member-*.key
@@ -320,8 +334,8 @@ elif [[ "${SYSTEM_MFCT}" == *"Google"* ]]; then
             exit 1
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         echo "Wiping data and service contracts for all memberships of the pod"
         gcloud alpha storage rm --recursive gs://${PRIVATE_BUCKET}/private/network-${NETWORK}/account-pod/data/*
@@ -341,12 +355,12 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         exit 1
     fi
     if [[ "${WIPE_ALL}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
         if [ -z "${BYODA_ROOT_DIR}" ]; then
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         which aws > /dev/null 2>&1
         if [ $? -ne 0 ]; then
@@ -357,8 +371,8 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
         aws s3 rm -f s3://${PRIVATE_BUCKET}private/private --recursive
         aws s3 rm -f s3://${PRIVATE_BUCKET}private/network-${NETWORK} --recursive
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        echo "Wiping ${BYODA_ROOT_DIR/${POSTFIX}}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
@@ -374,8 +388,12 @@ elif [[ "${SYSTEM_VERSION}" == *"amazon"* ]]; then
             exit 1
         fi
     elif [[ "${WIPE_MEMBER_DATA}" == "1" ]]; then
-        echo "Wiping ${BYODA_ROOT_DIR}"
-        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/*
+        if [ -z "${BYODA_ROOT_DIR}" ]; then
+            echo BYODA_ROOT_DIR variable is not set
+            exit 1
+        fi
+        echo "Wiping ${BYODA_ROOT_DIR}/${POSTFIX}"
+        sudo rm -rf --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX}/*
 
         # echo "Wiping data and service contracts for all memberships of the pod"
         # TODO
@@ -399,7 +417,7 @@ else
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR} 2>/dev/null
+        sudo rm -rf -I --preserve-root=all ${BYODA_ROOT_DIR}/${POSTFIX} 2>/dev/null
     elif [[ "${WIPE_MEMBERSHIPS}" == "1" ]]; then
         # echo "Wiping data and secrets for all memberships of the pod"
         # TODO
@@ -407,10 +425,10 @@ else
             echo BYODA_ROOT_DIR variable is not set
             exit 1
         fi
-        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}-account-pod-member-*.key
-        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/*
-        rm -rf ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
-        rm -rf ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
+        rm -rf ${BYODA_ROOT_DIR}/${POSTFIX}/private/network-${NETWORK}-account-pod-member-*.key
+        rm -rf ${BYODA_ROOT_DIR}/${POSTFIX}/network-${NETWORK}/account-pod/service-*/*
+        rm -rf ${BYODA_ROOT_DIR}/${POSTFIX}/private/network-${NETWORK}/account-pod/data/*
+        rm -rf ${BYODA_ROOT_DIR}/${POSTFIX}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping storage failed"
@@ -423,9 +441,9 @@ else
         fi
         # echo "Wiping data and service-contracts for all memberships of the pod"
         # TODO
-        rm -rf --preserve-root ${BYODA_ROOT_DIR}/private/network-${NETWORK}/account-pod/data/*
-        rm -rf --preserve-root ${BYODA_ROOT_DIR}/network-${NETWORK}/account-pod/service-*/service-contract.json
-        rm -rf --preserve-root ${BYODA_ROOT_DIR}/network-${NETWORK}/services/*
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/${POSTFIX}/private/network-${NETWORK}/account-pod/data/*
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/${POSTFIX}/network-${NETWORK}/account-pod/service-*/service-contract.json
+        rm -rf --preserve-root ${BYODA_ROOT_DIR}/${POSTFIX}/network-${NETWORK}/services/*
 
         if [ $? -ne 0 ]; then
             echo "Wiping storage failed"
@@ -440,26 +458,26 @@ if [[ "${WIPE_ALL}" == "1" ]]; then
         echo LOGDIR variable is not set
         exit 1
     fi
-    sudo rm -f -I --preserve-root=all ${LOGDIR}/*
+    sudo rm -f -I --preserve-root=all ${LOGDIR}/${POSTFIX}/*
 
     if [ -z "${WEB_LOG_DIR}" ]; then
         echo WEB_LOG_DIR variable is not set
         exit 1
     fi
-    sudo rm -f -I --preserve-root=all ${WEB_LOG_DIR}/*
+    sudo rm -f -I --preserve-root=all ${WEB_LOG_DIR}/${POSTFIX}/*
 
     if [ -z "${BYODA_ROOT_DIR}" ]; then
         echo BYODA_ROOT_DIR variable is not set
         exit 1
     fi
-    sudo rm ${BYODA_ROOT_DIR}/*
+    sudo rm ${BYODA_ROOT_DIR}/${POSTFIX}/*
     if [ ! -z "${LETSENCRYPT_DIRECTORY}" ]; then
-        echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}"
-        sudo rm -rf -I --preserve-root=all ${LETSENCRYPT_DIRECTORY}/*
+        echo "Wiping Let's Encrypt directory: ${LETSENCRYPT_DIRECTORY}/${POSTFIX}"
+        sudo rm -rf -I --preserve-root=all ${LETSENCRYPT_DIRECTORY}/${POSTFIX}/*
     fi
 fi
 
-sudo mkdir -p ${BYODA_ROOT_DIR}
+sudo mkdir -p ${BYODA_ROOT_DIR}/${POSTFIX}
 
 if [ -z "${LOGLEVEL}" ]; then
     export LOGLEVEL=INFO
@@ -471,97 +489,60 @@ fi
 
 export LOGFILE=
 export BOOTSTRAP=BOOTSTRAP
+export ROOT_DIR=/byoda
 
 sudo docker stop byoda 2>/dev/null
 sudo docker rm byoda  2>/dev/null
 
-echo "Creating container for account_id ${ACCOUNT_ID}"
 
-echo "DEBUG: ${DEBUG}"
-echo "LOGLEVEL=${LOGLEVEL}"
-echo "WORKER_LOGLEVEL: ${WORKER_LOGLEVEL}"
-echo "LOGFILE: ${LOGFILE}"
-echo "CLOUD: ${CLOUD}"
-echo "PRIVATE_BUCKET: ${PRIVATE_BUCKET}"
-echo "RESTRICTED_BUCKET: ${RESTRICTED_BUCKET}"
-echo "PUBLIC_BUCKET: ${PUBLIC_BUCKET}"
-echo "NETWORK: ${NETWORK}"
-echo "ACCOUNT_ID: ${ACCOUNT_ID}"
-echo "ACCOUNT_USERNAME: ${ACCOUNT_USERNAME}"
-echo "ACCOUNT_SECRET: xxxxxxxx"
-echo "PRIVATE_KEY_SECRET: xxxxxxxxx"
-echo "BOOTSTRAP: ${BOOTSTRAP}"
-echo "JOIN_SERVICE_IDS: ${JOIN_SERVICE_IDS}"
-echo "ROOT_DIR: /byoda"
-echo "YOUTUBE_CHANNEL: ${YOUTUBE_CHANNEL}"
-echo "YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}"
-echo "YOUTUBE_IMPORT_SERVICE_ID: ${YOUTUBE_IMPORT_SERVICE_ID}"
-echo "YOUTUBE_IMPORT_INTERVAL: ${YOUTUBE_IMPORT_INTERVAL}"
-echo "CDN_APP_ID: ${CDN_APP_ID}"
-echo "CDN_ORIGIN_SITE_ID: ${CDN_ORIGIN_SITE_ID}"
-echo "MODERATION_FQDN: ${MODERATION_FQDN}"
-echo "MODERATION_APP_ID: ${MODERATION_APP_ID}"
-echo "CUSTOM_DOMAIN: ${CUSTOM_DOMAIN}"
-echo "MANAGE_CUSTOM_DOMAIN_CERT: ${MANAGE_CUSTOM_DOMAIN_CERT}"
-echo "SHARED_WEBSERVER: ${SHARED_WEBSERVER}"
-echo "TRACE_SERVER: ${TRACE_SERVER}"
-echo "POD_MEMORY_LIMIT: ${POD_MEMORY_LIMIT}"
-echo "BYODA root directory: ${BYODA_ROOT_DIR}"
-echo "LOGDIR: ${LOGDIR}"
-echo "WEB_LOG_DIR: ${WEB_LOG_DIR}"
-echo "PORT_MAPPINGS: ${PORT_MAPPINGS}"
-echo "AWS_CREDENTIALS: xxxxxxxxxx"
-echo "WWWROOT_VOLUME_MOUNT: ${WWWROOT_VOLUME_MOUNT}"
-echo "LETSENCRYPT_VOLUME_MOUNT: ${LETSENCRYPT_VOLUME_MOUNT}"
-echo "ANGIECONF_VOLUME_MOUNT: ${ANGIECONF_VOLUME_MOUNT}"
+ENV_FILE=${HOME_DIR}/byoda.env
+GENERATE=FALSE
+if [ ! -x ${ENV_FILE} ]; then
+    echo No byoda.env found
+    GENERATE=TRUE
+elif [ ${HOME_DIR}/byoda-generic-settings.sh -ot {ENV_FILE} ]; then
+    echo byoda-generic-settings.sh is newer than byoda.env
+    GENERATE=TRUE
+elif [ ${HOME_DIR}/byoda-user-settings.sh -ot ${ENV_FILE} ]; then
+    echo byoda-user-settings.sh is newer than byoda.env
+    GENERATE=TRUE
+fi
+if [ "${GENERATE}" == "FALSE" ]; then
+    echo "Using existing ${ENV_FILE}"
+else
+    echo "Creating ${ENV_FILE}"
+    cat >${ENV_FILE} <<EOF
+DEBUG=${DEBUG}
+LOGLEVEL=${LOGLEVEL}
+WORKER_LOGLEVEL=${WORKER_LOGLEVEL}
+LOGFILE=${LOGFILE}
+CLOUD=${CLOUD}
+PRIVATE_BUCKET=${PRIVATE_BUCKET}
+RESTRICTED_BUCKET=${RESTRICTED_BUCKET}
+PUBLIC_BUCKET=${PUBLIC_BUCKET}
+NETWORK=${NETWORK}
+ACCOUNT_ID=${ACCOUNT_ID}
+ACCOUNT_USERNAME=${ACCOUNT_USERNAME}
+ACCOUNT_SECRET=${ACCOUNT_SECRET}
+PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}
+BOOTSTRAP=${BOOTSTRAP}
+JOIN_SERVICE_IDS=${JOIN_SERVICE_IDS}
+ROOT_DIR=${ROOT_DIR}
+YOUTUBE_CHANNEL=${YOUTUBE_CHANNEL}
+YOUTUBE_IMPORT_SERVICE_ID=${YOUTUBE_IMPORT_SERVICE_ID}
+YOUTUBE_IMPORT_INTERVAL=${YOUTUBE_IMPORT_INTERVAL}
+CDN_APP_ID=${CDN_APP_ID}
+CDN_ORIGIN_SITE_ID=${CDN_ORIGIN_SITE_ID}
+MODERATION_FQDN=${MODERATION_FQDN}
+MODERATION_APP_ID=${MODERATION_APP_ID}
+CUSTOM_DOMAIN=${CUSTOM_DOMAIN}
+MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}
+SHARED_WEBSERVER=${SHARED_WEBSERVER}
+TRACE_SERVER=${TRACE_SERVER}
+LOGDIR=${LOGDIR}
+WEB_LOG_DIR=${WEB_LOG_DIR}
+EOF
+fi
+echo "Launching containers"
 
-echo "Launching container"
-sudo docker run -d --memory=${POD_MEMORY_LIMIT} \
-    --name byoda --restart=unless-stopped \
-    --pull always \
-    --mount type=tmpfs,tmpfs-size=100M,destination=/tmp \
-    -e "DEBUG=${DEBUG}" \
-    -e "LOGLEVEL=${LOGLEVEL}" \
-    -e "WORKER_LOGLEVEL=${WORKER_LOGLEVEL}" \
-    -e "LOGFILE=${LOGFILE}" \
-    ${PORT_MAPPINGS} \
-    -e "WORKERS=1" \
-    -e "LOGDIR=${LOGDIR}" \
-    -e "WEB_LOG_DIR=${WEB_LOG_DIR}" \
-    -e "BACKUP_INTERVAL=${BACKUP_INTERVAL}" \
-    -e "CLOUD=${CLOUD}" \
-    -e "PRIVATE_BUCKET=${PRIVATE_BUCKET}" \
-    -e "RESTRICTED_BUCKET=${RESTRICTED_BUCKET}" \
-    -e "PUBLIC_BUCKET=${PUBLIC_BUCKET}" \
-    -e "NETWORK=${NETWORK}" \
-    -e "ACCOUNT_ID=${ACCOUNT_ID}" \
-    -e "ACCOUNT_USERNAME=${ACCOUNT_USERNAME}" \
-    -e "ACCOUNT_SECRET=${ACCOUNT_SECRET}" \
-    -e "PRIVATE_KEY_SECRET=${PRIVATE_KEY_SECRET}" \
-    -e "BOOTSTRAP=BOOTSTRAP" \
-    -e "JOIN_SERVICE_IDS=${JOIN_SERVICE_IDS}" \
-    -e "ROOT_DIR=/byoda" \
-    -e "YOUTUBE_CHANNEL=${YOUTUBE_CHANNEL}" \
-    -e "YOUTUBE_API_KEY=${YOUTUBE_API_KEY}" \
-    -e "YOUTUBE_IMPORT_SERVICE_ID=${YOUTUBE_IMPORT_SERVICE_ID}" \
-    -e "YOUTUBE_IMPORT_INTERVAL=${YOUTUBE_IMPORT_INTERVAL}" \
-    -e "CDN_APP_ID=${CDN_APP_ID}" \
-    -e "CDN_ORIGIN_SITE_ID=${CDN_ORIGIN_SITE_ID}" \
-    -e "MODERATION_FQDN=${MODERATION_FQDN}" \
-    -e "MODERATION_APP_ID=${MODERATION_APP_ID}" \
-    -e "TWITTER_USERNAME=${TWITTER_USERNAME}" \
-    -e "TWITTER_API_KEY=${TWITTER_API_KEY}" \
-    -e "TWITTER_KEY_SECRET=${TWITTER_KEY_SECRET}" \
-    ${AWS_CREDENTIALS} \
-    -e "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}" \
-    -e "MANAGE_CUSTOM_DOMAIN_CERT=${MANAGE_CUSTOM_DOMAIN_CERT}" \
-    -e "SHARED_WEBSERVER=${SHARED_WEBSERVER}" \
-    -e "TRACE_SERVER=${TRACE_SERVER}" \
-    -v ${BYODA_ROOT_DIR}:/byoda \
-    -v ${LOGDIR}:${LOGDIR} \
-    -v ${WEB_LOG_DIR}:${WEB_LOG_DIR} \
-    ${WWWROOT_VOLUME_MOUNT} \
-    ${LETSENCRYPT_VOLUME_MOUNT} \
-    ${ANGIECONF_VOLUME_MOUNT} \
-    --ulimit nofile=65536:65536 \
-    byoda/byoda-pod:${TAG}
+docker compose -f ${HOME_DIR}/docker-compose.yaml up -d

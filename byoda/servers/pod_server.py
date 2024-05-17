@@ -55,7 +55,6 @@ Member = TypeVar('Member')
 Account = TypeVar('Account')
 JWT = TypeVar('JWT')
 YouTube = TypeVar('YouTube')
-Twitter = TypeVar('Twitter')
 
 
 class PodServer(Server):
@@ -93,7 +92,6 @@ class PodServer(Server):
         self.apps: dict[UUID, App] = {}
 
         # These are used by the pod_worker for importing data
-        self.twitter_client: Twitter | None = None
         self.youtube_client: YouTube | None = None
 
     async def load_secrets(self, password: str = None) -> None:

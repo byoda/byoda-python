@@ -29,6 +29,7 @@ cat <<EOF
         "MANAGE_CUSTOM_DOMAIN_CERT": "${MANAGE_CUSTOM_DOMAIN_CERT}",
         "Let's Encrypt directory": "${LETSENCRYPT_DIRECTORY}",
         "YouTube channel": "${YOUTUBE_CHANNEL}",
+        "YouTube API key": "${YOUTUBE_API_KEY}",
         "YouTube polling interval": "${YOUTUBE_IMPORT_INTERVAL}",
         "FastAPI workers": "${WORKERS}"
     }
@@ -39,15 +40,40 @@ if [ -z "${LOGDIR}" ]; then
     export LOGDIR='/var/log/byoda'
 fi
 
-mkdir -p $LOGDIR
-echo "{\"message\": \"Starting bootstrap for podserver\"}"
-pipenv run podserver/bootstrap.py
+if [ ! -d  "${LOGDIR}" ]; then
+    mkdir $LOGDIR
+fi
+
+# First see if we need to generate or renew a Let's Encrypt certificate
+# TODO: try to get a previously saved certificate from cloud storage
+if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
+    if [[ -f "/etc/letsencrypt/live/${CUSTOM_DOMAIN}/privkey.pem" ]]; then
+        # Certbot will only call Let's Encrypt APIs if cert is due for renewal
+        # With the '--standalone' option, certbot will run its own HTTP webserver
+        echo "{\"message\": \"Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}\"}"
+        pipenv run certbot --quiet renew --standalone --max-log-backups 3 --logs-dir /var/log/byoda  2>&1 1>>${LOGDIR}/letsencrypt.log
+    else
+        echo "{\"message\": \"Generating a Lets Encrypt certificate for custom domain ${CUSTOM_DOMAIN}\"}"
+        # With the '--standalone' option, certbot will run its own HTTP webserver
+        pipenv run certbot --quiet certonly --standalone --max-log-backups 3 --logs-dir /var/log/byoda -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
+    fi
+fi
 
 if [[ "$?" != "0" ]]; then
-    echo "{\"message\": \"Bootstrap failed\"}"
+    echo "{\"error\": \"Certbot failed, exiting\"}"
     FAILURE=1
-else
-    echo "{\"message\": \"Bootstrap exited successfully\"}"
+fi
+
+if [[ -z "${FAILURE}" ]]; then
+    echo "{\"message\": \"Starting bootstrap for podserver\"}"
+    pipenv run podserver/bootstrap.py
+
+    if [[ "$?" != "0" ]]; then
+        echo "{\"message\": \"Bootstrap failed\"}"
+        FAILURE=1
+    else
+        echo "{\"message\": \"Bootstrap exited successfully\"}"
+    fi
 fi
 
 if [[ -z "${FAILURE}" ]]; then
