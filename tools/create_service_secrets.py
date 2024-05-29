@@ -89,11 +89,16 @@ async def main(argv) -> None:
 
     if not os.path.exists(network_cert_filepath):
         os.makedirs(network_dir, exist_ok=True)
-        resp: httpx.Response = httpx.get(f'https://dir.{args.network}/root-ca.pem')
+        resp: httpx.Response = httpx.get(
+            f'https://dir.{args.network}/root-ca.pem'
+        )
         with open(network_cert_filepath, 'w') as file_desc:
             file_desc.write(resp.text)
 
-    config.server = PodServer(bootstrapping=False)
+    config.server = PodServer(
+        bootstrapping=False,
+        db_connection_string=network_data.get('db_connection')
+    )
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE, config.server.cloud,

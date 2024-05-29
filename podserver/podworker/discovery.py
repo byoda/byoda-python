@@ -68,9 +68,12 @@ async def get_current_network_links(account: Account, data_store: DataStore
         f'{len(account.memberships)} memberships'
     )
 
+    log_extra: dict[str, int] = {}
+
     updates_listeners: dict[UUID, UpdateListenerMember] = {}
     member: Member
     for service_id, member in account.memberships.items():
+        log_extra['service_id'] = service_id
         schema: Schema = member.schema
         listen_relations: list[ListenRelation] = schema.listen_relations
         if not listen_relations:
@@ -80,8 +83,8 @@ async def get_current_network_links(account: Account, data_store: DataStore
             continue
 
         _LOGGER.debug(
-            f'Found {len(listen_relations)} listen relations '
-            f'for service {service_id}'
+            f'Found {len(listen_relations)} listen relations',
+            extra=log_extra
         )
 
         for listen_relation in listen_relations or []:
@@ -99,9 +102,16 @@ async def get_current_network_links(account: Account, data_store: DataStore
                     listen_class, dest_class_name
                 )
 
+            if member.member_id in member_listeners:
+                _LOGGER.debug('We never listen to ourselves')
+                member_listeners.pop(member.member_id, None)
+
             updates_listeners |= member_listeners
 
-    _LOGGER.debug(f'Have {len(updates_listeners)} current network links')
+    _LOGGER.debug(
+        f'Have {len(updates_listeners)} current network links',
+        extra=log_extra
+    )
     return updates_listeners
 
 
@@ -209,15 +219,18 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
     relations
     '''
 
-    schema: Schema = member.schema
-    data_class: SchemaDataArray = schema.data_classes[MARKER_NETWORK_LINKS]
     service_id: int = member.service_id
     member_id: UUID = member.member_id
-
+    log_extra: dict[str, str | int | UUID] = {
+        'member_id': member_id,
+        'service_id': service_id,
+        'listen_class': listen_class.name,
+        'dest_class': dest_class_name,
+        'wanted_relations': ', '.join(wanted_relations or '(any)'),
+    }
     _LOGGER.debug(
-        f'Getting existing network links for member {member_id} '
-        f'of service {service_id} from class {data_class.name} '
-        f'to store type {type(data_store)}'
+        f'Adding existing network links to store type {type(data_store)}',
+        extra=log_extra
     )
 
     # TODO: Data filters do not yet support multiple specifications of the
@@ -230,6 +243,9 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
             or edge_data['relation'] in wanted_relations)
     ]
 
+    log_extra['all_network_links'] = len(data or [])
+    log_extra['filtered_network_links'] = len(network_links)
+
     listeners: dict[UUID, UpdateListenerMember] = {}
     link: ResultData
     for link in network_links:
@@ -237,11 +253,11 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
             remote_member_id: UUID = link.get('member_id')
             if not isinstance(remote_member_id, UUID):
                 remote_member_id = UUID(remote_member_id)
+            log_extra['remote_member_id'] = remote_member_id
         except (TypeError, ValueError) as exc:
             _LOGGER.debug(
-                f'Network link for service {service_id} with a relation in '
-                f'{wanted_relations or "any"} has invalid member_id, skipping:'
-                f' {exc}'
+                f'Network link has invalid member_id, skipping: {exc}',
+                extra=log_extra
             )
             continue
 
@@ -253,15 +269,12 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
             )
             if config.debug:
                 # In debug mode we get all assets from the pods we follow
-                await listener.get_all_data()
+                # await listener.get_all_data()
+                pass
 
             listeners[listener.remote_member_id] = listener
 
-    _LOGGER.debug(
-        f'Found {len(listeners or [])} existing network links '
-        f'having a relation in {wanted_relations or "any"} '
-        f'for member {member.member_id} of service {service_id}'
-    )
+    _LOGGER.debug('Found existing network links', extra=log_extra)
 
     return listeners
 
@@ -285,14 +298,19 @@ async def listen_local_network_links_tables(
     :raises: None
     '''
 
+    log_extra: dict[str, int] = {}
+
     member: Member
     for member in account.memberships.values():
         service_id: int = member.service_id
+        log_extra['service_id'] = service_id
+        log_extra['member_id'] = member.member_id
         schema: Schema = member.schema
 
         # This gets us the process ID so we can start listening to the
         # local pubsub socket for updates to the 'network_links' data class
         process_id: int = find_process_id(PubSubNng.get_directory(service_id))
+        log_extra['process_id'] = process_id
 
         # This listens to the events for network_links of a service on the
         # local pod so that it can immediately start following a remote pod
@@ -309,10 +327,13 @@ async def listen_local_network_links_tables(
             relations: list[str] = listen_relation.relations
             dest_class_name: str = listen_relation.destination_class
 
+            log_extra['src_class_name'] = class_name
+            log_extra['dest_class_name'] = dest_class_name
+            log_extra['relations'] = ','.join(relations) or '(any)'
             _LOGGER.info(
-                f'Starting to listen for changes to class {data_class.name} '
-                f'in service {service_id} for new relations '
-                f'matching {", ".join(relations or ["(any)"])}'
+                f'Starting to listen for changes for new relations '
+                f'matching {", ".join(relations or ["(any)"])}',
+                extra=log_extra
             )
             task_group.start_soon(
                 get_network_link_updates, pubsub, class_name, dest_class_name,
@@ -341,6 +362,15 @@ async def get_network_link_updates(
     be created under
     '''
 
+    log_extra: dict[str, any] = {
+        'listen_class': listen_class_name,
+        'dest_class': dest_class_name,
+        'member_id': member.member_id,
+        'service_id': member.service_id,
+        'relations': ', '.join(relations) or '(any)'
+
+    }
+
     # TODO: we also need logic to handle updated and deleted network links
     while True:
         try:
@@ -352,10 +382,8 @@ async def get_network_link_updates(
                     continue
 
                 remote_member_id: UUID = resp.node.member_id
-                _LOGGER.debug(
-                    'Initiating connection to pod of '
-                    f'member {remote_member_id}'
-                )
+                log_extra['remote_member_id'] = remote_member_id
+                _LOGGER.debug('Initiating connection to pod')
 
                 service_id: int = member.service_id
                 if (remote_member_id in existing_listeners and
@@ -363,23 +391,21 @@ async def get_network_link_updates(
                         remote_member_id, service_id, listen_class_name,
                         dest_class_name)):
                     _LOGGER.debug(
-                        f'Already connected to pod of member '
-                        f'{remote_member_id} for service {service_id} for '
-                        f'listening to class {listen_class_name} to store in '
-                        f'class {dest_class_name}'
+                        'Already connected to remote pod', extra=log_extra
                     )
                     return None
 
                 # New listener for a new remote pod
-                listener = await UpdateListenerMember.setup(
-                    listen_class_name, member, remote_member_id,
-                    dest_class_name, resp.node.annotations
-                )
+                listener: UpdateListenerMember = \
+                    await UpdateListenerMember.setup(
+                        listen_class_name, member, remote_member_id,
+                        dest_class_name, resp.node.annotations
+                    )
                 task_group.start_soon(listener.get_updates)
                 existing_listeners[remote_member_id] = listener
         except Exception as exc:
             _LOGGER.exception(
-                f'Update failure for append to {message.class_name}: {exc}'
+                f'Update failure for append: {exc}'
             )
 
 
@@ -394,8 +420,16 @@ def review_message(message: PubSubMessage, relations: list[str]
     :raises:
     '''
 
+    log_extra: dict[str, any] = {
+        'message_class': message.class_name,
+        'origin_class': message.origin_class_name,
+        'origin_id': message.origin_id,
+        'origin_id_type': message.origin_id_type,
+        'cursor': message.cursor,
+        'action': message.action.value
+    }
     if message.action != PubSubMessageAction.APPEND:
-        _LOGGER.info(f'Ignoring action {message.action.value}')
+        _LOGGER.info('Ignoring action', extra=log_extra)
         return None
 
     try:
@@ -409,30 +443,28 @@ def review_message(message: PubSubMessage, relations: list[str]
         )
         link = NetworkLink(**resp.node)
         resp.node = link
+        log_extra['relation'] = link.relation
+        log_extra['remote_member_id'] = link.member_id
     except Exception as exc:
         _LOGGER.debug(
-            'Received invalid update message '
-            f'for a network link: {message}: {exc}'
+            f'Received invalid update message for a network link: {exc}',
+            extra=log_extra
         )
         return None
 
-    _LOGGER.debug(
-        f'Received update for class {resp.origin_class_name}, '
-        f'action: {message.action.value} for relation {link.relation} '
-        f'with member {link.member_id}'
-    )
+    _LOGGER.debug('Received update')
 
     if resp.origin_class_name != MARKER_NETWORK_LINKS:
         _LOGGER.debug(
             f'We received an updated for the wrong class: '
-            f'{resp.origin_class_name}'
+            f'{resp.origin_class_name}', extra=log_extra
         )
         return None
 
     if relations and link.relation not in relations:
         _LOGGER.debug(
             f'Relation {link.relation} not in {relations}, '
-            f'not creating listener for member {link.member_id}'
+            f'not creating listener for member', extra=log_extra
         )
         return None
 
@@ -447,7 +479,7 @@ def find_process_id(pubsub_dir: str = PubSubNng.PUBSUB_DIR) -> int:
     process_id = None
     for file in os.listdir(pubsub_dir):
         if file.startswith('network_links.pipe'):
-            process_id = file.split('-')[-1]
+            process_id: str = file.split('-')[-1]
             _LOGGER.debug(f'Found app server process ID {process_id}')
             return int(process_id)
 

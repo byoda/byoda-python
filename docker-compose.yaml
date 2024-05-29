@@ -4,10 +4,6 @@ services:
     container_name: angie
     restart: unless-stopped
     pull_policy: always
-    deploy:
-      resources:
-        limits:
-          memory: 50M
     ulimits:
       nofile:
         soft: 524288
@@ -38,26 +34,19 @@ services:
     container_name: postgres
     restart: unless-stopped
     pull_policy: always
-    environment:
-      - POSTGRES_PASSWORD=byoda
-    deploy:
-      resources:
-        limits:
-          memory: 100M
+    env_file:
+      - /home/ubuntu/byoda.env
     volumes:
       - type: bind
-        source: /var/lib/postgres/${POSTFIX}
-        target: /var/lib/postgres
+        source: /var/lib/postgresql/${POSTFIX}/data
+        target: /var/lib/postgresql/data
   byoda-appserver:
     image: byoda/byoda-pod:${TAG}
     container_name: byoda
     restart: unless-stopped
     pull_policy: always
-    env_file: /home/ubuntu/byoda.env
-    deploy:
-      resources:
-        limits:
-          memory: 850M
+    env_file:
+      - /home/ubuntu/byoda.env
     volumes:
       - type: bind
         source: /var/log/byoda/${POSTFIX}
@@ -69,8 +58,8 @@ services:
         source: /byoda/${POSTFIX}
         target: /byoda
       - type: bind
-        source: /var/lib/postgres/${POSTFIX}
-        target: /var/lib/postgres
+        source: /var/lib/postgresql/${POSTFIX}
+        target: /var/lib/postgresql
       - vartmpssl:/var/tmp/ssl
 
 volumes:

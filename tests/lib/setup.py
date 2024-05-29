@@ -27,7 +27,7 @@ from byoda.datastore.cache_store import CacheStoreType
 from byoda.datatypes import CloudType
 
 from byoda.storage.filestorage import FileStorage
-
+from byoda.storage.postgres import PostgresStorage
 from byoda.storage.pubsub_nng import PubSubNng
 
 from podserver.util import get_environment_vars
@@ -79,6 +79,9 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     os.environ['CDN_APP_ID'] = str(CDN_APP_ID)
     os.environ['CDN_ORIGIN_SITE_ID'] = CDN_ORIGIN_SITE_ID
 
+    with open('tests/collateral/local/test_postgres_db') as file_desc:
+        os.environ['DB_CONNECTION'] = file_desc.read().strip()
+
 
 async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     '''
@@ -101,7 +104,8 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
 
     server: PodServer = PodServer(
         cloud_type=CloudType.LOCAL,
-        bootstrapping=bool(data.get('bootstrap'))
+        bootstrapping=bool(data.get('bootstrap')),
+        db_connection_string=data.get('db_connection')
     )
     config.server = server
 
@@ -135,6 +139,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
                         service_id: int = ADDRESSBOOK_SERVICE_ID,
                         version: int = ADDRESSBOOK_VERSION,
                         member_id: UUID | None = None,
+                        store_type: DataStoreType = DataStoreType.POSTGRES
                         ) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -150,6 +155,9 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
 
     server: PodServer = config.server
     local_storage: FileStorage = server.local_storage
+
+    if store_type == DataStoreType.POSTGRES:
+        PostgresStorage._destroy_database(data['db_connection'])
 
     account = Account(data['account_id'], server.network)
     await account.paths.create_account_directory()
@@ -189,11 +197,13 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
 
     await server.get_registered_services()
 
-    await server.set_data_store(
-        DataStoreType.SQLITE, account.data_secret
-    )
+    await server.set_data_store(store_type, account.data_secret)
 
-    await server.set_cache_store(CacheStoreType.SQLITE)
+    if store_type != DataStoreType.POSTGRES:
+        cache_store_type: CacheStoreType = CacheStoreType.SQLITE
+    else:
+        cache_store_type: CacheStoreType = CacheStoreType.POSTGRES
+    await server.set_cache_store(cache_store_type)
 
     if not member_id:
         member_id: UUID = get_test_uuid()

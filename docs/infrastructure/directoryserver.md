@@ -50,6 +50,7 @@ sudo docker run -d --restart unless-stopped \
     --publish=5432:5432 \
     --publish=8081:8081 \
     -v $POSTGRES_DIR/data:/var/lib/postgresql/data \
+    --shm-size=256m \
     -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     --name postgres \
      postgres:16

@@ -41,6 +41,8 @@ RUN apt-get update && apt-get install -y \
        libpq-dev \
        libnng1 \
        sqlite3 \
+       postgresql-client \
+       pgloader \
        libaugeas0 \
        unzip \
        curl \

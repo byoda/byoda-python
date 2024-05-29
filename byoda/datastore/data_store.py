@@ -16,6 +16,7 @@ from uuid import UUID
 from typing import Self
 from typing import TypeVar
 from logging import getLogger
+from byoda.datamodel.sqltable import SqlTable
 from byoda.util.logger import Logger
 
 from opentelemetry.trace import get_tracer
@@ -32,6 +33,7 @@ from byoda.datatypes import IdType
 from byoda.datatypes import MemberStatus
 from byoda.datatypes import MemberInfo
 
+from byoda.storage.postgres import PostgresStorage
 from byoda.storage.sqlite import SqliteStorage
 
 from byoda.secrets.data_secret import DataSecret
@@ -44,7 +46,9 @@ PodServer = TypeVar('PodServer')
 
 
 class DataStoreType(Enum):
-    SQLITE              = 'sqlite'          # noqa=E221
+    # flake8: noqa=E221
+    SQLITE              = 'sqlite'
+    POSTGRES            = 'postgres'
 
 
 class DataStore:
@@ -66,6 +70,10 @@ class DataStore:
         if storage_type == DataStoreType.SQLITE:
             data_store.backend = await SqliteStorage.setup(
                 server, data_secret
+            )
+        elif storage_type == DataStoreType.POSTGRES:
+            data_store.backend = await PostgresStorage.setup(
+                server.db_connection_string, server
             )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
@@ -139,7 +147,7 @@ class DataStore:
         if data_class.is_scalar:
             raise ValueError('We do not create tables for scalar data classes')
 
-        sql_table = await self.backend.create_table(member_id, data_class)
+        sql_table: SqlTable = await self.backend.create_table(member_id, data_class)
         self.backend.add_sql_table(member_id, data_class.name, sql_table)
 
         return 1
@@ -239,6 +247,10 @@ class DataStore:
     @TRACER.start_as_current_span('Data_Store.delete')
     async def delete(self, member_id: UUID, class_name: str,
                      data_filter_set: DataFilterSet = None) -> int:
+        '''
+        Deletes data in the class matching the data filters
+        '''
+
         return await self.backend.delete(
             member_id, class_name, data_filter_set
         )

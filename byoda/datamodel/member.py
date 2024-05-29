@@ -838,7 +838,6 @@ class Member:
         await data_store.setup_member_db(
             self.member_id, self.service_id, self.schema
         )
-
         await cache_store.setup_member_db(
             self.member_id, self.service_id, self.schema
         )

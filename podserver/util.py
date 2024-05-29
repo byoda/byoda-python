@@ -47,6 +47,7 @@ def get_environment_vars() -> dict:
       - moderation_fqdn: str
       - moderation_app_id: str
       - join_service_ids: list[int]
+      - db_connection: str
     '''
 
     data: dict[str, str | bool | int] = {
@@ -60,7 +61,7 @@ def get_environment_vars() -> dict:
         'private_key_password': os.environ.get('PRIVATE_KEY_SECRET', 'byoda'),
         'debug': os.environ.get('DEBUG', False),
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
-        'logfile': os.environ.get('LOGFILE', None),
+        'logdir': os.environ.get('LOGDIR', None),
         'worker_loglevel': os.environ.get('WORKER_LOGLEVEL', 'WARNING'),
         'root_dir': os.environ.get('ROOT_DIR'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
@@ -73,11 +74,17 @@ def get_environment_vars() -> dict:
         'cdn_origin_site_id': os.environ.get('CDN_ORIGIN_SITE_ID'),
         'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
         'moderation_app_id': os.environ.get('MODERATION_APP_ID'),
+        'db_connection': os.environ.get(
+            'DB_CONNECTION', 'postgresql://postgres:byoda@postgres'
+        ),
         'join_service_ids': [
             int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',')
             if x
         ],
     }
+
+    if not data['db_connection']:
+        data['db_connection'] = 'postgresql://postgres:byoda@postgres'
 
     if data['cdn_app_id']:
         data['cdn_app_id'] = UUID(data['cdn_app_id'])

@@ -180,6 +180,8 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 headers=azure_auth_header, app=APP, internal=True
             )
 
+        self.assertTrue(True)
+
     async def test_pod_rest_data_api_update_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
@@ -376,7 +378,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(deleted_count, 1)
 
-    async def test_pod_rest_data_api_filters_jwt(self):
+    async def test_pod_rest_data_api_filters_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
@@ -384,7 +386,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
         total_records: int = 50
         class_name: str = 'network_assets'
-        asset_data: list[dict[str, object]] = await populate_data_rest(
+        await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP
         )
@@ -501,19 +503,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(filter_batch['edges']), total_records-2)
 
-        # Filter on datetime, which is special case for Sqlite as
-        # we store datetime as floats, which are not exact
-        asset_timestamp: str = asset_data[0]['data']['created_timestamp']
-        data_filter: DataFilterType = {
-            'created_timestamp': {'at': asset_timestamp}
-        }
-
-    async def test_pod_rest_data_api_pagination_jwt(self):
-        account: Account = config.server.account
+    async def test_pod_rest_data_api_pagination_jwt(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 50
@@ -524,37 +517,40 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             app=APP
         )
 
-        all_data = await call_data_api(
-            service_id, class_name, test=self,
-            action=DataRequestType.QUERY, first=total_records,
-            auth_header=member_auth_header, app=APP
-        )
+        all_data: DataFilterType[str, object] | int | None = \
+            await call_data_api(
+                service_id, class_name, test=self,
+                action=DataRequestType.QUERY, first=total_records,
+                auth_header=member_auth_header, app=APP
+            )
         self.assertEqual(all_data['total_count'], total_records)
         self.assertEqual(
             all_data['edges'][-1]['cursor'], all_data['page_info']['end_cursor']
         )
 
-        first_batch = await call_data_api(
-            service_id, class_name, test=self,
-            action=DataRequestType.QUERY, first=batch_size,
-            auth_header=member_auth_header, app=APP
-        )
-        after = first_batch['page_info']['end_cursor']
+        first_batch: DataFilterType[str, object] | int | None = \
+            await call_data_api(
+                service_id, class_name, test=self,
+                action=DataRequestType.QUERY, first=batch_size,
+                auth_header=member_auth_header, app=APP
+            )
+        after: str = first_batch['page_info']['end_cursor']
         self.assertEqual(after, all_data['edges'][19]['cursor'])
 
-        second_batch = await call_data_api(
-            service_id, class_name, test=self,
-            action=DataRequestType.QUERY,
-            first=batch_size, after=after,
-            auth_header=member_auth_header, app=APP
-        )
+        second_batch: DataFilterType[str, object] | int | None = \
+            await call_data_api(
+                service_id, class_name, test=self,
+                action=DataRequestType.QUERY,
+                first=batch_size, after=after,
+                auth_header=member_auth_header, app=APP
+            )
         self.assertEqual(
             second_batch['edges'][0]['cursor'], all_data['edges'][20]['cursor']
         )
 
         # Check for data to nested-arrays that are not represented
         # in the service schema as separate data objects
-        asset = all_data['edges'][0]['node']
+        asset: str = all_data['edges'][0]['node']
         self.assertEqual(len(asset['video_thumbnails']), 2)
         self.assertEqual(len(asset['video_chapters']), 3)
         self.assertEqual(len(asset['keywords']), 2)
@@ -567,7 +563,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             'asset_id', 'publisher', 'keywords', 'video_chapters'
         ]
 
-        fields_batch = await call_data_api(
+        fields_batch: DataFilterType[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.QUERY,
             first=batch_size, after=after, fields=fields,
@@ -576,7 +572,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(fields_batch['edges']), batch_size)
         for edge in fields_batch['edges'] or []:
-            node = edge['node']
+            node: str = edge['node']
 
             # requested field
             self.assertIsNotNone(node['asset_id'])
@@ -597,12 +593,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(node['created_timestamp'])
             self.assertIsNotNone(node['asset_type'])
 
-    async def test_datetime_comparisons(self):
-        account: Account = config.server.account
+    async def test_datetime_comparisons(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
 
-        member_auth_header = await get_member_auth_header(
+        member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 5
@@ -613,10 +607,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         created_timestamp = all_data[1]['data']['created_timestamp']
-        data_filter = {
+        data_filter: dict[str, dict[str, AnyScalarType]] = {
             'created_timestamp': {'at': created_timestamp}
         }
-        data = await call_data_api(
+        data: DataFilterType[str, object] | int | None = await call_data_api(
             service_id, class_name, test=self,
             action=DataRequestType.QUERY, first=total_records,
             auth_header=member_auth_header, data_filter=data_filter, app=APP

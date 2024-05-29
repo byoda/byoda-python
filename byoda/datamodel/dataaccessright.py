@@ -8,6 +8,7 @@ templates
 :license    : GPLv3
 '''
 
+from uuid import UUID
 from typing import TypeVar
 from logging import getLogger
 
@@ -33,7 +34,7 @@ class DataAccessRight:
     of an object in the service contract / JSON Schema
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'distance', 'relations', 'source_signature_required',
         'anonimized_responses', 'search_condition', 'search_match',
         'search_casesensitive', 'data_operation', 'distance',
@@ -60,7 +61,7 @@ class DataAccessRight:
         self.distance = permission_data.get('distance', 0)
 
         # Relations are converted to lower case
-        relations = permission_data.get('relation')
+        relations: str | None = permission_data.get('relation')
         if isinstance(relations, str):
             self.relations = set(relations.lower())
         else:
@@ -113,7 +114,11 @@ class DataAccessRight:
         for permission in permissions:
             permissions_log += f'{type(permission)}{permission.data_operation}'
 
-        _LOGGER.debug(f'Access right for {entity_type} is {permissions_log}')
+        log_extra: dict[str, str | UUID | int] = {
+            'entity_type': entity_type,
+            'permissions': permissions_log
+        }
+        _LOGGER.debug('Access right found', extra=log_extra)
         return entity_type, permissions
 
     async def authorize(self, service_id: int, operation: DataOperationType,
@@ -138,9 +143,16 @@ class DataAccessRight:
             return None, None
 
         if self.distance and depth > self.distance:
+            log_extra: dict[str, str | UUID | int] = {
+                'service_id': service_id,
+                'operation': operation.value,
+                'depth': depth,
+                'max_distance': self.distance
+            }
             _LOGGER.debug(
-                f'Requested recursion depth of {depth} exceeds the max '
-                f'distance of {self.distance} for {operation} on {service_id}')
+                'Requested recursion depth exceeds the max distance',
+                extra=log_extra
+            )
             return False, None
 
         member: Member = await account.get_membership(service_id)
@@ -165,19 +177,31 @@ class MemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug('Authorizing member access for data item')
+        log_extra: dict[str, str | UUID | int] = {
+            'service_id': service_id,
+            'operation': operation.value,
+            'depth': depth
+        }
+        _LOGGER.debug(
+            'Authorizing member access for data item', extra=log_extra
+        )
 
+        allowed: bool | None
+        member: Member | None
         allowed, member = await super().authorize(service_id, operation, depth)
+        log_extra['allowed'] = allowed
         if allowed is False:
-            _LOGGER.debug('Request not authorized')
+            _LOGGER.debug('Request not authorized', extra=log_extra)
 
         if not member:
-            _LOGGER.debug(f'This pod is not a member of service {service_id}')
+            _LOGGER.debug(
+                'This pod is not a member of service', extra=log_extra
+            )
             return False
 
         if auth.member_id and auth.member_id == member.member_id:
             _LOGGER.debug(
-                f'Authorization success for ourselves: {auth.member_id}'
+                'Authorization success for ourselves', extra=log_extra
             )
             return True
 
@@ -202,26 +226,38 @@ class AnyMemberDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug('Authorizing any member access for data item')
+        log_extra: dict[str, str | UUID | int] = {
+            'service_id': service_id,
+            'operation': operation.value,
+            'depth': depth
+        }
+        _LOGGER.debug(
+            'Authorizing any member access for data item', extra=log_extra
+        )
 
+        allowed: bool | None
+        member: Member | None
         allowed, member = await super().authorize(service_id, operation, depth)
+        log_extra['allowed'] = allowed
         if allowed is False:
-            _LOGGER.debug('Request not authorized')
+            _LOGGER.debug('Request not authorized', extra=log_extra)
 
         if not member:
-            _LOGGER.debug(f'This pod is not a member of service {service_id}')
+            _LOGGER.debug(
+                'This pod is not a member of service', extra=log_extra
+            )
             return False
 
         if auth.member_id and auth.service_id == service_id:
             _LOGGER.debug(
                 'Authorization success for any member of the service: '
-                f'{auth.member_id}'
+                f'{auth.member_id}', extra=log_extra
             )
             return True
 
         _LOGGER.debug(
             'Authorization failed for any member of the service: '
-            f'{auth.member_id}'
+            f'{auth.member_id}', extra=log_extra
         )
 
         return False
@@ -241,60 +277,81 @@ class NetworkDataAccessRight(DataAccessRight):
         operation
         '''
 
-        _LOGGER.debug('Authorizing network access for data item')
+        log_extra: dict[str, str | UUID | int] = {
+            'service_id': service_id,
+            'operation': operation.value,
+            'depth': depth
+        }
+        _LOGGER.debug(
+            'Authorizing network access for data item', extra=log_extra
+        )
 
         if self.relations:
             _LOGGER.debug(
                'Relation of network links must be one of '
                f'{", ".join(self.relations or {})} '
-               f'for member_id {auth.member_id}'
+               f'for member_id {auth.member_id}', extra=log_extra
             )
         else:
-            _LOGGER.debug('Network links with any relation are acceptable')
+            _LOGGER.debug(
+                'Network links with any relation are acceptable',
+                extra=log_extra
+            )
 
+        allowed: bool | None
+        member: Member | None
         allowed, member = await super().authorize(service_id, operation, depth)
+        log_extra['allowed'] = allowed
         if allowed is False:
-            _LOGGER.debug('Request not authorized')
+            _LOGGER.debug('Request not authorized', extra=log_extra)
 
         if not member:
-            _LOGGER.debug(f'This pod is not a member of service {service_id}')
+            _LOGGER.debug(
+                'This pod is not a member of service', extra=log_extra
+            )
             return False
 
         network = None
         if auth.member_id:
             links: list[NetworkLink] = await member.load_network_links()
 
+            log_extra['links'] = len(links or [])
             _LOGGER.debug(
-                f'Found total of {len(links or [])} network links'
+                f'Found total of {len(links or [])} network links',
+                extra=log_extra
             )
 
-            network = []
+            network: list = []
+            link: NetworkLink
             for link in links or []:
                 relation = link.relation
+                log_extra['relation'] = relation
                 _LOGGER.debug(
-                    f'Found link: {relation} to {link.member_id}'
+                    f'Found link to {link.member_id}', extra=log_extra
                 )
                 if (link.member_id == auth.member_id
                         and (not self.relations
                              or relation.lower() in self.relations)):
                     _LOGGER.debug(
                         f'Link {relation} is in '
-                        f'{", ".join(self.relations or {})}'
+                        f'{", ".join(self.relations or {})}', extra=log_extra
                     )
                     network.append(link)
                 else:
                     _LOGGER.debug(
                         f'Link {relation} not in '
-                        f'{", ".join(self.relations or {})}'
+                        f'{", ".join(self.relations or {})}', extra=log_extra
                     )
 
-        _LOGGER.debug(f'Found {len(network or [])} applicable network links')
+        log_extra['filtered_links'] = len(network or [])
+        _LOGGER.debug(
+            'Found applicable network links', extra=log_extra)
 
         if len(network or []):
-            _LOGGER.debug('Network authorization successful')
+            _LOGGER.debug('Network authorization successful', extra=log_extra)
             return True
 
-        _LOGGER.debug('Network authorization rejected')
+        _LOGGER.debug('Network authorization rejected', extra=log_extra)
         return False
 
 
@@ -315,26 +372,38 @@ class ServiceDataAccessRight(DataAccessRight):
         it
         '''
 
-        _LOGGER.debug('Authorizing access by the service for data item')
+        log_extra: dict[str, str | UUID | int] = {
+            'service_id': service_id,
+            'operation': operation.value,
+            'depth': depth
+        }
+        _LOGGER.debug(
+            'Authorizing access by the service for data item', extra=log_extra
+        )
 
+        allowed: bool | None
+        member: Member | None
         allowed, member = await super().authorize(service_id, operation, depth)
+        log_extra['allowed'] = allowed
         if allowed is False:
-            _LOGGER.debug('Request not authorized')
+            _LOGGER.debug('Request not authorized', extra=log_extra)
 
         if not member:
-            _LOGGER.debug(f'This pod is not a member of service {service_id}')
+            _LOGGER.debug(
+                'This pod is not a member of service', extra=log_extra
+            )
             return False
 
         if service_id == auth.service_id:
             _LOGGER.debug(
                 'Authorization success for request from the service: '
-                f'{auth.service_id}'
+                f'{auth.service_id}', extra=log_extra
             )
             return True
 
         _LOGGER.debug(
             'Authorization failed for request from the service: '
-            f'{auth.service_id}'
+            f'{auth.service_id}', extra=log_extra
         )
         return False
 
@@ -356,26 +425,37 @@ class AnonymousDataAccessRight(DataAccessRight):
         it
         '''
 
+        log_extra: dict[str, str | UUID | int] = {
+            'service_id': service_id,
+            'operation': operation.value,
+            'depth': depth
+        }
         _LOGGER.debug(
-            'Authorizing anonymous access by the service for data item'
+            'Authorizing anonymous access by the service for data item',
+            extra=log_extra
         )
-
+        allowed: bool | None
+        member: Member | None
         allowed, member = await super().authorize(service_id, operation, depth)
+        log_extra['allowed'] = allowed
         if allowed is False:
-            _LOGGER.debug('Request not authorized')
+            _LOGGER.debug('Request not authorized', extra=log_extra)
 
         if not member:
-            _LOGGER.debug(f'This pod is not a member of service {service_id}')
+            _LOGGER.debug(
+                'This pod is not a member of service', extra=log_extra
+            )
             return False
 
         if not auth.service_id or service_id == auth.service_id:
             _LOGGER.debug(
                 'Authorization success for request by an anonymous client to '
-                f'service {service_id} for operation {operation.value}'
+                f'service', extra=log_extra
             )
             return True
 
         _LOGGER.debug(
-            f'Authorization failed for the service: {auth.service_id}'
+            f'Authorization failed for the service: {auth.service_id}',
+            extra=log_extra
         )
         return False

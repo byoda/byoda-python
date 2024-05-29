@@ -15,7 +15,7 @@ cat <<EOF
         "RESTRICTED_BUCKET": "${RESTRICTED_BUCKET}",
         "PUBLIC_BUCKET": "${PUBLIC_BUCKET}",
         "LOGLEVEL": "${LOGLEVEL}",
-        "LOGFILE": "${LOGFILE}",
+        "LOGDIR": "${LOGDIR}",
         "WORKER_LOGLEVEL": "${WORKER_LOGLEVEL}",
         "PYTHONPATH": "${PYTHONPATH}",
         "NETWORK": "${NETWORK}",

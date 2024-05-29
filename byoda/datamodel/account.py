@@ -69,7 +69,7 @@ class Account:
     ]
 
     def __init__(self,  account_id: str, network: Network,
-                 account: str = 'pod'):
+                 account: str = 'pod') -> None:
         '''
         Constructor
         '''
@@ -228,7 +228,7 @@ class Account:
                 if resp.status_code != 201:
                     raise RuntimeError('Certificate signing request failed')
 
-                cert_data = resp.json()
+                cert_data: dict[str, str] = resp.json()
                 secret.from_string(
                     cert_data['signed_cert'], certchain=cert_data['cert_chain']
                 )
@@ -268,7 +268,9 @@ class Account:
         Saves the protected symmetric key
         '''
 
-        filepath = self.paths.get(self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE)
+        filepath: str = self.paths.get(
+            self.paths.ACCOUNT_DATA_SHARED_SECRET_FILE
+        )
 
         await self.document_store.backend.write(
             filepath, self.data_secret.protected_shared_key,

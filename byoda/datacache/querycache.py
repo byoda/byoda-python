@@ -10,10 +10,10 @@ the pod from forwarding loops; executing and forwarding the same query twice
 from os import makedirs
 
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 
-from byoda.datamodel.network import Network
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
@@ -30,7 +30,7 @@ Member = TypeVar('Member')
 
 
 class QueryCache:
-    def __init__(self, member: Member, cache_tech: CacheTech):
+    def __init__(self, member: Member, cache_tech: CacheTech) -> None:
         self.member: Member = member
         self.cache_tech: CacheTech = cache_tech
 
@@ -54,7 +54,7 @@ class QueryCache:
         self.backend: KVCache | None = None
 
     @staticmethod
-    async def create(member: Member, cache_tech=CacheTech.SQLITE):
+    async def create(member: Member, cache_tech=CacheTech.SQLITE) -> Self:
         '''
         Factory for QueryCache
 
@@ -66,14 +66,14 @@ class QueryCache:
 
         cache = QueryCache(member, cache_tech=cache_tech)
         _LOGGER.debug(f'Creating query cache using {cache.filepath}')
-        cache.backend: KVCache = await KVCache.create(
+        cache.backend = await KVCache.create(
             cache.filepath, cache_tech=cache_tech,
             cache_type=CacheType.QUERY_ID
         )
 
         return cache
 
-    async def close(self):
+    async def close(self) -> None:
         await self.backend.close()
 
     async def exists(self, query_id: str) -> bool:

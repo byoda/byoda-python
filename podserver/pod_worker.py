@@ -152,7 +152,8 @@ async def setup_recurring_tasks(server: PodServer,
     every(1).hour.do(upload_content_keys, server)
 
     _LOGGER.debug('Scheduling Database maintenance tasks')
-    every(10).minutes.do(database_maintenance, server)
+    # TODO: update for Postgres
+    # every(10).minutes.do(database_maintenance, server)
 
     _LOGGER.debug('Scheduling cache refresh task')
     every(30).minutes.do(refresh_cached_data, account, server)
@@ -175,7 +176,7 @@ async def setup_recurring_tasks(server: PodServer,
         _LOGGER.debug(
             f'Scheduling youtube update task to run every {interval} minutes'
         )
-        every(int(interval)).minutes.do(
+        every(interval).minutes.do(
             youtube_update_task, server, youtube_import_service_id
         )
 
@@ -210,7 +211,8 @@ async def setup_worker(argv: list[str]) -> PodServer:
     try:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
-            bootstrapping=bool(data.get('bootstrap'))
+            bootstrapping=bool(data.get('bootstrap')),
+            db_connection_string=data.get('db_connection')
         )
         config.server = server
 
@@ -235,10 +237,10 @@ async def setup_worker(argv: list[str]) -> PodServer:
         server.account = account
 
         await server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.POSTGRES, account.data_secret
         )
 
-        await server.set_cache_store(CacheStoreType.SQLITE)
+        await server.set_cache_store(CacheStoreType.POSTGRES)
 
         await account.update_memberships(
             server.data_store, server.cache_store, False

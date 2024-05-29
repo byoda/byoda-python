@@ -319,17 +319,17 @@ def find_process_id(pubsub_dir: str = PubSubNng.PUBSUB_DIR) -> int:
     process_id = None
     for file in os.listdir(pubsub_dir):
         if file.startswith('network_links.pipe'):
-            process_id = file.split('-')[-1]
+            process_id: str = file.split('-')[-1]
             _LOGGER.debug(f'Found app server process ID {process_id}')
             return int(process_id)
 
     raise RuntimeError(f'Could not find process ID from: {pubsub_dir}')
 
 
-async def setup_account(argv):
+async def setup_account(argv) -> Account:
     data: dict[str, str] = get_environment_vars()
 
-    debug = data.get('debug', False)
+    debug: bool = data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
@@ -346,7 +346,8 @@ async def setup_account(argv):
     try:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
-            bootstrapping=bool(data.get('bootstrap'))
+            bootstrapping=bool(data.get('bootstrap')),
+            db_connection_string=data.get('db_connection')
         )
         config.server = server
 
@@ -371,9 +372,9 @@ async def setup_account(argv):
         server.account = account
 
         await server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.POSTGRES, account.data_secret
         )
-        await server.set_cache_store(CacheStoreType.SQLITE)
+        await server.set_cache_store(CacheStoreType.POSTGRES)
 
     except Exception:
         _LOGGER.exception('Exception during startup')

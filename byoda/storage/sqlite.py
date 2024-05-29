@@ -19,18 +19,16 @@ from typing import Self
 from typing import TypeVar
 from typing import override
 from logging import getLogger
-from datetime import datetime
-from datetime import timezone
 
 import aiosqlite
 
 from byoda.datamodel.sqltable import SqlTable
-from byoda.datamodel.dataclass import SchemaDataArray
-from byoda.datamodel.dataclass import SchemaDataObject
 
-from byoda.datatypes import MemberStatus
+from byoda.datatypes import DataType
 from byoda.datatypes import CloudType
 from byoda.datatypes import MemberInfo
+from byoda.datatypes import MemberStatus
+from byoda.datatypes import AnyScalarType
 
 from byoda.secrets.data_secret import DataSecret
 
@@ -92,27 +90,97 @@ class SqliteStorage(Sql):
             f'Setting up SqliteStorage for cloud {server.cloud.value}'
         )
 
-        if await server.local_storage.exists(sqlite.account_db_file):
-            _LOGGER.debug('Local account DB file exists')
-        elif data_secret is None:
-            raise ValueError(
-                'No local account DB exists but no data secret specified'
-            )
-        else:
-            if server.cloud == CloudType.LOCAL:
-                _LOGGER.debug(
-                    'Not checking for backup as we are not in the cloud'
+        if not server.db_connection_string:
+            # We should not expect account_db file if Postgres
+            # is used as data store and SqLite is only used for cache
+            if await server.local_storage.exists(sqlite.account_db_file):
+                _LOGGER.debug('Local account DB file exists')
+            elif data_secret is None:
+                raise ValueError(
+                    'No local account DB exists but no data secret specified'
                 )
-                await sqlite._create_account_db()
             else:
-                if await sqlite._prep_account_db_file(
-                        server, data_secret):
-                    await sqlite.restore_member_db_files(server)
-        _LOGGER.debug(
-            f'Using account DB file {sqlite.account_db_file}'
-        )
+                if server.cloud == CloudType.LOCAL:
+                    _LOGGER.debug(
+                        'Not checking for backup as we are not in the cloud'
+                    )
+                    await sqlite._create_account_db()
+                else:
+                    if await sqlite._prep_account_db_file(
+                            server, data_secret):
+                        await sqlite.restore_member_db_files(server)
+
+            _LOGGER.debug(
+                f'Using account DB file {sqlite.account_db_file}'
+            )
 
         return sqlite
+
+    async def execute(self, command: str, member_id: UUID = None,
+                      data: dict[str, AnyScalarType] = None,
+                      autocommit: bool = True, fetchall: bool = False
+                      ) -> aiosqlite.cursor.Cursor | list[aiosqlite.Row]:
+        '''
+        Executes the SQL command.
+
+        :param command: SQL command to execute
+        :parm member_id: member_id for the member DB to execute the command on
+        :param data: data to use for the named placeholders in the SQL command
+        :param autocommit: whether to commit the transaction after executing
+        :param fetchall: should rows be fetched and returned
+        :returns: if 'fetchall' is False, the Cursor to the result, otherwise
+        a list of rows returned by the query
+        '''
+
+        datafile: str = self.database_filepath(member_id)
+
+        if member_id:
+            _LOGGER.debug(
+                f'Executing SQL for member {member_id}: {command} using '
+                f'SQL data file {self.member_db_files[member_id]} and '
+                f'values {data}'
+            )
+        else:
+            _LOGGER.debug(
+                f'Executing SQL for account: {command} using '
+                f'SQL data file {self.account_db_file} and values {data}'
+            )
+
+        async with aiosqlite.connect(datafile) as db_conn:
+            db_conn.row_factory = aiosqlite.Row
+            await db_conn.execute('PRAGMA synchronous = normal')
+            await db_conn.execute('PRAGMA busy_timeout = 5000')
+            await db_conn.execute('PRAGMA read_uncommitted = true')
+
+            tries: int = 0
+            while tries < 3:
+                try:
+                    if not fetchall:
+                        result: aiosqlite.cursor.Cursor = \
+                            await db_conn.execute(command, data)
+                    else:
+                        result: list[aiosqlite.Row] = \
+                            await db_conn.execute_fetchall(command, data)
+
+                    if autocommit:
+                        _LOGGER.debug(
+                            f'Committing transaction SQL command: {command}'
+                        )
+                        await db_conn.commit()
+
+                    return result
+                except aiosqlite.Error as exc:
+                    tries += 1
+                    _LOGGER.error(
+                        f'Error executing SQL {command}, '
+                        f'attempt #{tries}: {exc}'
+                    )
+
+            await db_conn.rollback()
+
+            raise RuntimeError(
+                f'Failed {tries} attempts to execute SQL {command}'
+            )
 
     async def _prep_account_db_file(self, server: PodServer,
                                     data_secret: DataSecret) -> bool:
@@ -174,8 +242,20 @@ class SqliteStorage(Sql):
                 status TEXT
             ) STRICT
         ''')    # noqa: E501
+
         await self.execute('PRAGMA journal_mode=WAL')
+
         _LOGGER.debug(f'Created Account DB {self.account_db_file}')
+
+    def get_row_count(self, result) -> int:
+        return result.rowcount
+
+    def has_rowid(self) -> bool:
+        '''
+        Sqlite3 has an implicit rowid column that auto-increments and is unique
+        '''
+
+        return True
 
     async def close(self) -> None:
         '''
@@ -184,6 +264,58 @@ class SqliteStorage(Sql):
         '''
 
         pass
+
+    def supports_strict(self) -> str:
+        '''
+        Does this SQL driver support STRICT type checking
+
+        :returns: str
+        '''
+
+        return ' STRICT'
+
+    @staticmethod
+    def get_named_placeholder(variable: str) -> str:
+        return f':{variable}'
+
+    def get_column_type(self, data_type) -> str:
+        '''
+        Get the storage type that SqLite supports
+        '''
+
+        return data_type
+
+    def get_native_datatype(self, val: str | DataType) -> str:
+        if isinstance(val, DataType):
+            val = val.value
+
+        return {
+            'string': 'TEXT',
+            'integer': 'INTEGER',
+            'number': 'REAL',
+            'boolean': 'INTEGER',
+            'uuid': 'TEXT',
+            'date-time': 'REAL',
+            'array': 'BLOB',
+            'object': 'BLOB',
+            'reference': 'TEXT',
+        }[val.lower()]
+
+    def get_table_name(self, table_name: str, service_id: int
+                       ) -> dict[str, str]:
+        return table_name
+
+    async def get_table_columns(self, table_name: str, member_id: UUID
+                                ) -> list:
+        rows: list[aiosqlite.Row] | None = await self.execute(
+            f'PRAGMA table_info("{table_name}");', member_id, fetchall=True
+        )
+
+        sql_columns: dict[str, any] = {
+            row['name']: row['type'] for row in rows
+        }
+
+        return sql_columns
 
     async def backup_datastore(self, server: PodServer) -> None:
         '''
@@ -422,41 +554,6 @@ class SqliteStorage(Sql):
             member_id, service_id, MemberStatus.ACTIVE
         )
 
-    async def create_table(self, member_id,
-                           data_class: SchemaDataArray | SchemaDataObject,
-                           ) -> SqlTable:
-        '''
-        Creates a table for a data class in the schema of a membership in
-        the Sqlite3 database for the membership
-
-        :param member_id:
-        :param data_class: data class to create the table for
-        :param data_classes: list of data classes in the schema of the service
-        :returns: the created table
-        '''
-
-        sql_table = await SqlTable.setup(data_class, self, member_id)
-
-        return sql_table
-
-    def add_sql_table(self, member_id: UUID, class_name: str,
-                      sql_table: SqlTable) -> None:
-        '''
-        Adds the SQL table to the list of tables we have created for the
-        membership
-        '''
-
-        _LOGGER.debug(f'Adding table {class_name} for member {member_id}')
-        self.member_sql_tables[member_id][class_name] = sql_table
-
-    def get_sql_table(self, member_id: UUID, class_name: str
-                      ) -> SqlTable | None:
-        '''
-        Returns the SQL table for the membership if it exists
-        '''
-
-        return self.member_sql_tables[member_id].get(class_name)
-
     def get_member_data_filepath(self, member_id: UUID, service_id: int,
                                  paths: Paths = None, local: bool = True
                                  ) -> str:
@@ -485,112 +582,6 @@ class SqliteStorage(Sql):
         )
 
         return path
-
-    async def set_membership_status(self, member_id: UUID, service_id: int,
-                                    status: MemberStatus) -> None:
-        '''
-        Sets the status of a membership
-        '''
-
-        # Can't use data dict parameter with 'member_id' key as the
-        # SqlTable.execute() method will try to update the SQL tables for
-        # the membership if a member_id parameter is specified.
-        rows: list[aiosqlite.Row] = await self.execute(
-            (
-                'SELECT member_id, service_id, status, timestamp '
-                'FROM memberships '
-                f'WHERE member_id = "{member_id}" '
-                'ORDER BY timestamp DESC '
-                'LIMIT 1'
-            ),
-            fetchall=True
-        )
-
-        if len(rows) and rows[0]['status'] == status.value:
-            _LOGGER.debug('No need to change membership status')
-            return
-
-        if len(rows) == 0:
-            _LOGGER.debug(f'No membership info found for service {service_id}')
-        else:
-            db_status: str = rows[0]['status']
-            _LOGGER.debug(
-                f'Existing status of membership for service {service_id}: '
-                f'{db_status}'
-            )
-
-        await self.execute(
-            (
-                'INSERT INTO memberships '
-                '(member_id, service_id, status, timestamp) '
-                'VALUES ('
-                f'    "{member_id}", :service_id, :status, :timestamp)'
-            ),
-            data={
-                'service_id': service_id,
-                'status': status.value,
-                'timestamp': datetime.now(tz=timezone.utc).timestamp()
-            }
-        )
-
-    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
-                              ) -> dict[UUID, MemberInfo]:
-        '''
-        Get the latest status of all memberships
-
-        :param status: The status of the membership to return. If its value is
-        'None' the latest membership status for all memberships will be. If the
-        status parameter has a value, only the memberships with that status are
-        returned
-        :returns: a dict with the latest membership status for each membership,
-        keyed with the member ID
-        '''
-
-        query = (
-            'SELECT member_id, service_id, status, timestamp '
-            'FROM memberships '
-        )
-        if status and status.value:
-            query += f'WHERE status = "{status.value}" '
-
-        if not os.path.exists(self.account_db_file):
-            return {}
-
-        rows = await self.execute(query, fetchall=True)
-
-        memberships: dict[str, object] = {}
-        for row in rows:
-            try:
-                member_id = UUID(row['member_id'])
-                membership = MemberInfo(
-                    member_id=member_id,
-                    service_id=int(row['service_id']),
-                    status=MemberStatus(row['status']),
-                    timestamp=float(row['timestamp']),
-                )
-                if status or member_id not in memberships:
-                    memberships[member_id] = membership
-                else:
-                    existing_membership: MemberInfo = memberships[member_id]
-                    existing_timestamp = existing_membership.timestamp
-                    if membership.timestamp >= existing_timestamp:
-                        memberships[member_id] = membership
-            except ValueError as exc:
-                _LOGGER.warning(
-                    f'Row with invalid data in account DB: {exc}'
-                )
-
-        memberships_for_status: dict[str, MemberInfo] = {
-            key: value for key, value in memberships.items()
-            if status is None or value.status == status
-        }
-
-        _LOGGER.debug(
-            f'Found {len(memberships_for_status)} memberships '
-            'in Sqlite Account DB'
-        )
-
-        return memberships_for_status
 
     async def maintain(self, server: PodServer) -> None:
         '''

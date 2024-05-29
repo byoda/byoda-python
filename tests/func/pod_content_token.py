@@ -16,10 +16,9 @@ import sys
 import unittest
 
 from uuid import uuid4, UUID
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone, timedelta
-
-import orjson
+from datetime import timedelta
 
 from fastapi import FastAPI
 
@@ -29,9 +28,11 @@ from byoda.datamodel.content_key import ContentKey
 from byoda.datamodel.content_key import ContentKeyStatus
 from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
 from byoda.datamodel.datafilter import DataFilterSet
-from byoda.datamodel.table import Table
+from byoda.datamodel.sqltable import SqlTable
 
 from byoda.datastore.data_store import DataStore
+
+from byoda.storage.postgres import PostgresStorage
 
 from byoda.servers.pod_server import PodServer
 
@@ -112,22 +113,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         data_store: DataStore = config.server.data_store
-        key_table: Table = data_store.get_table(
+        key_table: SqlTable = data_store.get_table(
             member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
-        config.server.whitelist_dir: str = TEST_DIR
+        config.server.whitelist_dir = TEST_DIR
 
         key_id: int = 99999999
         data: dict[str, str | datetime] = {
             'key_id': key_id,
             'key': 'somesillykey',
-            'not_after': datetime.now(tz=timezone.utc) + timedelta(days=1),
-            'not_before': datetime.now(tz=timezone.utc) - timedelta(days=1)
+            'not_after': datetime.now(tz=UTC) + timedelta(days=1),
+            'not_before': datetime.now(tz=UTC) - timedelta(days=1)
         }
 
-        # TODO: use key_table.get_cursor_hash()
-        cursor: str = Table.get_cursor_hash(data, None, list(data.keys()))
+        cursor: str = SqlTable.get_cursor_hash(data, None, list(data.keys()))
         await key_table.append(
             data, cursor, origin_id=None, origin_id_type=None,
             origin_class_name=None
@@ -148,7 +148,10 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data = resp.json()
         self.assertTrue('content_token' in data)
 
-        await key_table.delete(DataFilterSet({'key_id': {'eq': key_id}}))
+        await key_table.delete(
+            DataFilterSet({'key_id': {'eq': key_id}}),
+            placeholder_function=PostgresStorage.get_named_placeholder
+        )
 
     async def test_restricted_content_keys_table(self) -> None:
         account: Account = config.server.account
@@ -157,11 +160,21 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
 
         data_store: DataStore = config.server.data_store
-        table: Table = data_store.get_table(
+        table: SqlTable = data_store.get_table(
             account_member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
-        await table.delete(data_filters={})
+        data_filters = DataFilterSet(
+            {
+                'not_after': {
+                    'after': datetime.now(tz=UTC) - timedelta(days=3650)
+                }
+            }
+        )
+        await table.delete(
+            data_filters=data_filters,
+            placeholder_function=PostgresStorage.get_named_placeholder
+        )
 
         first_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None, not_before=None, not_after=None,
@@ -173,8 +186,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         second_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=5,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(weeks=52),
-            not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=520),
+            not_before=datetime.now(tz=UTC) - timedelta(weeks=52),
+            not_after=datetime.now(tz=UTC) + timedelta(weeks=520),
             table=table
         )
         await second_content_key.persist(table)
@@ -194,8 +207,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         third_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(days=1),
-            not_after=datetime.now(tz=timezone.utc) + timedelta(weeks=1),
+            not_before=datetime.now(tz=UTC) - timedelta(days=1),
+            not_after=datetime.now(tz=UTC) + timedelta(weeks=1),
             table=table
         )
         await third_content_key.persist()
@@ -219,8 +232,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         fourth_content_key: ContentKey = await ContentKey.create(
             key=uuid4(), key_id=None,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(days=2),
-            not_after=datetime.now(tz=timezone.utc) - timedelta(days=1),
+            not_before=datetime.now(tz=UTC) - timedelta(days=2),
+            not_after=datetime.now(tz=UTC) - timedelta(days=1),
             table=table
         )
         await fourth_content_key.persist()
@@ -247,21 +260,31 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         member: Member = await account.get_membership(service_id)
 
         data_store: DataStore = config.server.data_store
-        table: Table = data_store.get_table(
+        table: SqlTable = data_store.get_table(
             member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
         )
 
-        await table.delete(data_filters={})
+        data_filters = DataFilterSet(
+            {
+                'not_after': {
+                    'after': datetime.now(tz=UTC) - timedelta(days=3650)
+                }
+            }
+        )
+        await table.delete(
+            data_filters=data_filters,
+            placeholder_function=PostgresStorage.get_named_placeholder
+        )
 
         content_key: ContentKey = await ContentKey.create(
             key=str(uuid4()), key_id=100,
-            not_before=datetime.now(tz=timezone.utc) - timedelta(days=1),
-            not_after=datetime.now(tz=timezone.utc) + timedelta(days=1),
+            not_before=datetime.now(tz=UTC) - timedelta(days=1),
+            not_after=datetime.now(tz=UTC) + timedelta(days=1),
         )
         await content_key.persist(table=table)
 
         asset_id = UUID('3516188b-bf6d-47bf-adcd-48cc9870862b')
-        token = content_key.generate_token(
+        token: str = content_key.generate_token(
             service_id, member.member_id, asset_id
         )
 

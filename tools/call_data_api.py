@@ -45,7 +45,6 @@ from logging import getLogger
 
 from byoda import config
 
-from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import BYOTUBE_SERVICE_ID
 from tests.lib.defines import BASE_URL
 
@@ -70,7 +69,10 @@ async def setup_network(test_dir: str | None) -> dict[str, str]:
 
     data: dict[str, str | int | bool | None] = get_environment_vars()
 
-    config.server = PodServer(bootstrapping=False)
+    config.server = PodServer(
+        bootstrapping=False,
+        db_connection_string=data.get('db_connection')
+    )
 
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE, config.server.cloud,
@@ -149,7 +151,7 @@ async def main(argv: list[str]) -> None:
         default=os.environ.get('ACCOUNT_PASSWORD')
     )
     parser.add_argument('--data-file', '-f', type=str, default='data.json')
-    parser.add_argument('--object', '-c', type=str, default='person')
+    parser.add_argument('--object', '-c', type=str, default='network_links')
     parser.add_argument(
         '--action', '-a', type=str, default='query',
         choices=[a.value for a in DataRequestType]

@@ -56,7 +56,6 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.paths import Paths
 from byoda.util.angieconfig import AngieConfig, ANGIE_SITE_CONFIG_DIR
 
 from byoda.util.logger import Logger
@@ -77,27 +76,30 @@ async def main(argv) -> None:
 
     debug: bool = data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
-        config.debug = True
+        config.info = True
         # Make our files readable by everyone, so we can
         # use tools like call_data_api.py to debug the server
         os.umask(0o0000)
     else:
         os.umask(0x0077)
 
+    log_file = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER
     _LOGGER = Logger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'),
-        logfile=data.get('logfile')
+        logfile=log_file
     )
-    _LOGGER.debug(
-        f'Starting bootstrap with variable bootstrap={data["bootstrap"]}'
+    _LOGGER.info(
+        f'Starting bootstrap with variable bootstrap={data["bootstrap"]} '
+        f'and debug: {config.debug}'
     )
 
     try:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
-            bootstrapping=bool(data.get('bootstrap'))
+            bootstrapping=bool(data.get('bootstrap')),
+            db_connection_string=data.get('db_connection')
         )
         config.server = server
 
@@ -160,8 +162,10 @@ async def main(argv) -> None:
             await account.update_registration()
             await account.load_protected_shared_key()
 
-        await server.set_data_store(DataStoreType.SQLITE, account.data_secret)
-        await server.set_cache_store(CacheStoreType.SQLITE)
+        await server.set_data_store(
+            DataStoreType.POSTGRES, account.data_secret
+        )
+        await server.set_cache_store(CacheStoreType.POSTGRES)
 
         # Remaining environment variables used:
         server.custom_domain = data['custom_domain']

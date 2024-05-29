@@ -28,7 +28,7 @@ TEST_DIR = '/tmp/byoda-tests/proxy_test'
 
 
 class TestCors(unittest.TestCase):
-    def test_cors_headers(self):
+    def test_cors_headers(self) -> None:
         for cloud, ids in TEST_IDS.items():
             _LOGGER.debug(f'Testing cloud: {cloud}')
 
@@ -51,7 +51,7 @@ class TestCors(unittest.TestCase):
                 api_prefix=proxy_account_api_prefix
             )
 
-            proxy_member_api_prefix = \
+            proxy_member_api_prefix: str = \
                 f'/{ADDRESSBOOK_SERVICE_ID}/{ids["member_id"]}'
             do_request(
                 self, cloud, proxy_fqdn,
@@ -59,7 +59,7 @@ class TestCors(unittest.TestCase):
             )
 
 
-def do_request(testcase, cloud: str, fqdn: str, api_prefix: str = '/'):
+def do_request(testcase, cloud: str, fqdn: str, api_prefix: str = '/') -> None:
     if api_prefix and api_prefix[-1] != '/':
         api_prefix = api_prefix + '/'
 

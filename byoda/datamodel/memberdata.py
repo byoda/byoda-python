@@ -445,19 +445,26 @@ class MemberData(dict):
         :raises: ValueError
         '''
 
-        _LOGGER.debug(f'Got REST Data API query for {class_name}')
+        _LOGGER.debug(f'Got REST GET Data API query for {class_name}')
 
         server: PodServer = config.server
 
         account: Account = server.account
         member: Member = await account.get_membership(service_id)
 
+        log_extra: dict[str, str | int | UUID] = {
+            'class': class_name, 'query_id': query_id,
+            'service_id': service_id, 'depth': depth,
+            'first': first, 'after': after,
+            'remote_member_id': remote_member_id,
+        }
+
         # We want to know who send us the query so that if we have to
         # proxy, we don't proxy the message back to the sender
         sending_member_id: UUID = auth.member_id
 
         if query_id:
-            _LOGGER.debug(f'Query received with query_id {query_id}')
+            _LOGGER.debug('Query received with query_id', extra=log_extra)
             if not await member.query_cache.set(query_id, auth.id):
                 raise ByodaValueError(f'Duplicate query id: {query_id}')
 
@@ -477,8 +484,8 @@ class MemberData(dict):
             timestamp = timestamp.replace(tzinfo=timezone.utc)
             if timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
                 _LOGGER.debug(
-                    'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
-                    'not proxying this request'
+                    f'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
+                    'not proxying this request', extra=log_extra
                 )
                 depth = 0
         elif depth > 0:
@@ -497,7 +504,7 @@ class MemberData(dict):
 
         schema: Schema = member.schema
         data_class: SchemaDataItem = schema.data_classes[class_name]
-        _LOGGER.debug(f'Collecting data for class {class_name}')
+        _LOGGER.debug('Collecting data', extra=log_extra)
 
         filter_set = DataFilterSet(data_filter, data_class=data_class)
 
@@ -519,7 +526,10 @@ class MemberData(dict):
             required_fields = data_class.required_fields
         else:
             required_fields = None
-            _LOGGER.debug(f'Unrecognized data structure {data_class.name}')
+            _LOGGER.warning(
+                f'Unrecognized data structure {data_class.name}',
+                extra=log_extra
+            )
 
         if fields:
             # We intentionally do not update the query.fields before
@@ -539,7 +549,7 @@ class MemberData(dict):
                 modeled_data: dict[str, object] = class_ref.model_validate(
                     data_item['node']
                 )
-                edge_data = edge_class_ref(
+                edge_data: any = edge_class_ref(
                     cursor=data_item['cursor'], origin=data_item['origin'],
                     node=data_item['node']
                 )
@@ -548,15 +558,16 @@ class MemberData(dict):
 
         # We ask for 'query.first + 1) as we want to know if there are
         # more items available for pagination
-        with TRACER.start_as_current_span('MemberData.get from store'):
+        with TRACER.start_as_current_span('MemberData.get from cache store'):
             if data_class.cache_only:
                 cache_store: CacheStore = server.cache_store
                 data: list[QueryResult] = await cache_store.query(
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
+                log_extra['items_retrieved'] = len(data)
                 _LOGGER.debug(
-                    f'Got {len(data or [])} items from the cache store'
+                    'Got items from the cache store', extra=log_extra
                 )
             else:
                 data_store: DataStore = server.data_store
@@ -564,8 +575,9 @@ class MemberData(dict):
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
+                log_extra['items_retrieved'] = len(data)
                 _LOGGER.debug(
-                    f'Got {len(data or [])} items from the data store'
+                    'Got items from the data store', extra=log_extra
                 )
 
         with TRACER.start_as_current_span('MemberData.get collect'):
@@ -573,20 +585,19 @@ class MemberData(dict):
             # even if we have retrieved recursive data that does not
             # include metadata
             data_item: ResultData
-            for data_item, _ in data:
-                cursor: str = Table.get_cursor_hash(
-                    data_item, member.member_id, required_fields
-                )
+            for data_item, meta_data in data:
                 modeled_data: dict[str, object] = class_ref.model_validate(
                     data_item
                 )
+                cursor: str = meta_data['cursor']
+                log_extra['cursor'] = cursor
                 edge_data = edge_class_ref(
                     cursor=cursor, origin=member.member_id, node=modeled_data
                 )
-
                 all_data.append(edge_data)
+                _LOGGER.debug('Adding item to results', extra=log_extra)
 
-            _LOGGER.debug(f'Got {len(data or [])} items of data')
+            _LOGGER.debug('Got total items from data', extra=log_extra)
 
         return all_data
 

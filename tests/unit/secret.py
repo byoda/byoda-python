@@ -55,7 +55,7 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda import config
 
 from tests.lib.util import get_test_uuid
-
+from tests.lib.setup import mock_environment_vars
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 
@@ -69,8 +69,13 @@ SCHEMA_FILE = SCHEMA_DIR + '/service_contract.json'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        shutil.rmtree(TEST_DIR)
+    async def asyncSetUp(self) -> None:
+        try:
+            shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        mock_environment_vars(TEST_DIR)
         os.mkdir(TEST_DIR)
         os.makedirs(TEST_DIR + SCHEMA_DIR)
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
@@ -82,7 +87,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_ca_certchaisn(self) -> None:
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
-        config.server = PodServer(network)
+        config.server = PodServer(
+            network, db_connection_string=os.environ['DB_CONNECTION']
+        )
         config.server.network = network
         config.server.paths = network.paths
 
@@ -113,14 +120,14 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         config.server.account = account
 
-        config.server.bootstrapping: bool = True
+        config.server.bootstrapping = True
 
         await account.create_secrets(network.accounts_ca)
 
         await config.server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.POSTGRES, account.data_secret
         )
-        await config.server.set_cache_store(CacheStoreType.SQLITE)
+        await config.server.set_cache_store(CacheStoreType.POSTGRES)
 
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
@@ -134,7 +141,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # Test creation of the CA hierarchy
         #
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
-        config.server = PodServer(network)
+        config.server = PodServer(
+            network, db_connection_string=os.environ['DB_CONNECTION']
+        )
         config.server.network = network
         config.server.network.account = 'pod'
 
@@ -158,13 +167,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await account.create_secrets(network.accounts_ca)
 
         config.server.account = account
-        config.server.bootstrapping: bool = True
+        config.server.bootstrapping = True
 
         config.server.paths = network.paths
         await config.server.set_data_store(
-            DataStoreType.SQLITE, account.data_secret
+            DataStoreType.POSTGRES, account.data_secret
         )
-        await config.server.set_cache_store(CacheStoreType.SQLITE)
+        await config.server.set_cache_store(CacheStoreType.POSTGRES)
 
         network.services_ca.validate(network.root_ca, with_openssl=True)
         network.accounts_ca.validate(network.root_ca, with_openssl=True)
@@ -173,7 +182,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # account.join(service) fails
         network.services = {SERVICE_ID: service}
 
-        target_dir: str = f'/network-{NETWORK}/account-pod/service-{SERVICE_ID}'
+        target_dir: str = \
+            f'/network-{NETWORK}/account-pod/service-{SERVICE_ID}'
         os.makedirs(TEST_DIR + target_dir)
         target_schema: str = target_dir + '/service-contract.json'
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
@@ -318,7 +328,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # Test creation of the CA hierarchy
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
-        config.server = PodServer(network)
+        config.server = PodServer(
+            network, db_connection_string=os.environ['DB_CONNECTION']
+        )
         config.server.network = network
         await config.server.set_document_store(
             DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
@@ -332,7 +344,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
         subject: x509.Name
-        issue: x509.Name
+        issuer: x509.Name
         subject = issuer = x509.Name(
             [
                 x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
